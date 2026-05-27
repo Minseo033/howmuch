@@ -51,3 +51,87 @@ flutter run -d chrome
 - [파일 구조](docs/FILE_STRUCTURE.md)
 - [브랜치 전략](docs/BRANCH_STRATEGY.md)
 - [역할분담표](docs/ROLE_ASSIGNMENT.md)
+
+## AI 작업용 프로젝트 컨텍스트
+
+팀원이 AI 도구를 사용할 때는 이 섹션을 먼저 공유합니다. AI가 프로젝트 목표, 담당 범위, 파일 구조, 브랜치 규칙을 알고 작업하도록 하기 위한 공통 기준입니다.
+
+### 프로젝트 한 줄 설명
+
+`얼마고?`는 공공데이터 기반 착한가격업소와 사용자 제보 가성비 매장을 지도, 검색, 리뷰, 제보, 절약 리포트, AI 추천으로 연결하는 모바일 중심 Flutter 앱입니다. Web은 부수 플랫폼으로 함께 지원합니다.
+
+### AI에게 알려야 할 고정 정보
+
+- 앱 이름: `얼마고?`
+- 프로젝트 성격: 졸업작품 팀 프로젝트
+- 우선 플랫폼: 모바일 앱 우선, Web은 보조 지원
+- 프론트엔드 기술: Flutter 3.44.0, Dart 3.12.0
+- 저장소: `https://github.com/Minseo033/howmuch`
+- 기본 브랜치: `main`
+- 작업 방식: 팀원별 브랜치에서 작업 후 Pull Request로 `main`에 병합
+- 디자인 기준: Figma 화면 번호와 화면명을 기준으로 구현
+- 화면 파일 위치: `lib/features/{기능}/presentation/screens/`
+- 공통 위젯 위치: `lib/shared/widgets/`
+- 전체 화면 목록 관리: `lib/app/app_screen_registry.dart`
+
+### 팀원별 담당 브랜치
+
+| 팀원 | 브랜치 | 역할 |
+| --- | --- | --- |
+| 김민서 | `team/minseo-pm-fe` | PM + 온보딩, 홈, 마이페이지, 관리자, 공통 상태 화면 |
+| 김다나 | `team/dana-map-store-fe` | 검색, 필터, 매장 상세, 리뷰, 방문 인증, 가격 이력 |
+| 오태관 | `team/taegwan-community-savings-fe` | 커뮤니티, 제보, 절약 리포트, AI 추천 |
+| 박지환 | `team/jihwan-backend` | API, DB, 인증, 공공데이터, 관리자 데이터 |
+
+### 팀원별 담당 화면 요약
+
+| 팀원 | 담당 화면 수 | 담당 범위 |
+| --- | ---: | --- |
+| 김민서 | 23개 | `1-1`~`1-5`, `2-1`, `5-1`, `5-A`~`5-F`, `5-I`~`5-L`, `6-1`~`6-2`, `7-1`, `7-2`, `7-5`, `7-6` |
+| 김다나 | 14개 | `2-2`~`2-11`, `5-G`, `5-H`, `7-3`, `7-4` |
+| 오태관 | 21개 | `3-1`~`3-6`, `3-A`~`3-D`, `4-1`~`4-7`, `8-1`~`8-4` |
+| 박지환 | 0개 | 화면 구현 없음. 백엔드/API/DB/인증/공공데이터 연동 담당 |
+
+상세 화면명은 [docs/ROLE_ASSIGNMENT.md](docs/ROLE_ASSIGNMENT.md)를 기준으로 합니다.
+
+### AI 작업 규칙
+
+- 본인 담당 화면과 관련 파일을 우선 수정합니다.
+- 다른 팀원의 담당 화면을 수정해야 하면 먼저 이유를 명확히 남깁니다.
+- 새 화면을 만들기보다 이미 생성된 화면 파일을 찾아 구현합니다.
+- 재사용 가능한 UI는 `lib/shared/widgets/`에 공통 위젯으로 분리합니다.
+- 화면 이동, 화면 목록, 담당자 정보는 `lib/app/app_screen_registry.dart`와 맞춰 유지합니다.
+- API 연동 전에는 화면 파일 안에서 임시 더미 데이터를 사용해도 됩니다.
+- 큰 패키지 추가, 폴더 구조 변경, 라우팅 방식 변경은 팀과 먼저 합의합니다.
+- 작업 후 가능하면 `dart analyze lib test`와 `flutter test`를 실행합니다.
+- 커밋 메시지는 `feat: 2-4 매장 상세 화면 UI 구현`처럼 작업 화면 번호를 포함합니다.
+
+### 팀원이 처음 작업할 때
+
+```bash
+git clone https://github.com/Minseo033/howmuch.git
+cd howmuch
+git fetch origin
+git checkout -b team/dana-map-store-fe origin/team/dana-map-store-fe
+flutter pub get
+```
+
+위 예시에서 브랜치 이름만 본인 담당 브랜치로 바꿉니다.
+
+### AI에게 붙여넣을 프롬프트 템플릿
+
+```text
+이 프로젝트는 Flutter 3.44.0 / Dart 3.12.0 기반 졸업작품 앱 `얼마고?`입니다.
+모바일 앱이 우선이고 Web은 보조 플랫폼입니다.
+
+앱의 목적은 공공데이터 기반 착한가격업소와 사용자 제보 가성비 매장을 지도, 검색, 리뷰, 제보, 절약 리포트, AI 추천으로 연결하는 것입니다.
+
+나는 [팀원 이름]이고, 내 브랜치는 [브랜치명]입니다.
+내 담당 화면은 [화면 번호와 화면명]입니다.
+
+화면 파일은 `lib/features/{기능}/presentation/screens/` 안에 이미 만들어져 있으니 새로 만들기보다 기존 파일을 찾아 구현해 주세요.
+공통 위젯은 `lib/shared/widgets/`에 분리하고, 화면 목록이나 담당 정보가 바뀌면 `lib/app/app_screen_registry.dart`도 함께 확인해 주세요.
+
+다른 팀원의 담당 화면은 꼭 필요한 경우가 아니면 수정하지 말고, 수정이 필요하면 이유를 설명해 주세요.
+작업 후 `dart analyze lib test`와 `flutter test`가 통과하도록 해 주세요.
+```
