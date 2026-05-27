@@ -1,4 +1,4 @@
-# howmuch
+# Howmuch
 
 공공데이터 기반 착한가격업소 통합 탐색 플랫폼 졸업작품 프로젝트입니다.
 
@@ -15,6 +15,26 @@
 - 찜한 매장, 알림, 절약 리포트
 - 관리자 제보 및 문의 검토
 
+## 개발 환경
+
+- Flutter 3.44.0
+- Dart 3.12.0
+- Android SDK 36.0.0
+- iOS / Android / Web 플랫폼 생성 완료
+
+## 실행
+
+```bash
+flutter pub get
+flutter run
+```
+
+웹 실행은 아래 명령을 사용합니다.
+
+```bash
+flutter run -d chrome
+```
+
 ## 팀 역할
 
 | 이름 | 역할 | 담당 |
@@ -24,3 +44,10 @@
 | 오태관 | Front-End | 제보, 커뮤니티, 절약 리포트, 추천, AI 챗봇 |
 | 박지환 | Back-End | API, DB, 인증, 공공데이터 연동, 관리자 데이터 처리 |
 
+상세 화면 분담은 [docs/ROLE_ASSIGNMENT.md](docs/ROLE_ASSIGNMENT.md)를 확인합니다.
+
+## 작업 문서
+
+- [파일 구조](docs/FILE_STRUCTURE.md)
+- [브랜치 전략](docs/BRANCH_STRATEGY.md)
+- [역할분담표](docs/ROLE_ASSIGNMENT.md)
