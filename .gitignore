@@ -1,0 +1,26 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Java / Spring
+.gradle/
+target/
+out/
+
+# Environment
+.env
+.env.*
+
+# Logs
+*.log
+
