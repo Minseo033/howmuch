@@ -11,10 +11,10 @@
 
 | 팀원 | 브랜치 | 담당 |
 | --- | --- | --- |
-| 김민서 | `codex/minseo-pm-fe` | PM + 온보딩, 홈, 마이페이지, 관리자, 공통 상태 |
-| 김다나 | `codex/dana-map-store-fe` | 검색, 필터, 매장 상세, 리뷰, 방문 인증, 가격 이력 |
-| 오태관 | `codex/taegwan-community-savings-fe` | 커뮤니티, 제보, 절약 리포트, AI 추천 |
-| 박지환 | `codex/jihwan-backend` | API, DB, 인증, 공공데이터, 관리자 데이터 |
+| 김민서 | `team/minseo-pm-fe` | PM + 온보딩, 홈, 마이페이지, 관리자, 공통 상태 |
+| 김다나 | `team/dana-map-store-fe` | 검색, 필터, 매장 상세, 리뷰, 방문 인증, 가격 이력 |
+| 오태관 | `team/taegwan-community-savings-fe` | 커뮤니티, 제보, 절약 리포트, AI 추천 |
+| 박지환 | `team/jihwan-backend` | API, DB, 인증, 공공데이터, 관리자 데이터 |
 
 ## 커밋 메시지 예시
 
