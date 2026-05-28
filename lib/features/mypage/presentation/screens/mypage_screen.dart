@@ -1,16 +1,1019 @@
 import 'package:flutter/material.dart';
-import 'package:howmuch/shared/widgets/screen_placeholder.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class MypageScreen extends StatelessWidget {
+class MypageScreen extends ConsumerWidget {
   const MypageScreen({super.key});
 
+  static const blue = Color(0xFF2563EB);
+  static const orange = Color(0xFFF97316);
+  static const green = Color(0xFF10B981);
+  static const ink = Color(0xFF0F172A);
+  static const black = Color(0xFF0A0A0A);
+  static const muted = Color(0xFF64748B);
+  static const hint = Color(0xFF94A3B8);
+  static const surface = Color(0xFFF4F6FA);
+  static const border = Color(0xFFE5E7EB);
+  static const fontFamily = 'Inter';
+  static const fontFallback = [
+    'Noto Sans KR',
+    'Apple SD Gothic Neo',
+    'AppleGothic',
+    'Arial Unicode MS',
+    'Malgun Gothic',
+    'sans-serif',
+  ];
+
   @override
-  Widget build(BuildContext context) {
-    return const ScreenPlaceholder(
-      figmaId: '5-1',
-      title: '마이페이지',
-      owner: '김민서',
-      feature: '마이페이지',
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(userProfileProvider);
+    final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
+    final topOffset = safePadding.top;
+    final bottomOffset = safePadding.bottom;
+    final bottomNavHeight = _MypageBottomNav.heightFor(bottomOffset);
+    final scrollContentHeight =
+        659.98583984375 + topOffset + 224.5 + bottomNavHeight + 20;
+
+    return FigmaMobileCanvas(
+      backgroundColor: surface,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              child: SizedBox(
+                width: FigmaMobileCanvas.width,
+                height: scrollContentHeight,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      width: FigmaMobileCanvas.width,
+                      height: 50.96590805053711 + topOffset,
+                      child: _Header(topOffset: topOffset),
+                    ),
+                    Positioned(
+                      left: 20,
+                      top: 66.96044921875 + topOffset,
+                      width: 335.45452880859375,
+                      height: 163.23863220214844,
+                      child: _ProfileCard(
+                        profile: profile,
+                        onEdit: () => context.go(AppRoutes.profileEdit),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      top: 246.193359375 + topOffset,
+                      child: _QuickMenu(
+                        label: '내 제보',
+                        icon: Icons.description_outlined,
+                        color: orange,
+                        onTap: () {},
+                      ),
+                    ),
+                    Positioned(
+                      left: 134.47442626953125,
+                      top: 246.193359375 + topOffset,
+                      child: _QuickMenu(
+                        label: '찜한 매장',
+                        icon: Icons.favorite_border_rounded,
+                        color: orange,
+                        onTap: () {},
+                      ),
+                    ),
+                    Positioned(
+                      left: 248.96307373046875,
+                      top: 246.193359375 + topOffset,
+                      child: _QuickMenu(
+                        label: '내 리뷰',
+                        icon: Icons.rate_review_outlined,
+                        color: blue,
+                        onTap: () {},
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      top: 348.47998046875 + topOffset,
+                      child: _QuickMenu(
+                        label: '방문 기록',
+                        icon: Icons.location_on_outlined,
+                        color: green,
+                        onTap: () {},
+                      ),
+                    ),
+                    Positioned(
+                      left: 134.47442626953125,
+                      top: 348.47998046875 + topOffset,
+                      child: _QuickMenu(
+                        label: '절약 리포트',
+                        icon: Icons.bar_chart_rounded,
+                        color: green,
+                        onTap: () {},
+                      ),
+                    ),
+                    Positioned(
+                      left: 248.96307373046875,
+                      top: 348.47998046875 + topOffset,
+                      child: _QuickMenu(
+                        label: '알림 설정',
+                        icon: Icons.notifications_none_rounded,
+                        color: blue,
+                        onTap: () => context.go(AppRoutes.notificationSettings),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      top: 458.76416015625 + topOffset,
+                      width: 335.45452880859375,
+                      height: 189.23294067382812,
+                      child: const _ReportStatusCard(),
+                    ),
+                    Positioned(
+                      left: 20,
+                      top: 659.98583984375 + topOffset,
+                      width: 335.45452880859375,
+                      height: 224.5,
+                      child: _SettingsCard(
+                        onNotificationTap: () =>
+                            context.go(AppRoutes.notificationSettings),
+                        onAccountTap: () =>
+                            context.go(AppRoutes.accountManagement),
+                        onPublicDataTap: () =>
+                            context.go(AppRoutes.publicDataSource),
+                        onInquiryTap: () => context.go(AppRoutes.inquiry),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            bottom: 0,
+            width: FigmaMobileCanvas.width,
+            height: bottomNavHeight,
+            child: _MypageBottomNav(
+              safeBottom: bottomOffset,
+              onHomeTap: () => context.go(AppRoutes.home),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
+
+class _Header extends StatelessWidget {
+  const _Header({required this.topOffset});
+
+  final double topOffset;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(color: Colors.white),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 20,
+            top: 11.98876953125 + topOffset,
+            child: const Text(
+              '마이',
+              style: TextStyle(
+                color: MypageScreen.black,
+                fontFamily: MypageScreen.fontFamily,
+                fontFamilyFallback: MypageScreen.fontFallback,
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
+              ),
+            ),
+          ),
+          Positioned(
+            right: 48.991455078125,
+            top: 16.4775390625 + topOffset,
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              color: MypageScreen.ink,
+              size: 18,
+            ),
+          ),
+          Positioned(
+            right: 20,
+            top: 16.4775390625 + topOffset,
+            child: const Icon(
+              Icons.settings_outlined,
+              color: MypageScreen.ink,
+              size: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({required this.profile, required this.onEdit});
+
+  final UserProfile profile;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [MypageScreen.blue, Color(0xFF3B82F6)],
+          ),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              left: 215.45452880859375,
+              top: -20,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .08),
+                  shape: BoxShape.circle,
+                ),
+                child: const SizedBox(width: 130, height: 130),
+              ),
+            ),
+            const Positioned(
+              left: 20,
+              top: 26.619140625,
+              width: 55.99431610107422,
+              height: 55.99431610107422,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Color(0x40FFFFFF),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    '👑',
+                    style: TextStyle(fontSize: 24, height: 1.5),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 87.98294067382812,
+              top: 25.2841796875,
+              width: 68.0539779663086,
+              height: 18.977272033691406,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: .2),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Center(
+                  child: Text(
+                    profile.level,
+                    style: _white10.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 87.98294067382812,
+              top: 47.25830078125,
+              child: Text(
+                profile.nickname,
+                style: _white17.copyWith(fontWeight: FontWeight.w800),
+              ),
+            ),
+            Positioned(
+              left: 87.98294067382812,
+              top: 72.75537109375,
+              child: Text(
+                profile.email,
+                style: _white11.copyWith(
+                  color: Colors.white.withValues(alpha: .85),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 220.5965576171875,
+              top: 40.38330078125,
+              width: 94.85794830322266,
+              height: 28.480112075805664,
+              child: Material(
+                color: Colors.white.withValues(alpha: .22),
+                borderRadius: BorderRadius.circular(999),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: onEdit,
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('프로필 수정', style: _profileEditText),
+                      SizedBox(width: 5.5),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.white,
+                        size: 12,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 20,
+              top: 105.2412109375,
+              width: 93.15340423583984,
+              child: _ProfileMetric(
+                value: '${profile.savedAmountText}원',
+                label: '이번 달 절약',
+              ),
+            ),
+            Positioned(
+              left: 121.15057373046875,
+              top: 105.2412109375,
+              width: 93.15340423583984,
+              child: _ProfileMetric(
+                value: '${profile.reportCount}곳',
+                label: '제보 매장',
+                bordered: true,
+              ),
+            ),
+            Positioned(
+              left: 222.3011474609375,
+              top: 105.2412109375,
+              width: 93.15340423583984,
+              child: _ProfileMetric(
+                value: '${profile.favoriteStoreCount}곳',
+                label: '찜한 매장',
+                bordered: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileMetric extends StatelessWidget {
+  const _ProfileMetric({
+    required this.value,
+    required this.label,
+    this.bordered = false,
+  });
+
+  final String value;
+  final String label;
+  final bool bordered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 37.99715805053711,
+      decoration: BoxDecoration(
+        border: bordered
+            ? const Border(
+                left: BorderSide(color: Color(0x33FFFFFF), width: .909),
+              )
+            : null,
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 20,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: _white14Bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: 1),
+          SizedBox(
+            height: 14,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                style: _white10.copyWith(
+                  color: Colors.white.withValues(alpha: .85),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickMenu extends StatelessWidget {
+  const _QuickMenu({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: 106.4772720336914,
+          height: 94.2897720336914,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: MypageScreen.border, width: .909),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: .09),
+                  shape: BoxShape.circle,
+                ),
+                child: SizedBox(
+                  width: 37.99715805053711,
+                  height: 37.99715805053711,
+                  child: Icon(icon, color: color, size: 18),
+                ),
+              ),
+              const SizedBox(height: 5.994),
+              Text(label, style: _quickMenuText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReportStatusCard extends StatelessWidget {
+  const _ReportStatusCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        16.903411865234375,
+        16.9033203125,
+        16.903411865234375,
+        .909,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MypageScreen.border, width: .909),
+      ),
+      child: Column(
+        children: const [
+          SizedBox(
+            height: 19.488636016845703,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('내 제보 상태', style: _sectionTitleText),
+                Text('전체보기', style: _linkText),
+              ],
+            ),
+          ),
+          SizedBox(height: 11.989),
+          _ReportItem(
+            store: '골목밥상',
+            menu: '제육덮밥 6,000원',
+            status: '검토 중',
+            statusColor: Color(0xFFF59E0B),
+            statusBg: Color(0xFFFEF3C7),
+            textColor: Color(0xFF92400E),
+          ),
+          SizedBox(height: 10),
+          _ReportItem(
+            store: '동네카페',
+            menu: '아메리카노 2,000원',
+            status: '승인 완료',
+            statusColor: MypageScreen.green,
+            statusBg: Color(0xFFE8F8F1),
+            textColor: MypageScreen.green,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportItem extends StatelessWidget {
+  const _ReportItem({
+    required this.store,
+    required this.menu,
+    required this.status,
+    required this.statusColor,
+    required this.statusBg,
+    required this.textColor,
+  });
+
+  final String store;
+  final String menu;
+  final String status;
+  final Color statusColor;
+  final Color statusBg;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 301.647705078125,
+      height: 56.974430084228516,
+      decoration: BoxDecoration(
+        color: MypageScreen.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 11.9886474609375,
+            top: 10,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(store, style: _reportStoreText),
+                const SizedBox(height: .994),
+                Text(menu, style: _muted11),
+              ],
+            ),
+          ),
+          Positioned(
+            right: 11.9886474609375,
+            top: 17.98291015625,
+            child: Container(
+              height: 20.99431800842285,
+              padding: const EdgeInsets.symmetric(horizontal: 8.99151611328125),
+              decoration: BoxDecoration(
+                color: statusBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const SizedBox(width: 5, height: 5),
+                  ),
+                  const SizedBox(width: 3.991),
+                  Text(
+                    status,
+                    style: TextStyle(
+                      color: textColor,
+                      fontFamily: MypageScreen.fontFamily,
+                      fontFamilyFallback: MypageScreen.fontFallback,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  const _SettingsCard({
+    required this.onNotificationTap,
+    required this.onAccountTap,
+    required this.onPublicDataTap,
+    required this.onInquiryTap,
+  });
+
+  final VoidCallback onNotificationTap;
+  final VoidCallback onAccountTap;
+  final VoidCallback onPublicDataTap;
+  final VoidCallback onInquiryTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: MypageScreen.border, width: .909),
+      ),
+      child: Column(
+        children: [
+          const _PermissionRow(),
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.notifications_none_rounded,
+            title: '알림 설정',
+            onTap: onNotificationTap,
+          ),
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.manage_accounts_outlined,
+            title: '계정 관리',
+            onTap: onAccountTap,
+          ),
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.dataset_outlined,
+            title: '공공데이터 출처 안내',
+            onTap: onPublicDataTap,
+          ),
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.support_agent_outlined,
+            title: '문의하기',
+            onTap: onInquiryTap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PermissionRow extends StatelessWidget {
+  const _PermissionRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44.375,
+      child: Row(
+        children: const [
+          SizedBox(width: 15.994),
+          Icon(Icons.location_on_outlined, color: MypageScreen.muted, size: 17),
+          SizedBox(width: 11.989),
+          Text('위치 권한 설정', style: _settingText),
+          Spacer(),
+          Text('허용', style: _allowedText),
+          SizedBox(width: 4.991),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: MypageScreen.muted,
+            size: 15,
+          ),
+          SizedBox(width: 16.903),
+        ],
+      ),
+    );
+  }
+}
+
+class _SettingRow extends StatelessWidget {
+  const _SettingRow({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 43.46590805053711,
+          child: Row(
+            children: [
+              const SizedBox(width: 15.994),
+              Icon(icon, color: MypageScreen.muted, size: 17),
+              const SizedBox(width: 11.989),
+              Text(title, style: _settingText),
+              const Spacer(),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: MypageScreen.muted,
+                size: 15,
+              ),
+              const SizedBox(width: 16.903),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DividerLine extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 301.647705078125,
+      height: .9943181276321411,
+      child: ColoredBox(color: MypageScreen.border),
+    );
+  }
+}
+
+class _MypageBottomNav extends StatelessWidget {
+  const _MypageBottomNav({required this.safeBottom, required this.onHomeTap});
+
+  static const designHeight = 81.98863220214844;
+  static const contentHeight = 60.002838134765625;
+  static const designBottomReserve = designHeight - contentHeight;
+  static const contentLift = 32.0;
+
+  static double heightFor(double safeBottom) {
+    return contentHeight +
+        (safeBottom > designBottomReserve ? safeBottom : designBottomReserve) +
+        contentLift;
+  }
+
+  final double safeBottom;
+  final VoidCallback onHomeTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomReserve = safeBottom > designBottomReserve
+        ? safeBottom
+        : designBottomReserve;
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: MypageScreen.border, width: .909),
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: bottomReserve + contentLift,
+            height: contentHeight,
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 7.5426025390625,
+                right: 7.571,
+                top: 10,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: onHomeTap,
+                    child: const _NavItem(
+                      icon: Icons.home_outlined,
+                      label: '홈',
+                    ),
+                  ),
+                  const _NavItem(icon: Icons.explore_outlined, label: '탐색'),
+                  const _ReportNavItem(),
+                  const _NavItem(icon: Icons.bar_chart_rounded, label: '리포트'),
+                  const _NavItem(
+                    icon: Icons.person_outline_rounded,
+                    label: '마이',
+                    active: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = active ? MypageScreen.blue : MypageScreen.hint;
+
+    return SizedBox(
+      width: 60,
+      height: 50.002838134765625,
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 5.994326591491699),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontFamily: MypageScreen.fontFamily,
+              fontFamilyFallback: MypageScreen.fontFallback,
+              fontSize: 10,
+              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportNavItem extends StatelessWidget {
+  const _ReportNavItem();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 60,
+      height: 50.002838134765625,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: -13.991455078125,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: const BoxDecoration(
+                color: MypageScreen.orange,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Color(0x47F97316),
+                    blurRadius: 5,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                color: Colors.white,
+                size: 29,
+              ),
+            ),
+          ),
+          const Positioned(
+            top: 32.0028076171875,
+            child: Text('제보', style: _navText),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const _white10 = TextStyle(
+  color: Colors.white,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 10,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+const _white11 = TextStyle(
+  color: Colors.white,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+const _white14Bold = TextStyle(
+  color: Colors.white,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 14,
+  fontWeight: FontWeight.w800,
+  height: 1.5,
+);
+
+const _white17 = TextStyle(
+  color: Colors.white,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 17,
+  fontWeight: FontWeight.w800,
+  height: 1.5,
+);
+
+const _profileEditText = TextStyle(
+  color: Colors.white,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+);
+
+const _quickMenuText = TextStyle(
+  color: MypageScreen.ink,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
+
+const _sectionTitleText = TextStyle(
+  color: MypageScreen.black,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 13,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+);
+
+const _linkText = TextStyle(
+  color: MypageScreen.blue,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
+
+const _reportStoreText = TextStyle(
+  color: MypageScreen.black,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 13,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+);
+
+const _muted11 = TextStyle(
+  color: MypageScreen.muted,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+const _settingText = TextStyle(
+  color: MypageScreen.ink,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 13,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+const _allowedText = TextStyle(
+  color: MypageScreen.green,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
+
+const _navText = TextStyle(
+  color: MypageScreen.hint,
+  fontFamily: MypageScreen.fontFamily,
+  fontFamilyFallback: MypageScreen.fontFallback,
+  fontSize: 10,
+  fontWeight: FontWeight.w500,
+  height: 1.5,
+);
