@@ -59,8 +59,31 @@ void main() {
     expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('절약왕 민서'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
+    expect(find.text('개발용 관리자 모드'), findsOneWidget);
     expect(find.text('관리자 제보 검토'), findsNothing);
     expect(find.text('관리자 문의 검토'), findsNothing);
+  });
+
+  testWidgets('toggles temporary admin mode from mypage QA row', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    expect(find.text('관리자 제보 검토'), findsNothing);
+
+    await tester.ensureVisible(find.text('개발용 관리자 모드'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('개발용 관리자 모드'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('개발용 관리자 모드를 켰어요.'), findsOneWidget);
+    await tester.ensureVisible(find.text('관리자 제보 검토'));
+    await tester.pumpAndSettle();
+    expect(find.text('관리자 제보 검토'), findsOneWidget);
+    expect(find.text('관리자 문의 검토'), findsOneWidget);
   });
 
   testWidgets('shows admin menu only for admin users', (tester) async {
