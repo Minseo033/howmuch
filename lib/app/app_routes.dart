@@ -19,4 +19,6 @@ class AppRoutes {
   static const profileEdit = '/mypage/profile-edit';
   static const withdrawal = '/mypage/withdrawal';
   static const connectedSocialAccounts = '/mypage/social-accounts';
+  static const privacyPolicy = '/mypage/privacy-policy';
+  static const termsOfService = '/mypage/terms';
 }

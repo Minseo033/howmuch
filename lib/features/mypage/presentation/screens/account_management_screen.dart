@@ -311,10 +311,16 @@ class _PolicyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Column(
-        children: const [
-          _SimpleRow(title: '개인정보 처리방침'),
-          _CardDivider(),
-          _SimpleRow(title: '서비스 이용약관'),
+        children: [
+          _SimpleRow(
+            title: '개인정보 처리방침',
+            onTap: () => context.go(AppRoutes.privacyPolicy),
+          ),
+          const _CardDivider(),
+          _SimpleRow(
+            title: '서비스 이용약관',
+            onTap: () => context.go(AppRoutes.termsOfService),
+          ),
         ],
       ),
     );
@@ -476,13 +482,14 @@ class _AccountRow extends StatelessWidget {
 }
 
 class _SimpleRow extends StatelessWidget {
-  const _SimpleRow({required this.title});
+  const _SimpleRow({required this.title, this.onTap});
 
   final String title;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final row = SizedBox(
       height: 47.471588134765625,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.9034423828125),
@@ -498,6 +505,15 @@ class _SimpleRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+
+    if (onTap == null) {
+      return row;
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(onTap: onTap, child: row),
     );
   }
 }

@@ -201,6 +201,37 @@ void main() {
     expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('문의가 접수되었어요.'), findsOneWidget);
   });
+
+  testWidgets('opens policy and terms screens from account management', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.accountManagement);
+    await tester.tap(find.text('개인정보 처리방침'));
+    await tester.pumpAndSettle();
+    expect(find.text('얼마고? 개인정보 처리방침'), findsOneWidget);
+    expect(find.text('개인정보 보호 책임자'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+    await tester.pumpAndSettle();
+    expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.text('서비스 이용약관'));
+    await tester.pumpAndSettle();
+    expect(find.text('한눈에 보는 약관'), findsOneWidget);
+    expect(find.text('본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.'), findsOneWidget);
+
+    await tester.tap(find.text('제보·리뷰 게시 책임'));
+    await tester.pumpAndSettle();
+    expect(find.text('확인'), findsOneWidget);
+
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
+    expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
+  });
 }
 
 void _setMobileViewport(WidgetTester tester) {

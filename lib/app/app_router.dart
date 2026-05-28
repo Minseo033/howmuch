@@ -11,8 +11,10 @@ import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/privacy_policy_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/profile_edit_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/public_data_source_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/terms_of_service_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/withdrawal_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_nearby_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_savings_report_screen.dart';
@@ -56,6 +58,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AppRoutes.connectedSocialAccounts,
         const ConnectedSocialAccountsScreen(),
       ),
+      _route(AppRoutes.privacyPolicy, const PrivacyPolicyScreen()),
+      _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
     ],
   );
 });
