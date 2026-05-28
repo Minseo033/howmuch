@@ -157,6 +157,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               label: '저장하기',
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
+                // TODO(박지환 BE): 프로필 수정 API가 붙으면 공개 설정과 지역/닉네임 변경값을 서버에 저장하세요.
                 ref.read(userProfileProvider.notifier).state = profile.copyWith(
                   nicknamePublic: _nicknamePublic,
                   activityPublic: _activityPublic,

@@ -107,6 +107,7 @@ class AccountManagementScreen extends ConsumerWidget {
                 height: 49.289772033691406,
                 child: _LogoutCard(
                   onTap: () {
+                    // TODO(박지환 BE): 실제 로그아웃 API가 붙으면 서버 세션/refresh token을 먼저 폐기하세요.
                     ref.read(authStateProvider.notifier).state = auth.copyWith(
                       isLoggedIn: false,
                     );

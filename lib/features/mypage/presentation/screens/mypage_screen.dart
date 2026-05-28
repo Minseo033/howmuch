@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -30,12 +31,15 @@ class MypageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
+    final auth = ref.watch(authStateProvider);
+    final reports = ref.watch(userReportsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = _MypageBottomNav.heightFor(bottomOffset);
+    final settingsCardHeight = auth.isAdmin ? 403.0 : 313.0;
     final scrollContentHeight =
-        659.98583984375 + topOffset + 224.5 + bottomNavHeight + 20;
+        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
 
     return FigmaMobileCanvas(
       backgroundColor: surface,
@@ -133,13 +137,17 @@ class MypageScreen extends ConsumerWidget {
                       top: 458.76416015625 + topOffset,
                       width: 335.45452880859375,
                       height: 189.23294067382812,
-                      child: const _ReportStatusCard(),
+                      child: _ReportStatusCard(
+                        reports: reports,
+                        onReportTap: () =>
+                            context.push(AppRoutes.reportDeleteConfirm),
+                      ),
                     ),
                     Positioned(
                       left: 20,
                       top: 659.98583984375 + topOffset,
                       width: 335.45452880859375,
-                      height: 224.5,
+                      height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
                             context.go(AppRoutes.notificationSettings),
@@ -148,6 +156,15 @@ class MypageScreen extends ConsumerWidget {
                         onPublicDataTap: () =>
                             context.go(AppRoutes.publicDataSource),
                         onInquiryTap: () => context.go(AppRoutes.inquiry),
+                        isAdmin: auth.isAdmin,
+                        onAdminReportTap: () =>
+                            context.push(AppRoutes.adminReportReview),
+                        onAdminInquiryTap: () =>
+                            context.push(AppRoutes.adminInquiryReview),
+                        onNetworkErrorTap: () =>
+                            context.push(AppRoutes.networkError),
+                        onSessionExpiredTap: () =>
+                            context.push(AppRoutes.sessionExpired),
                       ),
                     ),
                   ],
@@ -478,10 +495,15 @@ class _QuickMenu extends StatelessWidget {
 }
 
 class _ReportStatusCard extends StatelessWidget {
-  const _ReportStatusCard();
+  const _ReportStatusCard({required this.reports, required this.onReportTap});
+
+  final List<UserReportStatus> reports;
+  final VoidCallback onReportTap;
 
   @override
   Widget build(BuildContext context) {
+    final visibleReports = reports.take(2).toList();
+
     return Container(
       padding: const EdgeInsets.fromLTRB(
         16.903411865234375,
@@ -495,8 +517,8 @@ class _ReportStatusCard extends StatelessWidget {
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
       child: Column(
-        children: const [
-          SizedBox(
+        children: [
+          const SizedBox(
             height: 19.488636016845703,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -506,24 +528,18 @@ class _ReportStatusCard extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 11.989),
-          _ReportItem(
-            store: '골목밥상',
-            menu: '제육덮밥 6,000원',
-            status: '검토 중',
-            statusColor: Color(0xFFF59E0B),
-            statusBg: Color(0xFFFEF3C7),
-            textColor: Color(0xFF92400E),
-          ),
-          SizedBox(height: 10),
-          _ReportItem(
-            store: '동네카페',
-            menu: '아메리카노 2,000원',
-            status: '승인 완료',
-            statusColor: MypageScreen.green,
-            statusBg: Color(0xFFE8F8F1),
-            textColor: MypageScreen.green,
-          ),
+          const SizedBox(height: 11.989),
+          if (visibleReports.isEmpty)
+            const _EmptyReportItem()
+          else
+            for (var index = 0; index < visibleReports.length; index++) ...[
+              _ReportItem(
+                report: visibleReports[index],
+                onTap: index == 0 ? onReportTap : null,
+              ),
+              if (index != visibleReports.length - 1)
+                const SizedBox(height: 10),
+            ],
         ],
       ),
     );
@@ -531,83 +547,96 @@ class _ReportStatusCard extends StatelessWidget {
 }
 
 class _ReportItem extends StatelessWidget {
-  const _ReportItem({
-    required this.store,
-    required this.menu,
-    required this.status,
-    required this.statusColor,
-    required this.statusBg,
-    required this.textColor,
-  });
+  const _ReportItem({required this.report, required this.onTap});
 
-  final String store;
-  final String menu;
-  final String status;
-  final Color statusColor;
-  final Color statusBg;
-  final Color textColor;
+  final UserReportStatus report;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: MypageScreen.surface,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: SizedBox(
+          width: 301.647705078125,
+          height: 56.974430084228516,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 11.9886474609375,
+                top: 10,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(report.store, style: _reportStoreText),
+                    const SizedBox(height: .994),
+                    Text(report.menu, style: _muted11),
+                  ],
+                ),
+              ),
+              Positioned(
+                right: 11.9886474609375,
+                top: 17.98291015625,
+                child: Container(
+                  height: 20.99431800842285,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8.99151611328125,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Color(report.statusBg),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: Color(report.statusColor),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const SizedBox(width: 5, height: 5),
+                      ),
+                      const SizedBox(width: 3.991),
+                      Text(
+                        report.status,
+                        style: TextStyle(
+                          color: Color(report.textColor),
+                          fontFamily: MypageScreen.fontFamily,
+                          fontFamilyFallback: MypageScreen.fontFallback,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyReportItem extends StatelessWidget {
+  const _EmptyReportItem();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 301.647705078125,
-      height: 56.974430084228516,
+      height: 88,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: MypageScreen.surface,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 11.9886474609375,
-            top: 10,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(store, style: _reportStoreText),
-                const SizedBox(height: .994),
-                Text(menu, style: _muted11),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 11.9886474609375,
-            top: 17.98291015625,
-            child: Container(
-              height: 20.99431800842285,
-              padding: const EdgeInsets.symmetric(horizontal: 8.99151611328125),
-              decoration: BoxDecoration(
-                color: statusBg,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const SizedBox(width: 5, height: 5),
-                  ),
-                  const SizedBox(width: 3.991),
-                  Text(
-                    status,
-                    style: TextStyle(
-                      color: textColor,
-                      fontFamily: MypageScreen.fontFamily,
-                      fontFamilyFallback: MypageScreen.fontFallback,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: const Text('진행 중인 제보가 없어요', style: _muted11),
     );
   }
 }
@@ -618,12 +647,22 @@ class _SettingsCard extends StatelessWidget {
     required this.onAccountTap,
     required this.onPublicDataTap,
     required this.onInquiryTap,
+    required this.isAdmin,
+    required this.onAdminReportTap,
+    required this.onAdminInquiryTap,
+    required this.onNetworkErrorTap,
+    required this.onSessionExpiredTap,
   });
 
   final VoidCallback onNotificationTap;
   final VoidCallback onAccountTap;
   final VoidCallback onPublicDataTap;
   final VoidCallback onInquiryTap;
+  final bool isAdmin;
+  final VoidCallback onAdminReportTap;
+  final VoidCallback onAdminInquiryTap;
+  final VoidCallback onNetworkErrorTap;
+  final VoidCallback onSessionExpiredTap;
 
   @override
   Widget build(BuildContext context) {
@@ -659,6 +698,32 @@ class _SettingsCard extends StatelessWidget {
             icon: Icons.support_agent_outlined,
             title: '문의하기',
             onTap: onInquiryTap,
+          ),
+          if (isAdmin) ...[
+            _DividerLine(),
+            _SettingRow(
+              icon: Icons.admin_panel_settings_outlined,
+              title: '관리자 제보 검토',
+              onTap: onAdminReportTap,
+            ),
+            _DividerLine(),
+            _SettingRow(
+              icon: Icons.mark_chat_read_outlined,
+              title: '관리자 문의 검토',
+              onTap: onAdminInquiryTap,
+            ),
+          ],
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.wifi_off_rounded,
+            title: '네트워크 오류 화면',
+            onTap: onNetworkErrorTap,
+          ),
+          _DividerLine(),
+          _SettingRow(
+            icon: Icons.lock_outline_rounded,
+            title: '세션 만료 · 재로그인',
+            onTap: onSessionExpiredTap,
           ),
         ],
       ),

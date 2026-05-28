@@ -163,6 +163,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
               safeBottom: bottomOffset,
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
+                // TODO(박지환 BE): 알림 설정 저장 API가 붙으면 현재 provider 상태를 서버에 저장하세요.
                 messenger.clearSnackBars();
                 context.go(AppRoutes.mypage);
                 messenger.showSnackBar(

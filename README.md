@@ -51,6 +51,55 @@ flutter run -d chrome
 - [파일 구조](docs/FILE_STRUCTURE.md)
 - [브랜치 전략](docs/BRANCH_STRATEGY.md)
 - [역할분담표](docs/ROLE_ASSIGNMENT.md)
+- [김민서 FE 구현 현황](docs/MINSEO_FE_STATUS.md)
+
+## 현재 구현 현황
+
+마지막 정리: 2026-05-28
+
+- 김민서 담당 23개 화면은 Flutter 화면으로 1차 구현 완료했습니다.
+- 실제 iPhone 무선 설치 기준으로 `flutter build ios --release` 빌드와 기기 실행을 확인했습니다.
+- `dart analyze lib test`, `flutter test` 통과 상태를 기준으로 팀원에게 공유합니다.
+- Figma MCP로 `Howmuch-` 파일을 직접 확인해 구현했으며, 단순 placeholder UI는 제거했습니다.
+- 관리자 제보/문의 검토 메뉴는 `authStateProvider.isAdmin == true`일 때만 마이페이지에 노출됩니다.
+- 홈 지도, 매장 데이터, 로그인 OAuth, 제보/문의 검토 저장은 아직 백엔드 연동 전입니다. 화면 파일 안에 `TODO(박지환 BE)` 주석으로 교체 위치를 남겼습니다.
+- 자세한 화면별 진입 경로와 남은 연동 지점은 [docs/MINSEO_FE_STATUS.md](docs/MINSEO_FE_STATUS.md)를 확인합니다.
+
+## Figma 구현 회고 및 주의사항
+
+이번 작업에서 실제 기기 확인 중 발견한 문제를 다음 작업자와 AI가 반드시 참고해야 합니다.
+
+- Figma 시안을 보지 않고 기존 구현을 확장하면 디자인이 크게 어긋납니다. 새 화면을 만들거나 수정하기 전에 Figma MCP로 해당 화면 노드와 치수를 먼저 확인합니다.
+- 모바일 앱 기준이 우선입니다. 웹 미리보기는 보조 확인용이며, 최종 판단은 iPhone 실제 구동 화면의 safe area, Dynamic Island, 홈 인디케이터, 키보드 동작까지 포함해 봅니다.
+- Figma 좌표를 그대로 쓰면 iPhone 상단/하단 안전구역에서 잘릴 수 있습니다. 이 프로젝트는 `FigmaMobileCanvas.designSafePaddingOf(context)`로 상단/하단 보정값을 더해 실제 기기에서도 보이도록 맞춥니다.
+- 바텀 네비게이션은 홈 인디케이터와 겹치지 않도록 `safeBottom`을 포함한 높이를 계산해야 합니다. 아이콘과 라벨은 너무 위/아래로 밀리지 않게 실제 기기에서 다시 봅니다.
+- sticky 저장 버튼이 있는 화면은 버튼 높이와 하단 safe area를 스크롤 높이에 포함해야 합니다. 그렇지 않으면 마지막 내용이 버튼 뒤에 숨거나 스크롤이 막힙니다.
+- 모든 세로 화면은 작은 기기에서도 접근 가능하도록 `SingleChildScrollView`와 `AlwaysScrollableScrollPhysics`를 기본으로 고려합니다.
+- TextField가 있는 화면은 키보드가 올라와도 화면이 잘리지 않아야 하고, 바깥 영역을 누르면 `FocusManager.instance.primaryFocus?.unfocus()`로 키보드가 내려가야 합니다.
+- TextField의 이상한 초록색 선택/커서 색이 보이면 `TextSelectionTheme`과 입력 필드 배경색을 명시적으로 맞춥니다.
+- 온보딩은 화면 자체를 갈아끼우는 느낌보다 `PageView` 기반 슬라이드 전환이 맞습니다.
+- 바텀 탭 전환은 새 페이지가 튀는 느낌보다 안쪽 내용만 바뀌는 느낌이 자연스럽습니다. 현재 홈/마이 탭은 `NoTransitionPage`를 사용합니다.
+- 홈 지도 상세 카드가 처음부터 떠 있으면 안 됩니다. 매장 마커/가격표를 눌렀을 때만 카드가 뜨고, 빈 지도 영역을 누르면 닫혀야 합니다.
+- 홈의 현재위치 버튼과 AI 추천 버튼은 상세 카드가 열렸을 때와 닫혔을 때 위치가 달라야 합니다.
+- 버튼, 토글, 사진 첨부, 삭제 확인, 저장하기 같은 기능은 단순 목업으로 두지 말고 가능한 범위에서는 로컬 Riverpod 상태로 실제 동작하게 만듭니다.
+- 관리자 화면은 일반 사용자에게 보이면 안 됩니다. 프론트에서는 `isAdmin` 값으로 숨기고, 백엔드 연동 후에는 서버 권한 검증도 반드시 필요합니다.
+- Figma와 다르게 임의 카드형 UI, 임의 색상, 임의 텍스트를 넣지 않습니다. 임시 데이터가 필요하면 백엔드 교체 지점을 코드 주석으로 명확히 남깁니다.
+
+## GitHub Pages 웹 배포 가능 여부
+
+가능합니다. Flutter Web은 정적 파일로 빌드할 수 있어서 GitHub Pages에 올릴 수 있습니다.
+
+```bash
+flutter build web --release --base-href /howmuch/
+```
+
+빌드 결과물은 `build/web`에 생성됩니다. GitHub Pages에는 보통 `gh-pages` 브랜치에 `build/web` 내용을 올리거나, GitHub Actions로 빌드 후 Pages에 배포합니다.
+
+주의할 점:
+
+- GitHub Pages는 웹 미리보기용입니다. 실제 iOS 권한 모달, 네이티브 사진 접근, 일부 OAuth 흐름은 iPhone 앱과 다르게 보일 수 있습니다.
+- 이 프로젝트는 모바일 앱 우선이므로 최종 UI 검수는 iPhone 실제 기기에서 합니다.
+- 현재 Flutter Web은 해시 URL 형태로도 확인 가능하므로 Pages 배포 후 `/howmuch/#/home` 같은 경로로 화면 확인이 가능합니다.
 
 ## AI 작업용 프로젝트 컨텍스트
 
@@ -72,7 +121,7 @@ flutter run -d chrome
 - 디자인 기준: Figma 화면 번호와 화면명을 기준으로 구현
 - 화면 파일 위치: `lib/features/{기능}/presentation/screens/`
 - 공통 위젯 위치: `lib/shared/widgets/`
-- 전체 화면 목록 관리: `lib/app/app_screen_registry.dart`
+- 라우팅 관리: `lib/app/app_routes.dart`, `lib/app/app_router.dart`
 
 ### 팀원별 담당 브랜치
 
@@ -100,8 +149,11 @@ flutter run -d chrome
 - 다른 팀원의 담당 화면을 수정해야 하면 먼저 이유를 명확히 남깁니다.
 - 새 화면을 만들기보다 이미 생성된 화면 파일을 찾아 구현합니다.
 - 재사용 가능한 UI는 `lib/shared/widgets/`에 공통 위젯으로 분리합니다.
-- 화면 이동, 화면 목록, 담당자 정보는 `lib/app/app_screen_registry.dart`와 맞춰 유지합니다.
+- 화면 이동은 `lib/app/app_routes.dart`와 `lib/app/app_router.dart`를 함께 갱신합니다.
+- Figma 기준 화면은 실제 iPhone safe area까지 확인합니다.
+- 하단 네비게이션, sticky 버튼, 키보드가 있는 화면은 실제 기기에서 잘림/겹침 여부를 한 번 더 확인합니다.
 - API 연동 전에는 화면 파일 안에서 임시 더미 데이터를 사용해도 됩니다.
+- 임시 더미 데이터는 박지환 백엔드 연동 시 삭제할 위치에 `TODO(박지환 BE)` 주석을 남깁니다.
 - 큰 패키지 추가, 폴더 구조 변경, 라우팅 방식 변경은 팀과 먼저 합의합니다.
 - 작업 후 가능하면 `dart analyze lib test`와 `flutter test`를 실행합니다.
 - 커밋 메시지는 `feat: 2-4 매장 상세 화면 UI 구현`처럼 작업 화면 번호를 포함합니다.
@@ -130,7 +182,11 @@ flutter pub get
 내 담당 화면은 [화면 번호와 화면명]입니다.
 
 화면 파일은 `lib/features/{기능}/presentation/screens/` 안에 이미 만들어져 있으니 새로 만들기보다 기존 파일을 찾아 구현해 주세요.
-공통 위젯은 `lib/shared/widgets/`에 분리하고, 화면 목록이나 담당 정보가 바뀌면 `lib/app/app_screen_registry.dart`도 함께 확인해 주세요.
+공통 위젯은 `lib/shared/widgets/`에 분리하고, 화면 이동이 필요하면 `lib/app/app_routes.dart`와 `lib/app/app_router.dart`도 함께 확인해 주세요.
+
+Figma 시안을 직접 확인하고 구현해 주세요. 모바일 앱 기준이 우선이며, 실제 iPhone safe area, 하단 홈 인디케이터, 키보드, 스크롤, 바텀 네비게이션 잘림 여부까지 확인해야 합니다.
+
+API/DB/지도/OAuth 연동 전 임시 데이터는 허용하지만, 박지환 백엔드 연동 시 교체할 위치에 `TODO(박지환 BE)` 주석을 남겨 주세요.
 
 다른 팀원의 담당 화면은 꼭 필요한 경우가 아니면 수정하지 말고, 수정이 필요하면 이유를 설명해 주세요.
 작업 후 `dart analyze lib test`와 `flutter test`가 통과하도록 해 주세요.

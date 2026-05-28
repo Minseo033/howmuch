@@ -175,9 +175,10 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
-    // TODO(Backend): 실제 회원 탈퇴 API 호출 후 성공 응답을 받으면 로컬 세션을 종료합니다.
+    // TODO(박지환 BE): 실제 회원 탈퇴 API 호출 후 성공 응답을 받으면 로컬 세션을 종료합니다.
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
+      isAdmin: false,
       provider: '이메일',
       email: '',
     );

@@ -173,6 +173,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
       return;
     }
 
+    // TODO(박지환 BE): 실제 소셜 계정 연결 해제 API 성공 후 로컬 상태를 갱신하세요.
     _updateAccounts(ref, (account) {
       if (account.id != selected.id) {
         return account;
@@ -218,6 +219,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                   _PrimaryOption(
                     account: account,
                     onTap: () {
+                      // TODO(박지환 BE): 주 로그인 계정 변경 API 성공 후 로컬 primary 상태를 갱신하세요.
                       _updateAccounts(ref, (candidate) {
                         return candidate.copyWith(
                           isPrimary: candidate.id == account.id,

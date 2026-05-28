@@ -80,11 +80,7 @@ class LoginScreen extends ConsumerWidget {
                   backgroundColor: const Color(0xFFFEE500),
                   foregroundColor: const Color(0xFF191600),
                   icon: Icons.chat_bubble_rounded,
-                  onPressed: () => _loginWith(
-                    ref,
-                    context,
-                    provider: '카카오',
-                  ),
+                  onPressed: () => _loginWith(ref, context, provider: '카카오'),
                 ),
                 const SizedBox(height: 10),
                 _SocialLoginButton(
@@ -92,11 +88,7 @@ class LoginScreen extends ConsumerWidget {
                   backgroundColor: const Color(0xFF03C75A),
                   foregroundColor: Colors.white,
                   textIcon: 'N',
-                  onPressed: () => _loginWith(
-                    ref,
-                    context,
-                    provider: '네이버',
-                  ),
+                  onPressed: () => _loginWith(ref, context, provider: '네이버'),
                 ),
                 const SizedBox(height: 10),
                 _SocialLoginButton(
@@ -104,11 +96,7 @@ class LoginScreen extends ConsumerWidget {
                   backgroundColor: ink,
                   foregroundColor: Colors.white,
                   icon: Icons.apple_rounded,
-                  onPressed: () => _loginWith(
-                    ref,
-                    context,
-                    provider: 'Apple',
-                  ),
+                  onPressed: () => _loginWith(ref, context, provider: 'Apple'),
                 ),
               ],
             ),
@@ -168,8 +156,10 @@ class LoginScreen extends ConsumerWidget {
     BuildContext context, {
     required String provider,
   }) {
+    // TODO(박지환 BE): 실제 OAuth 로그인 API 응답으로 토큰, 이메일, 관리자 권한을 저장하세요.
     ref.read(authStateProvider.notifier).state = AuthState(
       isLoggedIn: true,
+      isAdmin: false,
       provider: provider,
       email: '',
     );

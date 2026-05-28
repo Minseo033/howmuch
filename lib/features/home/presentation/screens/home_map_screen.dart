@@ -55,6 +55,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     const storeCardBottomGap = 94.0;
     final storeCardTop =
         FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;
+    final bottomNavTop = FigmaMobileCanvas.height - bottomNavHeight;
+    final noStoreAiTop = bottomNavTop - 64;
+    final floatingLocationTop = _showStoreSummary
+        ? storeCardTop - 113.5511474609375
+        : noStoreAiTop - 56;
+    final floatingAiTop = _showStoreSummary
+        ? storeCardTop - 51.5482177734375
+        : noStoreAiTop;
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFDDE6F0),
@@ -123,7 +131,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             top: 10 + topOffset,
             width: 343.4659118652344,
             height: 52,
-            child: _SearchBar(onTap: () {}),
+            child: _SearchBar(onTap: () => context.push(AppRoutes.searchEmpty)),
           ),
           Positioned(
             left: 15.99432373046875,
@@ -141,7 +149,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
           Positioned(
             left: 315.46875,
-            top: storeCardTop - 113.5511474609375,
+            top: floatingLocationTop,
             width: 43.99147415161133,
             height: 43.99147415161133,
             child: const _RoundIconButton(
@@ -151,7 +159,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           ),
           Positioned(
             left: 225.80963134765625,
-            top: storeCardTop - 51.5482177734375,
+            top: floatingAiTop,
             width: 133.6505584716797,
             height: 51.9886360168457,
             child: const _AiRecommendControl(),

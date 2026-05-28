@@ -223,6 +223,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                   label: '문의 보내기',
                   onPressed: () {
                     final messenger = ScaffoldMessenger.of(context);
+                    // TODO(박지환 BE): 문의 등록 API와 첨부 사진 업로드 API가 붙으면 제목/본문/유형/사진을 함께 전송하세요.
                     messenger.clearSnackBars();
                     context.go(AppRoutes.mypage);
                     messenger.showSnackBar(

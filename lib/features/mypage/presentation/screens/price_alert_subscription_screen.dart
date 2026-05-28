@@ -175,6 +175,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
               label: '설정 저장',
               onPressed: () {
                 final messenger = ScaffoldMessenger.of(context);
+                // TODO(박지환 BE): 가격 알림 구독/해제 API가 붙으면 매장별 알림 상태를 서버에 저장하세요.
                 messenger.clearSnackBars();
                 context.go(AppRoutes.notificationSettings);
                 messenger.showSnackBar(

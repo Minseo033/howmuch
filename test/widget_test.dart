@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/howmuch_app.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
 void main() {
   testWidgets('starts at the first onboarding screen', (tester) async {
@@ -58,6 +59,35 @@ void main() {
     expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('절약왕 민서'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
+    expect(find.text('관리자 제보 검토'), findsNothing);
+    expect(find.text('관리자 문의 검토'), findsNothing);
+  });
+
+  testWidgets('shows admin menu only for admin users', (tester) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => const AuthState(
+              isLoggedIn: true,
+              isAdmin: true,
+              provider: '카카오',
+              email: 'admin@howmuch.local',
+            ),
+          ),
+        ],
+        child: const HowmuchApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    await tester.ensureVisible(find.text('관리자 제보 검토'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('관리자 제보 검토'), findsOneWidget);
+    expect(find.text('관리자 문의 검토'), findsOneWidget);
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
@@ -231,6 +261,158 @@ void main() {
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('opens admin review screens and updates local workflow', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.adminReportReview);
+
+    expect(find.text('제보 검토'), findsOneWidget);
+    expect(find.text('골목밥상'), findsOneWidget);
+    expect(find.text('검증 체크리스트'), findsOneWidget);
+
+    await tester.tap(find.text('중복 매장 여부'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('승인').last);
+    await tester.pumpAndSettle();
+    expect(find.text('골목밥상 제보를 승인했어요.'), findsOneWidget);
+
+    await _goToRoute(tester, AppRoutes.adminInquiryReview);
+    expect(find.text('문의 검토'), findsOneWidget);
+    expect(find.text('제보한 매장이 7일째 검토 중이에요'), findsOneWidget);
+
+    await tester.tap(find.textContaining('답변하기').first);
+    await tester.pumpAndSettle();
+    expect(find.text('답변 내용'), findsOneWidget);
+    expect(find.text('답변 보내기'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('send_admin_inquiry_reply')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('send_admin_inquiry_reply')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('답변 내용'), findsNothing);
+
+    await tester.tap(find.text('완료').last);
+    await tester.pumpAndSettle();
+    expect(find.text('답변 완료'), findsAtLeastNWidgets(1));
+    expect(find.text('제보한 매장이 7일째 검토 중이에요'), findsOneWidget);
+  });
+
+  testWidgets('opens empty search result from home and handles actions', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.home);
+    await tester.tap(find.text('가게명, 메뉴, 지역 검색'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('주차요금'), findsOneWidget);
+    expect(find.text('검색 결과가 없어요'), findsOneWidget);
+    expect(find.text('필터 초기화하기'), findsOneWidget);
+
+    await tester.tap(find.text('김치찌개'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('김치찌개 검색어로 다시 찾아볼게요.'), findsOneWidget);
+
+    await tester.tap(find.text('필터 초기화하기'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('필터를 초기화했어요.'), findsOneWidget);
+
+    await tester.tap(find.text('전체 매장 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('따뜻한 국물 메뉴 3곳'), findsOneWidget);
+  });
+
+  testWidgets('opens report delete confirmation and deletes local report', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    await tester.tap(find.text('골목밥상'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('제보를 삭제할까요?'), findsOneWidget);
+    expect(find.text('삭제하기'), findsOneWidget);
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.text('골목밥상'), findsOneWidget);
+
+    await tester.tap(find.text('골목밥상'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('삭제하기'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('골목밥상'), findsNothing);
+    expect(find.text('골목밥상 제보를 삭제했어요.'), findsOneWidget);
+  });
+
+  testWidgets('opens network error state and handles recovery actions', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    await tester.ensureVisible(find.text('네트워크 오류 화면'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('네트워크 오류 화면'));
+    await tester.pumpAndSettle();
+    expect(find.text('연결할 수 없어요'), findsOneWidget);
+    expect(find.text('다시 시도'), findsOneWidget);
+    expect(find.text('오프라인 저장 매장 보기'), findsOneWidget);
+
+    await tester.tap(find.text('다시 시도'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('연결 상태를 다시 확인했어요.'), findsOneWidget);
+
+    await tester.tap(find.text('오프라인 저장 매장 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
+  });
+
+  testWidgets('opens session expired state and relogs in', (tester) async {
+    _setMobileViewport(tester);
+    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpAndSettle();
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    await tester.ensureVisible(find.text('세션 만료 · 재로그인'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('세션 만료 · 재로그인'));
+    await tester.pumpAndSettle();
+    expect(find.text('다시 로그인이 필요해요'), findsOneWidget);
+    expect(find.text('로그인 없이 이용 가능'), findsOneWidget);
+    expect(find.text('카카오로 다시 로그인'), findsOneWidget);
+    expect(find.text('나중에 할게요'), findsOneWidget);
+
+    await tester.tap(find.text('나중에 할게요'));
+    await tester.pumpAndSettle();
+    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
+
+    await _goToRoute(tester, AppRoutes.sessionExpired);
+    await tester.tap(find.text('카카오로 다시 로그인'));
+    await tester.pumpAndSettle();
+    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
+    expect(find.text('카카오로 다시 로그인했어요.'), findsOneWidget);
   });
 }
 

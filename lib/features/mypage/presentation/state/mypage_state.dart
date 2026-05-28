@@ -134,6 +134,26 @@ class PriceAlertStore {
   }
 }
 
+class UserReportStatus {
+  const UserReportStatus({
+    required this.id,
+    required this.store,
+    required this.menu,
+    required this.status,
+    required this.statusColor,
+    required this.statusBg,
+    required this.textColor,
+  });
+
+  final String id;
+  final String store;
+  final String menu;
+  final String status;
+  final int statusColor;
+  final int statusBg;
+  final int textColor;
+}
+
 class PriceAlertSettings {
   const PriceAlertSettings({
     required this.all,
@@ -200,6 +220,7 @@ class SocialAccount {
   }
 }
 
+// TODO(박지환 BE): 사용자 프로필 API 응답으로 교체하세요.
 final userProfileProvider = StateProvider<UserProfile>(
   (ref) => const UserProfile(
     nickname: '절약왕 민서',
@@ -214,6 +235,30 @@ final userProfileProvider = StateProvider<UserProfile>(
     nicknamePublic: true,
     activityPublic: false,
   ),
+);
+
+// TODO(박지환 BE): 내 제보 목록/상태 API 응답으로 교체하세요.
+final userReportsProvider = StateProvider<List<UserReportStatus>>(
+  (ref) => const [
+    UserReportStatus(
+      id: 'report-golmok',
+      store: '골목밥상',
+      menu: '제육덮밥 6,000원',
+      status: '검토 중',
+      statusColor: 0xFFF59E0B,
+      statusBg: 0xFFFEF3C7,
+      textColor: 0xFF92400E,
+    ),
+    UserReportStatus(
+      id: 'report-cafe',
+      store: '동네카페',
+      menu: '아메리카노 2,000원',
+      status: '승인 완료',
+      statusColor: 0xFF10B981,
+      statusBg: 0xFFE8F8F1,
+      textColor: 0xFF10B981,
+    ),
+  ],
 );
 
 final notificationSettingsProvider = StateProvider<NotificationSettings>(

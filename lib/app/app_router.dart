@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/admin/presentation/screens/admin_inquiry_review_screen.dart';
+import 'package:howmuch/features/admin/presentation/screens/admin_report_review_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
@@ -19,6 +21,10 @@ import 'package:howmuch/features/mypage/presentation/screens/withdrawal_screen.d
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_nearby_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_savings_report_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_store_report_screen.dart';
+import 'package:howmuch/features/system/presentation/screens/network_error_screen.dart';
+import 'package:howmuch/features/system/presentation/screens/report_delete_confirm_screen.dart';
+import 'package:howmuch/features/system/presentation/screens/search_empty_screen.dart';
+import 'package:howmuch/features/system/presentation/screens/session_expired_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -60,6 +66,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _route(AppRoutes.privacyPolicy, const PrivacyPolicyScreen()),
       _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
+      _route(AppRoutes.adminReportReview, const AdminReportReviewScreen()),
+      _route(AppRoutes.adminInquiryReview, const AdminInquiryReviewScreen()),
+      _route(AppRoutes.networkError, const NetworkErrorScreen()),
+      _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
+      _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
+      _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
     ],
   );
 });
