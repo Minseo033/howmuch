@@ -5,8 +5,13 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.context.annotation.Configuration;
 
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.cloud.FirestoreClient;
+import org.springframework.context.annotation.Bean;
+
 import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
+
 
 @Configuration // 스프링 부트 설정 클래스로 등록
 public class FirebaseConfig {
@@ -38,5 +43,12 @@ public class FirebaseConfig {
             System.err.println("Firebase 초기화 중 기술적 예외 에러 발생");
             e.printStackTrace();
         }
+    }
+
+    // 💡 여기에 @Bean 설정을 추가합니다.
+    @Bean
+    public Firestore getFirestore() {
+        // FirebaseApp이 초기화된 상태에서 Firestore 인스턴스를 가져와 스프링 컨테이너에 빈으로 등록합니다.
+        return FirestoreClient.getFirestore();
     }
 }
