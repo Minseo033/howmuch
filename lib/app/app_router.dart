@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -6,6 +6,12 @@ import 'package:howmuch/features/admin/presentation/screens/admin_inquiry_review
 import 'package:howmuch/features/admin/presentation/screens/admin_report_review_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_detail_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/account_management_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/connected_social_accounts_screen.dart';
@@ -21,6 +27,7 @@ import 'package:howmuch/features/mypage/presentation/screens/withdrawal_screen.d
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_nearby_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_savings_report_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_store_report_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/network_error_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/report_delete_confirm_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/search_empty_screen.dart';
@@ -46,6 +53,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.login, const LoginScreen()),
       _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
       _tabRoute(AppRoutes.home, const HomeMapScreen()),
+      _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
+      _route(AppRoutes.homeAi, const HomeMapScreen(showAiSpotlight: true)),
+      _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
+      _route(AppRoutes.communityFeed, const CommunityFeedScreen()),
+      _route(AppRoutes.reportCreate, const ReportCreateScreen()),
+      _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
+      _route(AppRoutes.myReports, const MyReportsScreen()),
+      _route(AppRoutes.reportDetail, const ReportDetailScreen()),
+      _route(AppRoutes.communityPostDetail, const CommunityPostDetailScreen()),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(
         AppRoutes.notificationSettings,
@@ -77,7 +93,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 });
 
 GoRoute _route(String path, Widget child) {
-  return GoRoute(path: path, builder: (_, _) => child);
+  return GoRoute(
+    path: path,
+    pageBuilder: (_, state) =>
+        CupertinoPage<void>(key: state.pageKey, child: child),
+  );
 }
 
 GoRoute _tabRoute(String path, Widget child) {

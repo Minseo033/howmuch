@@ -1,10 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 
 class HomeMapScreen extends StatefulWidget {
-  const HomeMapScreen({super.key});
+  const HomeMapScreen({super.key, this.showAiSpotlight = false});
+
+  final bool showAiSpotlight;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -28,6 +33,15 @@ class HomeMapScreen extends StatefulWidget {
 
 class _HomeMapScreenState extends State<HomeMapScreen> {
   bool _showStoreSummary = false;
+  late bool _showAiSpotlight = widget.showAiSpotlight;
+
+  @override
+  void didUpdateWidget(covariant HomeMapScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showAiSpotlight != widget.showAiSpotlight) {
+      _showAiSpotlight = widget.showAiSpotlight;
+    }
+  }
 
   void _showStore() {
     setState(() {
@@ -50,16 +64,20 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final bottomNavHeight = _BottomNav.heightFor(bottomOffset);
+    final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const storeCardHeight = 150.44033813476562;
     const storeCardBottomGap = 94.0;
     final storeCardTop =
         FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;
-    final bottomNavTop = FigmaMobileCanvas.height - bottomNavHeight;
-    final noStoreAiTop = bottomNavTop - 64;
+    final aiControlLeft = FigmaMobileCanvas.width - 15.99432373046875 - 143;
+    final spotlightAiLeft = FigmaMobileCanvas.width - 2 - 157;
+    final noStoreAiTop = topOffset + 154;
+    final spotlightCoachTop = topOffset + 96;
+    final spotlightAiTop = topOffset + 186;
+    final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
     final floatingLocationTop = _showStoreSummary
         ? storeCardTop - 113.5511474609375
-        : noStoreAiTop - 56;
+        : noStoreAiTop + 61.9886360168457;
     final floatingAiTop = _showStoreSummary
         ? storeCardTop - 51.5482177734375
         : noStoreAiTop;
@@ -131,38 +149,57 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             top: 10 + topOffset,
             width: 343.4659118652344,
             height: 52,
-            child: _SearchBar(onTap: () => context.push(AppRoutes.searchEmpty)),
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: _SearchBar(
+                onTap: () => context.push(AppRoutes.searchEmpty),
+              ),
+            ),
           ),
           Positioned(
             left: 15.99432373046875,
             top: 67.98297119140625 + topOffset,
             width: 183.67897033691406,
             height: 28.480112075805664,
-            child: const _SourceLegend(),
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: const _SourceLegend(),
+            ),
           ),
           Positioned(
             left: 15.99432373046875,
             top: 106.46307373046875 + topOffset,
             width: 343.4659118652344,
             height: 55.80965805053711,
-            child: const _TodayPickCard(),
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: const _TodayPickCard(),
+            ),
           ),
           Positioned(
             left: 315.46875,
             top: floatingLocationTop,
             width: 43.99147415161133,
             height: 43.99147415161133,
-            child: const _RoundIconButton(
-              icon: Icons.near_me_rounded,
-              color: HomeMapScreen.blue,
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: const _RoundIconButton(
+                icon: Icons.near_me_rounded,
+                color: HomeMapScreen.blue,
+              ),
             ),
           ),
           Positioned(
-            left: 225.80963134765625,
+            left: aiControlLeft,
             top: floatingAiTop,
-            width: 133.6505584716797,
+            width: 143,
             height: 51.9886360168457,
-            child: const _AiRecommendControl(),
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: _AiRecommendControl(
+                onTap: () => context.push(AppRoutes.aiRecommend),
+              ),
+            ),
           ),
           if (_showStoreSummary)
             Positioned(
@@ -170,18 +207,60 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               top: storeCardTop,
               width: 343.4659118652344,
               height: storeCardHeight,
-              child: const _StoreSummaryCard(),
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: const _StoreSummaryCard(),
+              ),
             ),
           Positioned(
             left: 0,
             bottom: 0,
             width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
-            child: _BottomNav(
-              safeBottom: bottomOffset,
-              onMypageTap: () => context.go(AppRoutes.mypage),
+            child: Opacity(
+              opacity: homeChromeOpacity,
+              child: HowmuchBottomNav(
+                safeBottom: bottomOffset,
+                activeTab: HowmuchBottomTab.home,
+              ),
             ),
           ),
+          if (_showAiSpotlight) ...[
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _showAiSpotlight = false;
+                  });
+                },
+                behavior: HitTestBehavior.opaque,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .22),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: (FigmaMobileCanvas.width - 265) / 2,
+              top: spotlightCoachTop,
+              width: 265,
+              height: 38,
+              child: _AiCoachTip(
+                onTap: () => context.push(AppRoutes.aiRecommend),
+              ),
+            ),
+            Positioned(
+              left: spotlightAiLeft,
+              top: spotlightAiTop,
+              width: 157,
+              height: 70,
+              child: _AiRecommendControl(
+                onTap: () => context.push(AppRoutes.aiRecommend),
+                spotlight: true,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -644,170 +723,6 @@ class _DetailButton extends StatelessWidget {
   }
 }
 
-class _BottomNav extends StatelessWidget {
-  const _BottomNav({required this.safeBottom, required this.onMypageTap});
-
-  static const designHeight = 81.98863220214844;
-  static const contentHeight = 60.002838134765625;
-  static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 32.0;
-
-  static double heightFor(double safeBottom) {
-    return contentHeight +
-        (safeBottom > designBottomReserve ? safeBottom : designBottomReserve) +
-        contentLift;
-  }
-
-  final double safeBottom;
-  final VoidCallback onMypageTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomReserve = safeBottom > designBottomReserve
-        ? safeBottom
-        : designBottomReserve;
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB), width: .909)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomReserve + contentLift,
-            height: contentHeight,
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 7.5426025390625,
-                right: 7.571,
-                top: 10,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _NavItem(
-                    icon: Icons.home_outlined,
-                    label: '홈',
-                    active: true,
-                  ),
-                  const _NavItem(icon: Icons.explore_outlined, label: '탐색'),
-                  const _ReportNavItem(),
-                  const _NavItem(icon: Icons.bar_chart_rounded, label: '리포트'),
-                  GestureDetector(
-                    onTap: onMypageTap,
-                    child: const _NavItem(
-                      icon: Icons.person_outline_rounded,
-                      label: '마이',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? HomeMapScreen.blue : HomeMapScreen.hint;
-
-    return SizedBox(
-      width: 60,
-      height: 50.002838134765625,
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 5.994326591491699),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontFamily: HomeMapScreen.fontFamily,
-              fontFamilyFallback: HomeMapScreen.fontFallback,
-              fontSize: 10,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportNavItem extends StatelessWidget {
-  const _ReportNavItem();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      height: 50.002838134765625,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: -13.991455078125,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: HomeMapScreen.orange,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x47F97316),
-                    blurRadius: 5,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.add_rounded,
-                color: Colors.white,
-                size: 29,
-              ),
-            ),
-          ),
-          const Positioned(
-            top: 32.0028076171875,
-            child: Text(
-              '제보',
-              style: TextStyle(
-                color: HomeMapScreen.hint,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MapBackground extends StatelessWidget {
   const _MapBackground();
 
@@ -1029,76 +944,258 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _AiRecommendControl extends StatelessWidget {
-  const _AiRecommendControl();
+  const _AiRecommendControl({required this.onTap, this.spotlight = false});
+
+  final VoidCallback onTap;
+  final bool spotlight;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 73.6647720336914,
-          height: 22.982954025268555,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F0F172A),
-                blurRadius: 6,
-                offset: Offset(0, 4),
+    if (spotlight) {
+      return GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          children: [
+            Container(
+              width: 78,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F0F172A),
+                    blurRadius: 6,
+                    offset: Offset(0, 4),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Text.rich(
-            TextSpan(
-              children: [
+              child: const Text.rich(
                 TextSpan(
-                  text: 'AI',
-                  style: TextStyle(color: HomeMapScreen.blue),
+                  children: [
+                    TextSpan(
+                      text: 'AI',
+                      style: TextStyle(color: HomeMapScreen.blue),
+                    ),
+                    TextSpan(text: ' 추천받기'),
+                  ],
                 ),
-                TextSpan(text: ' 추천받기'),
+                style: TextStyle(
+                  color: HomeMapScreen.ink,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 9),
+            SizedBox(
+              width: 70,
+              height: 70,
+              child: CustomPaint(
+                painter: const _DashedCirclePainter(),
+                child: Center(
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [HomeMapScreen.blue, Color(0xFF7C3AED)],
+                      ),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x662563EB),
+                          blurRadius: 12,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 23,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          Container(
+            width: 82,
+            height: 22.982954025268555,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1F0F172A),
+                  blurRadius: 6,
+                  offset: Offset(0, 4),
+                ),
               ],
             ),
-            style: TextStyle(
-              color: HomeMapScreen.ink,
-              fontFamily: HomeMapScreen.fontFamily,
-              fontFamilyFallback: HomeMapScreen.fontFallback,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-        ),
-        const SizedBox(width: 7.5),
-        Container(
-          width: 51.9886360168457,
-          height: 51.9886360168457,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [HomeMapScreen.blue, Color(0xFF7C3AED)],
-            ),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 1.818),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x592563EB),
-                blurRadius: 10,
-                offset: Offset(0, 8),
+            child: const Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'AI',
+                    style: TextStyle(color: HomeMapScreen.blue),
+                  ),
+                  TextSpan(text: ' 추천받기'),
+                ],
               ),
-            ],
+              style: TextStyle(
+                color: HomeMapScreen.ink,
+                fontFamily: HomeMapScreen.fontFamily,
+                fontFamilyFallback: HomeMapScreen.fontFallback,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
+            ),
           ),
-          child: const Icon(
-            Icons.auto_awesome_rounded,
-            color: Colors.white,
-            size: 22,
+          const SizedBox(width: 7.5),
+          Container(
+            width: 51.9886360168457,
+            height: 51.9886360168457,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [HomeMapScreen.blue, Color(0xFF7C3AED)],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 1.818),
+              boxShadow: [
+                BoxShadow(
+                  color: spotlight
+                      ? const Color(0x997C3AED)
+                      : const Color(0x592563EB),
+                  blurRadius: spotlight ? 26 : 10,
+                  spreadRadius: spotlight ? 7 : 0,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.auto_awesome_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+class _AiCoachTip extends StatelessWidget {
+  const _AiCoachTip({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1F0F172A),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Row(
+          children: [
+            Icon(
+              Icons.auto_awesome_rounded,
+              color: Color(0xFF2563EB),
+              size: 14,
+            ),
+            SizedBox(width: 7),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '오늘 뭐 먹을지 모르겠다면? '),
+                    TextSpan(
+                      text: 'AI에게 물어보기',
+                      style: TextStyle(color: HomeMapScreen.blue),
+                    ),
+                  ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: HomeMapScreen.ink,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedCirclePainter extends CustomPainter {
+  const _DashedCirclePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = HomeMapScreen.blue
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    final rect = Offset.zero & size;
+    const dashCount = 22;
+    const gapRadians = .08;
+    final sweep = (math.pi * 2 / dashCount) - gapRadians;
+
+    for (var i = 0; i < dashCount; i++) {
+      canvas.drawArc(
+        rect.deflate(3),
+        i * math.pi * 2 / dashCount,
+        sweep,
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _RankDot extends StatelessWidget {

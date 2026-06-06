@@ -208,7 +208,7 @@ class PermissionSetupScreen extends ConsumerWidget {
       notification: result.notification,
       marketing: false,
     );
-    context.go(AppRoutes.home);
+    context.go(AppRoutes.homeAiFab);
   }
 
   Future<_StartupPermissionResult> _requestStartupPermissions() async {

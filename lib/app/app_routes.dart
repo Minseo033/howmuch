@@ -9,6 +9,16 @@ class AppRoutes {
   static const login = '/login';
   static const permissionSetup = '/permissions';
   static const home = '/home';
+  static const homeAiFab = '/home/ai-fab';
+  static const homeAi = '/home-ai';
+  static const aiRecommend = '/ai-recommend';
+
+  static const communityFeed = '/community';
+  static const reportCreate = '/community/report/new';
+  static const reportComplete = '/community/report/complete';
+  static const myReports = '/community/reports';
+  static const reportDetail = '/community/report/detail';
+  static const communityPostDetail = '/community/post/detail';
 
   static const mypage = '/mypage';
   static const notificationSettings = '/mypage/notifications';
