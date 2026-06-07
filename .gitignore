@@ -24,3 +24,6 @@ out/
 # Logs
 *.log
 
+
+# Firebase Service Account Key
+howmuch_backend/src/main/resources/firebase-service-account.json

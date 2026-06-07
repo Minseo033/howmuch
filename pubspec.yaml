@@ -31,8 +31,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  http: ^1.2.1
+  webview_flutter: ^4.10.0
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
