@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 
 enum _ReportFilter { all, pending, approved, needsEdit, rejected }
 
@@ -52,7 +51,6 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     return FigmaMobileCanvas(
       backgroundColor: MyReportsV2Screen.surface,
