@@ -9,7 +9,9 @@ import 'package:howmuch/features/auth/presentation/screens/permission_setup_scre
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/my_reports_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
@@ -61,6 +63,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
       _route(AppRoutes.myReports, const MyReportsScreen()),
       _route(AppRoutes.reportDetail, const ReportDetailScreen()),
+      _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
+      _route(AppRoutes.reportDetailV2, const ReportDetailV2Screen()),
       _route(AppRoutes.communityPostDetail, const CommunityPostDetailScreen()),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(
