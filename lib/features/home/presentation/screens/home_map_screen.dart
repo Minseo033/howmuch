@@ -42,7 +42,8 @@ class HomeMapScreen extends StatefulWidget {
   State<HomeMapScreen> createState() => _HomeMapScreenState();
 }
 
-class _HomeMapScreenState extends State<HomeMapScreen> {
+class _HomeMapScreenState extends State<HomeMapScreen>
+    with WidgetsBindingObserver {
   bool _showStoreSummary = false;
   late bool _showAiSpotlight = widget.showAiSpotlight;
 
@@ -53,10 +54,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
+  List<Store> _currentStores = [];
+  Store? _selectedStore;
+  bool _isFetching = false;
+
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
@@ -65,6 +71,27 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       _loadStoresInBounds(37.5665, 37.5665, 126.9780, 126.9780);
     }
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _isFetching = false;
+      _positionStream?.resume();
+      _compassStream?.resume();
+    } else if (state == AppLifecycleState.paused) {
+      _positionStream?.pause();
+      _compassStream?.pause();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _positionStream?.cancel();
+    _compassStream?.cancel();
+    super.dispose();
+  }
+
 
   void _initMobileController() {
     _webViewController = WebViewController()
@@ -79,6 +106,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           }
           if (message.message.startsWith('BOUNDS:')) {
             _fetchAndAddMarkersForMobile(message.message.substring(7));
+          }
+          if (message.message.startsWith('CLICK:')) {
+            final indexStr = message.message.substring(6);
+            final index = int.tryParse(indexStr);
+            if (index != null && index < _currentStores.length) {
+              setState(() {
+                _selectedStore = _currentStores[index];
+                _showStoreSummary = true;
+              });
+            }
           }
         },
       )
@@ -139,33 +176,101 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       <div id="kakao-map-container"></div>
       <script>
         var map;
-        var clusterer;
         var userLocationOverlay;
+        var boundsTimer = null;
 
         window.onload = function() {
           var container = document.getElementById('kakao-map-container');
           var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
           map = new kakao.maps.Map(container, options);
           
-          clusterer = new kakao.maps.MarkerClusterer({
-            map: map,
-            averageCenter: true,
-            minLevel: 6
+          kakao.maps.event.addListener(map, 'idle', function() {
+            if (boundsTimer) clearTimeout(boundsTimer);
+            boundsTimer = setTimeout(function() {
+              requestBounds();
+            }, 600);
           });
+
           Print.postMessage("Map Initialized on Mobile");
         };
 
+        var customOverlays = [];
+        var markerDataCache = [];
+
+        function onMarkerClick(index) {
+          Print.postMessage('CLICK:' + index);
+        }
+
         function addMobileMarkers(markerListJson) {
           var markerData = JSON.parse(markerListJson);
-          var markers = markerData.map(function(item) {
-            return new kakao.maps.Marker({
-              position: new kakao.maps.LatLng(item.lat, item.lng),
-              title: item.title
-            });
-          });
-          clusterer.clear();
-          clusterer.addMarkers(markers);
-          Print.postMessage("Markers added: " + markerData.length);
+          markerDataCache = markerData;
+          
+          for (var i = 0; i < customOverlays.length; i++) {
+            customOverlays[i].setMap(null);
+          }
+          customOverlays = [];
+
+          for (var i = 0; i < markerData.length; i++) {
+            (function(idx) {
+              var item = markerData[idx];
+
+              var wrapper = document.createElement('div');
+              wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+
+              var bubble = document.createElement('div');
+              bubble.style.cssText = [
+                'cursor:pointer',
+                'background:#1D4ED8',
+                'color:#fff',
+                'border-radius:20px',
+                'padding:5px 10px',
+                'font-size:12px',
+                'font-weight:700',
+                'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+                'white-space:nowrap',
+                'display:flex',
+                'flex-direction:column',
+                'align-items:center',
+                'gap:1px',
+                'line-height:1.3',
+                'border:1.5px solid rgba(255,255,255,0.3)'
+              ].join(';');
+
+              var nameEl = document.createElement('span');
+              nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+              nameEl.innerText = item.title;
+
+              var priceEl = document.createElement('span');
+              priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+              priceEl.innerText = item.menu + '  ' + item.price;
+
+              var tail = document.createElement('div');
+              tail.style.cssText = [
+                'width:0',
+                'height:0',
+                'border-left:5px solid transparent',
+                'border-right:5px solid transparent',
+                'border-top:6px solid #1D4ED8',
+                'margin-top:-1px'
+              ].join(';');
+
+              bubble.appendChild(nameEl);
+              bubble.appendChild(priceEl);
+              bubble.onclick = function() { onMarkerClick(idx); };
+              wrapper.appendChild(bubble);
+              wrapper.appendChild(tail);
+
+              var customOverlay = new kakao.maps.CustomOverlay({
+                  position: new kakao.maps.LatLng(item.lat, item.lng),
+                  content: wrapper,
+                  yAnchor: 1.0,
+                  zIndex: 3
+              });
+              customOverlay.setMap(map);
+              customOverlays.push(customOverlay);
+            })(i);
+          }
+          Print.postMessage('Markers added: ' + markerData.length);
         }
 
         function setMapCenter(lat, lng) {
@@ -372,25 +477,34 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Future<void> _fetchAndAddMarkersForMobile(String boundsJson) async {
-    final Map<String, dynamic> bounds = json.decode(boundsJson);
-    final markerList = await _fetchStoresFromBackend(bounds);
+    if (_isFetching) return; // 이미 요청 중이면 무시
+    _isFetching = true;
+    try {
+      final Map<String, dynamic> bounds = json.decode(boundsJson);
+      final markerList = await _fetchStoresFromBackend(bounds);
 
-    if (markerList.isNotEmpty && _webViewController != null) {
-      final jsonString = json
-          .encode(markerList)
-          .replaceAll("'", "\'")
-          .replaceAll('"', '\"');
-      _webViewController!.runJavaScript(
-        'addMobileMarkers("' + jsonString + '");',
-      );
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
+      if (markerList.isNotEmpty && _webViewController != null) {
+        final jsStringLiteral = jsonEncode(jsonEncode(markerList));
+        _webViewController!.runJavaScript(
+          'addMobileMarkers($jsStringLiteral);',
         );
-    } else if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${markerList.length}개의 업소를 찾았습니다.'),
+              duration: const Duration(seconds: 1),
+            ),
+          );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('이 주변에는 착한가격업소가 없습니다.'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
@@ -419,25 +533,29 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final minLng = bounds['minLng'];
     final maxLng = bounds['maxLng'];
 
-    String host = kIsWeb ? 'localhost' : '10.0.2.2';
+    String host = kIsWeb ? 'localhost' : '192.168.200.188';
     final url =
         'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 8), // 8초 타임아웃 - 백그라운드 복귀 시 무한 대기 방지
+      );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         final stores = data.map((json) => Store.fromJson(json)).toList();
-        return stores
-            .where((s) => s.latitude != 0 && s.longitude != 0)
-            .map(
-              (s) => {
-                'lat': s.latitude,
-                'lng': s.longitude,
-                'title': s.storeName,
-              },
-            )
-            .toList();
+        _currentStores = stores.where((s) => s.latitude != 0 && s.longitude != 0).toList();
+        return _currentStores.map((s) {
+          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
+          final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
+          return {
+            'lat': s.latitude,
+            'lng': s.longitude,
+            'title': s.storeName,
+            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
+            'price': priceStr,
+          };
+        }).toList();
       }
     } catch (e) {
       debugPrint('백엔드 호출 에러: ${e}');
@@ -467,6 +585,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.showAiSpotlight != widget.showAiSpotlight) {
       _showAiSpotlight = widget.showAiSpotlight;
+    }
+  }
+
+  void _handleMarkerClick(String storeId) {
+    try {
+      final store = _currentStores.firstWhere((s) => s.storeName + s.address == storeId);
+      setState(() {
+        _selectedStore = store;
+        _showStoreSummary = true;
+      });
+    } catch (e) {
+      debugPrint('가게 찾기 실패: $e');
     }
   }
 
@@ -522,15 +652,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ),
           ),
 
-          // TODO(박지환 BE): 매장/가격/좌표 DB API가 붙으면 아래 더미 마커들을 API 응답 기반으로 렌더링하세요.
-          Positioned(
-            left: 139,
-            top: 401.03265380859375,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _PriceMarker(),
-            ),
-          ),
+
 
           Positioned(
             left: 15.99432373046875,
@@ -592,7 +714,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               ),
             ),
           ),
-          if (_showStoreSummary)
+          if (_showStoreSummary && _selectedStore != null)
             Positioned(
               left: 15.99432373046875,
               top: storeCardTop,
@@ -600,7 +722,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: const _StoreSummaryCard(),
+                child: _StoreSummaryCard(store: _selectedStore!),
               ),
             ),
           Positioned(
@@ -921,7 +1043,8 @@ class _TodayPickText extends StatelessWidget {
 }
 
 class _StoreSummaryCard extends StatelessWidget {
-  const _StoreSummaryCard();
+  final Store store;
+  const _StoreSummaryCard({required this.store});
 
   @override
   Widget build(BuildContext context) {
@@ -941,19 +1064,19 @@ class _StoreSummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(15.99432373046875),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             SizedBox(
               height: 76,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _StoreInfo()),
-                  _StorePrice(),
+                  Expanded(child: _StoreInfo(store: store)),
+                  _StorePrice(store: store),
                 ],
               ),
             ),
-            SizedBox(height: 11.5),
-            Row(children: [_SavingBadge(), Spacer(), _DetailButton()]),
+            const SizedBox(height: 11.5),
+            Row(children: [const _SavingBadge(), const Spacer(), _DetailButton(store: store)]),
           ],
         ),
       ),
@@ -962,24 +1085,25 @@ class _StoreSummaryCard extends StatelessWidget {
 }
 
 class _StoreInfo extends StatelessWidget {
-  const _StoreInfo();
+  final Store store;
+  const _StoreInfo({required this.store});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      children: const [
-        Positioned(left: 0, top: 0, child: _GovernmentBadge()),
+      children: [
+        const Positioned(left: 0, top: 0, child: _GovernmentBadge()),
         Positioned(
           left: 77.5,
           top: 2.2442626953125,
-          child: Text('· 320m', style: _muted11),
+          child: Text('· ${store.address.split(' ').take(3).join(' ')}', style: _muted11),
         ),
         Positioned(
           left: 0,
           top: 28.991455078125,
           child: Text(
-            '착한분식',
-            style: TextStyle(
+            store.storeName,
+            style: const TextStyle(
               color: HomeMapScreen.ink,
               fontFamily: HomeMapScreen.fontFamily,
               fontFamilyFallback: HomeMapScreen.fontFallback,
@@ -987,19 +1111,21 @@ class _StoreInfo extends StatelessWidget {
               fontWeight: FontWeight.w700,
               height: 1.5,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         Positioned(
           left: 0,
           top: 58.4801025390625,
-          child: Text('한식 · 분식', style: _muted12),
+          child: Text(store.industry, style: _muted12),
         ),
-        Positioned(
+        const Positioned(
           left: 67.05963134765625,
           top: 61.974365234375,
           child: Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 11),
         ),
-        Positioned(
+        const Positioned(
           left: 86.05111694335938,
           top: 58.4801025390625,
           child: Text(
@@ -1020,25 +1146,30 @@ class _StoreInfo extends StatelessWidget {
 }
 
 class _StorePrice extends StatelessWidget {
-  const _StorePrice();
+  final Store store;
+  const _StorePrice({required this.store});
 
   @override
   Widget build(BuildContext context) {
+    final p = store.price1.replaceAll(RegExp(r'[^0-9]'), '');
+    final priceStr = p.isEmpty ? store.price1 : p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+    final menuStr = store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴';
+    
     return SizedBox(
       width: 72,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: const [
-          Text('대표 메뉴', style: _muted10),
+        children: [
+          Text(menuStr, style: _muted10, maxLines: 1, overflow: TextOverflow.ellipsis),
           Text.rich(
             TextSpan(
               children: [
-                TextSpan(text: '5,500', style: TextStyle(fontSize: 17)),
-                TextSpan(text: '원', style: TextStyle(fontSize: 12)),
+                TextSpan(text: priceStr, style: const TextStyle(fontSize: 17)),
+                if (p.isNotEmpty) const TextSpan(text: '원', style: TextStyle(fontSize: 12)),
               ],
             ),
             textAlign: TextAlign.right,
-            style: TextStyle(
+            style: const TextStyle(
               color: HomeMapScreen.ink,
               fontFamily: HomeMapScreen.fontFamily,
               fontFamilyFallback: HomeMapScreen.fontFallback,
@@ -1081,34 +1212,38 @@ class _SavingBadge extends StatelessWidget {
 }
 
 class _DetailButton extends StatelessWidget {
-  const _DetailButton();
+  final Store store;
+  const _DetailButton({required this.store});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 88.9772720336914,
-      height: 29.985794067382812,
-      decoration: BoxDecoration(
-        color: HomeMapScreen.blue,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            '상세보기',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: HomeMapScreen.fontFamily,
-              fontFamilyFallback: HomeMapScreen.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.storeDetail, extra: store),
+      child: Container(
+        width: 88.9772720336914,
+        height: 29.985794067382812,
+        decoration: BoxDecoration(
+          color: HomeMapScreen.blue,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '상세보기',
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: HomeMapScreen.fontFamily,
+                fontFamilyFallback: HomeMapScreen.fontFallback,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
             ),
-          ),
-          SizedBox(width: 4),
-          Icon(Icons.chevron_right_rounded, color: Colors.white, size: 13),
-        ],
+            SizedBox(width: 4),
+            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 13),
+          ],
+        ),
       ),
     );
   }

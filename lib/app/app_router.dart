@@ -34,6 +34,8 @@ import 'package:howmuch/features/system/presentation/screens/network_error_scree
 import 'package:howmuch/features/system/presentation/screens/report_delete_confirm_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/search_empty_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/session_expired_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/store_detail_screen.dart';
+import 'package:howmuch/features/store/store_model.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -92,6 +94,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
+      GoRoute(
+        path: AppRoutes.storeDetail,
+        pageBuilder: (_, state) {
+          final store = state.extra as Store;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: StoreDetailScreen(store: store),
+          );
+        },
+      ),
     ],
   );
 });

@@ -41,4 +41,5 @@ class AppRoutes {
   static const searchEmpty = '/search/empty';
   static const reportDeleteConfirm = '/reports/delete-confirm';
   static const sessionExpired = '/session-expired';
+  static const storeDetail = '/store/detail';
 }
