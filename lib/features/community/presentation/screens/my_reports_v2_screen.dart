@@ -104,10 +104,6 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                _SummaryCard(
-                  onTap: () => setState(() => _filter = _ReportFilter.all),
-                ),
-                const SizedBox(height: 11.989),
                 ..._visibleReports.map(
                   (report) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -156,7 +152,7 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
                       Icon(Icons.add_rounded, color: Colors.white, size: 20),
                       SizedBox(width: 4),
                       Text(
-                        '새 제보',
+                        '새 제보 등록하기',
                         style: TextStyle(
                           color: Colors.white,
                           fontFamily: MyReportsV2Screen.fontFamily,
@@ -211,7 +207,7 @@ class _Header extends StatelessWidget {
           ),
           const Center(
             child: Text(
-              '내 제보',
+              '내 제보 내역',
               style: TextStyle(
                 color: MyReportsV2Screen.black,
                 fontFamily: MyReportsV2Screen.fontFamily,
@@ -376,104 +372,6 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 68.48,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            begin: Alignment(-0.98, -0.2),
-            end: Alignment(0.98, 1),
-            colors: [Color(0xFFEFF4FF), Color(0xFFFFF3EA)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 13.99,
-              top: 15.24,
-              width: 37.997,
-              height: 37.997,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.description_outlined,
-                  color: MyReportsV2Screen.blue,
-                  size: 18,
-                ),
-              ),
-            ),
-            const Positioned(
-              left: 63.98,
-              top: 13.99,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '총 제보',
-                    style: TextStyle(
-                      color: MyReportsV2Screen.muted,
-                      fontFamily: MyReportsV2Screen.fontFamily,
-                      fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                  ),
-                  SizedBox(height: 1),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: '3건 '),
-                        TextSpan(
-                          text: '승인 1건',
-                          style: TextStyle(
-                            color: MyReportsV2Screen.green,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    style: TextStyle(
-                      color: MyReportsV2Screen.black,
-                      fontFamily: MyReportsV2Screen.fontFamily,
-                      fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Positioned(
-              right: 14.99,
-              top: 22.24,
-              child: Icon(
-                Icons.chevron_right_rounded,
-                color: MyReportsV2Screen.muted,
-                size: 24,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ReportCard extends StatelessWidget {
   const _ReportCard({
