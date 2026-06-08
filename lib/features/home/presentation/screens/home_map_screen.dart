@@ -148,7 +148,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
         function setMapCenter(lat, lng) {
           if (map) {
-            map.setCenter(new kakao.maps.LatLng(lat, lng));
+            map.panTo(new kakao.maps.LatLng(lat, lng));
           }
         }
 
@@ -263,7 +263,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           );
         } else {
           _webViewController?.runJavaScript(
-            'setMapCenter(${position.latitude}, ${position.longitude}); map.setLevel(3);',
+            'setMapCenter(${position.latitude}, ${position.longitude}); map.setLevel(3, {animate: true});',
           );
         }
       }
