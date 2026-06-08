@@ -41,13 +41,6 @@ public class FirebaseService {
         }
     }
 
-    // 💡 모든 업소 데이터를 가져오는 메서드 추가
-    public java.util.List<Map<String, Object>> getAllStores() throws Exception {
-        return db.collection("stores").get().get().getDocuments().stream()
-                .map(DocumentSnapshot::getData)
-                .toList();
-    }
-
     // 💡 문서 개수를 가져오는 메서드 추가
     public long getStoreCount() throws Exception {
         return db.collection("stores").count().get().get().getCount();

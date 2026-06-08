@@ -52,7 +52,13 @@ public class PublicDataService {
                                 return fetchPage(page, perPage)
                                         .flatMapMany(response -> Flux.fromIterable(response.getData()))
                                         .flatMap(item -> geocodingService.getCoordinates(item.getAddress())
-                                                .map(coords -> convertToStoreDto(item, coords))
+                                                .flatMap(coords -> {
+                                                    // 💡 좌표가 0.0이면 저장하지 않고 건너뜀 (비용 및 쓰레기 데이터 방지)
+                                                    if (coords.get("latitude") == 0.0 || coords.get("longitude") == 0.0) {
+                                                        return Mono.empty();
+                                                    }
+                                                    return Mono.just(convertToStoreDto(item, coords));
+                                                })
                                                 .flatMap(this::saveToFirestore)
                                                 .doOnSuccess(v -> totalSaved.incrementAndGet())
                                                 .onErrorResume(e -> {
@@ -112,8 +118,13 @@ public class PublicDataService {
     }
 
     private Mono<Void> saveToFirestore(StoreDto storeDto) {
-        String docId = storeDto.getStoreName().replace("/", "-").replace(".", "").trim();
-        if (docId.isEmpty()) docId = "Unknown_" + System.currentTimeMillis();
+        // 💡 문서 ID를 "업소명_시도_시군구" 형태로 만들어 중복 덮어쓰기 방지
+        String safeName = storeDto.getStoreName() != null ? storeDto.getStoreName().replace("/", "-").replace(".", "").trim() : "Unknown";
+        String city = storeDto.getCityProvince() != null ? storeDto.getCityProvince().trim() : "";
+        String district = storeDto.getCityDistrict() != null ? storeDto.getCityDistrict().trim() : "";
+        
+        String docId = String.format("%s_%s_%s", safeName, city, district).replaceAll("\\s+", "_");
+        if (docId.startsWith("Unknown_")) docId = docId + "_" + System.currentTimeMillis();
 
         final String finalDocId = docId;
         return Mono.<Void>fromCallable(() -> {
