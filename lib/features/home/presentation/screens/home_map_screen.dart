@@ -263,7 +263,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           );
         } else {
           _webViewController?.runJavaScript(
-            'setMapCenter(${position.latitude}, ${position.longitude});',
+            'setMapCenter(${position.latitude}, ${position.longitude}); map.setLevel(3);',
           );
         }
       }
