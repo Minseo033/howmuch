@@ -6,9 +6,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ReportCreateScreen extends StatefulWidget {
-  const ReportCreateScreen({super.key, this.id});
-
-  final String? id;
+  const ReportCreateScreen({super.key});
 
   @override
   State<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -24,7 +22,6 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
     '음식점 · 카페',
     '음식점 · 분식',
     '서비스 · 미용',
-    '기타 · 기타',
   ];
   static const _addressOptions = [
     '서울시 마포구 합정동',
@@ -407,10 +404,6 @@ double _priceInfoCardHeight(int menuCount) {
   return 12.898 + (rowCount * 65.98) + ((rowCount - 1) * 10) + 10 + 34 + 12.898;
 }
 
-double _photoConfirmCardHeight(int photoCount) {
-  return 151.378 + (photoCount > 0 ? 103.885 : 0);
-}
-
 class _MenuPriceControllers {
   _MenuPriceControllers({required String menu, required String price})
     : menu = TextEditingController(text: menu),
@@ -556,6 +549,7 @@ class _StepItem extends StatelessWidget {
       child: SizedBox(
         width: 64,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 25.994,
@@ -745,9 +739,10 @@ class _BasicInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
+      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, 12.898),
       decoration: _cardDecoration,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _EditableFormRow(label: '매장명 *', controller: storeController),
           const SizedBox(height: 10),
@@ -783,9 +778,10 @@ class _PriceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
+      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, 12.898),
       decoration: _cardDecoration,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           for (var index = 0; index < menuPrices.length; index++) ...[
             _MenuPriceRow(
@@ -875,7 +871,8 @@ class _MenuPriceRow extends StatelessWidget {
             const SizedBox(width: 7.997),
             SizedBox(
               width: 34,
-                      child: Column(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   const SizedBox(height: 25.494),
                   SizedBox(
@@ -929,6 +926,7 @@ class _EditableFormRow extends StatelessWidget {
     return SizedBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
@@ -943,7 +941,8 @@ class _EditableFormRow extends StatelessWidget {
           ),
           const SizedBox(height: 5.994),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            height: 41.989,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: ReportCreateStyle.border, width: .909),
@@ -1040,9 +1039,10 @@ class _PhotoConfirmCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
+      padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, 12.898),
       decoration: _cardDecoration,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           _PhotoUploadBox(photos: photos, onTap: onPhotoTap),
           if (photos.isNotEmpty) ...[
