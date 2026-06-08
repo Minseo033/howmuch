@@ -17,6 +17,7 @@ class HomeMapScreen extends StatefulWidget {
 
 class _HomeMapScreenState extends State<HomeMapScreen> {
   final String _viewId = 'kakao-map-container';
+  final String _kakaoJsKey = '949e657c37f55074dbb2a14ceb273e2b';
   bool _isMapInitialized = false;
   List<Store> _stores = [];
   WebViewController? _webViewController;
@@ -62,6 +63,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..loadHtmlString(_getMobileMapHtml());
   }
 
+  // (모바일용) 초기 범위를 지정하기 위한 더미 메서드 (실제는 웹뷰 로드 후 호출)
+  void _loadStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
+      // 초기에는 웹뷰 내부의 JS onLoad에서 처리되도록 위임합니다.
+      debugPrint('초기 로드 대기 중...');
+  }
+
   String _getMobileMapHtml() {
     return '''
     <!DOCTYPE html>
@@ -73,7 +80,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #kakao-map-container { width: 100%; height: 100%; }
       </style>
-      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer"></script>
+      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${_kakaoJsKey}&libraries=services,clusterer"></script>
     </head>
     <body>
       <div id="kakao-map-container"></div>
