@@ -554,7 +554,6 @@ class _StepItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: 64,
-        height: 44.986,
         child: Column(
           children: [
             Container(
@@ -745,7 +744,6 @@ class _BasicInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 243.736,
       padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
       decoration: _cardDecoration,
       child: Column(
@@ -784,7 +782,6 @@ class _PriceInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _priceInfoCardHeight(menuPrices.length),
       padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
       decoration: _cardDecoration,
       child: Column(
@@ -841,7 +838,6 @@ class _MenuPriceRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 65.98,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -878,8 +874,7 @@ class _MenuPriceRow extends StatelessWidget {
             const SizedBox(width: 7.997),
             SizedBox(
               width: 34,
-              height: 65.98,
-              child: Column(
+                      child: Column(
                 children: [
                   const SizedBox(height: 25.494),
                   SizedBox(
@@ -931,7 +926,6 @@ class _EditableFormRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 65.98,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -948,8 +942,7 @@ class _EditableFormRow extends StatelessWidget {
           ),
           const SizedBox(height: 5.994),
           Container(
-            height: 41.989,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: ReportCreateStyle.border, width: .909),
@@ -1046,7 +1039,6 @@ class _PhotoConfirmCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _photoConfirmCardHeight(photos.length),
       padding: const EdgeInsets.fromLTRB(12.898, 12.898, 12.898, .909),
       decoration: _cardDecoration,
       child: Column(
