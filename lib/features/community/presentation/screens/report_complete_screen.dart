@@ -132,7 +132,7 @@ class ReportCompleteScreen extends StatelessWidget {
               label: '내 제보 내역 확인',
               backgroundColor: const Color(0xFFF1F5F9),
               foregroundColor: ink,
-              onTap: () => context.push(AppRoutes.myReports),
+              onTap: () => context.push(AppRoutes.myReportsV2),
             ),
           ),
         ],
