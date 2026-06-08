@@ -233,28 +233,39 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       return;
     }
 
+    _startLocationTracking();
+
     try {
       Position? position = _lastKnownPosition;
       if (position == null) {
-        position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best,
-        );
-        _lastKnownPosition = position;
-        _startLocationTracking();
+        try {
+          position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.best,
+            timeLimit: const Duration(seconds: 3),
+          );
+        } catch (e) {
+          position = await Geolocator.getLastKnownPosition();
+        }
+        if (position != null) {
+          _lastKnownPosition = position;
+          _updateLocationMarker(position.latitude, position.longitude);
+        }
       } else {
         _updateLocationMarker(position.latitude, position.longitude);
       }
 
-      if (kIsWeb) {
-        web_helper.setKakaoMapCenterWeb(
-          _viewId,
-          position.latitude,
-          position.longitude,
-        );
-      } else {
-        _webViewController?.runJavaScript(
-          'setMapCenter(${position.latitude}, ${position.longitude});',
-        );
+      if (position != null) {
+        if (kIsWeb) {
+          web_helper.setKakaoMapCenterWeb(
+            _viewId,
+            position.latitude,
+            position.longitude,
+          );
+        } else {
+          _webViewController?.runJavaScript(
+            'setMapCenter(${position.latitude}, ${position.longitude});',
+          );
+        }
       }
     } catch (e) {
       debugPrint('위치 가져오기 에러: ${e}');
