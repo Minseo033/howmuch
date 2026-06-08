@@ -27,3 +27,7 @@ String? getKakaoMapBoundsWeb(String viewId) {
 void addKakaoMarkersWeb(String viewId, String jsonString) {
   js.context.callMethod('addKakaoMarkers', [viewId, jsonString]);
 }
+
+void setKakaoMapCenterWeb(String viewId, double lat, double lng) {
+  js.context.callMethod('setKakaoMapCenter', [viewId, lat, lng]);
+}

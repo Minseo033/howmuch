@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
-import 'kakao_web_helper_stub.dart' if (dart.library.js) 'kakao_web_helper.dart' as web_helper;
+import 'kakao_web_helper_stub.dart'
+    if (dart.library.js) 'kakao_web_helper.dart'
+    as web_helper;
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -74,8 +77,13 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       ..loadHtmlString(_getMobileMapHtml());
   }
 
-  void _loadStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
-      debugPrint('초기 로드 대기 중...');
+  void _loadStoresInBounds(
+    double minLat,
+    double maxLat,
+    double minLng,
+    double maxLng,
+  ) {
+    debugPrint('초기 로드 대기 중...');
   }
 
   String _getMobileMapHtml() {
@@ -123,6 +131,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           Print.postMessage("Markers added: " + markerData.length);
         }
 
+        function setMapCenter(lat, lng) {
+          if (map) {
+            map.setCenter(new kakao.maps.LatLng(lat, lng));
+          }
+        }
+
         function requestBounds() {
           if(!map) return;
           var bounds = map.getBounds();
@@ -145,11 +159,64 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       if (!mounted) return;
       try {
         web_helper.initKakaoWebMap(_viewId);
-        setState(() { _isMapInitialized = true; });
+        setState(() {
+          _isMapInitialized = true;
+        });
       } catch (e) {
         debugPrint('지도 초기화 에러: ${e}');
       }
     });
+  }
+
+  Future<void> _moveToCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('위치 서비스를 활성화해주세요.')));
+      return;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        if (mounted)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('위치 권한이 거부되었습니다.')));
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 허용해주세요.')),
+        );
+      return;
+    }
+
+    try {
+      Position position = await Geolocator.getCurrentPosition();
+      if (kIsWeb) {
+        web_helper.setKakaoMapCenterWeb(
+          _viewId,
+          position.latitude,
+          position.longitude,
+        );
+      } else {
+        _webViewController?.runJavaScript(
+          'setMapCenter(${position.latitude}, ${position.longitude});',
+        );
+      }
+    } catch (e) {
+      debugPrint('위치 가져오기 에러: ${e}');
+    }
   }
 
   Future<void> _searchInCurrentArea() async {
@@ -168,13 +235,23 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   Future<void> _fetchAndAddMarkersForMobile(String boundsJson) async {
     final Map<String, dynamic> bounds = json.decode(boundsJson);
     final markerList = await _fetchStoresFromBackend(bounds);
-    
+
     if (markerList.isNotEmpty && _webViewController != null) {
-      final jsonString = json.encode(markerList).replaceAll("'", "\'").replaceAll('"', '\"');
-      _webViewController!.runJavaScript('addMobileMarkers("' + jsonString + '");');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')));
+      final jsonString = json
+          .encode(markerList)
+          .replaceAll("'", "\'")
+          .replaceAll('"', '\"');
+      _webViewController!.runJavaScript(
+        'addMobileMarkers("' + jsonString + '");',
+      );
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
+        );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
     }
   }
 
@@ -184,31 +261,44 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
     if (markerList.isNotEmpty) {
       web_helper.addKakaoMarkersWeb(_viewId, json.encode(markerList));
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
+        );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(Map<String, dynamic> bounds) async {
+  Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
+    Map<String, dynamic> bounds,
+  ) async {
     final minLat = bounds['minLat'];
     final maxLat = bounds['maxLat'];
     final minLng = bounds['minLng'];
     final maxLng = bounds['maxLng'];
 
     String host = kIsWeb ? 'localhost' : '10.0.2.2';
-    final url = 'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+    final url =
+        'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
     try {
       final response = await http.get(Uri.parse(url));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         final stores = data.map((json) => Store.fromJson(json)).toList();
-        return stores.where((s) => s.latitude != 0 && s.longitude != 0).map((s) => {
-          'lat': s.latitude,
-          'lng': s.longitude,
-          'title': s.storeName,
-        }).toList();
+        return stores
+            .where((s) => s.latitude != 0 && s.longitude != 0)
+            .map(
+              (s) => {
+                'lat': s.latitude,
+                'lng': s.longitude,
+                'title': s.storeName,
+              },
+            )
+            .toList();
       }
     } catch (e) {
       debugPrint('백엔드 호출 에러: ${e}');
@@ -228,7 +318,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   }
 
   Widget _buildMobileMap() {
-    if (_webViewController == null) return const Center(child: Text('초기화 중...'));
+    if (_webViewController == null)
+      return const Center(child: Text('초기화 중...'));
     return WebViewWidget(controller: _webViewController!);
   }
 
@@ -291,39 +382,8 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: kIsWeb ? _buildWebMap() : _buildMobileMap(),
             ),
           ),
+
           // TODO(박지환 BE): 매장/가격/좌표 DB API가 붙으면 아래 더미 마커들을 API 응답 기반으로 렌더링하세요.
-          Positioned(
-            left: 107,
-            top: 289.23016357421875,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _Pin(color: HomeMapScreen.blue),
-            ),
-          ),
-          Positioned(
-            left: 227,
-            top: 229.23016357421875,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _Pin(color: HomeMapScreen.blue),
-            ),
-          ),
-          Positioned(
-            left: 297,
-            top: 349.23016357421875,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _Pin(color: HomeMapScreen.orange, square: true),
-            ),
-          ),
-          Positioned(
-            left: 77,
-            top: 439.23016357421875,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _Pin(color: HomeMapScreen.orange, square: true),
-            ),
-          ),
           Positioned(
             left: 139,
             top: 401.03265380859375,
@@ -332,14 +392,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               child: const _PriceMarker(),
             ),
           ),
-          Positioned(
-            left: 307,
-            top: 469.23016357421875,
-            child: _StoreTapTarget(
-              onTap: _showStore,
-              child: const _Pin(color: HomeMapScreen.blue),
-            ),
-          ),
+
           const Positioned(left: 158, top: 538, child: _MyLocationDot()),
           Positioned(
             left: 15.99432373046875,
@@ -380,9 +433,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             height: 52.0,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: const _RoundIconButton(
-                icon: Icons.near_me_rounded,
-                color: HomeMapScreen.blue,
+              child: GestureDetector(
+                onTap: _moveToCurrentLocation,
+                child: const _RoundIconButton(
+                  icon: Icons.near_me_rounded,
+                  color: HomeMapScreen.blue,
+                ),
               ),
             ),
           ),
@@ -920,24 +976,6 @@ class _DetailButton extends StatelessWidget {
   }
 }
 
-class _MapBackground extends StatelessWidget {
-  const _MapBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return const DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
-        ),
-      ),
-      child: CustomPaint(painter: _HomeMapPainter(), child: SizedBox.expand()),
-    );
-  }
-}
-
 class _HomeMapPainter extends CustomPainter {
   const _HomeMapPainter();
 
@@ -991,48 +1029,6 @@ class _HomeMapPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _Pin extends StatelessWidget {
-  const _Pin({required this.color, this.square = false});
-
-  final Color color;
-  final bool square;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 26,
-      height: 31,
-      child: Column(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: color,
-              shape: square ? BoxShape.rectangle : BoxShape.circle,
-              borderRadius: square ? BorderRadius.circular(8) : null,
-              border: Border.all(color: Colors.white, width: 2.727),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 8,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(
-              Icons.place_rounded,
-              color: Colors.white,
-              size: 13,
-            ),
-          ),
-          CustomPaint(size: const Size(7, 5), painter: _TrianglePainter(color)),
-        ],
-      ),
-    );
-  }
 }
 
 class _PriceMarker extends StatelessWidget {
