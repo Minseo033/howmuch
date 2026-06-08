@@ -102,7 +102,7 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
                 20,
                 15.994,
                 20,
-                bottomNavHeight + 24,
+                (safePadding.bottom > 0 ? safePadding.bottom + 68 : 88) + 24,
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
@@ -137,10 +137,41 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
             left: 0,
             bottom: 0,
             width: FigmaMobileCanvas.width,
-            height: bottomNavHeight,
-            child: HowmuchBottomNav(
-              safeBottom: safePadding.bottom,
-              activeTab: HowmuchBottomTab.report,
+            height: safePadding.bottom > 0 ? safePadding.bottom + 68 : 88,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, safePadding.bottom > 0 ? safePadding.bottom : 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: MyReportsV2Screen.border, width: 0.909),
+                ),
+              ),
+              child: Material(
+                color: MyReportsV2Screen.blue,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: () => context.push(AppRoutes.reportCreate),
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 4),
+                      Text(
+                        '새 제보',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: MyReportsV2Screen.fontFamily,
+                          fontFamilyFallback: MyReportsV2Screen.fontFallback,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
