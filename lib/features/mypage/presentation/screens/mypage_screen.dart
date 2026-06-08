@@ -5,6 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 
 class MypageScreen extends ConsumerWidget {
   const MypageScreen({super.key});
@@ -36,7 +37,7 @@ class MypageScreen extends ConsumerWidget {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final bottomNavHeight = _MypageBottomNav.heightFor(bottomOffset);
+    final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     final settingsCardHeight = auth.isAdmin ? 448.0 : 358.0;
     final scrollContentHeight =
         659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
@@ -196,9 +197,9 @@ class MypageScreen extends ConsumerWidget {
             bottom: 0,
             width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
-            child: _MypageBottomNav(
+            child: HowmuchBottomNav(
               safeBottom: bottomOffset,
-              onHomeTap: () => context.go(AppRoutes.home),
+              activeTab: HowmuchBottomTab.mypage,
             ),
           ),
         ],
@@ -932,161 +933,7 @@ class _DividerLine extends StatelessWidget {
   }
 }
 
-class _MypageBottomNav extends StatelessWidget {
-  const _MypageBottomNav({required this.safeBottom, required this.onHomeTap});
 
-  static const designHeight = 81.98863220214844;
-  static const contentHeight = 60.002838134765625;
-  static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 32.0;
-
-  static double heightFor(double safeBottom) {
-    return contentHeight +
-        (safeBottom > designBottomReserve ? safeBottom : designBottomReserve) +
-        contentLift;
-  }
-
-  final double safeBottom;
-  final VoidCallback onHomeTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomReserve = safeBottom > designBottomReserve
-        ? safeBottom
-        : designBottomReserve;
-
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(color: MypageScreen.border, width: .909),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: bottomReserve + contentLift,
-            height: contentHeight,
-            child: Padding(
-              padding: const EdgeInsets.only(
-                left: 7.5426025390625,
-                right: 7.571,
-                top: 10,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: onHomeTap,
-                    child: const _NavItem(
-                      icon: Icons.home_outlined,
-                      label: '홈',
-                    ),
-                  ),
-                  const _NavItem(icon: Icons.explore_outlined, label: '탐색'),
-                  const _ReportNavItem(),
-                  const _NavItem(icon: Icons.bar_chart_rounded, label: '리포트'),
-                  const _NavItem(
-                    icon: Icons.person_outline_rounded,
-                    label: '마이',
-                    active: true,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.active = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? MypageScreen.blue : MypageScreen.hint;
-
-    return SizedBox(
-      width: 60,
-      height: 50.002838134765625,
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 5.994326591491699),
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontFamily: MypageScreen.fontFamily,
-              fontFamilyFallback: MypageScreen.fontFallback,
-              fontSize: 10,
-              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ReportNavItem extends StatelessWidget {
-  const _ReportNavItem();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      height: 50.002838134765625,
-      child: Stack(
-        alignment: Alignment.topCenter,
-        clipBehavior: Clip.none,
-        children: [
-          Positioned(
-            top: -13.991455078125,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                color: MypageScreen.orange,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x47F97316),
-                    blurRadius: 5,
-                    offset: Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.add_rounded,
-                color: Colors.white,
-                size: 29,
-              ),
-            ),
-          ),
-          const Positioned(
-            top: 32.0028076171875,
-            child: Text('제보', style: _navText),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 const _white10 = TextStyle(
   color: Colors.white,

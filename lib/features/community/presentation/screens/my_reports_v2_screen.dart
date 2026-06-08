@@ -106,25 +106,6 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber),
-                  ),
-                  child: const Text(
-                    '🚧 3-A, 3-B, 3-C 신규 디자인 대기중 🚧\nFigma MCP 연결 실패로 임시 화면입니다.\n디자인을 캡처해서 주시면 바로 완성해 드릴게요!',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.brown,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
                 _SummaryCard(
                   onTap: () => setState(() => _filter = _ReportFilter.all),
                 ),
@@ -640,7 +621,7 @@ class _StatusBadge extends StatelessWidget {
             width: 5,
             height: 5,
             decoration: BoxDecoration(
-              color: report.badgeColor,
+              color: report.badgeDotColor ?? report.badgeColor,
               shape: BoxShape.circle,
             ),
           ),
@@ -648,7 +629,7 @@ class _StatusBadge extends StatelessWidget {
           Text(
             report.status,
             style: TextStyle(
-              color: report.badgeColor,
+              color: report.badgeTextColor ?? report.badgeColor,
               fontFamily: MyReportsV2Screen.fontFamily,
               fontFamilyFallback: MyReportsV2Screen.fontFallback,
               fontSize: 10,
@@ -716,6 +697,8 @@ class _MyReportData {
     required this.menu,
     required this.badgeBackground,
     required this.badgeColor,
+    this.badgeDotColor,
+    this.badgeTextColor,
     required this.badgeWidth,
     required this.height,
     this.notice,
@@ -734,6 +717,8 @@ class _MyReportData {
   final String menu;
   final Color badgeBackground;
   final Color badgeColor;
+  final Color? badgeDotColor;
+  final Color? badgeTextColor;
   final double badgeWidth;
   final double height;
   final String? notice;
@@ -779,13 +764,15 @@ const _reports = [
     date: '2026.05.08',
     title: '착한김밥',
     menu: '김밥 2,500원',
-    badgeBackground: Color(0xFFFFF3EA),
+    badgeBackground: Color(0xFFFEF3C7),
     badgeColor: MyReportsV2Screen.orange,
+    badgeDotColor: Color(0xFFF59E0B),
+    badgeTextColor: Color(0xFF92400E),
     badgeWidth: 70.497,
     height: 194.134,
     notice: '메뉴판 사진이 흐려 가격 확인이 어려워요',
     actionLabel: '수정하기',
-    actionColor: MyReportsV2Screen.orange,
+    actionColor: MyReportsV2Screen.blue,
     actionIcon: Icons.edit_outlined,
     actionTop: 142.33,
     actionWidth: 120.185,
