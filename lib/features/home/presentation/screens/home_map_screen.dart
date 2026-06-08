@@ -69,6 +69,9 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         'Print',
         onMessageReceived: (JavaScriptMessage message) {
           debugPrint('WebView: ${message.message}');
+          if (message.message == 'Map Initialized on Mobile') {
+            _moveToCurrentLocation();
+          }
           if (message.message.startsWith('BOUNDS:')) {
             _fetchAndAddMarkersForMobile(message.message.substring(7));
           }
@@ -162,6 +165,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         setState(() {
           _isMapInitialized = true;
         });
+        _moveToCurrentLocation();
       } catch (e) {
         debugPrint('지도 초기화 에러: ${e}');
       }
