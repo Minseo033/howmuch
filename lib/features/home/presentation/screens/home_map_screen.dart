@@ -71,16 +71,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;
     final aiControlLeft = FigmaMobileCanvas.width - 15.99432373046875 - 143;
     final spotlightAiLeft = FigmaMobileCanvas.width - 2 - 157;
-    final noStoreAiTop = topOffset + 154;
-    final spotlightCoachTop = topOffset + 96;
-    final spotlightAiTop = topOffset + 186;
     final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
+    final bottomBase = FigmaMobileCanvas.height - bottomNavHeight;
     final floatingLocationTop = _showStoreSummary
-        ? storeCardTop - 113.5511474609375
-        : noStoreAiTop + 61.9886360168457;
+        ? storeCardTop - 132.0
+        : bottomBase - 132.0;
     final floatingAiTop = _showStoreSummary
-        ? storeCardTop - 51.5482177734375
-        : noStoreAiTop;
+        ? storeCardTop - 68.0
+        : bottomBase - 68.0;
+    final spotlightAiTop = bottomBase - 77.0;
+    final spotlightCoachTop = spotlightAiTop - 48.0;
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFDDE6F0),
@@ -177,10 +177,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ),
           ),
           Positioned(
-            left: 315.46875,
+            left: 307.0,
             top: floatingLocationTop,
-            width: 43.99147415161133,
-            height: 43.99147415161133,
+            width: 52.0,
+            height: 52.0,
             child: Opacity(
               opacity: homeChromeOpacity,
               child: const _RoundIconButton(
@@ -926,7 +926,8 @@ class _RoundIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      alignment: Alignment.center,
       decoration: const BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
@@ -938,7 +939,7 @@ class _RoundIconButton extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: color, size: 18),
+      child: Icon(icon, color: color, size: 22),
     );
   }
 }

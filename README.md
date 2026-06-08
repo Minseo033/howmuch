@@ -52,19 +52,21 @@ flutter run -d chrome
 - [브랜치 전략](docs/BRANCH_STRATEGY.md)
 - [역할분담표](docs/ROLE_ASSIGNMENT.md)
 - [김민서 FE 구현 현황](docs/MINSEO_FE_STATUS.md)
+- [오태관 FE 구현 현황](docs/TAEGWAN_FE_STATUS.md)
 
 ## 현재 구현 현황
 
-마지막 정리: 2026-05-28
+마지막 정리: 2026-06-08
 
 - 김민서 담당 23개 화면은 Flutter 화면으로 1차 구현 완료했습니다.
+- 오태관 담당 21개 화면 중 커뮤니티 및 제보 화면(10개)은 1차 구현 완료되었으나, 절약 리포트(7개) 및 AI 추천(4개) 화면은 미완료 및 미구현 상태입니다. (8-1, 8-2 등 AI 추천 화면은 작업 중)
 - 실제 iPhone 무선 설치 기준으로 `flutter build ios --release` 빌드와 기기 실행을 확인했습니다.
 - `dart analyze lib test`, `flutter test` 통과 상태를 기준으로 팀원에게 공유합니다.
 - Figma MCP로 `Howmuch-` 파일을 직접 확인해 구현했으며, 단순 placeholder UI는 제거했습니다.
 - 관리자 제보/문의 검토 메뉴는 `authStateProvider.isAdmin == true`일 때만 마이페이지에 노출됩니다.
 - 백엔드 권한 API가 붙기 전까지 팀원이 관리자 화면을 확인할 수 있도록 마이페이지 하단에 `개발용 관리자 모드` QA 토글을 임시로 두었습니다. 릴리즈 전에는 서버 권한값만 사용하도록 제거해야 합니다.
 - 홈 지도, 매장 데이터, 로그인 OAuth, 제보/문의 검토 저장은 아직 백엔드 연동 전입니다. 화면 파일 안에 `TODO(박지환 BE)` 주석으로 교체 위치를 남겼습니다.
-- 자세한 화면별 진입 경로와 남은 연동 지점은 [docs/MINSEO_FE_STATUS.md](docs/MINSEO_FE_STATUS.md)를 확인합니다.
+- 자세한 화면별 진입 경로와 남은 연동 지점은 [docs/MINSEO_FE_STATUS.md](docs/MINSEO_FE_STATUS.md) 및 [docs/TAEGWAN_FE_STATUS.md](docs/TAEGWAN_FE_STATUS.md)를 확인합니다.
 
 ## Figma 구현 회고 및 주의사항
 

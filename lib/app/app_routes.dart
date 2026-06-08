@@ -18,6 +18,8 @@ class AppRoutes {
   static const reportComplete = '/community/report/complete';
   static const myReports = '/community/reports';
   static const reportDetail = '/community/report/detail';
+  static const myReportsV2 = '/community/reports-v2';
+  static const reportDetailV2 = '/community/report-detail-v2';
   static const communityPostDetail = '/community/post/detail';
 
   static const mypage = '/mypage';

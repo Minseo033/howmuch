@@ -6,7 +6,9 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
 class ReportCreateScreen extends StatefulWidget {
-  const ReportCreateScreen({super.key});
+  const ReportCreateScreen({super.key, this.id});
+
+  final String? id;
 
   @override
   State<ReportCreateScreen> createState() => _ReportCreateScreenState();

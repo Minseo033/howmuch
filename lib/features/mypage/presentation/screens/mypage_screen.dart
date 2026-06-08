@@ -79,7 +79,7 @@ class MypageScreen extends ConsumerWidget {
                         label: '내 제보',
                         icon: Icons.description_outlined,
                         color: orange,
-                        onTap: () {},
+                        onTap: () => context.push(AppRoutes.myReportsV2),
                       ),
                     ),
                     Positioned(
@@ -139,8 +139,10 @@ class MypageScreen extends ConsumerWidget {
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
-                        onReportTap: () =>
-                            context.push(AppRoutes.reportDeleteConfirm),
+                        onViewAll: () => context.push(AppRoutes.myReportsV2),
+                        onReportTap: (report) => context.push(
+                          '${AppRoutes.reportDetailV2}?id=${report.id}',
+                        ),
                       ),
                     ),
                     Positioned(
@@ -512,10 +514,15 @@ class _QuickMenu extends StatelessWidget {
 }
 
 class _ReportStatusCard extends StatelessWidget {
-  const _ReportStatusCard({required this.reports, required this.onReportTap});
+  const _ReportStatusCard({
+    required this.reports,
+    required this.onViewAll,
+    required this.onReportTap,
+  });
 
   final List<UserReportStatus> reports;
-  final VoidCallback onReportTap;
+  final VoidCallback onViewAll;
+  final Function(UserReportStatus) onReportTap;
 
   @override
   Widget build(BuildContext context) {
@@ -535,13 +542,17 @@ class _ReportStatusCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          const SizedBox(
+          SizedBox(
             height: 19.488636016845703,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('내 제보 상태', style: _sectionTitleText),
-                Text('전체보기', style: _linkText),
+                const Text('내 제보 상태', style: _sectionTitleText),
+                GestureDetector(
+                  onTap: onViewAll,
+                  behavior: HitTestBehavior.opaque,
+                  child: const Text('전체보기', style: _linkText),
+                ),
               ],
             ),
           ),
@@ -552,7 +563,7 @@ class _ReportStatusCard extends StatelessWidget {
             for (var index = 0; index < visibleReports.length; index++) ...[
               _ReportItem(
                 report: visibleReports[index],
-                onTap: index == 0 ? onReportTap : null,
+                onTap: () => onReportTap(visibleReports[index]),
               ),
               if (index != visibleReports.length - 1)
                 const SizedBox(height: 10),
