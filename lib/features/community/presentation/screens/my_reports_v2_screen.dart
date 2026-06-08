@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 
 enum _ReportFilter { all, pending, approved, needsEdit, rejected }
 
@@ -52,7 +51,6 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     return FigmaMobileCanvas(
       backgroundColor: MyReportsV2Screen.surface,
@@ -102,33 +100,10 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
                 20,
                 15.994,
                 20,
-                bottomNavHeight + 24,
+                (safePadding.bottom > 0 ? safePadding.bottom + 68 : 88) + 24,
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber),
-                  ),
-                  child: const Text(
-                    '🚧 3-A, 3-B, 3-C 신규 디자인 대기중 🚧\nFigma MCP 연결 실패로 임시 화면입니다.\n디자인을 캡처해서 주시면 바로 완성해 드릴게요!',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.brown,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                _SummaryCard(
-                  onTap: () => setState(() => _filter = _ReportFilter.all),
-                ),
-                const SizedBox(height: 11.989),
                 ..._visibleReports.map(
                   (report) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -156,10 +131,41 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
             left: 0,
             bottom: 0,
             width: FigmaMobileCanvas.width,
-            height: bottomNavHeight,
-            child: HowmuchBottomNav(
-              safeBottom: safePadding.bottom,
-              activeTab: HowmuchBottomTab.report,
+            height: safePadding.bottom > 0 ? safePadding.bottom + 68 : 88,
+            child: Container(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, safePadding.bottom > 0 ? safePadding.bottom : 20),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: MyReportsV2Screen.border, width: 0.909),
+                ),
+              ),
+              child: Material(
+                color: MyReportsV2Screen.blue,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  onTap: () => context.push(AppRoutes.reportCreate),
+                  borderRadius: BorderRadius.circular(14),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 4),
+                      Text(
+                        '새 제보 등록하기',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontFamily: MyReportsV2Screen.fontFamily,
+                          fontFamilyFallback: MyReportsV2Screen.fontFallback,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
         ],
@@ -201,7 +207,7 @@ class _Header extends StatelessWidget {
           ),
           const Center(
             child: Text(
-              '내 제보',
+              '내 제보 내역',
               style: TextStyle(
                 color: MyReportsV2Screen.black,
                 fontFamily: MyReportsV2Screen.fontFamily,
@@ -366,104 +372,6 @@ class _TabButton extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 68.48,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: const LinearGradient(
-            begin: Alignment(-0.98, -0.2),
-            end: Alignment(0.98, 1),
-            colors: [Color(0xFFEFF4FF), Color(0xFFFFF3EA)],
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 13.99,
-              top: 15.24,
-              width: 37.997,
-              height: 37.997,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.description_outlined,
-                  color: MyReportsV2Screen.blue,
-                  size: 18,
-                ),
-              ),
-            ),
-            const Positioned(
-              left: 63.98,
-              top: 13.99,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '총 제보',
-                    style: TextStyle(
-                      color: MyReportsV2Screen.muted,
-                      fontFamily: MyReportsV2Screen.fontFamily,
-                      fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                  ),
-                  SizedBox(height: 1),
-                  Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(text: '3건 '),
-                        TextSpan(
-                          text: '승인 1건',
-                          style: TextStyle(
-                            color: MyReportsV2Screen.green,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    style: TextStyle(
-                      color: MyReportsV2Screen.black,
-                      fontFamily: MyReportsV2Screen.fontFamily,
-                      fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Positioned(
-              right: 14.99,
-              top: 22.24,
-              child: Icon(
-                Icons.chevron_right_rounded,
-                color: MyReportsV2Screen.muted,
-                size: 24,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _ReportCard extends StatelessWidget {
   const _ReportCard({
@@ -640,7 +548,7 @@ class _StatusBadge extends StatelessWidget {
             width: 5,
             height: 5,
             decoration: BoxDecoration(
-              color: report.badgeColor,
+              color: report.badgeDotColor ?? report.badgeColor,
               shape: BoxShape.circle,
             ),
           ),
@@ -648,7 +556,7 @@ class _StatusBadge extends StatelessWidget {
           Text(
             report.status,
             style: TextStyle(
-              color: report.badgeColor,
+              color: report.badgeTextColor ?? report.badgeColor,
               fontFamily: MyReportsV2Screen.fontFamily,
               fontFamilyFallback: MyReportsV2Screen.fontFallback,
               fontSize: 10,
@@ -716,6 +624,8 @@ class _MyReportData {
     required this.menu,
     required this.badgeBackground,
     required this.badgeColor,
+    this.badgeDotColor,
+    this.badgeTextColor,
     required this.badgeWidth,
     required this.height,
     this.notice,
@@ -734,6 +644,8 @@ class _MyReportData {
   final String menu;
   final Color badgeBackground;
   final Color badgeColor;
+  final Color? badgeDotColor;
+  final Color? badgeTextColor;
   final double badgeWidth;
   final double height;
   final String? notice;
@@ -779,13 +691,15 @@ const _reports = [
     date: '2026.05.08',
     title: '착한김밥',
     menu: '김밥 2,500원',
-    badgeBackground: Color(0xFFFFF3EA),
+    badgeBackground: Color(0xFFFEF3C7),
     badgeColor: MyReportsV2Screen.orange,
+    badgeDotColor: Color(0xFFF59E0B),
+    badgeTextColor: Color(0xFF92400E),
     badgeWidth: 70.497,
     height: 194.134,
     notice: '메뉴판 사진이 흐려 가격 확인이 어려워요',
     actionLabel: '수정하기',
-    actionColor: MyReportsV2Screen.orange,
+    actionColor: MyReportsV2Screen.blue,
     actionIcon: Icons.edit_outlined,
     actionTop: 142.33,
     actionWidth: 120.185,

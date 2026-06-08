@@ -40,7 +40,7 @@ class ReportDetailV2Screen extends StatelessWidget {
         context.pop();
         return;
       }
-      context.go(AppRoutes.myReports);
+      context.go(AppRoutes.myReportsV2);
     }
 
     return FigmaMobileCanvas(
@@ -73,35 +73,16 @@ class ReportDetailV2Screen extends StatelessWidget {
                 _contentRight,
                 actionBottomGap + actionHeight + 24,
               ),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber),
-                  ),
-                  child: const Text(
-                    '🚧 3-D 제보 상세 디자인 대기중 🚧\nFigma 캡처 이미지를 올려주시면 바로 작업할게요!',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.brown,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const _ReportInfoCard(),
-                const SizedBox(height: 11.989),
-                const _ProgressCard(),
-                const SizedBox(height: 11.99),
-                const _ReasonCard(),
-                const SizedBox(height: 11.989),
-                const _PhotoSection(),
-                const SizedBox(height: 11.989),
-                const _DescriptionSection(),
+              children: const [
+                _ReportInfoCard(),
+                SizedBox(height: 11.989),
+                _ProgressCard(),
+                SizedBox(height: 11.99),
+                _ReasonCard(),
+                SizedBox(height: 11.989),
+                _PhotoSection(),
+                SizedBox(height: 11.989),
+                _DescriptionSection(),
               ],
             ),
           ),

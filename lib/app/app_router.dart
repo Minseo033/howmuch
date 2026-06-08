@@ -58,7 +58,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.homeAi, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
-      _route(AppRoutes.communityFeed, const CommunityFeedScreen()),
+      _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
       _route(AppRoutes.reportCreate, const ReportCreateScreen()),
       _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
       _route(AppRoutes.myReports, const MyReportsScreen()),

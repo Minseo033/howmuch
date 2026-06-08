@@ -76,7 +76,7 @@ class HowmuchBottomNav extends StatelessWidget {
                     icon: Icons.explore_outlined,
                     label: '탐색',
                     active: activeTab == HowmuchBottomTab.explore,
-                    onTap: () => context.push(AppRoutes.communityFeed),
+                    onTap: () => context.go(AppRoutes.communityFeed),
                   ),
                   _ReportNavItem(active: activeTab == HowmuchBottomTab.report),
                   _NavItem(
