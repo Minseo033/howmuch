@@ -11,6 +11,7 @@ import 'kakao_web_helper_stub.dart'
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -50,6 +51,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
   StreamSubscription<Position>? _positionStream;
+  StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
 
   @override
@@ -102,6 +104,15 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #kakao-map-container { width: 100%; height: 100%; }
+        .my-location-wrapper {
+          width: 40px;
+          height: 40px;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.1s ease-out;
+        }
         .my-location-dot {
           width: 16px;
           height: 16px;
@@ -109,6 +120,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           border: 3px solid #FFFFFF;
           border-radius: 50%;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+          z-index: 2;
+        }
+        .my-location-direction {
+          position: absolute;
+          width: 0;
+          height: 0;
+          border-left: 8px solid transparent;
+          border-right: 8px solid transparent;
+          border-bottom: 20px solid rgba(37, 99, 235, 0.4);
+          top: 0px;
+          z-index: 1;
         }
       </style>
       <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${_kakaoJsKey}&libraries=services,clusterer"></script>
@@ -158,19 +180,39 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           }
         }
 
+        var userHeading = 0;
+        var userLocationWrapper;
+
         function updateUserLocationMarker(lat, lng) {
           if (!map) return;
           var position = new kakao.maps.LatLng(lat, lng);
           if (!userLocationOverlay) {
-            var content = document.createElement('div');
-            content.className = 'my-location-dot';
+            userLocationWrapper = document.createElement('div');
+            userLocationWrapper.className = 'my-location-wrapper';
+            
+            var dot = document.createElement('div');
+            dot.className = 'my-location-dot';
+            
+            var direction = document.createElement('div');
+            direction.className = 'my-location-direction';
+            
+            userLocationWrapper.appendChild(direction);
+            userLocationWrapper.appendChild(dot);
+            
             userLocationOverlay = new kakao.maps.CustomOverlay({
               position: position,
-              content: content,
+              content: userLocationWrapper,
               map: map
             });
           } else {
             userLocationOverlay.setPosition(position);
+          }
+        }
+
+        function updateUserHeading(degree) {
+          if (userLocationWrapper) {
+            userHeading = degree;
+            userLocationWrapper.style.transform = 'rotate(' + degree + 'deg)';
           }
         }
 
@@ -278,6 +320,11 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
   }
 
+  void _updateUserHeading(double heading) {
+    if (kIsWeb) return; // 웹에서는 나침반 제외
+    _webViewController?.runJavaScript('updateUserHeading($heading);');
+  }
+
   void _updateLocationMarker(double lat, double lng) {
     if (kIsWeb) {
       web_helper.updateUserLocationMarkerWeb(_viewId, lat, lng);
@@ -301,6 +348,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
           _lastKnownPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         });
+
+    if (!kIsWeb) {
+      _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
+        if (event.heading != null) {
+          _updateUserHeading(event.heading!);
+        }
+      });
+    }
   }
 
   Future<void> _searchInCurrentArea() async {
