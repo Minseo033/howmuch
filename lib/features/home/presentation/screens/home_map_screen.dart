@@ -50,6 +50,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
   StreamSubscription<Position>? _positionStream;
+  Position? _lastKnownPosition;
 
   @override
   void initState() {
@@ -233,11 +234,16 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
 
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.best,
-      );
-      _updateLocationMarker(position.latitude, position.longitude);
-      _startLocationTracking();
+      Position? position = _lastKnownPosition;
+      if (position == null) {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+        );
+        _lastKnownPosition = position;
+        _startLocationTracking();
+      } else {
+        _updateLocationMarker(position.latitude, position.longitude);
+      }
 
       if (kIsWeb) {
         web_helper.setKakaoMapCenterWeb(
@@ -275,6 +281,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             distanceFilter: 2, // 2미터 이상 이동 시 갱신
           ),
         ).listen((Position position) {
+          _lastKnownPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         });
   }
