@@ -24,6 +24,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
     '음식점 · 카페',
     '음식점 · 분식',
     '서비스 · 미용',
+    '기타 · 기타',
   ];
   static const _addressOptions = [
     '서울시 마포구 합정동',
