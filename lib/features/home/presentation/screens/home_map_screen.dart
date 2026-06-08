@@ -9,6 +9,7 @@ import 'kakao_web_helper_stub.dart'
     as web_helper;
 
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -48,6 +49,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
   final String _kakaoJsKey = '949e657c37f55074dbb2a14ceb273e2b';
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
+  StreamSubscription<Position>? _positionStream;
 
   @override
   void initState() {
@@ -99,6 +101,14 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #kakao-map-container { width: 100%; height: 100%; }
+        .my-location-dot {
+          width: 16px;
+          height: 16px;
+          background-color: #2563EB;
+          border: 3px solid #FFFFFF;
+          border-radius: 50%;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
       </style>
       <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${_kakaoJsKey}&libraries=services,clusterer"></script>
     </head>
@@ -107,6 +117,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
       <script>
         var map;
         var clusterer;
+        var userLocationOverlay;
 
         window.onload = function() {
           var container = document.getElementById('kakao-map-container');
@@ -137,6 +148,22 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
         function setMapCenter(lat, lng) {
           if (map) {
             map.setCenter(new kakao.maps.LatLng(lat, lng));
+          }
+        }
+
+        function updateUserLocationMarker(lat, lng) {
+          if (!map) return;
+          var position = new kakao.maps.LatLng(lat, lng);
+          if (!userLocationOverlay) {
+            var content = document.createElement('div');
+            content.className = 'my-location-dot';
+            userLocationOverlay = new kakao.maps.CustomOverlay({
+              position: position,
+              content: content,
+              map: map
+            });
+          } else {
+            userLocationOverlay.setPosition(position);
           }
         }
 
@@ -206,7 +233,12 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     }
 
     try {
-      Position position = await Geolocator.getCurrentPosition();
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
+      _updateLocationMarker(position.latitude, position.longitude);
+      _startLocationTracking();
+
       if (kIsWeb) {
         web_helper.setKakaoMapCenterWeb(
           _viewId,
@@ -221,6 +253,30 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     } catch (e) {
       debugPrint('위치 가져오기 에러: ${e}');
     }
+  }
+
+  void _updateLocationMarker(double lat, double lng) {
+    if (kIsWeb) {
+      web_helper.updateUserLocationMarkerWeb(_viewId, lat, lng);
+    } else {
+      _webViewController?.runJavaScript(
+        'updateUserLocationMarker(${lat}, ${lng});',
+      );
+    }
+  }
+
+  void _startLocationTracking() {
+    if (_positionStream != null) return;
+
+    _positionStream =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.best,
+            distanceFilter: 2, // 2미터 이상 이동 시 갱신
+          ),
+        ).listen((Position position) {
+          _updateLocationMarker(position.latitude, position.longitude);
+        });
   }
 
   Future<void> _searchInCurrentArea() async {
@@ -397,7 +453,6 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             ),
           ),
 
-          const Positioned(left: 158, top: 538, child: _MyLocationDot()),
           Positioned(
             left: 15.99432373046875,
             top: 10 + topOffset,
@@ -1077,39 +1132,6 @@ class _PriceMarker extends StatelessWidget {
             painter: _TrianglePainter(HomeMapScreen.blue),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _MyLocationDot extends StatelessWidget {
-  const _MyLocationDot();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: HomeMapScreen.blue.withValues(alpha: .18),
-        shape: BoxShape.circle,
-      ),
-      alignment: Alignment.center,
-      child: Container(
-        width: 16,
-        height: 16,
-        decoration: BoxDecoration(
-          color: HomeMapScreen.blue,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2.727),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x40000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
       ),
     );
   }

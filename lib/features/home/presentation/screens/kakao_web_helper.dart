@@ -4,16 +4,13 @@ import 'dart:ui_web' as ui_web;
 import 'package:web/web.dart' as web;
 
 void registerKakaoWebViewFactory(String viewId) {
-  ui_web.platformViewRegistry.registerViewFactory(
-    viewId,
-    (int viewId) {
-      final div = web.document.createElement('div') as web.HTMLDivElement;
-      div.id = viewId.toString(); // Workaround for viewId string issue
-      div.style.width = '100%';
-      div.style.height = '100%';
-      return div;
-    },
-  );
+  ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
+    final div = web.document.createElement('div') as web.HTMLDivElement;
+    div.id = viewId.toString(); // Workaround for viewId string issue
+    div.style.width = '100%';
+    div.style.height = '100%';
+    return div;
+  });
 }
 
 void initKakaoWebMap(String viewId) {
@@ -30,4 +27,8 @@ void addKakaoMarkersWeb(String viewId, String jsonString) {
 
 void setKakaoMapCenterWeb(String viewId, double lat, double lng) {
   js.context.callMethod('setKakaoMapCenter', [viewId, lat, lng]);
+}
+
+void updateUserLocationMarkerWeb(String viewId, double lat, double lng) {
+  js.context.callMethod('updateUserLocationMarker', [viewId, lat, lng]);
 }
