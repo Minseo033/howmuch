@@ -36,6 +36,7 @@ import 'package:howmuch/features/system/presentation/screens/search_empty_screen
 import 'package:howmuch/features/system/presentation/screens/session_expired_screen.dart';
 import 'package:howmuch/features/store/presentation/screens/store_detail_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -94,6 +95,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
+      GoRoute(
+        path: AppRoutes.searchResult,
+        pageBuilder: (_, state) {
+          final extra = state.extra;
+          String query = '';
+          bool openFilter = false;
+          
+          if (extra is String) {
+            query = extra;
+          } else if (extra is Map<String, dynamic>) {
+            query = extra['query'] as String? ?? '';
+            openFilter = extra['openFilter'] as bool? ?? false;
+          }
+
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: SearchResultScreen(
+              initialQuery: query,
+              autoOpenFilter: openFilter,
+            ),
+          );
+        },
+      ),
       GoRoute(
         path: AppRoutes.storeDetail,
         pageBuilder: (_, state) {
