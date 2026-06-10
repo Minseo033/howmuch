@@ -47,6 +47,9 @@ class AppRoutes {
 
   static const savingsReportDashboard = '/savings/dashboard';
   static const savingsDetail = '/savings/detail';
+  static const savingsGoalSetting = '/savings/goal-setting';
   static const todaysPick = '/recommendation/todays-pick';
   static const optimalRoute = '/recommendation/optimal-route';
+  static const favoriteStores = '/mypage/favorite-stores';
+  static const notifications = '/notifications';
 }

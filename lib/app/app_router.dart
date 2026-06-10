@@ -43,6 +43,9 @@ import 'package:howmuch/features/savings/presentation/screens/savings_report_das
 import 'package:howmuch/features/savings/presentation/screens/savings_detail_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/optimal_route_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/favorite_stores_screen.dart';
+import 'package:howmuch/features/system/presentation/screens/notifications_screen.dart';
+import 'package:howmuch/features/savings/presentation/screens/savings_goal_setting_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -104,8 +107,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
       _tabRoute(AppRoutes.savingsReportDashboard, const SavingsReportDashboardScreen()),
       _route(AppRoutes.savingsDetail, const SavingsDetailScreen()),
+      _route(AppRoutes.savingsGoalSetting, const SavingsGoalSettingScreen()),
       _route(AppRoutes.todaysPick, const TodaysPickScreen()),
       _route(AppRoutes.optimalRoute, const OptimalRouteScreen()),
+      _route(AppRoutes.favoriteStores, const FavoriteStoresScreen()),
+      _route(AppRoutes.notifications, const NotificationsScreen()),
       GoRoute(
         path: AppRoutes.searchResult,
         pageBuilder: (_, state) {
