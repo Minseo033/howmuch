@@ -31,6 +31,80 @@
 
   <title>howmuch</title>
   <link rel="manifest" href="manifest.json">
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=949e657c37f55074dbb2a14ceb273e2b&libraries=services,clusterer&autoload=false"></script>
+  <script>
+    window.kakaoMapObjects = {};
+
+    function initKakaoMap(containerId, lat, lng) {
+      kakao.maps.load(function() {
+        var container = document.getElementById(containerId);
+        if (!container) {
+          setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 100);
+          return;
+        }
+
+        var options = {
+          center: new kakao.maps.LatLng(lat, lng),
+          level: 3
+        };
+        var map = new kakao.maps.Map(container, options);
+        window.kakaoMapObjects[containerId] = map;
+
+        // 💡 클러스터러 초기화
+        window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
+          map: map,
+          averageCenter: true,
+          minLevel: 6
+        });
+        
+        console.log("Kakao Map & Clusterer Initialized!");
+      });
+    }
+
+    function addKakaoMarkers(containerId, markerListJson) {
+      kakao.maps.load(function() {
+        var map = window.kakaoMapObjects[containerId];
+        var clusterer = window.kakaoMapObjects[containerId + '_clusterer'];
+        
+        // 💡 지도가 아직 생성 전이면 200ms 후 재시도
+        if (!map || !clusterer) {
+          setTimeout(function() { addKakaoMarkers(containerId, markerListJson); }, 200);
+          return;
+        }
+
+        var markerData = JSON.parse(markerListJson);
+        console.log("Adding markers to map: " + markerData.length + " items");
+
+        var markers = markerData.map(function(item) {
+          return new kakao.maps.Marker({
+            position: new kakao.maps.LatLng(item.lat, item.lng),
+            title: item.title
+          });
+        });
+
+        clusterer.clear();
+        clusterer.addMarkers(markers);
+        console.log("Markers added successfully!");
+      });
+    }
+
+    // 💡 Flutter가 현재 지도의 보이는 범위를 가져갈 수 있도록 지원하는 함수
+    function getKakaoMapBounds(containerId) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!map) return null;
+
+      var bounds = map.getBounds();
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+
+      return JSON.stringify({
+        minLat: sw.getLat(),
+        maxLat: ne.getLat(),
+        minLng: sw.getLng(),
+        maxLng: ne.getLng()
+      });
+    }
+  </script>
 </head>
 <body>
   <!--
