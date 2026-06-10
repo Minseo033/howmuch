@@ -120,7 +120,7 @@ class MypageScreen extends ConsumerWidget {
                         label: '절약 리포트',
                         icon: Icons.bar_chart_rounded,
                         color: green,
-                        onTap: () {},
+                        onTap: () => context.go(AppRoutes.savingsReportDashboard),
                       ),
                     ),
                     Positioned(

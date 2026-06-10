@@ -6,6 +6,7 @@ import 'package:howmuch/features/admin/presentation/screens/admin_inquiry_review
 import 'package:howmuch/features/admin/presentation/screens/admin_report_review_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
@@ -38,14 +39,20 @@ import 'package:howmuch/features/store/presentation/screens/store_detail_screen.
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 
+import 'package:howmuch/features/savings/presentation/screens/savings_report_dashboard_screen.dart';
+import 'package:howmuch/features/savings/presentation/screens/savings_detail_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/screens/optimal_route_screen.dart';
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.onboardingNearby,
+    initialLocation: AppRoutes.splash,
     routes: [
       GoRoute(
         path: AppRoutes.root,
-        redirect: (_, _) => AppRoutes.onboardingNearby,
+        redirect: (_, _) => AppRoutes.splash,
       ),
+      _route(AppRoutes.splash, const SplashScreen()),
       _route(AppRoutes.onboardingNearby, const OnboardingNearbyScreen()),
       _route(
         AppRoutes.onboardingSavingsReport,
@@ -95,6 +102,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
+      _tabRoute(AppRoutes.savingsReportDashboard, const SavingsReportDashboardScreen()),
+      _route(AppRoutes.savingsDetail, const SavingsDetailScreen()),
+      _route(AppRoutes.todaysPick, const TodaysPickScreen()),
+      _route(AppRoutes.optimalRoute, const OptimalRouteScreen()),
       GoRoute(
         path: AppRoutes.searchResult,
         pageBuilder: (_, state) {

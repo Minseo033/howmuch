@@ -2,6 +2,7 @@ class AppRoutes {
   const AppRoutes._();
 
   static const root = '/';
+  static const splash = '/splash';
 
   static const onboardingNearby = '/onboarding/nearby';
   static const onboardingSavingsReport = '/onboarding/savings-report';
@@ -43,4 +44,9 @@ class AppRoutes {
   static const reportDeleteConfirm = '/reports/delete-confirm';
   static const sessionExpired = '/session-expired';
   static const storeDetail = '/store/detail';
+
+  static const savingsReportDashboard = '/savings/dashboard';
+  static const savingsDetail = '/savings/detail';
+  static const todaysPick = '/recommendation/todays-pick';
+  static const optimalRoute = '/recommendation/optimal-route';
 }
