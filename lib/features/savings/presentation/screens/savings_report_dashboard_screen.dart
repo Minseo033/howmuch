@@ -30,8 +30,10 @@ class SavingsReportDashboardScreen extends StatelessWidget {
               padding: EdgeInsets.only(
                 bottom: bottomNavHeight + 20,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: SizedBox(
+                width: FigmaMobileCanvas.width,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Custom AppBar (now scrolls!)
                   Container(
@@ -331,6 +333,7 @@ class SavingsReportDashboardScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
             ),
           ),
           
