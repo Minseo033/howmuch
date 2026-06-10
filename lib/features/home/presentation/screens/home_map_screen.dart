@@ -109,6 +109,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _searchInCurrentArea();
     }
   }
+  Timer? _boundsDebouncer;
 
 
   @override
@@ -169,6 +170,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _positionStream?.cancel();
     _compassStream?.cancel();
     _pageController.dispose();
+    _boundsDebouncer?.cancel();
     super.dispose();
   }
 
@@ -185,7 +187,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _moveToCurrentLocation();
           }
           if (message.message.startsWith('BOUNDS:')) {
-            _fetchAndAddMarkersForMobile(message.message.substring(7));
+            _boundsDebouncer?.cancel();
+            _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
+              if (mounted) {
+                _fetchAndAddMarkersForMobile(message.message.substring(7));
+              }
+            });
           }
           if (message.message.startsWith('CLICK:')) {
             final indexStr = message.message.substring(6);

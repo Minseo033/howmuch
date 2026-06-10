@@ -83,15 +83,7 @@ class HowmuchBottomNav extends StatelessWidget {
                     icon: Icons.bar_chart_rounded,
                     label: '리포트',
                     active: activeTab == HowmuchBottomTab.savings,
-                    onTap: () {
-                      ScaffoldMessenger.of(context)
-                        ..clearSnackBars()
-                        ..showSnackBar(
-                          const SnackBar(
-                            content: Text('절약 리포트는 다음 우선순위에서 연결할게요.'),
-                          ),
-                        );
-                    },
+                    onTap: () => context.go(AppRoutes.savingsReportDashboard),
                   ),
                   _NavItem(
                     icon: Icons.person_outline_rounded,
