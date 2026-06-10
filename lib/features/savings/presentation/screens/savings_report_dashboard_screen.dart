@@ -22,7 +22,11 @@ class SavingsReportDashboardScreen extends StatelessWidget {
           Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
 
           // Scrollable Content
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            width: FigmaMobileCanvas.width,
+            top: 0,
+            bottom: 0,
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
