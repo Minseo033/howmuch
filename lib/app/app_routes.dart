@@ -49,4 +49,18 @@ class AppRoutes {
   static const savingsDetail = '/savings/detail';
   static const todaysPick = '/recommendation/todays-pick';
   static const optimalRoute = '/recommendation/optimal-route';
+
+  // Dana's UI Screens
+  static const reviewList = '/store/reviews';
+  static const reviewWrite = '/store/reviews/write';
+  static const priceHistory = '/store/price-history';
+  static const priceChangeReport = '/store/price-change';
+  static const storeInfoReport = '/store/info-report';
+  static const visitVerification = '/store/visit';
+  static const visitVerificationComplete = '/store/visit/complete';
+  static const directionsExternalApp = '/store/directions';
+  static const myReviews = '/mypage/reviews';
+  static const visitHistory = '/mypage/visits';
+  static const favoriteCancelConfirm = '/store/favorite-cancel';
 }
+

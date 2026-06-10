@@ -60,6 +60,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Position? _lastKnownPosition;
   List<Store> _allStores = [];
   bool _isAllStoresLoaded = false;
+  bool _hasLoadError = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
@@ -128,27 +129,51 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _fetchAllStores() async {
     final url = kIsWeb
         ? 'http://localhost:8081/api/test/all'
-        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+        : 'http://192.168.219.120:8081/api/test/all';
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        setState(() {
-          _allStores = data.map((json) => Store.fromJson(json))
-              .where((s) => s.latitude != 0 && s.longitude != 0).toList();
-          HomeMapScreen.globalAllStores = _allStores;
-          _isAllStoresLoaded = true;
-        });
-        debugPrint('전체 매장 로드 완료: ${_allStores.length}개');
+        debugPrint('JSON decode 시작');
+        final decodedString = utf8.decode(response.bodyBytes);
+        final List<dynamic> data = json.decode(decodedString);
+        debugPrint('JSON decode 완료, data length: ${data.length}');
         
-        // 로드가 완료된 시점에 현재 화면 위치 기준으로 마커 새로고침 유도
-        if (_webViewController != null) {
-          _webViewController!.runJavaScript('requestBounds()');
+        final List<Store> parsedStores = [];
+        for (var i = 0; i < data.length; i++) {
+          try {
+            final store = Store.fromJson(data[i]);
+            if (store.latitude != 0 && store.longitude != 0) {
+              parsedStores.add(store);
+            }
+          } catch (e) {
+            debugPrint('Store parse error at index $i: $e');
+          }
+        }
+        debugPrint('Store 객체 파싱 완료: ${parsedStores.length}개');
+
+        if (mounted) {
+          setState(() {
+            _allStores = parsedStores;
+            HomeMapScreen.globalAllStores = _allStores;
+            _isAllStoresLoaded = true;
+          });
+          debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
+          
+          // Removed requestBounds() call here to prevent Deadlock.
+          // WebView will automatically trigger bounds request via JS events
+          // or when _moveToCurrentLocation() is called.
+          debugPrint('requestBounds() 자동 호출에 맡깁니다.');
+
         }
       }
     } catch (e) {
       debugPrint('전체 매장 로드 실패: $e');
+      if (mounted) {
+        setState(() {
+          _hasLoadError = true;
+        });
+      }
     }
   }
 
@@ -812,6 +837,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
+    debugPrint('HomeMapScreen build called! _isAllStoresLoaded: $_isAllStoresLoaded');
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
@@ -858,20 +884,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                      Text(
+                        _hasLoadError ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.' : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF2563EB),
+                          color: _hasLoadError ? Colors.red : const Color(0xFF2563EB),
                           fontFamily: 'Inter',
-                          fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                          fontFamilyFallback: const ['Apple SD Gothic Neo', 'Noto Sans KR'],
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const CircularProgressIndicator(color: Color(0xFF2563EB)),
+                      if (_hasLoadError)
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _hasLoadError = false;
+                            });
+                            _fetchAllStores();
+                          },
+                          child: const Text('다시 시도'),
+                        )
+                      else
+                        const CircularProgressIndicator(color: Color(0xFF2563EB)),
                     ],
                   ),
                 ),
@@ -1277,8 +1314,10 @@ class _TodayPickCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.todaysPick),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
         borderRadius: BorderRadius.circular(16),
@@ -1340,6 +1379,7 @@ class _TodayPickCard extends StatelessWidget {
           ),
           SizedBox(width: 12),
         ],
+      ),
       ),
     );
   }
