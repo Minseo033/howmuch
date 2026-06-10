@@ -6,6 +6,9 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
 import org.springframework.stereotype.Service;
+import jakarta.annotation.PostConstruct;
+import java.util.ArrayList;
+import java.util.List;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -14,9 +17,30 @@ import java.util.Map;
 public class FirebaseService {
 
     private final Firestore db;
+    private final List<Map<String, Object>> cachedStores = new ArrayList<>();
 
     public FirebaseService(Firestore db) {
         this.db = db;
+    }
+
+    @PostConstruct
+    public void initAllStores() {
+        try {
+            System.out.println("앱 구동 시 전체 매장 데이터를 한 번만 로드합니다...");
+            List<Map<String, Object>> stores = db.collection("stores")
+                    .get().get().getDocuments().stream()
+                    .map(DocumentSnapshot::getData)
+                    .toList();
+            cachedStores.addAll(stores);
+            System.out.println("전체 매장 로드 완료: " + cachedStores.size() + "개");
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("전체 매장 데이터 로드 중 오류 발생!");
+        }
+    }
+
+    public List<Map<String, Object>> getAllStores() {
+        return cachedStores;
     }
 
     public String saveUserData(String userId, String name, String email) throws Exception {
