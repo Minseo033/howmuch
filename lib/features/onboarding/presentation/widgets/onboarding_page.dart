@@ -101,20 +101,33 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return FigmaMobileCanvas(
-      child: PageView.builder(
-        controller: _pageController,
-        physics: const BouncingScrollPhysics(),
-        itemCount: widget.slides.length,
-        onPageChanged: (page) => setState(() => _step = page),
-        itemBuilder: (context, index) {
-          return _OnboardingSlideView(
-            slide: widget.slides[index],
-            step: index,
-            totalSteps: widget.slides.length,
-            onNext: _goNext,
-            onSkip: widget.onSkipPressed,
-          );
-        },
+      backgroundColor: Colors.transparent,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFF0F9FF), // Very soft light blue at top
+              Color(0xFFFFFFFF), // White at bottom
+            ],
+          ),
+        ),
+        child: PageView.builder(
+          controller: _pageController,
+          physics: const BouncingScrollPhysics(),
+          itemCount: widget.slides.length,
+          onPageChanged: (page) => setState(() => _step = page),
+          itemBuilder: (context, index) {
+            return _OnboardingSlideView(
+              slide: widget.slides[index],
+              step: index,
+              totalSteps: widget.slides.length,
+              onNext: _goNext,
+              onSkip: widget.onSkipPressed,
+            );
+          },
+        ),
       ),
     );
   }
