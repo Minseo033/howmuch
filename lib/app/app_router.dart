@@ -6,6 +6,7 @@ import 'package:howmuch/features/admin/presentation/screens/admin_inquiry_review
 import 'package:howmuch/features/admin/presentation/screens/admin_report_review_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
@@ -40,12 +41,13 @@ import 'package:howmuch/features/search/presentation/screens/search_result_scree
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: AppRoutes.onboardingNearby,
+    initialLocation: AppRoutes.splash,
     routes: [
       GoRoute(
         path: AppRoutes.root,
-        redirect: (_, _) => AppRoutes.onboardingNearby,
+        redirect: (_, _) => AppRoutes.splash,
       ),
+      _route(AppRoutes.splash, const SplashScreen()),
       _route(AppRoutes.onboardingNearby, const OnboardingNearbyScreen()),
       _route(
         AppRoutes.onboardingSavingsReport,

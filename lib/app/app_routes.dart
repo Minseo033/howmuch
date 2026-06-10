@@ -2,6 +2,7 @@ class AppRoutes {
   const AppRoutes._();
 
   static const root = '/';
+  static const splash = '/splash';
 
   static const onboardingNearby = '/onboarding/nearby';
   static const onboardingSavingsReport = '/onboarding/savings-report';
