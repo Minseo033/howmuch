@@ -39,6 +39,7 @@ class AppRoutes {
 
   static const networkError = '/network-error';
   static const searchEmpty = '/search/empty';
+  static const searchResult = '/search/result';
   static const reportDeleteConfirm = '/reports/delete-confirm';
   static const sessionExpired = '/session-expired';
   static const storeDetail = '/store/detail';

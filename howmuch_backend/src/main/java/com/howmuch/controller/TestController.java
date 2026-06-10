@@ -41,6 +41,16 @@ public class TestController {
         }
     }
 
+    @GetMapping("/all")
+    public java.util.List<java.util.Map<String, Object>> getAllStores() {
+        try {
+            return firebaseService.getAllStores();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return java.util.Collections.emptyList();
+        }
+    }
+
     // 💡 화면 범위 내 업소 조회 URL: http://localhost:8081/api/test/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0
     @GetMapping("/bounds")
     public java.util.List<java.util.Map<String, Object>> getStoresInBounds(

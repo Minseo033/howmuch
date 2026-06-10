@@ -29,6 +29,10 @@ void setKakaoMapCenterWeb(String viewId, double lat, double lng) {
   js.context.callMethod('setKakaoMapCenter', [viewId, lat, lng]);
 }
 
+void setKakaoMapCenterFromSwipeWeb(String viewId, double lat, double lng) {
+  js.context.callMethod('setKakaoMapCenterFromSwipe', [viewId, lat, lng]);
+}
+
 void updateUserLocationMarkerWeb(String viewId, double lat, double lng) {
   js.context.callMethod('updateUserLocationMarker', [viewId, lat, lng]);
 }

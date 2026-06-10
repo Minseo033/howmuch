@@ -14,11 +14,15 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
+
+  static List<Store> globalAllStores = [];
+  static Position? globalUserPosition;
 
   final bool showAiSpotlight;
 
@@ -54,21 +58,96 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
+  List<Store> _allStores = [];
+  bool _isAllStoresLoaded = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
+  final PageController _pageController = PageController(viewportFraction: 0.88);
+  
+  String _searchQuery = '';
+  SearchFilter _searchFilter = const SearchFilter();
+
+  // ── 필터 UI 업종 → 실제 DB industry 키워드 매핑 ──
+  static const _industryKeywords = <String, List<String>>{
+    '음식점': ['한식', '중식', '일식', '양식', '분식', '패스트푸드', '음식', '식당', '반찬', '도시락', '국수', '치킨', '피자', '족발', '감자탕', '삼겹살', '고깃집', '정육', '떡볶이', '김밥'],
+    '카페': ['카페', '커피', '음료', '베이커리', '빵', '제과', '디저트', '차(음료)', '주스', '스무디', '아이스크림'],
+    '미용': ['미용', '헤어', '네일', '피부', '뷰티', '화장', '미용실', '이발'],
+    '세탁': ['세탁', '빨래', '클리닝', '드라이'],
+    '생활서비스': ['수선', '열쇠', '인쇄', '복사', '사진', '촬영', '스튜디오', '생활', '서비스', '수리', '기타'],
+  };
+
+  bool _matchesIndustryFilter(Store store, String filterIndustry) {
+    if (filterIndustry.isEmpty || filterIndustry == '전체') return true;
+    final keywords = _industryKeywords[filterIndustry];
+    if (keywords == null) {
+      // 매핑에 없으면 단순 포함 비교
+      return store.industry.contains(filterIndustry);
+    }
+    final lowerIndustry = store.industry.toLowerCase();
+    final lowerName = store.storeName.toLowerCase();
+    final lowerMenu = store.menu1.toLowerCase();
+    
+    return keywords.any((kw) {
+      final k = kw.toLowerCase();
+      return lowerIndustry.contains(k) || lowerName.contains(k) || lowerMenu.contains(k);
+    });
+  }
+
+  Future<void> _openSearch({bool openFilter = false}) async {
+    final result = await context.push<Map<String, dynamic>>(
+      AppRoutes.searchResult,
+      extra: {'query': _searchQuery, 'openFilter': openFilter},
+    );
+
+    if (result != null) {
+      setState(() {
+        _searchQuery = result['query'] as String? ?? _searchQuery;
+        _searchFilter = result['filter'] as SearchFilter? ?? _searchFilter;
+      });
+      _isFetching = false; // 필터 변경 후 마커 재조회를 위해 플래그 리셋
+      _searchInCurrentArea();
+    }
+  }
 
 
   @override
   void initState() {
     super.initState();
+    _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
     } else {
       _initMobileController();
-      _loadStoresInBounds(37.5665, 37.5665, 126.9780, 126.9780);
+    }
+  }
+
+  Future<void> _fetchAllStores() async {
+    final url = kIsWeb
+        ? 'http://localhost:8081/api/test/all'
+        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _allStores = data.map((json) => Store.fromJson(json))
+              .where((s) => s.latitude != 0 && s.longitude != 0).toList();
+          HomeMapScreen.globalAllStores = _allStores;
+          _isAllStoresLoaded = true;
+        });
+        debugPrint('전체 매장 로드 완료: ${_allStores.length}개');
+        
+        // 로드가 완료된 시점에 현재 화면 위치 기준으로 마커 새로고침 유도
+        if (_webViewController != null) {
+          _webViewController!.runJavaScript('requestBounds()');
+        }
+      }
+    } catch (e) {
+      debugPrint('전체 매장 로드 실패: $e');
     }
   }
 
@@ -89,6 +168,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _positionStream?.cancel();
     _compassStream?.cancel();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -117,18 +197,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               });
             }
           }
+          if (message.message == 'MAP_CLICK') {
+            _hideStore();
+          }
         },
       )
       ..loadHtmlString(_getMobileMapHtml());
-  }
-
-  void _loadStoresInBounds(
-    double minLat,
-    double maxLat,
-    double minLng,
-    double maxLng,
-  ) {
-    debugPrint('초기 로드 대기 중...');
   }
 
   String _getMobileMapHtml() {
@@ -178,6 +252,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
+        var ignoreBoundsUntil = 0;
 
         window.onload = function() {
           var container = document.getElementById('kakao-map-container');
@@ -185,10 +260,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           map = new kakao.maps.Map(container, options);
           
           kakao.maps.event.addListener(map, 'idle', function() {
+            if (Date.now() < ignoreBoundsUntil) {
+              return;
+            }
             if (boundsTimer) clearTimeout(boundsTimer);
             boundsTimer = setTimeout(function() {
               requestBounds();
             }, 600);
+          });
+
+          kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            Print.postMessage('MAP_CLICK');
           });
 
           Print.postMessage("Map Initialized on Mobile");
@@ -215,7 +297,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               var item = markerData[idx];
 
               var wrapper = document.createElement('div');
-              wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+              wrapper.id = 'marker-wrapper-' + idx;
+              wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
               var bubble = document.createElement('div');
               bubble.style.cssText = [
@@ -233,7 +316,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 'align-items:center',
                 'gap:1px',
                 'line-height:1.3',
-                'border:1.5px solid rgba(255,255,255,0.3)'
+                'border:1.5px solid rgba(255,255,255,0.3)',
+                'transition:background 0.2s ease'
               ].join(';');
 
               var nameEl = document.createElement('span');
@@ -251,7 +335,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 'border-left:5px solid transparent',
                 'border-right:5px solid transparent',
                 'border-top:6px solid #1D4ED8',
-                'margin-top:-1px'
+                'margin-top:-1px',
+                'transition:border-top-color 0.2s ease'
               ].join(';');
 
               bubble.appendChild(nameEl);
@@ -273,8 +358,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
+        function highlightMarker(selectedIndex) {
+          for (var i = 0; i < markerDataCache.length; i++) {
+            var wrapper = document.getElementById('marker-wrapper-' + i);
+            if (!wrapper) continue;
+            var bubble = wrapper.children[0];
+            var tail = wrapper.children[1];
+            
+            if (i === selectedIndex) {
+              bubble.style.background = '#EF4444'; // Red
+              tail.style.borderTopColor = '#EF4444';
+              wrapper.style.transform = 'scale(1.2)';
+              if (customOverlays[i]) customOverlays[i].setZIndex(10);
+            } else {
+              bubble.style.background = '#1D4ED8'; // Blue
+              tail.style.borderTopColor = '#1D4ED8';
+              wrapper.style.transform = 'scale(1.0)';
+              if (customOverlays[i]) customOverlays[i].setZIndex(3);
+            }
+          }
+        }
+
         function setMapCenter(lat, lng) {
           if (map) {
+            var moveLatLon = new kakao.maps.LatLng(lat, lng);
+            map.panTo(moveLatLon);
+            if (map.getLevel() !== 3) {
+              setTimeout(function() {
+                map.setLevel(3, {animate: { duration: 300 }});
+              }, 400);
+            }
+          }
+        }
+
+        function setMapCenterFromSwipe(lat, lng) {
+          if (map) {
+            ignoreBoundsUntil = Date.now() + 1000;
             var moveLatLon = new kakao.maps.LatLng(lat, lng);
             map.panTo(moveLatLon);
             if (map.getLevel() !== 3) {
@@ -401,6 +520,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         if (position != null) {
           _lastKnownPosition = position;
+          HomeMapScreen.globalUserPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         }
       } else {
@@ -451,6 +571,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
         ).listen((Position position) {
           _lastKnownPosition = position;
+          HomeMapScreen.globalUserPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         });
 
@@ -483,11 +604,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final Map<String, dynamic> bounds = json.decode(boundsJson);
       final markerList = await _fetchStoresFromBackend(bounds);
 
-      if (markerList.isNotEmpty && _webViewController != null) {
+      if (_webViewController != null) {
         final jsStringLiteral = jsonEncode(jsonEncode(markerList));
         _webViewController!.runJavaScript(
           'addMobileMarkers($jsStringLiteral);',
         );
+      }
+
+      if (markerList.isNotEmpty) {
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -498,7 +622,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('이 주변에는 착한가격업소가 없습니다.'),
+            content: Text('이 주변에는 조건에 맞는 업소가 없습니다.'),
             duration: Duration(seconds: 1),
           ),
         );
@@ -512,55 +636,97 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final Map<String, dynamic> bounds = json.decode(boundsJson);
     final markerList = await _fetchStoresFromBackend(bounds);
 
+    web_helper.addKakaoMarkersWeb(_viewId, json.encode(markerList));
+
     if (markerList.isNotEmpty) {
-      web_helper.addKakaoMarkersWeb(_viewId, json.encode(markerList));
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
         );
     } else if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('이 주변에는 착한가격업소가 없습니다.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이 주변에는 조건에 맞는 업소가 없습니다.')),
+      );
     }
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
     Map<String, dynamic> bounds,
   ) async {
-    final minLat = bounds['minLat'];
-    final maxLat = bounds['maxLat'];
-    final minLng = bounds['minLng'];
-    final maxLng = bounds['maxLng'];
+    if (!_isAllStoresLoaded) {
+      return []; // 전체 데이터가 로드될 때까지 빈 배열 반환
+    }
 
-    String host = kIsWeb ? 'localhost' : '192.168.200.188';
-    final url =
-        'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+    final minLat = bounds['minLat'] as double;
+    final maxLat = bounds['maxLat'] as double;
+    final minLng = bounds['minLng'] as double;
+    final maxLng = bounds['maxLng'] as double;
 
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 8), // 8초 타임아웃 - 백그라운드 복귀 시 무한 대기 방지
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        final stores = data.map((json) => Store.fromJson(json)).toList();
-        _currentStores = stores.where((s) => s.latitude != 0 && s.longitude != 0).toList();
-        return _currentStores.map((s) {
-          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-          final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
-          return {
-            'lat': s.latitude,
-            'lng': s.longitude,
-            'title': s.storeName,
-            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-            'price': priceStr,
-          };
+      // 서버를 호출하지 않고 _allStores에서 로컬 필터링 수행
+      var stores = _allStores.where((s) => 
+        s.latitude >= minLat && s.latitude <= maxLat &&
+        s.longitude >= minLng && s.longitude <= maxLng
+      ).toList();
+
+      // ─── 검색 및 필터 적용 ───
+      if (_searchQuery.trim().isNotEmpty) {
+        stores = stores.where((s) => 
+          s.storeName.contains(_searchQuery) || 
+          s.menu1.contains(_searchQuery) || 
+          s.industry.contains(_searchQuery)
+        ).toList();
+      }
+      
+      if (_searchFilter.maxPrice != null) {
+        stores = stores.where((s) {
+          final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
+          return p == null || p <= _searchFilter.maxPrice!;
         }).toList();
       }
+      
+      if (_searchFilter.industries.isNotEmpty) {
+        stores = stores.where((s) =>
+          _searchFilter.industries.any((ind) => SearchFilter.matchesIndustry(s, ind))
+        ).toList();
+      }
+      
+      if (_searchFilter.distance != null && _lastKnownPosition != null) {
+        double maxDist = 0;
+        if (_searchFilter.distance == '500m 이내') maxDist = 500;
+        else if (_searchFilter.distance == '1km 이내') maxDist = 1000;
+        else if (_searchFilter.distance == '3km 이내') maxDist = 3000;
+        
+        if (maxDist > 0) {
+          stores = stores.where((s) {
+            final d = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, s.latitude, s.longitude);
+            return d <= maxDist;
+          }).toList();
+        }
+      }
+
+      // 💥 너무 많은 마커가 렌더링되어 앱이 멈추는 것을 방지 (최대 100개)
+      if (stores.length > 100) {
+        stores = stores.take(100).toList();
+      }
+
+      _currentStores = stores;
+
+      return _currentStores.map((s) {
+        final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
+        final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
+        return {
+          'lat': s.latitude,
+          'lng': s.longitude,
+          'title': s.storeName,
+          'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
+          'price': priceStr,
+        };
+      }).toList();
     } catch (e) {
-      debugPrint('백엔드 호출 에러: ${e}');
+      debugPrint('필터링 에러: ${e}');
+      return [];
     }
-    return [];
   }
 
   Widget _buildWebMap() {
@@ -639,6 +805,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
+    final activeFilters = _searchFilter.activeLabels;
+    final hasFilters = activeFilters.isNotEmpty;
+    final isSearching = _searchQuery.isNotEmpty || hasFilters;
+    final topOffsetPush = hasFilters ? 44.0 : 0.0;
+
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFDDE6F0),
       child: Stack(
@@ -662,30 +833,88 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             child: Opacity(
               opacity: homeChromeOpacity,
               child: _SearchBar(
-                onTap: () => context.push(AppRoutes.searchEmpty),
+                query: _searchQuery,
+                onTap: _openSearch,
+                onFilterTap: () => _openSearch(openFilter: true),
               ),
             ),
           ),
-          Positioned(
-            left: 15.99432373046875,
-            top: 67.98297119140625 + topOffset,
-            width: 183.67897033691406,
-            height: 28.480112075805664,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: const _SourceLegend(),
+          
+          if (hasFilters)
+            Positioned(
+              left: 0,
+              top: 10 + topOffset + 52 + 10, // _SearchBar below
+              width: FigmaMobileCanvas.width,
+              height: 32,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: activeFilters.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  itemBuilder: (context, i) {
+                    final label = activeFilters[i];
+                    return Container(
+                      height: 32,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFF2563EB), width: 1.2),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontFamily: HomeMapScreen.fontFamily,
+                              fontFamilyFallback: HomeMapScreen.fontFallback,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _searchFilter = _searchFilter.remove(label));
+                              _searchInCurrentArea();
+                            },
+                            child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF2563EB)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
             ),
-          ),
-          Positioned(
-            left: 15.99432373046875,
-            top: 106.46307373046875 + topOffset,
-            width: 343.4659118652344,
-            height: 55.80965805053711,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: const _TodayPickCard(),
+
+          if (!isSearching) ...[
+            Positioned(
+              left: 15.99432373046875,
+              top: 67.98297119140625 + topOffset + topOffsetPush,
+              width: 183.67897033691406,
+              height: 28.480112075805664,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: const _SourceLegend(),
+              ),
             ),
-          ),
+            Positioned(
+              left: 15.99432373046875,
+              top: 106.46307373046875 + topOffset + topOffsetPush,
+              width: 343.4659118652344,
+              height: 55.80965805053711,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: const _TodayPickCard(),
+              ),
+            ),
+          ],
           Positioned(
             left: 307.0,
             top: floatingLocationTop,
@@ -714,7 +943,64 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
           ),
-          if (_showStoreSummary && _selectedStore != null)
+          if (isSearching && _currentStores.isNotEmpty) ...[
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Center(
+                  child: _FloatingSearchSummary(count: _currentStores.length),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              bottom: bottomNavHeight + 10,
+              width: FigmaMobileCanvas.width,
+              height: storeCardHeight,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: PageView.builder(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _currentStores.length,
+                  onPageChanged: (index) {
+                    if (index < _currentStores.length) {
+                      final store = _currentStores[index];
+                      if (kIsWeb) {
+                        web_helper.setKakaoMapCenterFromSwipeWeb(_viewId, store.latitude, store.longitude);
+                      } else {
+                        _webViewController?.runJavaScript(
+                          'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
+                        );
+                      }
+                    }
+                  },
+                  itemBuilder: (context, index) {
+                    if (index >= _currentStores.length) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: _StoreSummaryCard(store: _currentStores[index]),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ] else if (isSearching && _currentStores.isEmpty) ...[
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomNavHeight + 20,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Center(
+                  child: _FloatingSearchSummary(count: 0),
+                ),
+              ),
+            ),
+          ] else if (_showStoreSummary && _selectedStore != null) ...[
             Positioned(
               left: 15.99432373046875,
               top: storeCardTop,
@@ -725,6 +1011,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 child: _StoreSummaryCard(store: _selectedStore!),
               ),
             ),
+          ],
           Positioned(
             left: 0,
             bottom: 0,
@@ -732,9 +1019,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: bottomNavHeight,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: HowmuchBottomNav(
-                safeBottom: bottomOffset,
-                activeTab: HowmuchBottomTab.home,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (_) {},
+                onHorizontalDragUpdate: (_) {},
+                child: HowmuchBottomNav(
+                  safeBottom: bottomOffset,
+                  activeTab: HowmuchBottomTab.home,
+                ),
               ),
             ),
           ),
@@ -797,9 +1089,11 @@ class _StoreTapTarget extends StatelessWidget {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.onTap});
+  const _SearchBar({required this.onTap, this.onFilterTap, this.query = ''});
 
   final VoidCallback onTap;
+  final VoidCallback? onFilterTap;
+  final String query;
 
   @override
   Widget build(BuildContext context) {
@@ -816,25 +1110,29 @@ class _SearchBar extends StatelessWidget {
               child: InkWell(
                 borderRadius: BorderRadius.circular(16),
                 onTap: onTap,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 15.99432373046875),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 15.99432373046875),
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.search_rounded,
                         color: Color(0xFF64748B),
                         size: 19,
                       ),
-                      SizedBox(width: 7.997158050537109),
-                      Text(
-                        '가게명, 메뉴, 지역 검색',
-                        style: TextStyle(
-                          color: HomeMapScreen.hint,
-                          fontFamily: HomeMapScreen.fontFamily,
-                          fontFamilyFallback: HomeMapScreen.fontFallback,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
+                      const SizedBox(width: 7.997158050537109),
+                      Expanded(
+                        child: Text(
+                          query.isNotEmpty ? query : '가게명, 메뉴, 지역 검색',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: query.isNotEmpty ? HomeMapScreen.ink : HomeMapScreen.hint,
+                            fontFamily: HomeMapScreen.fontFamily,
+                            fontFamilyFallback: HomeMapScreen.fontFallback,
+                            fontSize: 14,
+                            fontWeight: query.isNotEmpty ? FontWeight.w600 : FontWeight.w400,
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ],
@@ -845,16 +1143,17 @@ class _SearchBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7.997158050537109),
-        const _SquareButton(icon: Icons.tune_rounded),
+        _SquareButton(icon: Icons.tune_rounded, onTap: onFilterTap),
       ],
     );
   }
 }
 
 class _SquareButton extends StatelessWidget {
-  const _SquareButton({required this.icon});
+  const _SquareButton({required this.icon, this.onTap});
 
   final IconData icon;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -863,10 +1162,14 @@ class _SquareButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       elevation: 7,
       shadowColor: const Color(0x140F172A),
-      child: SizedBox(
-        width: 52,
-        height: 52,
-        child: Icon(icon, color: HomeMapScreen.ink, size: 19),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: Icon(icon, color: HomeMapScreen.ink, size: 19),
+        ),
       ),
     );
   }
@@ -1759,6 +2062,70 @@ const _muted11 = TextStyle(
   fontWeight: FontWeight.w400,
   height: 1.5,
 );
+
+// ──────────────────────────────────────────────────────────────
+//  검색 안내 칩
+// ──────────────────────────────────────────────────────────────
+class _FloatingSearchSummary extends StatelessWidget {
+  const _FloatingSearchSummary({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.location_on, color: Color(0xFFEF4444), size: 14),
+          const SizedBox(width: 6),
+          const Text(
+            '주변 1km 안에 ',
+            style: TextStyle(
+              color: HomeMapScreen.ink,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            '$count개 매장',
+            style: const TextStyle(
+              color: HomeMapScreen.blue,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const Text(
+            ' 이 있어요',
+            style: TextStyle(
+              color: HomeMapScreen.ink,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 const _muted12 = TextStyle(
   color: HomeMapScreen.muted,
