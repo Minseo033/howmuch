@@ -27,7 +27,7 @@ class HowmuchBottomNav extends StatelessWidget {
   static const designHeight = 81.98863220214844;
   static const contentHeight = 60.002838134765625;
   static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 32.0;
+  static const contentLift = 0.0; // Removed the 32.0 compensation hack
 
   static double heightFor(double safeBottom) {
     return contentHeight +

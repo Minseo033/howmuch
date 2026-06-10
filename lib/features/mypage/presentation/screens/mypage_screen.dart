@@ -90,7 +90,7 @@ class MypageScreen extends ConsumerWidget {
                         label: '찜한 매장',
                         icon: Icons.favorite_border_rounded,
                         color: orange,
-                        onTap: () {},
+                        onTap: () => context.push(AppRoutes.favoriteStores),
                       ),
                     ),
                     Positioned(
@@ -237,10 +237,14 @@ class _Header extends StatelessWidget {
           Positioned(
             right: 48.991455078125,
             top: 16.4775390625 + topOffset,
-            child: const Icon(
-              Icons.notifications_none_rounded,
-              color: MypageScreen.ink,
-              size: 18,
+            child: GestureDetector(
+              onTap: () => context.push(AppRoutes.notifications),
+              behavior: HitTestBehavior.opaque,
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: MypageScreen.ink,
+                size: 18,
+              ),
             ),
           ),
           Positioned(

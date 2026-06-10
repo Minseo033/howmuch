@@ -59,12 +59,35 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     }
 
     setState(() {
-      _messages.add(_ChatMessage(text: message, photo: _attachedPhoto));
+      _messages.add(_ChatMessage(
+        type: ChatMessageType.user,
+        text: message,
+        photo: _attachedPhoto,
+      ));
       _controller.clear();
       _attachedPhoto = null;
+
+      _messages.add(const _ChatMessage(
+        type: ChatMessageType.analyzing,
+        conditions: ['📍 마포구 합정동', '💰 1만원 이하', '☔️ 비오는 날'],
+      ));
     });
     FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (!mounted) return;
+      setState(() {
+        if (_messages.isNotEmpty && _messages.last.type == ChatMessageType.analyzing) {
+          _messages.removeLast();
+          _messages.add(const _ChatMessage(
+            type: ChatMessageType.recommendation,
+            text: '조건에 맞는 가장 완벽한 점심 메뉴를 찾았어요!\n합정동 근처의 든든한 국물 요리를 추천해 드릴게요.',
+          ));
+        }
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+    });
   }
 
   void _scrollToLatest() {
@@ -111,7 +134,7 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     final keyboardOffset = designScale <= 0
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    const composerLift = 18.0;
+    const composerLift = 0.0;
     final hasAttachment = _attachedPhoto != null;
     final composerHeight = (hasAttachment ? 142 : 78) + bottomOffset;
     final contentTop = topOffset + 57;
@@ -183,7 +206,12 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
                   ),
                   for (final message in _messages) ...[
                     const SizedBox(height: 14),
-                    _UserMessageBubble(message: message),
+                    if (message.type == ChatMessageType.user)
+                      _UserMessageBubble(message: message)
+                    else if (message.type == ChatMessageType.analyzing)
+                      _AnalyzingBubble(conditions: message.conditions ?? [])
+                    else if (message.type == ChatMessageType.recommendation)
+                      _RecommendationBubble(message: message),
                   ],
                 ],
               ),
@@ -770,11 +798,272 @@ class _UserMessageBubble extends StatelessWidget {
   }
 }
 
-class _ChatMessage {
-  const _ChatMessage({required this.text, required this.photo});
+enum ChatMessageType { user, analyzing, recommendation }
 
+class _ChatMessage {
+  const _ChatMessage({
+    required this.type,
+    this.text = '',
+    this.photo,
+    this.conditions,
+  });
+
+  final ChatMessageType type;
   final String text;
   final XFile? photo;
+  final List<String>? conditions;
+}
+
+class _AnalyzingBubble extends StatelessWidget {
+  const _AnalyzingBubble({required this.conditions});
+
+  final List<String> conditions;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE1E6EF)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0A0F172A),
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Text(
+                      '조건을 분석하고 있어요...',
+                      style: TextStyle(
+                        color: _AiUi.ink,
+                        fontFamily: _AiUi.fontFamily,
+                        fontFamilyFallback: _AiUi.fontFallback,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: conditions.map((cond) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        cond,
+                        style: const TextStyle(
+                          color: Color(0xFF475569),
+                          fontFamily: _AiUi.fontFamily,
+                          fontFamilyFallback: _AiUi.fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RecommendationBubble extends StatelessWidget {
+  const _RecommendationBubble({required this.message});
+
+  final _ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE1E6EF)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x0A0F172A),
+                      blurRadius: 4,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  message.text,
+                  style: const TextStyle(
+                    color: _AiUi.ink,
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF2563EB)),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1A2563EB),
+                      blurRadius: 12,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF4FF),
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: const Text(
+                            'AI BEST PICK',
+                            style: TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontFamily: _AiUi.fontFamily,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const Text(
+                          '2.3km',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontFamily: _AiUi.fontFamily,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      '정다운분식',
+                      style: TextStyle(
+                        color: _AiUi.ink,
+                        fontFamily: _AiUi.fontFamily,
+                        fontFamilyFallback: _AiUi.fontFallback,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '우동',
+                          style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontFamily: _AiUi.fontFamily,
+                            fontFamilyFallback: _AiUi.fontFallback,
+                            fontSize: 13,
+                          ),
+                        ),
+                        Text(
+                          '4,500원',
+                          style: TextStyle(
+                            color: _AiUi.ink,
+                            fontFamily: _AiUi.fontFamily,
+                            fontFamilyFallback: _AiUi.fontFallback,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () => context.push(AppRoutes.optimalRoute),
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.route, color: Colors.white, size: 16),
+                            SizedBox(width: 8),
+                            Text(
+                              '추천 루트 보기',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: _AiUi.fontFamily,
+                                fontFamilyFallback: _AiUi.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _QuickPrompt {
