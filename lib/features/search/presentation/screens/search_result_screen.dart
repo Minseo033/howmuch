@@ -255,6 +255,21 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     return '🍽️';
   }
 
+  // ────────────────────────────────────────────────
+  //  거리 계산 로직
+  // ────────────────────────────────────────────────
+  String _formatDistance(Store store) {
+    final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+    if (pos == null) return '';
+    final d = Geolocator.distanceBetween(
+        pos.latitude, pos.longitude, store.latitude, store.longitude);
+    if (d < 1000) {
+      return '${d.toStringAsFixed(0)}m';
+    } else {
+      return '${(d / 1000).toStringAsFixed(1)}km';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final topOffset = MediaQuery.of(context).padding.top;
@@ -333,6 +348,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                           return _StoreCard(
                             store: s,
                             emoji: _emoji(s.industry),
+                            distance: _formatDistance(s),
                             priceLabel: s.menu1.isNotEmpty
                                 ? '${s.menu1}  ${_fmt(s.price1)}'
                                 : s.industry,
@@ -611,12 +627,14 @@ class _StoreCard extends StatelessWidget {
     required this.store,
     required this.emoji,
     required this.priceLabel,
+    required this.distance,
     required this.onTap,
   });
 
   final Store store;
   final String emoji;
   final String priceLabel;
+  final String distance;
   final VoidCallback onTap;
 
   @override
@@ -675,6 +693,19 @@ class _StoreCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        if (distance.isNotEmpty) ...[
+                          Text(
+                            distance,
+                            style: const TextStyle(
+                              fontFamily: SearchResultScreen.fontFamily,
+                              fontFamilyFallback: SearchResultScreen.fontFallback,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: SearchResultScreen.blue,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                        ],
                         _IndustryChip(label: store.industry),
                       ],
                     ),

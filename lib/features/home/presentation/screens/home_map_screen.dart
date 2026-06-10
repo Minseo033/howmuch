@@ -197,6 +197,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               });
             }
           }
+          if (message.message == 'MAP_CLICK') {
+            _hideStore();
+          }
         },
       )
       ..loadHtmlString(_getMobileMapHtml());
@@ -266,6 +269,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             }, 600);
           });
 
+          kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+            Print.postMessage('MAP_CLICK');
+          });
+
           Print.postMessage("Map Initialized on Mobile");
         };
 
@@ -273,7 +280,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var markerDataCache = [];
 
         function onMarkerClick(index) {
-          highlightMarker(index);
           Print.postMessage('CLICK:' + index);
         }
 
