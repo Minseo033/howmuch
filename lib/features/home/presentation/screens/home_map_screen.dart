@@ -1277,8 +1277,10 @@ class _TodayPickCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.todaysPick),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
         borderRadius: BorderRadius.circular(16),
@@ -1340,6 +1342,7 @@ class _TodayPickCard extends StatelessWidget {
           ),
           SizedBox(width: 12),
         ],
+      ),
       ),
     );
   }
