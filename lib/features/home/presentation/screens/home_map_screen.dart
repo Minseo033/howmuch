@@ -627,12 +627,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final minLng = bounds['minLng'];
     final maxLng = bounds['maxLng'];
 
-    String host = kIsWeb ? 'localhost' : '192.168.200.188';
-    final url =
-        'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+    final url = kIsWeb
+        ? 'http://localhost:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}'
+        : 'https://khaki-camels-wonder.loca.lt/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
     try {
-      final response = await http.get(Uri.parse(url)).timeout(
+      final response = await http.get(Uri.parse(url), headers: {
+        'Bypass-Tunnel-Reminder': 'true',
+      }).timeout(
         const Duration(seconds: 8),
       );
       if (response.statusCode == 200) {

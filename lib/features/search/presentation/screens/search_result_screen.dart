@@ -91,15 +91,15 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     });
 
     try {
-      final host = kIsWeb ? 'localhost' : '192.168.200.188';
       final uri = Uri.parse(
-        'http://$host:8081/api/test/search'
-        '?query=${Uri.encodeComponent(q.trim())}'
-        '${_filter.industries.isNotEmpty ? "&industry=${Uri.encodeComponent(_filter.industries.join(','))}" : ""}'
-        '${_filter.maxPrice != null ? "&maxPrice=${_filter.maxPrice}" : ""}',
+        kIsWeb 
+        ? 'http://localhost:8081/api/test/search?query=${Uri.encodeComponent(q.trim())}${_filter.industries.isNotEmpty ? "&industry=${Uri.encodeComponent(_filter.industries.join(','))}" : ""}${_filter.maxPrice != null ? "&maxPrice=${_filter.maxPrice}" : ""}'
+        : 'https://khaki-camels-wonder.loca.lt/api/test/search?query=${Uri.encodeComponent(q.trim())}${_filter.industries.isNotEmpty ? "&industry=${Uri.encodeComponent(_filter.industries.join(','))}" : ""}${_filter.maxPrice != null ? "&maxPrice=${_filter.maxPrice}" : ""}'
       );
 
-      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      final res = await http.get(uri, headers: {
+        'Bypass-Tunnel-Reminder': 'true',
+      }).timeout(const Duration(seconds: 8));
       if (!mounted) return;
 
       if (res.statusCode == 200) {
