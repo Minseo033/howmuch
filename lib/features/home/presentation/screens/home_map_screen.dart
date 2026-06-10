@@ -635,7 +635,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final response = await http.get(Uri.parse(url), headers: {
         'Bypass-Tunnel-Reminder': 'true',
       }).timeout(
-        const Duration(seconds: 20),
+        const Duration(seconds: 60),
       );
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
