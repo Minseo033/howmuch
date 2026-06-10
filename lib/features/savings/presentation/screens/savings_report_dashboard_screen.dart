@@ -22,11 +22,7 @@ class SavingsReportDashboardScreen extends StatelessWidget {
           Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
 
           // Scrollable Content
-          Positioned(
-            left: 0,
-            width: FigmaMobileCanvas.width,
-            top: 0,
-            bottom: 0,
+          Positioned.fill(
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
@@ -34,10 +30,8 @@ class SavingsReportDashboardScreen extends StatelessWidget {
               padding: EdgeInsets.only(
                 bottom: bottomNavHeight + 20,
               ),
-              child: SizedBox(
-                width: FigmaMobileCanvas.width,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Custom AppBar (now scrolls!)
                   Container(
