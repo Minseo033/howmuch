@@ -21,6 +21,8 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
 
+  static List<Store> globalAllStores = [];
+
   final bool showAiSpotlight;
 
   static const blue = Color(0xFF2563EB);
@@ -133,6 +135,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         setState(() {
           _allStores = data.map((json) => Store.fromJson(json))
               .where((s) => s.latitude != 0 && s.longitude != 0).toList();
+          HomeMapScreen.globalAllStores = _allStores;
           _isAllStoresLoaded = true;
         });
         debugPrint('전체 매장 로드 완료: ${_allStores.length}개');
@@ -1007,9 +1010,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: bottomNavHeight,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: HowmuchBottomNav(
-                safeBottom: bottomOffset,
-                activeTab: HowmuchBottomTab.home,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (_) {},
+                onHorizontalDragUpdate: (_) {},
+                child: HowmuchBottomNav(
+                  safeBottom: bottomOffset,
+                  activeTab: HowmuchBottomTab.home,
+                ),
               ),
             ),
           ),
