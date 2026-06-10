@@ -128,7 +128,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _fetchAllStores() async {
     final url = kIsWeb
         ? 'http://localhost:8081/api/test/all'
-        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+        : 'http://192.168.219.120:8081/api/test/all';
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       
