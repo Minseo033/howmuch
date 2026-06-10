@@ -823,6 +823,54 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ),
 
+          if (!_isAllStoresLoaded)
+            Positioned.fill(
+              child: Container(
+                color: Colors.white.withAlpha(230), // 0.9 opacity approx
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1A000000),
+                              blurRadius: 15,
+                              offset: Offset(0, 8),
+                            ),
+                          ],
+                          image: const DecorationImage(
+                            image: AssetImage('assets/images/app_logo.png'),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      const CircularProgressIndicator(color: Color(0xFF2563EB)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
 
 
           Positioned(
