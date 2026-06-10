@@ -161,8 +161,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
           
           if (_webViewController != null) {
-            debugPrint('requestBounds() 호출 시도...');
-            _webViewController!.runJavaScript('requestBounds()');
+            debugPrint('1초 대기 후 requestBounds() 호출 시도합니다...');
+            Future.delayed(const Duration(seconds: 1), () {
+              debugPrint('requestBounds() 실제 호출');
+              _webViewController!.runJavaScript('requestBounds()');
+            });
           }
         }
       }
