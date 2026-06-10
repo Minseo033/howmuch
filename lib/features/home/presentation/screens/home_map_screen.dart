@@ -124,7 +124,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _fetchAllStores() async {
     final url = kIsWeb
         ? 'http://localhost:8081/api/test/all'
-        : 'https://semester-withdrawal-ensures-want.trycloudflare.com/api/test/all';
+        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       
@@ -139,7 +139,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         
         // 로드가 완료된 시점에 현재 화면 위치 기준으로 마커 새로고침 유도
         if (_webViewController != null) {
-          _webViewController!.runJavaScript('sendBounds()');
+          _webViewController!.runJavaScript('requestBounds()');
         }
       }
     } catch (e) {
@@ -691,25 +691,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             return d <= maxDist;
           }).toList();
         }
-
-        _currentStores = stores;
-
-        return _currentStores.map((s) {
-          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-          final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
-          return {
-            'lat': s.latitude,
-            'lng': s.longitude,
-            'title': s.storeName,
-            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-            'price': priceStr,
-          };
-        }).toList();
       }
+
+      // 💥 너무 많은 마커가 렌더링되어 앱이 멈추는 것을 방지 (최대 100개)
+      if (stores.length > 100) {
+        stores = stores.take(100).toList();
+      }
+
+      _currentStores = stores;
+
+      return _currentStores.map((s) {
+        final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
+        final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
+        return {
+          'lat': s.latitude,
+          'lng': s.longitude,
+          'title': s.storeName,
+          'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
+          'price': priceStr,
+        };
+      }).toList();
     } catch (e) {
-      debugPrint('백엔드 호출 에러: ${e}');
+      debugPrint('필터링 에러: ${e}');
+      return [];
     }
-    return [];
   }
 
   Widget _buildWebMap() {
