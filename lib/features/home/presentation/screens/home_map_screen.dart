@@ -60,6 +60,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Position? _lastKnownPosition;
   List<Store> _allStores = [];
   bool _isAllStoresLoaded = false;
+  bool _hasLoadError = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
@@ -149,6 +150,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     } catch (e) {
       debugPrint('전체 매장 로드 실패: $e');
+      if (mounted) {
+        setState(() {
+          _hasLoadError = true;
+        });
+      }
     }
   }
 
@@ -858,20 +864,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                      Text(
+                        _hasLoadError ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.' : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF2563EB),
+                          color: _hasLoadError ? Colors.red : const Color(0xFF2563EB),
                           fontFamily: 'Inter',
-                          fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                          fontFamilyFallback: const ['Apple SD Gothic Neo', 'Noto Sans KR'],
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 1.5,
                         ),
                       ),
                       const SizedBox(height: 24),
-                      const CircularProgressIndicator(color: Color(0xFF2563EB)),
+                      if (_hasLoadError)
+                        ElevatedButton(
+                          onPressed: () {
+                            setState(() {
+                              _hasLoadError = false;
+                            });
+                            _fetchAllStores();
+                          },
+                          child: const Text('다시 시도'),
+                        )
+                      else
+                        const CircularProgressIndicator(color: Color(0xFF2563EB)),
                     ],
                   ),
                 ),
