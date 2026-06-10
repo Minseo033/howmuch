@@ -332,7 +332,6 @@ class SavingsReportDashboardScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
           ),
           
           // Bottom Nav

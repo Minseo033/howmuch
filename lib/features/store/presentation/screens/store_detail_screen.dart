@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/features/store/store_model.dart';
@@ -418,7 +419,7 @@ class StoreDetailScreen extends StatelessWidget {
                               _MockTag('목업 - 추후 개발 필요'),
                               const Spacer(),
                               GestureDetector(
-                                onTap: () {},
+                                onTap: () => context.push(AppRoutes.reviewList),
                                 child: const Text('전체보기',
                                     style: TextStyle(
                                         fontSize: 12,
@@ -492,9 +493,8 @@ class StoreDetailScreen extends StatelessWidget {
                       _BottomIconBtn(
                         icon: Icons.campaign_rounded,
                         label: '가격 제보',
-                        onTap: () =>
-                            _snack(context, '가격 변동 제보는 추후 개발 예정입니다.'),
-                        muted: true,
+                        onTap: () => context.push(AppRoutes.priceChangeReport),
+                        muted: false,
                       ),
                       const SizedBox(width: 10),
                       // 길찾기 버튼 (메인 CTA)

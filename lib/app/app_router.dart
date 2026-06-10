@@ -44,11 +44,38 @@ import 'package:howmuch/features/savings/presentation/screens/savings_detail_scr
 import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/optimal_route_screen.dart';
 
+
+import 'package:howmuch/features/store/presentation/screens/review_list_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/review_write_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/price_history_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/price_change_report_screen.dart';
+import 'package:howmuch/features/errors/presentation/screens/store_info_report_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/visit_verification_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/visit_verification_complete_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/directions_external_app_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/my_reviews_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/visit_history_screen.dart';
+import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
+
 final appRouterProvider = Provider<GoRouter>((ref) {
+
   return GoRouter(
     initialLocation: AppRoutes.splash,
     routes: [
+
+      _route(AppRoutes.reviewList, const ReviewListScreen()),
+      _route(AppRoutes.reviewWrite, const ReviewWriteScreen()),
+      _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
+      _route(AppRoutes.priceChangeReport, const PriceChangeReportScreen()),
+      _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
+      _route(AppRoutes.visitVerification, const VisitVerificationScreen()),
+      _route(AppRoutes.visitVerificationComplete, const VisitVerificationCompleteScreen()),
+      _route(AppRoutes.directionsExternalApp, const DirectionsExternalAppScreen()),
+      _route(AppRoutes.myReviews, const MyReviewsScreen()),
+      _route(AppRoutes.visitHistory, const VisitHistoryScreen()),
+      _route(AppRoutes.favoriteCancelConfirm, const FavoriteCancelConfirmScreen()),
       GoRoute(
+
         path: AppRoutes.root,
         redirect: (_, _) => AppRoutes.splash,
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 
@@ -74,7 +76,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         text: '리뷰 작성하기',
         backgroundColor: const Color(0xFFF27E22),
         onPressed: () {
-          // TODO(박지환 BE): 리뷰 작성 화면으로 이동
+          context.push(AppRoutes.reviewWrite);
         },
       ),
     );
