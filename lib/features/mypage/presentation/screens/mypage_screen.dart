@@ -6,19 +6,20 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class MypageScreen extends ConsumerWidget {
   const MypageScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const hint = Color(0xFF94A3B8);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const orange = AppColors.warning;
+  static const green = AppColors.success;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const hint = AppColors.textLight;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -120,7 +121,8 @@ class MypageScreen extends ConsumerWidget {
                         label: '절약 리포트',
                         icon: Icons.bar_chart_rounded,
                         color: green,
-                        onTap: () => context.go(AppRoutes.savingsReportDashboard),
+                        onTap: () =>
+                            context.go(AppRoutes.savingsReportDashboard),
                       ),
                     ),
                     Positioned(
@@ -141,9 +143,8 @@ class MypageScreen extends ConsumerWidget {
                       child: _ReportStatusCard(
                         reports: reports,
                         onViewAll: () => context.push(AppRoutes.myReports),
-                        onReportTap: (report) => context.push(
-                          AppRoutes.reportDetail,
-                        ),
+                        onReportTap: (report) =>
+                            context.push(AppRoutes.reportDetail),
                       ),
                     ),
                     Positioned(
@@ -216,7 +217,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.white),
+      decoration: BoxDecoration(color: AppColors.white),
       child: Stack(
         children: [
           Positioned(
@@ -273,11 +274,11 @@ class _ProfileCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: DecoratedBox(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [MypageScreen.blue, Color(0xFF3B82F6)],
+            colors: [MypageScreen.blue, AppColors.primary],
           ),
         ),
         child: Stack(
@@ -287,20 +288,20 @@ class _ProfileCard extends StatelessWidget {
               top: -20,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .08),
+                  color: AppColors.white.withValues(alpha: .08),
                   shape: BoxShape.circle,
                 ),
                 child: const SizedBox(width: 130, height: 130),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 20,
               top: 26.619140625,
               width: 55.99431610107422,
               height: 55.99431610107422,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Color(0x40FFFFFF),
+                  color: AppColors.white.withValues(alpha: .25),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -318,7 +319,7 @@ class _ProfileCard extends StatelessWidget {
               height: 18.977272033691406,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: .2),
+                  color: AppColors.white.withValues(alpha: .2),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Center(
@@ -343,7 +344,7 @@ class _ProfileCard extends StatelessWidget {
               child: Text(
                 profile.email,
                 style: _white11.copyWith(
-                  color: Colors.white.withValues(alpha: .85),
+                  color: AppColors.white.withValues(alpha: .85),
                 ),
               ),
             ),
@@ -353,7 +354,7 @@ class _ProfileCard extends StatelessWidget {
               width: 94.85794830322266,
               height: 28.480112075805664,
               child: Material(
-                color: Colors.white.withValues(alpha: .22),
+                color: AppColors.white.withValues(alpha: .22),
                 borderRadius: BorderRadius.circular(999),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(999),
@@ -365,7 +366,7 @@ class _ProfileCard extends StatelessWidget {
                       SizedBox(width: 5.5),
                       Icon(
                         Icons.chevron_right_rounded,
-                        color: Colors.white,
+                        color: AppColors.white,
                         size: 12,
                       ),
                     ],
@@ -426,8 +427,11 @@ class _ProfileMetric extends StatelessWidget {
       height: 37.99715805053711,
       decoration: BoxDecoration(
         border: bordered
-            ? const Border(
-                left: BorderSide(color: Color(0x33FFFFFF), width: .909),
+            ? Border(
+                left: BorderSide(
+                  color: AppColors.white.withValues(alpha: .2),
+                  width: .909,
+                ),
               )
             : null,
       ),
@@ -455,7 +459,7 @@ class _ProfileMetric extends StatelessWidget {
                 maxLines: 1,
                 textAlign: TextAlign.center,
                 style: _white10.copyWith(
-                  color: Colors.white.withValues(alpha: .85),
+                  color: AppColors.white.withValues(alpha: .85),
                 ),
               ),
             ),
@@ -482,7 +486,7 @@ class _QuickMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -541,7 +545,7 @@ class _ReportStatusCard extends StatelessWidget {
         .909,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
@@ -703,7 +707,7 @@ class _SettingsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
@@ -777,7 +781,7 @@ class _AdminModeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -797,7 +801,7 @@ class _AdminModeRow extends StatelessWidget {
                 height: 18,
                 padding: const EdgeInsets.symmetric(horizontal: 7),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF4FF),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 alignment: Alignment.center,
@@ -826,7 +830,7 @@ class _AdminModeSwitch extends StatelessWidget {
       width: 40,
       height: 23.99147605895996,
       decoration: BoxDecoration(
-        color: value ? MypageScreen.blue : const Color(0xFFCBD5E1),
+        color: value ? MypageScreen.blue : AppColors.disabled,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Stack(
@@ -839,12 +843,12 @@ class _AdminModeSwitch extends StatelessWidget {
             child: Container(
               width: 20,
               height: 20,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: AppColors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Color(0x33000000),
+                    color: AppColors.black.withOpacity(0.2),
                     blurRadius: 3,
                     offset: Offset(0, 1),
                   ),
@@ -900,7 +904,7 @@ class _SettingRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -937,10 +941,8 @@ class _DividerLine extends StatelessWidget {
   }
 }
 
-
-
 const _white10 = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: MypageScreen.fontFamily,
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 10,
@@ -949,7 +951,7 @@ const _white10 = TextStyle(
 );
 
 const _white11 = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: MypageScreen.fontFamily,
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 11,
@@ -958,7 +960,7 @@ const _white11 = TextStyle(
 );
 
 const _white14Bold = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: MypageScreen.fontFamily,
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 14,
@@ -967,7 +969,7 @@ const _white14Bold = TextStyle(
 );
 
 const _white17 = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: MypageScreen.fontFamily,
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 17,
@@ -976,7 +978,7 @@ const _white17 = TextStyle(
 );
 
 const _profileEditText = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: MypageScreen.fontFamily,
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 11,

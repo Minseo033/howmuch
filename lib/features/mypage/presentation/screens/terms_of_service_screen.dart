@@ -3,18 +3,19 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class TermsOfServiceScreen extends StatelessWidget {
   const TermsOfServiceScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const red = Color(0xFFEF4444);
-  static const amber = Color(0xFF92400E);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const red = AppColors.error;
+  static const amber = AppColors.warningDark;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -109,7 +110,7 @@ class TermsOfServiceScreen extends StatelessWidget {
   void _showTermsDetail(BuildContext context, _TermsItem item) {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -163,7 +164,7 @@ class _TermsHeader extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: TermsOfServiceScreen.border, width: .909),
           ),
@@ -176,7 +177,7 @@ class _TermsHeader extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -211,7 +212,7 @@ class _TermsHeader extends StatelessWidget {
               width: 44,
               height: 44,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(22),
                   onTap: onAction,
@@ -240,9 +241,9 @@ class _TermsSummaryCard extends StatelessWidget {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFEEF2FF), Color(0xFFF3E8FF)],
+          colors: [AppColors.primarySubtle, AppColors.backgroundLight],
         ),
-        border: Border.all(color: const Color(0x212563EB), width: .909),
+        border: Border.all(color: AppColors.primaryAlpha, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
@@ -292,7 +293,7 @@ class _SummaryMetric extends StatelessWidget {
       height: 66,
       padding: const EdgeInsets.fromLTRB(12.897, 8.906, 12.897, 0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: TermsOfServiceScreen.border, width: .909),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -408,8 +409,8 @@ class _TermsRow extends StatelessWidget {
         ? 97.727
         : 80.696;
     final badgeColor = item.important
-        ? const Color(0xFFFEE2E2)
-        : const Color(0xFFF1F5F9);
+        ? AppColors.errorLight
+        : AppColors.background;
     final badgeTextColor = item.important
         ? TermsOfServiceScreen.red
         : TermsOfServiceScreen.ink;
@@ -423,7 +424,7 @@ class _TermsRow extends StatelessWidget {
           ),
         ),
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: onTap,
             child: Padding(
@@ -502,7 +503,7 @@ class _ImportantBadge extends StatelessWidget {
       width: 28.011362075805664,
       height: 15.497159004211426,
       decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
+        color: AppColors.errorLight,
         borderRadius: BorderRadius.circular(4),
       ),
       alignment: Alignment.center,
@@ -518,7 +519,7 @@ class _TermsNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
+        color: AppColors.warningLight,
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Row(
@@ -570,7 +571,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: TermsOfServiceScreen.border, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),

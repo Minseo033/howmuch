@@ -61,8 +61,17 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
                 RichText(
                   text: const TextSpan(
                     text: '신고 유형 선택 ',
-                    style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.bold),
-                    children: [TextSpan(text: '*', style: TextStyle(color: Color(0xFFF27E22)))],
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '*',
+                        style: TextStyle(color: Color(0xFFF27E22)),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -71,14 +80,28 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
 
                 // 실제 가격 (가격이 달라요 선택 시)
                 if (_selectedTypeIndex == 1) ...[
-                  const Text('실제 가격 선택', style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500)),
+                  const Text(
+                    '실제 가격 선택',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   _buildPriceField(),
                   const SizedBox(height: 20),
                 ],
 
                 // 추가 설명
-                const Text('추가 설명 선택', style: TextStyle(fontSize: 14, color: Colors.grey, fontWeight: FontWeight.w500)),
+                const Text(
+                  '추가 설명 선택',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 _buildDescField(),
                 const SizedBox(height: 20),
@@ -111,17 +134,30 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(10),
-            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-            child: const Icon(Icons.location_on_outlined, color: Colors.grey, size: 22),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.location_on_outlined,
+              color: Colors.grey,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('착한분식', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  '착한분식',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 SizedBox(height: 4),
-                Text('서울 강남구 역삼동 123-4 · 김치찌개 5,500원', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  '서울 강남구 역삼동 123-4 · 김치찌개 5,500원',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
               ],
             ),
           ),
@@ -147,15 +183,22 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
                 borderRadius: i == 0
                     ? const BorderRadius.vertical(top: Radius.circular(16))
                     : i == _types.length - 1
-                        ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                        : BorderRadius.zero,
+                    ? const BorderRadius.vertical(bottom: Radius.circular(16))
+                    : BorderRadius.zero,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   child: Row(
                     children: [
                       Icon(
-                        selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                        color: selected ? const Color(0xFF4A68F6) : Colors.grey.shade400,
+                        selected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: selected
+                            ? const Color(0xFF4A68F6)
+                            : Colors.grey.shade400,
                         size: 22,
                       ),
                       const SizedBox(width: 14),
@@ -163,9 +206,21 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_types[i]['title']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text(
+                              _types[i]['title']!,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                             const SizedBox(height: 2),
-                            Text(_types[i]['desc']!, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            Text(
+                              _types[i]['desc']!,
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -173,7 +228,8 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
                   ),
                 ),
               ),
-              if (i < _types.length - 1) Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
+              if (i < _types.length - 1)
+                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
             ],
           );
         }),
@@ -189,10 +245,22 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
       decoration: InputDecoration(
         suffixText: '원',
         suffixStyle: const TextStyle(color: Colors.grey),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A68F6))),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
+        ),
       ),
     );
   }
@@ -204,9 +272,18 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
       decoration: InputDecoration(
         hintStyle: const TextStyle(color: Colors.grey),
         contentPadding: const EdgeInsets.all(16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade200)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF4A68F6))),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
+        ),
       ),
     );
   }
@@ -227,9 +304,19 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('신고는 운영팀이 확인 후 처리돼요.', style: TextStyle(color: Colors.orange, fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(
+                  '신고는 운영팀이 확인 후 처리돼요.',
+                  style: TextStyle(
+                    color: Colors.orange,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 SizedBox(height: 2),
-                Text('허위 신고 시 이용이 제한될 수 있어요.', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                Text(
+                  '허위 신고 시 이용이 제한될 수 있어요.',
+                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                ),
               ],
             ),
           ),

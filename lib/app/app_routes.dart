@@ -66,4 +66,3 @@ class AppRoutes {
   static const favoriteStores = '/mypage/favorite-stores';
   static const notifications = '/notifications';
 }
-

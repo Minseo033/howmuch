@@ -4,12 +4,13 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/my_reports_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/widgets/my_reports_widgets.dart';
 
-class MyReportsPendingTab extends StatelessWidget {
+import "package:flutter_riverpod/flutter_riverpod.dart";
+class MyReportsPendingTab extends ConsumerWidget {
   const MyReportsPendingTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final visibleReports = reportsData
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visibleReports = ref.watch(myReportDataProvider)
         .where((report) => report.filter == ReportFilter.pending)
         .toList();
 

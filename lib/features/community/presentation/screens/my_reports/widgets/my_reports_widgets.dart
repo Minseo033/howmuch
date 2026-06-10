@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 class TopBanner extends StatelessWidget {
   const TopBanner({
@@ -664,6 +666,40 @@ class MyReportData {
   final double actionTop;
   final double actionWidth;
 }
+
+final myReportDataProvider = Provider<List<MyReportData>>((ref) {
+  final riverpodReports = ref.watch(userReportsProvider);
+  return riverpodReports.map((r) {
+    ReportFilter filter = ReportFilter.all;
+    if (r.status.contains('검토')) filter = ReportFilter.pending;
+    else if (r.status.contains('승인')) filter = ReportFilter.approved;
+    else if (r.status.contains('보완')) filter = ReportFilter.needsEdit;
+    else if (r.status.contains('반려')) filter = ReportFilter.rejected;
+
+    double height = 108.778;
+    if (filter == ReportFilter.approved) height = 154.759;
+    else if (filter == ReportFilter.needsEdit) height = 194.134;
+
+    return MyReportData(
+      id: r.id,
+      filter: filter,
+      status: r.status,
+      date: '2026.05.12', // dummy date
+      title: r.store,
+      menu: r.menu,
+      badgeBackground: Color(r.statusBg),
+      badgeColor: Color(r.textColor),
+      badgeWidth: 70.497,
+      height: height,
+      notice: filter == ReportFilter.needsEdit ? '메뉴판 사진이 흐려 가격 확인이 어려워요' : null,
+      actionLabel: filter == ReportFilter.approved ? '지도에서 보기' : (filter == ReportFilter.needsEdit ? '수정하기' : null),
+      actionColor: filter == ReportFilter.needsEdit ? const Color(0xFFF97316) : const Color(0xFF2563EB),
+      actionIcon: filter == ReportFilter.needsEdit ? Icons.edit_outlined : Icons.location_on_outlined,
+      actionTop: 142.33,
+      actionWidth: 120.185,
+    );
+  }).toList();
+});
 
 const reportsData = [
   MyReportData(

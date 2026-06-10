@@ -4,27 +4,28 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class StoreDetailScreen extends StatelessWidget {
   final Store store;
   const StoreDetailScreen({super.key, required this.store});
 
-  static const _blue = Color(0xFF2563EB);
-  static const _ink  = Color(0xFF111827);
-  static const _sub  = Color(0xFF6B7280);
-  static const _line = Color(0xFFE5E7EB);
-  static const _bg   = Color(0xFFF9FAFB);
+  static const _blue = AppColors.primary;
+  static const _ink = AppColors.textDark;
+  static const _sub = AppColors.textMuted;
+  static const _line = AppColors.border;
+  static const _bg = AppColors.bgLight;
 
   String _emoji() {
     final i = store.industry;
-    if (i.contains('한식'))                       return '🍲';
-    if (i.contains('분식'))                       return '🍜';
+    if (i.contains('한식')) return '🍲';
+    if (i.contains('분식')) return '🍜';
     if (i.contains('중식') || i.contains('중국')) return '🥡';
     if (i.contains('일식') || i.contains('초밥') || i.contains('돈까스')) return '🍱';
-    if (i.contains('양식') || i.contains('피자') || i.contains('버거'))   return '🍕';
-    if (i.contains('카페') || i.contains('커피') || i.contains('음료'))   return '☕';
-    if (i.contains('치킨') || i.contains('닭'))  return '🍗';
-    if (i.contains('고기') || i.contains('육'))  return '🥩';
+    if (i.contains('양식') || i.contains('피자') || i.contains('버거')) return '🍕';
+    if (i.contains('카페') || i.contains('커피') || i.contains('음료')) return '☕';
+    if (i.contains('치킨') || i.contains('닭')) return '🍗';
+    if (i.contains('고기') || i.contains('육')) return '🥩';
     if (i.contains('해산물') || i.contains('해물') || i.contains('횟')) return '🦞';
     if (i.contains('빵') || i.contains('베이커리')) return '🥐';
     return '🍽️';
@@ -47,7 +48,9 @@ class StoreDetailScreen extends StatelessWidget {
 
   Future<void> _map(BuildContext ctx) async {
     await launchUrl(
-      Uri.parse('https://map.kakao.com/?q=${Uri.encodeComponent(store.address)}'),
+      Uri.parse(
+        'https://map.kakao.com/?q=${Uri.encodeComponent(store.address)}',
+      ),
       mode: LaunchMode.externalApplication,
     );
   }
@@ -63,8 +66,8 @@ class StoreDetailScreen extends StatelessWidget {
       if (store.menu3.isNotEmpty) (name: store.menu3, price: store.price3),
       if (store.menu4.isNotEmpty) (name: store.menu4, price: store.price4),
     ];
-    final hasPhone = store.phoneNumber.isNotEmpty &&
-        store.phoneNumber != '전화번호 없음';
+    final hasPhone =
+        store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -77,9 +80,9 @@ class StoreDetailScreen extends StatelessWidget {
               // ────────────────────────────────────────────────────
               SliverAppBar(
                 pinned: true,
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.white,
                 foregroundColor: _ink,
-                surfaceTintColor: Colors.transparent,
+                surfaceTintColor: AppColors.transparent,
                 shadowColor: Colors.black12,
                 elevation: 0.5,
                 leading: IconButton(
@@ -114,12 +117,14 @@ class StoreDetailScreen extends StatelessWidget {
                             width: 56,
                             height: 56,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: AppColors.primarySubtle,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(
-                              child: Text(_emoji(),
-                                  style: const TextStyle(fontSize: 28)),
+                              child: Text(
+                                _emoji(),
+                                style: const TextStyle(fontSize: 28),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 14),
@@ -151,18 +156,28 @@ class StoreDetailScreen extends StatelessWidget {
                                 // 별점 (목업)
                                 Row(
                                   children: [
-                                    const Icon(Icons.star_rounded,
-                                        color: Color(0xFFF59E0B), size: 15),
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: AppColors.starAlt,
+                                      size: 15,
+                                    ),
                                     const SizedBox(width: 3),
-                                    const Text('4.6',
-                                        style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w700,
-                                            color: _ink)),
+                                    const Text(
+                                      '4.6',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700,
+                                        color: _ink,
+                                      ),
+                                    ),
                                     const SizedBox(width: 4),
-                                    const Text('리뷰 128',
-                                        style: TextStyle(
-                                            fontSize: 12, color: _sub)),
+                                    const Text(
+                                      '리뷰 128',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: _sub,
+                                      ),
+                                    ),
                                     const SizedBox(width: 8),
                                     _MockTag('목업'),
                                   ],
@@ -185,11 +200,14 @@ class StoreDetailScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Text('예상 절약 금액',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _sub)),
+                              const Text(
+                                '예상 절약 금액',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _sub,
+                                ),
+                              ),
                               const SizedBox(width: 6),
                               _MockTag('목업 - 추후 개발 필요'),
                             ],
@@ -198,26 +216,33 @@ class StoreDetailScreen extends StatelessWidget {
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              const Text('2,000',
-                                  style: TextStyle(
-                                      fontSize: 32,
-                                      fontWeight: FontWeight.w800,
-                                      color: _blue,
-                                      letterSpacing: -1)),
+                              const Text(
+                                '2,000',
+                                style: TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: _blue,
+                                  letterSpacing: -1,
+                                ),
+                              ),
                               const Padding(
                                 padding: EdgeInsets.only(bottom: 4, left: 3),
-                                child: Text('원',
-                                    style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: _blue)),
+                                child: Text(
+                                  '원',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: _blue,
+                                  ),
+                                ),
                               ),
                               const SizedBox(width: 8),
                               const Padding(
                                 padding: EdgeInsets.only(bottom: 3),
-                                child: Text('주변 평균 대비',
-                                    style: TextStyle(
-                                        fontSize: 12, color: _sub)),
+                                child: Text(
+                                  '주변 평균 대비',
+                                  style: TextStyle(fontSize: 12, color: _sub),
+                                ),
                               ),
                             ],
                           ),
@@ -225,24 +250,32 @@ class StoreDetailScreen extends StatelessWidget {
                             const SizedBox(height: 10),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
+                                color: AppColors.primarySubtle,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  Text(store.menu1,
-                                      style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                          color: _ink)),
+                                  Text(
+                                    store.menu1,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: _ink,
+                                    ),
+                                  ),
                                   const Spacer(),
-                                  Text(_fmt(store.price1),
-                                      style: const TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: _blue)),
+                                  Text(
+                                    _fmt(store.price1),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: _blue,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -263,15 +296,19 @@ class StoreDetailScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                const Text('메뉴',
-                                    style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w700,
-                                        color: _ink)),
+                                const Text(
+                                  '메뉴',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: _ink,
+                                  ),
+                                ),
                                 const Spacer(),
-                                const Text('공공데이터 기준',
-                                    style: TextStyle(
-                                        fontSize: 11, color: _sub)),
+                                const Text(
+                                  '공공데이터 기준',
+                                  style: TextStyle(fontSize: 11, color: _sub),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
@@ -280,8 +317,9 @@ class StoreDetailScreen extends StatelessWidget {
                               return Column(
                                 children: [
                                   Padding(
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
                                     child: Row(
                                       children: [
                                         Expanded(
@@ -300,22 +338,28 @@ class StoreDetailScreen extends StatelessWidget {
                                               if (isFirst) ...[
                                                 const SizedBox(width: 6),
                                                 Container(
-                                                  padding: const EdgeInsets
-                                                      .symmetric(
-                                                      horizontal: 6,
-                                                      vertical: 2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
                                                   decoration: BoxDecoration(
                                                     color:
-                                                        const Color(0xFFEFF6FF),
+                                                        AppColors.primarySubtle,
                                                     borderRadius:
-                                                        BorderRadius.circular(4),
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
                                                   ),
-                                                  child: const Text('대표',
-                                                      style: TextStyle(
-                                                          fontSize: 10,
-                                                          color: _blue,
-                                                          fontWeight:
-                                                              FontWeight.w700)),
+                                                  child: const Text(
+                                                    '대표',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: _blue,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ],
@@ -336,7 +380,9 @@ class StoreDetailScreen extends StatelessWidget {
                                   ),
                                   if (e.key < menus.length - 1)
                                     const Divider(
-                                        height: 1, color: Color(0xFFF3F4F6)),
+                                      height: 1,
+                                      color: AppColors.borderSubtle,
+                                    ),
                                 ],
                               );
                             }),
@@ -353,11 +399,14 @@ class StoreDetailScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('매장 정보',
-                              style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: _ink)),
+                          const Text(
+                            '매장 정보',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: _ink,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           _InfoRow(
                             icon: Icons.access_time_outlined,
@@ -365,31 +414,37 @@ class StoreDetailScreen extends StatelessWidget {
                             value: '정보 없음',
                             isMock: true,
                           ),
-                          const Divider(height: 24, color: Color(0xFFF3F4F6)),
+                          const Divider(
+                            height: 24,
+                            color: AppColors.borderSubtle,
+                          ),
                           _InfoRow(
                             icon: Icons.phone_outlined,
                             label: '전화번호',
-                            value: hasPhone
-                                ? store.phoneNumber
-                                : '정보 없음',
+                            value: hasPhone ? store.phoneNumber : '정보 없음',
                             onTap: hasPhone
                                 ? () async {
                                     await Clipboard.setData(
-                                        ClipboardData(text: store.phoneNumber));
+                                      ClipboardData(text: store.phoneNumber),
+                                    );
                                     if (context.mounted) {
                                       _snack(context, '전화번호가 복사되었습니다.');
                                     }
                                   }
                                 : null,
                           ),
-                          const Divider(height: 24, color: Color(0xFFF3F4F6)),
+                          const Divider(
+                            height: 24,
+                            color: AppColors.borderSubtle,
+                          ),
                           _InfoRow(
                             icon: Icons.location_on_outlined,
                             label: '주소',
                             value: store.address,
                             onTap: () async {
                               await Clipboard.setData(
-                                  ClipboardData(text: store.address));
+                                ClipboardData(text: store.address),
+                              );
                               if (context.mounted) {
                                 _snack(context, '주소가 복사되었습니다.');
                               }
@@ -410,21 +465,27 @@ class StoreDetailScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Text('리뷰',
-                                  style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                      color: _ink)),
+                              const Text(
+                                '리뷰',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: _ink,
+                                ),
+                              ),
                               const SizedBox(width: 6),
                               _MockTag('목업 - 추후 개발 필요'),
                               const Spacer(),
                               GestureDetector(
                                 onTap: () => context.push(AppRoutes.reviewList),
-                                child: const Text('전체보기',
-                                    style: TextStyle(
-                                        fontSize: 12,
-                                        color: _blue,
-                                        fontWeight: FontWeight.w600)),
+                                child: const Text(
+                                  '전체보기',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: _blue,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -435,7 +496,10 @@ class StoreDetailScreen extends StatelessWidget {
                             stars: 5,
                             ago: '2일 전',
                           ),
-                          const Divider(height: 24, color: Color(0xFFF3F4F6)),
+                          const Divider(
+                            height: 24,
+                            color: AppColors.borderSubtle,
+                          ),
                           _Review(
                             name: '이○○',
                             text: '착한 가격에 맛도 좋아요. 자주 올 것 같아요.',
@@ -463,13 +527,11 @@ class StoreDetailScreen extends StatelessWidget {
             bottom: 0,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  top: BorderSide(color: _line),
-                ),
+                color: AppColors.white,
+                border: Border(top: BorderSide(color: _line)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: AppColors.black.withOpacity(0.06),
                     blurRadius: 12,
                     offset: const Offset(0, -4),
                   ),
@@ -478,8 +540,10 @@ class StoreDetailScreen extends StatelessWidget {
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   child: Row(
                     children: [
                       // 전화 버튼
@@ -510,13 +574,16 @@ class StoreDetailScreen extends StatelessWidget {
                             child: const Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.navigation_rounded,
-                                    color: Colors.white, size: 18),
+                                Icon(
+                                  Icons.navigation_rounded,
+                                  color: AppColors.white,
+                                  size: 18,
+                                ),
                                 SizedBox(width: 6),
                                 Text(
                                   '길찾기',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -548,7 +615,7 @@ class _White extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       child: child,
@@ -564,7 +631,7 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(height: 8, color: const Color(0xFFF3F4F6));
+    return Container(height: 8, color: AppColors.borderSubtle);
   }
 }
 
@@ -580,15 +647,15 @@ class _MockTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF9C3),
+        color: AppColors.warningLight,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFFDE68A)),
+        border: Border.all(color: AppColors.warningBorder),
       ),
       child: Text(
         text,
         style: const TextStyle(
           fontSize: 9,
-          color: Color(0xFF92400E),
+          color: AppColors.warningDark,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -621,12 +688,14 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF9CA3AF)),
+          Icon(icon, size: 16, color: AppColors.textLight),
           const SizedBox(width: 12),
           SizedBox(
             width: 56,
-            child: Text(label,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
           ),
           Expanded(
             child: Row(
@@ -637,17 +706,19 @@ class _InfoRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: isMock
-                          ? const Color(0xFFD1D5DB)
-                          : const Color(0xFF111827),
-                      fontStyle:
-                          isMock ? FontStyle.italic : FontStyle.normal,
+                          ? AppColors.borderMedium
+                          : AppColors.textDark,
+                      fontStyle: isMock ? FontStyle.italic : FontStyle.normal,
                     ),
                   ),
                 ),
                 if (isMock) _MockTag('추후 개발 필요'),
                 if (!isMock && onTap != null)
-                  const Icon(Icons.copy_outlined,
-                      size: 14, color: Color(0xFFD1D5DB)),
+                  const Icon(
+                    Icons.copy_outlined,
+                    size: 14,
+                    color: AppColors.borderMedium,
+                  ),
               ],
             ),
           ),
@@ -663,11 +734,12 @@ class _InfoRow extends StatelessWidget {
 class _Review extends StatelessWidget {
   final String name, text, ago;
   final int stars;
-  const _Review(
-      {required this.name,
-      required this.text,
-      required this.stars,
-      required this.ago});
+  const _Review({
+    required this.name,
+    required this.text,
+    required this.stars,
+    required this.ago,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -676,13 +748,14 @@ class _Review extends StatelessWidget {
       children: [
         CircleAvatar(
           radius: 16,
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: AppColors.borderSubtle,
           child: Text(
             name[0],
             style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF374151)),
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textBody,
+            ),
           ),
         ),
         const SizedBox(width: 10),
@@ -692,36 +765,54 @@ class _Review extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(name,
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827))),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
                   const SizedBox(width: 6),
-                  Text(ago,
-                      style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF9CA3AF))),
+                  Text(
+                    ago,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textLight,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 3),
               Row(
                 children: [
                   ...List.generate(
-                      stars,
-                      (_) => const Icon(Icons.star_rounded,
-                          size: 12, color: Color(0xFFF59E0B))),
+                    stars,
+                    (_) => const Icon(
+                      Icons.star_rounded,
+                      size: 12,
+                      color: AppColors.starAlt,
+                    ),
+                  ),
                   ...List.generate(
-                      5 - stars,
-                      (_) => const Icon(Icons.star_rounded,
-                          size: 12, color: Color(0xFFE5E7EB))),
+                    5 - stars,
+                    (_) => const Icon(
+                      Icons.star_rounded,
+                      size: 12,
+                      color: AppColors.border,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text(text,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF374151),
-                      height: 1.4)),
+              Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textBody,
+                  height: 1.4,
+                ),
+              ),
             ],
           ),
         ),
@@ -738,35 +829,39 @@ class _BottomIconBtn extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   final bool muted;
-  const _BottomIconBtn(
-      {required this.icon,
-      required this.label,
-      required this.onTap,
-      this.muted = false});
+  const _BottomIconBtn({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.muted = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final color = muted ? const Color(0xFF9CA3AF) : const Color(0xFF374151);
+    final color = muted ? AppColors.textLight : AppColors.textBody;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: 60,
         height: 48,
         decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
+          color: AppColors.bgLight,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(height: 2),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 10,
-                    color: color,
-                    fontWeight: FontWeight.w500)),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
       ),

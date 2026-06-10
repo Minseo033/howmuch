@@ -152,6 +152,34 @@ class UserReportStatus {
   final int statusColor;
   final int statusBg;
   final int textColor;
+
+  UserReportStatus copyWith({
+    String? id,
+    String? store,
+    String? menu,
+    String? status,
+    int? statusColor,
+    int? statusBg,
+    int? textColor,
+  }) {
+    return UserReportStatus(
+      id: id ?? this.id,
+      store: store ?? this.store,
+      menu: menu ?? this.menu,
+      status: status ?? this.status,
+      statusColor: statusColor ?? this.statusColor,
+      statusBg: statusBg ?? this.statusBg,
+      textColor: textColor ?? this.textColor,
+    );
+  }
+}
+
+class UserReportsNotifier extends StateNotifier<List<UserReportStatus>> {
+  UserReportsNotifier(super.initialState);
+
+  void addReport(UserReportStatus report) {
+    state = [report, ...state];
+  }
 }
 
 class PriceAlertSettings {
@@ -220,6 +248,71 @@ class SocialAccount {
   }
 }
 
+class FavoriteStoreModel {
+  const FavoriteStoreModel({
+    required this.id,
+    required this.category,
+    required this.iconEmoji,
+    required this.iconBgColor,
+    required this.badgeText,
+    required this.badgeColor,
+    required this.badgeBgColor,
+    required this.distance,
+    required this.storeName,
+    required this.menu,
+    required this.price,
+    required this.priceColor,
+    this.alertText,
+    this.alertColor,
+    required this.buttonText,
+    required this.buttonColor,
+    required this.buttonTextColor,
+    this.isFavorite = true,
+  });
+
+  final String id;
+  final String category;
+  final String iconEmoji;
+  final int iconBgColor;
+  final String badgeText;
+  final int badgeColor;
+  final int badgeBgColor;
+  final String distance;
+  final String storeName;
+  final String menu;
+  final String price;
+  final int priceColor;
+  final String? alertText;
+  final int? alertColor;
+  final String buttonText;
+  final int buttonColor;
+  final int buttonTextColor;
+  final bool isFavorite;
+
+  FavoriteStoreModel copyWith({bool? isFavorite}) {
+    return FavoriteStoreModel(
+      id: id,
+      category: category,
+      iconEmoji: iconEmoji,
+      iconBgColor: iconBgColor,
+      badgeText: badgeText,
+      badgeColor: badgeColor,
+      badgeBgColor: badgeBgColor,
+      distance: distance,
+      storeName: storeName,
+      menu: menu,
+      price: price,
+      priceColor: priceColor,
+      alertText: alertText,
+      alertColor: alertColor,
+      buttonText: buttonText,
+      buttonColor: buttonColor,
+      buttonTextColor: buttonTextColor,
+      isFavorite: isFavorite ?? this.isFavorite,
+    );
+  }
+}
+
 // TODO(박지환 BE): 사용자 프로필 API 응답으로 교체하세요.
 final userProfileProvider = StateProvider<UserProfile>(
   (ref) => const UserProfile(
@@ -238,8 +331,8 @@ final userProfileProvider = StateProvider<UserProfile>(
 );
 
 // TODO(박지환 BE): 내 제보 목록/상태 API 응답으로 교체하세요.
-final userReportsProvider = StateProvider<List<UserReportStatus>>(
-  (ref) => const [
+final userReportsProvider = StateNotifierProvider<UserReportsNotifier, List<UserReportStatus>>(
+  (ref) => UserReportsNotifier(const [
     UserReportStatus(
       id: 'report-golmok',
       store: '골목밥상',
@@ -267,7 +360,7 @@ final userReportsProvider = StateProvider<List<UserReportStatus>>(
       statusBg: 0xFFFFF3EA,
       textColor: 0xFF9A3412,
     ),
-  ],
+  ]),
 );
 
 final notificationSettingsProvider = StateProvider<NotificationSettings>(
@@ -342,6 +435,67 @@ final socialAccountsProvider = StateProvider<List<SocialAccount>>(
       connected: false,
       connectedAt: '',
       isPrimary: false,
+    ),
+  ],
+);
+
+// TODO(박지환 BE): 찜한 매장 API 응답으로 교체하세요.
+final favoriteStoresProvider = StateProvider<List<FavoriteStoreModel>>(
+  (ref) => const [
+    FavoriteStoreModel(
+      id: '1',
+      category: '음식점',
+      iconEmoji: '🍚',
+      iconBgColor: 0xFFDBEAFE, // AppColors.primaryLight
+      badgeText: '정부 인증',
+      badgeColor: 0xFF2563EB, // AppColors.primary
+      badgeBgColor: 0xFFDBEAFE, // AppColors.primaryLight
+      distance: '320m',
+      storeName: '착한분식',
+      menu: '김치찌개',
+      price: '5,500원',
+      priceColor: 0xFF2563EB, // AppColors.primary
+      alertText: '✓ 최근 가격 변동 없음',
+      alertColor: 0xFF64748B, // AppColors.muted
+      buttonText: '길찾기',
+      buttonColor: 0xFF2563EB, // AppColors.primary
+      buttonTextColor: 0xFFFFFFFF, // AppColors.white
+    ),
+    FavoriteStoreModel(
+      id: '2',
+      category: '카페',
+      iconEmoji: '☕',
+      iconBgColor: 0xFFFFEDD5, // AppColors.warningLight
+      badgeText: '사용자 제보',
+      badgeColor: 0xFFF97316, // AppColors.warning
+      badgeBgColor: 0xFFFFEDD5, // AppColors.warningLight
+      distance: '540m',
+      storeName: '동네카페',
+      menu: '아메리카노',
+      price: '2,000원',
+      priceColor: 0xFFF97316, // AppColors.warning
+      alertText: '⚠️ 가격 변동 제보 1건',
+      alertColor: 0xFFF97316, // AppColors.warning
+      buttonText: '상세보기',
+      buttonColor: 0xFFF8FAFC, // AppColors.background
+      buttonTextColor: 0xFF0F172A, // AppColors.ink
+    ),
+    FavoriteStoreModel(
+      id: '3',
+      category: '생활서비스',
+      iconEmoji: '✂️',
+      iconBgColor: 0xFFDBEAFE, // AppColors.primaryLight
+      badgeText: '정부 인증',
+      badgeColor: 0xFF2563EB, // AppColors.primary
+      badgeBgColor: 0xFFDBEAFE, // AppColors.primaryLight
+      distance: '1.1km',
+      storeName: '착한미용실',
+      menu: '커트',
+      price: '8,000원',
+      priceColor: 0xFF2563EB, // AppColors.primary
+      buttonText: '길찾기',
+      buttonColor: 0xFF2563EB, // AppColors.primary
+      buttonTextColor: 0xFFFFFFFF, // AppColors.white
     ),
   ],
 );

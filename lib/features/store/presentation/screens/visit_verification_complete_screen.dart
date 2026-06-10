@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class VisitVerificationCompleteScreen extends StatelessWidget {
   const VisitVerificationCompleteScreen({super.key});
@@ -9,7 +10,7 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 절약 금액 및 방문 매장 정보 연동
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -23,10 +24,14 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                 width: 88,
                 height: 88,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFE8F5E9),
+                  color: AppColors.successSubtle,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_rounded, color: Color(0xFF2ECA7F), size: 50),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: AppColors.success,
+                  size: 50,
+                ),
               ),
               const SizedBox(height: 28),
               const Text(
@@ -37,7 +42,7 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
               const SizedBox(height: 8),
               const Text(
                 '리포트에 자동으로 반영됩니다',
-                style: TextStyle(color: Colors.grey, fontSize: 15),
+                style: TextStyle(color: AppColors.muted, fontSize: 15),
               ),
               const SizedBox(height: 32),
               // 절약 금액 카드
@@ -45,31 +50,41 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2ECA7F),
+                  color: AppColors.success,
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('이번 방문 절약',
-                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    const Text(
+                      '이번 방문 절약',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
                     const SizedBox(height: 8),
-                    const Text('2,000원',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold)),
+                    const Text(
+                      '2,000원',
+                      style: TextStyle(
+                        color: AppColors.white,
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: const [
-                        Text('이번 달 누적',
-                            style: TextStyle(color: Colors.white70, fontSize: 14)),
-                        Text('26,500원',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold)),
+                        Text(
+                          '이번 달 누적',
+                          style: TextStyle(color: Colors.white70, fontSize: 14),
+                        ),
+                        Text(
+                          '26,500원',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -81,22 +96,30 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('방문 매장',
-                        style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text(
+                      '방문 매장',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
                     SizedBox(height: 8),
-                    Text('착한분식',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.bold)),
+                    Text(
+                      '착한분식',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(height: 4),
-                    Text('김치찌개 5,500원',
-                        style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text(
+                      '김치찌개 5,500원',
+                      style: TextStyle(color: AppColors.muted, fontSize: 13),
+                    ),
                   ],
                 ),
               ),
@@ -107,18 +130,20 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                 height: 56,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2ECA7F),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.success,
+                    foregroundColor: AppColors.white,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () {
                     // TODO: 절약 리포트 화면으로 이동
                   },
-                  child: const Text('절약 리포트 보기',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    '절약 리포트 보기',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -129,12 +154,15 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Colors.grey.shade300),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   onPressed: () =>
                       Navigator.of(context).popUntil((r) => r.isFirst),
-                  child: const Text('지도에서 다른 매장 찾기',
-                      style: TextStyle(color: Colors.black87, fontSize: 16)),
+                  child: const Text(
+                    '지도에서 다른 매장 찾기',
+                    style: TextStyle(color: Colors.black87, fontSize: 16),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

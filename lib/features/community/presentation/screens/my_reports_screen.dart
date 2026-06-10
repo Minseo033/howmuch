@@ -4,10 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 enum _ReportFilter { all, pending, approved, needsEdit, rejected }
 
-class MyReportsScreen extends StatefulWidget {
+class MyReportsScreen extends ConsumerStatefulWidget {
   const MyReportsScreen({super.key});
 
   static const blue = Color(0xFF2563EB);
@@ -30,17 +32,50 @@ class MyReportsScreen extends StatefulWidget {
   ];
 
   @override
-  State<MyReportsScreen> createState() => _MyReportsScreenState();
+  ConsumerState<MyReportsScreen> createState() => _MyReportsScreenState();
 }
 
-class _MyReportsScreenState extends State<MyReportsScreen> {
+class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
   _ReportFilter _filter = _ReportFilter.all;
 
-  List<_MyReportData> get _visibleReports {
+  List<_MyReportData> _getMappedReports(List<UserReportStatus> riverpodReports) {
+    return riverpodReports.map((r) {
+      _ReportFilter filter = _ReportFilter.all;
+      if (r.status.contains('검토')) filter = _ReportFilter.pending;
+      else if (r.status.contains('승인')) filter = _ReportFilter.approved;
+      else if (r.status.contains('보완')) filter = _ReportFilter.needsEdit;
+      else if (r.status.contains('반려')) filter = _ReportFilter.rejected;
+
+      double height = 108.778;
+      if (filter == _ReportFilter.approved) height = 154.759;
+      else if (filter == _ReportFilter.needsEdit) height = 194.134;
+
+      return _MyReportData(
+        filter: filter,
+        status: r.status,
+        date: '2026.05.12', // dummy date
+        title: r.store,
+        menu: r.menu,
+        badgeBackground: Color(r.statusBg),
+        badgeColor: Color(r.textColor),
+        badgeWidth: 70.497,
+        height: height,
+        notice: filter == _ReportFilter.needsEdit ? '메뉴판 사진이 흐려 가격 확인이 어려워요' : null,
+        actionLabel: filter == _ReportFilter.approved ? '지도에서 보기' : (filter == _ReportFilter.needsEdit ? '수정하기' : null),
+        actionColor: filter == _ReportFilter.needsEdit ? MyReportsScreen.orange : MyReportsScreen.blue,
+        actionIcon: filter == _ReportFilter.needsEdit ? Icons.edit_outlined : Icons.location_on_outlined,
+        actionTop: 142.33,
+        actionWidth: 120.185,
+      );
+    }).toList();
+  }
+
+  List<_MyReportData> _visibleReports(List<UserReportStatus> riverpodReports) {
+    final mapped = _getMappedReports(riverpodReports);
     if (_filter == _ReportFilter.all) {
-      return _reports;
+      return mapped;
     }
-    return _reports.where((report) => report.filter == _filter).toList();
+    return mapped.where((report) => report.filter == _filter).toList();
   }
 
   void _showSnack(String message) {
@@ -54,6 +89,8 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
+
+    final riverpodReports = ref.watch(userReportsProvider);
 
     return FigmaMobileCanvas(
       backgroundColor: MyReportsScreen.surface,
@@ -111,7 +148,7 @@ class _MyReportsScreenState extends State<MyReportsScreen> {
                   onTap: () => setState(() => _filter = _ReportFilter.all),
                 ),
                 const SizedBox(height: 11.989),
-                ..._visibleReports.map(
+                ..._visibleReports(riverpodReports).map(
                   (report) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _ReportCard(
@@ -723,48 +760,3 @@ class _MyReportData {
   final double actionTop;
   final double actionWidth;
 }
-
-const _reports = [
-  _MyReportData(
-    filter: _ReportFilter.pending,
-    status: '검토 중',
-    date: '2026.05.12',
-    title: '골목밥상',
-    menu: '제육덮밥 6,000원',
-    badgeBackground: Color(0xFFFEF3C7),
-    badgeColor: Color(0xFF92400E),
-    badgeWidth: 60.497,
-    height: 108.778,
-  ),
-  _MyReportData(
-    filter: _ReportFilter.approved,
-    status: '승인 완료',
-    date: '2026.05.09',
-    title: '동네카페',
-    menu: '아메리카노 2,000원',
-    badgeBackground: Color(0xFFE8F8F1),
-    badgeColor: MyReportsScreen.green,
-    badgeWidth: 70.497,
-    height: 154.759,
-    actionLabel: '지도에서 보기',
-    actionColor: MyReportsScreen.blue,
-    actionIcon: Icons.location_on_outlined,
-  ),
-  _MyReportData(
-    filter: _ReportFilter.needsEdit,
-    status: '보완 요청',
-    date: '2026.05.08',
-    title: '착한김밥',
-    menu: '김밥 2,500원',
-    badgeBackground: Color(0xFFFFF3EA),
-    badgeColor: MyReportsScreen.orange,
-    badgeWidth: 70.497,
-    height: 194.134,
-    notice: '메뉴판 사진이 흐려 가격 확인이 어려워요',
-    actionLabel: '수정하기',
-    actionColor: MyReportsScreen.orange,
-    actionIcon: Icons.edit_outlined,
-    actionTop: 142.33,
-    actionWidth: 120.185,
-  ),
-];

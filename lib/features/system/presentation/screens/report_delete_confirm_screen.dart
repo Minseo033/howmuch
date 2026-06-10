@@ -58,23 +58,28 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: topOffset,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - topOffset,
-            child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
+      child: SingleChildScrollView(
+        child: SizedBox(
+          height: FigmaMobileCanvas.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: topOffset,
+                width: FigmaMobileCanvas.width,
+                height: FigmaMobileCanvas.height - topOffset,
+                child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
+              ),
+              Positioned(
+                left: 23.991455078125,
+                top: topOffset + 241.015625,
+                width: 327.4715881347656,
+                height: 317.96875,
+                child: _DeleteDialog(onCancel: close, onDelete: deleteReport),
+              ),
+            ],
           ),
-          Positioned(
-            left: 23.991455078125,
-            top: topOffset + 241.015625,
-            width: 327.4715881347656,
-            height: 317.96875,
-            child: _DeleteDialog(onCancel: close, onDelete: deleteReport),
-          ),
-        ],
+        ),
       ),
     );
   }

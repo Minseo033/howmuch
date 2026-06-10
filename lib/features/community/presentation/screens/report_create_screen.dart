@@ -5,15 +5,17 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
-class ReportCreateScreen extends StatefulWidget {
+class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({super.key});
 
   @override
-  State<ReportCreateScreen> createState() => _ReportCreateScreenState();
+  ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
 }
 
-class _ReportCreateScreenState extends State<ReportCreateScreen> {
+class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   static const _priceSectionOffset = 354.46;
   static const _baseConfirmSectionOffset = 490.23;
   static const _basePriceCardHeight = 91.776;
@@ -158,6 +160,24 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
 
   void _submit() {
     // TODO(박지환 BE): 제보 등록 API와 이미지 업로드 API가 붙으면 이 로컬 완료 처리를 교체하세요.
+    final firstMenu = _menuPrices.first;
+    final report = UserReportStatus(
+      id: 'report-${DateTime.now().millisecondsSinceEpoch}',
+      store: _storeController.text.trim(),
+      menu: '${firstMenu.menu.text.trim()} ${firstMenu.price.text.trim()}원',
+      status: '검토 중',
+      statusColor: 0xFFF59E0B,
+      statusBg: 0xFFFEF3C7,
+      textColor: 0xFF92400E,
+    );
+
+    ref.read(userReportsProvider.notifier).addReport(report);
+
+    final profile = ref.read(userProfileProvider);
+    ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      reportCount: profile.reportCount + 1,
+    );
+
     context.push(AppRoutes.reportComplete);
   }
 

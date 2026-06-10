@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PrivacyPolicyScreen extends StatefulWidget {
   const PrivacyPolicyScreen({super.key});
@@ -12,12 +13,12 @@ class PrivacyPolicyScreen extends StatefulWidget {
 }
 
 class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -265,7 +266,7 @@ class _LegalHeader extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: _PrivacyPolicyScreenState.border,
@@ -281,7 +282,7 @@ class _LegalHeader extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -316,7 +317,7 @@ class _LegalHeader extends StatelessWidget {
               width: 44,
               height: 44,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(22),
                   onTap: onAction,
@@ -342,8 +343,8 @@ class _PrivacyIntroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        border: Border.all(color: const Color(0x212563EB), width: .909),
+        color: AppColors.primaryLight,
+        border: Border.all(color: AppColors.primaryAlpha, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -353,7 +354,7 @@ class _PrivacyIntroCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -425,7 +426,7 @@ class _TocRow extends StatelessWidget {
     return SizedBox(
       height: 27.4,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           onTap: onTap,
           child: Row(
@@ -476,7 +477,7 @@ class _PolicyChapter extends StatelessWidget {
                     width: 21.988,
                     height: 21.988,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF4FF),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     alignment: Alignment.center,
@@ -572,7 +573,7 @@ class _PrivacyManagerCard extends StatelessWidget {
                   ),
                 ),
                 Material(
-                  color: const Color(0xFFEFF4FF),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(10),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
@@ -613,7 +614,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: _PrivacyPolicyScreenState.border,
           width: .909,

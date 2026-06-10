@@ -140,6 +140,8 @@ class ReportCompleteScreen extends StatelessWidget {
           ),
         ],
       ),
+        ),
+      ),
     );
   }
 }

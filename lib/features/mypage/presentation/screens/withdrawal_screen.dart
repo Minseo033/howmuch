@@ -4,16 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
   const WithdrawalScreen({super.key});
 
-  static const red = Color(0xFFEF4444);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const red = AppColors.error;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -209,7 +210,7 @@ class _Header extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: WithdrawalScreen.border, width: .909),
           ),
@@ -222,7 +223,7 @@ class _Header extends StatelessWidget {
               width: 68,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -263,8 +264,11 @@ class _WarningCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
-        border: Border.all(color: const Color(0x33EF4444), width: .909),
+        color: AppColors.errorLight,
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: .2),
+          width: .909,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -274,7 +278,7 @@ class _WarningCard extends StatelessWidget {
             top: 16.9033203125,
             child: _CircleIcon(
               size: 37.99715805053711,
-              background: Colors.white,
+              background: AppColors.white,
               icon: Icons.warning_amber_rounded,
               iconColor: WithdrawalScreen.red,
               iconSize: 18,
@@ -383,7 +387,7 @@ class _InfoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Stack(
@@ -471,7 +475,7 @@ class _ReasonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -498,14 +502,17 @@ class _ConsentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x33EF4444), width: .909),
+            color: AppColors.white,
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: .2),
+              width: .909,
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Stack(
@@ -573,7 +580,7 @@ class _StickyActions extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: WithdrawalScreen.border, width: .909),
         ),
@@ -590,7 +597,7 @@ class _StickyActions extends StatelessWidget {
                 Expanded(
                   child: _ActionButton(
                     label: '취소',
-                    background: Colors.white,
+                    background: AppColors.white,
                     foreground: WithdrawalScreen.ink,
                     borderColor: WithdrawalScreen.border,
                     onTap: onCancel,
@@ -601,7 +608,7 @@ class _StickyActions extends StatelessWidget {
                   child: _ActionButton(
                     label: '탈퇴하기',
                     background: WithdrawalScreen.red,
-                    foreground: Colors.white,
+                    foreground: AppColors.white,
                     shadowColor: WithdrawalScreen.red.withValues(alpha: .3),
                     onTap: onWithdraw,
                   ),
@@ -635,7 +642,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
@@ -686,16 +693,16 @@ class _RadioMark extends StatelessWidget {
       width: 20,
       height: 20,
       decoration: BoxDecoration(
-        color: selected ? WithdrawalScreen.red : Colors.white,
+        color: selected ? WithdrawalScreen.red : AppColors.white,
         border: Border.all(
-          color: selected ? WithdrawalScreen.red : const Color(0xFFCBD5E1),
+          color: selected ? WithdrawalScreen.red : AppColors.disabled,
           width: .909,
         ),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
+          ? const Icon(Icons.check_rounded, color: AppColors.white, size: 13)
           : null,
     );
   }
@@ -712,15 +719,15 @@ class _CheckBoxMark extends StatelessWidget {
       width: 17.99715805053711,
       height: 17.99715805053711,
       decoration: BoxDecoration(
-        color: selected ? WithdrawalScreen.red : Colors.white,
+        color: selected ? WithdrawalScreen.red : AppColors.white,
         border: selected
             ? null
-            : Border.all(color: const Color(0xFFCBD5E1), width: .909),
+            : Border.all(color: AppColors.disabled, width: .909),
         borderRadius: BorderRadius.circular(4),
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(Icons.check_rounded, color: Colors.white, size: 12)
+          ? const Icon(Icons.check_rounded, color: AppColors.white, size: 12)
           : null,
     );
   }
@@ -762,7 +769,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: WithdrawalScreen.border, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),

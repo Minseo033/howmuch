@@ -47,7 +47,6 @@ import 'package:howmuch/features/mypage/presentation/screens/favorite_stores_scr
 import 'package:howmuch/features/system/presentation/screens/notifications_screen.dart';
 import 'package:howmuch/features/savings/presentation/screens/savings_goal_setting_screen.dart';
 
-
 import 'package:howmuch/features/store/presentation/screens/review_list_screen.dart';
 import 'package:howmuch/features/store/presentation/screens/review_write_screen.dart';
 import 'package:howmuch/features/store/presentation/screens/price_history_screen.dart';
@@ -61,27 +60,30 @@ import 'package:howmuch/features/mypage/presentation/screens/visit_history_scree
 import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-
   return GoRouter(
     initialLocation: AppRoutes.splash,
     routes: [
-
       _route(AppRoutes.reviewList, const ReviewListScreen()),
       _route(AppRoutes.reviewWrite, const ReviewWriteScreen()),
       _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
       _route(AppRoutes.priceChangeReport, const PriceChangeReportScreen()),
       _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
       _route(AppRoutes.visitVerification, const VisitVerificationScreen()),
-      _route(AppRoutes.visitVerificationComplete, const VisitVerificationCompleteScreen()),
-      _route(AppRoutes.directionsExternalApp, const DirectionsExternalAppScreen()),
+      _route(
+        AppRoutes.visitVerificationComplete,
+        const VisitVerificationCompleteScreen(),
+      ),
+      _route(
+        AppRoutes.directionsExternalApp,
+        const DirectionsExternalAppScreen(),
+      ),
       _route(AppRoutes.myReviews, const MyReviewsScreen()),
       _route(AppRoutes.visitHistory, const VisitHistoryScreen()),
-      _route(AppRoutes.favoriteCancelConfirm, const FavoriteCancelConfirmScreen()),
-      GoRoute(
-
-        path: AppRoutes.root,
-        redirect: (_, _) => AppRoutes.splash,
+      _route(
+        AppRoutes.favoriteCancelConfirm,
+        const FavoriteCancelConfirmScreen(),
       ),
+      GoRoute(path: AppRoutes.root, redirect: (_, _) => AppRoutes.splash),
       _route(AppRoutes.splash, const SplashScreen()),
       _route(AppRoutes.onboardingNearby, const OnboardingNearbyScreen()),
       _route(
@@ -132,7 +134,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
-      _tabRoute(AppRoutes.savingsReportDashboard, const SavingsReportDashboardScreen()),
+      _tabRoute(
+        AppRoutes.savingsReportDashboard,
+        const SavingsReportDashboardScreen(),
+      ),
       _route(AppRoutes.savingsDetail, const SavingsDetailScreen()),
       _route(AppRoutes.savingsGoalSetting, const SavingsGoalSettingScreen()),
       _route(AppRoutes.todaysPick, const TodaysPickScreen()),
@@ -145,7 +150,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra;
           String query = '';
           bool openFilter = false;
-          
+
           if (extra is String) {
             query = extra;
           } else if (extra is Map<String, dynamic>) {

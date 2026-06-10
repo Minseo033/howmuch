@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class VisitVerificationScreen extends StatefulWidget {
   const VisitVerificationScreen({super.key});
@@ -27,7 +28,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: AppColors.backgroundDark,
         appBar: const CustomAppBar(title: '방문 인증'),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -47,7 +48,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 // 위치 인증 카드
                 _buildVerifyCard(
                   index: 0,
-                  iconBgColor: const Color(0xFF4A68F6),
+                  iconBgColor: AppColors.primary,
                   icon: Icons.location_on_rounded,
                   title: '위치로 인증하기',
                   desc: '매장 근처에 있을 때 인증할 수 있어요. 현재 거리: 320m',
@@ -57,13 +58,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 // 영수증 인증 카드
                 _buildVerifyCard(
                   index: 1,
-                  iconBgColor: const Color(0xFFF27E22),
+                  iconBgColor: AppColors.orangeTheme,
                   icon: Icons.receipt_long_rounded,
                   title: '영수증 사진으로 인증하기',
                   desc: '영수증을 촬영해서 결제 금액을 등록할 수 있어요.',
-                  extra: _selectedMethod == 1
-                      ? _buildReceiptInput()
-                      : null,
+                  extra: _selectedMethod == 1 ? _buildReceiptInput() : null,
                 ),
                 const SizedBox(height: 24),
                 // 예상 절약 금액 카드
@@ -75,7 +74,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         ),
         bottomNavigationBar: CustomBottomButton(
           text: '방문 인증하기',
-          backgroundColor: const Color(0xFF4A68F6),
+          backgroundColor: AppColors.primary,
           onPressed: () {
             // TODO: 방문 인증 요청 및 2-8로 이동
           },
@@ -88,7 +87,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -98,27 +97,31 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('착한분식',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  '착한분식',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 4),
-                Text('김치찌개 5,500원',
-                    style: TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  '김치찌개 5,500원',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
             decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
+              color: AppColors.primarySubtle,
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Text(
               '320m',
               style: TextStyle(
-                  color: Color(0xFF4A68F6),
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold),
+                color: AppColors.primary,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -141,10 +144,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEEF2FF) : Colors.white,
+          color: selected ? AppColors.primarySubtle : AppColors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? const Color(0xFF4A68F6) : Colors.grey.shade200,
+            color: selected ? AppColors.primary : Colors.grey.shade200,
             width: selected ? 2 : 1,
           ),
         ),
@@ -159,20 +162,29 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                     color: iconBgColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 24),
+                  child: Icon(icon, color: AppColors.white, size: 24),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      Text(desc,
-                          style: const TextStyle(
-                              color: Colors.grey, fontSize: 12, height: 1.4)),
+                      Text(
+                        desc,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -182,16 +194,13 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_unchecked,
                   color: selected
-                      ? const Color(0xFF4A68F6)
+                      ? AppColors.primary
                       : Colors.grey.shade300,
                   size: 22,
                 ),
               ],
             ),
-            if (extra != null) ...[
-              const SizedBox(height: 14),
-              extra,
-            ],
+            if (extra != null) ...[const SizedBox(height: 14), extra],
           ],
         ),
       ),
@@ -209,15 +218,18 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.camera_alt_outlined,
-                    color: Colors.grey.shade400, size: 24),
+                Icon(
+                  Icons.camera_alt_outlined,
+                  color: Colors.grey.shade400,
+                  size: 24,
+                ),
               ],
             ),
           ),
@@ -229,9 +241,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
               hintText: '결제 금액 입력',
-              hintStyle: const TextStyle(color: Colors.grey),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              hintStyle: const TextStyle(color: AppColors.muted),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -242,7 +256,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF4A68F6)),
+                borderSide: const BorderSide(color: AppColors.primary),
               ),
             ),
           ),
@@ -256,7 +270,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
+        color: AppColors.successSubtle,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -264,24 +278,32 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         children: const [
           Row(
             children: [
-              Icon(Icons.check_circle_outline,
-                  color: Color(0xFF2ECA7F), size: 18),
+              Icon(
+                Icons.check_circle_outline,
+                color: AppColors.success,
+                size: 18,
+              ),
               SizedBox(width: 6),
-              Text('인증 후 예상 절약 금액',
-                  style: TextStyle(color: Colors.black54, fontSize: 13)),
+              Text(
+                '인증 후 예상 절약 금액',
+                style: TextStyle(color: Colors.black54, fontSize: 13),
+              ),
             ],
           ),
           SizedBox(height: 10),
           Text(
             '약 2,000원 절약',
             style: TextStyle(
-                color: Color(0xFF2ECA7F),
-                fontSize: 26,
-                fontWeight: FontWeight.bold),
+              color: AppColors.success,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           SizedBox(height: 4),
-          Text('주변 평균 메뉴 가격 대비 산정',
-              style: TextStyle(color: Colors.black45, fontSize: 12)),
+          Text(
+            '주변 평균 메뉴 가격 대비 산정',
+            style: TextStyle(color: Colors.black45, fontSize: 12),
+          ),
         ],
       ),
     );

@@ -92,7 +92,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       id: '4',
       section: '이전',
       type: '리뷰 반응',
-      tabCategory: '추천', // Could belong to another or be filtered out depending on rules, assuming '전체'
+      tabCategory:
+          '추천', // Could belong to another or be filtered out depending on rules, assuming '전체'
       iconData: Icons.thumb_up_outlined,
       iconColor: const Color(0xFF2563EB),
       iconBgColor: const Color.fromRGBO(37, 99, 235, 0.09),
@@ -139,8 +140,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       return notif.tabCategory == _selectedTab;
     }).toList();
 
-    final todayNotifications = filteredNotifications.where((n) => n.section == '오늘').toList();
-    final pastNotifications = filteredNotifications.where((n) => n.section == '이전').toList();
+    final todayNotifications = filteredNotifications
+        .where((n) => n.section == '오늘')
+        .toList();
+    final pastNotifications = filteredNotifications
+        .where((n) => n.section == '이전')
+        .toList();
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -263,7 +268,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     child: GestureDetector(
                       onTap: () => context.pop(),
                       behavior: HitTestBehavior.opaque,
-                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0A0A0A)),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: Color(0xFF0A0A0A),
+                      ),
                     ),
                   ),
                   const Positioned.fill(
@@ -331,7 +340,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   fontFamily: 'Inter',
                   fontFamilyFallback: const ['Noto Sans KR'],
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                  color: isSelected
+                      ? const Color(0xFF2563EB)
+                      : const Color(0xFF64748B),
                   fontSize: 13,
                   height: 19.5 / 13,
                 ),
@@ -448,7 +459,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               // Placeholder to keep spacing the same when read
               const SizedBox(width: 12),
               const SizedBox(width: 7, height: 7),
-            ]
+            ],
           ],
         ),
       ),

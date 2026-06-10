@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -10,7 +11,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
@@ -18,10 +20,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
-    _fade = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
-    _scale = Tween<double>(begin: 0.8, end: 1.0).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
-    
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fade = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
+    _scale = Tween<double>(
+      begin: 0.8,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+
     _ctrl.forward();
 
     Timer(const Duration(milliseconds: 2500), () {
@@ -40,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // 바뀐 로고 이미지 배경에 맞춤
+      backgroundColor: AppColors.white, // 바뀐 로고 이미지 배경에 맞춤
       body: Center(
         child: AnimatedBuilder(
           animation: _ctrl,
@@ -56,7 +67,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       width: 140,
                       height: 140,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(36),
                         boxShadow: const [
                           BoxShadow(
@@ -76,10 +87,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       '얼마고?',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                        fontFamilyFallback: [
+                          'Apple SD Gothic Neo',
+                          'Noto Sans KR',
+                        ],
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        color: Color(0xFF2563EB), // 브랜드 블루
+                        color: AppColors.primary, // 브랜드 블루
                         letterSpacing: -1,
                       ),
                     ),
@@ -88,10 +102,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       '동네 가성비 매장 지도',
                       style: TextStyle(
                         fontFamily: 'Inter',
-                        fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                        fontFamilyFallback: [
+                          'Apple SD Gothic Neo',
+                          'Noto Sans KR',
+                        ],
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B), // 슬레이트 색상
+                        color: AppColors.muted, // 슬레이트 색상
                         letterSpacing: -0.5,
                       ),
                     ),

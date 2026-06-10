@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
-enum BadgeType {
-  government,
-  user,
-}
+enum BadgeType { government, user }
 
 class StatusBadge extends StatelessWidget {
   final BadgeType type;
 
-  const StatusBadge({
-    super.key,
-    required this.type,
-  });
+  const StatusBadge({super.key, required this.type});
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +35,7 @@ class StatusBadge extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: textColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: textColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
           Text(

@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 
+import 'package:howmuch/core/theme/app_colors.dart';
+
 class AppTheme {
   const AppTheme._();
 
   static ThemeData light() {
     final colorScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2E7D32),
+      seedColor: AppColors.primary,
       brightness: Brightness.light,
     );
 
     return ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: const Color(0xFFF7F8F5),
+      scaffoldBackgroundColor: AppColors.surface,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surface,

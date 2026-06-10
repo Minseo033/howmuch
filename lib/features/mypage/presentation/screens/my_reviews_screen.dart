@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/status_badge.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class MyReviewsScreen extends StatelessWidget {
   const MyReviewsScreen({super.key});
@@ -39,7 +40,7 @@ class MyReviewsScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundDark,
       appBar: CustomAppBar(
         title: '내 리뷰',
         actions: [
@@ -49,12 +50,14 @@ class MyReviewsScreen extends StatelessWidget {
               child: RichText(
                 text: TextSpan(
                   text: '총 ',
-                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                   children: [
                     TextSpan(
                       text: '${reviews.length}',
                       style: const TextStyle(
-                          color: Colors.black, fontWeight: FontWeight.bold),
+                        color: AppColors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const TextSpan(text: ' 개'),
                   ],
@@ -71,9 +74,13 @@ class MyReviewsScreen extends StatelessWidget {
             Expanded(
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 itemCount: reviews.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 12),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   return _buildReviewCard(context, reviews[index]);
                 },
@@ -94,9 +101,9 @@ class MyReviewsScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE9ECEF)),
+                border: Border.all(color: AppColors.borderLight),
               ),
               child: Column(
                 children: [
@@ -104,7 +111,7 @@ class MyReviewsScreen extends StatelessWidget {
                     text: TextSpan(
                       text: '$count',
                       style: const TextStyle(
-                        color: Color(0xFF4A68F6),
+                        color: AppColors.primary,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -112,7 +119,7 @@ class MyReviewsScreen extends StatelessWidget {
                         TextSpan(
                           text: ' 개 작성',
                           style: TextStyle(
-                            color: Colors.grey,
+                            color: AppColors.muted,
                             fontSize: 14,
                             fontWeight: FontWeight.normal,
                           ),
@@ -129,21 +136,25 @@ class MyReviewsScreen extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE9ECEF)),
+                border: Border.all(color: AppColors.borderLight),
               ),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      Icon(Icons.star_rounded, color: Colors.orange, size: 20),
+                      Icon(
+                        Icons.star_rounded,
+                        color: AppColors.warning,
+                        size: 20,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         '4.7',
                         style: TextStyle(
-                          color: Colors.black,
+                          color: AppColors.black,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -151,10 +162,7 @@ class MyReviewsScreen extends StatelessWidget {
                       SizedBox(width: 4),
                       Text(
                         '평균 별점',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: AppColors.muted, fontSize: 13),
                       ),
                     ],
                   ),
@@ -174,9 +182,9 @@ class MyReviewsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE9ECEF)),
+        border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -187,7 +195,7 @@ class MyReviewsScreen extends StatelessWidget {
               StatusBadge(type: isGov ? BadgeType.government : BadgeType.user),
               Text(
                 review['date'] as String,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ],
           ),
@@ -197,7 +205,7 @@ class MyReviewsScreen extends StatelessWidget {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.black,
+              color: AppColors.black,
             ),
           ),
           const SizedBox(height: 6),
@@ -207,7 +215,9 @@ class MyReviewsScreen extends StatelessWidget {
                 children: List.generate(5, (index) {
                   return Icon(
                     Icons.star_rounded,
-                    color: index < rating ? Colors.orange : Colors.grey.shade300,
+                    color: index < rating
+                        ? AppColors.warning
+                        : Colors.grey.shade300,
                     size: 16,
                   );
                 }),
@@ -234,11 +244,18 @@ class MyReviewsScreen extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.trending_up, color: Color(0xFF2ECA7F), size: 16),
+                  const Icon(
+                    Icons.trending_up,
+                    color: AppColors.success,
+                    size: 16,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     '도움이 돼요 ${review['likes']}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -250,12 +267,19 @@ class MyReviewsScreen extends StatelessWidget {
                     },
                     style: TextButton.styleFrom(
                       minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Text(
                       '수정',
-                      style: TextStyle(color: Color(0xFF4A68F6), fontSize: 13, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -265,12 +289,19 @@ class MyReviewsScreen extends StatelessWidget {
                     },
                     style: TextButton.styleFrom(
                       minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     child: const Text(
                       '삭제',
-                      style: TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],

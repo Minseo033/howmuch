@@ -59,18 +59,22 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     }
 
     setState(() {
-      _messages.add(_ChatMessage(
-        type: ChatMessageType.user,
-        text: message,
-        photo: _attachedPhoto,
-      ));
+      _messages.add(
+        _ChatMessage(
+          type: ChatMessageType.user,
+          text: message,
+          photo: _attachedPhoto,
+        ),
+      );
       _controller.clear();
       _attachedPhoto = null;
 
-      _messages.add(const _ChatMessage(
-        type: ChatMessageType.analyzing,
-        conditions: ['📍 마포구 합정동', '💰 1만원 이하', '☔️ 비오는 날'],
-      ));
+      _messages.add(
+        const _ChatMessage(
+          type: ChatMessageType.analyzing,
+          conditions: ['📍 마포구 합정동', '💰 1만원 이하', '☔️ 비오는 날'],
+        ),
+      );
     });
     FocusManager.instance.primaryFocus?.unfocus();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
@@ -78,12 +82,15 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     Future.delayed(const Duration(milliseconds: 2500), () {
       if (!mounted) return;
       setState(() {
-        if (_messages.isNotEmpty && _messages.last.type == ChatMessageType.analyzing) {
+        if (_messages.isNotEmpty &&
+            _messages.last.type == ChatMessageType.analyzing) {
           _messages.removeLast();
-          _messages.add(const _ChatMessage(
-            type: ChatMessageType.recommendation,
-            text: '조건에 맞는 가장 완벽한 점심 메뉴를 찾았어요!\n합정동 근처의 든든한 국물 요리를 추천해 드릴게요.',
-          ));
+          _messages.add(
+            const _ChatMessage(
+              type: ChatMessageType.recommendation,
+              text: '조건에 맞는 가장 완벽한 점심 메뉴를 찾았어요!\n합정동 근처의 든든한 국물 요리를 추천해 드릴게요.',
+            ),
+          );
         }
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
@@ -851,7 +858,9 @@ class _AnalyzingBubble extends StatelessWidget {
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF2563EB),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -873,7 +882,10 @@ class _AnalyzingBubble extends StatelessWidget {
                   runSpacing: 6,
                   children: conditions.map((cond) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
@@ -964,7 +976,10 @@ class _RecommendationBubble extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEFF4FF),
                             borderRadius: BorderRadius.circular(30),

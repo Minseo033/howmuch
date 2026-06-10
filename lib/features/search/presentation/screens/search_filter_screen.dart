@@ -16,11 +16,11 @@ class SearchFilterSheet extends StatefulWidget {
 }
 
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
-  static const blue    = Color(0xFF2563EB);
-  static const ink     = Color(0xFF0F172A);
-  static const muted   = Color(0xFF64748B);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
   static const surface = Color(0xFFF4F6FA);
-  static const border  = Color(0xFFE5E7EB);
+  static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -32,14 +32,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
   ];
 
   // ── 업종
-  static const _industryOptions = [
-    '전체',
-    '음식점',
-    '카페',
-    '미용',
-    '세탁',
-    '생활서비스',
-  ];
+  static const _industryOptions = ['전체', '음식점', '카페', '미용', '세탁', '생활서비스'];
 
   // ── 최대 가격
   static const _prices = [
@@ -102,7 +95,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).viewInsets.bottom +
+    final bottomPad =
+        MediaQuery.of(context).viewInsets.bottom +
         MediaQuery.of(context).padding.bottom;
 
     return Container(
@@ -140,7 +134,11 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                       color: surface,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close_rounded, size: 18, color: ink),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: ink,
+                    ),
                   ),
                 ),
               ],
@@ -178,7 +176,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                                 _industries.remove('전체');
                                 if (_industries.contains(ind)) {
                                   _industries.remove(ind);
-                                  if (_industries.isEmpty) _industries.add('전체');
+                                  if (_industries.isEmpty)
+                                    _industries.add('전체');
                                 } else {
                                   _industries.add(ind);
                                 }
@@ -202,7 +201,9 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         return _ChipWidget(
                           label: p.label,
                           selected: selected,
-                          onTap: () => setState(() => _maxPrice = selected ? null : p.value),
+                          onTap: () => setState(
+                            () => _maxPrice = selected ? null : p.value,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -220,7 +221,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         return _ChipWidget(
                           label: d,
                           selected: selected,
-                          onTap: () => setState(() => _distance = selected ? null : d),
+                          onTap: () =>
+                              setState(() => _distance = selected ? null : d),
                         );
                       }).toList(),
                     ),
@@ -238,7 +240,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         return _ChipWidget(
                           label: s,
                           selected: selected,
-                          onTap: () => setState(() => _sortOrder = selected ? null : s),
+                          onTap: () =>
+                              setState(() => _sortOrder = selected ? null : s),
                         );
                       }).toList(),
                     ),
@@ -264,7 +267,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
               ),
             ),
           ),
-          
+
           const Divider(height: 1, color: surface),
 
           // ─── 하단 버튼
@@ -358,7 +361,9 @@ class _ChipWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? _SearchFilterSheetState.blue : Colors.white,
           border: Border.all(
-            color: selected ? _SearchFilterSheetState.blue : _SearchFilterSheetState.border,
+            color: selected
+                ? _SearchFilterSheetState.blue
+                : _SearchFilterSheetState.border,
             width: 1.2,
           ),
           borderRadius: BorderRadius.circular(999),

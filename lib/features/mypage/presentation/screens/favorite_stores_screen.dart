@@ -1,116 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
-class FavoriteStoreModel {
-  final String id;
-  final String category;
-  final String iconEmoji;
-  final Color iconBgColor;
-  final String badgeText;
-  final Color badgeColor;
-  final Color badgeBgColor;
-  final String distance;
-  final String storeName;
-  final String menu;
-  final String price;
-  final Color priceColor;
-  final String? alertText;
-  final Color? alertColor;
-  final String buttonText;
-  final Color buttonColor;
-  final Color buttonTextColor;
-  bool isFavorite;
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-  FavoriteStoreModel({
-    required this.id,
-    required this.category,
-    required this.iconEmoji,
-    required this.iconBgColor,
-    required this.badgeText,
-    required this.badgeColor,
-    required this.badgeBgColor,
-    required this.distance,
-    required this.storeName,
-    required this.menu,
-    required this.price,
-    required this.priceColor,
-    this.alertText,
-    this.alertColor,
-    required this.buttonText,
-    required this.buttonColor,
-    required this.buttonTextColor,
-    this.isFavorite = true,
-  });
-}
-
-class FavoriteStoresScreen extends StatefulWidget {
+class FavoriteStoresScreen extends ConsumerStatefulWidget {
   const FavoriteStoresScreen({super.key});
 
   @override
-  State<FavoriteStoresScreen> createState() => _FavoriteStoresScreenState();
+  ConsumerState<FavoriteStoresScreen> createState() => _FavoriteStoresScreenState();
 }
 
-class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
+class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
   String _selectedFilter = '전체';
-
-  final List<FavoriteStoreModel> _allStores = [
-    FavoriteStoreModel(
-      id: '1',
-      category: '음식점',
-      iconEmoji: '🍚',
-      iconBgColor: const Color(0xFFEFF4FF),
-      badgeText: '정부 인증',
-      badgeColor: const Color(0xFF2563EB),
-      badgeBgColor: const Color(0xFFEFF4FF),
-      distance: '320m',
-      storeName: '착한분식',
-      menu: '김치찌개',
-      price: '5,500원',
-      priceColor: const Color(0xFF2563EB),
-      alertText: '✓ 최근 가격 변동 없음',
-      alertColor: const Color(0xFF64748B),
-      buttonText: '길찾기',
-      buttonColor: const Color(0xFF2563EB),
-      buttonTextColor: Colors.white,
-    ),
-    FavoriteStoreModel(
-      id: '2',
-      category: '카페',
-      iconEmoji: '☕',
-      iconBgColor: const Color(0xFFFFF3EA),
-      badgeText: '사용자 제보',
-      badgeColor: const Color(0xFFF97316),
-      badgeBgColor: const Color(0xFFFFF3EA),
-      distance: '540m',
-      storeName: '동네카페',
-      menu: '아메리카노',
-      price: '2,000원',
-      priceColor: const Color(0xFFF97316),
-      alertText: '⚠️ 가격 변동 제보 1건',
-      alertColor: const Color(0xFFF97316),
-      buttonText: '상세보기',
-      buttonColor: const Color(0xFFF1F5F9),
-      buttonTextColor: const Color(0xFF0F172A),
-    ),
-    FavoriteStoreModel(
-      id: '3',
-      category: '생활서비스',
-      iconEmoji: '✂️',
-      iconBgColor: const Color(0xFFEFF4FF),
-      badgeText: '정부 인증',
-      badgeColor: const Color(0xFF2563EB),
-      badgeBgColor: const Color(0xFFEFF4FF),
-      distance: '1.1km',
-      storeName: '착한미용실',
-      menu: '커트',
-      price: '8,000원',
-      priceColor: const Color(0xFF2563EB),
-      buttonText: '길찾기',
-      buttonColor: const Color(0xFF2563EB),
-      buttonTextColor: Colors.white,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -118,12 +22,18 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
 
-    final filteredStores = _allStores
-        .where((store) => store.isFavorite && (_selectedFilter == '전체' || store.category == _selectedFilter))
+    final allStores = ref.watch(favoriteStoresProvider);
+
+    final filteredStores = allStores
+        .where(
+          (store) =>
+              store.isFavorite &&
+              (_selectedFilter == '전체' || store.category == _selectedFilter),
+        )
         .toList();
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.surface,
       child: Stack(
         children: [
           // Content Scroll
@@ -144,20 +54,27 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                       height: 44,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.909),
+                        border: Border.all(
+                          color: AppColors.border,
+                          width: 0.909,
+                        ),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.search_rounded, color: Color(0xFF94A3B8), size: 16),
+                          Icon(
+                            Icons.search_rounded,
+                            color: AppColors.textLight,
+                            size: 16,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             '찜한 매장 검색',
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF94A3B8),
+                              color: AppColors.textLight,
                               fontSize: 13,
                               height: 19.5 / 13,
                             ),
@@ -199,9 +116,21 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                               height: 18 / 12,
                             ),
                             children: [
-                              const TextSpan(text: '총 ', style: TextStyle(color: Color(0xFF64748B))),
-                              TextSpan(text: '${filteredStores.length}', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
-                              const TextSpan(text: '개의 매장', style: TextStyle(color: Color(0xFF64748B))),
+                              const TextSpan(
+                                text: '총 ',
+                                style: TextStyle(color: AppColors.muted),
+                              ),
+                              TextSpan(
+                                text: '${filteredStores.length}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+                              const TextSpan(
+                                text: '개의 매장',
+                                style: TextStyle(color: AppColors.muted),
+                              ),
                             ],
                           ),
                         ),
@@ -211,7 +140,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                             fontFamily: 'Inter',
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2563EB),
+                            color: AppColors.primary,
                             fontSize: 11,
                             height: 16.5 / 11,
                           ),
@@ -237,9 +166,12 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(
@@ -248,11 +180,15 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: Color(0xFFF4F6FA),
+                              color: AppColors.surface,
                               shape: BoxShape.circle,
                             ),
                             child: Center(
-                              child: Icon(Icons.add, color: Color(0xFF0F172A), size: 18),
+                              child: Icon(
+                                Icons.add,
+                                color: AppColors.ink,
+                                size: 18,
+                              ),
                             ),
                           ),
                           SizedBox(width: 12),
@@ -266,7 +202,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                                     fontFamily: 'Inter',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A),
+                                    color: AppColors.ink,
                                     fontSize: 13,
                                     height: 19.5 / 13,
                                   ),
@@ -277,7 +213,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF64748B),
+                                    color: AppColors.muted,
                                     fontSize: 11,
                                     height: 16.5 / 11,
                                   ),
@@ -302,9 +238,9 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
               height: topOffset + 48.878,
               padding: EdgeInsets.only(top: topOffset),
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.909),
+                  bottom: BorderSide(color: AppColors.border, width: 0.909),
                 ),
               ),
               child: Stack(
@@ -315,7 +251,11 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                     child: GestureDetector(
                       onTap: () => context.pop(),
                       behavior: HitTestBehavior.opaque,
-                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0A0A0A)),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: AppColors.black,
+                      ),
                     ),
                   ),
                   const Positioned.fill(
@@ -326,7 +266,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                           fontFamily: 'Inter',
                           fontFamilyFallback: ['Noto Sans KR'],
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0A0A0A),
+                          color: AppColors.black,
                           fontSize: 16,
                           height: 24 / 16,
                         ),
@@ -336,7 +276,11 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                   const Positioned(
                     right: 20,
                     top: 13.98,
-                    child: Icon(Icons.more_horiz_rounded, size: 24, color: Color(0xFF0A0A0A)),
+                    child: Icon(
+                      Icons.more_horiz_rounded,
+                      size: 24,
+                      color: AppColors.black,
+                    ),
                   ),
                 ],
               ),
@@ -358,9 +302,12 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 13.9, vertical: 7.9),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.white,
+          color: isSelected ? AppColors.primary : AppColors.white,
           borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: isSelected ? Colors.transparent : const Color(0xFFE5E7EB), width: 0.909),
+          border: Border.all(
+            color: isSelected ? AppColors.transparent : AppColors.border,
+            width: 0.909,
+          ),
         ),
         child: Text(
           label,
@@ -368,7 +315,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
             fontFamily: 'Inter',
             fontFamilyFallback: const ['Noto Sans KR'],
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : const Color(0xFF475569),
+            color: isSelected ? AppColors.white : AppColors.textBody,
             fontSize: 12,
             height: 18 / 12,
           ),
@@ -381,9 +328,9 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.909),
+        border: Border.all(color: AppColors.border, width: 0.909),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +339,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: store.iconBgColor,
+              color: Color(store.iconBgColor),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
@@ -410,9 +357,12 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
-                        color: store.badgeBgColor,
+                        color: Color(store.badgeBgColor),
                         borderRadius: BorderRadius.circular(99),
                       ),
                       child: Row(
@@ -422,7 +372,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: store.badgeColor,
+                              color: Color(store.badgeColor),
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -433,7 +383,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                               fontFamily: 'Inter',
                               fontFamilyFallback: const ['Noto Sans KR'],
                               fontWeight: FontWeight.w600,
-                              color: store.badgeColor,
+                              color: Color(store.badgeColor),
                               fontSize: 10,
                               height: 15 / 10,
                             ),
@@ -447,7 +397,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontFamilyFallback: ['Noto Sans KR'],
-                        color: Color(0xFF64748B),
+                        color: AppColors.muted,
                         fontSize: 11,
                         height: 16.5 / 11,
                       ),
@@ -461,7 +411,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                     fontFamily: 'Inter',
                     fontFamilyFallback: ['Noto Sans KR'],
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF0A0A0A),
+                    color: AppColors.black,
                     fontSize: 14,
                     height: 21 / 14,
                   ),
@@ -474,7 +424,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontFamilyFallback: ['Noto Sans KR'],
-                        color: Color(0xFF64748B),
+                        color: AppColors.muted,
                         fontSize: 12,
                         height: 18 / 12,
                       ),
@@ -486,7 +436,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                         fontFamily: 'Inter',
                         fontFamilyFallback: const ['Noto Sans KR'],
                         fontWeight: FontWeight.bold,
-                        color: store.priceColor,
+                        color: Color(store.priceColor),
                         fontSize: 13,
                         height: 19.5 / 13,
                       ),
@@ -501,7 +451,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                       fontFamily: 'Inter',
                       fontFamilyFallback: const ['Noto Sans KR'],
                       fontWeight: FontWeight.w600,
-                      color: store.alertColor,
+                      color: store.alertColor != null ? Color(store.alertColor!) : null,
                       fontSize: 10,
                       height: 15 / 10,
                     ),
@@ -515,21 +465,39 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
             children: [
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    store.isFavorite = !store.isFavorite;
-                  });
+                  final stores = ref.read(favoriteStoresProvider);
+                  final nextIsFavorite = !store.isFavorite;
+                  
+                  ref.read(favoriteStoresProvider.notifier).state = stores.map((s) {
+                    if (s.id == store.id) {
+                      return s.copyWith(isFavorite: nextIsFavorite);
+                    }
+                    return s;
+                  }).toList();
+
+                  final profile = ref.read(userProfileProvider);
+                  ref.read(userProfileProvider.notifier).state = profile.copyWith(
+                    favoriteStoreCount: profile.favoriteStoreCount + (nextIsFavorite ? 1 : -1),
+                  );
                 },
                 child: Icon(
-                  store.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                  color: store.isFavorite ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+                  store.isFavorite
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: store.isFavorite
+                      ? AppColors.error
+                      : AppColors.textLight,
                   size: 20,
                 ),
               ),
               const SizedBox(height: 18),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: store.buttonColor,
+                  color: Color(store.buttonColor),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
@@ -541,7 +509,7 @@ class _FavoriteStoresScreenState extends State<FavoriteStoresScreen> {
                         fontFamily: 'Inter',
                         fontFamilyFallback: const ['Noto Sans KR'],
                         fontWeight: FontWeight.bold,
-                        color: store.buttonTextColor,
+                        color: Color(store.buttonTextColor),
                         fontSize: 11,
                         height: 16.5 / 11,
                       ),

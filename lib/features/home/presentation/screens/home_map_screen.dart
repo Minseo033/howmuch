@@ -835,7 +835,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return Stack(
       children: [
         // ignore: undefined_prefixed_name
-        HtmlElementView(viewType: _viewId),
+        HtmlElementView(key: const ValueKey('kakao-map-web'), viewType: _viewId),
         if (!_isMapInitialized)
           const Center(child: CircularProgressIndicator()),
       ],
@@ -845,7 +845,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Widget _buildMobileMap() {
     if (_webViewController == null)
       return const Center(child: Text('초기화 중...'));
-    return WebViewWidget(controller: _webViewController!);
+    return WebViewWidget(
+      key: const ValueKey('kakao-map-mobile'),
+      controller: _webViewController!,
+    );
   }
 
   @override
@@ -892,7 +895,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    const storeCardHeight = 150.44033813476562;
+    const storeCardHeight = 158.0;
     const storeCardBottomGap = 94.0;
     final storeCardTop =
         FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;

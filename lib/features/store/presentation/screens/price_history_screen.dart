@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PriceHistoryScreen extends StatelessWidget {
   const PriceHistoryScreen({super.key});
@@ -9,7 +10,7 @@ class PriceHistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 가격 이력 데이터 연동
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundDark,
       appBar: const CustomAppBar(title: '가격 이력'),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -20,13 +21,17 @@ class PriceHistoryScreen extends StatelessWidget {
             children: [
               _buildCurrentPriceCard(),
               const SizedBox(height: 24),
-              const Text('최근 12개월 추이',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const Text(
+                '최근 12개월 추이',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               _buildBarChart(),
               const SizedBox(height: 24),
-              const Text('변동 이력',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              const Text(
+                '변동 이력',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 12),
               _buildHistoryTimeline(),
               const SizedBox(height: 20),
@@ -36,7 +41,7 @@ class PriceHistoryScreen extends StatelessWidget {
       ),
       bottomNavigationBar: CustomBottomButton(
         text: '가격 변동 제보하기',
-        backgroundColor: const Color(0xFFF27E22),
+        backgroundColor: AppColors.orangeTheme,
         onPressed: () {
           // TODO: 가격 변동 제보 화면으로 이동
         },
@@ -48,7 +53,7 @@ class PriceHistoryScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -58,21 +63,25 @@ class PriceHistoryScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('착한분식 · 김치찌개',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  '착한분식 · 김치찌개',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 6),
-                Text('현재 등록 가격',
-                    style: TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  '현재 등록 가격',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
               ],
             ),
           ),
           const Text(
             '5,500원',
             style: TextStyle(
-                color: Color(0xFF2ECA7F),
-                fontSize: 22,
-                fontWeight: FontWeight.bold),
+              color: AppColors.success,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -85,7 +94,7 @@ class PriceHistoryScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -101,10 +110,11 @@ class PriceHistoryScreen extends StatelessWidget {
                     margin: const EdgeInsets.symmetric(horizontal: 2),
                     decoration: BoxDecoration(
                       color: isCurrent
-                          ? const Color(0xFF2ECA7F)
-                          : const Color(0xFFB2DFDB),
+                          ? AppColors.success
+                          : AppColors.tealLight,
                       borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(4)),
+                        top: Radius.circular(4),
+                      ),
                     ),
                     height: isCurrent ? 100 : 72,
                   ),
@@ -116,24 +126,46 @@ class PriceHistoryScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: const [
-              Text('2025.06',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
-              Text('현재',
-                  style: TextStyle(color: Colors.grey, fontSize: 11)),
+              Text(
+                '2025.06',
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
+              Text(
+                '현재',
+                style: TextStyle(color: AppColors.muted, fontSize: 11),
+              ),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              Container(width: 12, height: 12,
-                  decoration: BoxDecoration(color: const Color(0xFF2ECA7F), borderRadius: BorderRadius.circular(3))),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: AppColors.success,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
               const SizedBox(width: 6),
-              const Text('5,500원 (현재)', style: TextStyle(fontSize: 12, color: Colors.black87)),
+              const Text(
+                '5,500원 (현재)',
+                style: TextStyle(fontSize: 12, color: AppColors.textDark),
+              ),
               const SizedBox(width: 16),
-              Container(width: 12, height: 12,
-                  decoration: BoxDecoration(color: const Color(0xFFB2DFDB), borderRadius: BorderRadius.circular(3))),
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: AppColors.tealLight,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
               const SizedBox(width: 6),
-              const Text('5,000원 (이전)', style: TextStyle(fontSize: 12, color: Colors.black87)),
+              const Text(
+                '5,000원 (이전)',
+                style: TextStyle(fontSize: 12, color: AppColors.textDark),
+              ),
             ],
           ),
         ],
@@ -196,7 +228,7 @@ class PriceHistoryScreen extends StatelessWidget {
                     height: 12,
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFF2ECA7F)
+                          ? AppColors.success
                           : Colors.grey.shade300,
                       shape: BoxShape.circle,
                     ),
@@ -215,10 +247,11 @@ class PriceHistoryScreen extends StatelessWidget {
               Expanded(
                 child: Container(
                   margin: EdgeInsets.only(
-                      bottom: i < items.length - 1 ? 10 : 0),
+                    bottom: i < items.length - 1 ? 10 : 0,
+                  ),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade100),
                   ),
@@ -231,37 +264,40 @@ class PriceHistoryScreen extends StatelessWidget {
                             Text(
                               item['price'] as String,
                               style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Row(
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: isGov
-                                        ? const Color(0xFFEEF2FF)
-                                        : const Color(0xFFFFF0E6),
-                                    borderRadius:
-                                        BorderRadius.circular(6),
+                                        ? AppColors.primarySubtle
+                                        : AppColors.orangeLight,
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.circle,
-                                          size: 6,
-                                          color: isGov
-                                              ? const Color(0xFF4A68F6)
-                                              : const Color(
-                                                  0xFFF27E22)),
+                                      Icon(
+                                        Icons.circle,
+                                        size: 6,
+                                        color: isGov
+                                            ? AppColors.primary
+                                            : AppColors.orangeTheme,
+                                      ),
                                       const SizedBox(width: 4),
                                       Text(
                                         isGov ? '정부 인증' : '사용자 제보',
                                         style: TextStyle(
                                           color: isGov
-                                              ? const Color(0xFF4A68F6)
-                                              : const Color(0xFFF27E22),
+                                              ? AppColors.primary
+                                              : AppColors.orangeTheme,
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                         ),
@@ -270,16 +306,23 @@ class PriceHistoryScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(item['desc'] as String,
-                                    style: const TextStyle(
-                                        color: Colors.grey,
-                                        fontSize: 12)),
+                                Text(
+                                  item['desc'] as String,
+                                  style: const TextStyle(
+                                    color: AppColors.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(item['date'] as String,
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 12)),
+                            Text(
+                              item['date'] as String,
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -287,9 +330,10 @@ class PriceHistoryScreen extends StatelessWidget {
                         Text(
                           '↑ $diff',
                           style: const TextStyle(
-                              color: Color(0xFFF27E22),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13),
+                            color: AppColors.orangeTheme,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                     ],
                   ),

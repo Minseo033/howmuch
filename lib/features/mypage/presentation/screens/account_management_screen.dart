@@ -5,18 +5,19 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class AccountManagementScreen extends ConsumerWidget {
   const AccountManagementScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const green = Color(0xFF10B981);
-  static const red = Color(0xFFEF4444);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const green = AppColors.success;
+  static const red = AppColors.error;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -152,7 +153,7 @@ class _Header extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: AccountManagementScreen.border,
@@ -168,7 +169,7 @@ class _Header extends StatelessWidget {
               width: 44,
               height: 44,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(22),
                   onTap: onBack,
@@ -337,7 +338,7 @@ class _LogoutCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
@@ -369,14 +370,14 @@ class _WithdrawalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x26EF4444), width: .909),
+            color: AppColors.white,
+            border: Border.all(color: AppColors.errorAlpha, width: .909),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Stack(
@@ -476,7 +477,7 @@ class _AccountRow extends StatelessWidget {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(onTap: onTap, child: row),
     );
   }
@@ -513,7 +514,7 @@ class _SimpleRow extends StatelessWidget {
     }
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(onTap: onTap, child: row),
     );
   }
@@ -534,7 +535,7 @@ class _SmallPillButton extends StatelessWidget {
         width: 42.002838134765625,
         height: 28.480112075805664,
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: AppColors.background,
           borderRadius: BorderRadius.circular(10),
         ),
         alignment: Alignment.center,
@@ -553,7 +554,7 @@ class _Avatar extends StatelessWidget {
       width: 55.99431610107422,
       height: 55.99431610107422,
       decoration: const BoxDecoration(
-        color: Color(0xFFEFF4FF),
+        color: AppColors.primaryLight,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -571,7 +572,7 @@ class _KakaoMiniBadge extends StatelessWidget {
       width: 17.798294067382812,
       height: 17.485794067382812,
       decoration: const BoxDecoration(
-        color: Color(0xFFFEE500),
+        color: AppColors.kakaoYellow,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -589,7 +590,7 @@ class _DangerIcon extends StatelessWidget {
       width: 35.99431610107422,
       height: 35.99431610107422,
       decoration: const BoxDecoration(
-        color: Color(0xFFFEE2E2),
+        color: AppColors.errorLight,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -611,7 +612,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: AccountManagementScreen.border, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
@@ -708,7 +709,7 @@ const _dangerTitle = TextStyle(
 );
 
 const _kakaoText = TextStyle(
-  color: Color(0xFF191600),
+  color: AppColors.kakaoBrown,
   fontFamily: AccountManagementScreen.fontFamily,
   fontFamilyFallback: AccountManagementScreen.fontFallback,
   fontSize: 9,

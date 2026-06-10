@@ -6,17 +6,18 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class InquiryScreen extends ConsumerStatefulWidget {
   const InquiryScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const disabled = Color(0xFFCBD5E1);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
+  static const disabled = AppColors.disabled;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -260,7 +261,7 @@ class _Header extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: InquiryScreen.border, width: .909),
           ),
@@ -273,7 +274,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -331,7 +332,7 @@ class _InquiryChip extends StatelessWidget {
             : 163.72158813476562,
         height: 41.80397415161133,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEFF4FF) : Colors.white,
+          color: selected ? AppColors.primaryLight : AppColors.white,
           border: Border.all(
             color: selected ? InquiryScreen.blue : InquiryScreen.border,
             width: .909,
@@ -380,7 +381,7 @@ class _TitleField extends StatelessWidget {
             decoration: const InputDecoration(
               isCollapsed: true,
               filled: false,
-              fillColor: Colors.transparent,
+              fillColor: AppColors.transparent,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -435,7 +436,7 @@ class _BodyField extends StatelessWidget {
             decoration: const InputDecoration(
               isCollapsed: true,
               filled: false,
-              fillColor: Colors.transparent,
+              fillColor: AppColors.transparent,
               counterText: '',
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -469,7 +470,7 @@ class _InputShell extends StatelessWidget {
       width: 335.45452880859375,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: InquiryScreen.border, width: .909),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -540,7 +541,7 @@ class _AddPhotoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
@@ -549,7 +550,7 @@ class _AddPhotoButton extends StatelessWidget {
           height: 63.99147415161133,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(
                 color: InquiryScreen.disabled,
                 width: 1.818,
@@ -601,7 +602,7 @@ class _PhotoThumbnail extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   border: Border.all(color: InquiryScreen.border, width: .909),
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -636,13 +637,13 @@ class _PhotoThumbnail extends StatelessWidget {
                 height: 20,
                 decoration: BoxDecoration(
                   color: InquiryScreen.ink,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(color: AppColors.white, width: 1.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.close_rounded,
                   size: 13,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -662,7 +663,7 @@ class _EmailBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -731,7 +732,7 @@ class _StickyButton extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: InquiryScreen.border, width: .909),
         ),
@@ -746,7 +747,7 @@ class _StickyButton extends StatelessWidget {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: InquiryScreen.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

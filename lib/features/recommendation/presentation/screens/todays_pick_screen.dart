@@ -95,7 +95,9 @@ class _TodaysPickScreenState extends State<TodaysPickScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
 
-    final filteredItems = _allItems.where((item) => item.tags.contains(_selectedFilter)).toList();
+    final filteredItems = _allItems
+        .where((item) => item.tags.contains(_selectedFilter))
+        .toList();
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -173,18 +175,24 @@ class _TodaysPickScreenState extends State<TodaysPickScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           '2026.05.16 (토)',
                                           style: TextStyle(
                                             fontFamily: 'Inter',
-                                            fontFamilyFallback: const ['Noto Sans KR'],
-                                            color: Colors.white.withOpacity(0.9),
+                                            fontFamilyFallback: const [
+                                              'Noto Sans KR',
+                                            ],
+                                            color: Colors.white.withOpacity(
+                                              0.9,
+                                            ),
                                             fontSize: 12,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -194,7 +202,9 @@ class _TodaysPickScreenState extends State<TodaysPickScreen> {
                                           '비가 오는 날이네요 ☔️',
                                           style: TextStyle(
                                             fontFamily: 'Inter',
-                                            fontFamilyFallback: ['Noto Sans KR'],
+                                            fontFamilyFallback: [
+                                              'Noto Sans KR',
+                                            ],
                                             color: Colors.white,
                                             fontSize: 18,
                                             fontWeight: FontWeight.bold,
@@ -242,11 +252,20 @@ class _TodaysPickScreenState extends State<TodaysPickScreen> {
                           // Filter Chips
                           Row(
                             children: [
-                              _buildFilterChip('날씨 기반', const Color(0xFF2563EB)),
+                              _buildFilterChip(
+                                '날씨 기반',
+                                const Color(0xFF2563EB),
+                              ),
                               const SizedBox(width: 6),
-                              _buildFilterChip('가까운 거리', const Color(0xFF10B981)),
+                              _buildFilterChip(
+                                '가까운 거리',
+                                const Color(0xFF10B981),
+                              ),
                               const SizedBox(width: 6),
-                              _buildFilterChip('저렴한 가격', const Color(0xFFF97316)),
+                              _buildFilterChip(
+                                '저렴한 가격',
+                                const Color(0xFFF97316),
+                              ),
                             ],
                           ),
                           const SizedBox(height: 16),
@@ -400,11 +419,17 @@ class _TodaysPickScreenState extends State<TodaysPickScreen> {
         decoration: BoxDecoration(
           color: isSelected ? baseColor.withOpacity(0.15) : Colors.white,
           borderRadius: BorderRadius.circular(30),
-          border: isSelected ? Border.all(color: baseColor) : Border.all(color: const Color(0xFFE5E7EB)),
+          border: isSelected
+              ? Border.all(color: baseColor)
+              : Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           children: [
-            Icon(Icons.circle, color: isSelected ? baseColor : const Color(0xFF94A3B8), size: 6),
+            Icon(
+              Icons.circle,
+              color: isSelected ? baseColor : const Color(0xFF94A3B8),
+              size: 6,
+            ),
             const SizedBox(width: 4),
             Text(
               text,

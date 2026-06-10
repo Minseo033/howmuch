@@ -24,129 +24,137 @@ class LoginScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return FigmaMobileCanvas(
-      child: Stack(
-        children: [
-          const Positioned(
-            left: 153.7215576171875,
-            top: 97.31533813476562,
-            width: 67.99715423583984,
-            height: 67.99715423583984,
-            child: _LoginLogo(),
-          ),
-          const Positioned(
-            left: 105.15625,
-            top: 183.13067626953125,
-            width: 165.1420440673828,
-            height: 45,
-            child: Text(
-              '얼마고?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: ink,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
+      child: SingleChildScrollView(
+        child: SizedBox(
+          height: FigmaMobileCanvas.height,
+          child: Stack(
+            children: [
+              const Positioned(
+                left: 153.7215576171875,
+                top: 97.31533813476562,
+                width: 67.99715423583984,
+                height: 67.99715423583984,
+                child: _LoginLogo(),
               ),
-            ),
-          ),
-          const Positioned(
-            left: 105.15625,
-            top: 238.30966186523438,
-            width: 165.1420440673828,
-            height: 38.977272033691406,
-            child: Text(
-              '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: muted,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 27.9971923828125,
-            top: 374.616455078125,
-            width: 319.460205078125,
-            child: Column(
-              children: [
-                _SocialLoginButton(
-                  label: '카카오로 계속하기',
-                  backgroundColor: const Color(0xFFFEE500),
-                  foregroundColor: const Color(0xFF191600),
-                  icon: Icons.chat_bubble_rounded,
-                  onPressed: () => _loginWith(ref, context, provider: '카카오'),
-                ),
-                const SizedBox(height: 10),
-                _SocialLoginButton(
-                  label: '네이버로 계속하기',
-                  backgroundColor: const Color(0xFF03C75A),
-                  foregroundColor: Colors.white,
-                  textIcon: 'N',
-                  onPressed: () => _loginWith(ref, context, provider: '네이버'),
-                ),
-                const SizedBox(height: 10),
-                _SocialLoginButton(
-                  label: 'Apple로 계속하기',
-                  backgroundColor: ink,
-                  foregroundColor: Colors.white,
-                  icon: Icons.apple_rounded,
-                  onPressed: () => _loginWith(ref, context, provider: 'Apple'),
-                ),
-              ],
-            ),
-          ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 566.57666015625,
-            width: 319.460205078125,
-            height: 16.49147605895996,
-            child: _DividerLabel(),
-          ),
-          Positioned(
-            left: 27.9971923828125,
-            top: 599.0624389648438,
-            width: 319.460205078125,
-            height: 50,
-            child: TextButton(
-              onPressed: () => context.go(AppRoutes.permissionSetup),
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF1F5F9),
-                foregroundColor: ink,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: fontFamily,
-                  fontFamilyFallback: fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
+              const Positioned(
+                left: 105.15625,
+                top: 183.13067626953125,
+                width: 165.1420440673828,
+                height: 45,
+                child: Text(
+                  '얼마고?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: ink,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
                 ),
               ),
-              child: const Text('로그인 없이 둘러보기'),
-            ),
+              const Positioned(
+                left: 105.15625,
+                top: 238.30966186523438,
+                width: 165.1420440673828,
+                height: 38.977272033691406,
+                child: Text(
+                  '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: muted,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 27.9971923828125,
+                top: 374.616455078125,
+                width: 319.460205078125,
+                child: Column(
+                  children: [
+                    _SocialLoginButton(
+                      label: '카카오로 계속하기',
+                      backgroundColor: const Color(0xFFFEE500),
+                      foregroundColor: const Color(0xFF191600),
+                      icon: Icons.chat_bubble_rounded,
+                      onPressed: () =>
+                          _loginWith(ref, context, provider: '카카오'),
+                    ),
+                    const SizedBox(height: 10),
+                    _SocialLoginButton(
+                      label: '네이버로 계속하기',
+                      backgroundColor: const Color(0xFF03C75A),
+                      foregroundColor: Colors.white,
+                      textIcon: 'N',
+                      onPressed: () =>
+                          _loginWith(ref, context, provider: '네이버'),
+                    ),
+                    const SizedBox(height: 10),
+                    _SocialLoginButton(
+                      label: 'Apple로 계속하기',
+                      backgroundColor: ink,
+                      foregroundColor: Colors.white,
+                      icon: Icons.apple_rounded,
+                      onPressed: () =>
+                          _loginWith(ref, context, provider: 'Apple'),
+                    ),
+                  ],
+                ),
+              ),
+              const Positioned(
+                left: 27.9971923828125,
+                top: 566.57666015625,
+                width: 319.460205078125,
+                height: 16.49147605895996,
+                child: _DividerLabel(),
+              ),
+              Positioned(
+                left: 27.9971923828125,
+                top: 599.0624389648438,
+                width: 319.460205078125,
+                height: 50,
+                child: TextButton(
+                  onPressed: () => context.go(AppRoutes.permissionSetup),
+                  style: TextButton.styleFrom(
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    foregroundColor: ink,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: fontFamily,
+                      fontFamilyFallback: fontFallback,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                    ),
+                  ),
+                  child: const Text('로그인 없이 둘러보기'),
+                ),
+              ),
+              const Positioned(
+                left: 27.9971923828125,
+                top: 665.0567626953125,
+                width: 319.460205078125,
+                height: 56.96022415161133,
+                child: _LoginNotice(),
+              ),
+              const Positioned(
+                left: 27.9971923828125,
+                top: 737.0112915039062,
+                width: 319.460205078125,
+                height: 30,
+                child: _TermsText(),
+              ),
+            ],
           ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 665.0567626953125,
-            width: 319.460205078125,
-            height: 56.96022415161133,
-            child: _LoginNotice(),
-          ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 737.0112915039062,
-            width: 319.460205078125,
-            height: 30,
-            child: _TermsText(),
-          ),
-        ],
+        ),
       ),
     );
   }

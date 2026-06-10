@@ -33,165 +33,170 @@ class PermissionSetupScreen extends ConsumerWidget {
 
     return FigmaMobileCanvas(
       backgroundColor: surface,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            width: FigmaMobileCanvas.width,
-            height: 48.89204406738281 + topOffset,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 8,
-                    top: topOffset,
-                    width: 44,
-                    height: 44,
-                    child: IconButton(
-                      padding: EdgeInsets.zero,
-                      icon: const Icon(
-                        Icons.arrow_back_rounded,
-                        color: ink,
-                        size: 20,
-                      ),
-                      onPressed: () => context.go(AppRoutes.login),
+      child: SingleChildScrollView(
+        child: SizedBox(
+          height: FigmaMobileCanvas.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                width: FigmaMobileCanvas.width,
+                height: 48.89204406738281 + topOffset,
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
                     ),
                   ),
-                  Positioned(
-                    right: 20,
-                    top: 12.982955932617188 + topOffset,
-                    child: const Text(
-                      '3 / 3',
-                      style: TextStyle(
-                        color: muted,
-                        fontFamily: fontFamily,
-                        fontFamilyFallback: fontFallback,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        height: 1.5,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 8,
+                        top: topOffset,
+                        width: 44,
+                        height: 44,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: ink,
+                            size: 20,
+                          ),
+                          onPressed: () => context.go(AppRoutes.login),
+                        ),
                       ),
-                    ),
+                      Positioned(
+                        right: 20,
+                        top: 12.982955932617188 + topOffset,
+                        child: const Text(
+                          '3 / 3',
+                          style: TextStyle(
+                            color: muted,
+                            fontFamily: fontFamily,
+                            fontFamilyFallback: fontFallback,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            top: 72.88352012634277 + topOffset,
-            width: 55.99431610107422,
-            height: 55.99431610107422,
-            child: const _PermissionHeroIcon(),
-          ),
-          Positioned(
-            left: 20,
-            top: 144.87215423583984 + topOffset,
-            width: 335.45452880859375,
-            height: 57.187496185302734,
-            child: const Text(
-              '더 정확한 추천을 위해\n권한이 필요해요',
-              style: TextStyle(
-                color: ink,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                height: 1.3,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            top: 210.0568084716797 + topOffset,
-            width: 335.45452880859375,
-            height: 17.99715805053711,
-            child: const Text(
-              '아래 권한을 허용하면 모든 기능을 사용할 수 있어요',
-              style: TextStyle(
-                color: muted,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
-              ),
-            ),
-          ),
-          Positioned(
-            left: 20,
-            top: 252.04544067382812 + topOffset,
-            width: 335.45452880859375,
-            height: 289.36077880859375,
-            child: const Column(
-              children: [
-                _PermissionCard(
-                  icon: Icons.location_on_outlined,
-                  iconColor: blue,
-                  iconBackground: Color(0xFFEFF4FF),
-                  title: '위치 권한 (필수)',
-                  description: '현재 위치 주변의 착한가격업소를 보여드려요.',
-                  status: '허용',
-                  allowed: true,
                 ),
-                SizedBox(height: 10),
-                _PermissionCard(
-                  icon: Icons.notifications_none_rounded,
-                  iconColor: orange,
-                  iconBackground: Color(0xFFFFF3EA),
-                  title: '알림 권한',
-                  description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
-                  status: '허용',
-                  allowed: true,
-                ),
-                SizedBox(height: 10),
-                _PermissionCard(
-                  icon: Icons.photo_camera_outlined,
-                  iconColor: muted,
-                  iconBackground: Color(0xFFF1F5F9),
-                  title: '사진 접근',
-                  description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
-                  status: '나중에',
-                  allowed: false,
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 20,
-            top: 687.5426025390625,
-            width: 335.45452880859375,
-            height: 51.9886360168457,
-            child: _PrimaryButton(
-              label: '앱 시작하기',
-              onPressed: () => _startApp(context, ref),
-            ),
-          ),
-          const Positioned(
-            left: 20,
-            top: 751.5198364257812,
-            width: 335.45452880859375,
-            height: 16.49147605895996,
-            child: Text(
-              '권한은 나중에 설정에서 변경할 수 있어요.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: muted,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
               ),
-            ),
+              Positioned(
+                left: 20,
+                top: 72.88352012634277 + topOffset,
+                width: 55.99431610107422,
+                height: 55.99431610107422,
+                child: const _PermissionHeroIcon(),
+              ),
+              Positioned(
+                left: 20,
+                top: 144.87215423583984 + topOffset,
+                width: 335.45452880859375,
+                height: 57.187496185302734,
+                child: const Text(
+                  '더 정확한 추천을 위해\n권한이 필요해요',
+                  style: TextStyle(
+                    color: ink,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                top: 210.0568084716797 + topOffset,
+                width: 335.45452880859375,
+                height: 17.99715805053711,
+                child: const Text(
+                  '아래 권한을 허용하면 모든 기능을 사용할 수 있어요',
+                  style: TextStyle(
+                    color: muted,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                top: 252.04544067382812 + topOffset,
+                width: 335.45452880859375,
+                height: 289.36077880859375,
+                child: const Column(
+                  children: [
+                    _PermissionCard(
+                      icon: Icons.location_on_outlined,
+                      iconColor: blue,
+                      iconBackground: Color(0xFFEFF4FF),
+                      title: '위치 권한 (필수)',
+                      description: '현재 위치 주변의 착한가격업소를 보여드려요.',
+                      status: '허용',
+                      allowed: true,
+                    ),
+                    SizedBox(height: 10),
+                    _PermissionCard(
+                      icon: Icons.notifications_none_rounded,
+                      iconColor: orange,
+                      iconBackground: Color(0xFFFFF3EA),
+                      title: '알림 권한',
+                      description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
+                      status: '허용',
+                      allowed: true,
+                    ),
+                    SizedBox(height: 10),
+                    _PermissionCard(
+                      icon: Icons.photo_camera_outlined,
+                      iconColor: muted,
+                      iconBackground: Color(0xFFF1F5F9),
+                      title: '사진 접근',
+                      description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
+                      status: '나중에',
+                      allowed: false,
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 20,
+                top: 687.5426025390625,
+                width: 335.45452880859375,
+                height: 51.9886360168457,
+                child: _PrimaryButton(
+                  label: '앱 시작하기',
+                  onPressed: () => _startApp(context, ref),
+                ),
+              ),
+              const Positioned(
+                left: 20,
+                top: 751.5198364257812,
+                width: 335.45452880859375,
+                height: 16.49147605895996,
+                child: Text(
+                  '권한은 나중에 설정에서 변경할 수 있어요.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: muted,
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

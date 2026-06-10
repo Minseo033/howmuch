@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PublicDataSourceScreen extends StatelessWidget {
   const PublicDataSourceScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const green = Color(0xFF10B981);
-  static const orange = Color(0xFFF97316);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const green = AppColors.success;
+  static const orange = AppColors.warning;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -101,8 +102,8 @@ class PublicDataSourceScreen extends StatelessWidget {
                       width: 335.45452880859375,
                       height: 56.96022415161133,
                       child: const _NoticeBox(
-                        color: Color(0xFFFEF3C7),
-                        iconColor: Color(0xFF92400E),
+                        color: AppColors.warningLight,
+                        iconColor: AppColors.warningDark,
                         icon: Icons.warning_amber_rounded,
                         text: '공공데이터는 주기적으로 동기화되며,\n실제 매장 정보와 차이가 있을 수 있어요.',
                       ),
@@ -113,8 +114,8 @@ class PublicDataSourceScreen extends StatelessWidget {
                       width: 335.45452880859375,
                       height: 40.46875,
                       child: const _NoticeBox(
-                        color: Color(0xFFFFF3EA),
-                        iconColor: Color(0xFF9A3412),
+                        color: AppColors.warningLight,
+                        iconColor: AppColors.warningDark,
                         icon: Icons.check_rounded,
                         text: '사용자 제보 정보는 검토 후 지도에 반영됩니다.',
                         singleLine: true,
@@ -168,7 +169,7 @@ class _Header extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: PublicDataSourceScreen.border,
@@ -184,7 +185,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -227,8 +228,8 @@ class _IntroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        border: Border.all(color: const Color(0x212563EB), width: .909),
+        color: AppColors.primaryLight,
+        border: Border.all(color: AppColors.primaryAlpha, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -240,7 +241,7 @@ class _IntroCard extends StatelessWidget {
             height: 40,
             child: Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -303,7 +304,7 @@ class _SourceCard extends StatelessWidget {
       height: 71.7897720336914,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border.all(color: PublicDataSourceScreen.border, width: .909),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -446,7 +447,7 @@ class _StickyButton extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: PublicDataSourceScreen.border, width: .909),
         ),
@@ -463,7 +464,7 @@ class _StickyButton extends StatelessWidget {
               label: Text(label),
               style: ElevatedButton.styleFrom(
                 backgroundColor: PublicDataSourceScreen.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

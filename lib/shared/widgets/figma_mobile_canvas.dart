@@ -54,17 +54,24 @@ class FigmaMobileCanvas extends StatelessWidget {
             constraints.maxWidth / width,
             constraints.maxHeight / height,
           );
-          final isMobile = !kIsWeb && (defaultTargetPlatform == TargetPlatform.iOS || defaultTargetPlatform == TargetPlatform.android);
+          final isMobile =
+              !kIsWeb &&
+              (defaultTargetPlatform == TargetPlatform.iOS ||
+                  defaultTargetPlatform == TargetPlatform.android);
 
-          final scale = isMobile 
-              ? constraints.maxWidth / width 
+          final scale = isMobile
+              ? constraints.maxWidth / width
               : (kIsWeb ? math.min(1.0, fitScale) : fitScale);
 
           final scaledWidth = isMobile ? constraints.maxWidth : width * scale;
-          final scaledHeight = isMobile ? constraints.maxHeight : height * scale;
+          final scaledHeight = isMobile
+              ? constraints.maxHeight
+              : height * scale;
 
           final logicalWidth = width;
-          final logicalHeight = isMobile ? constraints.maxHeight / scale : height;
+          final logicalHeight = isMobile
+              ? constraints.maxHeight / scale
+              : height;
 
           final alignment = kIsWeb ? Alignment.center : const Alignment(0, -1);
 

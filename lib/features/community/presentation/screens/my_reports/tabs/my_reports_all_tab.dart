@@ -3,16 +3,17 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/widgets/my_reports_widgets.dart';
 
-class MyReportsAllTab extends StatelessWidget {
+import "package:flutter_riverpod/flutter_riverpod.dart";
+class MyReportsAllTab extends ConsumerWidget {
   const MyReportsAllTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final visibleReports = reportsData;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final visibleReports = ref.watch(myReportDataProvider);
 
     return Column(
       children: [
-        ...reportsData.map(
+        ...visibleReports.map(
           (report) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: ReportCard(

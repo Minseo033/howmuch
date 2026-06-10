@@ -9,7 +9,8 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
-import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart' as howmuch_home;
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
+    as howmuch_home;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 // ──────────────────────────────────────────────────────────────
@@ -25,10 +26,10 @@ class SearchResultScreen extends StatefulWidget {
   final String initialQuery;
   final bool autoOpenFilter;
 
-  static const blue   = Color(0xFF2563EB);
-  static const ink    = Color(0xFF0F172A);
-  static const muted  = Color(0xFF64748B);
-  static const hint   = Color(0xFF94A3B8);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const hint = Color(0xFF94A3B8);
   static const surface = Color(0xFFF4F6FA);
   static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Inter';
@@ -57,6 +58,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   // 디바운스
   Timer? _debounce;
+
+  static final List<String> _recentSearches = [];
 
   @override
   void initState() {
@@ -102,12 +105,23 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       // 검색어 필터링
       if (q.isNotEmpty) {
-        stores = stores.where((s) => 
-          s.storeName.contains(q) || 
-          s.menu1.contains(q) || 
-          s.industry.contains(q) ||
-          s.address.contains(q)
-        ).toList();
+        if (!_recentSearches.contains(q)) {
+          _recentSearches.insert(0, q);
+          if (_recentSearches.length > 10) _recentSearches.removeLast();
+        } else {
+          _recentSearches.remove(q);
+          _recentSearches.insert(0, q);
+        }
+
+        stores = stores
+            .where(
+              (s) =>
+                  s.storeName.contains(q) ||
+                  s.menu1.contains(q) ||
+                  s.industry.contains(q) ||
+                  s.address.contains(q),
+            )
+            .toList();
       }
 
       // 가격 필터링
@@ -117,20 +131,50 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           return p == null || p <= _filter.maxPrice!;
         }).toList();
       }
-      
+
+      // 거리 필터링
+      if (_filter.distance != null && _filter.distance!.isNotEmpty) {
+        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+        if (pos != null) {
+          double maxDist = 0;
+          if (_filter.distance == '500m 이내') maxDist = 500;
+          else if (_filter.distance == '1km 이내') maxDist = 1000;
+          else if (_filter.distance == '3km 이내') maxDist = 3000;
+          
+          if (maxDist > 0) {
+            stores = stores.where((s) {
+              final d = Geolocator.distanceBetween(
+                pos.latitude,
+                pos.longitude,
+                s.latitude,
+                s.longitude,
+              );
+              return d <= maxDist;
+            }).toList();
+          }
+        }
+      }
+
       // 업종 필터링
       if (_filter.industries.isNotEmpty) {
         stores = stores
-            .where((s) => _filter.industries.any((ind) =>
-              SearchFilter.matchesIndustry(s, ind)))
+            .where(
+              (s) => _filter.industries.any(
+                (ind) => SearchFilter.matchesIndustry(s, ind),
+              ),
+            )
             .toList();
       }
-      
+
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
         stores.sort((a, b) {
-          final pa = int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
-          final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
+          final pa =
+              int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
+          final pb =
+              int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
           return pa.compareTo(pb);
         });
       } else {
@@ -138,8 +182,18 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos != null) {
           stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.latitude, a.longitude);
-            final db = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.latitude, b.longitude);
+            final da = Geolocator.distanceBetween(
+              pos.latitude,
+              pos.longitude,
+              a.latitude,
+              a.longitude,
+            );
+            final db = Geolocator.distanceBetween(
+              pos.latitude,
+              pos.longitude,
+              b.latitude,
+              b.longitude,
+            );
             return da.compareTo(db);
           });
         }
@@ -161,55 +215,55 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   /// 백엔드 미연결 시 더미 데이터
   List<Store> _mockResults(String q) => [
-        Store(
-          storeName: '$q 맛집 1호',
-          address: '서울특별시 중구 명동길 12',
-          phoneNumber: '02-1234-5678',
-          industry: '한식',
-          menu1: '된장찌개',
-          price1: '7000',
-          menu2: '김치찌개',
-          price2: '7000',
-          menu3: '',
-          price3: '',
-          menu4: '',
-          price4: '',
-          latitude: 37.5636,
-          longitude: 126.9834,
-        ),
-        Store(
-          storeName: '$q 식당',
-          address: '서울특별시 중구 을지로 3가 45',
-          phoneNumber: '02-9876-5432',
-          industry: '분식',
-          menu1: '떡볶이',
-          price1: '5000',
-          menu2: '순대',
-          price2: '4000',
-          menu3: '튀김',
-          price3: '3000',
-          menu4: '',
-          price4: '',
-          latitude: 37.5660,
-          longitude: 126.9920,
-        ),
-        Store(
-          storeName: '착한 $q 집',
-          address: '서울특별시 종로구 종로 100',
-          phoneNumber: '02-5555-1234',
-          industry: '한식',
-          menu1: '백반',
-          price1: '6000',
-          menu2: '제육볶음',
-          price2: '8000',
-          menu3: '',
-          price3: '',
-          menu4: '',
-          price4: '',
-          latitude: 37.5700,
-          longitude: 126.9800,
-        ),
-      ];
+    Store(
+      storeName: '$q 맛집 1호',
+      address: '서울특별시 중구 명동길 12',
+      phoneNumber: '02-1234-5678',
+      industry: '한식',
+      menu1: '된장찌개',
+      price1: '7000',
+      menu2: '김치찌개',
+      price2: '7000',
+      menu3: '',
+      price3: '',
+      menu4: '',
+      price4: '',
+      latitude: 37.5636,
+      longitude: 126.9834,
+    ),
+    Store(
+      storeName: '$q 식당',
+      address: '서울특별시 중구 을지로 3가 45',
+      phoneNumber: '02-9876-5432',
+      industry: '분식',
+      menu1: '떡볶이',
+      price1: '5000',
+      menu2: '순대',
+      price2: '4000',
+      menu3: '튀김',
+      price3: '3000',
+      menu4: '',
+      price4: '',
+      latitude: 37.5660,
+      longitude: 126.9920,
+    ),
+    Store(
+      storeName: '착한 $q 집',
+      address: '서울특별시 종로구 종로 100',
+      phoneNumber: '02-5555-1234',
+      industry: '한식',
+      menu1: '백반',
+      price1: '6000',
+      menu2: '제육볶음',
+      price2: '8000',
+      menu3: '',
+      price3: '',
+      menu4: '',
+      price4: '',
+      latitude: 37.5700,
+      longitude: 126.9800,
+    ),
+  ];
 
   // ────────────────────────────────────────────────
   //  필터 바텀시트 열기
@@ -233,10 +287,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   String _fmt(String raw) {
     final n = int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), ''));
     if (n == null) return raw;
-    return '${n.toString().replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+$)'),
-          (m) => '${m[1]},',
-        )}원';
+    return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
   }
 
   // ────────────────────────────────────────────────
@@ -263,7 +314,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final pos = howmuch_home.HomeMapScreen.globalUserPosition;
     if (pos == null) return '';
     final d = Geolocator.distanceBetween(
-        pos.latitude, pos.longitude, store.latitude, store.longitude);
+      pos.latitude,
+      pos.longitude,
+      store.latitude,
+      store.longitude,
+    );
     if (d < 1000) {
       return '${d.toStringAsFixed(0)}m';
     } else {
@@ -310,10 +365,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           //  결과 카운트 바
           // ──────────────────────────────────────────
           if (_searched && !_loading)
-            _ResultCountBar(
-              query: _query,
-              count: _results.length,
-            ),
+            _ResultCountBar(query: _query, count: _results.length),
 
           // ──────────────────────────────────────────
           //  본문 (로딩 / 빈 결과 / 결과 리스트)
@@ -326,40 +378,52 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       strokeWidth: 2.5,
                     ),
                   )
+                : (_query.isEmpty && _filter.activeLabels.isEmpty)
+                ? _RecentSearchesWidget(
+                    searches: _recentSearches,
+                    onTap: (suggestion) {
+                      setState(() => _query = suggestion);
+                      _ctrl.text = suggestion;
+                      _doSearch(suggestion);
+                    },
+                    onRemove: (suggestion) {
+                      setState(() => _recentSearches.remove(suggestion));
+                    },
+                  )
                 : _searched && _results.isEmpty
-                    ? _EmptyResult(
-                        onReset: () {
-                          setState(() => _filter = const SearchFilter());
-                          _doSearch(_query);
-                        },
-                        onSuggestionTap: (suggestion) {
-                          setState(() => _query = suggestion);
-                          _ctrl.text = suggestion;
-                          _doSearch(suggestion);
-                        },
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        itemCount: _results.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (ctx, i) {
-                          final s = _results[i];
-                          return _StoreCard(
-                            store: s,
-                            emoji: _emoji(s.industry),
-                            distance: _formatDistance(s),
-                            priceLabel: s.menu1.isNotEmpty
-                                ? '${s.menu1}  ${_fmt(s.price1)}'
-                                : s.industry,
-                            onTap: () => context.push(
-                              AppRoutes.storeDetail,
-                              extra: s,
-                            ),
-                          );
-                        },
-                      ),
+                ? _EmptyResult(
+                    onReset: () {
+                      setState(() => _filter = const SearchFilter());
+                      _doSearch(_query);
+                    },
+                    onSuggestionTap: (suggestion) {
+                      setState(() => _query = suggestion);
+                      _ctrl.text = suggestion;
+                      _doSearch(suggestion);
+                    },
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    itemCount: _results.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 10),
+                    itemBuilder: (ctx, i) {
+                      final s = _results[i];
+                      return _StoreCard(
+                        store: s,
+                        emoji: _emoji(s.industry),
+                        distance: _formatDistance(s),
+                        priceLabel: s.menu1.isNotEmpty
+                            ? '${s.menu1}  ${_fmt(s.price1)}'
+                            : s.industry,
+                        onTap: () =>
+                            context.push(AppRoutes.storeDetail, extra: s),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -431,14 +495,19 @@ class _SearchHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       border: Border.all(
-                          color: SearchResultScreen.blue, width: 0.9),
+                        color: SearchResultScreen.blue,
+                        width: 0.9,
+                      ),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
                       children: [
                         const SizedBox(width: 14),
-                        const Icon(Icons.search_rounded,
-                            color: SearchResultScreen.blue, size: 16),
+                        const Icon(
+                          Icons.search_rounded,
+                          color: SearchResultScreen.blue,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: TextField(
@@ -448,6 +517,8 @@ class _SearchHeader extends StatelessWidget {
                             autocorrect: false,
                             enableSuggestions: false,
                             keyboardType: TextInputType.text,
+                            maxLength: 50,
+                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                             onSubmitted: (_) {
                               onSearch();
                             },
@@ -519,25 +590,34 @@ class _SearchHeader extends StatelessWidget {
           if (hasFilters)
             Padding(
               padding: const EdgeInsets.only(
-                  left: 44, right: 12, top: 10, bottom: 4),
+                left: 44,
+                right: 12,
+                top: 10,
+                bottom: 4,
+              ),
               child: SizedBox(
                 height: 28,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: activeFilters.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 6),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 6),
                   itemBuilder: (_, i) {
                     final f = activeFilters[i];
                     return GestureDetector(
                       onTap: () => onRemoveFilter(f),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
-                              color: SearchResultScreen.blue, width: 0.9),
+                            color: SearchResultScreen.blue,
+                            width: 0.9,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -554,9 +634,11 @@ class _SearchHeader extends StatelessWidget {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(Icons.close_rounded,
-                                size: 10,
-                                color: SearchResultScreen.blue),
+                            const Icon(
+                              Icons.close_rounded,
+                              size: 10,
+                              color: SearchResultScreen.blue,
+                            ),
                           ],
                         ),
                       ),
@@ -586,8 +668,7 @@ class _ResultCountBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding:
-          const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       child: RichText(
         text: TextSpan(
           style: const TextStyle(
@@ -649,8 +730,7 @@ class _StoreCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            border: Border.all(
-                color: SearchResultScreen.border, width: 0.9),
+            border: Border.all(color: SearchResultScreen.border, width: 0.9),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -664,8 +744,7 @@ class _StoreCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
-                  child: Text(emoji,
-                      style: const TextStyle(fontSize: 26)),
+                  child: Text(emoji, style: const TextStyle(fontSize: 26)),
                 ),
               ),
               const SizedBox(width: 14),
@@ -699,7 +778,8 @@ class _StoreCard extends StatelessWidget {
                             distance,
                             style: const TextStyle(
                               fontFamily: SearchResultScreen.fontFamily,
-                              fontFamilyFallback: SearchResultScreen.fontFallback,
+                              fontFamilyFallback:
+                                  SearchResultScreen.fontFallback,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: SearchResultScreen.blue,
@@ -727,8 +807,11 @@ class _StoreCard extends StatelessWidget {
                     // 대표메뉴 + 가격
                     Row(
                       children: [
-                        const Icon(Icons.restaurant_menu_rounded,
-                            size: 12, color: SearchResultScreen.blue),
+                        const Icon(
+                          Icons.restaurant_menu_rounded,
+                          size: 12,
+                          color: SearchResultScreen.blue,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -751,8 +834,11 @@ class _StoreCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded,
-                  size: 18, color: SearchResultScreen.hint),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: SearchResultScreen.hint,
+              ),
             ],
           ),
         ),
@@ -771,8 +857,7 @@ class _IndustryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shortened =
-        label.length > 5 ? '${label.substring(0, 5)}…' : label;
+    final shortened = label.length > 5 ? '${label.substring(0, 5)}…' : label;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -821,7 +906,10 @@ class _EmptyResult extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
-                  border: Border.all(color: SearchResultScreen.border, width: .909),
+                  border: Border.all(
+                    color: SearchResultScreen.border,
+                    width: .909,
+                  ),
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
@@ -1071,7 +1159,8 @@ class SearchFilter {
   List<String> get activeLabels {
     return [
       ...industries,
-      if (maxPrice != null) '${(maxPrice! / 10000).toStringAsFixed(0)}만원 이하',
+      if (maxPrice != null)
+        maxPrice == 5000 ? '5천원 이하' : '${(maxPrice! ~/ 10000)}만원 이하',
       if (distance != null && distance!.isNotEmpty) distance!,
       if (sortOrder != null && sortOrder!.isNotEmpty) sortOrder!,
       if (govCertified) '정부 인증',
@@ -1080,11 +1169,56 @@ class SearchFilter {
   }
 
   static const Map<String, List<String>> industryKeywords = {
-    '음식점': ['한식', '중식', '일식', '양식', '분식', '패스트푸드', '음식', '식당', '반찬', '도시락', '국수', '치킨', '피자', '족발', '감자탕', '삼겹살', '고깃집', '정육', '떡볶이', '김밥'],
-    '카페': ['카페', '커피', '음료', '베이커리', '빵', '제과', '디저트', '차(음료)', '주스', '스무디', '아이스크림'],
+    '음식점': [
+      '한식',
+      '중식',
+      '일식',
+      '양식',
+      '분식',
+      '패스트푸드',
+      '음식',
+      '식당',
+      '반찬',
+      '도시락',
+      '국수',
+      '치킨',
+      '피자',
+      '족발',
+      '감자탕',
+      '삼겹살',
+      '고깃집',
+      '정육',
+      '떡볶이',
+      '김밥',
+    ],
+    '카페': [
+      '카페',
+      '커피',
+      '음료',
+      '베이커리',
+      '빵',
+      '제과',
+      '디저트',
+      '차(음료)',
+      '주스',
+      '스무디',
+      '아이스크림',
+    ],
     '미용': ['미용', '헤어', '네일', '피부', '뷰티', '화장', '미용실', '이발'],
     '세탁': ['세탁', '빨래', '클리닝', '드라이'],
-    '생활서비스': ['수선', '열쇠', '인쇄', '복사', '사진', '촬영', '스튜디오', '생활', '서비스', '수리', '기타'],
+    '생활서비스': [
+      '수선',
+      '열쇠',
+      '인쇄',
+      '복사',
+      '사진',
+      '촬영',
+      '스튜디오',
+      '생활',
+      '서비스',
+      '수리',
+      '기타',
+    ],
   };
 
   static bool matchesIndustry(Store store, String filterIndustry) {
@@ -1096,10 +1230,12 @@ class SearchFilter {
     final lowerIndustry = store.industry.toLowerCase();
     final lowerName = store.storeName.toLowerCase();
     final lowerMenu = store.menu1.toLowerCase();
-    
+
     return keywords.any((kw) {
       final k = kw.toLowerCase();
-      return lowerIndustry.contains(k) || lowerName.contains(k) || lowerMenu.contains(k);
+      return lowerIndustry.contains(k) ||
+          lowerName.contains(k) ||
+          lowerMenu.contains(k);
     });
   }
 
@@ -1114,8 +1250,9 @@ class SearchFilter {
     if (newIndustries.contains(label)) {
       newIndustries.remove(label);
     }
-    if (maxPrice != null && label == '${(maxPrice! / 10000).toStringAsFixed(0)}만원 이하') {
-      newMaxPrice = null;
+    if (maxPrice != null) {
+      final priceLabel = maxPrice == 5000 ? '5천원 이하' : '${(maxPrice! ~/ 10000)}만원 이하';
+      if (label == priceLabel) newMaxPrice = null;
     }
     if (label == distance) newDistance = null;
     if (label == sortOrder) newSortOrder = null;
@@ -1152,3 +1289,71 @@ class SearchFilter {
   }
 }
 
+class _RecentSearchesWidget extends StatelessWidget {
+  const _RecentSearchesWidget({
+    required this.searches,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final List<String> searches;
+  final ValueChanged<String> onTap;
+  final ValueChanged<String> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (searches.isEmpty) {
+      return const Center(
+        child: Text(
+          '최근 검색어가 없습니다.',
+          style: TextStyle(
+            color: SearchResultScreen.muted,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
+          child: Text(
+            '최근 검색어',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: SearchResultScreen.ink,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: searches.length,
+            itemBuilder: (context, index) {
+              final term = searches[index];
+              return ListTile(
+                leading: const Icon(Icons.history, color: SearchResultScreen.muted, size: 20),
+                title: Text(
+                  term,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: SearchResultScreen.ink,
+                  ),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close_rounded, color: SearchResultScreen.hint, size: 18),
+                  onPressed: () => onRemove(term),
+                ),
+                onTap: () => onTap(term),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}

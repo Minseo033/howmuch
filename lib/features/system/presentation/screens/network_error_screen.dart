@@ -27,77 +27,82 @@ class NetworkErrorScreen extends StatelessWidget {
     final bottomOffset = safePadding.bottom;
 
     return FigmaMobileCanvas(
-      child: Stack(
-        children: [
-          Positioned(
-            left: 147.72726440429688,
-            top: topOffset + 189.4,
-            width: 80,
-            height: 80,
-            child: const _StateIcon(icon: Icons.wifi_off_rounded, size: 36),
-          ),
-          Positioned(
-            left: 118.3948974609375,
-            top: topOffset + 293.4244384765625,
-            width: 138.66500854492188,
-            height: 26.988636016845703,
-            child: const Text(
-              '연결할 수 없어요',
-              textAlign: TextAlign.center,
-              style: _titleText,
-            ),
-          ),
-          Positioned(
-            left: 118.15341186523438,
-            top: topOffset + 328.4107666015625,
-            width: 139.147705078125,
-            height: 44.1761360168457,
-            child: const Text(
-              '인터넷 연결을 확인하고\n다시 시도해주세요',
-              textAlign: TextAlign.center,
-              style: _bodyText,
-            ),
-          ),
-          Positioned(
-            left: 31.9886474609375,
-            top: topOffset + 412,
-            width: 311.4772644042969,
-            child: Column(
-              children: [
-                _PrimaryButton(
-                  label: '다시 시도',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('연결 상태를 다시 확인했어요.')),
-                    );
-                  },
+      child: SingleChildScrollView(
+        child: SizedBox(
+          height: FigmaMobileCanvas.height,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 147.72726440429688,
+                top: topOffset + 189.4,
+                width: 80,
+                height: 80,
+                child: const _StateIcon(icon: Icons.wifi_off_rounded, size: 36),
+              ),
+              Positioned(
+                left: 118.3948974609375,
+                top: topOffset + 293.4244384765625,
+                width: 138.66500854492188,
+                height: 26.988636016845703,
+                child: const Text(
+                  '연결할 수 없어요',
+                  textAlign: TextAlign.center,
+                  style: _titleText,
                 ),
-                const SizedBox(height: 10),
-                _SecondaryButton(
-                  label: '오프라인 저장 매장 보기',
-                  onPressed: () {
-                    // TODO(BE): 오프라인 저장 매장 API/로컬 캐시가 붙으면 해당 목록 화면으로 연결하세요.
-                    final messenger = ScaffoldMessenger.of(context);
-                    context.go(AppRoutes.home);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('저장된 매장 목록으로 이동했어요.')),
-                    );
-                  },
+              ),
+              Positioned(
+                left: 118.15341186523438,
+                top: topOffset + 328.4107666015625,
+                width: 139.147705078125,
+                height: 44.1761360168457,
+                child: const Text(
+                  '인터넷 연결을 확인하고\n다시 시도해주세요',
+                  textAlign: TextAlign.center,
+                  style: _bodyText,
                 ),
-              ],
-            ),
+              ),
+              Positioned(
+                left: 31.9886474609375,
+                top: topOffset + 412,
+                width: 311.4772644042969,
+                child: Column(
+                  children: [
+                    _PrimaryButton(
+                      label: '다시 시도',
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('연결 상태를 다시 확인했어요.')),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _SecondaryButton(
+                      label: '오프라인 저장 매장 보기',
+                      onPressed: () {
+                        // TODO(BE): 오프라인 저장 매장 API/로컬 캐시가 붙으면 해당 목록 화면으로 연결하세요.
+                        final messenger = ScaffoldMessenger.of(context);
+                        context.go(AppRoutes.home);
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('저장된 매장 목록으로 이동했어요.')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 0,
+                bottom: bottomOffset + 32,
+                width: FigmaMobileCanvas.width,
+                child: const Text(
+                  'Wi-Fi 또는 모바일 데이터를 확인해보세요',
+                  textAlign: TextAlign.center,
+                  style: _footnoteText,
+                ),
+              ),
+            ],
           ),
-          Positioned(
-            left: 0,
-            bottom: bottomOffset + 32,
-            width: FigmaMobileCanvas.width,
-            child: const Text(
-              'Wi-Fi 또는 모바일 데이터를 확인해보세요',
-              textAlign: TextAlign.center,
-              style: _footnoteText,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

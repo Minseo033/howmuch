@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PriceChangeReportScreen extends StatefulWidget {
   const PriceChangeReportScreen({super.key});
@@ -40,7 +41,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         appBar: const CustomAppBar(title: '가격 변동 제보'),
         body: SafeArea(
           child: SingleChildScrollView(
@@ -54,43 +55,48 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
                 const SizedBox(height: 24),
 
                 // 변동 유형
-                const Text('변동 유형',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text(
+                  '변동 유형',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 12),
                 _buildTypeGrid(),
                 const SizedBox(height: 24),
 
                 // 변경된 메뉴
-                const Text('변경된 메뉴',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text(
+                  '변경된 메뉴',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 _buildTextField(_menuController, '아메리카노'),
                 const SizedBox(height: 20),
 
                 // 변경된 가격 (삭제 유형 제외)
                 if (_selectedType != 2) ...[
-                  const Text('변경된 가격',
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '변경된 가격',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 8),
                   _buildPriceField(),
                   const SizedBox(height: 20),
                 ],
 
                 // 메뉴판 사진
-                const Text('메뉴판 사진',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text(
+                  '메뉴판 사진',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 _buildPhotoButton(),
                 const SizedBox(height: 20),
 
                 // 설명
-                const Text('설명',
-                    style: TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.bold)),
+                const Text(
+                  '설명',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 8),
                 _buildDescField(),
                 const SizedBox(height: 16),
@@ -104,7 +110,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
         ),
         bottomNavigationBar: CustomBottomButton(
           text: '가격 변동 제보하기',
-          backgroundColor: const Color(0xFFF27E22),
+          backgroundColor: AppColors.orangeTheme,
           onPressed: () {
             // TODO: 가격 변동 제보 제출
           },
@@ -117,7 +123,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -128,21 +134,27 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('동네카페',
-                    style: TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  '동네카페',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
                 SizedBox(height: 4),
-                Text('기존 가격',
-                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  '기존 가격',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
                 SizedBox(height: 2),
-                Text('아메리카노',
-                    style: TextStyle(color: Colors.grey, fontSize: 13)),
+                Text(
+                  '아메리카노',
+                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                ),
               ],
             ),
           ),
-          const Text('2,000원',
-              style: TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text(
+            '2,000원',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -164,13 +176,11 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
             duration: const Duration(milliseconds: 150),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected
-                  ? const Color(0xFFFFF0E6)
-                  : Colors.white,
+              color: selected ? AppColors.orangeLight : AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: selected
-                    ? const Color(0xFFF27E22)
+                    ? AppColors.orangeTheme
                     : Colors.grey.shade300,
                 width: selected ? 2 : 1,
               ),
@@ -178,12 +188,8 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
             child: Text(
               _changeTypes[i]['label']!,
               style: TextStyle(
-                color: selected
-                    ? const Color(0xFFF27E22)
-                    : Colors.black87,
-                fontWeight: selected
-                    ? FontWeight.bold
-                    : FontWeight.normal,
+                color: selected ? AppColors.orangeTheme : Colors.black87,
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 fontSize: 14,
               ),
             ),
@@ -198,9 +204,11 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       controller: controller,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.grey),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        hintStyle: const TextStyle(color: AppColors.muted),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade200),
@@ -211,7 +219,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFF27E22)),
+          borderSide: const BorderSide(color: AppColors.orangeTheme),
         ),
       ),
     );
@@ -222,25 +230,28 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       controller: _priceController,
       keyboardType: TextInputType.number,
       style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-          color: Color(0xFFF27E22)),
+        fontWeight: FontWeight.bold,
+        fontSize: 16,
+        color: AppColors.orangeTheme,
+      ),
       decoration: InputDecoration(
         suffixText: '원',
-        suffixStyle: const TextStyle(color: Colors.grey),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        suffixStyle: const TextStyle(color: AppColors.muted),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFF27E22)),
+          borderSide: const BorderSide(color: AppColors.orangeTheme),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFF27E22), width: 2),
+          borderSide: const BorderSide(color: AppColors.orangeTheme, width: 2),
         ),
       ),
     );
@@ -255,19 +266,23 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
         width: 72,
         height: 72,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.camera_alt_outlined,
-                color: Colors.grey.shade400, size: 28),
+            Icon(
+              Icons.camera_alt_outlined,
+              color: Colors.grey.shade400,
+              size: 28,
+            ),
             const SizedBox(height: 4),
-            Text('0/3',
-                style:
-                    TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+            Text(
+              '0/3',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -280,7 +295,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       maxLines: 3,
       decoration: InputDecoration(
         hintText: '변동 내용을 간단히 알려주세요.',
-        hintStyle: const TextStyle(color: Colors.grey),
+        hintStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.all(16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -292,7 +307,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFF27E22)),
+          borderSide: const BorderSide(color: AppColors.orangeTheme),
         ),
       ),
     );
@@ -304,13 +319,11 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
         Checkbox(
           value: _isConfirmed,
           onChanged: (v) => setState(() => _isConfirmed = v ?? false),
-          activeColor: const Color(0xFF4A68F6),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4)),
+          activeColor: AppColors.primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           side: BorderSide(color: Colors.grey.shade300),
         ),
-        const Text('직접 메뉴판 가격을 확인했어요',
-            style: TextStyle(fontSize: 14)),
+        const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
       ],
     );
   }

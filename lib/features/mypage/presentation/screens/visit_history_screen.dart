@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/status_badge.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class VisitHistoryScreen extends StatelessWidget {
   const VisitHistoryScreen({super.key});
@@ -49,7 +50,7 @@ class VisitHistoryScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: AppColors.backgroundDark,
       appBar: CustomAppBar(
         title: '방문 기록',
         actions: [
@@ -59,12 +60,14 @@ class VisitHistoryScreen extends StatelessWidget {
               child: RichText(
                 text: const TextSpan(
                   text: '총 ',
-                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                  style: TextStyle(color: AppColors.muted, fontSize: 14),
                   children: [
                     TextSpan(
                       text: '4',
                       style: TextStyle(
-                          color: Colors.black, fontWeight: FontWeight.bold),
+                        color: AppColors.black,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     TextSpan(text: '회'),
                   ],
@@ -82,11 +85,12 @@ class VisitHistoryScreen extends StatelessWidget {
               child: ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 12),
+                  horizontal: 20,
+                  vertical: 12,
+                ),
                 itemCount: items.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) =>
-                    _buildVisitCard(items[index]),
+                itemBuilder: (context, index) => _buildVisitCard(items[index]),
               ),
             ),
           ],
@@ -100,7 +104,7 @@ class VisitHistoryScreen extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: const Color(0xFFE8F5E9),
+        color: AppColors.successSubtle,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -111,31 +115,36 @@ class VisitHistoryScreen extends StatelessWidget {
                 Text(
                   '6',
                   style: TextStyle(
-                      color: Color(0xFF2ECA7F),
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold),
+                    color: AppColors.success,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: 4),
-                Text('이번 달 방문',
-                    style: TextStyle(color: Colors.black54, fontSize: 13)),
+                Text(
+                  '이번 달 방문',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
               ],
             ),
           ),
-          Container(
-              width: 1, height: 44, color: Colors.green.shade200),
+          Container(width: 1, height: 44, color: Colors.green.shade200),
           Expanded(
             child: Column(
               children: const [
                 Text(
                   '24,500원',
                   style: TextStyle(
-                      color: Color(0xFF2ECA7F),
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold),
+                    color: AppColors.success,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 SizedBox(height: 4),
-                Text('이번 달 절약',
-                    style: TextStyle(color: Colors.black54, fontSize: 13)),
+                Text(
+                  '이번 달 절약',
+                  style: TextStyle(color: Colors.black54, fontSize: 13),
+                ),
               ],
             ),
           ),
@@ -149,7 +158,7 @@ class VisitHistoryScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade100),
       ),
@@ -160,16 +169,12 @@ class VisitHistoryScreen extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: isGov
-                  ? const Color(0xFFEEF2FF)
-                  : const Color(0xFFFFF0E6),
+              color: isGov ? AppColors.primarySubtle : AppColors.orangeLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               item['icon'] as IconData,
-              color: isGov
-                  ? const Color(0xFF4A68F6)
-                  : const Color(0xFFF27E22),
+              color: isGov ? AppColors.primary : AppColors.orangeTheme,
               size: 26,
             ),
           ),
@@ -182,21 +187,24 @@ class VisitHistoryScreen extends StatelessWidget {
                 Row(
                   children: [
                     StatusBadge(
-                        type: isGov
-                            ? BadgeType.government
-                            : BadgeType.user),
+                      type: isGov ? BadgeType.government : BadgeType.user,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         item['name'] as String,
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                     Text(
                       item['date'] as String,
                       style: const TextStyle(
-                          color: Colors.grey, fontSize: 12),
+                        color: AppColors.muted,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ),
@@ -204,22 +212,21 @@ class VisitHistoryScreen extends StatelessWidget {
                 // 메뉴 · 가격
                 Text(
                   '${item['menu']} · ${item['price']}',
-                  style: const TextStyle(
-                      color: Colors.grey, fontSize: 13),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
                 // 절약 금액
                 Row(
                   children: [
-                    const Text('🪙',
-                        style: TextStyle(fontSize: 13)),
+                    const Text('🪙', style: TextStyle(fontSize: 13)),
                     const SizedBox(width: 4),
                     Text(
                       item['saving'] as String,
                       style: const TextStyle(
-                          color: Color(0xFF2ECA7F),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13),
+                        color: AppColors.success,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),

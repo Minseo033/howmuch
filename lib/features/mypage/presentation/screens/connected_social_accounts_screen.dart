@@ -4,16 +4,17 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class ConnectedSocialAccountsScreen extends ConsumerWidget {
   const ConnectedSocialAccountsScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -195,7 +196,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -284,7 +285,7 @@ class _Header extends StatelessWidget {
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: ConnectedSocialAccountsScreen.border,
@@ -300,7 +301,7 @@ class _Header extends StatelessWidget {
               width: 68,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -341,8 +342,8 @@ class _IntroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        border: Border.all(color: const Color(0x212563EB), width: .909),
+        color: AppColors.primaryLight,
+        border: Border.all(color: AppColors.primaryAlpha, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -352,7 +353,7 @@ class _IntroCard extends StatelessWidget {
             top: 16.9033203125,
             child: _CircleIcon(
               size: 37.99715805053711,
-              background: Colors.white,
+              background: AppColors.white,
               icon: Icons.verified_user_outlined,
               iconColor: ConnectedSocialAccountsScreen.blue,
               iconSize: 16.99,
@@ -435,15 +436,15 @@ class _SocialRow extends StatelessWidget {
         ? '해제'
         : '연결';
     final buttonColor = account.isPrimary
-        ? Colors.white
+        ? AppColors.white
         : isConnected
-        ? const Color(0xFFF1F5F9)
+        ? AppColors.background
         : ConnectedSocialAccountsScreen.blue;
     final buttonTextColor = account.isPrimary
         ? ConnectedSocialAccountsScreen.muted
         : isConnected
         ? ConnectedSocialAccountsScreen.ink
-        : Colors.white;
+        : AppColors.white;
     final subtitle = isConnected
         ? '${account.email} · 연결\n${account.connectedAt}'
         : '아직 연결되지 않았어요';
@@ -452,11 +453,11 @@ class _SocialRow extends StatelessWidget {
       width: 335.45452880859375,
       height: height,
       decoration: BoxDecoration(
-        color: account.isPrimary ? const Color(0xFFEFF4FF) : Colors.white,
+        color: account.isPrimary ? AppColors.primaryLight : AppColors.white,
         border: Border.all(
           color: account.isPrimary
-              ? const Color(0x332563EB)
-              : ConnectedSocialAccountsScreen.border,
+              ? AppColors.primary.withValues(alpha: .2)
+              : AppColors.border,
           width: .909,
         ),
         borderRadius: BorderRadius.circular(16),
@@ -500,7 +501,7 @@ class _SocialRow extends StatelessWidget {
             width: account.isPrimary ? 58.693180084228516 : 42.002838134765625,
             height: account.isPrimary ? 30.298294067382812 : 28.480112075805664,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
                 onTap: account.isPrimary
@@ -551,16 +552,16 @@ class _SocialBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final background = switch (account.id) {
-      'kakao' => const Color(0xFFFEE500),
+      'kakao' => AppColors.kakaoYellow,
       'apple' => ConnectedSocialAccountsScreen.ink,
-      'naver' => const Color(0xFF03C75A),
-      'google' => Colors.white,
-      _ => Colors.white,
+      'naver' => AppColors.naverGreen,
+      'google' => AppColors.white,
+      _ => AppColors.white,
     };
     final textColor = switch (account.id) {
-      'kakao' => const Color(0xFF191600),
-      'apple' => Colors.white,
-      'naver' => Colors.white,
+      'kakao' => AppColors.kakaoBrown,
+      'apple' => AppColors.white,
+      'naver' => AppColors.white,
       'google' => ConnectedSocialAccountsScreen.ink,
       _ => ConnectedSocialAccountsScreen.ink,
     };
@@ -587,7 +588,7 @@ class _SocialBadge extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: account.id == 'apple'
-          ? const Icon(Icons.apple_rounded, color: Colors.white, size: 24)
+          ? const Icon(Icons.apple_rounded, color: AppColors.white, size: 24)
           : Text(
               letter,
               style: TextStyle(
@@ -630,7 +631,7 @@ class _PrimaryChangeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedCard(
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
@@ -640,7 +641,7 @@ class _PrimaryChangeCard extends StatelessWidget {
               children: [
                 const _CircleIcon(
                   size: 35.99431610107422,
-                  background: Color(0xFFF1F5F9),
+                  background: AppColors.background,
                   icon: Icons.person_outline_rounded,
                   iconColor: ConnectedSocialAccountsScreen.ink,
                   iconSize: 15,
@@ -689,7 +690,7 @@ class _NoticeBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Stack(
@@ -789,7 +790,7 @@ class _RoundedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: ConnectedSocialAccountsScreen.border,
           width: .909,
@@ -859,7 +860,7 @@ const _accountSubtitleText = TextStyle(
 );
 
 const _primaryBadgeText = TextStyle(
-  color: Colors.white,
+  color: AppColors.white,
   fontFamily: ConnectedSocialAccountsScreen.fontFamily,
   fontFamilyFallback: ConnectedSocialAccountsScreen.fontFallback,
   fontSize: 9,
