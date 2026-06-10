@@ -30,16 +30,13 @@ class SavingsReportDashboardScreen extends StatelessWidget {
               padding: EdgeInsets.only(
                 bottom: bottomNavHeight + 20,
               ),
-              child: SizedBox(
-                width: FigmaMobileCanvas.width,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    // Custom AppBar (now scrolls!)
-                    Container(
-                      width: FigmaMobileCanvas.width,
-                      color: Colors.white,
-                      padding: EdgeInsets.only(top: topOffset, bottom: 12, left: 20, right: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Custom AppBar (now scrolls!)
+                  Container(
+                    color: Colors.white,
+                    padding: EdgeInsets.only(top: topOffset, bottom: 12, left: 20, right: 16),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -89,15 +86,15 @@ class SavingsReportDashboardScreen extends StatelessWidget {
                       ),
                     ),
                     
-                    const SizedBox(height: 16),
-                    
-                    // Main Content Body (Exactly 335.45 wide, perfectly centered -> 20px margins)
-                    SizedBox(
-                      width: 335.45452880859375,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Tabs
+                  const SizedBox(height: 16),
+                  
+                  // Main Content Body (Exactly centered -> 20px margins)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Tabs
                           Row(
                             children: [
                               _buildTab('이번 달', isSelected: true),
@@ -334,7 +331,6 @@ class SavingsReportDashboardScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-              ),
             ),
           ),
           
