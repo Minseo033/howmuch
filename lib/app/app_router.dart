@@ -9,7 +9,7 @@ import 'package:howmuch/features/auth/presentation/screens/permission_setup_scre
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
-import 'package:howmuch/features/community/presentation/screens/my_reports_v2_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/my_reports/my_reports_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';

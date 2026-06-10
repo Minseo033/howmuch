@@ -40,7 +40,7 @@ class ReportDetailScreen extends StatelessWidget {
         context.pop();
         return;
       }
-      context.go(AppRoutes.myReportsV2);
+      context.go(AppRoutes.myReports);
     }
 
     return FigmaMobileCanvas(
