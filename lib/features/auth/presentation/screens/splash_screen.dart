@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF2563EB), // 브랜드 블루
+      backgroundColor: Colors.white, // 바뀐 로고 이미지 배경에 맞춤
       body: Center(
         child: AnimatedBuilder(
           animation: _ctrl,
@@ -53,23 +53,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      width: 80,
-                      height: 80,
+                      width: 140,
+                      height: 140,
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
+                        borderRadius: BorderRadius.circular(36),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 20,
-                            offset: Offset(0, 10),
+                            color: Color(0x1A000000),
+                            blurRadius: 30,
+                            offset: Offset(0, 15),
                           ),
                         ],
-                      ),
-                      child: const Center(
-                        child: Text(
-                          '💸',
-                          style: TextStyle(fontSize: 40),
+                        image: const DecorationImage(
+                          image: AssetImage('assets/images/app_logo.png'),
+                          fit: BoxFit.cover,
                         ),
                       ),
                     ),
@@ -81,7 +79,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        color: Color(0xFF2563EB), // 브랜드 블루
                         letterSpacing: -1,
                       ),
                     ),
@@ -93,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         fontFamilyFallback: ['Apple SD Gothic Neo', 'Noto Sans KR'],
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF93C5FD), // 연한 블루
+                        color: Color(0xFF64748B), // 슬레이트 색상
                         letterSpacing: -0.5,
                       ),
                     ),
