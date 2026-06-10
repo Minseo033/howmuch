@@ -22,6 +22,7 @@ class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
 
   static List<Store> globalAllStores = [];
+  static Position? globalUserPosition;
 
   final bool showAiSpotlight;
 
@@ -513,6 +514,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         if (position != null) {
           _lastKnownPosition = position;
+          HomeMapScreen.globalUserPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         }
       } else {
@@ -563,6 +565,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ),
         ).listen((Position position) {
           _lastKnownPosition = position;
+          HomeMapScreen.globalUserPosition = position;
           _updateLocationMarker(position.latitude, position.longitude);
         });
 

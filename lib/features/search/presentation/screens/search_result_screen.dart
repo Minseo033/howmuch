@@ -3,8 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
@@ -132,6 +132,16 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
           return pa.compareTo(pb);
         });
+      } else {
+        // 기본 정렬: 거리순 (가장 가까운 매장부터)
+        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+        if (pos != null) {
+          stores.sort((a, b) {
+            final da = Geolocator.distanceBetween(pos.latitude, pos.longitude, a.latitude, a.longitude);
+            final db = Geolocator.distanceBetween(pos.latitude, pos.longitude, b.latitude, b.longitude);
+            return da.compareTo(db);
+          });
+        }
       }
 
       // 결과가 너무 많으면 UI 버벅임 방지용으로 100개까지만 노출
@@ -262,11 +272,17 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
             controller: _ctrl,
             focus: _focus,
             activeFilters: activeFilters,
-            onBack: () => context.pop({
-              'query': _query,
-              'filter': _filter,
-            }),
-            onSearch: () => _doSearch(_ctrl.text),
+            onBack: () => context.pop(),
+            onSearch: () {
+              _focus.unfocus();
+              _doSearch(_ctrl.text);
+            },
+            onChanged: (val) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 300), () {
+                _doSearch(val);
+              });
+            },
             onFilterTap: _openFilter,
             onRemoveFilter: (label) {
               setState(() => _filter = _filter.remove(label));
@@ -347,6 +363,7 @@ class _SearchHeader extends StatelessWidget {
     required this.onSearch,
     required this.onFilterTap,
     required this.onRemoveFilter,
+    this.onChanged,
   });
 
   final double topOffset;
@@ -357,6 +374,7 @@ class _SearchHeader extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onFilterTap;
   final ValueChanged<String> onRemoveFilter;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -416,6 +434,7 @@ class _SearchHeader extends StatelessWidget {
                             onSubmitted: (_) {
                               onSearch();
                             },
+                            onChanged: onChanged,
                             style: const TextStyle(
                               fontFamily: SearchResultScreen.fontFamily,
                               fontFamilyFallback:
