@@ -57,6 +57,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
+  Timer? _boundsDebouncer;
 
 
   @override
@@ -89,6 +90,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.removeObserver(this);
     _positionStream?.cancel();
     _compassStream?.cancel();
+    _boundsDebouncer?.cancel();
     super.dispose();
   }
 
@@ -105,7 +107,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _moveToCurrentLocation();
           }
           if (message.message.startsWith('BOUNDS:')) {
-            _fetchAndAddMarkersForMobile(message.message.substring(7));
+            _boundsDebouncer?.cancel();
+            _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
+              if (mounted) {
+                _fetchAndAddMarkersForMobile(message.message.substring(7));
+              }
+            });
           }
           if (message.message.startsWith('CLICK:')) {
             final indexStr = message.message.substring(6);

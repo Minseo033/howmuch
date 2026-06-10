@@ -42,4 +42,9 @@ class AppRoutes {
   static const reportDeleteConfirm = '/reports/delete-confirm';
   static const sessionExpired = '/session-expired';
   static const storeDetail = '/store/detail';
+
+  static const savingsReportDashboard = '/savings/dashboard';
+  static const savingsDetail = '/savings/detail';
+  static const todaysPick = '/recommendation/todays-pick';
+  static const optimalRoute = '/recommendation/optimal-route';
 }
