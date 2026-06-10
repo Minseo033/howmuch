@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -137,7 +138,7 @@ class _Header extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -170,9 +171,13 @@ class _Header extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 20,
+            right: AppSizes.horizontalPadding,
             top: 12.5,
-            child: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: ReportDetailV2Screen._ink),
+            child: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 20,
+              color: ReportDetailV2Screen._ink,
+            ),
           ),
         ],
       ),
@@ -186,7 +191,7 @@ class _ReportInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -215,16 +220,16 @@ class _ReportInfoCard extends StatelessWidget {
             valueWeight: FontWeight.w600,
             valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: 8),
+          SizedBox(height: AppSizes.smallSpacing),
           _InfoLine(
             label: '주소',
             value: '서울시 마포구 합정동',
             valueWeight: FontWeight.w600,
             valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: 8),
+          SizedBox(height: AppSizes.smallSpacing),
           _PriceLine(),
-          SizedBox(height: 16),
+          SizedBox(height: AppSizes.itemSpacing),
           _PhotoSection(),
         ],
       ),
@@ -402,7 +407,7 @@ class _ProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -422,7 +427,7 @@ class _ProgressCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: 24),
+          SizedBox(height: AppSizes.largeSpacing),
           _ProgressSteps(),
         ],
       ),
@@ -436,7 +441,7 @@ class _InfoMessageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(16),
@@ -445,8 +450,12 @@ class _InfoMessageCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.access_time, color: ReportDetailV2Screen._blue, size: 16),
-          const SizedBox(width: 8),
+          const Icon(
+            Icons.access_time,
+            color: ReportDetailV2Screen._blue,
+            size: 16,
+          ),
+          const SizedBox(width: AppSizes.smallSpacing),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -512,12 +521,18 @@ class _ProgressSteps extends StatelessWidget {
             children: [
               for (var index = 0; index < items.length - 1; index++)
                 Positioned(
-                  left: stepWidth * index + stepWidth / 2 + circleSize / 2 + connectorInset,
+                  left:
+                      stepWidth * index +
+                      stepWidth / 2 +
+                      circleSize / 2 +
+                      connectorInset,
                   top: connectorTop,
                   width: stepWidth - circleSize - connectorInset * 2,
                   height: connectorHeight,
                   child: ColoredBox(
-                    color: index < 2 ? ReportDetailV2Screen._green : const Color(0xFFE2E8F0),
+                    color: index < 2
+                        ? ReportDetailV2Screen._green
+                        : const Color(0xFFE2E8F0),
                   ),
                 ),
               for (var index = 0; index < items.length; index++)
@@ -590,7 +605,9 @@ class _StepLabel extends StatelessWidget {
       style: TextStyle(
         color: isCurrent
             ? ReportDetailV2Screen._orange
-            : (item.done ? ReportDetailV2Screen._ink : ReportDetailV2Screen._muted),
+            : (item.done
+                  ? ReportDetailV2Screen._ink
+                  : ReportDetailV2Screen._muted),
         fontFamily: ReportDetailV2Screen._fontFamily,
         fontFamilyFallback: ReportDetailV2Screen._fontFallback,
         fontSize: 9.5,
@@ -609,8 +626,6 @@ class _StepData {
   final Color color;
   final bool done;
 }
-
-
 
 class _ReasonItem extends StatelessWidget {
   const _ReasonItem(this.text);
@@ -631,7 +646,7 @@ class _ReasonItem extends StatelessWidget {
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSizes.smallSpacing),
         Expanded(
           child: Text(
             text,
@@ -657,19 +672,19 @@ class _PhotoSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: const [
-            _PhotoThumb(
-              colors: [Color(0xFFFCA5A5), Color(0xFFFBBF24)],
-              icon: Icons.image_outlined,
-              showWarning: false,
-            ),
-            SizedBox(width: 8),
-            _PhotoThumb(
-              colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
-              icon: Icons.image_outlined,
-            ),
-            SizedBox(width: 8),
-            _EmptyPhotoSlot(),
-          ],
+        _PhotoThumb(
+          colors: [Color(0xFFFCA5A5), Color(0xFFFBBF24)],
+          icon: Icons.image_outlined,
+          showWarning: false,
+        ),
+        SizedBox(width: AppSizes.smallSpacing),
+        _PhotoThumb(
+          colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
+          icon: Icons.image_outlined,
+        ),
+        SizedBox(width: AppSizes.smallSpacing),
+        _EmptyPhotoSlot(),
+      ],
     );
   }
 }
@@ -684,7 +699,11 @@ class _EmptyPhotoSlot extends StatelessWidget {
       height: 70,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ReportDetailV2Screen._border, width: 1, style: BorderStyle.solid),
+        border: Border.all(
+          color: ReportDetailV2Screen._border,
+          width: 1,
+          style: BorderStyle.solid,
+        ),
       ),
       alignment: Alignment.center,
       child: const Icon(
@@ -756,8 +775,6 @@ class _PhotoThumb extends StatelessWidget {
   }
 }
 
-
-
 class _OutlineActionButton extends StatelessWidget {
   const _OutlineActionButton();
 
@@ -772,7 +789,10 @@ class _OutlineActionButton extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ReportDetailV2Screen._border, width: .909),
+            border: Border.all(
+              color: ReportDetailV2Screen._border,
+              width: .909,
+            ),
           ),
           alignment: Alignment.center,
           child: Row(

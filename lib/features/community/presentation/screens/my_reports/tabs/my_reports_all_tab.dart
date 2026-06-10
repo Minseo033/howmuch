@@ -18,7 +18,8 @@ class MyReportsAllTab extends StatelessWidget {
             child: ReportCard(
               report: report,
               isCompact: true,
-              onTap: () => context.push('${AppRoutes.reportDetailV2}?id=${report.id}'),
+              onTap: () =>
+                  context.push('${AppRoutes.reportDetailV2}?id=${report.id}'),
               onPrimaryTap: () {
                 if (report.filter == ReportFilter.approved) {
                   context.go(AppRoutes.home);
@@ -35,6 +36,5 @@ class MyReportsAllTab extends StatelessWidget {
         ),
       ],
     );
-
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -314,7 +315,7 @@ class _PostHeader extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -361,7 +362,12 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(13.99, 13.99, 13.99, 15),
+      padding: const EdgeInsets.fromLTRB(
+        AppSizes.horizontalPadding,
+        AppSizes.itemSpacing,
+        AppSizes.horizontalPadding,
+        15,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -439,7 +445,7 @@ class _PostCard extends StatelessWidget {
                 icon: Icons.thumb_up_alt_outlined,
                 label: '도움이 돼요 12',
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppSizes.itemSpacing),
               const _PostMetric(
                 icon: Icons.mode_comment_outlined,
                 label: '댓글 2',
@@ -640,7 +646,7 @@ class _CommentCard extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSizes.smallSpacing),
                         Text(
                           comment.time,
                           style: const TextStyle(

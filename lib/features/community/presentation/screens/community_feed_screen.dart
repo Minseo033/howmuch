@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -74,7 +75,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 60.87,
             width: 335.45452880859375,
             height: 28,
@@ -84,7 +85,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 100.85,
             width: 335.45452880859375,
             height: 33.793,
@@ -95,35 +96,38 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 150.64,
             width: 335.45452880859375,
-            child: Column(
-              children: _visibleFeedItems
-                  .map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 11.989),
-                      child: _FeedCard(
-                        title: item.title,
-                        author: item.author,
-                        likes: item.likes,
-                        comments: item.comments,
-                        status: item.status,
-                        statusColor: item.statusColor,
-                        statusBackground: item.statusBackground,
-                        imageBackground: item.imageBackground,
-                        dotColor: item.dotColor,
-                        compactStatus: item.compactStatus,
-                        onTap: () =>
-                            context.push(AppRoutes.communityPostDetail),
+            bottom: bottomNavHeight + 85,
+            child: SingleChildScrollView(
+              child: Column(
+                children: _visibleFeedItems
+                    .map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.only(bottom: 11.989),
+                        child: _FeedCard(
+                          title: item.title,
+                          author: item.author,
+                          likes: item.likes,
+                          comments: item.comments,
+                          status: item.status,
+                          statusColor: item.statusColor,
+                          statusBackground: item.statusBackground,
+                          imageBackground: item.imageBackground,
+                          dotColor: item.dotColor,
+                          compactStatus: item.compactStatus,
+                          onTap: () =>
+                              context.push(AppRoutes.communityPostDetail),
+                        ),
                       ),
-                    ),
-                  )
-                  .toList(),
+                    )
+                    .toList(),
+              ),
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             bottom: bottomNavHeight + 16,
             width: 335.45452880859375,
             height: 54.972,
@@ -163,7 +167,7 @@ class _Header extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -196,7 +200,7 @@ class _Header extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 20,
+            right: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -227,7 +231,7 @@ class _LocationRow extends StatelessWidget {
     return Row(
       children: [
         _LocationChip(location: location, onTap: onTap),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSizes.smallSpacing),
         Text(
           '$location 기준',
           style: TextStyle(
@@ -339,7 +343,7 @@ class _FilterChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 33.793,
-        padding: EdgeInsets.symmetric(horizontal: selected ? 13 : 13.909),
+        padding: EdgeInsets.symmetric(horizontal: AppSizes.horizontalPadding),
         decoration: BoxDecoration(
           color: selected ? CommunityFeedScreen.blue : Colors.white,
           border: selected

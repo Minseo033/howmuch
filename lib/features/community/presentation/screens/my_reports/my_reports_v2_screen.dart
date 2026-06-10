@@ -118,9 +118,7 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
                 (safePadding.bottom > 0 ? safePadding.bottom + 68 : 88) + 44,
               ),
               physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                _buildCurrentTab(),
-              ],
+              children: [_buildCurrentTab()],
             ),
           ),
 
@@ -135,7 +133,10 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    top: BorderSide(color: MyReportsV2Screen.border, width: 0.909),
+                    top: BorderSide(
+                      color: MyReportsV2Screen.border,
+                      width: 0.909,
+                    ),
                   ),
                 ),
                 child: Material(
@@ -169,12 +170,15 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
         ],
       ),
     );
-
   }
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.filter, required this.onBack, required this.onSearch});
+  const _Header({
+    required this.filter,
+    required this.onBack,
+    required this.onSearch,
+  });
 
   final ReportFilter filter;
   final VoidCallback onBack;
@@ -248,11 +252,9 @@ class _Header extends StatelessWidget {
                 ),
               ),
             ),
-
         ],
       ),
     );
-
   }
 }
 
@@ -293,11 +295,9 @@ class _Tabs extends StatelessWidget {
                 onTap: () => onChanged(item.$1),
               ),
             ),
-
         ],
       ),
     );
-
   }
 }
 
@@ -317,7 +317,9 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected ? MyReportsV2Screen.blue : MyReportsV2Screen.muted;
-    final countColor = selected ? MyReportsV2Screen.blue : MyReportsV2Screen.hint;
+    final countColor = selected
+        ? MyReportsV2Screen.blue
+        : MyReportsV2Screen.hint;
 
     return InkWell(
       onTap: onTap,
@@ -339,7 +341,9 @@ class _TabButton extends StatelessWidget {
                         fontFamily: MyReportsV2Screen.fontFamily,
                         fontFamilyFallback: MyReportsV2Screen.fontFallback,
                         fontSize: 12,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         height: 1.5,
                         letterSpacing: 0,
                       ),
@@ -353,7 +357,9 @@ class _TabButton extends StatelessWidget {
                         fontFamily: MyReportsV2Screen.fontFamily,
                         fontFamilyFallback: MyReportsV2Screen.fontFallback,
                         fontSize: 12,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                         height: 1.5,
                         letterSpacing: 0,
                       ),

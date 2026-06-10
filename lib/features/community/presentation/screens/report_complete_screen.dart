@@ -31,8 +31,11 @@ class ReportCompleteScreen extends StatelessWidget {
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
-      child: Stack(
-        children: [
+      child: SingleChildScrollView(
+        child: SizedBox(
+          height: FigmaMobileCanvas.height,
+          child: Stack(
+            children: [
           Positioned(
             left: 0,
             top: topOffset,

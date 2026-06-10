@@ -8,7 +8,9 @@ class MyReportsRejectedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleReports = reportsData.where((report) => report.filter == ReportFilter.rejected).toList();
+    final visibleReports = reportsData
+        .where((report) => report.filter == ReportFilter.rejected)
+        .toList();
 
     return Column(
       children: [
@@ -17,7 +19,8 @@ class MyReportsRejectedTab extends StatelessWidget {
             padding: const EdgeInsets.only(bottom: 10),
             child: ReportCard(
               report: report,
-              onTap: () => context.push('${AppRoutes.reportDetailV2}?id=${report.id}'),
+              onTap: () =>
+                  context.push('${AppRoutes.reportDetailV2}?id=${report.id}'),
               onPrimaryTap: () {
                 context.push('${AppRoutes.reportDetailV2}?id=${report.id}');
               },
@@ -26,6 +29,5 @@ class MyReportsRejectedTab extends StatelessWidget {
         ),
       ],
     );
-
   }
 }

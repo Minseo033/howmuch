@@ -33,7 +33,14 @@ class TopBanner extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontFamily: "Inter",
-                fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                fontFamilyFallback: [
+                  "Noto Sans KR",
+                  "Apple SD Gothic Neo",
+                  "AppleGothic",
+                  "Arial Unicode MS",
+                  "Malgun Gothic",
+                  "sans-serif",
+                ],
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 height: 1.5,
@@ -68,15 +75,26 @@ class EmptyStateBox extends StatelessWidget {
               color: Color(0xFFF4F6FA),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.description_outlined, color: const Color(0xFF94A3B8), size: 20),
+            child: const Icon(
+              Icons.description_outlined,
+              color: Color(0xFF94A3B8),
+              size: 20,
+            ),
           ),
           const SizedBox(height: 12),
           const Text(
             '검토 중인 제보가 없어요',
             style: TextStyle(
-              color: const Color(0xFF0A0A0A),
+              color: Color(0xFF0A0A0A),
               fontFamily: "Inter",
-              fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+              fontFamilyFallback: [
+                "Noto Sans KR",
+                "Apple SD Gothic Neo",
+                "AppleGothic",
+                "Arial Unicode MS",
+                "Malgun Gothic",
+                "sans-serif",
+              ],
               fontSize: 14,
               fontWeight: FontWeight.w700,
               height: 1.5,
@@ -88,7 +106,14 @@ class EmptyStateBox extends StatelessWidget {
             style: TextStyle(
               color: Color(0xFF64748B),
               fontFamily: "Inter",
-              fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+              fontFamilyFallback: [
+                "Noto Sans KR",
+                "Apple SD Gothic Neo",
+                "AppleGothic",
+                "Arial Unicode MS",
+                "Malgun Gothic",
+                "sans-serif",
+              ],
               fontSize: 12,
               fontWeight: FontWeight.w400,
               height: 1.5,
@@ -141,7 +166,14 @@ class ReportCard extends StatelessWidget {
                     style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontFamily: "Inter",
-                      fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                      fontFamilyFallback: [
+                        "Noto Sans KR",
+                        "Apple SD Gothic Neo",
+                        "AppleGothic",
+                        "Arial Unicode MS",
+                        "Malgun Gothic",
+                        "sans-serif",
+                      ],
                       fontSize: 11,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
@@ -153,9 +185,16 @@ class ReportCard extends StatelessWidget {
               Text(
                 report.title,
                 style: const TextStyle(
-                  color: const Color(0xFF0A0A0A),
+                  color: Color(0xFF0A0A0A),
                   fontFamily: "Inter",
-                  fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                  fontFamilyFallback: [
+                    "Noto Sans KR",
+                    "Apple SD Gothic Neo",
+                    "AppleGothic",
+                    "Arial Unicode MS",
+                    "Malgun Gothic",
+                    "sans-serif",
+                  ],
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   height: 1.5,
@@ -170,7 +209,14 @@ class ReportCard extends StatelessWidget {
                     style: TextStyle(
                       color: Color(0xFF64748B),
                       fontFamily: "Inter",
-                      fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                      fontFamilyFallback: [
+                        "Noto Sans KR",
+                        "Apple SD Gothic Neo",
+                        "AppleGothic",
+                        "Arial Unicode MS",
+                        "Malgun Gothic",
+                        "sans-serif",
+                      ],
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
@@ -179,9 +225,16 @@ class ReportCard extends StatelessWidget {
                   Text(
                     report.menu,
                     style: const TextStyle(
-                      color: const Color(0xFF0A0A0A),
+                      color: Color(0xFF0A0A0A),
                       fontFamily: "Inter",
-                      fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                      fontFamilyFallback: [
+                        "Noto Sans KR",
+                        "Apple SD Gothic Neo",
+                        "AppleGothic",
+                        "Arial Unicode MS",
+                        "Malgun Gothic",
+                        "sans-serif",
+                      ],
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       height: 1.5,
@@ -191,15 +244,15 @@ class ReportCard extends StatelessWidget {
               ),
               if (!isCompact && report.filter == ReportFilter.pending) ...[
                 const SizedBox(height: 16),
-                const SizedBox(
-                  height: 40,
-                  child: MiniProgressSteps(),
-                ),
+                const SizedBox(height: 40, child: MiniProgressSteps()),
               ],
               if (!isCompact && report.notice != null) ...[
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF3EA),
                     borderRadius: BorderRadius.circular(10),
@@ -208,7 +261,7 @@ class ReportCard extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.warning_amber_rounded,
-                        color: const Color(0xFFF97316),
+                        color: Color(0xFFF97316),
                         size: 13,
                       ),
                       const SizedBox(width: 5),
@@ -220,7 +273,14 @@ class ReportCard extends StatelessWidget {
                           style: const TextStyle(
                             color: Color(0xFF9A3412),
                             fontFamily: "Inter",
-                            fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                            fontFamilyFallback: [
+                              "Noto Sans KR",
+                              "Apple SD Gothic Neo",
+                              "AppleGothic",
+                              "Arial Unicode MS",
+                              "Malgun Gothic",
+                              "sans-serif",
+                            ],
                             fontSize: 11,
                             fontWeight: FontWeight.w400,
                             height: 1.4,
@@ -243,9 +303,13 @@ class ReportCard extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: const [
-                      const Icon(Icons.location_on, color: Color(0xFF10B981), size: 14),
-                      const SizedBox(width: 4),
-                      const Flexible(
+                      Icon(
+                        Icons.location_on,
+                        color: Color(0xFF10B981),
+                        size: 14,
+                      ),
+                      SizedBox(width: 4),
+                      Flexible(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
@@ -254,7 +318,14 @@ class ReportCard extends StatelessWidget {
                             style: TextStyle(
                               color: Color(0xFF047857),
                               fontFamily: "Inter",
-                              fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                              fontFamilyFallback: [
+                                "Noto Sans KR",
+                                "Apple SD Gothic Neo",
+                                "AppleGothic",
+                                "Arial Unicode MS",
+                                "Malgun Gothic",
+                                "sans-serif",
+                              ],
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               height: 1.5,
@@ -273,7 +344,9 @@ class ReportCard extends StatelessWidget {
                         onPressed: onTap,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           side: const BorderSide(color: Color(0xFFE5E7EB)),
                         ),
                         child: const Text(
@@ -304,7 +377,9 @@ class ReportCard extends StatelessWidget {
                           backgroundColor: const Color(0xFF2563EB),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                           elevation: 0,
                         ),
                       ),
@@ -312,7 +387,9 @@ class ReportCard extends StatelessWidget {
                   ],
                 ),
               ],
-              if (!isCompact && report.actionLabel != null && report.filter != ReportFilter.approved) ...[
+              if (!isCompact &&
+                  report.actionLabel != null &&
+                  report.filter != ReportFilter.approved) ...[
                 const SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
@@ -367,7 +444,14 @@ class StatusBadge extends StatelessWidget {
             style: TextStyle(
               color: report.badgeTextColor ?? report.badgeColor,
               fontFamily: "Inter",
-              fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+              fontFamilyFallback: [
+                "Noto Sans KR",
+                "Apple SD Gothic Neo",
+                "AppleGothic",
+                "Arial Unicode MS",
+                "Malgun Gothic",
+                "sans-serif",
+              ],
               fontSize: 10,
               fontWeight: FontWeight.w700,
               height: 1.5,
@@ -411,7 +495,14 @@ class SmallActionButton extends StatelessWidget {
               style: const TextStyle(
                 color: Colors.white,
                 fontFamily: "Inter",
-                fontFamilyFallback: ["Noto Sans KR", "Apple SD Gothic Neo", "AppleGothic", "Arial Unicode MS", "Malgun Gothic", "sans-serif"],
+                fontFamilyFallback: [
+                  "Noto Sans KR",
+                  "Apple SD Gothic Neo",
+                  "AppleGothic",
+                  "Arial Unicode MS",
+                  "Malgun Gothic",
+                  "sans-serif",
+                ],
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 height: 1.5,
@@ -430,8 +521,8 @@ class MiniProgressSteps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      StepData('접수 완료', 0, const Color(0xFF10B981), true),
-      StepData('정보 확인 중', 1, const Color(0xFFF97316), false),
+      StepData('접수 완료', 0, Color(0xFF10B981), true),
+      StepData('정보 확인 중', 1, Color(0xFFF97316), false),
       StepData('승인 대기', 2, Color(0xFFCBD5E1), false),
     ];
 
@@ -450,12 +541,18 @@ class MiniProgressSteps extends StatelessWidget {
           children: [
             for (var index = 0; index < items.length - 1; index++)
               Positioned(
-                left: stepWidth * index + stepWidth / 2 + circleSize / 2 + connectorInset,
+                left:
+                    stepWidth * index +
+                    stepWidth / 2 +
+                    circleSize / 2 +
+                    connectorInset,
                 top: connectorTop,
                 width: stepWidth - circleSize - connectorInset * 2,
                 height: connectorHeight,
                 child: ColoredBox(
-                  color: index < 1 ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
+                  color: index < 1
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFE2E8F0),
                 ),
               ),
             for (var index = 0; index < items.length; index++)
@@ -467,10 +564,17 @@ class MiniProgressSteps extends StatelessWidget {
                   child: Container(
                     width: circleSize,
                     height: circleSize,
-                    decoration: BoxDecoration(color: items[index].color, shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: items[index].color,
+                      shape: BoxShape.circle,
+                    ),
                     alignment: Alignment.center,
                     child: items[index].done
-                        ? const Icon(Icons.check_rounded, size: 10, color: Colors.white)
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 10,
+                            color: Colors.white,
+                          )
                         : Text(
                             '${index + 1}',
                             style: const TextStyle(
@@ -491,7 +595,11 @@ class MiniProgressSteps extends StatelessWidget {
                   items[index].label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: index == 1 ? const Color(0xFFF97316) : (items[index].done ? Color(0xFF0F172A) : Color(0xFF64748B)),
+                    color: index == 1
+                        ? const Color(0xFFF97316)
+                        : (items[index].done
+                              ? Color(0xFF0F172A)
+                              : Color(0xFF64748B)),
                     fontSize: 9.5,
                     fontWeight: index == 1 ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -578,11 +686,11 @@ const reportsData = [
     title: '동네카페',
     menu: '아메리카노 2,000원',
     badgeBackground: Color(0xFFE8F8F1),
-    badgeColor: const Color(0xFF10B981),
+    badgeColor: Color(0xFF10B981),
     badgeWidth: 70.497,
     height: 154.759,
     actionLabel: '지도에서 보기',
-    actionColor: const Color(0xFF2563EB),
+    actionColor: Color(0xFF2563EB),
     actionIcon: Icons.location_on_outlined,
   ),
   MyReportData(
@@ -593,14 +701,14 @@ const reportsData = [
     title: '착한김밥',
     menu: '김밥 2,500원',
     badgeBackground: Color(0xFFFEF3C7),
-    badgeColor: const Color(0xFFF97316),
+    badgeColor: Color(0xFFF97316),
     badgeDotColor: Color(0xFFF59E0B),
     badgeTextColor: Color(0xFF92400E),
     badgeWidth: 70.497,
     height: 194.134,
     notice: '메뉴판 사진이 흐려 가격 확인이 어려워요',
     actionLabel: '수정하기',
-    actionColor: const Color(0xFF2563EB),
+    actionColor: Color(0xFF2563EB),
     actionIcon: Icons.edit_outlined,
     actionTop: 142.33,
     actionWidth: 120.185,

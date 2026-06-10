@@ -17,6 +17,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
@@ -65,17 +66,62 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Store? _selectedStore;
   bool _isFetching = false;
   final PageController _pageController = PageController(viewportFraction: 0.88);
-  
+
   String _searchQuery = '';
   SearchFilter _searchFilter = const SearchFilter();
 
   // ── 필터 UI 업종 → 실제 DB industry 키워드 매핑 ──
   static const _industryKeywords = <String, List<String>>{
-    '음식점': ['한식', '중식', '일식', '양식', '분식', '패스트푸드', '음식', '식당', '반찬', '도시락', '국수', '치킨', '피자', '족발', '감자탕', '삼겹살', '고깃집', '정육', '떡볶이', '김밥'],
-    '카페': ['카페', '커피', '음료', '베이커리', '빵', '제과', '디저트', '차(음료)', '주스', '스무디', '아이스크림'],
+    '음식점': [
+      '한식',
+      '중식',
+      '일식',
+      '양식',
+      '분식',
+      '패스트푸드',
+      '음식',
+      '식당',
+      '반찬',
+      '도시락',
+      '국수',
+      '치킨',
+      '피자',
+      '족발',
+      '감자탕',
+      '삼겹살',
+      '고깃집',
+      '정육',
+      '떡볶이',
+      '김밥',
+    ],
+    '카페': [
+      '카페',
+      '커피',
+      '음료',
+      '베이커리',
+      '빵',
+      '제과',
+      '디저트',
+      '차(음료)',
+      '주스',
+      '스무디',
+      '아이스크림',
+    ],
     '미용': ['미용', '헤어', '네일', '피부', '뷰티', '화장', '미용실', '이발'],
     '세탁': ['세탁', '빨래', '클리닝', '드라이'],
-    '생활서비스': ['수선', '열쇠', '인쇄', '복사', '사진', '촬영', '스튜디오', '생활', '서비스', '수리', '기타'],
+    '생활서비스': [
+      '수선',
+      '열쇠',
+      '인쇄',
+      '복사',
+      '사진',
+      '촬영',
+      '스튜디오',
+      '생활',
+      '서비스',
+      '수리',
+      '기타',
+    ],
   };
 
   bool _matchesIndustryFilter(Store store, String filterIndustry) {
@@ -88,10 +134,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final lowerIndustry = store.industry.toLowerCase();
     final lowerName = store.storeName.toLowerCase();
     final lowerMenu = store.menu1.toLowerCase();
-    
+
     return keywords.any((kw) {
       final k = kw.toLowerCase();
-      return lowerIndustry.contains(k) || lowerName.contains(k) || lowerMenu.contains(k);
+      return lowerIndustry.contains(k) ||
+          lowerName.contains(k) ||
+          lowerMenu.contains(k);
     });
   }
 
@@ -110,8 +158,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _searchInCurrentArea();
     }
   }
-  Timer? _boundsDebouncer;
 
+  Timer? _boundsDebouncer;
 
   @override
   void initState() {
@@ -131,14 +179,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         ? 'http://localhost:8081/api/test/all'
         : 'http://192.168.219.120:8081/api/test/all';
     try {
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
-      
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 45));
+
       if (response.statusCode == 200) {
         debugPrint('JSON decode 시작');
         final decodedString = utf8.decode(response.bodyBytes);
         final List<dynamic> data = json.decode(decodedString);
         debugPrint('JSON decode 완료, data length: ${data.length}');
-        
+
         final List<Store> parsedStores = [];
         for (var i = 0; i < data.length; i++) {
           try {
@@ -159,12 +209,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _isAllStoresLoaded = true;
           });
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
-          
+
           // Removed requestBounds() call here to prevent Deadlock.
           // WebView will automatically trigger bounds request via JS events
           // or when _moveToCurrentLocation() is called.
           debugPrint('requestBounds() 자동 호출에 맡깁니다.');
-
         }
       }
     } catch (e) {
@@ -198,7 +247,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _boundsDebouncer?.cancel();
     super.dispose();
   }
-
 
   void _initMobileController() {
     _webViewController = WebViewController()
@@ -676,9 +724,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
         );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('이 주변에는 조건에 맞는 업소가 없습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('이 주변에는 조건에 맞는 업소가 없습니다.')));
     }
   }
 
@@ -696,42 +744,62 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     try {
       // 서버를 호출하지 않고 _allStores에서 로컬 필터링 수행
-      var stores = _allStores.where((s) => 
-        s.latitude >= minLat && s.latitude <= maxLat &&
-        s.longitude >= minLng && s.longitude <= maxLng
-      ).toList();
+      var stores = _allStores
+          .where(
+            (s) =>
+                s.latitude >= minLat &&
+                s.latitude <= maxLat &&
+                s.longitude >= minLng &&
+                s.longitude <= maxLng,
+          )
+          .toList();
 
       // ─── 검색 및 필터 적용 ───
       if (_searchQuery.trim().isNotEmpty) {
-        stores = stores.where((s) => 
-          s.storeName.contains(_searchQuery) || 
-          s.menu1.contains(_searchQuery) || 
-          s.industry.contains(_searchQuery)
-        ).toList();
+        stores = stores
+            .where(
+              (s) =>
+                  s.storeName.contains(_searchQuery) ||
+                  s.menu1.contains(_searchQuery) ||
+                  s.industry.contains(_searchQuery),
+            )
+            .toList();
       }
-      
+
       if (_searchFilter.maxPrice != null) {
         stores = stores.where((s) {
           final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
           return p == null || p <= _searchFilter.maxPrice!;
         }).toList();
       }
-      
+
       if (_searchFilter.industries.isNotEmpty) {
-        stores = stores.where((s) =>
-          _searchFilter.industries.any((ind) => SearchFilter.matchesIndustry(s, ind))
-        ).toList();
+        stores = stores
+            .where(
+              (s) => _searchFilter.industries.any(
+                (ind) => SearchFilter.matchesIndustry(s, ind),
+              ),
+            )
+            .toList();
       }
-      
+
       if (_searchFilter.distance != null && _lastKnownPosition != null) {
         double maxDist = 0;
-        if (_searchFilter.distance == '500m 이내') maxDist = 500;
-        else if (_searchFilter.distance == '1km 이내') maxDist = 1000;
-        else if (_searchFilter.distance == '3km 이내') maxDist = 3000;
-        
+        if (_searchFilter.distance == '500m 이내')
+          maxDist = 500;
+        else if (_searchFilter.distance == '1km 이내')
+          maxDist = 1000;
+        else if (_searchFilter.distance == '3km 이내')
+          maxDist = 3000;
+
         if (maxDist > 0) {
           stores = stores.where((s) {
-            final d = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, s.latitude, s.longitude);
+            final d = Geolocator.distanceBetween(
+              _lastKnownPosition!.latitude,
+              _lastKnownPosition!.longitude,
+              s.latitude,
+              s.longitude,
+            );
             return d <= maxDist;
           }).toList();
         }
@@ -746,7 +814,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       return _currentStores.map((s) {
         final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-        final priceStr = p.isEmpty ? s.price1 : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
+        final priceStr = p.isEmpty
+            ? s.price1
+            : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
         return {
           'lat': s.latitude,
           'lng': s.longitude,
@@ -788,7 +858,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _handleMarkerClick(String storeId) {
     try {
-      final store = _currentStores.firstWhere((s) => s.storeName + s.address == storeId);
+      final store = _currentStores.firstWhere(
+        (s) => s.storeName + s.address == storeId,
+      );
       setState(() {
         _selectedStore = store;
         _showStoreSummary = true;
@@ -824,7 +896,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     const storeCardBottomGap = 94.0;
     final storeCardTop =
         FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;
-    final aiControlLeft = FigmaMobileCanvas.width - 15.99432373046875 - 143;
+    final aiControlLeft =
+        FigmaMobileCanvas.width - AppSizes.horizontalPadding - 143;
     final spotlightAiLeft = FigmaMobileCanvas.width - 2 - 157;
     final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
     final bottomBase = FigmaMobileCanvas.height - bottomNavHeight;
@@ -837,7 +910,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
-    debugPrint('HomeMapScreen build called! _isAllStoresLoaded: $_isAllStoresLoaded');
+    debugPrint(
+      'HomeMapScreen build called! _isAllStoresLoaded: $_isAllStoresLoaded',
+    );
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
@@ -885,18 +960,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        _hasLoadError ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.' : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                        _hasLoadError
+                            ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.'
+                            : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _hasLoadError ? Colors.red : const Color(0xFF2563EB),
+                          color: _hasLoadError
+                              ? Colors.red
+                              : const Color(0xFF2563EB),
                           fontFamily: 'Inter',
-                          fontFamilyFallback: const ['Apple SD Gothic Neo', 'Noto Sans KR'],
+                          fontFamilyFallback: const [
+                            'Apple SD Gothic Neo',
+                            'Noto Sans KR',
+                          ],
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           height: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSizes.largeSpacing),
                       if (_hasLoadError)
                         ElevatedButton(
                           onPressed: () {
@@ -908,19 +990,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           child: const Text('다시 시도'),
                         )
                       else
-                        const CircularProgressIndicator(color: Color(0xFF2563EB)),
+                        const CircularProgressIndicator(
+                          color: Color(0xFF2563EB),
+                        ),
                     ],
                   ),
                 ),
               ),
             ),
 
-
-
           Positioned(
-            left: 15.99432373046875,
+            left: AppSizes.horizontalPadding,
             top: 10 + topOffset,
-            width: 343.4659118652344,
+            width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
             height: 52,
             child: Opacity(
               opacity: homeChromeOpacity,
@@ -931,7 +1013,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
           ),
-          
+
           if (hasFilters)
             Positioned(
               left: 0,
@@ -941,11 +1023,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               child: Opacity(
                 opacity: homeChromeOpacity,
                 child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.horizontalPadding,
+                  ),
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   itemCount: activeFilters.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(width: AppSizes.smallSpacing),
                   itemBuilder: (context, i) {
                     final label = activeFilters[i];
                     return Container(
@@ -953,7 +1038,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        border: Border.all(color: const Color(0xFF2563EB), width: 1.2),
+                        border: Border.all(
+                          color: const Color(0xFF2563EB),
+                          width: 1.2,
+                        ),
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: Row(
@@ -972,10 +1060,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           const SizedBox(width: 4),
                           GestureDetector(
                             onTap: () {
-                              setState(() => _searchFilter = _searchFilter.remove(label));
+                              setState(
+                                () =>
+                                    _searchFilter = _searchFilter.remove(label),
+                              );
                               _searchInCurrentArea();
                             },
-                            child: const Icon(Icons.close_rounded, size: 14, color: Color(0xFF2563EB)),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: Color(0xFF2563EB),
+                            ),
                           ),
                         ],
                       ),
@@ -987,7 +1082,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
           if (!isSearching) ...[
             Positioned(
-              left: 15.99432373046875,
+              left: AppSizes.horizontalPadding,
               top: 67.98297119140625 + topOffset + topOffsetPush,
               width: 183.67897033691406,
               height: 28.480112075805664,
@@ -997,9 +1092,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
             Positioned(
-              left: 15.99432373046875,
+              left: AppSizes.horizontalPadding,
               top: 106.46307373046875 + topOffset + topOffsetPush,
-              width: 343.4659118652344,
+              width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
               height: 55.80965805053711,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1062,7 +1157,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     if (index < _currentStores.length) {
                       final store = _currentStores[index];
                       if (kIsWeb) {
-                        web_helper.setKakaoMapCenterFromSwipeWeb(_viewId, store.latitude, store.longitude);
+                        web_helper.setKakaoMapCenterFromSwipeWeb(
+                          _viewId,
+                          store.latitude,
+                          store.longitude,
+                        );
                       } else {
                         _webViewController?.runJavaScript(
                           'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
@@ -1071,7 +1170,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     }
                   },
                   itemBuilder: (context, index) {
-                    if (index >= _currentStores.length) return const SizedBox.shrink();
+                    if (index >= _currentStores.length)
+                      return const SizedBox.shrink();
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: _StoreSummaryCard(store: _currentStores[index]),
@@ -1087,16 +1187,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               bottom: bottomNavHeight + 20,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: Center(
-                  child: _FloatingSearchSummary(count: 0),
-                ),
+                child: Center(child: _FloatingSearchSummary(count: 0)),
               ),
             ),
           ] else if (_showStoreSummary && _selectedStore != null) ...[
             Positioned(
-              left: 15.99432373046875,
+              left: AppSizes.horizontalPadding,
               top: storeCardTop,
-              width: 343.4659118652344,
+              width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1203,7 +1301,9 @@ class _SearchBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 15.99432373046875),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSizes.horizontalPadding,
+                  ),
                   child: Row(
                     children: [
                       const Icon(
@@ -1218,11 +1318,15 @@ class _SearchBar extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: query.isNotEmpty ? HomeMapScreen.ink : HomeMapScreen.hint,
+                            color: query.isNotEmpty
+                                ? HomeMapScreen.ink
+                                : HomeMapScreen.hint,
                             fontFamily: HomeMapScreen.fontFamily,
                             fontFamilyFallback: HomeMapScreen.fontFallback,
                             fontSize: 14,
-                            fontWeight: query.isNotEmpty ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: query.isNotEmpty
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             height: 1.5,
                           ),
                         ),
@@ -1318,68 +1422,68 @@ class _TodayPickCard extends StatelessWidget {
       onTap: () => context.push(AppRoutes.todaysPick),
       child: DecoratedBox(
         decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1A0F172A),
-            blurRadius: 24,
-            offset: Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Row(
-        children: const [
-          SizedBox(
-            width: 55.99431610107422,
-            height: 53.99147415161133,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A0F172A),
+              blurRadius: 24,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 55.99431610107422,
+              height: 53.99147415161133,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.thunderstorm_outlined,
+                      color: HomeMapScreen.blue,
+                      size: 20,
+                    ),
+                    SizedBox(height: 1.989),
+                    Text(
+                      '18°',
+                      style: TextStyle(
+                        color: HomeMapScreen.blue,
+                        fontFamily: HomeMapScreen.fontFamily,
+                        fontFamilyFallback: HomeMapScreen.fontFallback,
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.thunderstorm_outlined,
-                    color: HomeMapScreen.blue,
-                    size: 20,
-                  ),
-                  SizedBox(height: 1.989),
-                  Text(
-                    '18°',
-                    style: TextStyle(
-                      color: HomeMapScreen.blue,
-                      fontFamily: HomeMapScreen.fontFamily,
-                      fontFamilyFallback: HomeMapScreen.fontFallback,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
-          SizedBox(width: 11.988616943359375),
-          Expanded(child: _TodayPickText()),
-          _RankDot(label: '1', color: HomeMapScreen.blue),
-          _RankDot(label: '2', color: HomeMapScreen.orange),
-          _RankDot(label: '3', color: HomeMapScreen.green),
-          SizedBox(width: 9.985779),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: HomeMapScreen.muted,
-            size: 17,
-          ),
-          SizedBox(width: 12),
-        ],
-      ),
+            SizedBox(width: 11.988616943359375),
+            Expanded(child: _TodayPickText()),
+            _RankDot(label: '1', color: HomeMapScreen.blue),
+            _RankDot(label: '2', color: HomeMapScreen.orange),
+            _RankDot(label: '3', color: HomeMapScreen.green),
+            SizedBox(width: 9.985779),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: HomeMapScreen.muted,
+              size: 17,
+            ),
+            SizedBox(width: 12),
+          ],
+        ),
       ),
     );
   }
@@ -1459,7 +1563,7 @@ class _StoreSummaryCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(15.99432373046875),
+        padding: const EdgeInsets.all(AppSizes.horizontalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1474,7 +1578,13 @@ class _StoreSummaryCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 11.5),
-            Row(children: [const _SavingBadge(), const Spacer(), _DetailButton(store: store)]),
+            Row(
+              children: [
+                const _SavingBadge(),
+                const Spacer(),
+                _DetailButton(store: store),
+              ],
+            ),
           ],
         ),
       ),
@@ -1494,7 +1604,10 @@ class _StoreInfo extends StatelessWidget {
         Positioned(
           left: 77.5,
           top: 2.2442626953125,
-          child: Text('· ${store.address.split(' ').take(3).join(' ')}', style: _muted11),
+          child: Text(
+            '· ${store.address.split(' ').take(3).join(' ')}',
+            style: _muted11,
+          ),
         ),
         Positioned(
           left: 0,
@@ -1550,20 +1663,31 @@ class _StorePrice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = store.price1.replaceAll(RegExp(r'[^0-9]'), '');
-    final priceStr = p.isEmpty ? store.price1 : p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
+    final priceStr = p.isEmpty
+        ? store.price1
+        : p.replaceAllMapped(
+            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+            (Match m) => '${m[1]},',
+          );
     final menuStr = store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴';
-    
+
     return SizedBox(
       width: 72,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Text(menuStr, style: _muted10, maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(
+            menuStr,
+            style: _muted10,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           Text.rich(
             TextSpan(
               children: [
                 TextSpan(text: priceStr, style: const TextStyle(fontSize: 17)),
-                if (p.isNotEmpty) const TextSpan(text: '원', style: TextStyle(fontSize: 12)),
+                if (p.isNotEmpty)
+                  const TextSpan(text: '원', style: TextStyle(fontSize: 12)),
               ],
             ),
             textAlign: TextAlign.right,
@@ -2220,7 +2344,6 @@ class _FloatingSearchSummary extends StatelessWidget {
     );
   }
 }
-
 
 const _muted12 = TextStyle(
   color: HomeMapScreen.muted,

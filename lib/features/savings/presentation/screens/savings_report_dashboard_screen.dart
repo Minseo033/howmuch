@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -41,8 +42,8 @@ class _SavingsReportDashboardScreenState
                   padding: EdgeInsets.only(
                     top: topOffset + 11.98876953125,
                     bottom: 12,
-                    left: 20,
-                    right: 20,
+                    left: AppSizes.horizontalPadding,
+                    right: AppSizes.horizontalPadding,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -60,7 +61,8 @@ class _SavingsReportDashboardScreenState
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => context.push(AppRoutes.savingsGoalSetting),
+                            onTap: () =>
+                                context.push(AppRoutes.savingsGoalSetting),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -92,7 +94,7 @@ class _SavingsReportDashboardScreenState
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: AppSizes.itemSpacing),
                           GestureDetector(
                             onTap: () => context.push(AppRoutes.notifications),
                             child: const Icon(
@@ -113,13 +115,17 @@ class _SavingsReportDashboardScreenState
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(left: 20, right: 20, bottom: 12),
+                        padding: const EdgeInsets.only(
+                          left: AppSizes.horizontalPadding,
+                          right: AppSizes.horizontalPadding,
+                          bottom: 12,
+                        ),
                         child: Row(
                           children: [
                             _buildTab('이번 달'),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSizes.smallSpacing),
                             _buildTab('지난 달'),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSizes.smallSpacing),
                             _buildTab('올해'),
                           ],
                         ),
@@ -143,10 +149,13 @@ class _SavingsReportDashboardScreenState
                         return ValueListenableBuilder<int>(
                           valueListenable: _state.monthlyGoal,
                           builder: (context, goalValue, child) {
-                            return _buildDynamicContent(currentSavedValue, goalValue);
-                          }
+                            return _buildDynamicContent(
+                              currentSavedValue,
+                              goalValue,
+                            );
+                          },
                         );
-                      }
+                      },
                     ),
                   ),
                 ),
@@ -228,8 +237,11 @@ class _SavingsReportDashboardScreenState
     }
 
     // Format the number
-    final formattedSaved = displayedSaved.toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
-    
+    final formattedSaved = displayedSaved.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+
     // Percentage relative to monthly goal (if applicable, else just a static mock)
     int percentage = 18; // Default mock
     if (_selectedTab == '이번 달' && monthlyGoal > 0) {
@@ -239,7 +251,7 @@ class _SavingsReportDashboardScreenState
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(AppSizes.horizontalPadding),
           child: Column(
             children: [
               // Savings Card
@@ -247,7 +259,7 @@ class _SavingsReportDashboardScreenState
                 onTap: () => context.push(AppRoutes.savingsDetail),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(AppSizes.horizontalPadding),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF34D399), Color(0xFF059669)],
@@ -308,7 +320,7 @@ class _SavingsReportDashboardScreenState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppSizes.largeSpacing),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
@@ -319,7 +331,9 @@ class _SavingsReportDashboardScreenState
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _selectedTab == '이번 달' ? '목표 대비 $percentage% 달성' : '평균 대비 $percentage% 절약',
+                          _selectedTab == '이번 달'
+                              ? '목표 대비 $percentage% 달성'
+                              : '평균 대비 $percentage% 절약',
                           style: const TextStyle(
                             fontFamily: 'Inter',
                             fontFamilyFallback: ['Noto Sans KR'],
@@ -329,11 +343,11 @@ class _SavingsReportDashboardScreenState
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSizes.itemSpacing),
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
+                          horizontal: AppSizes.horizontalPadding,
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
@@ -342,18 +356,13 @@ class _SavingsReportDashboardScreenState
                         ),
                         child: const Row(
                           children: [
-                            Text(
-                              '🍗',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                            SizedBox(width: 8),
+                            Text('🍗', style: TextStyle(fontSize: 16)),
+                            SizedBox(width: AppSizes.smallSpacing),
                             Text(
                               '치킨 한 마리 값에 가까워요',
                               style: TextStyle(
                                 fontFamily: 'Inter',
-                                fontFamilyFallback: [
-                                  'Noto Sans KR',
-                                ],
+                                fontFamilyFallback: ['Noto Sans KR'],
                                 color: Color(0xFF0F172A),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -366,20 +375,18 @@ class _SavingsReportDashboardScreenState
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.itemSpacing),
 
               // Chart Card
               GestureDetector(
                 onTap: () => context.push(AppRoutes.savingsDetail),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSizes.horizontalPadding),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: const Color(0xFFE5E7EB),
-                    ),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
                   child: Column(
                     children: [
@@ -418,41 +425,31 @@ class _SavingsReportDashboardScreenState
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.itemSpacing),
 
               // Stats Row
               Row(
                 children: [
-                  _buildStatCard(
-                    '$visits',
-                    '방문 매장',
-                    const Color(0xFF2563EB),
-                  ),
+                  _buildStatCard('$visits', '방문 매장', const Color(0xFF2563EB)),
                   _buildStatCard(
                     '$favorites',
                     '찜한 매장',
                     const Color(0xFFF97316),
                   ),
-                  _buildStatCard(
-                    '$reports',
-                    '제보 매장',
-                    const Color(0xFF10B981),
-                  ),
+                  _buildStatCard('$reports', '제보 매장', const Color(0xFF10B981)),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSizes.itemSpacing),
 
               // Recommendation Banner
               GestureDetector(
                 onTap: () => context.push(AppRoutes.todaysPick),
                 child: Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppSizes.horizontalPadding),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFF7ED),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: const Color(0xFFFFEDD5),
-                    ),
+                    border: Border.all(color: const Color(0xFFFFEDD5)),
                   ),
                   child: Row(
                     children: [
@@ -471,16 +468,13 @@ class _SavingsReportDashboardScreenState
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
                               '이번 주 추천',
                               style: TextStyle(
                                 fontFamily: 'Inter',
-                                fontFamilyFallback: [
-                                  'Noto Sans KR',
-                                ],
+                                fontFamilyFallback: ['Noto Sans KR'],
                                 color: Color(0xFF92400E),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -491,9 +485,7 @@ class _SavingsReportDashboardScreenState
                               recommendationSub,
                               style: const TextStyle(
                                 fontFamily: 'Inter',
-                                fontFamilyFallback: [
-                                  'Noto Sans KR',
-                                ],
+                                fontFamilyFallback: ['Noto Sans KR'],
                                 color: Color(0xFF0F172A),
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
@@ -502,10 +494,7 @@ class _SavingsReportDashboardScreenState
                           ],
                         ),
                       ),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: Color(0xFF92400E),
-                      ),
+                      const Icon(Icons.chevron_right, color: Color(0xFF92400E)),
                     ],
                   ),
                 ),
@@ -526,7 +515,10 @@ class _SavingsReportDashboardScreenState
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.horizontalPadding,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
           borderRadius: BorderRadius.circular(99),
@@ -580,7 +572,7 @@ class _SavingsReportDashboardScreenState
             borderRadius: BorderRadius.circular(6),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSizes.smallSpacing),
         Text(
           label,
           style: const TextStyle(

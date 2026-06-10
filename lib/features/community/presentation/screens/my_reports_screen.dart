@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -552,7 +553,7 @@ class _ReportCard extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSizes.smallSpacing),
                         const Icon(
                           Icons.warning_amber_rounded,
                           color: MyReportsScreen.orange,
@@ -574,7 +575,7 @@ class _ReportCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSizes.smallSpacing),
                       ],
                     ),
                   ),

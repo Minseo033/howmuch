@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -140,7 +141,7 @@ class _Header extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -184,7 +185,7 @@ class _ReportInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -562,7 +563,7 @@ class _ReasonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: ReportDetailScreen._softOrange,
         borderRadius: BorderRadius.circular(16),
@@ -621,7 +622,7 @@ class _ReasonItem extends StatelessWidget {
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppSizes.smallSpacing),
         Expanded(
           child: Text(
             text,
@@ -667,7 +668,7 @@ class _PhotoSection extends StatelessWidget {
               icon: Icons.image_outlined,
               showWarning: true,
             ),
-            SizedBox(width: 8),
+            SizedBox(width: AppSizes.smallSpacing),
             _PhotoThumb(
               colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
               icon: Icons.image_outlined,

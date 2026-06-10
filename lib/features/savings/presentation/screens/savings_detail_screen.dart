@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -109,7 +110,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                     top: topOffset + 11.98876953125,
                     bottom: 12,
                     left: 8,
-                    right: 16,
+                    right: AppSizes.horizontalPadding,
                   ),
                   child: Row(
                     children: [
@@ -149,14 +150,18 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                       bottom: safePadding.bottom + 20,
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.horizontalPadding,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           // Top Card
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(
+                              AppSizes.horizontalPadding,
+                            ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 colors: [Color(0xFFE8F8F1), Color(0xFFFFF8EC)],
@@ -165,7 +170,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               ),
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                color: const Color(
+                                  0xFF10B981,
+                                ).withValues(alpha: 0.2),
                               ),
                             ),
                             child: const Column(
@@ -181,7 +188,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(height: 8),
+                                SizedBox(height: AppSizes.smallSpacing),
                                 Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.baseline,
@@ -238,7 +245,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.itemSpacing),
                           // Filter Chips
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
@@ -246,16 +253,16 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                             child: Row(
                               children: [
                                 _buildChip('전체'),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppSizes.smallSpacing),
                                 _buildChip('음식점'),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppSizes.smallSpacing),
                                 _buildChip('카페'),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: AppSizes.smallSpacing),
                                 _buildChip('미용'),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.itemSpacing),
                           // List of Savings
                           ...filteredItems.map((item) {
                             return Padding(
@@ -272,7 +279,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               ),
                             );
                           }),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: AppSizes.itemSpacing),
                           // Info Banner
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -288,7 +295,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                   color: Color(0xFF64748B),
                                   size: 14,
                                 ),
-                                SizedBox(width: 8),
+                                SizedBox(width: AppSizes.smallSpacing),
                                 Expanded(
                                   child: Text(
                                     '절약 금액은 주변 평균 가격과 등록된 메뉴 가격을 기준으로 계산돼요.',
@@ -325,11 +332,16 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSizes.horizontalPadding,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFF2563EB) : Colors.white,
           borderRadius: BorderRadius.circular(30),
-          border: isSelected ? null : Border.all(color: const Color(0xFFE5E7EB)),
+          border: isSelected
+              ? null
+              : Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Text(
           text,
@@ -356,7 +368,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     required String savingAmount,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -403,7 +415,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSizes.smallSpacing),
                   Text(
                     date,
                     style: const TextStyle(
@@ -417,7 +429,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSizes.smallSpacing),
           Text(
             storeName,
             style: const TextStyle(

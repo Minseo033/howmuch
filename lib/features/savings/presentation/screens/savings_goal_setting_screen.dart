@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -8,7 +9,8 @@ class SavingsGoalSettingScreen extends StatefulWidget {
   const SavingsGoalSettingScreen({super.key});
 
   @override
-  State<SavingsGoalSettingScreen> createState() => _SavingsGoalSettingScreenState();
+  State<SavingsGoalSettingScreen> createState() =>
+      _SavingsGoalSettingScreenState();
 }
 
 class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
@@ -18,7 +20,9 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   @override
   void initState() {
     super.initState();
-    _goalController = TextEditingController(text: _state.monthlyGoal.value.toString());
+    _goalController = TextEditingController(
+      text: _state.monthlyGoal.value.toString(),
+    );
   }
 
   @override
@@ -28,7 +32,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   }
 
   void _saveGoal() {
-    final int newGoal = int.tryParse(_goalController.text.replaceAll(',', '')) ?? 30000;
+    final int newGoal =
+        int.tryParse(_goalController.text.replaceAll(',', '')) ?? 30000;
     _state.monthlyGoal.value = newGoal;
     context.pop();
   }
@@ -53,16 +58,24 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 16),
+                  const SizedBox(height: AppSizes.itemSpacing),
                   // This Month's Goal Card
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.horizontalPadding,
+                        vertical: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.909),
+                        border: Border.all(
+                          color: const Color(0xFFE5E7EB),
+                          width: 0.909,
+                        ),
                       ),
                       child: ValueListenableBuilder<int>(
                         valueListenable: _state.currentSaved,
@@ -70,9 +83,17 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           return ValueListenableBuilder<TextEditingValue>(
                             valueListenable: _goalController,
                             builder: (context, textValue, _) {
-                              final int currentGoal = int.tryParse(textValue.text.replaceAll(',', '')) ?? 1;
-                              final double currentPercentage = (currentSaved / currentGoal * 100).clamp(0, 100);
-                              
+                              final int currentGoal =
+                                  int.tryParse(
+                                    textValue.text.replaceAll(',', ''),
+                                  ) ??
+                                  1;
+                              final double currentPercentage =
+                                  (currentSaved / currentGoal * 100).clamp(
+                                    0,
+                                    100,
+                                  );
+
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -90,23 +111,35 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   const SizedBox(height: 6),
                                   Container(
                                     height: 52,
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF4F6FA),
                                       borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(color: const Color(0xFF2563EB), width: 0.909),
+                                      border: Border.all(
+                                        color: const Color(0xFF2563EB),
+                                        width: 0.909,
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
                                         Expanded(
                                           child: TextField(
                                             controller: _goalController,
-                                            cursorColor: const Color(0xFF2563EB),
+                                            cursorColor: const Color(
+                                              0xFF2563EB,
+                                            ),
                                             keyboardType: TextInputType.number,
-                                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
                                             style: const TextStyle(
                                               fontFamily: 'Inter',
-                                              fontFamilyFallback: ['Noto Sans KR'],
+                                              fontFamilyFallback: [
+                                                'Noto Sans KR',
+                                              ],
                                               fontWeight: FontWeight.w800,
                                               color: Color(0xFF0F172A),
                                               fontSize: 24,
@@ -123,7 +156,9 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                           '원',
                                           style: TextStyle(
                                             fontFamily: 'Inter',
-                                            fontFamilyFallback: ['Noto Sans KR'],
+                                            fontFamilyFallback: [
+                                              'Noto Sans KR',
+                                            ],
                                             color: Color(0xFF64748B),
                                             fontSize: 13,
                                             height: 19.5 / 13,
@@ -134,16 +169,18 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   ),
                                 ],
                               );
-                            }
+                            },
                           );
-                        }
+                        },
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSizes.largeSpacing),
                   // Category Goals
                   const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
+                    ),
                     child: Text(
                       '카테고리별 목표',
                       style: TextStyle(
@@ -156,9 +193,11 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppSizes.smallSpacing),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
+                    ),
                     child: Column(
                       children: [
                         _buildCategoryGoal(
@@ -193,12 +232,17 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSizes.largeSpacing),
                   // Info Box
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
+                    ),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F8F1),
                         borderRadius: BorderRadius.circular(14),
@@ -206,11 +250,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '💡',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          SizedBox(width: 8),
+                          Text('💡', style: TextStyle(fontSize: 14)),
+                          SizedBox(width: AppSizes.smallSpacing),
                           Expanded(
                             child: Text(
                               '목표를 설정하면 달성률을 확인하고\n오늘의 픽 추천에도 반영돼요.',
@@ -248,12 +289,16 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               child: Stack(
                 children: [
                   Positioned(
-                    left: 20,
+                    left: AppSizes.horizontalPadding,
                     top: 13.98,
                     child: GestureDetector(
                       onTap: () => context.pop(),
                       behavior: HitTestBehavior.opaque,
-                      child: const Icon(Icons.arrow_back_ios_new_rounded, size: 20, color: Color(0xFF0A0A0A)),
+                      child: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: Color(0xFF0A0A0A),
+                      ),
                     ),
                   ),
                   const Positioned.fill(
@@ -272,12 +317,16 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     ),
                   ),
                   Positioned(
-                    right: 20,
+                    right: AppSizes.horizontalPadding,
                     top: 15.48,
                     child: GestureDetector(
                       onTap: () => context.pop(),
                       behavior: HitTestBehavior.opaque,
-                      child: const Icon(Icons.more_horiz_rounded, size: 24, color: Color(0xFF0A0A0A)),
+                      child: const Icon(
+                        Icons.more_horiz_rounded,
+                        size: 24,
+                        color: Color(0xFF0A0A0A),
+                      ),
                     ),
                   ),
                 ],
@@ -299,7 +348,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               child: SafeArea(
                 top: false,
                 child: Padding(
-                  padding: const EdgeInsets.only(left: 20, right: 20, top: 13, bottom: 12),
+                  padding: const EdgeInsets.only(
+                    left: AppSizes.horizontalPadding,
+                    right: AppSizes.horizontalPadding,
+                    top: 13,
+                    bottom: 12,
+                  ),
                   child: GestureDetector(
                     onTap: _saveGoal,
                     behavior: HitTestBehavior.opaque,
@@ -353,7 +407,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     required double percentage,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -366,11 +420,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
             children: [
               Row(
                 children: [
-                  Text(
-                    iconEmoji,
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  const SizedBox(width: 8),
+                  Text(iconEmoji, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: AppSizes.smallSpacing),
                   Text(
                     category,
                     style: const TextStyle(
@@ -393,8 +444,17 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     height: 18 / 12,
                   ),
                   children: [
-                    TextSpan(text: current, style: TextStyle(fontWeight: FontWeight.bold, color: currentColor)),
-                    TextSpan(text: total, style: const TextStyle(color: Color(0xFF64748B))),
+                    TextSpan(
+                      text: current,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: currentColor,
+                      ),
+                    ),
+                    TextSpan(
+                      text: total,
+                      style: const TextStyle(color: Color(0xFF64748B)),
+                    ),
                   ],
                 ),
               ),
