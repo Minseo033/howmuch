@@ -99,7 +99,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       final res = await http.get(uri, headers: {
         'Bypass-Tunnel-Reminder': 'true',
-      }).timeout(const Duration(seconds: 8));
+      }).timeout(const Duration(seconds: 20));
       if (!mounted) return;
 
       if (res.statusCode == 200) {
