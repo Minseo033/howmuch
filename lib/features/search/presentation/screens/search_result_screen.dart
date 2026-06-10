@@ -105,7 +105,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         stores = stores.where((s) => 
           s.storeName.contains(q) || 
           s.menu1.contains(q) || 
-          s.industry.contains(q)
+          s.industry.contains(q) ||
+          s.address.contains(q)
         ).toList();
       }
 
