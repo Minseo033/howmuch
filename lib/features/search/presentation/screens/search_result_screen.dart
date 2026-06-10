@@ -93,6 +93,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
     // 💥 서버 요청 대신 HomeMapScreen에 로드된 전체 11,000개 캐시에서 직접 필터링
     try {
+      if (q.isEmpty && _filter.activeLabels.isEmpty) {
+        setState(() => _results = []);
+        return;
+      }
+
       var stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
 
       // 검색어 필터링
