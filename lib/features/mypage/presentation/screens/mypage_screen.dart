@@ -140,9 +140,9 @@ class MypageScreen extends ConsumerWidget {
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
-                        onViewAll: () => context.push(AppRoutes.myReportsV2),
+                        onViewAll: () => context.push(AppRoutes.myReports),
                         onReportTap: (report) => context.push(
-                          '${AppRoutes.reportDetailV2}?id=${report.id}',
+                          AppRoutes.reportDetail,
                         ),
                       ),
                     ),

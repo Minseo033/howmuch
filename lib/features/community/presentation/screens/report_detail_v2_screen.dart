@@ -13,6 +13,7 @@ class ReportDetailV2Screen extends StatelessWidget {
   static const _black = Color(0xFF0A0A0A);
   static const _muted = Color(0xFF64748B);
   static const _border = Color(0xFFE5E7EB);
+  static const _hint = Color(0xFF94A3B8);
   static const _surface = Color(0xFFF4F6FA);
   static const _softOrange = Color(0xFFFFF3EA);
   static const _contentLeft = 20.0;
@@ -73,16 +74,12 @@ class ReportDetailV2Screen extends StatelessWidget {
                 _contentRight,
                 actionBottomGap + actionHeight + 24,
               ),
-              children: const [
-                _ReportInfoCard(),
-                SizedBox(height: 11.989),
-                _ProgressCard(),
-                SizedBox(height: 11.99),
-                _ReasonCard(),
-                SizedBox(height: 11.989),
-                _PhotoSection(),
-                SizedBox(height: 11.989),
-                _DescriptionSection(),
+              children: [
+                const _ReportInfoCard(),
+                const SizedBox(height: 11.989),
+                const _ProgressCard(),
+                const SizedBox(height: 11.989),
+                const _InfoMessageCard(),
               ],
             ),
           ),
@@ -172,6 +169,11 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          Positioned(
+            right: 20,
+            top: 12.5,
+            child: const Icon(Icons.chat_bubble_outline_rounded, size: 20, color: ReportDetailV2Screen._ink),
+          ),
         ],
       ),
     );
@@ -184,7 +186,7 @@ class _ReportInfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -193,101 +195,105 @@ class _ReportInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
-          _StatusRow(),
-          SizedBox(height: 7.997),
+          _UserBadgeRow(),
+          SizedBox(height: 12),
           Text(
-            '착한김밥',
+            '골목밥상',
             style: TextStyle(
               color: ReportDetailV2Screen._black,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               height: 1.5,
             ),
           ),
-          SizedBox(height: 7.997),
+          SizedBox(height: 12),
           _InfoLine(
             label: '업종',
-            value: '음식점 · 분식',
+            value: '음식점 · 한식',
             valueWeight: FontWeight.w600,
+            valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: 5.994),
-          _PriceLine(),
-          SizedBox(height: 5.994),
+          SizedBox(height: 8),
           _InfoLine(
-            label: '위치',
-            value: '서울시 강남구 역삼동',
-            valueWeight: FontWeight.w500,
+            label: '주소',
+            value: '서울시 마포구 합정동',
+            valueWeight: FontWeight.w600,
+            valueColor: ReportDetailV2Screen._ink,
           ),
+          SizedBox(height: 8),
+          _PriceLine(),
+          SizedBox(height: 16),
+          _PhotoSection(),
         ],
       ),
     );
   }
 }
 
-class _StatusRow extends StatelessWidget {
-  const _StatusRow();
+class _UserBadgeRow extends StatelessWidget {
+  const _UserBadgeRow();
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
-        _StatusBadge(),
-        Spacer(),
-        Text(
-          '제보일 2026.05.08',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              decoration: const BoxDecoration(
+                color: ReportDetailV2Screen._orange,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              '사용자 제보',
+              style: TextStyle(
+                color: ReportDetailV2Screen._orange,
+                fontFamily: ReportDetailV2Screen._fontFamily,
+                fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEF3C7),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 4,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF92400E),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                '검토 중',
+                style: TextStyle(
+                  color: Color(0xFF92400E),
+                  fontFamily: ReportDetailV2Screen._fontFamily,
+                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 70.497,
-      height: 20.994,
-      decoration: BoxDecoration(
-        color: ReportDetailV2Screen._softOrange,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-              color: ReportDetailV2Screen._orange,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Text(
-            '보완 요청',
-            style: TextStyle(
-              color: ReportDetailV2Screen._orange,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -297,11 +303,13 @@ class _InfoLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueWeight,
+    this.valueColor,
   });
 
   final String label;
   final String value;
   final FontWeight valueWeight;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -325,7 +333,7 @@ class _InfoLine extends StatelessWidget {
             textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: ReportDetailV2Screen._ink,
+              color: valueColor ?? ReportDetailV2Screen._ink,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
               fontSize: 12,
@@ -363,11 +371,11 @@ class _PriceLine extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(
-                  text: '김밥 ',
+                  text: '제육덮밥 ',
                   style: TextStyle(color: ReportDetailV2Screen._ink),
                 ),
                 TextSpan(
-                  text: '2,500원',
+                  text: '6,000원',
                   style: TextStyle(color: ReportDetailV2Screen._orange),
                 ),
               ],
@@ -394,7 +402,7 @@ class _ProgressCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.904, 16.904, 13.991),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -404,7 +412,7 @@ class _ProgressCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
           Text(
-            '검토 진행 단계',
+            '검토 진행 상태',
             style: TextStyle(
               color: ReportDetailV2Screen._black,
               fontFamily: ReportDetailV2Screen._fontFamily,
@@ -414,8 +422,61 @@ class _ProgressCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: 13.991),
+          SizedBox(height: 24),
           _ProgressSteps(),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoMessageCard extends StatelessWidget {
+  const _InfoMessageCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFDBEAFE), width: .909),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.access_time, color: ReportDetailV2Screen._blue, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text(
+                  '검토 중',
+                  style: TextStyle(
+                    color: ReportDetailV2Screen._blue,
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '현재 가격과 위치 정보를 확인하고 있어요.',
+                  style: TextStyle(
+                    color: ReportDetailV2Screen._black,
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -429,18 +490,17 @@ class _ProgressSteps extends StatelessWidget {
   Widget build(BuildContext context) {
     const items = [
       _StepData('접수 완료', 0, ReportDetailV2Screen._green, true),
-      _StepData('정보 확인 중', 1, ReportDetailV2Screen._green, true),
-      _StepData('보완 요청', 2, ReportDetailV2Screen._orange, false),
-      _StepData('승인 대기', 3, Color(0xFFCBD5E1), false),
-      _StepData('지도 반영', 4, Color(0xFFCBD5E1), false),
+      _StepData('정보 확인', 1, ReportDetailV2Screen._green, true),
+      _StepData('검토 결과', 2, ReportDetailV2Screen._orange, false),
+      _StepData('지도 반영', 3, Color(0xFFCBD5E1), false),
     ];
 
     return SizedBox(
       height: 48,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const circleSize = 21.989;
-          const connectorInset = 5.5;
+          const circleSize = 22.0;
+          const connectorInset = 5.0;
           const connectorHeight = 2.0;
           const labelTop = 28.5;
           final stepWidth = constraints.maxWidth / items.length;
@@ -452,18 +512,12 @@ class _ProgressSteps extends StatelessWidget {
             children: [
               for (var index = 0; index < items.length - 1; index++)
                 Positioned(
-                  left:
-                      stepWidth * index +
-                      stepWidth / 2 +
-                      circleSize / 2 +
-                      connectorInset,
+                  left: stepWidth * index + stepWidth / 2 + circleSize / 2 + connectorInset,
                   top: connectorTop,
                   width: stepWidth - circleSize - connectorInset * 2,
                   height: connectorHeight,
                   child: ColoredBox(
-                    color: index < 2
-                        ? ReportDetailV2Screen._green
-                        : const Color(0xFFE2E8F0),
+                    color: index < 2 ? ReportDetailV2Screen._green : const Color(0xFFE2E8F0),
                   ),
                 ),
               for (var index = 0; index < items.length; index++)
@@ -556,51 +610,7 @@ class _StepData {
   final bool done;
 }
 
-class _ReasonCard extends StatelessWidget {
-  const _ReasonCard();
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
-      decoration: BoxDecoration(
-        color: ReportDetailV2Screen._softOrange,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x33F97316), width: .909),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 14,
-                color: Color(0xFF9A3412),
-              ),
-              SizedBox(width: 6),
-              Text(
-                '보완 요청 사유',
-                style: TextStyle(
-                  color: Color(0xFF9A3412),
-                  fontFamily: ReportDetailV2Screen._fontFamily,
-                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 7.997),
-          _ReasonItem('메뉴판 사진이 흐려 가격 확인이 어렵습니다.'),
-          SizedBox(height: 5.994),
-          _ReasonItem('대표 메뉴 가격을 다시 확인해주세요.'),
-        ],
-      ),
-    );
-  }
-}
 
 class _ReasonItem extends StatelessWidget {
   const _ReasonItem(this.text);
@@ -645,36 +655,43 @@ class _PhotoSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '첨부 사진',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 5.994),
-        Row(
-          children: const [
+    return Row(
+      children: const [
             _PhotoThumb(
               colors: [Color(0xFFFCA5A5), Color(0xFFFBBF24)],
               icon: Icons.image_outlined,
-              showWarning: true,
+              showWarning: false,
             ),
             SizedBox(width: 8),
             _PhotoThumb(
               colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
               icon: Icons.image_outlined,
             ),
+            SizedBox(width: 8),
+            _EmptyPhotoSlot(),
           ],
-        ),
-      ],
+    );
+  }
+}
+
+class _EmptyPhotoSlot extends StatelessWidget {
+  const _EmptyPhotoSlot();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ReportDetailV2Screen._border, width: 1, style: BorderStyle.solid),
+      ),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.camera_alt_outlined,
+        color: ReportDetailV2Screen._hint,
+        size: 22,
+      ),
     );
   }
 }
@@ -739,50 +756,7 @@ class _PhotoThumb extends StatelessWidget {
   }
 }
 
-class _DescriptionSection extends StatelessWidget {
-  const _DescriptionSection();
 
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '입력한 설명',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 5.994),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(11.99, 11.9, 13.465, 13.9),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ReportDetailV2Screen._border, width: .909),
-          ),
-          child: const Text(
-            '역삼역 1번 출구 근처 작은 김밥집인데 김밥이 2,500원이라 정말 저렴해요. 점심에 자주 가는 곳입니다.',
-            style: TextStyle(
-              color: ReportDetailV2Screen._ink,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _OutlineActionButton extends StatelessWidget {
   const _OutlineActionButton();
@@ -793,7 +767,7 @@ class _OutlineActionButton extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () => context.push(AppRoutes.inquiry),
+        onTap: () {},
         borderRadius: BorderRadius.circular(14),
         child: Container(
           decoration: BoxDecoration(
