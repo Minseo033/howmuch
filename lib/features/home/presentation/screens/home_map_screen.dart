@@ -134,18 +134,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
       
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        setState(() {
-          _allStores = data.map((json) => Store.fromJson(json))
-              .where((s) => s.latitude != 0 && s.longitude != 0).toList();
-          HomeMapScreen.globalAllStores = _allStores;
-          _isAllStoresLoaded = true;
-        });
-        debugPrint('전체 매장 로드 완료: ${_allStores.length}개');
+        debugPrint('JSON decode 시작');
+        final decodedString = utf8.decode(response.bodyBytes);
+        final List<dynamic> data = json.decode(decodedString);
+        debugPrint('JSON decode 완료, data length: ${data.length}');
         
-        // 로드가 완료된 시점에 현재 화면 위치 기준으로 마커 새로고침 유도
-        if (_webViewController != null) {
-          _webViewController!.runJavaScript('requestBounds()');
+        final List<Store> parsedStores = [];
+        for (var i = 0; i < data.length; i++) {
+          try {
+            final store = Store.fromJson(data[i]);
+            if (store.latitude != 0 && store.longitude != 0) {
+              parsedStores.add(store);
+            }
+          } catch (e) {
+            debugPrint('Store parse error at index $i: $e');
+          }
+        }
+        debugPrint('Store 객체 파싱 완료: ${parsedStores.length}개');
+
+        if (mounted) {
+          setState(() {
+            _allStores = parsedStores;
+            HomeMapScreen.globalAllStores = _allStores;
+            _isAllStoresLoaded = true;
+          });
+          debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
+          
+          if (_webViewController != null) {
+            debugPrint('requestBounds() 호출 시도...');
+            _webViewController!.runJavaScript('requestBounds()');
+          }
         }
       }
     } catch (e) {
@@ -818,6 +836,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
+    debugPrint('HomeMapScreen build called! _isAllStoresLoaded: $_isAllStoresLoaded');
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
