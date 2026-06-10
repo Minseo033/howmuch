@@ -55,6 +55,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
+  List<Store> _allStores = [];
+  bool _isAllStoresLoaded = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
@@ -109,13 +111,39 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void initState() {
     super.initState();
+    _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
     } else {
       _initMobileController();
-      _loadStoresInBounds(37.5665, 37.5665, 126.9780, 126.9780);
+    }
+  }
+
+  Future<void> _fetchAllStores() async {
+    final url = kIsWeb
+        ? 'http://localhost:8081/api/test/all'
+        : 'https://semester-withdrawal-ensures-want.trycloudflare.com/api/test/all';
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 45));
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _allStores = data.map((json) => Store.fromJson(json))
+              .where((s) => s.latitude != 0 && s.longitude != 0).toList();
+          _isAllStoresLoaded = true;
+        });
+        debugPrint('전체 매장 로드 완료: ${_allStores.length}개');
+        
+        // 로드가 완료된 시점에 현재 화면 위치 기준으로 마커 새로고침 유도
+        if (_webViewController != null) {
+          _webViewController!.runJavaScript('sendBounds()');
+        }
+      }
+    } catch (e) {
+      debugPrint('전체 매장 로드 실패: $e');
     }
   }
 
@@ -168,15 +196,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         },
       )
       ..loadHtmlString(_getMobileMapHtml());
-  }
-
-  void _loadStoresInBounds(
-    double minLat,
-    double maxLat,
-    double minLng,
-    double maxLng,
-  ) {
-    debugPrint('초기 로드 대기 중...');
   }
 
   String _getMobileMapHtml() {
@@ -622,74 +641,55 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
     Map<String, dynamic> bounds,
   ) async {
-    final minLat = bounds['minLat'];
-    final maxLat = bounds['maxLat'];
-    final minLng = bounds['minLng'];
-    final maxLng = bounds['maxLng'];
+    if (!_isAllStoresLoaded) {
+      return []; // 전체 데이터가 로드될 때까지 빈 배열 반환
+    }
 
-    final url = kIsWeb
-        ? 'http://localhost:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}'
-        : 'https://khaki-camels-wonder.loca.lt/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+    final minLat = bounds['minLat'] as double;
+    final maxLat = bounds['maxLat'] as double;
+    final minLng = bounds['minLng'] as double;
+    final maxLng = bounds['maxLng'] as double;
 
     try {
-      final response = await http.get(Uri.parse(url), headers: {
-        'Bypass-Tunnel-Reminder': 'true',
-      }).timeout(
-        const Duration(seconds: 60),
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        var stores = data.map((json) => Store.fromJson(json)).toList();
-        stores = stores.where((s) => s.latitude != 0 && s.longitude != 0).toList();
+      // 서버를 호출하지 않고 _allStores에서 로컬 필터링 수행
+      var stores = _allStores.where((s) => 
+        s.latitude >= minLat && s.latitude <= maxLat &&
+        s.longitude >= minLng && s.longitude <= maxLng
+      ).toList();
 
-        // ─── 필터 적용 ───
-        if (_searchQuery.trim().isNotEmpty) {
-          stores = stores.where((s) => 
-            s.storeName.contains(_searchQuery) || 
-            s.menu1.contains(_searchQuery) || 
-            s.industry.contains(_searchQuery)
-          ).toList();
-        }
+      // ─── 검색 및 필터 적용 ───
+      if (_searchQuery.trim().isNotEmpty) {
+        stores = stores.where((s) => 
+          s.storeName.contains(_searchQuery) || 
+          s.menu1.contains(_searchQuery) || 
+          s.industry.contains(_searchQuery)
+        ).toList();
+      }
+      
+      if (_searchFilter.maxPrice != null) {
+        stores = stores.where((s) {
+          final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
+          return p == null || p <= _searchFilter.maxPrice!;
+        }).toList();
+      }
+      
+      if (_searchFilter.industries.isNotEmpty) {
+        stores = stores.where((s) =>
+          _searchFilter.industries.any((ind) => SearchFilter.matchesIndustry(s, ind))
+        ).toList();
+      }
+      
+      if (_searchFilter.distance != null && _lastKnownPosition != null) {
+        double maxDist = 0;
+        if (_searchFilter.distance == '500m 이내') maxDist = 500;
+        else if (_searchFilter.distance == '1km 이내') maxDist = 1000;
+        else if (_searchFilter.distance == '3km 이내') maxDist = 3000;
         
-        if (_searchFilter.maxPrice != null) {
+        if (maxDist > 0) {
           stores = stores.where((s) {
-            final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
-            return p == null || p <= _searchFilter.maxPrice!;
+            final d = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, s.latitude, s.longitude);
+            return d <= maxDist;
           }).toList();
-        }
-        
-        if (_searchFilter.industries.isNotEmpty) {
-          stores = stores.where((s) =>
-            _searchFilter.industries.any((ind) => SearchFilter.matchesIndustry(s, ind))
-          ).toList();
-        }
-        
-        if (_searchFilter.distance != null && _lastKnownPosition != null) {
-          double maxDist = 0;
-          if (_searchFilter.distance == '500m 이내') maxDist = 500;
-          else if (_searchFilter.distance == '1km 이내') maxDist = 1000;
-          else if (_searchFilter.distance == '3km 이내') maxDist = 3000;
-          
-          if (maxDist > 0) {
-            stores = stores.where((s) {
-              final d = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, s.latitude, s.longitude);
-              return d <= maxDist;
-            }).toList();
-          }
-        }
-        
-        if (_searchFilter.sortOrder == '저렴한순') {
-          stores.sort((a, b) {
-            final pa = int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
-            final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
-            return pa.compareTo(pb);
-          });
-        } else if (_searchFilter.sortOrder == '가까운순' && _lastKnownPosition != null) {
-          stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, a.latitude, a.longitude);
-            final db = Geolocator.distanceBetween(_lastKnownPosition!.latitude, _lastKnownPosition!.longitude, b.latitude, b.longitude);
-            return da.compareTo(db);
-          });
         }
 
         _currentStores = stores;
