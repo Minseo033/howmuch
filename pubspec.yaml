@@ -33,6 +33,7 @@ dependencies:
 
   http: ^1.2.1
   webview_flutter: ^4.10.0
+  web: ^1.1.1
   cupertino_icons: ^1.0.8
   flutter_riverpod: ^2.6.1
   go_router: ^17.0.1
