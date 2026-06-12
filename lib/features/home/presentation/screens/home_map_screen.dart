@@ -419,7 +419,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final minLng = bounds['minLng'];
     final maxLng = bounds['maxLng'];
 
-    String host = kIsWeb ? 'localhost' : '10.0.2.2';
+    String host = kIsWeb ? 'localhost' : '192.168.0.13';
     final url =
         'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 

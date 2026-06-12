@@ -41,7 +41,7 @@ public class TestController {
         }
     }
 
-    // 💡 화면 범위 내 업소 조회 URL: http://localhost:8081/api/test/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0
+    // 💡 화면 범위 내 업소 조회 URL: http://192.168.0.13:8081/api/test/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0
     @GetMapping("/bounds")
     public java.util.List<java.util.Map<String, Object>> getStoresInBounds(
             @RequestParam double minLat, @RequestParam double maxLat,
