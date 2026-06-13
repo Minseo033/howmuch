@@ -2,26 +2,28 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
-class AiRecommendChatScreen extends StatefulWidget {
+class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
 
   @override
-  State<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
+  ConsumerState<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
 }
 
-class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
+class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
   final List<_ChatMessage> _messages = [];
   XFile? _attachedPhoto;
+  bool _isTyping = false;
 
-  // TODO(박지환 BE): AI 추천 API가 붙으면 추천 질문/입력값을 서버 요청으로 교체하세요.
   static const _quickPrompts = [
     _QuickPrompt(
       icon: Icons.account_balance_wallet_outlined,
@@ -52,60 +54,49 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     });
   }
 
-  void _sendMessage() {
-    final message = _controller.text.trim();
-    if (message.isEmpty && _attachedPhoto == null) {
+  Future<void> _sendMessage() async {
+    final messageText = _controller.text.trim();
+    if (messageText.isEmpty && _attachedPhoto == null) {
       return;
     }
 
+    final userMessage = _ChatMessage(
+      text: messageText,
+      photo: _attachedPhoto,
+      isBot: false,
+    );
+
     setState(() {
-      _messages.add(
-        _ChatMessage(
-          type: ChatMessageType.user,
-          text: message,
-          photo: _attachedPhoto,
-        ),
-      );
+      _messages.add(userMessage);
       _controller.clear();
       _attachedPhoto = null;
-
-      _messages.add(
-        const _ChatMessage(
-          type: ChatMessageType.analyzing,
-          conditions: ['📍 마포구 합정동', '💰 1만원 이하', '☔️ 비오는 날'],
-        ),
-      );
+      _isTyping = true;
     });
+
     FocusManager.instance.primaryFocus?.unfocus();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+    _scrollToLatest();
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
-      if (!mounted) return;
+    // 💡 Gemini API 호출
+    final botResponse = await ref.read(aiChatServiceProvider).getGeminiResponse(messageText);
+
+    if (mounted) {
       setState(() {
-        if (_messages.isNotEmpty &&
-            _messages.last.type == ChatMessageType.analyzing) {
-          _messages.removeLast();
-          _messages.add(
-            const _ChatMessage(
-              type: ChatMessageType.recommendation,
-              text: '조건에 맞는 가장 완벽한 점심 메뉴를 찾았어요!\n합정동 근처의 든든한 국물 요리를 추천해 드릴게요.',
-            ),
-          );
-        }
+        _messages.add(_ChatMessage(text: botResponse, isBot: true));
+        _isTyping = false;
       });
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
-    });
+      _scrollToLatest();
+    }
   }
 
   void _scrollToLatest() {
-    if (!_scrollController.hasClients) {
-      return;
-    }
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _removePhoto() {
@@ -141,7 +132,7 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     final keyboardOffset = designScale <= 0
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    const composerLift = 0.0;
+    const composerLift = 18.0;
     final hasAttachment = _attachedPhoto != null;
     final composerHeight = (hasAttachment ? 142 : 78) + bottomOffset;
     final contentTop = topOffset + 57;
@@ -213,12 +204,27 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
                   ),
                   for (final message in _messages) ...[
                     const SizedBox(height: 14),
-                    if (message.type == ChatMessageType.user)
-                      _UserMessageBubble(message: message)
-                    else if (message.type == ChatMessageType.analyzing)
-                      _AnalyzingBubble(conditions: message.conditions ?? [])
-                    else if (message.type == ChatMessageType.recommendation)
-                      _RecommendationBubble(message: message),
+                    if (message.isBot)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                          const SizedBox(width: 10),
+                          Expanded(child: _BotMessageBubble(message: message)),
+                        ],
+                      )
+                    else
+                      _UserMessageBubble(message: message),
+                  ],
+                  if (_isTyping) ...[
+                    const SizedBox(height: 14),
+                    const Row(
+                      children: [
+                        SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                        SizedBox(width: 10),
+                        _TypingIndicator(),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -234,7 +240,7 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
                 onAddPhoto: _pickPhoto,
                 onRemovePhoto: _removePhoto,
                 attachedPhoto: _attachedPhoto,
-                hasText: _controller.text.trim().isNotEmpty || hasAttachment,
+                hasText: (_controller.text.trim().isNotEmpty || hasAttachment) && !_isTyping,
                 hasAttachment: hasAttachment,
               ),
             ),
@@ -368,7 +374,7 @@ class _BotAvatar extends StatelessWidget {
         ),
         shape: BoxShape.circle,
       ),
-      child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
+      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
     );
   }
 }
@@ -805,280 +811,76 @@ class _UserMessageBubble extends StatelessWidget {
   }
 }
 
-enum ChatMessageType { user, analyzing, recommendation }
-
-class _ChatMessage {
-  const _ChatMessage({
-    required this.type,
-    this.text = '',
-    this.photo,
-    this.conditions,
-  });
-
-  final ChatMessageType type;
-  final String text;
-  final XFile? photo;
-  final List<String>? conditions;
-}
-
-class _AnalyzingBubble extends StatelessWidget {
-  const _AnalyzingBubble({required this.conditions});
-
-  final List<String> conditions;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(width: 34, height: 34, child: _BotAvatar()),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE1E6EF)),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A0F172A),
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          Color(0xFF2563EB),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Text(
-                      '조건을 분석하고 있어요...',
-                      style: TextStyle(
-                        color: _AiUi.ink,
-                        fontFamily: _AiUi.fontFamily,
-                        fontFamilyFallback: _AiUi.fontFallback,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: conditions.map((cond) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        cond,
-                        style: const TextStyle(
-                          color: Color(0xFF475569),
-                          fontFamily: _AiUi.fontFamily,
-                          fontFamilyFallback: _AiUi.fontFallback,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _RecommendationBubble extends StatelessWidget {
-  const _RecommendationBubble({required this.message});
+class _BotMessageBubble extends StatelessWidget {
+  const _BotMessageBubble({required this.message});
 
   final _ChatMessage message;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(width: 34, height: 34, child: _BotAvatar()),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE1E6EF)),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x0A0F172A),
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Text(
-                  message.text,
-                  style: const TextStyle(
-                    color: _AiUi.ink,
-                    fontFamily: _AiUi.fontFamily,
-                    fontFamilyFallback: _AiUi.fontFallback,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFF2563EB)),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A2563EB),
-                      blurRadius: 12,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF4FF),
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: const Text(
-                            'AI BEST PICK',
-                            style: TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontFamily: _AiUi.fontFamily,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                        const Text(
-                          '2.3km',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontFamily: _AiUi.fontFamily,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      '정다운분식',
-                      style: TextStyle(
-                        color: _AiUi.ink,
-                        fontFamily: _AiUi.fontFamily,
-                        fontFamilyFallback: _AiUi.fontFallback,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '우동',
-                          style: TextStyle(
-                            color: Color(0xFF64748B),
-                            fontFamily: _AiUi.fontFamily,
-                            fontFamilyFallback: _AiUi.fontFallback,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          '4,500원',
-                          style: TextStyle(
-                            color: _AiUi.ink,
-                            fontFamily: _AiUi.fontFamily,
-                            fontFamilyFallback: _AiUi.fontFallback,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    GestureDetector(
-                      onTap: () => context.push(AppRoutes.optimalRoute),
-                      child: Container(
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        alignment: Alignment.center,
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.route, color: Colors.white, size: 16),
-                            SizedBox(width: 8),
-                            Text(
-                              '추천 루트 보기',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontFamily: _AiUi.fontFamily,
-                                fontFamilyFallback: _AiUi.fontFallback,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Container(
+      padding: const EdgeInsets.fromLTRB(17, 15, 17, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E6EF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 4,
+            offset: Offset(0, 2),
           ),
+        ],
+      ),
+      child: Text(
+        message.text,
+        style: const TextStyle(
+          color: _AiUi.ink,
+          fontFamily: _AiUi.fontFamily,
+          fontFamilyFallback: _AiUi.fontFallback,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.55,
         ),
-      ],
+      ),
     );
   }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E6EF)),
+      ),
+      child: const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(_AiUi.ink),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatMessage {
+  const _ChatMessage({
+    required this.text,
+    this.photo,
+    required this.isBot,
+  });
+
+  final String text;
+  final XFile? photo;
+  final bool isBot;
 }
 
 class _QuickPrompt {
