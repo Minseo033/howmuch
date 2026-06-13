@@ -2,26 +2,28 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
-class AiRecommendChatScreen extends StatefulWidget {
+class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
 
   @override
-  State<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
+  ConsumerState<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
 }
 
-class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
+class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
   final List<_ChatMessage> _messages = [];
   XFile? _attachedPhoto;
+  bool _isTyping = false;
 
-  // TODO(박지환 BE): AI 추천 API가 붙으면 추천 질문/입력값을 서버 요청으로 교체하세요.
   static const _quickPrompts = [
     _QuickPrompt(
       icon: Icons.account_balance_wallet_outlined,
@@ -52,30 +54,49 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
     });
   }
 
-  void _sendMessage() {
-    final message = _controller.text.trim();
-    if (message.isEmpty && _attachedPhoto == null) {
+  Future<void> _sendMessage() async {
+    final messageText = _controller.text.trim();
+    if (messageText.isEmpty && _attachedPhoto == null) {
       return;
     }
 
+    final userMessage = _ChatMessage(
+      text: messageText,
+      photo: _attachedPhoto,
+      isBot: false,
+    );
+
     setState(() {
-      _messages.add(_ChatMessage(text: message, photo: _attachedPhoto));
+      _messages.add(userMessage);
       _controller.clear();
       _attachedPhoto = null;
+      _isTyping = true;
     });
+
     FocusManager.instance.primaryFocus?.unfocus();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToLatest());
+    _scrollToLatest();
+
+    // 💡 Gemini API 호출
+    final botResponse = await ref.read(aiChatServiceProvider).getGeminiResponse(messageText);
+
+    if (mounted) {
+      setState(() {
+        _messages.add(_ChatMessage(text: botResponse, isBot: true));
+        _isTyping = false;
+      });
+      _scrollToLatest();
+    }
   }
 
   void _scrollToLatest() {
-    if (!_scrollController.hasClients) {
-      return;
-    }
-    _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _removePhoto() {
@@ -183,7 +204,27 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
                   ),
                   for (final message in _messages) ...[
                     const SizedBox(height: 14),
-                    _UserMessageBubble(message: message),
+                    if (message.isBot)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                          const SizedBox(width: 10),
+                          Expanded(child: _BotMessageBubble(message: message)),
+                        ],
+                      )
+                    else
+                      _UserMessageBubble(message: message),
+                  ],
+                  if (_isTyping) ...[
+                    const SizedBox(height: 14),
+                    const Row(
+                      children: [
+                        SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                        SizedBox(width: 10),
+                        _TypingIndicator(),
+                      ],
+                    ),
                   ],
                 ],
               ),
@@ -199,7 +240,7 @@ class _AiRecommendChatScreenState extends State<AiRecommendChatScreen> {
                 onAddPhoto: _pickPhoto,
                 onRemovePhoto: _removePhoto,
                 attachedPhoto: _attachedPhoto,
-                hasText: _controller.text.trim().isNotEmpty || hasAttachment,
+                hasText: (_controller.text.trim().isNotEmpty || hasAttachment) && !_isTyping,
                 hasAttachment: hasAttachment,
               ),
             ),
@@ -333,7 +374,7 @@ class _BotAvatar extends StatelessWidget {
         ),
         shape: BoxShape.circle,
       ),
-      child: Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
+      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
     );
   }
 }
@@ -770,11 +811,76 @@ class _UserMessageBubble extends StatelessWidget {
   }
 }
 
+class _BotMessageBubble extends StatelessWidget {
+  const _BotMessageBubble({required this.message});
+
+  final _ChatMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(17, 15, 17, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E6EF)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        message.text,
+        style: const TextStyle(
+          color: _AiUi.ink,
+          fontFamily: _AiUi.fontFamily,
+          fontFamilyFallback: _AiUi.fontFallback,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          height: 1.55,
+        ),
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  const _TypingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE1E6EF)),
+      ),
+      child: const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(_AiUi.ink),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChatMessage {
-  const _ChatMessage({required this.text, required this.photo});
+  const _ChatMessage({
+    required this.text,
+    this.photo,
+    required this.isBot,
+  });
 
   final String text;
   final XFile? photo;
+  final bool isBot;
 }
 
 class _QuickPrompt {

@@ -2,6 +2,7 @@ package com.howmuch.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class KakaoLocalService {
 
@@ -56,8 +58,8 @@ public class KakaoLocalService {
                     "district", district
                 );
             }
-        } catch (e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            log.error("주소 변환 중 오류 발생 (주소: {}): ", address, e);
         }
         return null;
     }
