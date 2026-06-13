@@ -96,6 +96,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
     // 💥 서버 요청 대신 HomeMapScreen에 로드된 전체 11,000개 캐시에서 직접 필터링
     try {
+      if (howmuch_home.HomeMapScreen.globalAllStores.isEmpty) {
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
       if (q.isEmpty && _filter.activeLabels.isEmpty) {
         setState(() => _results = []);
         return;
@@ -105,14 +110,6 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       // 검색어 필터링
       if (q.isNotEmpty) {
-        if (!_recentSearches.contains(q)) {
-          _recentSearches.insert(0, q);
-          if (_recentSearches.length > 10) _recentSearches.removeLast();
-        } else {
-          _recentSearches.remove(q);
-          _recentSearches.insert(0, q);
-        }
-
         stores = stores
             .where(
               (s) =>
@@ -216,6 +213,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   /// 백엔드 미연결 시 더미 데이터
   List<Store> _mockResults(String q) => [
     Store(
+      source: 'local',
       storeName: '$q 맛집 1호',
       address: '서울특별시 중구 명동길 12',
       phoneNumber: '02-1234-5678',
@@ -232,6 +230,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       longitude: 126.9834,
     ),
     Store(
+      source: 'local',
       storeName: '$q 식당',
       address: '서울특별시 중구 을지로 3가 45',
       phoneNumber: '02-9876-5432',
@@ -248,6 +247,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       longitude: 126.9920,
     ),
     Store(
+      source: 'local',
       storeName: '착한 $q 집',
       address: '서울특별시 종로구 종로 100',
       phoneNumber: '02-5555-1234',
@@ -331,20 +331,64 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final topOffset = MediaQuery.of(context).padding.top;
     final activeFilters = _filter.activeLabels;
 
-    return Scaffold(
-      backgroundColor: SearchResultScreen.surface,
-      body: Column(
-        children: [
-          // ──────────────────────────────────────────
-          //  상단 헤더 (검색바 + 필터칩)
-          // ──────────────────────────────────────────
-          _SearchHeader(
-            topOffset: topOffset,
-            controller: _ctrl,
-            focus: _focus,
-            activeFilters: activeFilters,
-            onBack: () => context.pop(),
-            onSearch: () {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        context.pop({'query': '', 'filter': _filter});
+      },
+      child: Scaffold(
+        backgroundColor: SearchResultScreen.surface,
+        bottomNavigationBar: _searched && (_query.isNotEmpty || _filter.activeLabels.isNotEmpty)
+            ? SafeArea(
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                  decoration: BoxDecoration(
+                    color: SearchResultScreen.surface,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, -5),
+                      ),
+                    ],
+                  ),
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      context.pop({'query': _query, 'filter': _filter});
+                    },
+                    icon: const Icon(Icons.map_rounded, size: 20),
+                    label: const Text('지도에서 보기'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: SearchResultScreen.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: SearchResultScreen.fontFamily,
+                        fontFamilyFallback: SearchResultScreen.fontFallback,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            : null,
+        body: Column(
+          children: [
+            // ──────────────────────────────────────────
+            //  상단 헤더 (검색바 + 필터칩)
+            // ──────────────────────────────────────────
+            _SearchHeader(
+              topOffset: topOffset,
+              controller: _ctrl,
+              focus: _focus,
+              activeFilters: activeFilters,
+              onBack: () => context.pop({'query': '', 'filter': _filter}),
+              onSearch: () {
               _focus.unfocus();
               _doSearch(_ctrl.text);
             },
@@ -364,7 +408,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           // ──────────────────────────────────────────
           //  결과 카운트 바
           // ──────────────────────────────────────────
-          if (_searched && !_loading)
+          if (_searched && !_loading && _query.isNotEmpty)
             _ResultCountBar(query: _query, count: _results.length),
 
           // ──────────────────────────────────────────
@@ -378,19 +422,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       strokeWidth: 2.5,
                     ),
                   )
-                : (_query.isEmpty && _filter.activeLabels.isEmpty)
-                ? _RecentSearchesWidget(
-                    searches: _recentSearches,
-                    onTap: (suggestion) {
-                      setState(() => _query = suggestion);
-                      _ctrl.text = suggestion;
-                      _doSearch(suggestion);
-                    },
-                    onRemove: (suggestion) {
-                      setState(() => _recentSearches.remove(suggestion));
-                    },
-                  )
-                : _searched && _results.isEmpty
+                : (_query.isEmpty && _filter.activeLabels.isEmpty) || (_searched && _results.isEmpty)
                 ? _EmptyResult(
                     onReset: () {
                       setState(() => _filter = const SearchFilter());
@@ -427,7 +459,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

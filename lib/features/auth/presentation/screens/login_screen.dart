@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class LoginScreen extends ConsumerWidget {
@@ -159,19 +160,38 @@ class LoginScreen extends ConsumerWidget {
     );
   }
 
-  void _loginWith(
+  Future<void> _loginWith(
     WidgetRef ref,
     BuildContext context, {
     required String provider,
-  }) {
-    // TODO(박지환 BE): 실제 OAuth 로그인 API 응답으로 토큰, 이메일, 관리자 권한을 저장하세요.
-    ref.read(authStateProvider.notifier).state = AuthState(
-      isLoggedIn: true,
-      isAdmin: false,
-      provider: provider,
-      email: '',
-    );
-    context.go(AppRoutes.permissionSetup);
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    if (provider == '카카오') {
+      final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
+      if (errorMsg == null) {
+        if (context.mounted) {
+          context.go(AppRoutes.permissionSetup);
+          messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
+        }
+      } else {
+        if (context.mounted) {
+          messenger.showSnackBar(SnackBar(content: Text('로그인 실패: $errorMsg')));
+        }
+      }
+    } else {
+      // 💡 타 소셜 로그인은 현재 더미 로직 유지
+      ref.read(authStateProvider.notifier).state = AuthState(
+        isLoggedIn: true,
+        isAdmin: false,
+        provider: provider,
+        email: 'user@example.com',
+      );
+      if (context.mounted) {
+        context.go(AppRoutes.permissionSetup);
+        messenger.showSnackBar(SnackBar(content: Text('$provider로 로그인했어요. (더미)')));
+      }
+    }
   }
 }
 

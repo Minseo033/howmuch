@@ -9,12 +9,12 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
 class KakaoLoginService {
   final Ref _ref;
-  // 💡 실기기 테스트를 위해 PC의 IP 주소를 사용합니다.
-  final String _backendHost = kIsWeb ? 'localhost' : '192.168.0.13';
+  // 💡 실기기 및 로컬 네트워크 제약을 우회하기 위해 ngrok 터널링 주소를 사용합니다.
+  final String _backendBaseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   KakaoLoginService(this._ref);
 
-  Future<bool> login() async {
+  Future<String?> login() async {
     try {
       bool isInstalled = await isKakaoTalkInstalled();
 
@@ -25,43 +25,18 @@ class KakaoLoginService {
           debugPrint('카카오톡으로 로그인 성공');
         } catch (error) {
           debugPrint('카카오톡으로 로그인 실패 $error');
-          // 사용자가 카카오톡 설치 후 로그인을 취소한 경우,
-          // 의도적인 취소로 간주하여 예외 처리
           if (error is KakaoClientException && error.msg == 'Canceled') {
-            return false;
+            return '사용자가 취소했습니다.';
           }
-          // 카카오톡에 연결된 카카오계정이 없는 경우, 카카오계정으로 로그인
-          token = await UserApi.instance.loginWithKakaoAccount();
-          debugPrint('카카오계정으로 로그인 성공');
+          return '카카오톡 앱 로그인 실패: $error';
         }
       } else {
         token = await UserApi.instance.loginWithKakaoAccount();
         debugPrint('카카오계정으로 로그인 성공');
       }
 
-      return await _authenticateWithBackend(token.accessToken);
-    } catch (error) {
-      debugPrint('카카오 로그인 실패 $error');
-      return false;
-    }
-  }
-
-  Future<bool> _authenticateWithBackend(String accessToken) async {
-    final url = Uri.parse('http://$_backendHost:8081/api/auth/kakao');
-    
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'kakaoAccessToken': accessToken}),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final customToken = data['customToken'];
-        debugPrint('백엔드 인증 성공: $customToken');
-
-        // 💡 사용자 정보 가져오기
+      bool isBackendSuccess = await _authenticateWithBackend(token.accessToken);
+      if (isBackendSuccess) {
         User user = await UserApi.instance.me();
         
         // 💡 인증 상태 업데이트
@@ -70,6 +45,34 @@ class KakaoLoginService {
           provider: '카카오',
           email: user.kakaoAccount?.email ?? 'unknown',
         ));
+        
+        return null; // 성공 시 null 반환
+      } else {
+        return '백엔드 인증 실패';
+      }
+    } catch (e) {
+      debugPrint('카카오톡 로그인 로직 에러: $e');
+      return '통신 에러: $e';
+    }
+  }
+
+  Future<bool> _authenticateWithBackend(String accessToken) async {
+    final url = Uri.parse('$_backendBaseUrl/api/auth/kakao');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' // ngrok 경고 페이지 우회
+        },
+        body: jsonEncode({'kakaoAccessToken': accessToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final customToken = data['customToken'];
+        debugPrint('백엔드 인증 성공: $customToken');
         
         return true;
       } else {

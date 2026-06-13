@@ -9,12 +9,15 @@ class AiChatService {
   final String _backendHost = kIsWeb ? 'localhost' : '192.168.0.13';
 
   Future<String> getGeminiResponse(String message) async {
-    final url = Uri.parse('http://$_backendHost:8081/api/ai/chat');
+    final url = Uri.parse('https://sulfurously-transhumant-dennise.ngrok-free.dev/api/ai/chat');
 
     try {
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+        },
         body: jsonEncode({'message': message}),
       ).timeout(const Duration(seconds: 15));
 

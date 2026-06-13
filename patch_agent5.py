@@ -1,79 +1,56 @@
-import os
+import re
 
-file_path = "/Users/min/Documents/howmuch/lib/features/home/presentation/screens/home_map_screen.dart"
+with open("lib/features/home/presentation/screens/home_map_screen.dart", "r") as f:
+    code = f.read()
 
-with open(file_path, "r", encoding="utf-8") as f:
-    content = f.read()
+# Add imports
+imports = """import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+"""
+if "import 'package:http/http.dart' as http;" not in code:
+    code = code.replace("import 'package:flutter/material.dart';", imports + "import 'package:flutter/material.dart';")
 
-# 1. Replace _SearchBar
-old_search_bar = """              child: _SearchBar(
-                query: _searchQuery,
-                onTap: _openSearch,
-                onFilterTap: () => _openSearch(openFilter: true),
-              ),"""
-new_search_bar = """              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _SearchBar(
-                  query: _searchQuery,
-                  onTap: _openSearch,
-                  onFilterTap: () => _openSearch(openFilter: true),
-                ),
-              ),"""
-content = content.replace(old_search_bar, new_search_bar)
+# Replace _fetchStoresFromBackend
+old_fetch = """    try {
+      // 서버를 호출하지 않고 _allStores에서 로컬 필터링 수행
+      var stores = _allStores
+          .where(
+            (s) =>
+                s.latitude >= minLat &&
+                s.latitude <= maxLat &&
+                s.longitude >= minLng &&
+                s.longitude <= maxLng,
+          )
+          .toList();"""
 
-# 2. Replace _AiRecommendControl 1
-old_ai_1 = """              child: _AiRecommendControl(
-                onTap: () => context.push(AppRoutes.aiRecommend),
-              ),"""
-new_ai_1 = """              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: () => context.push(AppRoutes.aiRecommend),
-                ),
-              ),"""
-content = content.replace(old_ai_1, new_ai_1)
+new_fetch = """    try {
+      String host = kIsWeb ? 'localhost' : '192.168.0.13'; 
+      final url = 'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+      
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      
+      List<Store> fetchedStores = [];
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+        fetchedStores = data.map((json) => Store.fromJson(json)).toList();
+      } else {
+        // Fallback to local _allStores if backend fails
+        fetchedStores = _allStores;
+      }
+      
+      var stores = fetchedStores
+          .where(
+            (s) =>
+                s.latitude >= minLat &&
+                s.latitude <= maxLat &&
+                s.longitude >= minLng &&
+                s.longitude <= maxLng,
+          )
+          .toList();"""
 
-# 3. Replace _AiRecommendControl 2
-old_ai_2 = """              child: _AiRecommendControl(
-                onTap: () => context.push(AppRoutes.aiRecommend),
-                spotlight: true,
-              ),"""
-new_ai_2 = """              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: () => context.push(AppRoutes.aiRecommend),
-                  spotlight: true,
-                ),
-              ),"""
-content = content.replace(old_ai_2, new_ai_2)
+code = code.replace(old_fetch, new_fetch)
 
-# 4. Replace _StoreSummaryCard in PageView
-old_store_1 = """                      child: _StoreSummaryCard(store: _currentStores[index]),"""
-new_store_1 = """                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onVerticalDragUpdate: (_) {},
-                        onHorizontalDragUpdate: (_) {},
-                        child: _StoreSummaryCard(store: _currentStores[index]),
-                      ),"""
-content = content.replace(old_store_1, new_store_1)
+with open("lib/features/home/presentation/screens/home_map_screen.dart", "w") as f:
+    f.write(code)
 
-# 5. Replace _StoreSummaryCard for selected store
-old_store_2 = """                child: _StoreSummaryCard(store: _selectedStore!),"""
-new_store_2 = """                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: (_) {},
-                  onHorizontalDragUpdate: (_) {},
-                  child: _StoreSummaryCard(store: _selectedStore!),
-                ),"""
-content = content.replace(old_store_2, new_store_2)
-
-with open(file_path, "w", encoding="utf-8") as f:
-    f.write(content)
-
-print("Patch applied to home_map_screen.dart successfully!")

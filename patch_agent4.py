@@ -1,107 +1,96 @@
-import sys
+import re
 
-file_path = '/Users/min/Documents/howmuch/lib/features/community/presentation/screens/my_reports_screen.dart'
+with open("lib/features/community/presentation/screens/report_create_screen.dart", "r") as f:
+    code = f.read()
 
-with open(file_path, 'r') as f:
-    content = f.read()
+# Add imports
+imports = """import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+"""
+code = code.replace("import 'package:howmuch/features/community/presentation/state/user_reports_state.dart';", imports)
 
-# 1. Add Shimmer import
-if "import 'package:shimmer/shimmer.dart';" not in content:
-    content = content.replace(
-        "import 'package:flutter_riverpod/flutter_riverpod.dart';",
-        "import 'package:flutter_riverpod/flutter_riverpod.dart';\nimport 'package:shimmer/shimmer.dart';"
-    )
-
-# 2. Add State variables and lifecycle methods
-state_vars = """
-  final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
-  int _fakeItemCount = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50) {
-      _loadMore();
-    }
-  }
-
-  Future<void> _loadMore() async {
-    if (_isLoadingMore) return;
-    setState(() => _isLoadingMore = true);
-    await Future.delayed(const Duration(seconds: 2));
+# Replace _submit function
+old_submit = """  void _submit() {
+    // TODO(박지환 BE): 제보 등록 API와 이미지 업로드 API가 붙으면 이 로컬 완료 처리를 교체하세요.
+    final firstMenu = _menuPrices.first;
+    final report = UserReportStatus(
+      id: 'report-${DateTime.now().millisecondsSinceEpoch}',
+      store: _storeController.text.trim(),
+      menu: '${firstMenu.menu.text.trim()} ${firstMenu.price.text.trim()}원',
+      status: '검토 중',
+      statusColor: 0xFFF59E0B,
+      statusBg: 0xFFFEF3C7,
+      date: DateTime.now().toIso8601String().split('T').first,
+    );
+    ref.read(userReportsProvider.notifier).addReport(report);
+    
     if (mounted) {
-      setState(() {
-        _isLoadingMore = false;
-        _fakeItemCount += 5;
-      });
+      context.push(AppRoutes.reportComplete);
     }
-  }
-"""
-if "ScrollController _scrollController" not in content:
-    content = content.replace(
-        "  _ReportFilter _filter = _ReportFilter.all;\n",
-        "  _ReportFilter _filter = _ReportFilter.all;\n" + state_vars
-    )
-
-# 3. Update _visibleReports to handle pagination
-old_visible_reports = """  List<_MyReportData> _visibleReports(List<UserReportStatus> riverpodReports) {
-    final mapped = _getMappedReports(riverpodReports);
-    if (_filter == _ReportFilter.all) {
-      return mapped;
-    }
-    return mapped.where((report) => report.filter == _filter).toList();
   }"""
-new_visible_reports = """  List<_MyReportData> _visibleReports(List<UserReportStatus> riverpodReports) {
-    final mapped = _getMappedReports(riverpodReports);
-    List<_MyReportData> filtered = _filter == _ReportFilter.all ? mapped : mapped.where((r) => r.filter == _filter).toList();
-    if (_fakeItemCount > 0 && filtered.isNotEmpty) {
-      final extra = List.generate(_fakeItemCount, (i) => filtered[i % filtered.length]);
-      filtered = [...filtered, ...extra];
+
+new_submit = """  Future<void> _submit() async {
+    if (!_basicInfoComplete || !_priceInfoComplete) {
+      _showSnack('필수 정보를 모두 입력해주세요.');
+      return;
     }
-    return filtered;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final auth = ref.read(authStateProvider);
+
+      final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
+      final price1 = _menuPrices.isNotEmpty ? _menuPrices[0].price.text.trim() : '';
+      final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
+      final price2 = _menuPrices.length > 1 ? _menuPrices[1].price.text.trim() : '';
+      final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
+      final price3 = _menuPrices.length > 2 ? _menuPrices[2].price.text.trim() : '';
+      final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
+      final price4 = _menuPrices.length > 3 ? _menuPrices[3].price.text.trim() : '';
+
+      final report = UserReport(
+        cityProvince: '',
+        cityDistrict: '',
+        storeName: _storeController.text.trim(),
+        industry: _categoryController.text.trim(),
+        address: _addressController.text.trim(),
+        phoneNumber: '',
+        menu1: menu1,
+        price1: price1,
+        menu2: menu2,
+        price2: price2,
+        menu3: menu3,
+        price3: price3,
+        menu4: menu4,
+        price4: price4,
+        imageUrls: [],
+        reporterId: auth.email,
+        visitedRecently: _visitedRecently,
+        checkedMenuPrice: _checkedMenuPrice,
+        latitude: 0.0,
+        longitude: 0.0,
+      );
+
+      final success = await ref.read(reportServiceProvider).submitReport(report);
+
+      if (success) {
+        if (mounted) {
+          context.push(AppRoutes.reportComplete);
+        }
+      } else {
+        _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }"""
-content = content.replace(old_visible_reports, new_visible_reports)
 
-# 4. Add controller to ListView
-content = content.replace(
-    "            child: ListView(\n              padding:",
-    "            child: ListView(\n              controller: _scrollController,\n              padding:"
-)
+code = code.replace(old_submit, new_submit)
 
-# 5. Add Shimmer skeletons at the end of ListView
-shimmer_skeleton = """
-                if (_isLoadingMore)
-                  ...List.generate(3, (index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(
-                        height: 108.778,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  )),
-"""
-content = content.replace(
-    "                  ),\n                ),\n              ],\n            ),\n          ),",
-    "                  ),\n                ),\n" + shimmer_skeleton + "              ],\n            ),\n          ),"
-)
+with open("lib/features/community/presentation/screens/report_create_screen.dart", "w") as f:
+    f.write(code)
 
-with open(file_path, 'w') as f:
-    f.write(content)
-print("my_reports_screen.dart patched successfully!")

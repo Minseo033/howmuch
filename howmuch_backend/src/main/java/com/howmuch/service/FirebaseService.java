@@ -72,24 +72,28 @@ public class FirebaseService {
 
     // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합)
     public java.util.List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) throws Exception {
-        // 1. 정부 인증 업소 조회 (Blue)
-        java.util.List<Map<String, Object>> govStores = db.collection("stores")
-                .whereGreaterThanOrEqualTo("latitude", minLat)
-                .whereLessThanOrEqualTo("latitude", maxLat)
-                .limit(300)
-                .get().get().getDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("source", "GOV"); // 💡 소스 구분용 플래그
-                    return data;
-                })
+        // 1. 정부 인증 업소 조회 (Blue) - 파이어베이스 과금 방지를 위해 메모리 캐시 사용!
+        java.util.List<Map<String, Object>> govStores = cachedStores.stream()
                 .filter(data -> {
-                    Object lngObj = data.get("longitude");
-                    if (lngObj instanceof Double lng) {
-                        return lng >= minLng && lng <= maxLng;
+                    try {
+                        Object latObj = data.get("latitude");
+                        Object lngObj = data.get("longitude");
+                        if (latObj != null && lngObj != null) {
+                            double lat = Double.parseDouble(latObj.toString());
+                            double lng = Double.parseDouble(lngObj.toString());
+                            return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+                        }
+                    } catch (NumberFormatException e) {
+                        return false;
                     }
                     return false;
                 })
+                .map(data -> {
+                    Map<String, Object> map = new HashMap<>(data);
+                    map.put("source", "GOV"); // 💡 소스 구분용 플래그
+                    return map;
+                })
+                .limit(1000) // 클라이언트 부하를 위해 최대 1000개까지만 전달 (원래 300개였음)
                 .toList();
 
         // 2. 사용자 제보 업소 조회 (Orange)

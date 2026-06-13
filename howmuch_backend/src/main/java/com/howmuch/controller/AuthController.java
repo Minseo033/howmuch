@@ -23,7 +23,9 @@ public class AuthController {
     @PostMapping("/kakao")
     public ResponseEntity<?> authenticateKakao(@RequestBody KakaoAuthRequest request) {
         try {
+            System.out.println(">>> [백엔드 로그] 카카오 로그인 요청 도착! Token: " + request.getKakaoAccessToken());
             String customToken = authService.createFirebaseToken(request.getKakaoAccessToken());
+            System.out.println(">>> [백엔드 로그] 커스텀 토큰 발급 성공!");
             return ResponseEntity.ok(new FirebaseTokenResponse(customToken));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -55,6 +55,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    if (_isTyping) return;
+    
     final messageText = _controller.text.trim();
     if (messageText.isEmpty && _attachedPhoto == null) {
       return;
@@ -465,7 +467,7 @@ class _GreetingBubble extends StatelessWidget {
         ],
       ),
       child: const Text(
-        '안녕하세요 민준님 👋\n현재 위치 서울 마포구 합정동 근처에서 추천드릴게요.\n아래에서 골라보시거나 직접 입력하셔도 돼요.',
+        '안녕하세요 고객님 👋\n현재 위치를 기반으로 가성비 매장을 추천드릴게요.\n아래에서 골라보시거나 직접 입력하셔도 돼요.',
         style: TextStyle(
           color: _AiUi.ink,
           fontFamily: _AiUi.fontFamily,

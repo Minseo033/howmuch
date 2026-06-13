@@ -9,18 +9,21 @@ final reportServiceProvider = Provider((ref) => ReportService(ref));
 
 class ReportService {
   final Ref _ref;
-  final String _backendHost = kIsWeb ? 'localhost' : '192.168.0.13';
+  final String _backendBaseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   ReportService(this._ref);
 
   Future<bool> submitReport(UserReport report) async {
-    final url = Uri.parse('http://$_backendHost:8081/api/report/store');
+    final url = Uri.parse('$_backendBaseUrl/api/report/store');
 
     try {
       debugPrint('제보 데이터 전송 시작: ${report.storeName}');
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true' // ngrok 경고 페이지 우회
+        },
         body: jsonEncode(report.toJson()),
       ).timeout(const Duration(seconds: 10));
 

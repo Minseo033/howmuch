@@ -744,10 +744,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng'] as double;
 
     try {
-      String host = kIsWeb ? 'localhost' : '192.168.0.13'; 
-      final url = 'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
-      
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      String baseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev'; 
+      final url = '${baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'ngrok-skip-browser-warning': 'true'}, // ngrok 경고 페이지 우회
+      ).timeout(const Duration(seconds: 5));
       
       List<Store> fetchedStores = [];
       if (response.statusCode == 200) {
@@ -1540,10 +1543,10 @@ class _TodayPickText extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
-      children: const [
+      children: [
         Row(
           children: [
-            Text(
+            const Text(
               '오늘의 픽',
               style: TextStyle(
                 color: HomeMapScreen.blue,
@@ -1555,9 +1558,9 @@ class _TodayPickText extends StatelessWidget {
                 letterSpacing: .4,
               ),
             ),
-            SizedBox(width: 5.994),
+            const SizedBox(width: 5.994),
             Text(
-              '· 05.16 토',
+              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월','화','수','목','금','토','일'][DateTime.now().weekday - 1]}',
               style: TextStyle(
                 color: HomeMapScreen.muted,
                 fontFamily: HomeMapScreen.fontFamily,
