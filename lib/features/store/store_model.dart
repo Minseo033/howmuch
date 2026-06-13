@@ -13,6 +13,7 @@ class Store {
   final String price4;
   final double latitude;
   final double longitude;
+  final String source; // 💡 GOV 또는 USER
 
   Store({
     required this.storeName,
@@ -29,6 +30,7 @@ class Store {
     required this.price4,
     required this.latitude,
     required this.longitude,
+    required this.source,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class Store {
       price4: json['price4']?.toString() ?? '',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      source: json['source'] ?? 'GOV',
     );
   }
 }
