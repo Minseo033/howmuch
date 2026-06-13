@@ -18,7 +18,7 @@ import java.util.Map;
 public class GeminiService {
 
     // 💡 보안을 위해 백엔드에서 API 키를 관리합니다.
-    private final String GEMINI_API_KEY = "AQ.Ab8RN6KJLj_c8YVe8Ou15dzGyMwUcfs1BKKYEqHP49UngpFfsQ";
+    private final String GEMINI_API_KEY = "";
     private final String GEMINI_MODEL = "gemini-2.5-flash-lite"; // 사용자가 요청한 최신 2.5 Flash-Lite 모델
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
