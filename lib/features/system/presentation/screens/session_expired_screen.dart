@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class SessionExpiredScreen extends ConsumerWidget {
@@ -42,17 +43,20 @@ class SessionExpiredScreen extends ConsumerWidget {
       context.go(AppRoutes.home);
     }
 
-    void loginAgain() {
+    void loginAgain() async {
       final messenger = ScaffoldMessenger.of(context);
-      // TODO(박지환 BE): 세션 갱신/재로그인 API 성공 후 인증 상태와 사용자 정보를 갱신하세요.
-      ref.read(authStateProvider.notifier).state = const AuthState(
-        isLoggedIn: true,
-        isAdmin: false,
-        provider: '카카오',
-        email: 'minseo@example.com',
-      );
-      context.go(AppRoutes.home);
-      messenger.showSnackBar(const SnackBar(content: Text('카카오로 다시 로그인했어요.')));
+      final success = await ref.read(kakaoLoginServiceProvider).login();
+      
+      if (success) {
+        if (context.mounted) {
+          context.go(AppRoutes.home);
+          messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
+        }
+      } else {
+        if (context.mounted) {
+          messenger.showSnackBar(const SnackBar(content: Text('로그인에 실패했습니다.')));
+        }
+      }
     }
 
     return FigmaMobileCanvas(

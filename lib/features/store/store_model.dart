@@ -7,6 +7,7 @@ class Store {
   final String price1;
   final double latitude;
   final double longitude;
+  final String source; // 💡 GOV 또는 USER
 
   Store({
     required this.storeName,
@@ -17,18 +18,20 @@ class Store {
     required this.price1,
     required this.latitude,
     required this.longitude,
+    required this.source,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
     return Store(
-      storeName: json['storeName'] ?? '이름 없음',
-      address: json['address'] ?? '주소 정보 없음',
-      phoneNumber: json['phoneNumber'] ?? '전화번호 없음',
+      storeName: json['storeName'] ?? '',
+      address: json['address'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? '',
       industry: json['industry'] ?? '기타',
       menu1: json['menu1'] ?? '',
       price1: json['price1'] ?? '',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      source: json['source'] ?? 'GOV',
     );
   }
 }

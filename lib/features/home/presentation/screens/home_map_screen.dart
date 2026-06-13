@@ -152,20 +152,43 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
             averageCenter: true,
             minLevel: 6
           });
+
+          // 💡 지도가 이동된 후 멈췄을 때(Idle) 자동으로 마커 정보를 요청합니다.
+          kakao.maps.event.addListener(map, 'idle', function() {
+            requestBounds();
+          });
+
           Print.postMessage("Map Initialized on Mobile");
         };
 
         function addMobileMarkers(markerListJson) {
-          var markerData = JSON.parse(markerListJson);
-          var markers = markerData.map(function(item) {
-            return new kakao.maps.Marker({
-              position: new kakao.maps.LatLng(item.lat, item.lng),
-              title: item.title
+          try {
+            var markerData = JSON.parse(markerListJson);
+            Print.postMessage("JS Parsing success: " + markerData.length + " items");
+            
+            var markers = markerData.map(function(item) {
+              // 💡 소스에 따라 마커 색상을 결정합니다.
+              var markerImage = null;
+              if (item.source === 'USER') {
+                // 사용자 제보: 주황색 마커 이미지 (카카오 기본 제공 이미지 활용 예시)
+                var imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png'; 
+                var imageSize = new kakao.maps.Size(24, 35); 
+                markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize);
+              }
+
+              return new kakao.maps.Marker({
+                position: new kakao.maps.LatLng(item.lat, item.lng),
+                title: item.title,
+                image: markerImage // 💡 null이면 기본 파란색 마커
+              });
             });
-          });
-          clusterer.clear();
-          clusterer.addMarkers(markers);
-          Print.postMessage("Markers added: " + markerData.length);
+            
+            clusterer.clear();
+            clusterer.addMarkers(markers);
+            Print.postMessage("JS Clusterer update success");
+          } catch (e) {
+            Print.postMessage("JS Error in addMobileMarkers: " + e.message);
+          }
         }
 
         function setMapCenter(lat, lng) {
@@ -376,12 +399,10 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final markerList = await _fetchStoresFromBackend(bounds);
 
     if (markerList.isNotEmpty && _webViewController != null) {
-      final jsonString = json
-          .encode(markerList)
-          .replaceAll("'", "\'")
-          .replaceAll('"', '\"');
+      final jsonString = json.encode(markerList);
+      // 💡 JS 문자열 인자로 안전하게 전달하기 위해 한 번 더 인코딩하여 따옴표 등을 이스케이프합니다.
       _webViewController!.runJavaScript(
-        'addMobileMarkers("' + jsonString + '");',
+        'addMobileMarkers(${json.encode(jsonString)});',
       );
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -419,15 +440,21 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final minLng = bounds['minLng'];
     final maxLng = bounds['maxLng'];
 
-    String host = kIsWeb ? 'localhost' : '192.168.0.13';
+    // 💡 에뮬레이터 환경과 실기기 환경에 따라 호스트 주소를 분기합니다.
+    // 웹: localhost, 실기기/에뮬레이터: 지정된 PC IP 주소
+    String host = kIsWeb ? 'localhost' : '192.168.0.13'; 
+    
     final url =
         'http://${host}:8081/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
     try {
-      final response = await http.get(Uri.parse(url));
+      debugPrint('백엔드 데이터 요청: $url');
+      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 5));
+      
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
         final stores = data.map((json) => Store.fromJson(json)).toList();
+        debugPrint('데이터 수신 성공: ${stores.length}개');
         return stores
             .where((s) => s.latitude != 0 && s.longitude != 0)
             .map(
@@ -438,9 +465,17 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
               },
             )
             .toList();
+      } else {
+        debugPrint('백엔드 응답 에러: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint('백엔드 호출 에러: ${e}');
+      debugPrint('백엔드 호출 실패 ($url): $e');
+      // 💡 에러 발생 시 사용자에게 알림 (디버깅 용도)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('데이터를 가져오지 못했습니다. 서버 연결을 확인하세요. ($host)')),
+        );
+      }
     }
     return [];
   }

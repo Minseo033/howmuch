@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
-class ReportCreateScreen extends StatefulWidget {
+class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({super.key});
 
   @override
-  State<ReportCreateScreen> createState() => _ReportCreateScreenState();
+  ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
 }
 
-class _ReportCreateScreenState extends State<ReportCreateScreen> {
+class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   static const _priceSectionOffset = 354.46;
   static const _baseConfirmSectionOffset = 490.23;
   static const _basePriceCardHeight = 91.776;
@@ -37,6 +42,7 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
   late final TextEditingController _addressController;
   bool _visitedRecently = true;
   bool _checkedMenuPrice = true;
+  bool _isSubmitting = false;
   int _activeStep = 1;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
@@ -155,9 +161,64 @@ class _ReportCreateScreenState extends State<ReportCreateScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _submit() {
-    // TODO(박지환 BE): 제보 등록 API와 이미지 업로드 API가 붙으면 이 로컬 완료 처리를 교체하세요.
-    context.push(AppRoutes.reportComplete);
+  Future<void> _submit() async {
+    if (!_basicInfoComplete || !_priceInfoComplete) {
+      _showSnack('필수 정보를 모두 입력해주세요.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final auth = ref.read(authStateProvider);
+
+      // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
+      final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
+      final price1 = _menuPrices.isNotEmpty ? _menuPrices[0].price.text.trim() : '';
+      final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
+      final price2 = _menuPrices.length > 1 ? _menuPrices[1].price.text.trim() : '';
+      final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
+      final price3 = _menuPrices.length > 2 ? _menuPrices[2].price.text.trim() : '';
+      final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
+      final price4 = _menuPrices.length > 3 ? _menuPrices[3].price.text.trim() : '';
+
+      final report = UserReport(
+        cityProvince: '', // 💡 필요 시 주소 파싱을 통해 채울 수 있습니다.
+        cityDistrict: '',
+        storeName: _storeController.text.trim(),
+        industry: _categoryController.text.trim(),
+        address: _addressController.text.trim(),
+        phoneNumber: '', // 💡 현재 입력 필드에 없으므로 공백
+        menu1: menu1,
+        price1: price1,
+        menu2: menu2,
+        price2: price2,
+        menu3: menu3,
+        price3: price3,
+        menu4: menu4,
+        price4: price4,
+        imageUrls: [],
+        reporterId: auth.email,
+        visitedRecently: _visitedRecently,
+        checkedMenuPrice: _checkedMenuPrice,
+        latitude: 0.0,
+        longitude: 0.0,
+      );
+
+      final success = await ref.read(reportServiceProvider).submitReport(report);
+
+      if (success) {
+        if (mounted) {
+          context.push(AppRoutes.reportComplete);
+        }
+      } else {
+        _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   Future<void> _pickCategory() async {
