@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
+import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_router.dart';
 
 final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
@@ -25,6 +27,7 @@ class KakaoLoginService {
           debugPrint('카카오톡으로 로그인 성공');
         } catch (error) {
           debugPrint('카카오톡으로 로그인 실패 $error');
+          _ref.read(appRouterProvider).go(AppRoutes.login);
           if (error is KakaoClientException && error.msg == 'Canceled') {
             return '사용자가 취소했습니다.';
           }
@@ -46,12 +49,15 @@ class KakaoLoginService {
           email: user.kakaoAccount?.email ?? 'unknown',
         ));
         
+        _ref.read(appRouterProvider).go(AppRoutes.permissionSetup);
         return null; // 성공 시 null 반환
       } else {
+        _ref.read(appRouterProvider).go(AppRoutes.login);
         return '백엔드 인증 실패';
       }
     } catch (e) {
       debugPrint('카카오톡 로그인 로직 에러: $e');
+      _ref.read(appRouterProvider).go(AppRoutes.login);
       return '통신 에러: $e';
     }
   }

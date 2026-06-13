@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -59,10 +60,31 @@ import 'package:howmuch/features/mypage/presentation/screens/my_reviews_screen.d
 import 'package:howmuch/features/mypage/presentation/screens/visit_history_screen.dart';
 import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
 
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    redirect: (context, state) {
+      if (state.uri.host == 'oauth') {
+        return '/oauth_loading';
+      }
+      return null;
+    },
     routes: [
+      GoRoute(
+        path: '/oauth_loading',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF2563EB),
+              ),
+            ),
+          ),
+        ),
+      ),
       _route(AppRoutes.reviewList, const ReviewListScreen()),
       _route(AppRoutes.reviewWrite, const ReviewWriteScreen()),
       _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
