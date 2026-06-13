@@ -166,6 +166,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     super.initState();
     _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
+    WidgetsBinding.instance.addPostFrameCallback((_) => _moveToCurrentLocation());
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
@@ -177,7 +178,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _fetchAllStores() async {
     final url = kIsWeb
         ? 'http://localhost:8081/api/test/all'
-        : 'http://192.168.219.120:8081/api/test/all';
+        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
     try {
       final response = await http
           .get(Uri.parse(url))
@@ -834,8 +835,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Widget _buildWebMap() {
     return Stack(
       children: [
-        // ignore: undefined_prefixed_name
-        HtmlElementView(key: const ValueKey('kakao-map-web'), viewType: _viewId),
+        Positioned.fill(
+          child: HtmlElementView(key: const ValueKey('kakao-map-web'), viewType: _viewId),
+        ),
         if (!_isMapInitialized)
           const Center(child: CircularProgressIndicator()),
       ],
@@ -1009,10 +1011,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: 52,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: _SearchBar(
-                query: _searchQuery,
-                onTap: _openSearch,
-                onFilterTap: () => _openSearch(openFilter: true),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (_) {},
+                onHorizontalDragUpdate: (_) {},
+                child: _SearchBar(
+                  query: _searchQuery,
+                  onTap: _openSearch,
+                  onFilterTap: () => _openSearch(openFilter: true),
+                ),
               ),
             ),
           ),
@@ -1128,8 +1135,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: 51.9886360168457,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: _AiRecommendControl(
-                onTap: () => context.push(AppRoutes.aiRecommend),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (_) {},
+                onHorizontalDragUpdate: (_) {},
+                child: _AiRecommendControl(
+                  onTap: () => context.push(AppRoutes.aiRecommend),
+                ),
               ),
             ),
           ),
@@ -1177,7 +1189,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       return const SizedBox.shrink();
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: _StoreSummaryCard(store: _currentStores[index]),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragUpdate: (_) {},
+                        onHorizontalDragUpdate: (_) {},
+                        child: _StoreSummaryCard(store: _currentStores[index]),
+                      ),
                     );
                   },
                 ),
@@ -1201,7 +1218,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: _StoreSummaryCard(store: _selectedStore!),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _StoreSummaryCard(store: _selectedStore!),
+                ),
               ),
             ),
           ],
@@ -1253,9 +1275,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               top: spotlightAiTop,
               width: 157,
               height: 70,
-              child: _AiRecommendControl(
-                onTap: () => context.push(AppRoutes.aiRecommend),
-                spotlight: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onVerticalDragUpdate: (_) {},
+                onHorizontalDragUpdate: (_) {},
+                child: _AiRecommendControl(
+                  onTap: () => context.push(AppRoutes.aiRecommend),
+                  spotlight: true,
+                ),
               ),
             ),
           ],

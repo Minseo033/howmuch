@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -20,6 +21,39 @@ class _DirectionsExternalAppScreenState
     {'icon': Icons.directions_bus_rounded, 'label': '대중교통', 'time': '10분'},
     {'icon': Icons.directions_car_rounded, 'label': '자동차', 'time': '4분'},
   ];
+
+  Future<void> _launchKakaoMap() async {
+    // 가게 이름과 주소를 함께 검색어로 사용하여 장소(Place) 정보가 나오도록 유도
+    final query = Uri.encodeComponent('착한분식 서울시 강남구 역삼동');
+    final url = Uri.parse('kakaomap://search?q=$query');
+    final fallbackUrl = Uri.parse('https://map.kakao.com/link/search/$query');
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+      } else {
+        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('카카오맵 실행 오류: $e');
+    }
+  }
+
+  Future<void> _launchNaverMap() async {
+    final query = Uri.encodeComponent('착한분식 서울시 강남구 역삼동');
+    final url = Uri.parse('nmap://search?query=$query&appname=com.howmuch.app');
+    final fallbackUrl = Uri.parse('https://m.map.naver.com/search2/search.naver?query=$query');
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+      } else {
+        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('네이버지도 실행 오류: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +87,7 @@ class _DirectionsExternalAppScreenState
                 color: AppColors.naverGreen,
                 label: '네이버지도에서 열기',
                 textColor: AppColors.white,
+                onTap: _launchNaverMap,
               ),
               const SizedBox(height: 10),
               _buildAppButton(
@@ -60,6 +95,7 @@ class _DirectionsExternalAppScreenState
                 color: AppColors.kakaoYellow,
                 label: '카카오맵에서 열기',
                 textColor: Colors.black87,
+                onTap: _launchKakaoMap,
               ),
               const SizedBox(height: 16),
               Center(
@@ -215,11 +251,10 @@ class _DirectionsExternalAppScreenState
     required Color color,
     required String label,
     required Color textColor,
+    required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: () {
-        // TODO: url_launcher로 외부 앱 실행
-      },
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(

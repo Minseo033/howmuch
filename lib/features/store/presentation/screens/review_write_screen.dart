@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -18,6 +22,23 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
   final _menuController = TextEditingController(text: '김치찌개');
   final _priceController = TextEditingController(text: '5,500');
   final _contentController = TextEditingController();
+
+  final List<XFile> _selectedImages = [];
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImages() async {
+    if (_selectedImages.length >= 3) return;
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(imageQuality: 70);
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images.take(3 - _selectedImages.length));
+        });
+      }
+    } catch (e) {
+      debugPrint('사진 첨부 오류: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -128,7 +149,11 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
           text: '리뷰 등록하기',
           backgroundColor: AppColors.primary,
           onPressed: () {
-            // TODO: 리뷰 등록 요청
+            // 임시 제출 로직
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')),
+            );
+            context.pop();
           },
         ),
       ),
@@ -270,33 +295,79 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
   }
 
   Widget _buildPhotoAttach() {
-    return GestureDetector(
-      onTap: () {
-        // TODO: 사진 첨부 기능
-      },
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.camera_alt_outlined,
-              color: Colors.grey.shade400,
-              size: 28,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _pickImages,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.camera_alt_outlined,
+                    color: Colors.grey.shade400,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_selectedImages.length}/3',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '0/3',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-            ),
-          ],
-        ),
+          ),
+          ..._selectedImages.map((image) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  margin: const EdgeInsets.only(left: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                    image: DecorationImage(
+                      image: kIsWeb
+                          ? NetworkImage(image.path) as ImageProvider
+                          : FileImage(File(image.path)),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedImages.remove(image);
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ],
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -39,7 +40,7 @@ class MypageScreen extends ConsumerWidget {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    final settingsCardHeight = auth.isAdmin ? 448.0 : 358.0;
+    final settingsCardHeight = (auth.isAdmin ? 448.0 : 358.0) + 89.0;
     final scrollContentHeight =
         659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
 
@@ -678,7 +679,7 @@ class _EmptyReportItem extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatelessWidget {
+class _SettingsCard extends StatefulWidget {
   const _SettingsCard({
     required this.onNotificationTap,
     required this.onAccountTap,
@@ -704,6 +705,44 @@ class _SettingsCard extends StatelessWidget {
   final VoidCallback onSessionExpiredTap;
 
   @override
+  State<_SettingsCard> createState() => _SettingsCardState();
+}
+
+class _SettingsCardState extends State<_SettingsCard> {
+  bool _pushEnabled = false;
+  bool _marketingEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _pushEnabled = prefs.getBool('push_notifications') ?? false;
+      _marketingEnabled = prefs.getBool('marketing_consent') ?? false;
+    });
+  }
+
+  Future<void> _togglePush(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('push_notifications', value);
+    setState(() {
+      _pushEnabled = value;
+    });
+  }
+
+  Future<void> _toggleMarketing(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('marketing_consent', value);
+    setState(() {
+      _marketingEnabled = value;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
@@ -715,58 +754,112 @@ class _SettingsCard extends StatelessWidget {
         children: [
           const _PermissionRow(),
           _DividerLine(),
+          
+          _ToggleRow(
+            icon: Icons.notifications_active_outlined,
+            title: '푸시 알림',
+            value: _pushEnabled,
+            onToggle: () => _togglePush(!_pushEnabled),
+          ),
+          _DividerLine(),
+          _ToggleRow(
+            icon: Icons.campaign_outlined,
+            title: '마케팅 정보 수신 동의',
+            value: _marketingEnabled,
+            onToggle: () => _toggleMarketing(!_marketingEnabled),
+          ),
+          _DividerLine(),
+
           _SettingRow(
             icon: Icons.notifications_none_rounded,
             title: '알림 설정',
-            onTap: onNotificationTap,
+            onTap: widget.onNotificationTap,
           ),
           _DividerLine(),
           _SettingRow(
             icon: Icons.manage_accounts_outlined,
             title: '계정 관리',
-            onTap: onAccountTap,
+            onTap: widget.onAccountTap,
           ),
           _DividerLine(),
           _SettingRow(
             icon: Icons.dataset_outlined,
             title: '공공데이터 출처 안내',
-            onTap: onPublicDataTap,
+            onTap: widget.onPublicDataTap,
           ),
           _DividerLine(),
           _SettingRow(
             icon: Icons.support_agent_outlined,
             title: '문의하기',
-            onTap: onInquiryTap,
+            onTap: widget.onInquiryTap,
           ),
           _DividerLine(),
-          _AdminModeRow(value: isAdmin, onTap: onAdminModeToggle),
-          if (isAdmin) ...[
+          _AdminModeRow(value: widget.isAdmin, onTap: widget.onAdminModeToggle),
+          if (widget.isAdmin) ...[
             _DividerLine(),
             _SettingRow(
               icon: Icons.admin_panel_settings_outlined,
               title: '관리자 제보 검토',
-              onTap: onAdminReportTap,
+              onTap: widget.onAdminReportTap,
             ),
             _DividerLine(),
             _SettingRow(
               icon: Icons.mark_chat_read_outlined,
               title: '관리자 문의 검토',
-              onTap: onAdminInquiryTap,
+              onTap: widget.onAdminInquiryTap,
             ),
           ],
           _DividerLine(),
           _SettingRow(
             icon: Icons.wifi_off_rounded,
             title: '네트워크 오류 화면',
-            onTap: onNetworkErrorTap,
+            onTap: widget.onNetworkErrorTap,
           ),
           _DividerLine(),
           _SettingRow(
             icon: Icons.lock_outline_rounded,
             title: '세션 만료 · 재로그인',
-            onTap: onSessionExpiredTap,
+            onTap: widget.onSessionExpiredTap,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ToggleRow extends StatelessWidget {
+  const _ToggleRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onToggle,
+  });
+
+  final IconData icon;
+  final String title;
+  final bool value;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onToggle,
+        child: SizedBox(
+          height: 43.46590805053711,
+          child: Row(
+            children: [
+              const SizedBox(width: 15.994),
+              Icon(icon, color: MypageScreen.muted, size: 17),
+              const SizedBox(width: 11.989),
+              Text(title, style: _settingText),
+              const Spacer(),
+              _AdminModeSwitch(value: value),
+              const SizedBox(width: 16.903),
+            ],
+          ),
+        ),
       ),
     );
   }

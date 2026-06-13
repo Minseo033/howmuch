@@ -31,16 +31,38 @@
 
   <title>howmuch</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; }
+  </style>
   <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=949e657c37f55074dbb2a14ceb273e2b&libraries=services,clusterer&autoload=false"></script>
   <script>
     window.kakaoMapObjects = {};
 
     function initKakaoMap(containerId, lat, lng) {
+      if (typeof kakao === 'undefined' || !kakao.maps) {
+        setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 200);
+        return;
+      }
+
+      var loadCheckTimer = setTimeout(function() {
+        alert("🚨 카카오맵 인증 실패! 카카오 디벨로퍼스에 등록되지 않은 포트(예: " + location.port + ")를 사용 중입니다.\n터미널에서 flutter run -d chrome --web-port 8080 명령어로 실행해주세요!");
+      }, 2500);
+
       kakao.maps.load(function() {
-        var container = document.getElementById(containerId);
+        clearTimeout(loadCheckTimer);
+        var container = window[containerId] || document.getElementById(containerId);
+        
         if (!container) {
+          alert("🚨 에러: 카카오맵을 담을 HTML 컨테이너(div)를 찾을 수 없습니다!");
           setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 100);
           return;
+        }
+
+        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+          alert("🚨 에러: 카카오맵 컨테이너의 가로/세로 크기가 0입니다! (Positioned.fill 미적용 오류)");
         }
 
         var options = {
@@ -62,6 +84,10 @@
     }
 
     function addKakaoMarkers(containerId, markerListJson) {
+      if (typeof kakao === 'undefined' || !kakao.maps) {
+        setTimeout(function() { addKakaoMarkers(containerId, markerListJson); }, 200);
+        return;
+      }
       kakao.maps.load(function() {
         var map = window.kakaoMapObjects[containerId];
         var clusterer = window.kakaoMapObjects[containerId + '_clusterer'];
@@ -86,6 +112,29 @@
         clusterer.addMarkers(markers);
         console.log("Markers added successfully!");
       });
+    }
+
+    function setKakaoMapCenter(containerId, lat, lng) {
+      var map = window.kakaoMapObjects[containerId];
+      if (map) map.setCenter(new kakao.maps.LatLng(lat, lng));
+    }
+
+    function setKakaoMapCenterFromSwipe(containerId, lat, lng) {
+      var map = window.kakaoMapObjects[containerId];
+      if (map) map.panTo(new kakao.maps.LatLng(lat, lng));
+    }
+
+    function updateUserLocationMarker(containerId, lat, lng) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!map) return;
+      if (!window.userMarker) {
+        window.userMarker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(lat, lng),
+          map: map
+        });
+      } else {
+        window.userMarker.setPosition(new kakao.maps.LatLng(lat, lng));
+      }
     }
 
     // 💡 Flutter가 현재 지도의 보이는 범위를 가져갈 수 있도록 지원하는 함수

@@ -5,6 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 enum _ReportFilter { all, pending, approved, needsEdit, rejected }
@@ -37,6 +38,40 @@ class MyReportsScreen extends ConsumerStatefulWidget {
 
 class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
   _ReportFilter _filter = _ReportFilter.all;
+
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+  int _fakeItemCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore) return;
+    setState(() => _isLoadingMore = true);
+    await Future.delayed(const Duration(seconds: 2));
+    if (mounted) {
+      setState(() {
+        _isLoadingMore = false;
+        _fakeItemCount += 5;
+      });
+    }
+  }
 
   List<_MyReportData> _getMappedReports(List<UserReportStatus> riverpodReports) {
     return riverpodReports.map((r) {
@@ -72,10 +107,12 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
 
   List<_MyReportData> _visibleReports(List<UserReportStatus> riverpodReports) {
     final mapped = _getMappedReports(riverpodReports);
-    if (_filter == _ReportFilter.all) {
-      return mapped;
+    List<_MyReportData> filtered = _filter == _ReportFilter.all ? mapped : mapped.where((r) => r.filter == _filter).toList();
+    if (_fakeItemCount > 0 && filtered.isNotEmpty) {
+      final extra = List.generate(_fakeItemCount, (i) => filtered[i % filtered.length]);
+      filtered = [...filtered, ...extra];
     }
-    return mapped.where((report) => report.filter == _filter).toList();
+    return filtered;
   }
 
   void _showSnack(String message) {
@@ -136,6 +173,7 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
             width: FigmaMobileCanvas.width,
             height: FigmaMobileCanvas.height - topOffset - 97.756,
             child: ListView(
+              controller: _scrollController,
               padding: EdgeInsets.fromLTRB(
                 20,
                 15.994,
@@ -168,6 +206,22 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
                     ),
                   ),
                 ),
+
+                if (_isLoadingMore)
+                  ...List.generate(3, (index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Shimmer.fromColors(
+                      baseColor: Colors.grey[300]!,
+                      highlightColor: Colors.grey[100]!,
+                      child: Container(
+                        height: 108.778,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  )),
               ],
             ),
           ),

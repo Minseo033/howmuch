@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -12,9 +16,27 @@ class VisitVerificationScreen extends StatefulWidget {
 }
 
 class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
-  // 0: 위치 인증, 1: 영수증 인증
   int _selectedMethod = 0;
   final _amountController = TextEditingController();
+
+  XFile? _receiptImage;
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickReceiptImage() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 70,
+      );
+      if (image != null) {
+        setState(() {
+          _receiptImage = image;
+        });
+      }
+    } catch (e) {
+      debugPrint('영수증 촬영 오류: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -76,7 +98,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           text: '방문 인증하기',
           backgroundColor: AppColors.primary,
           onPressed: () {
-            // TODO: 방문 인증 요청 및 2-8로 이동
+            context.push('/home/visit_complete');
           },
         ),
       ),
@@ -211,9 +233,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     return Row(
       children: [
         GestureDetector(
-          onTap: () {
-            // TODO: 영수증 사진 촬영
-          },
+          onTap: _pickReceiptImage,
           child: Container(
             width: 60,
             height: 60,
@@ -221,17 +241,27 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
               color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade300),
+              image: _receiptImage != null
+                  ? DecorationImage(
+                      image: kIsWeb
+                          ? NetworkImage(_receiptImage!.path) as ImageProvider
+                          : FileImage(File(_receiptImage!.path)),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.camera_alt_outlined,
-                  color: Colors.grey.shade400,
-                  size: 24,
-                ),
-              ],
-            ),
+            child: _receiptImage == null
+                ? Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_outlined,
+                        color: Colors.grey.shade400,
+                        size: 24,
+                      ),
+                    ],
+                  )
+                : null,
           ),
         ),
         const SizedBox(width: 12),

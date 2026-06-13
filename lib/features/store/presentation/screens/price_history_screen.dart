@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -43,7 +44,7 @@ class PriceHistoryScreen extends StatelessWidget {
         text: '가격 변동 제보하기',
         backgroundColor: AppColors.orangeTheme,
         onPressed: () {
-          // TODO: 가격 변동 제보 화면으로 이동
+          context.push('/home/price_report');
         },
       ),
     );

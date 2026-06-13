@@ -265,24 +265,16 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _pickPhotos() async {
-    if (_photos.length >= 3) {
-      _showSnack('사진은 최대 3장까지 첨부할 수 있어요.');
-      return;
-    }
-
     try {
-      final pickedImages = await _imagePicker.pickMultiImage(imageQuality: 85);
-      if (!mounted || pickedImages.isEmpty) {
+      final pickedImage = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (!mounted || pickedImage == null) {
         return;
       }
 
-      final remainingCount = 3 - _photos.length;
-      final imagesToAdd = pickedImages.take(remainingCount).toList();
-      setState(() => _photos.addAll(imagesToAdd));
-
-      if (pickedImages.length > remainingCount) {
-        _showSnack('사진은 최대 3장까지 첨부할 수 있어요.');
-      }
+      setState(() => _photos.add(pickedImage));
     } on PlatformException {
       if (!mounted) {
         return;
@@ -1104,7 +1096,7 @@ class _PhotoUploadBox extends StatelessWidget {
     final title = hasPhotos ? '사진 $photoCount장 첨부됨' : '메뉴판 사진 첨부';
     final subtitle = hasPhotos
         ? photos.first.name
-        : '가격 확인을 위해 권장해요 · $photoCount/3';
+        : '가격 확인을 위해 권장해요';
 
     return GestureDetector(
       onTap: onTap,
@@ -1188,21 +1180,21 @@ class _PhotoThumbnailStrip extends StatelessWidget {
 
         return SizedBox(
           height: slotSize,
-          child: Row(
-            children: [
-              for (var index = 0; index < 3; index++) ...[
-                SizedBox(
-                  width: slotSize,
-                  height: slotSize,
-                  child: _PhotoThumbnailSlot(
-                    photo: index < photos.length ? photos[index] : null,
-                    index: index,
-                    onRemove: onRemove,
-                  ),
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: photos.length,
+            separatorBuilder: (context, index) => const SizedBox(width: gap),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                width: slotSize,
+                height: slotSize,
+                child: _PhotoThumbnailSlot(
+                  photo: photos[index],
+                  index: index,
+                  onRemove: onRemove,
                 ),
-                if (index != 2) const SizedBox(width: gap),
-              ],
-            ],
+              );
+            },
           ),
         );
       },

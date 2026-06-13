@@ -111,7 +111,9 @@ class FavoriteCancelConfirmScreen extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            // TODO: 찜 취소 확정 로직
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('찜이 취소되었습니다.')),
+                            );
                             Navigator.of(context).pop(true);
                           },
                           child: const Text(

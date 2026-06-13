@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -26,6 +30,23 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
     {'label': '메뉴 삭제', 'value': 'delete'},
     {'label': '신규 메뉴', 'value': 'new'},
   ];
+
+  final List<XFile> _selectedImages = [];
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickImages() async {
+    if (_selectedImages.length >= 3) return;
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(imageQuality: 70);
+      if (images.isNotEmpty) {
+        setState(() {
+          _selectedImages.addAll(images.take(3 - _selectedImages.length));
+        });
+      }
+    } catch (e) {
+      debugPrint('사진 첨부 오류: $e');
+    }
+  }
 
   @override
   void dispose() {
@@ -112,7 +133,10 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
           text: '가격 변동 제보하기',
           backgroundColor: AppColors.orangeTheme,
           onPressed: () {
-            // TODO: 가격 변동 제보 제출
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+            );
+            context.pop();
           },
         ),
       ),
@@ -258,33 +282,79 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
   }
 
   Widget _buildPhotoButton() {
-    return GestureDetector(
-      onTap: () {
-        // TODO: 사진 촬영/선택
-      },
-      child: Container(
-        width: 72,
-        height: 72,
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.camera_alt_outlined,
-              color: Colors.grey.shade400,
-              size: 28,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: _pickImages,
+            child: Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.camera_alt_outlined,
+                    color: Colors.grey.shade400,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_selectedImages.length}/3',
+                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              '0/3',
-              style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
-            ),
-          ],
-        ),
+          ),
+          ..._selectedImages.map((image) {
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  margin: const EdgeInsets.only(left: 12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                    image: DecorationImage(
+                      image: kIsWeb
+                          ? NetworkImage(image.path) as ImageProvider
+                          : FileImage(File(image.path)),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: -6,
+                  right: -6,
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedImages.remove(image);
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ],
       ),
     );
   }

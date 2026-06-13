@@ -47,12 +47,19 @@ class StoreDetailScreen extends StatelessWidget {
   }
 
   Future<void> _map(BuildContext ctx) async {
-    await launchUrl(
-      Uri.parse(
-        'https://map.kakao.com/?q=${Uri.encodeComponent(store.address)}',
-      ),
-      mode: LaunchMode.externalApplication,
-    );
+    final query = Uri.encodeComponent('${store.storeName} ${store.address}');
+    final url = Uri.parse('kakaomap://search?q=$query');
+    final fallbackUrl = Uri.parse('https://map.kakao.com/link/search/$query');
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url);
+      } else {
+        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint('카카오맵 실행 오류: $e');
+    }
   }
 
   void _snack(BuildContext ctx, String msg) =>
