@@ -7,6 +7,9 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({super.key});
@@ -40,6 +43,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   late final TextEditingController _addressController;
   bool _visitedRecently = true;
   bool _checkedMenuPrice = true;
+  bool _isSubmitting = false;
   int _activeStep = 1;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
@@ -47,13 +51,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   @override
   void initState() {
     super.initState();
-    _storeController = TextEditingController(text: _storeOptions.first);
-    _categoryController = TextEditingController(text: _categoryOptions.first);
-    _addressController = TextEditingController(text: _addressOptions.first);
+    _storeController = TextEditingController(text: '');
+    _categoryController = TextEditingController(text: '');
+    _addressController = TextEditingController(text: '');
     _storeController.addListener(_onFormChanged);
     _categoryController.addListener(_onFormChanged);
     _addressController.addListener(_onFormChanged);
-    _addInitialMenuPrice(menu: '제육덮밥', price: '6000');
+    _addInitialMenuPrice(menu: '', price: '');
     _scrollController.addListener(_syncStepWithScroll);
   }
 
@@ -158,27 +162,82 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _submit() {
-    // TODO(박지환 BE): 제보 등록 API와 이미지 업로드 API가 붙으면 이 로컬 완료 처리를 교체하세요.
-    final firstMenu = _menuPrices.first;
-    final report = UserReportStatus(
-      id: 'report-${DateTime.now().millisecondsSinceEpoch}',
-      store: _storeController.text.trim(),
-      menu: '${firstMenu.menu.text.trim()} ${firstMenu.price.text.trim()}원',
-      status: '검토 중',
-      statusColor: 0xFFF59E0B,
-      statusBg: 0xFFFEF3C7,
-      textColor: 0xFF92400E,
-    );
+  Future<void> _submit() async {
+    if (!_basicInfoComplete || !_priceInfoComplete) {
+      _showSnack('필수 정보를 모두 입력해주세요.');
+      return;
+    }
 
-    ref.read(userReportsProvider.notifier).addReport(report);
+    setState(() => _isSubmitting = true);
 
-    final profile = ref.read(userProfileProvider);
-    ref.read(userProfileProvider.notifier).state = profile.copyWith(
-      reportCount: profile.reportCount + 1,
-    );
+    try {
+      final auth = ref.read(authStateProvider);
 
-    context.push(AppRoutes.reportComplete);
+      // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
+      final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
+      final price1 = _menuPrices.isNotEmpty ? _menuPrices[0].price.text.trim() : '';
+      final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
+      final price2 = _menuPrices.length > 1 ? _menuPrices[1].price.text.trim() : '';
+      final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
+      final price3 = _menuPrices.length > 2 ? _menuPrices[2].price.text.trim() : '';
+      final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
+      final price4 = _menuPrices.length > 3 ? _menuPrices[3].price.text.trim() : '';
+
+      final backendReport = UserReport(
+        cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
+        cityDistrict: '',
+        storeName: _storeController.text.trim(),
+        industry: _categoryController.text.trim(),
+        address: _addressController.text.trim(),
+        phoneNumber: '', // 입력 필드에 없으므로 공백
+        menu1: menu1,
+        price1: price1,
+        menu2: menu2,
+        price2: price2,
+        menu3: menu3,
+        price3: price3,
+        menu4: menu4,
+        price4: price4,
+        imageUrls: [],
+        reporterId: auth.email,
+        visitedRecently: _visitedRecently,
+        checkedMenuPrice: _checkedMenuPrice,
+        latitude: 0.0, // 주소로 백엔드에서 위경도 변환
+        longitude: 0.0,
+      );
+
+      final success = await ref.read(reportServiceProvider).submitReport(backendReport);
+
+      if (success) {
+        // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
+        final localReport = UserReportStatus(
+          id: 'report-${DateTime.now().millisecondsSinceEpoch}',
+          store: _storeController.text.trim(),
+          menu: '$menu1 $price1원',
+          status: '검토 중',
+          statusColor: 0xFFF59E0B,
+          statusBg: 0xFFFEF3C7,
+          textColor: 0xFF92400E,
+        );
+
+        ref.read(userReportsProvider.notifier).addReport(localReport);
+
+        final profile = ref.read(userProfileProvider);
+        ref.read(userProfileProvider.notifier).state = profile.copyWith(
+          reportCount: profile.reportCount + 1,
+        );
+
+        if (mounted) {
+          context.push(AppRoutes.reportComplete);
+        }
+      } else {
+        _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 
   Future<void> _pickCategory() async {

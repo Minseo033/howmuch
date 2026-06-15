@@ -8,7 +8,12 @@ import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
 class VisitVerificationScreen extends StatefulWidget {
-  const VisitVerificationScreen({super.key});
+  final String storeName;
+
+  const VisitVerificationScreen({
+    super.key,
+    this.storeName = '매장 정보 없음',
+  });
 
   @override
   State<VisitVerificationScreen> createState() =>
@@ -115,17 +120,17 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '착한분식',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  widget.storeName,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '김치찌개 5,500원',
+                const SizedBox(height: 4),
+                const Text(
+                  '가격 정보 확인 가능',
                   style: TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],

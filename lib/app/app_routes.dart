@@ -9,6 +9,7 @@ class AppRoutes {
   static const onboardingStoreReport = '/onboarding/store-report';
   static const login = '/login';
   static const permissionSetup = '/permissions';
+  static const profileSetup = '/auth/profile-setup';
   static const home = '/home';
   static const homeAiFab = '/home/ai-fab';
   static const homeAi = '/home-ai';

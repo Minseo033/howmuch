@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_router.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 
 final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
@@ -41,15 +43,44 @@ class KakaoLoginService {
       bool isBackendSuccess = await _authenticateWithBackend(token.accessToken);
       if (isBackendSuccess) {
         User user = await UserApi.instance.me();
-        
-        // 💡 인증 상태 업데이트
-        _ref.read(authStateProvider.notifier).update((state) => state.copyWith(
-          isLoggedIn: true,
-          provider: '카카오',
-          email: user.kakaoAccount?.email ?? 'unknown',
-        ));
-        
-        _ref.read(appRouterProvider).go(AppRoutes.permissionSetup);
+        final email = user.kakaoAccount?.email ?? 'unknown';
+        // 카카오 uid를 firebaseUid로 활용
+        final firebaseUid = user.id.toString();
+
+        // 💡 인증 상태 업데이트 (firebaseUid 포함)
+        _ref.read(authStateProvider.notifier).update(
+          (state) => state.copyWith(
+            isLoggedIn: true,
+            provider: '카카오',
+            email: email,
+            firebaseUid: firebaseUid,
+          ),
+        );
+
+        // 💡 프로필 존재 여부에 따라 라우팅 분기
+        final profileService = UserProfileApiService();
+        final profile = await profileService.fetchProfile(firebaseUid);
+
+        if (profile != null) {
+          // 기존 사용자: 프로필 데이터로 상태 업데이트 후 홈으로 이동
+          final rawCategories = profile['favoriteCategories'];
+          final parsedCategories = rawCategories is List
+              ? rawCategories.map((e) => e.toString()).toList()
+              : null;
+          _ref.read(userProfileProvider.notifier).update(
+            (state) => state.copyWith(
+              nickname: profile['nickname'] as String? ?? state.nickname,
+              email: profile['email'] as String? ?? email,
+              region: profile['region'] as String? ?? state.region,
+              favoriteCategories: parsedCategories ?? state.favoriteCategories,
+            ),
+          );
+          _ref.read(appRouterProvider).go(AppRoutes.home);
+        } else {
+          // 신규 사용자: 프로필 설정 화면으로 이동
+          _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
+        }
+
         return null; // 성공 시 null 반환
       } else {
         _ref.read(appRouterProvider).go(AppRoutes.login);

@@ -5,6 +5,8 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
+import com.howmuch.dto.UserProfileRequest;
+import com.howmuch.dto.UserProfileResponse;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 import java.util.ArrayList;
@@ -108,9 +110,16 @@ public class FirebaseService {
                     return data;
                 })
                 .filter(data -> {
-                    Object lngObj = data.get("longitude");
-                    if (lngObj instanceof Double lng) {
-                        return lng >= minLng && lng <= maxLng;
+                    try {
+                        Object lngObj = data.get("longitude");
+                        Object latObj = data.get("latitude");
+                        if (lngObj != null && latObj != null) {
+                            double lng = Double.parseDouble(lngObj.toString());
+                            double lat = Double.parseDouble(latObj.toString());
+                            return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
+                        }
+                    } catch (NumberFormatException e) {
+                        return false;
                     }
                     return false;
                 })
@@ -128,5 +137,53 @@ public class FirebaseService {
         DocumentReference docRef = db.collection("stores_user").document();
         ApiFuture<WriteResult> future = docRef.set(report);
         return docRef.getId();
+    }
+
+    // 💡 유저 프로필 저장
+    public UserProfileResponse saveUserProfile(String firebaseUid, UserProfileRequest request) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("firebaseUid", firebaseUid);
+        data.put("nickname", request.getNickname());
+        data.put("email", request.getEmail());
+        data.put("region", request.getRegion());
+        data.put("favoriteCategories", request.getFavoriteCategories());
+        data.put("createdAt", java.time.Instant.now().toString());
+
+        ApiFuture<WriteResult> future = db.collection("users").document(firebaseUid).set(data);
+        future.get(); // 저장 완료 대기
+
+        return UserProfileResponse.builder()
+                .firebaseUid(firebaseUid)
+                .nickname(request.getNickname())
+                .email(request.getEmail())
+                .region(request.getRegion())
+                .favoriteCategories(request.getFavoriteCategories())
+                .createdAt((String) data.get("createdAt"))
+                .build();
+    }
+
+    // 💡 유저 프로필 조회
+    public UserProfileResponse getUserProfile(String firebaseUid) throws Exception {
+        DocumentReference docRef = db.collection("users").document(firebaseUid);
+        ApiFuture<DocumentSnapshot> future = docRef.get();
+        DocumentSnapshot document = future.get();
+
+        if (!document.exists()) {
+            return null;
+        }
+
+        Map<String, Object> data = document.getData();
+
+        @SuppressWarnings("unchecked")
+        List<String> favoriteCategories = (List<String>) data.get("favoriteCategories");
+
+        return UserProfileResponse.builder()
+                .firebaseUid(firebaseUid)
+                .nickname((String) data.get("nickname"))
+                .email((String) data.get("email"))
+                .region((String) data.get("region"))
+                .favoriteCategories(favoriteCategories)
+                .createdAt((String) data.get("createdAt"))
+                .build();
     }
 }

@@ -332,35 +332,7 @@ final userProfileProvider = StateProvider<UserProfile>(
 
 // TODO(박지환 BE): 내 제보 목록/상태 API 응답으로 교체하세요.
 final userReportsProvider = StateNotifierProvider<UserReportsNotifier, List<UserReportStatus>>(
-  (ref) => UserReportsNotifier(const [
-    UserReportStatus(
-      id: 'report-golmok',
-      store: '골목밥상',
-      menu: '제육덮밥 6,000원',
-      status: '검토 중',
-      statusColor: 0xFFF59E0B,
-      statusBg: 0xFFFEF3C7,
-      textColor: 0xFF92400E,
-    ),
-    UserReportStatus(
-      id: 'report-cafe',
-      store: '동네카페',
-      menu: '아메리카노 2,000원',
-      status: '승인 완료',
-      statusColor: 0xFF10B981,
-      statusBg: 0xFFE8F8F1,
-      textColor: 0xFF10B981,
-    ),
-    UserReportStatus(
-      id: 'report-kimbap',
-      store: '착한김밥',
-      menu: '김밥 2,500원',
-      status: '보완 요청',
-      statusColor: 0xFFF97316,
-      statusBg: 0xFFFFF3EA,
-      textColor: 0xFF9A3412,
-    ),
-  ]),
+  (ref) => UserReportsNotifier(const []),
 );
 
 final notificationSettingsProvider = StateProvider<NotificationSettings>(

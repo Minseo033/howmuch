@@ -171,7 +171,6 @@ class LoginScreen extends ConsumerWidget {
       final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
       if (errorMsg == null) {
         if (context.mounted) {
-          context.go(AppRoutes.permissionSetup);
           messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
         }
       } else {

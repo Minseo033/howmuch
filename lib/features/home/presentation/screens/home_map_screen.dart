@@ -382,9 +382,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
               var bubble = document.createElement('div');
+              var bgColor = item.source === 'USER' ? '#F97316' : '#1D4ED8';
               bubble.style.cssText = [
                 'cursor:pointer',
-                'background:#1D4ED8',
+                'background:' + bgColor,
                 'color:#fff',
                 'border-radius:20px',
                 'padding:5px 10px',
@@ -415,7 +416,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 'height:0',
                 'border-left:5px solid transparent',
                 'border-right:5px solid transparent',
-                'border-top:6px solid #1D4ED8',
+                'border-top:6px solid ' + bgColor,
                 'margin-top:-1px',
                 'transition:border-top-color 0.2s ease'
               ].join(';');
@@ -692,15 +693,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
 
-      if (markerList.isNotEmpty) {
-        if (mounted)
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${markerList.length}개의 업소를 찾았습니다.'),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-      } else if (mounted) {
+      if (markerList.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('이 주변에는 조건에 맞는 업소가 없습니다.'),
@@ -719,12 +712,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     web_helper.addKakaoMarkersWeb(_viewId, json.encode(markerList));
 
-    if (markerList.isNotEmpty) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${markerList.length}개의 업소를 찾았습니다.')),
-        );
-    } else if (mounted) {
+    if (markerList.isEmpty && mounted) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('이 주변에는 조건에 맞는 업소가 없습니다.')));
@@ -800,6 +788,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             .toList();
       }
 
+      if (_searchFilter.govCertified) {
+        stores = stores.where((s) => s.source == 'GOV').toList();
+      } else if (!_searchFilter.userReported) {
+        stores = stores.where((s) => s.source != 'USER').toList();
+      }
+
       if (_searchFilter.distance != null && _lastKnownPosition != null) {
         double maxDist = 0;
         if (_searchFilter.distance == '500m 이내')
@@ -822,6 +816,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
       }
 
+      if (_searchFilter.sortOrder == '저렴한순') {
+        stores.sort((a, b) {
+          final pa = int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
+          final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
+          return pa.compareTo(pb);
+        });
+      } else {
+        if (_lastKnownPosition != null) {
+          stores.sort((a, b) {
+            final da = Geolocator.distanceBetween(
+              _lastKnownPosition!.latitude,
+              _lastKnownPosition!.longitude,
+              a.latitude,
+              a.longitude,
+            );
+            final db = Geolocator.distanceBetween(
+              _lastKnownPosition!.latitude,
+              _lastKnownPosition!.longitude,
+              b.latitude,
+              b.longitude,
+            );
+            return da.compareTo(db);
+          });
+        }
+      }
+
       // 💥 너무 많은 마커가 렌더링되어 앱이 멈추는 것을 방지 (최대 100개)
       if (stores.length > 100) {
         stores = stores.take(100).toList();
@@ -840,6 +860,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           'title': s.storeName,
           'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
           'price': priceStr,
+          'source': s.source,
         };
       }).toList();
     } catch (e) {

@@ -8,7 +8,12 @@ import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
 class PriceChangeReportScreen extends StatefulWidget {
-  const PriceChangeReportScreen({super.key});
+  final String storeName;
+
+  const PriceChangeReportScreen({
+    super.key,
+    this.storeName = '매장 정보 없음',
+  });
 
   @override
   State<PriceChangeReportScreen> createState() =>
@@ -20,8 +25,8 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
   int _selectedType = 0;
   bool _isConfirmed = true;
 
-  final _menuController = TextEditingController(text: '아메리카노');
-  final _priceController = TextEditingController(text: '2,500');
+  final _menuController = TextEditingController();
+  final _priceController = TextEditingController();
   final _descController = TextEditingController();
 
   final List<Map<String, String>> _changeTypes = [
@@ -154,29 +159,29 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '동네카페',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  widget.storeName,
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  '기존 가격',
+                const SizedBox(height: 4),
+                const Text(
+                  '가격 변동 제보',
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
-                SizedBox(height: 2),
-                Text(
-                  '아메리카노',
+                const SizedBox(height: 2),
+                const Text(
+                  '메뉴 정보 기입',
                   style: TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
             ),
           ),
           const Text(
-            '2,000원',
+            '-',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ],

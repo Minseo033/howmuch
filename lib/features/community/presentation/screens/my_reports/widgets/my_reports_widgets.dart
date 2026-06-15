@@ -680,11 +680,15 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
     if (filter == ReportFilter.approved) height = 154.759;
     else if (filter == ReportFilter.needsEdit) height = 194.134;
 
+    final timestamp = int.tryParse(r.id.replaceAll('report-', '')) ?? DateTime.now().millisecondsSinceEpoch;
+    final dateObj = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final dateStr = '${dateObj.year}.${dateObj.month.toString().padLeft(2, '0')}.${dateObj.day.toString().padLeft(2, '0')}';
+
     return MyReportData(
       id: r.id,
       filter: filter,
       status: r.status,
-      date: '2026.05.12', // dummy date
+      date: dateStr,
       title: r.store,
       menu: r.menu,
       badgeBackground: Color(r.statusBg),

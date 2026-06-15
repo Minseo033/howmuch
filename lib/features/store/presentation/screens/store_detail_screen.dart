@@ -560,11 +560,25 @@ class StoreDetailScreen extends StatelessWidget {
                         onTap: () => _call(context),
                       ),
                       const SizedBox(width: 10),
-                      // 제보 버튼 (목업)
+                      // 제보 버튼
                       _BottomIconBtn(
                         icon: Icons.campaign_rounded,
                         label: '가격 제보',
-                        onTap: () => context.push(AppRoutes.priceChangeReport),
+                        onTap: () => context.push(
+                          AppRoutes.priceChangeReport,
+                          extra: store.storeName,
+                        ),
+                        muted: false,
+                      ),
+                      const SizedBox(width: 10),
+                      // 방문 인증 버튼 (프리젠테이션 시연용)
+                      _BottomIconBtn(
+                        icon: Icons.verified_rounded,
+                        label: '방문 인증',
+                        onTap: () => context.push(
+                          AppRoutes.visitVerification,
+                          extra: store.storeName,
+                        ),
                         muted: false,
                       ),
                       const SizedBox(width: 10),

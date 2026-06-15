@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 class ReportCompleteScreen extends StatelessWidget {
   const ReportCompleteScreen({super.key});
@@ -201,11 +203,31 @@ class _SuccessMark extends StatelessWidget {
   }
 }
 
-class _SubmittedReportCard extends StatelessWidget {
+class _SubmittedReportCard extends ConsumerWidget {
   const _SubmittedReportCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reports = ref.watch(userReportsProvider);
+    final report = reports.isNotEmpty ? reports.first : null;
+    
+    final storeName = report?.store ?? '로딩 중...';
+    
+    // 메뉴와 가격 분리 로직 (예: "제육덮밥 6,000원")
+    final fullMenuText = report?.menu ?? '메뉴 로딩 중...';
+    String menuName = fullMenuText;
+    String menuPrice = '';
+    
+    final lastSpaceIndex = fullMenuText.lastIndexOf(' ');
+    if (lastSpaceIndex != -1) {
+      menuName = fullMenuText.substring(0, lastSpaceIndex);
+      menuPrice = fullMenuText.substring(lastSpaceIndex + 1);
+    }
+
+    // 오늘 날짜 포맷 (예: 2026.06.14)
+    final now = DateTime.now();
+    final todayStr = '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: ReportCompleteScreen.surface,
@@ -230,9 +252,9 @@ class _SubmittedReportCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 11.99),
-            const Text(
-              '골목밥상',
-              style: TextStyle(
+            Text(
+              storeName,
+              style: const TextStyle(
                 color: Color(0xFF0A0A0A),
                 fontFamily: ReportCompleteScreen.fontFamily,
                 fontFamilyFallback: ReportCompleteScreen.fontFallback,
@@ -245,8 +267,8 @@ class _SubmittedReportCard extends StatelessWidget {
             _InfoRow(
               label: '대표 메뉴',
               value: RichText(
-                text: const TextSpan(
-                  style: TextStyle(
+                text: TextSpan(
+                  style: const TextStyle(
                     color: ReportCompleteScreen.ink,
                     fontFamily: ReportCompleteScreen.fontFamily,
                     fontFamilyFallback: ReportCompleteScreen.fontFallback,
@@ -255,10 +277,10 @@ class _SubmittedReportCard extends StatelessWidget {
                     height: 1.5,
                   ),
                   children: [
-                    TextSpan(text: '제육덮밥 '),
+                    TextSpan(text: '$menuName '),
                     TextSpan(
-                      text: '6,000원',
-                      style: TextStyle(
+                      text: menuPrice,
+                      style: const TextStyle(
                         color: ReportCompleteScreen.orange,
                         fontWeight: FontWeight.w700,
                       ),
@@ -270,7 +292,7 @@ class _SubmittedReportCard extends StatelessWidget {
             const SizedBox(height: 5.994),
             const _InfoRow(label: '위치', text: '현재 위치 근처'),
             const SizedBox(height: 5.994),
-            const _InfoRow(label: '제보일', text: '2026.05.16'),
+            _InfoRow(label: '제보일', text: todayStr),
           ],
         ),
       ),

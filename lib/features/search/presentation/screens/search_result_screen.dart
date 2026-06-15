@@ -163,6 +163,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
             .toList();
       }
 
+      // 정부 인증 / 사용자 제보 필터
+      if (_filter.govCertified) {
+        stores = stores.where((s) => s.source == 'GOV').toList();
+      } else if (!_filter.userReported) {
+        stores = stores.where((s) => s.source != 'USER').toList();
+      }
+
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
         stores.sort((a, b) {

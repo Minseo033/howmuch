@@ -60,6 +60,7 @@ import 'package:howmuch/features/mypage/presentation/screens/my_reviews_screen.d
 import 'package:howmuch/features/mypage/presentation/screens/visit_history_screen.dart';
 import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
 
+import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -88,9 +89,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.reviewList, const ReviewListScreen()),
       _route(AppRoutes.reviewWrite, const ReviewWriteScreen()),
       _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
-      _route(AppRoutes.priceChangeReport, const PriceChangeReportScreen()),
+      GoRoute(
+        path: AppRoutes.priceChangeReport,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: PriceChangeReportScreen(
+            storeName: state.extra is String ? state.extra as String : '매장 정보 없음',
+          ),
+        ),
+      ),
       _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
-      _route(AppRoutes.visitVerification, const VisitVerificationScreen()),
+      GoRoute(
+        path: AppRoutes.visitVerification,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: VisitVerificationScreen(
+            storeName: state.extra is String ? state.extra as String : '매장 정보 없음',
+          ),
+        ),
+      ),
       _route(
         AppRoutes.visitVerificationComplete,
         const VisitVerificationCompleteScreen(),
@@ -118,6 +135,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _route(AppRoutes.login, const LoginScreen()),
       _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
+      _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
       _tabRoute(AppRoutes.home, const HomeMapScreen()),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.homeAi, const HomeMapScreen(showAiSpotlight: true)),

@@ -6,24 +6,28 @@ class AuthState {
     required this.isAdmin,
     required this.provider,
     required this.email,
+    this.firebaseUid = '',
   });
 
   final bool isLoggedIn;
   final bool isAdmin;
   final String provider;
   final String email;
+  final String firebaseUid;
 
   AuthState copyWith({
     bool? isLoggedIn,
     bool? isAdmin,
     String? provider,
     String? email,
+    String? firebaseUid,
   }) {
     return AuthState(
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
       isAdmin: isAdmin ?? this.isAdmin,
       provider: provider ?? this.provider,
       email: email ?? this.email,
+      firebaseUid: firebaseUid ?? this.firebaseUid,
     );
   }
 }
