@@ -7,8 +7,12 @@ import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
+import 'package:howmuch/features/store/store_model.dart';
+
 class ReviewWriteScreen extends StatefulWidget {
-  const ReviewWriteScreen({super.key});
+  final Store? store;
+
+  const ReviewWriteScreen({super.key, this.store});
 
   @override
   State<ReviewWriteScreen> createState() => _ReviewWriteScreenState();
@@ -19,8 +23,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
   bool _isVisitedRecently = true;
   bool _isPriceChecked = true;
 
-  final _menuController = TextEditingController(text: '김치찌개');
-  final _priceController = TextEditingController(text: '5,500');
+  late final TextEditingController _menuController;
+  late final TextEditingController _priceController;
   final _contentController = TextEditingController();
 
   final List<XFile> _selectedImages = [];
@@ -38,6 +42,20 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
     } catch (e) {
       debugPrint('사진 첨부 오류: $e');
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _menuController = TextEditingController(text: widget.store?.menu1 ?? '');
+    
+    final rawPrice = widget.store?.price1 ?? '';
+    final priceDigits = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
+    _priceController = TextEditingController(
+      text: priceDigits.isNotEmpty
+          ? priceDigits.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')
+          : '',
+    );
   }
 
   @override
@@ -170,15 +188,15 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
-            '착한분식',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            widget.store?.storeName ?? '매장 정보 없음',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
-            '서울 강남구 역삼동',
-            style: TextStyle(color: AppColors.muted, fontSize: 13),
+            widget.store?.address ?? '주소 정보 없음',
+            style: const TextStyle(color: AppColors.muted, fontSize: 13),
           ),
         ],
       ),

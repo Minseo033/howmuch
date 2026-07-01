@@ -5,8 +5,11 @@ import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
+import 'package:howmuch/features/store/store_model.dart';
+
 class ReviewListScreen extends StatefulWidget {
-  const ReviewListScreen({super.key});
+  final Store? store;
+  const ReviewListScreen({super.key, this.store});
 
   @override
   State<ReviewListScreen> createState() => _ReviewListScreenState();
@@ -81,7 +84,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         text: '리뷰 작성하기',
         backgroundColor: AppColors.orangeTheme,
         onPressed: () {
-          context.push(AppRoutes.reviewWrite);
+          context.push(AppRoutes.reviewWrite, extra: widget.store);
         },
       ),
     );
@@ -95,9 +98,9 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         children: [
           Row(
             children: [
-              const Text(
-                '착한분식',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              Text(
+                widget.store?.storeName ?? '매장 정보 없음',
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               Container(
