@@ -9,8 +9,11 @@ void main() async {
   // 💡 비동기 작업을 위해 초기화 보장
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 💡 카카오 SDK 초기화
-  KakaoSdk.init(nativeAppKey: '224e0cadbd6a8505be5becb3cac3fcaa');
+  // 💡 카카오 SDK 초기화 (웹 지원을 위해 javaScriptAppKey 추가)
+  KakaoSdk.init(
+    nativeAppKey: 'bea4d05b42d5c01661e2262d696f3707',
+    javaScriptAppKey: '8aa42a2f5dc0314f1fe917a90aa6c112',
+  );
 
   // 💡 디버그 콘솔에서 키 해시 확인용 (등록 후 삭제 가능)
   debugPrint("카카오 키 해시: ${await KakaoSdk.origin}");

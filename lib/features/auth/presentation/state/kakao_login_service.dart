@@ -13,8 +13,8 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
 class KakaoLoginService {
   final Ref _ref;
-  // 💡 실기기 및 로컬 네트워크 제약을 우회하기 위해 ngrok 터널링 주소를 사용합니다.
-  final String _backendBaseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
+  // 💡 웹 배포를 위해 localhost 대신 ngrok 고정
+  final String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   KakaoLoginService(this._ref);
 

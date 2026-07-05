@@ -51,7 +51,7 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
           Positioned(
             left: 0,
             top: topOffset + 225.1708984375,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 377.9261169433594,
             child: _EmptyResultBody(
               onSuggestionTap: (suggestion) {
@@ -102,7 +102,7 @@ class _SearchHeader extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: topOffset + 105.17044830322266,
       child: DecoratedBox(
         decoration: const BoxDecoration(

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class VisitVerificationScreen extends StatefulWidget {
   final String storeName;
@@ -52,7 +53,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 매장 위치/거리 연동, 인증 API 연동
-    return GestureDetector(
+    return FigmaMobileCanvas(
+      child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
@@ -107,6 +109,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           },
         ),
       ),
+    ),
     );
   }
 
@@ -165,7 +168,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     required Widget? extra,
   }) {
     final selected = _selectedMethod == index;
-    return GestureDetector(
+    return FigmaMobileCanvas(
+      child: GestureDetector(
       onTap: () => setState(() => _selectedMethod = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -231,6 +235,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

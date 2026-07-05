@@ -43,14 +43,14 @@ class TermsOfServiceScreen extends StatelessWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 200,
                       child: const _TermsSummaryCard(),
                     ),
@@ -62,7 +62,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                     Positioned(
                       left: 20,
                       top: 304.26416015625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 840.9005126953125,
                       child: _TermsListCard(
                         onOpen: (item) => _showTermsDetail(context, item),
@@ -71,7 +71,7 @@ class TermsOfServiceScreen extends StatelessWidget {
                     Positioned(
                       left: 20,
                       top: 1157.1533203125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 41.008522033691406,
                       child: const _TermsNotice(),
                     ),
@@ -160,7 +160,7 @@ class _TermsHeader extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(

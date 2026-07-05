@@ -52,4 +52,24 @@ class Store {
       source: json['source'] ?? 'GOV',
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'storeName': storeName,
+      'address': address,
+      'phoneNumber': phoneNumber,
+      'industry': industry,
+      'menu1': menu1,
+      'price1': price1,
+      'menu2': menu2,
+      'price2': price2,
+      'menu3': menu3,
+      'price3': price3,
+      'menu4': menu4,
+      'price4': price4,
+      'latitude': latitude,
+      'longitude': longitude,
+      'source': source,
+    };
+  }
 }

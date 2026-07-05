@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class FavoriteCancelConfirmScreen extends StatelessWidget {
   const FavoriteCancelConfirmScreen({super.key});
@@ -6,7 +7,8 @@ class FavoriteCancelConfirmScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 찜 취소 연동
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: Dialog(
@@ -134,6 +136,7 @@ class FavoriteCancelConfirmScreen extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

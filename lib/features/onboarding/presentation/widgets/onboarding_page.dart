@@ -151,50 +151,51 @@ class _OnboardingSlideView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLast = step == totalSteps - 1;
-    final bottomTop = isLast ? 660.0426025390625 : 690.0283813476562;
-    final buttonTop = isLast ? 685.9942626953125 : 716.022705078125;
+    final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
 
-    return Stack(
-      children: [
-        _ArtworkLayer(artwork: slide.artwork),
-        _SlideCopy(slide: slide),
-        Positioned(
-          left: 20,
-          top: bottomTop,
-          width: 335.45452880859375,
-          height: 5.994318008422852,
-          child: _StepIndicator(step: step, totalSteps: totalSteps),
-        ),
-        Positioned(
-          left: 20,
-          top: buttonTop,
-          width: 335.45452880859375,
-          height: 51.9886360168457,
-          child: _PrimaryButton(label: slide.primaryLabel, onPressed: onNext),
-        ),
-        if (isLast && onSkip != null)
-          Positioned(
-            left: 20,
-            top: 750.01416015625,
-            width: 335.45452880859375,
-            height: 17.99715805053711,
-            child: TextButton(
-              onPressed: onSkip,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                foregroundColor: OnboardingPage.muted,
-                textStyle: const TextStyle(
-                  fontFamily: OnboardingPage.fontFamily,
-                  fontFamilyFallback: OnboardingPage.fontFallback,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  height: 1.5,
-                ),
-              ),
-              child: const Text('로그인 없이 둘러보기'),
-            ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Spacer(flex: 3),
+          _ArtworkLayer(artwork: slide.artwork),
+          const Spacer(flex: 2),
+          _SlideCopy(slide: slide),
+          const Spacer(flex: 2),
+          _StepIndicator(step: step, totalSteps: totalSteps),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: _PrimaryButton(label: slide.primaryLabel, onPressed: onNext),
           ),
-      ],
+          if (isLast && onSkip != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 18,
+              child: TextButton(
+                onPressed: onSkip,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  foregroundColor: OnboardingPage.muted,
+                  textStyle: const TextStyle(
+                    fontFamily: OnboardingPage.fontFamily,
+                    fontFamilyFallback: OnboardingPage.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
+                ),
+                child: const Text('로그인 없이 둘러보기'),
+              ),
+            ),
+          ] else ...[
+            const SizedBox(height: 30),
+          ],
+          SizedBox(height: safeBottom > 0 ? safeBottom / 2 : 20),
+        ],
+      ),
     );
   }
 }
@@ -207,23 +208,17 @@ class _ArtworkLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return switch (artwork) {
-      OnboardingArtwork.nearby => const Positioned(
-        left: 47.727264404296875,
-        top: 112.04545593261719,
+      OnboardingArtwork.nearby => const SizedBox(
         width: 280,
         height: 320,
         child: _NearbyArtwork(),
       ),
-      OnboardingArtwork.savings => const Positioned(
-        left: 47.727294921875,
-        top: 141.4204559326172,
+      OnboardingArtwork.savings => const SizedBox(
         width: 280,
         height: 261.25,
         child: _SavingsArtwork(),
       ),
-      OnboardingArtwork.storeReport => const Positioned(
-        left: 47.727294921875,
-        top: 127.05965423583984,
+      OnboardingArtwork.storeReport => const SizedBox(
         width: 280,
         height: 260,
         child: _StoreReportArtwork(),
@@ -239,74 +234,35 @@ class _SlideCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isNearby = slide.artwork == OnboardingArtwork.nearby;
-    final isSavings = slide.artwork == OnboardingArtwork.savings;
-    final eyebrowTop = isNearby
-        ? 465.4971466064453
-        : isSavings
-        ? 436.1221466064453
-        : 420.5255432128906;
-    final titleTop = isNearby
-        ? 501.96022033691406
-        : isSavings
-        ? 472.58522033691406
-        : 456.98871994018555;
-    final descTop = isNearby
-        ? 576.3636016845703
-        : isSavings
-        ? 546.9886322021484
-        : 531.3920745849609;
-    final textWidth = isNearby
-        ? 252.28692626953125
-        : isSavings
-        ? 226.2926025390625
-        : 246.7045440673828;
-    final left = (FigmaMobileCanvas.width - textWidth) / 2;
-    final eyebrowWidth = isNearby ? 141.36363220214844 : 84.64488220214844;
-
-    return Stack(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Positioned(
-          left: (FigmaMobileCanvas.width - eyebrowWidth) / 2,
-          top: eyebrowTop,
-          width: eyebrowWidth,
-          height: 24.474430084228516,
-          child: _Eyebrow(slide: slide),
-        ),
-        Positioned(
-          left: left,
-          top: titleTop,
-          width: textWidth,
-          height: 62.414772033691406,
-          child: Text(
-            slide.title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: OnboardingPage.ink,
-              fontFamily: OnboardingPage.fontFamily,
-              fontFamilyFallback: OnboardingPage.fontFallback,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              height: 1.3,
-            ),
+        _Eyebrow(slide: slide),
+        const SizedBox(height: 12),
+        Text(
+          slide.title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: OnboardingPage.ink,
+            fontFamily: OnboardingPage.fontFamily,
+            fontFamilyFallback: OnboardingPage.fontFallback,
+            fontSize: 24,
+            fontWeight: FontWeight.w800,
+            height: 1.3,
           ),
         ),
-        Positioned(
-          left: left,
-          top: descTop,
-          width: textWidth,
-          height: 41.59090805053711,
-          child: Text(
-            slide.description,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: OnboardingPage.muted,
-              fontFamily: OnboardingPage.fontFamily,
-              fontFamilyFallback: OnboardingPage.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              height: 1.6,
-            ),
+        const SizedBox(height: 12),
+        Text(
+          slide.description,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: OnboardingPage.muted,
+            fontFamily: OnboardingPage.fontFamily,
+            fontFamilyFallback: OnboardingPage.fontFallback,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            height: 1.6,
           ),
         ),
       ],
@@ -321,23 +277,22 @@ class _Eyebrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: slide.eyebrowBackgroundColor,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Center(
-        child: Text(
-          slide.eyebrow,
-          style: TextStyle(
-            color: slide.eyebrowColor,
-            fontFamily: OnboardingPage.fontFamily,
-            fontFamilyFallback: OnboardingPage.fontFallback,
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-            letterSpacing: .3,
-          ),
+      child: Text(
+        slide.eyebrow,
+        style: TextStyle(
+          color: slide.eyebrowColor,
+          fontFamily: OnboardingPage.fontFamily,
+          fontFamilyFallback: OnboardingPage.fontFallback,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          height: 1.5,
+          letterSpacing: .3,
         ),
       ),
     );

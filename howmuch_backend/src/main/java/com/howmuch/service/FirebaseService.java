@@ -134,9 +134,25 @@ public class FirebaseService {
 
     // 💡 사용자의 매장 제보 저장
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
+        report.setStatus("PENDING");
+        report.setCreatedAt(java.time.Instant.now().toString());
+
         DocumentReference docRef = db.collection("stores_user").document();
         ApiFuture<WriteResult> future = docRef.set(report);
         return docRef.getId();
+    }
+
+    // 💡 사용자의 제보 목록 조회
+    public java.util.List<Map<String, Object>> getUserReports(String firebaseUid) throws Exception {
+        return db.collection("stores_user")
+                .whereEqualTo("reporterId", firebaseUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId()); // 문서 ID 포함
+                    return data;
+                })
+                .toList();
     }
 
     // 💡 유저 프로필 저장

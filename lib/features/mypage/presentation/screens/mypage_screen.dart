@@ -54,92 +54,111 @@ class MypageScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 0,
+                      right: 0,
                       top: 0,
-                      width: FigmaMobileCanvas.width,
                       height: 50.96590805053711 + topOffset,
                       child: _Header(topOffset: topOffset),
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 66.96044921875 + topOffset,
-                      width: 335.45452880859375,
                       height: 163.23863220214844,
                       child: _ProfileCard(
                         profile: profile,
                         onEdit: () => context.go(AppRoutes.profileEdit),
                       ),
                     ),
+                    // QuickMenu row 1
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 246.193359375 + topOffset,
+                      height: 90,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '내 제보',
+                                icon: Icons.description_outlined,
+                                color: orange,
+                                onTap: () => context.push(AppRoutes.myReportsV2),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '찜한 매장',
+                                icon: Icons.favorite_border_rounded,
+                                color: orange,
+                                onTap: () => context.push(AppRoutes.favoriteStores),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '내 리뷰',
+                                icon: Icons.rate_review_outlined,
+                                color: blue,
+                                onTap: () => context.push(AppRoutes.myReviews),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // QuickMenu row 2
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 348.47998046875 + topOffset,
+                      height: 90,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '방문 기록',
+                                icon: Icons.location_on_outlined,
+                                color: green,
+                                onTap: () => context.push(AppRoutes.visitHistory),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '절약 리포트',
+                                icon: Icons.bar_chart_rounded,
+                                color: green,
+                                onTap: () => context.go(AppRoutes.savingsReportDashboard),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _QuickMenu(
+                                label: '알림 설정',
+                                icon: Icons.notifications_none_rounded,
+                                color: blue,
+                                onTap: () => context.go(AppRoutes.notificationSettings),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     Positioned(
                       left: 20,
-                      top: 246.193359375 + topOffset,
-                      child: _QuickMenu(
-                        label: '내 제보',
-                        icon: Icons.description_outlined,
-                        color: orange,
-                        onTap: () => context.push(AppRoutes.myReportsV2),
-                      ),
-                    ),
-                    Positioned(
-                      left: 134.47442626953125,
-                      top: 246.193359375 + topOffset,
-                      child: _QuickMenu(
-                        label: '찜한 매장',
-                        icon: Icons.favorite_border_rounded,
-                        color: orange,
-                        onTap: () => context.push(AppRoutes.favoriteStores),
-                      ),
-                    ),
-                    Positioned(
-                      left: 248.96307373046875,
-                      top: 246.193359375 + topOffset,
-                      child: _QuickMenu(
-                        label: '내 리뷰',
-                        icon: Icons.rate_review_outlined,
-                        color: blue,
-                        onTap: () => context.push(AppRoutes.myReviews),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 348.47998046875 + topOffset,
-                      child: _QuickMenu(
-                        label: '방문 기록',
-                        icon: Icons.location_on_outlined,
-                        color: green,
-                        onTap: () => context.push(AppRoutes.visitHistory),
-                      ),
-                    ),
-                    Positioned(
-                      left: 134.47442626953125,
-                      top: 348.47998046875 + topOffset,
-                      child: _QuickMenu(
-                        label: '절약 리포트',
-                        icon: Icons.bar_chart_rounded,
-                        color: green,
-                        onTap: () =>
-                            context.go(AppRoutes.savingsReportDashboard),
-                      ),
-                    ),
-                    Positioned(
-                      left: 248.96307373046875,
-                      top: 348.47998046875 + topOffset,
-                      child: _QuickMenu(
-                        label: '알림 설정',
-                        icon: Icons.notifications_none_rounded,
-                        color: blue,
-                        onTap: () => context.go(AppRoutes.notificationSettings),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
+                      right: 20,
                       top: 458.76416015625 + topOffset,
-                      width: 335.45452880859375,
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
@@ -150,8 +169,8 @@ class MypageScreen extends ConsumerWidget {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 659.98583984375 + topOffset,
-                      width: 335.45452880859375,
                       height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
@@ -196,8 +215,8 @@ class MypageScreen extends ConsumerWidget {
           ),
           Positioned(
             left: 0,
+            right: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
             child: HowmuchBottomNav(
               safeBottom: bottomOffset,
@@ -493,7 +512,6 @@ class _QuickMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          width: 106.4772720336914,
           height: 94.2897720336914,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),

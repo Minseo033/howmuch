@@ -50,14 +50,14 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight + topOffset,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 87.28692626953125,
                       child: const _IntroCard(),
                     ),
@@ -71,7 +71,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 192.64208984375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: connectedRowsHeight,
                       child: _SocialRows(
                         rowHeight: 85.01419830322266,
@@ -90,7 +90,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: availableRowsTop + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: availableRowsHeight,
                       child: _SocialRows(
                         rowHeight: 75.79544830322266,
@@ -104,7 +104,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: primaryCardTop + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 70.78125,
                       child: _PrimaryChangeCard(
                         onTap: () => _showPrimaryAccountSheet(context, ref),
@@ -113,7 +113,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: noticeTop + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 58.039772033691406,
                       child: const _NoticeBox(),
                     ),
@@ -281,7 +281,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -450,7 +450,7 @@ class _SocialRow extends StatelessWidget {
         : '아직 연결되지 않았어요';
 
     return Container(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: height,
       decoration: BoxDecoration(
         color: account.isPrimary ? AppColors.primaryLight : AppColors.white,

@@ -72,14 +72,14 @@ class _AdminReportReviewScreenState
             parent: BouncingScrollPhysics(),
           ),
           child: SizedBox(
-            width: FigmaMobileCanvas.width,
+            width: double.infinity,
             height: contentHeight,
             child: Stack(
               children: [
                 Positioned(
                   left: 0,
                   top: 0,
-                  width: FigmaMobileCanvas.width,
+                  right: 0,
                   height: 48.877838134765625 + topOffset,
                   child: _Header(
                     topOffset: topOffset,
@@ -90,7 +90,7 @@ class _AdminReportReviewScreenState
                 Positioned(
                   left: 0,
                   top: 48.8779296875 + topOffset,
-                  width: FigmaMobileCanvas.width,
+                  right: 0,
                   height: 116,
                   child: _SearchAndFilters(
                     controller: _searchController,
@@ -105,7 +105,7 @@ class _AdminReportReviewScreenState
                   Positioned(
                     left: 20,
                     top: 191.647705078125 + topOffset,
-                    width: 335.45452880859375,
+                    right: 20,
                     child: const _EmptyReportCard(),
                   )
                 else
@@ -114,7 +114,7 @@ class _AdminReportReviewScreenState
                     return Positioned(
                       left: 20,
                       top: top,
-                      width: 335.45452880859375,
+                      right: 20,
                       child: _ReportReviewCard(
                         report: filtered[index],
                         onCheckTap: (checkIndex) =>

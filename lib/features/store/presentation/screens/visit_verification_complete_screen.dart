@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class VisitVerificationCompleteScreen extends StatelessWidget {
   const VisitVerificationCompleteScreen({super.key});
@@ -10,7 +11,8 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 절약 금액 및 방문 매장 정보 연동
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: AppColors.white,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -171,6 +173,7 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

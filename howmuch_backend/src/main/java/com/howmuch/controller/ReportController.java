@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,6 +48,21 @@ public class ReportController {
             return ResponseEntity.status(500).body(Map.of(
                 "success", false,
                 "message", "제보 저장 중 오류가 발생했습니다: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyReports(@RequestHeader("X-Firebase-Uid") String firebaseUid) {
+        try {
+            log.info("[ReportController] 내 제보 목록 조회 요청 - uid: {}", firebaseUid);
+            java.util.List<Map<String, Object>> reports = firebaseService.getUserReports(firebaseUid);
+            return ResponseEntity.ok(reports);
+        } catch (Exception e) {
+            log.error("[ReportController] 내 제보 목록 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                "success", false,
+                "message", "제보 목록 조회 중 오류가 발생했습니다: " + e.getMessage()
             ));
         }
     }

@@ -166,7 +166,7 @@ class _SavingsReportDashboardScreenState
           // Bottom Nav
           Positioned(
             left: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             bottom: 0,
             height: bottomNavHeight,
             child: HowmuchBottomNav(

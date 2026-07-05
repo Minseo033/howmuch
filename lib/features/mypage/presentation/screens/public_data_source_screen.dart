@@ -43,14 +43,14 @@ class PublicDataSourceScreen extends StatelessWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 89.58806610107422,
                       child: const _IntroCard(),
                     ),
@@ -62,7 +62,7 @@ class PublicDataSourceScreen extends StatelessWidget {
                     Positioned(
                       left: 20,
                       top: 194.94287109375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 311.1505432128906,
                       child: const Column(
                         children: [
@@ -99,7 +99,7 @@ class PublicDataSourceScreen extends StatelessWidget {
                     Positioned(
                       left: 20,
                       top: 522.087890625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 56.96022415161133,
                       child: const _NoticeBox(
                         color: AppColors.warningLight,
@@ -111,7 +111,7 @@ class PublicDataSourceScreen extends StatelessWidget {
                     Positioned(
                       left: 20,
                       top: 587.04541015625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 40.46875,
                       child: const _NoticeBox(
                         color: AppColors.warningLight,
@@ -134,7 +134,7 @@ class PublicDataSourceScreen extends StatelessWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
@@ -165,7 +165,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -300,7 +300,7 @@ class _SourceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: 71.7897720336914,
       child: DecoratedBox(
         decoration: BoxDecoration(

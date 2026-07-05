@@ -68,7 +68,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
@@ -93,8 +93,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 201.34912109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 144.65908813476562,
                       child: _BasicInfoCard(
                         nickname: profile.nickname,
@@ -108,8 +108,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 386.4912109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 74.27556610107422,
                       child: _RegionCard(region: profile.region),
                     ),
@@ -120,8 +120,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 501.25 + topOffset,
-                      width: 335.45452880859375,
                       height: 132.41476440429688,
                       child: _PrivacyCard(
                         nicknamePublic: _nicknamePublic,
@@ -151,7 +151,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
@@ -193,7 +193,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: BoxDecoration(

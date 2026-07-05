@@ -161,6 +161,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Timer? _boundsDebouncer;
 
+  void _onMarkerClicked(int index) {
+    if (index == -1) {
+      setState(() {
+        _showStoreSummary = false;
+      });
+    } else if (index >= 0 && index < _currentStores.length) {
+      setState(() {
+        _selectedStore = _currentStores[index];
+        _showStoreSummary = true;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -169,6 +182,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) => _moveToCurrentLocation());
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
+      web_helper.registerWebCallbacks(_searchInCurrentArea, _onMarkerClicked);
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
     } else {
       _initMobileController();
@@ -176,12 +190,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAllStores() async {
-    final url = kIsWeb
-        ? 'http://localhost:8081/api/test/all'
-        : 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+    // 💡 웹 배포를 위해 언제나 ngrok 바라보게 수정
+    final url = 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
     try {
       final response = await http
-          .get(Uri.parse(url))
+          .get(Uri.parse(url), headers: {
+            'ngrok-skip-browser-warning': 'true',
+            'Accept': 'application/json'
+          })
           .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
@@ -211,10 +227,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
 
-          // Removed requestBounds() call here to prevent Deadlock.
-          // WebView will automatically trigger bounds request via JS events
-          // or when _moveToCurrentLocation() is called.
-          debugPrint('requestBounds() 자동 호출에 맡깁니다.');
+          if (kIsWeb) {
+            debugPrint('웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.');
+          } else {
+            debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
+          }
         }
       }
     } catch (e) {
@@ -595,7 +612,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         try {
           position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.best,
-            timeLimit: const Duration(seconds: 3),
+            timeLimit: kIsWeb ? const Duration(seconds: 20) : const Duration(seconds: 3),
           );
         } catch (e) {
           position = await Geolocator.getLastKnownPosition();
@@ -710,7 +727,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final Map<String, dynamic> bounds = json.decode(boundsJson);
     final markerList = await _fetchStoresFromBackend(bounds);
 
-    web_helper.addKakaoMarkersWeb(_viewId, json.encode(markerList));
+    web_helper.addMobileMarkersWeb(_viewId, json.encode(markerList));
 
     if (markerList.isEmpty && mounted) {
       ScaffoldMessenger.of(
@@ -732,12 +749,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng'] as double;
 
     try {
-      String baseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev'; 
+      // 💡 웹 배포를 위해 ngrok URL 고정
+      String baseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev'; 
       final url = '${baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
       final response = await http.get(
         Uri.parse(url),
-        headers: {'ngrok-skip-browser-warning': 'true'}, // ngrok 경고 페이지 우회
+        headers: {
+          'ngrok-skip-browser-warning': 'true',
+          'Accept': 'application/json'
+        }, // ngrok 경고 페이지 우회
       ).timeout(const Duration(seconds: 5));
       
       List<Store> fetchedStores = [];
@@ -936,13 +957,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const storeCardHeight = 158.0;
     const storeCardBottomGap = 94.0;
-    final storeCardTop =
-        FigmaMobileCanvas.height - storeCardBottomGap - storeCardHeight;
-    final aiControlLeft =
-        FigmaMobileCanvas.width - AppSizes.horizontalPadding - 143;
-    final spotlightAiLeft = FigmaMobileCanvas.width - 2 - 157;
+
+    // Use actual screen dimensions for responsive layout
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenWidth = kIsWeb
+        ? screenSize.width.clamp(320.0, FigmaMobileCanvas.maxWebWidth)
+        : FigmaMobileCanvas.width;
+    final screenHeight = kIsWeb ? screenSize.height : FigmaMobileCanvas.height;
+
+    final storeCardTop = screenHeight - storeCardBottomGap - storeCardHeight;
+    final aiControlLeft = screenWidth - AppSizes.horizontalPadding - 143;
+    final spotlightAiLeft = screenWidth - 2 - 157;
     final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
-    final bottomBase = FigmaMobileCanvas.height - bottomNavHeight;
+    final bottomBase = screenHeight - bottomNavHeight;
     final floatingLocationTop = _showStoreSummary
         ? storeCardTop - 132.0
         : bottomBase - 132.0;
@@ -1043,8 +1070,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
           Positioned(
             left: AppSizes.horizontalPadding,
+            right: AppSizes.horizontalPadding,
             top: 10 + topOffset,
-            width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
             height: 52,
             child: Opacity(
               opacity: homeChromeOpacity,
@@ -1064,8 +1091,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (hasFilters)
             Positioned(
               left: 0,
+              right: 0,
               top: 10 + topOffset + 52 + 10, // _SearchBar below
-              width: FigmaMobileCanvas.width,
               height: 32,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1140,8 +1167,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
             Positioned(
               left: AppSizes.horizontalPadding,
+              right: AppSizes.horizontalPadding,
               top: 106.46307373046875 + topOffset + topOffsetPush,
-              width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
               height: 55.80965805053711,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1150,7 +1177,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ],
           Positioned(
-            left: 307.0,
+            right: 16,
             top: floatingLocationTop,
             width: 52.0,
             height: 52.0,
@@ -1166,9 +1193,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ),
           Positioned(
-            left: aiControlLeft,
+            right: 16,
             top: floatingAiTop,
-            width: 143,
             height: 51.9886360168457,
             child: Opacity(
               opacity: homeChromeOpacity,
@@ -1196,8 +1222,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
             Positioned(
               left: 0,
+              right: 0,
               bottom: bottomNavHeight + 10,
-              width: FigmaMobileCanvas.width,
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1250,8 +1276,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ] else if (_showStoreSummary && _selectedStore != null) ...[
             Positioned(
               left: AppSizes.horizontalPadding,
+              right: AppSizes.horizontalPadding,
               top: storeCardTop,
-              width: FigmaMobileCanvas.width - AppSizes.horizontalPadding * 2,
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1266,8 +1292,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ],
           Positioned(
             left: 0,
+            right: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
             child: Opacity(
               opacity: homeChromeOpacity,
@@ -1299,7 +1325,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
             Positioned(
-              left: (FigmaMobileCanvas.width - 265) / 2,
+              left: (screenWidth - 265) / 2,
               top: spotlightCoachTop,
               width: 265,
               height: 38,
@@ -1308,9 +1334,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
             Positioned(
-              left: spotlightAiLeft,
+              right: 16,
               top: spotlightAiTop,
-              width: 157,
               height: 70,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,

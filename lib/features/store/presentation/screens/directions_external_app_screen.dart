@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class DirectionsExternalAppScreen extends StatefulWidget {
   const DirectionsExternalAppScreen({super.key});
@@ -58,7 +59,8 @@ class _DirectionsExternalAppScreenState
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 실제 매장 위치 및 거리 연동
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: const CustomAppBar(title: '길찾기'),
       body: SafeArea(
@@ -119,6 +121,7 @@ class _DirectionsExternalAppScreenState
           // TODO: 외부 지도 앱 실행 (url_launcher)
         },
       ),
+    ),
     );
   }
 

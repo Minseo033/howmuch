@@ -58,14 +58,14 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 92.94033813476562,
                       child: const _WarningCard(),
                     ),
@@ -77,14 +77,14 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 198.29541015625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 223.1818084716797,
                       child: const _DeletedDataCard(),
                     ),
                     Positioned(
                       left: 20,
                       top: 433.4658203125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 58.039772033691406,
                       child: const _InfoBox(),
                     ),
@@ -96,7 +96,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 535.994140625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 225.3408966064453,
                       child: _ReasonsCard(
                         reasons: _reasons,
@@ -108,7 +108,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 777.32958984375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 70.99431610107422,
                       child: _ConsentCard(
                         confirmed: _confirmed,
@@ -128,7 +128,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyActions(
               safeBottom: bottomOffset,
@@ -206,7 +206,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class PriceChangeReportScreen extends StatefulWidget {
   final String storeName;
@@ -64,7 +65,8 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 가격 변동 제보 API 연동
-    return GestureDetector(
+    return FigmaMobileCanvas(
+      child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: AppColors.white,
@@ -145,6 +147,7 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
           },
         ),
       ),
+    ),
     );
   }
 
@@ -199,7 +202,8 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       childAspectRatio: 3,
       children: List.generate(_changeTypes.length, (i) {
         final selected = _selectedType == i;
-        return GestureDetector(
+        return FigmaMobileCanvas(
+      child: GestureDetector(
           onTap: () => setState(() => _selectedType = i),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
@@ -223,7 +227,8 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
               ),
             ),
           ),
-        );
+        ),
+    );
       }),
     );
   }

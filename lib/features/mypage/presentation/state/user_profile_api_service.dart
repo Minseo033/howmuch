@@ -3,9 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class UserProfileApiService {
-  static const String _backendBaseUrl = kIsWeb
-      ? 'http://localhost:8081'
-      : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
+  static const String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   static const Map<String, String> _baseHeaders = {
     'Content-Type': 'application/json',

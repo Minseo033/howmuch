@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -50,7 +51,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: AppColors.white, // 바뀐 로고 이미지 배경에 맞춤
       body: Center(
         child: AnimatedBuilder(
@@ -119,6 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
           },
         ),
       ),
+    ),
     );
   }
 }

@@ -364,21 +364,21 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
             Positioned(
               left: 0,
               top: 0,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: topOffset + 107.46,
               child: const ColoredBox(color: Colors.white),
             ),
             Positioned(
               left: 0,
               top: topOffset,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: 46.477,
               child: const _Header(),
             ),
             Positioned(
               left: 0,
               top: topOffset + 46.477,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: 60.98,
               child: _StepProgress(
                 activeStep: _activeStep,
@@ -391,8 +391,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
             Positioned(
               left: 0,
               top: topOffset + 107.46,
-              width: FigmaMobileCanvas.width,
-              height: FigmaMobileCanvas.height - topOffset - 107.46,
+              right: 0,
+              bottom: 0,
               child: ListView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(

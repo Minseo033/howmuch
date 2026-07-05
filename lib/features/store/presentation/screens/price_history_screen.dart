@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class PriceHistoryScreen extends StatelessWidget {
   const PriceHistoryScreen({super.key});
@@ -10,7 +11,8 @@ class PriceHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 가격 이력 데이터 연동
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: const CustomAppBar(title: '가격 이력'),
       body: SafeArea(
@@ -47,6 +49,7 @@ class PriceHistoryScreen extends StatelessWidget {
           context.push('/home/price_report');
         },
       ),
+    ),
     );
   }
 

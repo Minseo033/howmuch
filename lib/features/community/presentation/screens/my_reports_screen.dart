@@ -137,14 +137,14 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
           Positioned(
             left: 0,
             top: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: topOffset + 97.756,
             child: const ColoredBox(color: Colors.white),
           ),
           Positioned(
             left: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 48.878,
             child: _Header(
               onBack: () {
@@ -160,7 +160,7 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
           Positioned(
             left: 0,
             top: topOffset + 48.878,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 48.878,
             child: _Tabs(
               selected: _filter,
@@ -170,8 +170,8 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
           Positioned(
             left: 0,
             top: topOffset + 97.756,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - topOffset - 97.756,
+            right: 0,
+            bottom: 0,
             child: ListView(
               controller: _scrollController,
               padding: EdgeInsets.fromLTRB(
@@ -228,7 +228,7 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: bottomNavHeight,
             child: HowmuchBottomNav(
               safeBottom: safePadding.bottom,
@@ -321,8 +321,6 @@ class _Tabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tabWidth = FigmaMobileCanvas.width / _items.length;
-
     return DecoratedBox(
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -330,19 +328,24 @@ class _Tabs extends StatelessWidget {
           bottom: BorderSide(color: MyReportsScreen.border, width: .909),
         ),
       ),
-      child: Row(
-        children: [
-          for (final item in _items)
-            SizedBox(
-              width: tabWidth,
-              child: _TabButton(
-                label: item.$2,
-                count: item.$3,
-                selected: selected == item.$1,
-                onTap: () => onChanged(item.$1),
-              ),
-            ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tabWidth = constraints.maxWidth / _items.length;
+          return Row(
+            children: [
+              for (final item in _items)
+                SizedBox(
+                  width: tabWidth,
+                  child: _TabButton(
+                    label: item.$2,
+                    count: item.$3,
+                    selected: selected == item.$1,
+                    onTap: () => onChanged(item.$1),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -35,13 +35,13 @@ class ReportCompleteScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       child: SingleChildScrollView(
         child: SizedBox(
-          height: FigmaMobileCanvas.height,
+          height: double.infinity,
           child: Stack(
             children: [
           Positioned(
             left: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 33.977,
             child: Align(
               alignment: Alignment.centerLeft,
@@ -105,14 +105,14 @@ class ReportCompleteScreen extends StatelessWidget {
           Positioned(
             left: 20,
             top: topOffset + 349.94,
-            width: 335.455,
+            right: 20,
             height: 166.747,
             child: const _SubmittedReportCard(),
           ),
           Positioned(
             left: 20,
             bottom: bottomOffset + 66,
-            width: 335.455,
+            right: 20,
             height: 50,
             child: _BottomActionButton(
               label: '지도에서 주변 매장 더 보기',
@@ -131,7 +131,7 @@ class ReportCompleteScreen extends StatelessWidget {
           Positioned(
             left: 20,
             bottom: bottomOffset,
-            width: 335.455,
+            right: 20,
             height: 50,
             child: _BottomActionButton(
               label: '내 제보 내역 확인',

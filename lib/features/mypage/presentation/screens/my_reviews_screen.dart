@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
+import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -39,54 +40,57 @@ class MyReviewsScreen extends StatelessWidget {
       },
     ];
 
-    return Scaffold(
+    return FigmaMobileCanvas(
       backgroundColor: AppColors.backgroundDark,
-      appBar: CustomAppBar(
-        title: '내 리뷰',
-        actions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 20),
-              child: RichText(
-                text: TextSpan(
-                  text: '총 ',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
-                  children: [
-                    TextSpan(
-                      text: '${reviews.length}',
-                      style: const TextStyle(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.bold,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundDark,
+        appBar: CustomAppBar(
+          title: '내 리뷰',
+          actions: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: RichText(
+                  text: TextSpan(
+                    text: '총 ',
+                    style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                    children: [
+                      TextSpan(
+                        text: '${reviews.length}',
+                        style: const TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const TextSpan(text: ' 개'),
-                  ],
+                      const TextSpan(text: ' 개'),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildStatsHeader(reviews.length),
-            Expanded(
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                itemCount: reviews.length,
-                separatorBuilder: (context, index) =>
-                    const SizedBox(height: 12),
-                itemBuilder: (context, index) {
-                  return _buildReviewCard(context, reviews[index]);
-                },
               ),
             ),
           ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildStatsHeader(reviews.length),
+              Expanded(
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  itemCount: reviews.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    return _buildReviewCard(context, reviews[index]);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -44,7 +44,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <!-- "kakao{NATIVE_APP_KEY}://oauth" 형식의 리다이렉트 URI 설정 -->
-                <data android:scheme="kakao224e0cadbd6a8505be5becb3cac3fcaa" android:host="oauth"/>
+                <data android:scheme="kakaobea4d05b42d5c01661e2262d696f3707" android:host="oauth"/>
             </intent-filter>
         </activity>
         

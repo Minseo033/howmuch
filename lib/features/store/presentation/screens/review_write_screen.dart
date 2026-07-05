@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ReviewWriteScreen extends StatefulWidget {
   const ReviewWriteScreen({super.key});
@@ -51,7 +52,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 리뷰 등록 API 연동
-    return GestureDetector(
+    return FigmaMobileCanvas(
+      child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: AppColors.white,
@@ -157,6 +159,7 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
           },
         ),
       ),
+    ),
     );
   }
 
@@ -196,7 +199,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
       child: Row(
         children: [
           ...List.generate(5, (i) {
-            return GestureDetector(
+            return FigmaMobileCanvas(
+      child: GestureDetector(
               onTap: () => setState(() => _starRating = i + 1),
               child: Icon(
                 Icons.star_rounded,
@@ -205,7 +209,8 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
                     ? AppColors.star
                     : Colors.grey.shade300,
               ),
-            );
+            ),
+    );
           }),
           const SizedBox(width: 12),
           Text(

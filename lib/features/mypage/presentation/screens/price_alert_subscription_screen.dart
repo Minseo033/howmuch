@@ -69,14 +69,14 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 20.142044067382812,
                       child: const Text(
                         '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
@@ -86,7 +86,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 99.00537109375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 69.2897720336914,
                       child: _AllAlertCard(
                         value: settings.all,
@@ -112,7 +112,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 208.7783203125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 223.86363220214844,
                       child: Column(
                         children: [
@@ -135,7 +135,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 477.13037109375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 163.59375,
                       child: _ConditionCard(
                         settings: settings,
@@ -169,7 +169,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
@@ -207,7 +207,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -315,7 +315,7 @@ class _StoreAlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: 69.2897720336914,
       child: _RoundedCard(
         child: GestureDetector(

@@ -4,6 +4,7 @@ import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ReviewListScreen extends StatefulWidget {
   const ReviewListScreen({super.key});
@@ -52,7 +53,8 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: const CustomAppBar(title: '리뷰와 댓글'),
       body: SafeArea(
@@ -84,6 +86,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
           context.push(AppRoutes.reviewWrite);
         },
       ),
+    ),
     );
   }
 

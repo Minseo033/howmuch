@@ -55,21 +55,21 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
                       height: 73.80681610107422,
                       child: const _PrivacyIntroCard(),
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 150.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 253.0113525390625,
                       child: _TableOfContents(
                         onItemTap: _scrollToPolicyChapter,
@@ -77,8 +77,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 415.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 709,
                       child: const Column(
                         children: [
@@ -159,8 +159,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 1140.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 93.26704406738281,
                       child: _PrivacyManagerCard(
                         onInquiry: () => context.go(AppRoutes.inquiry),
@@ -168,8 +168,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 1249.9287109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 16.789772033691406,
                       child: const Center(
                         child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
@@ -262,7 +262,7 @@ class _LegalHeader extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(

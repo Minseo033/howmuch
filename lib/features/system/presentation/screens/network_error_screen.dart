@@ -29,7 +29,7 @@ class NetworkErrorScreen extends StatelessWidget {
     return FigmaMobileCanvas(
       child: SingleChildScrollView(
         child: SizedBox(
-          height: FigmaMobileCanvas.height,
+          height: double.infinity,
           child: Stack(
             children: [
               Positioned(
@@ -93,7 +93,7 @@ class NetworkErrorScreen extends StatelessWidget {
               Positioned(
                 left: 0,
                 bottom: bottomOffset + 32,
-                width: FigmaMobileCanvas.width,
+                right: 0,
                 child: const Text(
                   'Wi-Fi 또는 모바일 데이터를 확인해보세요',
                   textAlign: TextAlign.center,

@@ -76,14 +76,14 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
                       height: 73.29544830322266,
                       child: _AllNotificationCard(
                         value: settings.all,
@@ -108,8 +108,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 178.650390625 + topOffset,
-                      width: 335.45452880859375,
                       height: 272.64202880859375,
                       child: _NotificationTypeCard(
                         settings: settings,
@@ -124,8 +124,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 463.28125 + topOffset,
-                      width: 335.45452880859375,
                       height: 67.76988220214844,
                       child: _PriceAlertEntryCard(
                         onTap: () =>
@@ -139,8 +139,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 571.5341796875 + topOffset,
-                      width: 335.45452880859375,
                       height: 134.2613525390625,
                       child: _QuietHoursCard(
                         settings: settings,
@@ -158,7 +158,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: saveFooterHeight,
             child: _StickySaveButton(
               safeBottom: bottomOffset,
@@ -195,7 +195,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -466,7 +466,7 @@ class _QuietHoursCard extends StatelessWidget {
           Positioned(
             left: 0,
             top: 0,
-            width: 335.45452880859375,
+            right: 0,
             height: 49,
             child: GestureDetector(
               onTap: onToggle,

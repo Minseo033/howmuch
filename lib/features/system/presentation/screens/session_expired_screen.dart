@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,7 +32,11 @@ class SessionExpiredScreen extends ConsumerWidget {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final actionTop = FigmaMobileCanvas.height - bottomOffset - 16 - 111.988;
+    // On web use actual screen height, on native use design height
+    final effectiveHeight = kIsWeb
+        ? MediaQuery.sizeOf(context).height
+        : FigmaMobileCanvas.height;
+    final actionTop = effectiveHeight - bottomOffset - 16 - 111.988;
 
     void close() {
       ref.read(authStateProvider.notifier).state = const AuthState(
@@ -60,10 +65,12 @@ class SessionExpiredScreen extends ConsumerWidget {
     }
 
     return FigmaMobileCanvas(
-      child: SingleChildScrollView(
-        child: SizedBox(
-          height: FigmaMobileCanvas.height,
-          child: Stack(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Stack(
             children: [
               Positioned(
                 right: 20,
@@ -136,8 +143,10 @@ class SessionExpiredScreen extends ConsumerWidget {
                 ),
               ),
             ],
-          ),
-        ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

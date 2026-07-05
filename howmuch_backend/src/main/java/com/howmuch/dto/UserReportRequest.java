@@ -35,4 +35,9 @@ public class UserReportRequest {
     private String reporterId;
     private boolean visitedRecently;
     private boolean checkedMenuPrice;
+
+    // 💡 제보 처리 상태 메타데이터
+    private String status; // PENDING, APPROVED, REJECTED
+    private String createdAt;
+    private String rejectReason;
 }

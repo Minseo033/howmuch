@@ -66,8 +66,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         children: [
           Positioned(
             left: 0,
+            right: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
             height: 48.878,
             child: _Header(
               onBack: () => context.go(AppRoutes.home),
@@ -77,7 +77,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           Positioned(
             left: AppSizes.horizontalPadding,
             top: topOffset + 60.87,
-            width: 335.45452880859375,
+            right: 20,
             height: 28,
             child: _LocationRow(
               location: _locations[_selectedLocationIndex],
@@ -87,7 +87,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           Positioned(
             left: AppSizes.horizontalPadding,
             top: topOffset + 100.85,
-            width: 335.45452880859375,
+            right: 20,
             height: 33.793,
             child: _FilterRow(
               selectedIndex: _selectedFilterIndex,
@@ -98,7 +98,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           Positioned(
             left: AppSizes.horizontalPadding,
             top: topOffset + 150.64,
-            width: 335.45452880859375,
+            right: 20,
             bottom: bottomNavHeight + 85,
             child: SingleChildScrollView(
               child: Column(
@@ -129,7 +129,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           Positioned(
             left: AppSizes.horizontalPadding,
             bottom: bottomNavHeight + 16,
-            width: 335.45452880859375,
+            right: 20,
             height: 54.972,
             child: _NewReportButton(
               onTap: () => context.push(AppRoutes.reportCreate),
@@ -137,8 +137,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           ),
           Positioned(
             left: 0,
+            right: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
             child: HowmuchBottomNav(
               safeBottom: safePadding.bottom,

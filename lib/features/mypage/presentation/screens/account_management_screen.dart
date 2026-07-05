@@ -51,15 +51,15 @@ class AccountManagementScreen extends ConsumerWidget {
           parent: BouncingScrollPhysics(),
         ),
         child: SizedBox(
-          width: FigmaMobileCanvas.width,
+          width: double.infinity,
           height: scrollContentHeight,
           child: Stack(
             children: [
               _Header(topOffset: topOffset, title: '계정 관리', onBack: goBack),
               Positioned(
                 left: 20,
+                right: 20,
                 top: 64.8720703125 + topOffset,
-                width: 335.45452880859375,
                 height: 89.80113220214844,
                 child: _ProfileAccountCard(
                   profile: profile,
@@ -74,8 +74,8 @@ class AccountManagementScreen extends ConsumerWidget {
               ),
               Positioned(
                 left: 20,
+                right: 20,
                 top: 195.15625 + topOffset,
-                width: 335.45452880859375,
                 height: 146.22158813476562,
                 child: _AccountInfoCard(
                   profile: profile,
@@ -91,8 +91,8 @@ class AccountManagementScreen extends ConsumerWidget {
               ),
               Positioned(
                 left: 20,
+                right: 20,
                 top: 381.86083984375 + topOffset,
-                width: 335.45452880859375,
                 height: 97.75567626953125,
                 child: const _PolicyCard(),
               ),
@@ -103,8 +103,8 @@ class AccountManagementScreen extends ConsumerWidget {
               ),
               Positioned(
                 left: 20,
+                right: 20,
                 top: 520.09912109375 + topOffset,
-                width: 335.45452880859375,
                 height: 49.289772033691406,
                 child: _LogoutCard(
                   onTap: () {
@@ -118,8 +118,8 @@ class AccountManagementScreen extends ConsumerWidget {
               ),
               Positioned(
                 left: 20,
+                right: 20,
                 top: 585.38330078125 + topOffset,
-                width: 335.45452880859375,
                 height: 66.0227279663086,
                 child: _WithdrawalCard(
                   onTap: () => context.go(AppRoutes.withdrawal),
@@ -149,7 +149,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(

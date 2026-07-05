@@ -338,7 +338,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final topOffset = MediaQuery.of(context).padding.top;
     final activeFilters = _filter.activeLabels;
 
-    return PopScope(
+    return FigmaMobileCanvas(
+      child: PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
@@ -466,7 +467,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           ),
         ],
       ),
-    ));
+    )),
+    );
   }
 }
 
@@ -931,7 +933,7 @@ class _EmptyResult extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SizedBox(
-        width: FigmaMobileCanvas.width,
+        width: double.infinity,
         height: 377.9261169433594,
         child: Stack(
           children: [

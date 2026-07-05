@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ReportDeleteConfirmScreen extends StatelessWidget {
   const ReportDeleteConfirmScreen({super.key});
@@ -6,7 +7,8 @@ class ReportDeleteConfirmScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 제보 삭제 API 연동
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: Colors.white,
       body: Center(
         child: Dialog(
@@ -127,6 +129,7 @@ class ReportDeleteConfirmScreen extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }

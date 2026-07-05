@@ -9,8 +9,13 @@ external void _initKakaoMap(JSString viewId, JSNumber lat, JSNumber lng);
 @JS('getKakaoMapBounds')
 external JSString? _getKakaoMapBounds(JSString viewId);
 
-@JS('addKakaoMarkers')
-external void _addKakaoMarkers(JSString viewId, JSString jsonString);
+@JS('addMobileMarkers')
+external void _addMobileMarkers(JSString viewId, JSString jsonString);
+
+void registerWebCallbacks(void Function() onIdle, void Function(int) onClick) {
+  globalContext.setProperty('onKakaoMapIdle'.toJS, onIdle.toJS);
+  globalContext.setProperty('onKakaoMarkerClick'.toJS, onClick.toJS);
+}
 
 @JS('setKakaoMapCenter')
 external void _setKakaoMapCenter(JSString viewId, JSNumber lat, JSNumber lng);
@@ -58,30 +63,116 @@ void _injectJsBypass() {
         window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
           map: map, averageCenter: true, minLevel: 6
         });
+
+        // 💡 맵 이벤트 리스너 추가
+        var boundsTimer = null;
+        kakao.maps.event.addListener(map, 'idle', function() {
+          if (boundsTimer) clearTimeout(boundsTimer);
+          boundsTimer = setTimeout(function() {
+            if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+          }, 600);
+        });
+        
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+          if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
+        });
       });
     };
 
-    window.addKakaoMarkers = function(containerId, markerListJson) {
+    window.customOverlays = {};
+    window.markerDataCache = {};
+
+    window.onMarkerClickWeb = function(index) {
+      if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
+    }
+
+    window.addMobileMarkers = function(containerId, markerListJson) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
-        setTimeout(function() { window.addKakaoMarkers(containerId, markerListJson); }, 200);
+        setTimeout(function() { window.addMobileMarkers(containerId, markerListJson); }, 200);
         return;
       }
       kakao.maps.load(function() {
         var map = window.kakaoMapObjects[containerId];
-        var clusterer = window.kakaoMapObjects[containerId + '_clusterer'];
-        if (!map || !clusterer) {
-          setTimeout(function() { window.addKakaoMarkers(containerId, markerListJson); }, 200);
+        if (!map) {
+          setTimeout(function() { window.addMobileMarkers(containerId, markerListJson); }, 200);
           return;
         }
         var markerData = JSON.parse(markerListJson);
-        var markers = markerData.map(function(item) {
-          return new kakao.maps.Marker({
-            position: new kakao.maps.LatLng(item.lat, item.lng),
-            title: item.title
-          });
-        });
-        clusterer.clear();
-        clusterer.addMarkers(markers);
+        window.markerDataCache[containerId] = markerData;
+        
+        if (!window.customOverlays[containerId]) {
+          window.customOverlays[containerId] = [];
+        }
+        var overlays = window.customOverlays[containerId];
+        for (var i = 0; i < overlays.length; i++) {
+          overlays[i].setMap(null);
+        }
+        overlays.length = 0; // 배열 비우기
+
+        for (var i = 0; i < markerData.length; i++) {
+          (function(idx) {
+            var item = markerData[idx];
+
+            var wrapper = document.createElement('div');
+            wrapper.id = 'marker-wrapper-' + idx;
+            wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
+
+            var bubble = document.createElement('div');
+            var bgColor = item.source === 'USER' ? '#F97316' : '#1D4ED8';
+            bubble.style.cssText = [
+              'cursor:pointer',
+              'background:' + bgColor,
+              'color:#fff',
+              'border-radius:20px',
+              'padding:5px 10px',
+              'font-size:12px',
+              'font-weight:700',
+              'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+              'white-space:nowrap',
+              'display:flex',
+              'flex-direction:column',
+              'align-items:center',
+              'gap:1px',
+              'line-height:1.3',
+              'border:1.5px solid rgba(255,255,255,0.3)',
+              'transition:background 0.2s ease'
+            ].join(';');
+
+            var nameEl = document.createElement('span');
+            nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+            nameEl.innerText = item.title;
+
+            var priceEl = document.createElement('span');
+            priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+            priceEl.innerText = item.menu + '  ' + item.price;
+
+            var tail = document.createElement('div');
+            tail.style.cssText = [
+              'width:0',
+              'height:0',
+              'border-left:5px solid transparent',
+              'border-right:5px solid transparent',
+              'border-top:6px solid ' + bgColor,
+              'margin-top:-1px',
+              'transition:border-top-color 0.2s ease'
+            ].join(';');
+
+            bubble.appendChild(nameEl);
+            bubble.appendChild(priceEl);
+            bubble.onclick = function() { window.onMarkerClickWeb(idx); };
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(tail);
+
+            var customOverlay = new kakao.maps.CustomOverlay({
+                position: new kakao.maps.LatLng(item.lat, item.lng),
+                content: wrapper,
+                yAnchor: 1.0,
+                zIndex: 3
+            });
+            customOverlay.setMap(map);
+            overlays.push(customOverlay);
+          })(i);
+        }
       });
     };
   '''.toJS);
@@ -107,8 +198,8 @@ String? getKakaoMapBoundsWeb(String viewId) {
   return _getKakaoMapBounds(viewId.toJS)?.toDart;
 }
 
-void addKakaoMarkersWeb(String viewId, String jsonString) {
-  _addKakaoMarkers(viewId.toJS, jsonString.toJS);
+void addMobileMarkersWeb(String viewId, String jsonString) {
+  _addMobileMarkers(viewId.toJS, jsonString.toJS);
 }
 
 void setKakaoMapCenterWeb(String viewId, double lat, double lng) {

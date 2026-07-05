@@ -51,22 +51,22 @@ class ReportDetailScreen extends StatelessWidget {
           Positioned(
             left: 0,
             top: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: topOffset,
             child: const ColoredBox(color: Colors.white),
           ),
           Positioned(
             left: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 48.878,
             child: _Header(onBack: goBack),
           ),
           Positioned(
             left: 0,
             top: topOffset + 48.878,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - topOffset - 48.878,
+            right: 0,
+            bottom: 0,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
                 _contentLeft,
@@ -90,7 +90,7 @@ class ReportDetailScreen extends StatelessWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: actionBottomGap + actionHeight,
             child: Padding(
               padding: EdgeInsets.fromLTRB(

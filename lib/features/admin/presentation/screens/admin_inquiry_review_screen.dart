@@ -81,34 +81,34 @@ class _AdminInquiryReviewScreenState
             parent: BouncingScrollPhysics(),
           ),
           child: SizedBox(
-            width: FigmaMobileCanvas.width,
+            width: double.infinity,
             height: contentHeight,
             child: Stack(
               children: [
                 Positioned(
                   left: 0,
                   top: 0,
-                  width: FigmaMobileCanvas.width,
+                  right: 0,
                   height: 45.96590805053711 + topOffset,
                   child: _AdminBar(topOffset: topOffset),
                 ),
                 Positioned(
                   left: 0,
                   top: 45.9658203125 + topOffset,
-                  width: FigmaMobileCanvas.width,
+                  right: 0,
                   height: 65.61079406738281,
                   child: _TitleHeader(onBack: goBack),
                 ),
                 Positioned(
                   left: 20,
                   top: 123.5654296875 + topOffset,
-                  width: 335.45452880859375,
+                  right: 20,
                   child: _StatsRow(inquiries: inquiries),
                 ),
                 Positioned(
                   left: 0,
                   top: 206.2646484375 + topOffset,
-                  width: FigmaMobileCanvas.width,
+                  right: 0,
                   height: 43.63636016845703,
                   child: _TabBar(
                     inquiries: inquiries,
@@ -119,14 +119,14 @@ class _AdminInquiryReviewScreenState
                 Positioned(
                   left: 20,
                   top: 261.8896484375 + topOffset,
-                  width: 335.45452880859375,
+                  right: 20,
                   height: 37.99715805053711,
                   child: _SearchBox(controller: _searchController),
                 ),
                 Positioned(
                   left: 20,
                   top: 315.8662109375 + topOffset,
-                  width: 335.45452880859375,
+                  right: 20,
                   child: Row(
                     children: [
                       Text(
@@ -142,7 +142,7 @@ class _AdminInquiryReviewScreenState
                   Positioned(
                     left: 20,
                     top: 341.60546875 + topOffset,
-                    width: 335.45452880859375,
+                    right: 20,
                     child: const _EmptyInquiryCard(),
                   )
                 else
@@ -151,7 +151,7 @@ class _AdminInquiryReviewScreenState
                     return Positioned(
                       left: 20,
                       top: 341.60546875 + topOffset + (index * 164.432),
-                      width: 335.45452880859375,
+                      right: 20,
                       child: _InquiryCard(
                         inquiry: inquiry,
                         onReply: () => _showReplySheet(inquiry),

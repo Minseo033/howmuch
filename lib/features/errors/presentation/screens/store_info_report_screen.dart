@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class StoreInfoReportScreen extends StatefulWidget {
   const StoreInfoReportScreen({super.key});
@@ -34,7 +35,8 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
   @override
   Widget build(BuildContext context) {
     // TODO(박지환 BE): 매장 정보 신고 등록 API 연동
-    return GestureDetector(
+    return FigmaMobileCanvas(
+      child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         backgroundColor: Colors.white,
@@ -120,6 +122,7 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
           },
         ),
       ),
+    ),
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
+import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../../../shared/widgets/status_badge.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -49,51 +50,54 @@ class VisitHistoryScreen extends StatelessWidget {
       },
     ];
 
-    return Scaffold(
+    return FigmaMobileCanvas(
       backgroundColor: AppColors.backgroundDark,
-      appBar: CustomAppBar(
-        title: '방문 기록',
-        actions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 20),
-              child: RichText(
-                text: const TextSpan(
-                  text: '총 ',
-                  style: TextStyle(color: AppColors.muted, fontSize: 14),
-                  children: [
-                    TextSpan(
-                      text: '4',
-                      style: TextStyle(
-                        color: AppColors.black,
-                        fontWeight: FontWeight.bold,
+      child: Scaffold(
+        backgroundColor: AppColors.backgroundDark,
+        appBar: CustomAppBar(
+          title: '방문 기록',
+          actions: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.only(right: 20),
+                child: RichText(
+                  text: const TextSpan(
+                    text: '총 ',
+                    style: TextStyle(color: AppColors.muted, fontSize: 14),
+                    children: [
+                      TextSpan(
+                        text: '4',
+                        style: TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    TextSpan(text: '회'),
-                  ],
+                      TextSpan(text: '회'),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildSummaryCard(),
-            Expanded(
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) => _buildVisitCard(items[index]),
               ),
             ),
           ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildSummaryCard(),
+              Expanded(
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  itemCount: items.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) => _buildVisitCard(items[index]),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

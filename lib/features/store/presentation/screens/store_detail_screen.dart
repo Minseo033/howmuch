@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class StoreDetailScreen extends StatelessWidget {
   final Store store;
@@ -76,7 +77,8 @@ class StoreDetailScreen extends StatelessWidget {
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
 
-    return Scaffold(
+    return FigmaMobileCanvas(
+      child: Scaffold(
       backgroundColor: _bg,
       body: Stack(
         children: [
@@ -622,6 +624,7 @@ class StoreDetailScreen extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

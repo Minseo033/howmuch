@@ -127,7 +127,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     parent: BouncingScrollPhysics(),
                   ),
                   child: SizedBox(
-                    width: FigmaMobileCanvas.width,
+                    width: double.infinity,
                     height: scrollContentHeight,
                     child: Stack(
                       children: [
@@ -175,21 +175,21 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                         Positioned(
                           left: 20,
                           top: 202.4716796875 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 72.4,
                           child: _TitleField(controller: _titleController),
                         ),
                         Positioned(
                           left: 20,
                           top: 290.45458984375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 136.4,
                           child: _BodyField(controller: _bodyController),
                         ),
                         Positioned(
                           left: 20,
                           top: 442.44287109375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 90.4,
                           child: _PhotoAttachBox(
                             attachments: _attachments,
@@ -200,7 +200,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                         Positioned(
                           left: 20,
                           top: 552.4287109375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 40.46875,
                           child: _EmailBox(email: email),
                         ),
@@ -217,7 +217,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
               Positioned(
                 left: 0,
                 bottom: 0,
-                width: FigmaMobileCanvas.width,
+                right: 0,
                 height: footerHeight,
                 child: _StickyButton(
                   safeBottom: bottomOffset,
@@ -257,7 +257,7 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
@@ -467,7 +467,7 @@ class _InputShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: height,
       decoration: BoxDecoration(
         color: AppColors.white,

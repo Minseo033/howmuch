@@ -60,14 +60,14 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
       backgroundColor: Colors.white,
       child: SingleChildScrollView(
         child: SizedBox(
-          height: FigmaMobileCanvas.height,
+          height: double.infinity,
           child: Stack(
             children: [
               Positioned(
                 left: 0,
                 top: topOffset,
-                width: FigmaMobileCanvas.width,
-                height: FigmaMobileCanvas.height - topOffset,
+                right: 0,
+                bottom: 0,
                 child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
               ),
               Positioned(

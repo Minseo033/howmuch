@@ -19,7 +19,7 @@
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -36,8 +36,36 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Noto Sans KR', sans-serif; }
+    .my-location-wrapper {
+      width: 40px;
+      height: 40px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s ease-out;
+    }
+    .my-location-dot {
+      width: 16px;
+      height: 16px;
+      background-color: #2563EB;
+      border: 3px solid #FFFFFF;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      z-index: 2;
+    }
+    .my-location-direction {
+      position: absolute;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 20px solid rgba(37, 99, 235, 0.4);
+      top: 0px;
+      z-index: 1;
+    }
   </style>
-  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=949e657c37f55074dbb2a14ceb273e2b&libraries=services,clusterer&autoload=false"></script>
+  <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=8aa42a2f5dc0314f1fe917a90aa6c112&libraries=services,clusterer&autoload=false"></script>
   <script>
     window.kakaoMapObjects = {};
 
@@ -72,44 +100,119 @@
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
 
-        // 💡 클러스터러 초기화
-        window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
-          map: map,
-          averageCenter: true,
-          minLevel: 6
+        // 💡 맵 이벤트 리스너 추가
+        var boundsTimer = null;
+        kakao.maps.event.addListener(map, 'idle', function() {
+          if (boundsTimer) clearTimeout(boundsTimer);
+          boundsTimer = setTimeout(function() {
+            if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+          }, 600);
         });
         
-        console.log("Kakao Map & Clusterer Initialized!");
+        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
+          if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
+        });
+        
+        console.log("Kakao Map Initialized!");
       });
     }
 
-    function addKakaoMarkers(containerId, markerListJson) {
+    window.customOverlays = {};
+    window.markerDataCache = {};
+
+    window.onMarkerClickWeb = function(index) {
+      if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
+    }
+
+    function addMobileMarkers(containerId, markerListJson) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
-        setTimeout(function() { addKakaoMarkers(containerId, markerListJson); }, 200);
+        setTimeout(function() { addMobileMarkers(containerId, markerListJson); }, 200);
         return;
       }
       kakao.maps.load(function() {
         var map = window.kakaoMapObjects[containerId];
-        var clusterer = window.kakaoMapObjects[containerId + '_clusterer'];
-        
-        // 💡 지도가 아직 생성 전이면 200ms 후 재시도
-        if (!map || !clusterer) {
-          setTimeout(function() { addKakaoMarkers(containerId, markerListJson); }, 200);
+        if (!map) {
+          setTimeout(function() { addMobileMarkers(containerId, markerListJson); }, 200);
           return;
         }
 
         var markerData = JSON.parse(markerListJson);
         console.log("Adding markers to map: " + markerData.length + " items");
+        window.markerDataCache[containerId] = markerData;
+        
+        if (!window.customOverlays[containerId]) {
+          window.customOverlays[containerId] = [];
+        }
+        var overlays = window.customOverlays[containerId];
+        for (var i = 0; i < overlays.length; i++) {
+          overlays[i].setMap(null);
+        }
+        overlays.length = 0; // 배열 비우기
 
-        var markers = markerData.map(function(item) {
-          return new kakao.maps.Marker({
-            position: new kakao.maps.LatLng(item.lat, item.lng),
-            title: item.title
-          });
-        });
+        for (var i = 0; i < markerData.length; i++) {
+          (function(idx) {
+            var item = markerData[idx];
 
-        clusterer.clear();
-        clusterer.addMarkers(markers);
+            var wrapper = document.createElement('div');
+            wrapper.id = 'marker-wrapper-' + idx;
+            wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
+
+            var bubble = document.createElement('div');
+            var bgColor = item.source === 'USER' ? '#F97316' : '#1D4ED8';
+            bubble.style.cssText = [
+              'cursor:pointer',
+              'background:' + bgColor,
+              'color:#fff',
+              'border-radius:20px',
+              'padding:5px 10px',
+              'font-size:12px',
+              'font-weight:700',
+              'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+              'white-space:nowrap',
+              'display:flex',
+              'flex-direction:column',
+              'align-items:center',
+              'gap:1px',
+              'line-height:1.3',
+              'border:1.5px solid rgba(255,255,255,0.3)',
+              'transition:background 0.2s ease'
+            ].join(';');
+
+            var nameEl = document.createElement('span');
+            nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+            nameEl.innerText = item.title;
+
+            var priceEl = document.createElement('span');
+            priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+            priceEl.innerText = item.menu + '  ' + item.price;
+
+            var tail = document.createElement('div');
+            tail.style.cssText = [
+              'width:0',
+              'height:0',
+              'border-left:5px solid transparent',
+              'border-right:5px solid transparent',
+              'border-top:6px solid ' + bgColor,
+              'margin-top:-1px',
+              'transition:border-top-color 0.2s ease'
+            ].join(';');
+
+            bubble.appendChild(nameEl);
+            bubble.appendChild(priceEl);
+            bubble.onclick = function() { window.onMarkerClickWeb(idx); };
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(tail);
+
+            var customOverlay = new kakao.maps.CustomOverlay({
+                position: new kakao.maps.LatLng(item.lat, item.lng),
+                content: wrapper,
+                yAnchor: 1.0,
+                zIndex: 3
+            });
+            customOverlay.setMap(map);
+            overlays.push(customOverlay);
+          })(i);
+        }
         console.log("Markers added successfully!");
       });
     }
@@ -127,13 +230,28 @@
     function updateUserLocationMarker(containerId, lat, lng) {
       var map = window.kakaoMapObjects[containerId];
       if (!map) return;
+      var position = new kakao.maps.LatLng(lat, lng);
       if (!window.userMarker) {
-        window.userMarker = new kakao.maps.Marker({
-          position: new kakao.maps.LatLng(lat, lng),
-          map: map
+        var wrapper = document.createElement('div');
+        wrapper.className = 'my-location-wrapper';
+        
+        var dot = document.createElement('div');
+        dot.className = 'my-location-dot';
+        
+        var direction = document.createElement('div');
+        direction.className = 'my-location-direction';
+        
+        wrapper.appendChild(direction);
+        wrapper.appendChild(dot);
+        
+        window.userMarker = new kakao.maps.CustomOverlay({
+          position: position,
+          content: wrapper,
+          map: map,
+          zIndex: 5
         });
       } else {
-        window.userMarker.setPosition(new kakao.maps.LatLng(lat, lng));
+        window.userMarker.setPosition(position);
       }
     }
 
