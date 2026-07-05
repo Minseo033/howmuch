@@ -86,8 +86,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _route(AppRoutes.reviewList, const ReviewListScreen()),
-      _route(AppRoutes.reviewWrite, const ReviewWriteScreen()),
+      GoRoute(
+        path: AppRoutes.reviewList,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReviewListScreen(store: state.extra as Store?),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.reviewWrite,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReviewWriteScreen(store: state.extra as Store?),
+        ),
+      ),
       _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
       GoRoute(
         path: AppRoutes.priceChangeReport,

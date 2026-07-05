@@ -486,7 +486,7 @@ class StoreDetailScreen extends StatelessWidget {
                               _MockTag('목업 - 추후 개발 필요'),
                               const Spacer(),
                               GestureDetector(
-                                onTap: () => context.push(AppRoutes.reviewList),
+                                onTap: () => context.push(AppRoutes.reviewList, extra: store),
                                 child: const Text(
                                   '전체보기',
                                   style: TextStyle(
