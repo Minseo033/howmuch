@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.google.cloud.firestore.Firestore;
 import com.howmuch.dto.PublicStoreResponseDto;
 import com.howmuch.dto.StoreDto;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -24,16 +25,21 @@ public class PublicDataService {
     private final String PUBLIC_SERVICE_KEY = "6d18dc89fe8fe9ca957848b14987ebfd9cc3ec91e227e3312d6dc7c61d49f263";
     private final String BASE_URL = "https://api.odcloud.kr/api/3045247/v1/uddi:12a36b40-6230-4401-b647-b8456a789c7f";
 
-    public PublicDataService(WebClient.Builder webClientBuilder, GeocodingService geocodingService, Firestore firestore) {
+    public PublicDataService(WebClient.Builder webClientBuilder, GeocodingService geocodingService, ObjectProvider<Firestore> firestoreProvider) {
         this.webClient = webClientBuilder.build();
         this.geocodingService = geocodingService;
-        this.firestore = firestore;
+        this.firestore = firestoreProvider.getIfAvailable();
     }
 
     /**
      * 모든 데이터를 백그라운드에서 동기화합니다.
      */
     public void syncAllPublicDataInBackground() {
+        if (firestore == null) {
+            System.out.println("Firebase 개발 모드: 공공데이터 Firestore 동기화를 건너뜁니다.");
+            return;
+        }
+
         AtomicInteger totalSaved = new AtomicInteger(0);
         int perPage = 100;
 

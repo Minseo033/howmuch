@@ -2,6 +2,7 @@ package com.howmuch.service;
 
 import com.google.firebase.auth.FirebaseAuth;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -13,8 +14,8 @@ public class AuthService {
     private final FirebaseAuth firebaseAuth;
     private final WebClient webClient;
 
-    public AuthService(FirebaseAuth firebaseAuth, WebClient.Builder webClientBuilder) {
-        this.firebaseAuth = firebaseAuth;
+    public AuthService(ObjectProvider<FirebaseAuth> firebaseAuthProvider, WebClient.Builder webClientBuilder) {
+        this.firebaseAuth = firebaseAuthProvider.getIfAvailable();
         this.webClient = webClientBuilder.baseUrl("https://kapi.kakao.com").build();
     }
 
@@ -22,6 +23,10 @@ public class AuthService {
      * 카카오 액세스 토큰을 사용하여 Firebase 커스텀 토큰을 생성합니다.
      */
     public String createFirebaseToken(String kakaoAccessToken) throws Exception {
+        if (firebaseAuth == null) {
+            return "dev-firebase-token";
+        }
+
         // 1. 카카오 사용자 정보 가져오기
         Map<String, Object> kakaoResponse = fetchKakaoUserInfo(kakaoAccessToken);
 

@@ -1,10 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:howmuch/app/backend_config.dart';
 
 class UserProfileApiService {
-  static const String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
-
   static const Map<String, String> _baseHeaders = {
     'Content-Type': 'application/json',
     'ngrok-skip-browser-warning': 'true',
@@ -13,16 +12,10 @@ class UserProfileApiService {
   /// 사용자 프로필 조회
   /// 성공 시 Map 반환, 404면 null 반환
   Future<Map<String, dynamic>?> fetchProfile(String firebaseUid) async {
-    final url = Uri.parse('$_backendBaseUrl/api/user/profile');
+    final url = Uri.parse('${BackendConfig.baseUrl}/api/user/profile');
     try {
       final response = await http
-          .get(
-            url,
-            headers: {
-              ..._baseHeaders,
-              'X-Firebase-Uid': firebaseUid,
-            },
-          )
+          .get(url, headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid})
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -50,15 +43,12 @@ class UserProfileApiService {
     required String region,
     required List<String> favoriteCategories,
   }) async {
-    final url = Uri.parse('$_backendBaseUrl/api/user/profile');
+    final url = Uri.parse('${BackendConfig.baseUrl}/api/user/profile');
     try {
       final response = await http
           .post(
             url,
-            headers: {
-              ..._baseHeaders,
-              'X-Firebase-Uid': firebaseUid,
-            },
+            headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid},
             body: jsonEncode({
               'nickname': nickname,
               'email': email,

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/app/backend_config.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'user_report_model.dart';
 
@@ -9,23 +10,24 @@ final reportServiceProvider = Provider((ref) => ReportService(ref));
 
 class ReportService {
   final Ref _ref;
-  final String _backendBaseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   ReportService(this._ref);
 
   Future<bool> submitReport(UserReport report) async {
-    final url = Uri.parse('$_backendBaseUrl/api/report/store');
+    final url = Uri.parse('${BackendConfig.baseUrl}/api/report/store');
 
     try {
       debugPrint('제보 데이터 전송 시작: ${report.storeName}');
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // ngrok 경고 페이지 우회
-        },
-        body: jsonEncode(report.toJson()),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'ngrok-skip-browser-warning': 'true', // ngrok 경고 페이지 우회
+            },
+            body: jsonEncode(report.toJson()),
+          )
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

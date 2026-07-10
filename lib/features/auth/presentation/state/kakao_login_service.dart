@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_router.dart';
+import 'package:howmuch/app/backend_config.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 
@@ -13,8 +14,6 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
 class KakaoLoginService {
   final Ref _ref;
-  // 💡 웹 배포를 위해 localhost 대신 ngrok 고정
-  final String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
 
   KakaoLoginService(this._ref);
 
@@ -48,14 +47,16 @@ class KakaoLoginService {
         final firebaseUid = user.id.toString();
 
         // 💡 인증 상태 업데이트 (firebaseUid 포함)
-        _ref.read(authStateProvider.notifier).update(
-          (state) => state.copyWith(
-            isLoggedIn: true,
-            provider: '카카오',
-            email: email,
-            firebaseUid: firebaseUid,
-          ),
-        );
+        _ref
+            .read(authStateProvider.notifier)
+            .update(
+              (state) => state.copyWith(
+                isLoggedIn: true,
+                provider: '카카오',
+                email: email,
+                firebaseUid: firebaseUid,
+              ),
+            );
 
         // 💡 프로필 존재 여부에 따라 라우팅 분기
         final profileService = UserProfileApiService();
@@ -67,14 +68,17 @@ class KakaoLoginService {
           final parsedCategories = rawCategories is List
               ? rawCategories.map((e) => e.toString()).toList()
               : null;
-          _ref.read(userProfileProvider.notifier).update(
-            (state) => state.copyWith(
-              nickname: profile['nickname'] as String? ?? state.nickname,
-              email: profile['email'] as String? ?? email,
-              region: profile['region'] as String? ?? state.region,
-              favoriteCategories: parsedCategories ?? state.favoriteCategories,
-            ),
-          );
+          _ref
+              .read(userProfileProvider.notifier)
+              .update(
+                (state) => state.copyWith(
+                  nickname: profile['nickname'] as String? ?? state.nickname,
+                  email: profile['email'] as String? ?? email,
+                  region: profile['region'] as String? ?? state.region,
+                  favoriteCategories:
+                      parsedCategories ?? state.favoriteCategories,
+                ),
+              );
           _ref.read(appRouterProvider).go(AppRoutes.home);
         } else {
           // 신규 사용자: 프로필 설정 화면으로 이동
@@ -94,14 +98,14 @@ class KakaoLoginService {
   }
 
   Future<bool> _authenticateWithBackend(String accessToken) async {
-    final url = Uri.parse('$_backendBaseUrl/api/auth/kakao');
-    
+    final url = Uri.parse('${BackendConfig.baseUrl}/api/auth/kakao');
+
     try {
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // ngrok 경고 페이지 우회
+          'ngrok-skip-browser-warning': 'true', // ngrok 경고 페이지 우회
         },
         body: jsonEncode({'kakaoAccessToken': accessToken}),
       );
@@ -110,7 +114,7 @@ class KakaoLoginService {
         final data = jsonDecode(response.body);
         final customToken = data['customToken'];
         debugPrint('백엔드 인증 성공: $customToken');
-        
+
         return true;
       } else {
         debugPrint('백엔드 인증 실패: ${response.statusCode}');
@@ -125,10 +129,9 @@ class KakaoLoginService {
   Future<void> logout() async {
     try {
       await UserApi.instance.logout();
-      _ref.read(authStateProvider.notifier).update((state) => state.copyWith(
-        isLoggedIn: false,
-        email: '',
-      ));
+      _ref
+          .read(authStateProvider.notifier)
+          .update((state) => state.copyWith(isLoggedIn: false, email: ''));
       debugPrint('로그아웃 성공');
     } catch (error) {
       debugPrint('로그아웃 실패 $error');

@@ -14,6 +14,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/backend_config.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
@@ -179,7 +180,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     super.initState();
     _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
-    WidgetsBinding.instance.addPostFrameCallback((_) => _moveToCurrentLocation());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _moveToCurrentLocation(),
+    );
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       web_helper.registerWebCallbacks(_searchInCurrentArea, _onMarkerClicked);
@@ -191,13 +194,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _fetchAllStores() async {
     // 💡 웹 배포를 위해 언제나 ngrok 바라보게 수정
-    final url = 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+    final url = '${BackendConfig.baseUrl}/api/test/all';
+    if (mounted) {
+      setState(() {
+        _hasLoadError = false;
+      });
+    }
     try {
       final response = await http
-          .get(Uri.parse(url), headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'Accept': 'application/json'
-          })
+          .get(
+            Uri.parse(url),
+            headers: {
+              'ngrok-skip-browser-warning': 'true',
+              'Accept': 'application/json',
+            },
+          )
           .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
@@ -228,10 +239,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
 
           if (kIsWeb) {
-            debugPrint('웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.');
+            debugPrint(
+              '웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.',
+            );
           } else {
             debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
           }
+        }
+      } else {
+        debugPrint('전체 매장 로드 실패: HTTP ${response.statusCode}');
+        if (mounted) {
+          setState(() {
+            _hasLoadError = true;
+          });
         }
       }
     } catch (e) {
@@ -612,7 +632,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         try {
           position = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.best,
-            timeLimit: kIsWeb ? const Duration(seconds: 20) : const Duration(seconds: 3),
+            timeLimit: kIsWeb
+                ? const Duration(seconds: 20)
+                : const Duration(seconds: 3),
           );
         } catch (e) {
           position = await Geolocator.getLastKnownPosition();
@@ -749,18 +771,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng'] as double;
 
     try {
-      // 💡 웹 배포를 위해 ngrok URL 고정
-      String baseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev'; 
-      final url = '${baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+      final url =
+          '${BackendConfig.baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
-      final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'Accept': 'application/json'
-        }, // ngrok 경고 페이지 우회
-      ).timeout(const Duration(seconds: 5));
-      
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: {
+              'ngrok-skip-browser-warning': 'true',
+              'Accept': 'application/json',
+            }, // ngrok 경고 페이지 우회
+          )
+          .timeout(const Duration(seconds: 5));
+
       List<Store> fetchedStores = [];
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -769,7 +792,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         // Fallback to local _allStores if backend fails
         fetchedStores = _allStores;
       }
-      
+
       var stores = fetchedStores
           .where(
             (s) =>
@@ -839,8 +862,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_searchFilter.sortOrder == '저렴한순') {
         stores.sort((a, b) {
-          final pa = int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
-          final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
+          final pa =
+              int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
+          final pb =
+              int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
           return pa.compareTo(pb);
         });
       } else {
@@ -894,7 +921,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return Stack(
       children: [
         Positioned.fill(
-          child: HtmlElementView(key: const ValueKey('kakao-map-web'), viewType: _viewId),
+          child: HtmlElementView(
+            key: const ValueKey('kakao-map-web'),
+            viewType: _viewId,
+          ),
         ),
         if (!_isMapInitialized)
           const Center(child: CircularProgressIndicator()),
@@ -1053,6 +1083,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           onPressed: () {
                             setState(() {
                               _hasLoadError = false;
+                              _isAllStoresLoaded = false;
                             });
                             _fetchAllStores();
                           },
@@ -1606,7 +1637,7 @@ class _TodayPickText extends StatelessWidget {
             ),
             const SizedBox(width: 5.994),
             Text(
-              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월','화','수','목','금','토','일'][DateTime.now().weekday - 1]}',
+              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
               style: TextStyle(
                 color: HomeMapScreen.muted,
                 fontFamily: HomeMapScreen.fontFamily,
