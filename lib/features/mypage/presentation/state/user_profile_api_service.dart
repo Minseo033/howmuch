@@ -3,11 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class UserProfileApiService {
-  static const String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
+  static const String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
 
   static const Map<String, String> _baseHeaders = {
     'Content-Type': 'application/json',
-    'ngrok-skip-browser-warning': 'true',
   };
 
   /// 사용자 프로필 조회

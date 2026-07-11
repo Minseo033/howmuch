@@ -13,8 +13,8 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
 class KakaoLoginService {
   final Ref _ref;
-  // 💡 웹 배포를 위해 localhost 대신 ngrok 고정
-  final String _backendBaseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
+  // 💡 Render 클라우드 서버 (24시간 운영)
+  final String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
 
   KakaoLoginService(this._ref);
 

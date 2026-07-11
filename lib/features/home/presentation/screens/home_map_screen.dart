@@ -190,8 +190,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAllStores() async {
-    // 💡 웹 배포를 위해 언제나 ngrok 바라보게 수정
-    final url = 'https://sulfurously-transhumant-dennise.ngrok-free.dev/api/test/all';
+    // 💡 Render 클라우드 서버 (24시간 운영 - 맥북 꺼도 됨!)
+    final url = 'https://howmuch-backend-1xnu.onrender.com/api/test/all';
     try {
       final response = await http
           .get(Uri.parse(url), headers: {
@@ -751,8 +751,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng'] as double;
 
     try {
-      // 💡 웹 배포를 위해 ngrok URL 고정
-      String baseUrl = 'https://sulfurously-transhumant-dennise.ngrok-free.dev'; 
+      // 💡 Render 클라우드 서버 (24시간 운영)
+      String baseUrl = 'https://howmuch-backend-1xnu.onrender.com';
       final url = '${baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
 
       final response = await http.get(

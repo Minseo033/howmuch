@@ -9,7 +9,7 @@ final reportServiceProvider = Provider((ref) => ReportService(ref));
 
 class ReportService {
   final Ref _ref;
-  final String _backendBaseUrl = kIsWeb ? 'http://localhost:8081' : 'https://sulfurously-transhumant-dennise.ngrok-free.dev';
+  final String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
 
   ReportService(this._ref);
 
@@ -22,7 +22,6 @@ class ReportService {
         url,
         headers: {
           'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true' // ngrok 경고 페이지 우회
         },
         body: jsonEncode(report.toJson()),
       ).timeout(const Duration(seconds: 10));
