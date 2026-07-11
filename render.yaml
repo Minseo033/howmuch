@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: howmuch-backend
+    runtime: java
+    buildCommand: cd howmuch_backend && ./gradlew clean build -x test
+    startCommand: java -jar howmuch_backend/build/libs/*.jar
+    envVars:
+      - key: FIREBASE_CONFIG_PATH
+        value: /etc/secrets/firebase-service-account.json
+    secretFiles:
+      - name: firebase-service-account.json
+        mountPath: /etc/secrets/firebase-service-account.json
