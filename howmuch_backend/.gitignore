@@ -1,8 +1,6 @@
 HELP.md
 .gradle
 build/
-# Firebase 보안 키 - 절대 깃허브에 올리면 안 됨!
-firebase-service-account.json
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
