@@ -10,6 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import jakarta.annotation.PostConstruct;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 
 @Configuration
@@ -18,11 +20,30 @@ public class FirebaseConfig {
     @PostConstruct
     public void initFirebase() {
         try {
-            InputStream serviceAccount = getClass().getClassLoader()
-                    .getResourceAsStream("firebase-service-account.json");
+            InputStream serviceAccount = null;
+
+            // 1) 환경변수 FIREBASE_CONFIG_PATH로 외부 파일 경로 지정 (Render Secret File 등)
+            String configPath = System.getenv("FIREBASE_CONFIG_PATH");
+            if (configPath != null && !configPath.isBlank()) {
+                File file = new File(configPath);
+                if (file.exists()) {
+                    serviceAccount = new FileInputStream(file);
+                    System.out.println("Firebase: 외부 파일에서 키 로드 → " + configPath);
+                }
+            }
+
+            // 2) 환경변수가 없으면 classpath(로컬 개발용) 에서 탐색
+            if (serviceAccount == null) {
+                serviceAccount = getClass().getClassLoader()
+                        .getResourceAsStream("firebase-service-account.json");
+                if (serviceAccount != null) {
+                    System.out.println("Firebase: classpath에서 키 로드");
+                }
+            }
 
             if (serviceAccount == null) {
-                throw new RuntimeException("Firebase 자격 증명 키 파일을 찾을 수 없습니다. src/main/resources/firebase-service-account.json 경로를 확인하십시오.");
+                throw new RuntimeException("Firebase 자격 증명 키 파일을 찾을 수 없습니다. " +
+                        "FIREBASE_CONFIG_PATH 환경변수 또는 src/main/resources/firebase-service-account.json 경로를 확인하십시오.");
             }
 
             FirebaseOptions options = FirebaseOptions.builder()
