@@ -233,6 +233,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
           }
         }
+      } else {
+        throw Exception('API responded with status code: ${response.statusCode}');
       }
     } catch (e) {
       debugPrint('전체 매장 로드 실패: $e');
