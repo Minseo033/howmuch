@@ -5,7 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shimmer/shimmer.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 enum _ReportFilter { all, pending, approved, needsEdit, rejected }
@@ -40,13 +40,11 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
   _ReportFilter _filter = _ReportFilter.all;
 
   final ScrollController _scrollController = ScrollController();
-  bool _isLoadingMore = false;
-  int _fakeItemCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
+    Future.microtask(_refreshReports);
   }
 
   @override
@@ -55,50 +53,73 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 50) {
-      _loadMore();
-    }
+  Future<void> _refreshReports() async {
+    final reports = await ref.read(reportServiceProvider).fetchMyReports();
+    if (!mounted) return;
+    if (reports == null) return;
+    ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
   }
 
-  Future<void> _loadMore() async {
-    if (_isLoadingMore) return;
-    setState(() => _isLoadingMore = true);
-    await Future.delayed(const Duration(seconds: 2));
-    if (mounted) {
-      setState(() {
-        _isLoadingMore = false;
-        _fakeItemCount += 5;
-      });
-    }
+  String _formatReportDate(UserReportStatus report) {
+    final parsed = DateTime.tryParse(report.createdAt);
+    if (parsed == null) return '';
+    final local = parsed.toLocal();
+    return '${local.year}.${local.month.toString().padLeft(2, '0')}.${local.day.toString().padLeft(2, '0')}';
   }
 
-  List<_MyReportData> _getMappedReports(List<UserReportStatus> riverpodReports) {
+  List<_MyReportData> _getMappedReports(
+    List<UserReportStatus> riverpodReports,
+  ) {
     return riverpodReports.map((r) {
       _ReportFilter filter = _ReportFilter.all;
-      if (r.status.contains('검토')) filter = _ReportFilter.pending;
-      else if (r.status.contains('승인')) filter = _ReportFilter.approved;
-      else if (r.status.contains('보완')) filter = _ReportFilter.needsEdit;
-      else if (r.status.contains('반려')) filter = _ReportFilter.rejected;
+      if (r.status.contains('검토')) {
+        filter = _ReportFilter.pending;
+      } else if (r.status.contains('승인')) {
+        filter = _ReportFilter.approved;
+      } else if (r.status.contains('보완')) {
+        filter = _ReportFilter.needsEdit;
+      } else if (r.status.contains('반려')) {
+        filter = _ReportFilter.rejected;
+      }
+
+      final notice =
+          (filter == _ReportFilter.needsEdit ||
+                  filter == _ReportFilter.rejected) &&
+              r.rejectReason.trim().isNotEmpty
+          ? r.rejectReason.trim()
+          : null;
 
       double height = 108.778;
-      if (filter == _ReportFilter.approved) height = 154.759;
-      else if (filter == _ReportFilter.needsEdit) height = 194.134;
+      if (filter == _ReportFilter.approved) {
+        height = 154.759;
+      } else if (filter == _ReportFilter.needsEdit) {
+        height = 194.134;
+      } else if (notice != null) {
+        height = 144.134;
+      }
 
       return _MyReportData(
+        id: r.id,
+        source: r,
         filter: filter,
         status: r.status,
-        date: '2026.05.12', // dummy date
+        date: _formatReportDate(r),
         title: r.store,
         menu: r.menu,
         badgeBackground: Color(r.statusBg),
         badgeColor: Color(r.textColor),
         badgeWidth: 70.497,
         height: height,
-        notice: filter == _ReportFilter.needsEdit ? '메뉴판 사진이 흐려 가격 확인이 어려워요' : null,
-        actionLabel: filter == _ReportFilter.approved ? '지도에서 보기' : (filter == _ReportFilter.needsEdit ? '수정하기' : null),
-        actionColor: filter == _ReportFilter.needsEdit ? MyReportsScreen.orange : MyReportsScreen.blue,
-        actionIcon: filter == _ReportFilter.needsEdit ? Icons.edit_outlined : Icons.location_on_outlined,
+        notice: notice,
+        actionLabel: filter == _ReportFilter.approved
+            ? '지도에서 보기'
+            : (filter == _ReportFilter.needsEdit ? '수정하기' : null),
+        actionColor: filter == _ReportFilter.needsEdit
+            ? MyReportsScreen.orange
+            : MyReportsScreen.blue,
+        actionIcon: filter == _ReportFilter.needsEdit
+            ? Icons.edit_outlined
+            : Icons.location_on_outlined,
         actionTop: 142.33,
         actionWidth: 120.185,
       );
@@ -107,11 +128,9 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
 
   List<_MyReportData> _visibleReports(List<UserReportStatus> riverpodReports) {
     final mapped = _getMappedReports(riverpodReports);
-    List<_MyReportData> filtered = _filter == _ReportFilter.all ? mapped : mapped.where((r) => r.filter == _filter).toList();
-    if (_fakeItemCount > 0 && filtered.isNotEmpty) {
-      final extra = List.generate(_fakeItemCount, (i) => filtered[i % filtered.length]);
-      filtered = [...filtered, ...extra];
-    }
+    final filtered = _filter == _ReportFilter.all
+        ? mapped
+        : mapped.where((r) => r.filter == _filter).toList();
     return filtered;
   }
 
@@ -128,6 +147,22 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
     final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     final riverpodReports = ref.watch(userReportsProvider);
+    final mappedReports = _getMappedReports(riverpodReports);
+    final counts = <_ReportFilter, int>{
+      _ReportFilter.all: mappedReports.length,
+      _ReportFilter.pending: mappedReports
+          .where((report) => report.filter == _ReportFilter.pending)
+          .length,
+      _ReportFilter.approved: mappedReports
+          .where((report) => report.filter == _ReportFilter.approved)
+          .length,
+      _ReportFilter.needsEdit: mappedReports
+          .where((report) => report.filter == _ReportFilter.needsEdit)
+          .length,
+      _ReportFilter.rejected: mappedReports
+          .where((report) => report.filter == _ReportFilter.rejected)
+          .length,
+    };
 
     return FigmaMobileCanvas(
       backgroundColor: MyReportsScreen.surface,
@@ -164,6 +199,7 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
             height: 48.878,
             child: _Tabs(
               selected: _filter,
+              counts: counts,
               onChanged: (filter) => setState(() => _filter = filter),
             ),
           ),
@@ -183,6 +219,8 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 _SummaryCard(
+                  totalCount: counts[_ReportFilter.all] ?? 0,
+                  approvedCount: counts[_ReportFilter.approved] ?? 0,
                   onTap: () => setState(() => _filter = _ReportFilter.all),
                 ),
                 const SizedBox(height: 11.989),
@@ -191,37 +229,30 @@ class _MyReportsScreenState extends ConsumerState<MyReportsScreen> {
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _ReportCard(
                       report: report,
-                      onTap: () => context.push(AppRoutes.reportDetail),
+                      onTap: () => context.push(
+                        '${AppRoutes.reportDetailV2}?id=${report.id}',
+                        extra: report.source,
+                      ),
                       onPrimaryTap: () {
                         if (report.filter == _ReportFilter.approved) {
                           context.go(AppRoutes.home);
                           return;
                         }
                         if (report.filter == _ReportFilter.needsEdit) {
-                          context.push(AppRoutes.reportCreate);
+                          context.push(
+                            AppRoutes.reportCreate,
+                            extra: report.source,
+                          );
                           return;
                         }
-                        context.push(AppRoutes.reportDetail);
+                        context.push(
+                          '${AppRoutes.reportDetailV2}?id=${report.id}',
+                          extra: report.source,
+                        );
                       },
                     ),
                   ),
                 ),
-
-                if (_isLoadingMore)
-                  ...List.generate(3, (index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: Shimmer.fromColors(
-                      baseColor: Colors.grey[300]!,
-                      highlightColor: Colors.grey[100]!,
-                      child: Container(
-                        height: 108.778,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                    ),
-                  )),
               ],
             ),
           ),
@@ -306,17 +337,22 @@ class _Header extends StatelessWidget {
 }
 
 class _Tabs extends StatelessWidget {
-  const _Tabs({required this.selected, required this.onChanged});
+  const _Tabs({
+    required this.selected,
+    required this.counts,
+    required this.onChanged,
+  });
 
   final _ReportFilter selected;
+  final Map<_ReportFilter, int> counts;
   final ValueChanged<_ReportFilter> onChanged;
 
   static const _items = [
-    (_ReportFilter.all, '전체', 3),
-    (_ReportFilter.pending, '검토 중', 1),
-    (_ReportFilter.approved, '승인 완료', 1),
-    (_ReportFilter.needsEdit, '보완 요청', 1),
-    (_ReportFilter.rejected, '반려', 0),
+    (_ReportFilter.all, '전체'),
+    (_ReportFilter.pending, '검토 중'),
+    (_ReportFilter.approved, '승인 완료'),
+    (_ReportFilter.needsEdit, '보완 요청'),
+    (_ReportFilter.rejected, '반려'),
   ];
 
   @override
@@ -338,7 +374,7 @@ class _Tabs extends StatelessWidget {
                   width: tabWidth,
                   child: _TabButton(
                     label: item.$2,
-                    count: item.$3,
+                    count: counts[item.$1] ?? 0,
                     selected: selected == item.$1,
                     onTap: () => onChanged(item.$1),
                   ),
@@ -443,8 +479,14 @@ class _TabButton extends StatelessWidget {
 }
 
 class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({required this.onTap});
+  const _SummaryCard({
+    required this.totalCount,
+    required this.approvedCount,
+    required this.onTap,
+  });
 
+  final int totalCount;
+  final int approvedCount;
   final VoidCallback onTap;
 
   @override
@@ -481,7 +523,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 63.98,
               top: 13.99,
               child: Column(
@@ -489,7 +531,7 @@ class _SummaryCard extends StatelessWidget {
                 children: [
                   Text(
                     '총 제보',
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: MyReportsScreen.muted,
                       fontFamily: MyReportsScreen.fontFamily,
                       fontFamilyFallback: MyReportsScreen.fontFallback,
@@ -498,14 +540,14 @@ class _SummaryCard extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
-                  SizedBox(height: 1),
+                  const SizedBox(height: 1),
                   Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(text: '3건 '),
+                        TextSpan(text: '$totalCount건 '),
                         TextSpan(
-                          text: '승인 1건',
-                          style: TextStyle(
+                          text: '승인 $approvedCount건',
+                          style: const TextStyle(
                             color: MyReportsScreen.green,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
@@ -513,7 +555,7 @@ class _SummaryCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: MyReportsScreen.black,
                       fontFamily: MyReportsScreen.fontFamily,
                       fontFamilyFallback: MyReportsScreen.fontFallback,
@@ -784,6 +826,8 @@ class _SmallActionButton extends StatelessWidget {
 
 class _MyReportData {
   const _MyReportData({
+    required this.id,
+    required this.source,
     required this.filter,
     required this.status,
     required this.date,
@@ -801,6 +845,8 @@ class _MyReportData {
     this.actionWidth = 120.185,
   });
 
+  final String id;
+  final UserReportStatus source;
   final _ReportFilter filter;
   final String status;
   final String date;

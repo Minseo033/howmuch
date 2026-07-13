@@ -12,7 +12,9 @@ import org.springframework.context.annotation.Configuration;
 import jakarta.annotation.PostConstruct;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 @Configuration
 public class FirebaseConfig {
@@ -22,9 +24,16 @@ public class FirebaseConfig {
         try {
             InputStream serviceAccount = null;
 
-            // 1) 환경변수 FIREBASE_CONFIG_PATH로 외부 파일 경로 지정 (Render Secret File 등)
+            // 1) 환경변수 FIREBASE_SERVICE_ACCOUNT_JSON으로 키 JSON 직접 주입
+            String configJson = System.getenv("FIREBASE_SERVICE_ACCOUNT_JSON");
+            if (configJson != null && !configJson.isBlank()) {
+                serviceAccount = new ByteArrayInputStream(configJson.getBytes(StandardCharsets.UTF_8));
+                System.out.println("Firebase: 환경변수 FIREBASE_SERVICE_ACCOUNT_JSON에서 키 로드");
+            }
+
+            // 2) 환경변수 FIREBASE_CONFIG_PATH로 외부 파일 경로 지정 (Render Secret File 등)
             String configPath = System.getenv("FIREBASE_CONFIG_PATH");
-            if (configPath != null && !configPath.isBlank()) {
+            if (serviceAccount == null && configPath != null && !configPath.isBlank()) {
                 File file = new File(configPath);
                 if (file.exists()) {
                     serviceAccount = new FileInputStream(file);
@@ -32,7 +41,7 @@ public class FirebaseConfig {
                 }
             }
 
-            // 2) 환경변수가 없으면 classpath(로컬 개발용) 에서 탐색
+            // 3) 환경변수가 없으면 classpath(로컬 개발용) 에서 탐색
             if (serviceAccount == null) {
                 serviceAccount = getClass().getClassLoader()
                         .getResourceAsStream("firebase-service-account.json");
@@ -57,8 +66,7 @@ public class FirebaseConfig {
                 System.out.println("=========================================");
             }
         } catch (Exception e) {
-            System.err.println("Firebase 초기화 중 기술적 예외 발생");
-            e.printStackTrace();
+            throw new IllegalStateException("Firebase 초기화 중 기술적 예외 발생", e);
         }
     }
 

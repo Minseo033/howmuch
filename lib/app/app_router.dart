@@ -62,6 +62,7 @@ import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_con
 
 import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -79,9 +80,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: Scaffold(
             backgroundColor: Colors.white,
             body: Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF2563EB),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF2563EB)),
             ),
           ),
         ),
@@ -106,7 +105,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: PriceChangeReportScreen(
-            storeName: state.extra is String ? state.extra as String : '매장 정보 없음',
+            storeName: state.extra is String
+                ? state.extra as String
+                : '매장 정보 없음',
           ),
         ),
       ),
@@ -116,7 +117,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: VisitVerificationScreen(
-            storeName: state.extra is String ? state.extra as String : '매장 정보 없음',
+            storeName: state.extra is String
+                ? state.extra as String
+                : '매장 정보 없음',
           ),
         ),
       ),
@@ -153,12 +156,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.homeAi, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
       _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
-      _route(AppRoutes.reportCreate, const ReportCreateScreen()),
+      GoRoute(
+        path: AppRoutes.reportCreate,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportCreateScreen(
+            initialReport: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
       _route(AppRoutes.myReports, const MyReportsScreen()),
       _route(AppRoutes.reportDetail, const ReportDetailScreen()),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
-      _route(AppRoutes.reportDetailV2, const ReportDetailV2Screen()),
+      GoRoute(
+        path: AppRoutes.reportDetailV2,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportDetailV2Screen(
+            reportId: state.uri.queryParameters['id'],
+            initialReport: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.communityPostDetail, const CommunityPostDetailScreen()),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(

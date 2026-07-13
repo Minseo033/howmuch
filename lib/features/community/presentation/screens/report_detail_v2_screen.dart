@@ -3,9 +3,15 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:image_picker/image_picker.dart';
 
-class ReportDetailV2Screen extends StatelessWidget {
-  const ReportDetailV2Screen({super.key});
+class ReportDetailV2Screen extends ConsumerWidget {
+  const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
+
+  final String? reportId;
+  final UserReportStatus? initialReport;
 
   static const _blue = Color(0xFF2563EB);
   static const _orange = Color(0xFFF97316);
@@ -30,7 +36,11 @@ class ReportDetailV2Screen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reports = ref.watch(userReportsProvider);
+    final report =
+        initialReport ??
+        reports.where((item) => item.id == reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
@@ -43,6 +53,24 @@ class ReportDetailV2Screen extends StatelessWidget {
         return;
       }
       context.go(AppRoutes.myReportsV2);
+    }
+
+    if (report == null) {
+      return FigmaMobileCanvas(
+        backgroundColor: _surface,
+        child: Center(
+          child: Text(
+            '제보 정보를 찾을 수 없어요.',
+            style: const TextStyle(
+              color: _muted,
+              fontFamily: _fontFamily,
+              fontFamilyFallback: _fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
     }
 
     return FigmaMobileCanvas(
@@ -76,11 +104,11 @@ class ReportDetailV2Screen extends StatelessWidget {
                 actionBottomGap + actionHeight + 24,
               ),
               children: [
-                const _ReportInfoCard(),
+                _ReportInfoCard(report: report),
                 const SizedBox(height: 11.989),
                 const _ProgressCard(),
                 const SizedBox(height: 11.989),
-                const _InfoMessageCard(),
+                _InfoMessageCard(report: report),
               ],
             ),
           ),
@@ -96,21 +124,21 @@ class ReportDetailV2Screen extends StatelessWidget {
                 _contentRight,
                 actionBottomGap,
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Expanded(
+                  const Expanded(
                     flex: 5,
                     child: SizedBox(
                       height: actionHeight,
                       child: _OutlineActionButton(),
                     ),
                   ),
-                  SizedBox(width: 7.997),
+                  const SizedBox(width: 7.997),
                   Expanded(
                     flex: 7,
                     child: SizedBox(
                       height: actionHeight,
-                      child: _PrimaryActionButton(),
+                      child: _PrimaryActionButton(report: report),
                     ),
                   ),
                 ],
@@ -186,7 +214,9 @@ class _Header extends StatelessWidget {
 }
 
 class _ReportInfoCard extends StatelessWidget {
-  const _ReportInfoCard();
+  const _ReportInfoCard({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -199,12 +229,12 @@ class _ReportInfoCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _UserBadgeRow(),
-          SizedBox(height: 12),
+        children: [
+          _UserBadgeRow(report: report),
+          const SizedBox(height: 12),
           Text(
-            '골목밥상',
-            style: TextStyle(
+            report.store.isEmpty ? '매장명 없음' : report.store,
+            style: const TextStyle(
               color: ReportDetailV2Screen._black,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
@@ -213,24 +243,24 @@ class _ReportInfoCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           _InfoLine(
             label: '업종',
-            value: '음식점 · 한식',
+            value: report.category.isEmpty ? '입력 없음' : report.category,
             valueWeight: FontWeight.w600,
             valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: AppSizes.smallSpacing),
+          const SizedBox(height: AppSizes.smallSpacing),
           _InfoLine(
             label: '주소',
-            value: '서울시 마포구 합정동',
+            value: report.address.isEmpty ? '입력 없음' : report.address,
             valueWeight: FontWeight.w600,
             valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: AppSizes.smallSpacing),
-          _PriceLine(),
-          SizedBox(height: AppSizes.itemSpacing),
-          _PhotoSection(),
+          const SizedBox(height: AppSizes.smallSpacing),
+          _PriceLine(report: report),
+          const SizedBox(height: AppSizes.itemSpacing),
+          _PhotoSection(imageUrls: report.imageUrls),
         ],
       ),
     );
@@ -238,7 +268,9 @@ class _ReportInfoCard extends StatelessWidget {
 }
 
 class _UserBadgeRow extends StatelessWidget {
-  const _UserBadgeRow();
+  const _UserBadgeRow({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -271,7 +303,7 @@ class _UserBadgeRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFFFEF3C7),
+            color: Color(report.statusBg),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
@@ -279,16 +311,16 @@ class _UserBadgeRow extends StatelessWidget {
               Container(
                 width: 4,
                 height: 4,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF92400E),
+                decoration: BoxDecoration(
+                  color: Color(report.textColor),
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 4),
-              const Text(
-                '검토 중',
+              Text(
+                report.status,
                 style: TextStyle(
-                  color: Color(0xFF92400E),
+                  color: Color(report.textColor),
                   fontFamily: ReportDetailV2Screen._fontFamily,
                   fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                   fontSize: 10,
@@ -353,13 +385,38 @@ class _InfoLine extends StatelessWidget {
 }
 
 class _PriceLine extends StatelessWidget {
-  const _PriceLine();
+  const _PriceLine({required this.report});
+
+  final UserReportStatus report;
+
+  List<(String, String)> get _items {
+    if (report.menuPrices.isNotEmpty) {
+      return report.menuPrices.map((item) {
+        final price = item.price.isEmpty
+            ? ''
+            : (item.price.endsWith('원') ? item.price : '${item.price}원');
+        return (item.menu, price);
+      }).toList();
+    }
+    final trimmed = report.menu.trim();
+    if (trimmed.isEmpty) return [('입력 없음', '')];
+    final lastSpace = trimmed.lastIndexOf(' ');
+    if (lastSpace == -1) return [(trimmed, '')];
+    return [
+      (
+        trimmed.substring(0, lastSpace).trim(),
+        trimmed.substring(lastSpace + 1).trim(),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items = _items;
     return Row(
-      children: const [
-        Text(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
           '대표 메뉴',
           style: TextStyle(
             color: ReportDetailV2Screen._muted,
@@ -370,30 +427,42 @@ class _PriceLine extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        SizedBox(width: 20),
+        const SizedBox(width: 20),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '제육덮밥 ',
-                  style: TextStyle(color: ReportDetailV2Screen._ink),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${items[index].$1} ',
+                        style: const TextStyle(
+                          color: ReportDetailV2Screen._ink,
+                        ),
+                      ),
+                      TextSpan(
+                        text: items[index].$2,
+                        style: const TextStyle(
+                          color: ReportDetailV2Screen._orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
-                TextSpan(
-                  text: '6,000원',
-                  style: TextStyle(color: ReportDetailV2Screen._orange),
-                ),
+                if (index != items.length - 1) const SizedBox(height: 3),
               ],
-            ),
-            textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
+            ],
           ),
         ),
       ],
@@ -436,34 +505,44 @@ class _ProgressCard extends StatelessWidget {
 }
 
 class _InfoMessageCard extends StatelessWidget {
-  const _InfoMessageCard();
+  const _InfoMessageCard({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
+    final hasNotice = report.rejectReason.trim().isNotEmpty;
     return Container(
       padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: hasNotice ? const Color(0xFFFFF3EA) : const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFDBEAFE), width: .909),
+        border: Border.all(
+          color: hasNotice ? const Color(0xFFFED7AA) : const Color(0xFFDBEAFE),
+          width: .909,
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.access_time,
-            color: ReportDetailV2Screen._blue,
+          Icon(
+            hasNotice ? Icons.warning_amber_rounded : Icons.access_time,
+            color: hasNotice
+                ? ReportDetailV2Screen._orange
+                : ReportDetailV2Screen._blue,
             size: 16,
           ),
           const SizedBox(width: AppSizes.smallSpacing),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
+              children: [
                 Text(
-                  '검토 중',
+                  report.status,
                   style: TextStyle(
-                    color: ReportDetailV2Screen._blue,
+                    color: hasNotice
+                        ? ReportDetailV2Screen._orange
+                        : ReportDetailV2Screen._blue,
                     fontFamily: ReportDetailV2Screen._fontFamily,
                     fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                     fontSize: 13,
@@ -471,10 +550,12 @@ class _InfoMessageCard extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '현재 가격과 위치 정보를 확인하고 있어요.',
-                  style: TextStyle(
+                  hasNotice
+                      ? report.rejectReason.trim()
+                      : '현재 가격과 위치 정보를 확인하고 있어요.',
+                  style: const TextStyle(
                     color: ReportDetailV2Screen._black,
                     fontFamily: ReportDetailV2Screen._fontFamily,
                     fontFamilyFallback: ReportDetailV2Screen._fontFallback,
@@ -666,25 +747,27 @@ class _ReasonItem extends StatelessWidget {
 }
 
 class _PhotoSection extends StatelessWidget {
-  const _PhotoSection();
+  const _PhotoSection({required this.imageUrls});
+
+  final List<String> imageUrls;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
-        _PhotoThumb(
-          colors: [Color(0xFFFCA5A5), Color(0xFFFBBF24)],
-          icon: Icons.image_outlined,
-          showWarning: false,
-        ),
-        SizedBox(width: AppSizes.smallSpacing),
-        _PhotoThumb(
-          colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
-          icon: Icons.image_outlined,
-        ),
-        SizedBox(width: AppSizes.smallSpacing),
-        _EmptyPhotoSlot(),
-      ],
+    final visibleImages = imageUrls.take(3).toList();
+    return SizedBox(
+      height: 70,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: visibleImages.isEmpty ? 1 : visibleImages.length,
+        separatorBuilder: (_, _) =>
+            const SizedBox(width: AppSizes.smallSpacing),
+        itemBuilder: (context, index) {
+          if (visibleImages.isEmpty) {
+            return const _EmptyPhotoSlot();
+          }
+          return _PhotoThumb(imagePath: visibleImages[index]);
+        },
+      ),
     );
   }
 }
@@ -716,60 +799,57 @@ class _EmptyPhotoSlot extends StatelessWidget {
 }
 
 class _PhotoThumb extends StatelessWidget {
-  const _PhotoThumb({
-    required this.colors,
-    required this.icon,
-    this.showWarning = false,
-  });
+  const _PhotoThumb({required this.imagePath});
 
-  final List<Color> colors;
-  final IconData icon;
-  final bool showWarning;
+  final String imagePath;
 
   @override
   Widget build(BuildContext context) {
+    final isRemote =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
     return SizedBox(
       width: 70,
       height: 70,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.image_outlined,
-              color: Colors.white,
-              size: 22,
-            ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE2E8F0),
+            border: Border.all(color: ReportDetailV2Screen._border),
+            borderRadius: BorderRadius.circular(14),
           ),
-          if (showWarning)
-            Positioned(
-              right: -4,
-              top: -4,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: ReportDetailV2Screen._orange,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+          child: isRemote
+              ? Image.network(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const _PhotoFallbackIcon(),
+                )
+              : FutureBuilder(
+                  future: XFile(imagePath).readAsBytes(),
+                  builder: (context, snapshot) {
+                    final bytes = snapshot.data;
+                    if (bytes == null) {
+                      return const _PhotoFallbackIcon();
+                    }
+                    return Image.memory(bytes, fit: BoxFit.cover);
+                  },
                 ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 10,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoFallbackIcon extends StatelessWidget {
+  const _PhotoFallbackIcon();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.image_outlined,
+        color: ReportDetailV2Screen._hint,
+        size: 22,
       ),
     );
   }
@@ -824,12 +904,14 @@ class _OutlineActionButton extends StatelessWidget {
 }
 
 class _PrimaryActionButton extends StatelessWidget {
-  const _PrimaryActionButton();
+  const _PrimaryActionButton({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
     return FilledButton(
-      onPressed: () => context.push(AppRoutes.reportCreate),
+      onPressed: () => context.push(AppRoutes.reportCreate, extra: report),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

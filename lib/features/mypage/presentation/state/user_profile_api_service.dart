@@ -3,7 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class UserProfileApiService {
-  static const String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
+  static const String _backendBaseUrl =
+      'https://howmuch-backend-1xnu.onrender.com';
 
   static const Map<String, String> _baseHeaders = {
     'Content-Type': 'application/json',
@@ -15,13 +16,7 @@ class UserProfileApiService {
     final url = Uri.parse('$_backendBaseUrl/api/user/profile');
     try {
       final response = await http
-          .get(
-            url,
-            headers: {
-              ..._baseHeaders,
-              'X-Firebase-Uid': firebaseUid,
-            },
-          )
+          .get(url, headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid})
           .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
@@ -32,7 +27,7 @@ class UserProfileApiService {
         debugPrint('프로필 없음 (신규 사용자)');
         return null;
       } else {
-        debugPrint('프로필 조회 실패: ${response.statusCode}');
+        debugPrint('프로필 조회 실패: ${response.statusCode} ${response.body}');
         return null;
       }
     } catch (e) {
@@ -54,10 +49,7 @@ class UserProfileApiService {
       final response = await http
           .post(
             url,
-            headers: {
-              ..._baseHeaders,
-              'X-Firebase-Uid': firebaseUid,
-            },
+            headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid},
             body: jsonEncode({
               'nickname': nickname,
               'email': email,
@@ -71,7 +63,7 @@ class UserProfileApiService {
         debugPrint('프로필 저장 성공');
         return true;
       } else {
-        debugPrint('프로필 저장 실패: ${response.statusCode}');
+        debugPrint('프로필 저장 실패: ${response.statusCode} ${response.body}');
         return false;
       }
     } catch (e) {
