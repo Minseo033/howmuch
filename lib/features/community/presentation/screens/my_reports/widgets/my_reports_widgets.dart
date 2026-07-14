@@ -628,6 +628,7 @@ enum ReportFilter { all, pending, approved, needsEdit, rejected }
 class MyReportData {
   const MyReportData({
     required this.id,
+    required this.source,
     required this.filter,
     required this.status,
     required this.date,
@@ -648,6 +649,7 @@ class MyReportData {
   });
 
   final String id;
+  final UserReportStatus source;
   final ReportFilter filter;
   final String status;
   final String date;
@@ -671,21 +673,39 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
   final riverpodReports = ref.watch(userReportsProvider);
   return riverpodReports.map((r) {
     ReportFilter filter = ReportFilter.all;
-    if (r.status.contains('검토')) filter = ReportFilter.pending;
-    else if (r.status.contains('승인')) filter = ReportFilter.approved;
-    else if (r.status.contains('보완')) filter = ReportFilter.needsEdit;
-    else if (r.status.contains('반려')) filter = ReportFilter.rejected;
+    if (r.status.contains('검토')) {
+      filter = ReportFilter.pending;
+    } else if (r.status.contains('승인')) {
+      filter = ReportFilter.approved;
+    } else if (r.status.contains('보완')) {
+      filter = ReportFilter.needsEdit;
+    } else if (r.status.contains('반려')) {
+      filter = ReportFilter.rejected;
+    }
+
+    final notice =
+        (filter == ReportFilter.needsEdit || filter == ReportFilter.rejected) &&
+            r.rejectReason.trim().isNotEmpty
+        ? r.rejectReason.trim()
+        : null;
 
     double height = 108.778;
-    if (filter == ReportFilter.approved) height = 154.759;
-    else if (filter == ReportFilter.needsEdit) height = 194.134;
+    if (filter == ReportFilter.approved) {
+      height = 154.759;
+    } else if (filter == ReportFilter.needsEdit) {
+      height = 194.134;
+    } else if (notice != null) {
+      height = 144.134;
+    }
 
-    final timestamp = int.tryParse(r.id.replaceAll('report-', '')) ?? DateTime.now().millisecondsSinceEpoch;
-    final dateObj = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final dateStr = '${dateObj.year}.${dateObj.month.toString().padLeft(2, '0')}.${dateObj.day.toString().padLeft(2, '0')}';
+    final dateObj = DateTime.tryParse(r.createdAt)?.toLocal();
+    final dateStr = dateObj == null
+        ? ''
+        : '${dateObj.year}.${dateObj.month.toString().padLeft(2, '0')}.${dateObj.day.toString().padLeft(2, '0')}';
 
     return MyReportData(
       id: r.id,
+      source: r,
       filter: filter,
       status: r.status,
       date: dateStr,
@@ -695,62 +715,18 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
       badgeColor: Color(r.textColor),
       badgeWidth: 70.497,
       height: height,
-      notice: filter == ReportFilter.needsEdit ? '메뉴판 사진이 흐려 가격 확인이 어려워요' : null,
-      actionLabel: filter == ReportFilter.approved ? '지도에서 보기' : (filter == ReportFilter.needsEdit ? '수정하기' : null),
-      actionColor: filter == ReportFilter.needsEdit ? const Color(0xFFF97316) : const Color(0xFF2563EB),
-      actionIcon: filter == ReportFilter.needsEdit ? Icons.edit_outlined : Icons.location_on_outlined,
+      notice: notice,
+      actionLabel: filter == ReportFilter.approved
+          ? '지도에서 보기'
+          : (filter == ReportFilter.needsEdit ? '수정하기' : null),
+      actionColor: filter == ReportFilter.needsEdit
+          ? const Color(0xFFF97316)
+          : const Color(0xFF2563EB),
+      actionIcon: filter == ReportFilter.needsEdit
+          ? Icons.edit_outlined
+          : Icons.location_on_outlined,
       actionTop: 142.33,
       actionWidth: 120.185,
     );
   }).toList();
 });
-
-const reportsData = [
-  MyReportData(
-    id: '1',
-    filter: ReportFilter.pending,
-    status: '검토 중',
-    date: '2026.05.12',
-    title: '골목밥상',
-    menu: '제육덮밥 6,000원',
-    badgeBackground: Color(0xFFFEF3C7),
-    badgeColor: Color(0xFF92400E),
-    badgeWidth: 60.497,
-    height: 108.778,
-  ),
-  MyReportData(
-    id: '2',
-    filter: ReportFilter.approved,
-    status: '승인 완료',
-    date: '2026.05.09',
-    title: '동네카페',
-    menu: '아메리카노 2,000원',
-    badgeBackground: Color(0xFFE8F8F1),
-    badgeColor: Color(0xFF10B981),
-    badgeWidth: 70.497,
-    height: 154.759,
-    actionLabel: '지도에서 보기',
-    actionColor: Color(0xFF2563EB),
-    actionIcon: Icons.location_on_outlined,
-  ),
-  MyReportData(
-    id: '3',
-    filter: ReportFilter.needsEdit,
-    status: '보완 요청',
-    date: '2026.05.08',
-    title: '착한김밥',
-    menu: '김밥 2,500원',
-    badgeBackground: Color(0xFFFEF3C7),
-    badgeColor: Color(0xFFF97316),
-    badgeDotColor: Color(0xFFF59E0B),
-    badgeTextColor: Color(0xFF92400E),
-    badgeWidth: 70.497,
-    height: 194.134,
-    notice: '메뉴판 사진이 흐려 가격 확인이 어려워요',
-    actionLabel: '수정하기',
-    actionColor: Color(0xFF2563EB),
-    actionIcon: Icons.edit_outlined,
-    actionTop: 142.33,
-    actionWidth: 120.185,
-  ),
-];

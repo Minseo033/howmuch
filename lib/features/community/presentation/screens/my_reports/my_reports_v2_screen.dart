@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/widgets/my_reports_widgets.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_all_tab.dart';
@@ -9,7 +12,7 @@ import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_needs_edit_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_rejected_tab.dart';
 
-class MyReportsV2Screen extends StatefulWidget {
+class MyReportsV2Screen extends ConsumerStatefulWidget {
   const MyReportsV2Screen({super.key});
 
   static const blue = Color(0xFF2563EB);
@@ -32,11 +35,24 @@ class MyReportsV2Screen extends StatefulWidget {
   ];
 
   @override
-  State<MyReportsV2Screen> createState() => _MyReportsV2ScreenState();
+  ConsumerState<MyReportsV2Screen> createState() => _MyReportsV2ScreenState();
 }
 
-class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
+class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   ReportFilter _filter = ReportFilter.all;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_refreshReports);
+  }
+
+  Future<void> _refreshReports() async {
+    final reports = await ref.read(reportServiceProvider).fetchMyReports();
+    if (!mounted) return;
+    if (reports == null) return;
+    ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+  }
 
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
@@ -56,8 +72,6 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
         return const MyReportsNeedsEditTab();
       case ReportFilter.rejected:
         return const MyReportsRejectedTab();
-      default:
-        return const MyReportsAllTab();
     }
   }
 
@@ -65,6 +79,22 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
+    final reports = ref.watch(myReportDataProvider);
+    final counts = <ReportFilter, int>{
+      ReportFilter.all: reports.length,
+      ReportFilter.pending: reports
+          .where((report) => report.filter == ReportFilter.pending)
+          .length,
+      ReportFilter.approved: reports
+          .where((report) => report.filter == ReportFilter.approved)
+          .length,
+      ReportFilter.needsEdit: reports
+          .where((report) => report.filter == ReportFilter.needsEdit)
+          .length,
+      ReportFilter.rejected: reports
+          .where((report) => report.filter == ReportFilter.rejected)
+          .length,
+    };
 
     return FigmaMobileCanvas(
       backgroundColor: MyReportsV2Screen.surface,
@@ -102,6 +132,7 @@ class _MyReportsV2ScreenState extends State<MyReportsV2Screen> {
             height: 48.878,
             child: _Tabs(
               selected: _filter,
+              counts: counts,
               onChanged: (filter) => setState(() => _filter = filter),
             ),
           ),
@@ -259,17 +290,22 @@ class _Header extends StatelessWidget {
 }
 
 class _Tabs extends StatelessWidget {
-  const _Tabs({required this.selected, required this.onChanged});
+  const _Tabs({
+    required this.selected,
+    required this.counts,
+    required this.onChanged,
+  });
 
   final ReportFilter selected;
+  final Map<ReportFilter, int> counts;
   final ValueChanged<ReportFilter> onChanged;
 
   static const _items = [
-    (ReportFilter.all, '전체', 3),
-    (ReportFilter.pending, '검토 중', 1),
-    (ReportFilter.approved, '승인 완료', 1),
-    (ReportFilter.needsEdit, '보완 요청', 1),
-    (ReportFilter.rejected, '반려', 0),
+    (ReportFilter.all, '전체'),
+    (ReportFilter.pending, '검토 중'),
+    (ReportFilter.approved, '승인 완료'),
+    (ReportFilter.needsEdit, '보완 요청'),
+    (ReportFilter.rejected, '반려'),
   ];
 
   @override
@@ -291,7 +327,7 @@ class _Tabs extends StatelessWidget {
                   width: tabWidth,
                   child: _TabButton(
                     label: item.$2,
-                    count: item.$3,
+                    count: counts[item.$1] ?? 0,
                     selected: selected == item.$1,
                     onTap: () => onChanged(item.$1),
                   ),

@@ -12,7 +12,9 @@ import 'package:howmuch/features/community/presentation/state/report_service.dar
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 
 class ReportCreateScreen extends ConsumerStatefulWidget {
-  const ReportCreateScreen({super.key});
+  const ReportCreateScreen({super.key, this.initialReport});
+
+  final UserReportStatus? initialReport;
 
   @override
   ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -51,14 +53,42 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   @override
   void initState() {
     super.initState();
-    _storeController = TextEditingController(text: '');
-    _categoryController = TextEditingController(text: '');
-    _addressController = TextEditingController(text: '');
+    final initialReport = widget.initialReport;
+    _storeController = TextEditingController(text: initialReport?.store ?? '');
+    _categoryController = TextEditingController(
+      text: initialReport?.category ?? '',
+    );
+    _addressController = TextEditingController(
+      text: initialReport?.address ?? '',
+    );
+    _visitedRecently = initialReport?.visitedRecently ?? true;
+    _checkedMenuPrice = initialReport?.checkedMenuPrice ?? true;
+    _photos.addAll(
+      (initialReport?.imageUrls ?? const []).map((path) => XFile(path)),
+    );
     _storeController.addListener(_onFormChanged);
     _categoryController.addListener(_onFormChanged);
     _addressController.addListener(_onFormChanged);
-    _addInitialMenuPrice(menu: '', price: '');
+    final initialMenus = initialReport?.menuPrices ?? const [];
+    if (initialMenus.isEmpty) {
+      final initialMenu = _splitMenuText(initialReport?.menu ?? '');
+      _addInitialMenuPrice(menu: initialMenu.$1, price: initialMenu.$2);
+    } else {
+      for (final menuPrice in initialMenus) {
+        _addInitialMenuPrice(menu: menuPrice.menu, price: menuPrice.price);
+      }
+    }
     _scrollController.addListener(_syncStepWithScroll);
+  }
+
+  (String, String) _splitMenuText(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return ('', '');
+    final lastSpace = trimmed.lastIndexOf(' ');
+    if (lastSpace == -1) return (trimmed, '');
+    final menu = trimmed.substring(0, lastSpace).trim();
+    final price = trimmed.substring(lastSpace + 1).replaceAll('원', '').trim();
+    return (menu, price);
   }
 
   @override
@@ -174,14 +204,39 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       final auth = ref.read(authStateProvider);
 
       // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
-      final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
-      final price1 = _menuPrices.isNotEmpty ? _menuPrices[0].price.text.trim() : '';
-      final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
-      final price2 = _menuPrices.length > 1 ? _menuPrices[1].price.text.trim() : '';
-      final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
-      final price3 = _menuPrices.length > 2 ? _menuPrices[2].price.text.trim() : '';
-      final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
-      final price4 = _menuPrices.length > 3 ? _menuPrices[3].price.text.trim() : '';
+      final menu1 = _menuPrices.isNotEmpty
+          ? _menuPrices[0].menu.text.trim()
+          : '';
+      final price1 = _menuPrices.isNotEmpty
+          ? _menuPrices[0].price.text.trim()
+          : '';
+      final menu2 = _menuPrices.length > 1
+          ? _menuPrices[1].menu.text.trim()
+          : '';
+      final price2 = _menuPrices.length > 1
+          ? _menuPrices[1].price.text.trim()
+          : '';
+      final menu3 = _menuPrices.length > 2
+          ? _menuPrices[2].menu.text.trim()
+          : '';
+      final price3 = _menuPrices.length > 2
+          ? _menuPrices[2].price.text.trim()
+          : '';
+      final menu4 = _menuPrices.length > 3
+          ? _menuPrices[3].menu.text.trim()
+          : '';
+      final price4 = _menuPrices.length > 3
+          ? _menuPrices[3].price.text.trim()
+          : '';
+      final savedMenuPrices = _menuPrices
+          .map(
+            (item) => UserReportMenuPrice(
+              menu: item.menu.text.trim(),
+              price: item.price.text.trim(),
+            ),
+          )
+          .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
+          .toList();
 
       final backendReport = UserReport(
         cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
@@ -198,37 +253,62 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         price3: price3,
         menu4: menu4,
         price4: price4,
-        imageUrls: [],
-        reporterId: auth.email,
+        imageUrls: _photos.map((photo) => photo.path).toList(),
+        reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
         latitude: 0.0, // 주소로 백엔드에서 위경도 변환
         longitude: 0.0,
       );
 
-      final success = await ref.read(reportServiceProvider).submitReport(backendReport);
+      final initialReport = widget.initialReport;
+      final success = initialReport != null
+          ? true
+          : await ref.read(reportServiceProvider).submitReport(backendReport);
 
       if (success) {
         // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
         final localReport = UserReportStatus(
-          id: 'report-${DateTime.now().millisecondsSinceEpoch}',
+          id:
+              initialReport?.id ??
+              'report-${DateTime.now().millisecondsSinceEpoch}',
           store: _storeController.text.trim(),
           menu: '$menu1 $price1원',
-          status: '검토 중',
-          statusColor: 0xFFF59E0B,
-          statusBg: 0xFFFEF3C7,
-          textColor: 0xFF92400E,
+          status: initialReport?.status ?? '검토 중',
+          statusColor: initialReport?.statusColor ?? 0xFFF59E0B,
+          statusBg: initialReport?.statusBg ?? 0xFFFEF3C7,
+          textColor: initialReport?.textColor ?? 0xFF92400E,
+          category: _categoryController.text.trim(),
+          address: _addressController.text.trim(),
+          menuPrices: savedMenuPrices,
+          imageUrls: _photos.map((photo) => photo.path).toList(),
+          visitedRecently: _visitedRecently,
+          checkedMenuPrice: _checkedMenuPrice,
+          createdAt:
+              initialReport?.createdAt ??
+              DateTime.now().toUtc().toIso8601String(),
+          rejectReason: initialReport?.rejectReason ?? '',
         );
 
-        ref.read(userReportsProvider.notifier).addReport(localReport);
+        if (initialReport == null) {
+          ref.read(userReportsProvider.notifier).addReport(localReport);
+        } else {
+          ref.read(userReportsProvider.notifier).updateReport(localReport);
+        }
 
-        final profile = ref.read(userProfileProvider);
-        ref.read(userProfileProvider.notifier).state = profile.copyWith(
-          reportCount: profile.reportCount + 1,
-        );
+        if (initialReport == null) {
+          final profile = ref.read(userProfileProvider);
+          ref.read(userProfileProvider.notifier).state = profile.copyWith(
+            reportCount: profile.reportCount + 1,
+          );
+        }
 
         if (mounted) {
-          context.push(AppRoutes.reportComplete);
+          if (initialReport == null) {
+            context.push(AppRoutes.reportComplete);
+          } else {
+            context.go('${AppRoutes.reportDetailV2}?id=${localReport.id}');
+          }
         }
       } else {
         _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
@@ -1153,9 +1233,7 @@ class _PhotoUploadBox extends StatelessWidget {
     final photoCount = photos.length;
     final hasPhotos = photos.isNotEmpty;
     final title = hasPhotos ? '사진 $photoCount장 첨부됨' : '메뉴판 사진 첨부';
-    final subtitle = hasPhotos
-        ? photos.first.name
-        : '가격 확인을 위해 권장해요';
+    final subtitle = hasPhotos ? photos.first.name : '가격 확인을 위해 권장해요';
 
     return GestureDetector(
       onTap: onTap,
