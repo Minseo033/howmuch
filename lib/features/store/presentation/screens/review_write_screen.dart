@@ -9,17 +9,19 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 
-class ReviewWriteScreen extends StatefulWidget {
+class ReviewWriteScreen extends ConsumerStatefulWidget {
   final Store? store;
 
   const ReviewWriteScreen({super.key, this.store});
 
   @override
-  State<ReviewWriteScreen> createState() => _ReviewWriteScreenState();
+  ConsumerState<ReviewWriteScreen> createState() => _ReviewWriteScreenState();
 }
 
-class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
+class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   int _starRating = 4;
   bool _isVisitedRecently = true;
   bool _isPriceChecked = true;
@@ -169,7 +171,19 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
           text: '리뷰 등록하기',
           backgroundColor: AppColors.primary,
           onPressed: () {
-            // 임시 제출 로직
+            final newReview = {
+              'initial': '나',
+              'name': '나의 리뷰 (테스트)',
+              'stars': _starRating,
+              'timeAgo': '방금 전',
+              'menu': _menuController.text.isNotEmpty ? _menuController.text : '선택 안함',
+              'content': _contentController.text.isNotEmpty ? _contentController.text : '정말 좋은 매장이네요!',
+              'likes': 0,
+              'ownerReply': null,
+            };
+
+            ref.read(storeReviewProvider.notifier).addReview(newReview);
+
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')),
             );
@@ -217,8 +231,7 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
       child: Row(
         children: [
           ...List.generate(5, (i) {
-            return FigmaMobileCanvas(
-      child: GestureDetector(
+            return GestureDetector(
               onTap: () => setState(() => _starRating = i + 1),
               child: Icon(
                 Icons.star_rounded,
@@ -227,8 +240,7 @@ class _ReviewWriteScreenState extends State<ReviewWriteScreen> {
                     ? AppColors.star
                     : Colors.grey.shade300,
               ),
-            ),
-    );
+            );
           }),
           const SizedBox(width: 12),
           Text(

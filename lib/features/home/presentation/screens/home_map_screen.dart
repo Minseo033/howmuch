@@ -636,7 +636,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             position.longitude,
           );
         } else {
-          _webViewController?.runJavaScript(
+          _safeRunJavaScript(
             'setMapCenter(${position.latitude}, ${position.longitude});',
           );
         }
@@ -648,16 +648,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _updateUserHeading(double heading) {
     if (kIsWeb) return; // 웹에서는 나침반 제외
-    _webViewController?.runJavaScript('updateUserHeading($heading);');
+    _safeRunJavaScript('updateUserHeading($heading);');
   }
 
   void _updateLocationMarker(double lat, double lng) {
     if (kIsWeb) {
       web_helper.updateUserLocationMarkerWeb(_viewId, lat, lng);
     } else {
-      _webViewController?.runJavaScript(
+      _safeRunJavaScript(
         'updateUserLocationMarker(${lat}, ${lng});',
       );
+    }
+  }
+
+  void _safeRunJavaScript(String script) {
+    try {
+      _webViewController?.runJavaScript(script);
+    } catch (e) {
+      debugPrint('WebView JS 실행 에러 (무시됨): $e');
     }
   }
 
@@ -694,7 +702,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         debugPrint('웹 범위 검색 에러: ${e}');
       }
     } else {
-      _webViewController?.runJavaScript('requestBounds();');
+      _safeRunJavaScript('requestBounds();');
     }
   }
 
@@ -707,7 +715,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_webViewController != null) {
         final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-        _webViewController!.runJavaScript(
+        _safeRunJavaScript(
           'addMobileMarkers($jsStringLiteral);',
         );
       }
@@ -1243,7 +1251,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           store.longitude,
                         );
                       } else {
-                        _webViewController?.runJavaScript(
+                        _safeRunJavaScript(
                           'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
                         );
                       }
