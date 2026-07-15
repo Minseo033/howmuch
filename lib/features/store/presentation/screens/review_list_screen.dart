@@ -4,58 +4,33 @@ import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 
-class ReviewListScreen extends StatefulWidget {
+class ReviewListScreen extends ConsumerStatefulWidget {
   final Store? store;
   const ReviewListScreen({super.key, this.store});
 
   @override
-  State<ReviewListScreen> createState() => _ReviewListScreenState();
+  ConsumerState<ReviewListScreen> createState() => _ReviewListScreenState();
 }
 
-class _ReviewListScreenState extends State<ReviewListScreen> {
+class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
   int _selectedFilter = 0;
 
   final List<String> _filters = ['전체', '가격 만족', '양 많음', '재방문', '최신순'];
 
-  final List<Map<String, dynamic>> _reviews = [
-    {
-      'initial': '절',
-      'name': '절약왕민수',
-      'stars': 4,
-      'timeAgo': '2일 전',
-      'menu': '김치찌개',
-      'content': '5,500원에 이 양과 맛이면 진짜 가성비 최고예요. 반찬도 깔끔합니다.',
-      'likes': 24,
-      'ownerReply': '늘 감사합니다 :)',
-    },
-    {
-      'initial': '동',
-      'name': '동네탐험가',
-      'stars': 5,
-      'timeAgo': '5일 전',
-      'menu': '제육볶음',
-      'content': '양이 진짜 많아요. 1인분으로 둘이 먹어도 충분.',
-      'likes': 18,
-      'ownerReply': null,
-    },
-    {
-      'initial': '강',
-      'name': '강남직장인',
-      'stars': 5,
-      'timeAgo': '1주 전',
-      'menu': '된장찌개',
-      'content': '회사 점심으로 자주 가요. 가격 안 올라서 좋네요.',
-      'likes': 11,
-      'ownerReply': null,
-    },
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final reviews = ref.watch(storeReviewProvider);
+    final reviewCount = reviews.length;
+    final averageRating = reviewCount > 0
+        ? reviews.map((r) => r['stars'] as int).reduce((a, b) => a + b) / reviewCount
+        : 0.0;
+
     return FigmaMobileCanvas(
       child: Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -64,7 +39,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildStoreHeader(),
+            _buildStoreHeader(averageRating, reviewCount),
             _buildFilterChips(),
             Expanded(
               child: ListView.separated(
@@ -73,10 +48,10 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
                   horizontal: 16,
                   vertical: 12,
                 ),
-                itemCount: _reviews.length,
+                itemCount: reviews.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (context, index) =>
-                    _buildReviewCard(_reviews[index]),
+                    _buildReviewCard(reviews[index]),
               ),
             ),
           ],
@@ -93,7 +68,7 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
     );
   }
 
-  Widget _buildStoreHeader() {
+  Widget _buildStoreHeader(double averageRating, int reviewCount) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
       child: Column(
@@ -137,20 +112,26 @@ class _ReviewListScreenState extends State<ReviewListScreen> {
             children: [
               ...List.generate(
                 5,
-                (i) => Icon(
-                  i < 4 ? Icons.star_rounded : Icons.star_half_rounded,
-                  color: AppColors.star,
-                  size: 20,
-                ),
+                (i) {
+                  IconData icon;
+                  if (averageRating >= i + 1) {
+                    icon = Icons.star_rounded; // 꽉 찬 별
+                  } else if (averageRating > i && averageRating < i + 1) {
+                    icon = Icons.star_half_rounded; // 반 개 별
+                  } else {
+                    icon = Icons.star_border_rounded; // 빈 별
+                  }
+                  return Icon(icon, color: AppColors.star, size: 20);
+                },
               ),
               const SizedBox(width: 6),
-              const Text(
-                '4.8',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              Text(
+                averageRating.toStringAsFixed(1),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              const Text(
-                ' · 리뷰 128',
-                style: TextStyle(color: AppColors.muted, fontSize: 14),
+              Text(
+                ' · 리뷰 $reviewCount',
+                style: const TextStyle(color: AppColors.muted, fontSize: 14),
               ),
             ],
           ),
