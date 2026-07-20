@@ -90,7 +90,8 @@ class MypageScreen extends ConsumerWidget {
                                 label: '내 제보',
                                 icon: Icons.description_outlined,
                                 color: orange,
-                                onTap: () => context.push(AppRoutes.myReportsV2),
+                                onTap: () =>
+                                    context.push(AppRoutes.myReportsV2),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -99,7 +100,8 @@ class MypageScreen extends ConsumerWidget {
                                 label: '찜한 매장',
                                 icon: Icons.favorite_border_rounded,
                                 color: orange,
-                                onTap: () => context.push(AppRoutes.favoriteStores),
+                                onTap: () =>
+                                    context.push(AppRoutes.favoriteStores),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -130,7 +132,8 @@ class MypageScreen extends ConsumerWidget {
                                 label: '방문 기록',
                                 icon: Icons.location_on_outlined,
                                 color: green,
-                                onTap: () => context.push(AppRoutes.visitHistory),
+                                onTap: () =>
+                                    context.push(AppRoutes.visitHistory),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -139,7 +142,9 @@ class MypageScreen extends ConsumerWidget {
                                 label: '절약 리포트',
                                 icon: Icons.bar_chart_rounded,
                                 color: green,
-                                onTap: () => context.go(AppRoutes.savingsReportDashboard),
+                                onTap: () => context.go(
+                                  AppRoutes.savingsReportDashboard,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -148,7 +153,8 @@ class MypageScreen extends ConsumerWidget {
                                 label: '알림 설정',
                                 icon: Icons.notifications_none_rounded,
                                 color: blue,
-                                onTap: () => context.go(AppRoutes.notificationSettings),
+                                onTap: () =>
+                                    context.go(AppRoutes.notificationSettings),
                               ),
                             ),
                           ],
@@ -162,9 +168,11 @@ class MypageScreen extends ConsumerWidget {
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
-                        onViewAll: () => context.push(AppRoutes.myReports),
-                        onReportTap: (report) =>
-                            context.push(AppRoutes.reportDetail),
+                        onViewAll: () => context.push(AppRoutes.myReportsV2),
+                        onReportTap: (report) => context.push(
+                          '${AppRoutes.reportDetailV2}?id=${report.id}',
+                          extra: report,
+                        ),
                       ),
                     ),
                     Positioned(
@@ -772,7 +780,7 @@ class _SettingsCardState extends State<_SettingsCard> {
         children: [
           const _PermissionRow(),
           _DividerLine(),
-          
+
           _ToggleRow(
             icon: Icons.notifications_active_outlined,
             title: '푸시 알림',
@@ -959,9 +967,9 @@ class _AdminModeSwitch extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.black.withOpacity(0.2),
+                    color: AppColors.black.withValues(alpha: 0.2),
                     blurRadius: 3,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
@@ -1166,14 +1174,5 @@ const _allowedText = TextStyle(
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 11,
   fontWeight: FontWeight.w600,
-  height: 1.5,
-);
-
-const _navText = TextStyle(
-  color: MypageScreen.hint,
-  fontFamily: MypageScreen.fontFamily,
-  fontFamilyFallback: MypageScreen.fontFallback,
-  fontSize: 10,
-  fontWeight: FontWeight.w500,
   height: 1.5,
 );
