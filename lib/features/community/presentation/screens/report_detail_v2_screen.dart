@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:image_picker/image_picker.dart';
 
-class ReportDetailV2Screen extends ConsumerWidget {
+class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
 
   final String? reportId;
@@ -22,7 +22,6 @@ class ReportDetailV2Screen extends ConsumerWidget {
   static const _border = Color(0xFFE5E7EB);
   static const _hint = Color(0xFF94A3B8);
   static const _surface = Color(0xFFF4F6FA);
-  static const _softOrange = Color(0xFFFFF3EA);
   static const _contentLeft = 20.0;
   static const _contentRight = 20.0;
   static const _fontFamily = 'Inter';
@@ -36,11 +35,19 @@ class ReportDetailV2Screen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportDetailV2Screen> createState() =>
+      _ReportDetailV2ScreenState();
+}
+
+class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
+  String? _alertedRejectReportId;
+
+  @override
+  Widget build(BuildContext context) {
     final reports = ref.watch(userReportsProvider);
     final report =
-        initialReport ??
-        reports.where((item) => item.id == reportId).firstOrNull;
+        widget.initialReport ??
+        reports.where((item) => item.id == widget.reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
@@ -57,14 +64,14 @@ class ReportDetailV2Screen extends ConsumerWidget {
 
     if (report == null) {
       return FigmaMobileCanvas(
-        backgroundColor: _surface,
+        backgroundColor: ReportDetailV2Screen._surface,
         child: Center(
           child: Text(
             '제보 정보를 찾을 수 없어요.',
             style: const TextStyle(
-              color: _muted,
-              fontFamily: _fontFamily,
-              fontFamilyFallback: _fontFallback,
+              color: ReportDetailV2Screen._muted,
+              fontFamily: ReportDetailV2Screen._fontFamily,
+              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -73,8 +80,10 @@ class ReportDetailV2Screen extends ConsumerWidget {
       );
     }
 
+    _showRejectReasonAlertIfNeeded(report);
+
     return FigmaMobileCanvas(
-      backgroundColor: _surface,
+      backgroundColor: ReportDetailV2Screen._surface,
       child: Stack(
         children: [
           Positioned(
@@ -98,15 +107,15 @@ class ReportDetailV2Screen extends ConsumerWidget {
             bottom: 0,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                _contentLeft,
+                ReportDetailV2Screen._contentLeft,
                 15.992,
-                _contentRight,
+                ReportDetailV2Screen._contentRight,
                 actionBottomGap + actionHeight + 24,
               ),
               children: [
                 _ReportInfoCard(report: report),
                 const SizedBox(height: 11.989),
-                const _ProgressCard(),
+                _ProgressCard(report: report),
                 const SizedBox(height: 11.989),
                 _InfoMessageCard(report: report),
               ],
@@ -119,9 +128,9 @@ class ReportDetailV2Screen extends ConsumerWidget {
             height: actionBottomGap + actionHeight,
             child: Padding(
               padding: EdgeInsets.fromLTRB(
-                _contentLeft,
+                ReportDetailV2Screen._contentLeft,
                 0,
-                _contentRight,
+                ReportDetailV2Screen._contentRight,
                 actionBottomGap,
               ),
               child: Row(
@@ -148,6 +157,32 @@ class ReportDetailV2Screen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _showRejectReasonAlertIfNeeded(UserReportStatus report) {
+    final rejectReason = report.rejectReason.trim();
+    if (!report.status.contains('반려') || rejectReason.isEmpty) return;
+    if (_alertedRejectReportId == report.id) return;
+
+    _alertedRejectReportId = report.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('반려 사유'),
+            content: Text(rejectReason),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 }
 
@@ -471,7 +506,9 @@ class _PriceLine extends StatelessWidget {
 }
 
 class _ProgressCard extends StatelessWidget {
-  const _ProgressCard();
+  const _ProgressCard({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -484,8 +521,8 @@ class _ProgressCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
+        children: [
+          const Text(
             '검토 진행 상태',
             style: TextStyle(
               color: ReportDetailV2Screen._black,
@@ -496,8 +533,8 @@ class _ProgressCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: AppSizes.largeSpacing),
-          _ProgressSteps(),
+          const SizedBox(height: AppSizes.largeSpacing),
+          _ProgressSteps(report: report),
         ],
       ),
     );
@@ -574,15 +611,58 @@ class _InfoMessageCard extends StatelessWidget {
 }
 
 class _ProgressSteps extends StatelessWidget {
-  const _ProgressSteps();
+  const _ProgressSteps({required this.report});
+
+  final UserReportStatus report;
+
+  int get _currentIndex {
+    if (report.status.contains('승인')) return 3;
+    if (report.status.contains('반려') || report.status.contains('보완')) {
+      return 2;
+    }
+    return 1;
+  }
+
+  Color get _currentColor {
+    if (report.status.contains('승인')) return ReportDetailV2Screen._green;
+    if (report.status.contains('반려')) return const Color(0xFFEF4444);
+    return ReportDetailV2Screen._orange;
+  }
+
+  String get _reviewResultLabel {
+    if (report.status.contains('반려')) return '반려';
+    if (report.status.contains('보완')) return '보완 요청';
+    if (report.status.contains('승인')) return '승인 완료';
+    return '검토 결과';
+  }
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _StepData('접수 완료', 0, ReportDetailV2Screen._green, true),
-      _StepData('정보 확인', 1, ReportDetailV2Screen._green, true),
-      _StepData('검토 결과', 2, ReportDetailV2Screen._orange, false),
-      _StepData('지도 반영', 3, Color(0xFFCBD5E1), false),
+    final currentIndex = _currentIndex;
+    final items = [
+      _StepData('접수 완료', 0, ReportDetailV2Screen._green, currentIndex > 0),
+      _StepData(
+        '정보 확인',
+        1,
+        currentIndex >= 1
+            ? ReportDetailV2Screen._green
+            : const Color(0xFFCBD5E1),
+        currentIndex > 1,
+      ),
+      _StepData(
+        _reviewResultLabel,
+        2,
+        currentIndex >= 2 ? _currentColor : const Color(0xFFCBD5E1),
+        currentIndex > 2,
+      ),
+      _StepData(
+        '지도 반영',
+        3,
+        currentIndex >= 3
+            ? ReportDetailV2Screen._green
+            : const Color(0xFFCBD5E1),
+        currentIndex >= 3,
+      ),
     ];
 
     return SizedBox(
@@ -611,7 +691,7 @@ class _ProgressSteps extends StatelessWidget {
                   width: stepWidth - circleSize - connectorInset * 2,
                   height: connectorHeight,
                   child: ColoredBox(
-                    color: index < 2
+                    color: index < currentIndex
                         ? ReportDetailV2Screen._green
                         : const Color(0xFFE2E8F0),
                   ),
@@ -630,7 +710,13 @@ class _ProgressSteps extends StatelessWidget {
                   left: stepWidth * index,
                   top: labelTop,
                   width: stepWidth,
-                  child: _StepLabel(item: items[index], isCurrent: index == 2),
+                  child: _StepLabel(
+                    item: items[index],
+                    isCurrent: index == currentIndex,
+                    currentColor: index == currentIndex
+                        ? _currentColor
+                        : ReportDetailV2Screen._orange,
+                  ),
                 ),
             ],
           );
@@ -671,10 +757,15 @@ class _StepCircle extends StatelessWidget {
 }
 
 class _StepLabel extends StatelessWidget {
-  const _StepLabel({required this.item, required this.isCurrent});
+  const _StepLabel({
+    required this.item,
+    required this.isCurrent,
+    required this.currentColor,
+  });
 
   final _StepData item;
   final bool isCurrent;
+  final Color currentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -685,7 +776,7 @@ class _StepLabel extends StatelessWidget {
       overflow: TextOverflow.visible,
       style: TextStyle(
         color: isCurrent
-            ? ReportDetailV2Screen._orange
+            ? currentColor
             : (item.done
                   ? ReportDetailV2Screen._ink
                   : ReportDetailV2Screen._muted),
@@ -706,44 +797,6 @@ class _StepData {
   final int index;
   final Color color;
   final bool done;
-}
-
-class _ReasonItem extends StatelessWidget {
-  const _ReasonItem(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 4,
-          height: 4,
-          margin: const EdgeInsets.only(top: 7),
-          decoration: const BoxDecoration(
-            color: ReportDetailV2Screen._orange,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: AppSizes.smallSpacing),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Color(0xFF7C2D12),
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class _PhotoSection extends StatelessWidget {

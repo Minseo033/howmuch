@@ -10,9 +10,7 @@ import 'package:howmuch/features/auth/presentation/screens/permission_setup_scre
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
-import 'package:howmuch/features/community/presentation/screens/my_reports_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/my_reports_v2_screen.dart';
-import 'package:howmuch/features/community/presentation/screens/report_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
@@ -61,7 +59,6 @@ import 'package:howmuch/features/mypage/presentation/screens/visit_history_scree
 import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
 
 import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -168,8 +165,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
-      _route(AppRoutes.myReports, const MyReportsScreen()),
-      _route(AppRoutes.reportDetail, const ReportDetailScreen()),
+      _route(AppRoutes.myReports, const MyReportsV2Screen()),
+      GoRoute(
+        path: AppRoutes.reportDetail,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportDetailV2Screen(
+            reportId: state.uri.queryParameters['id'],
+            initialReport: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
       GoRoute(
         path: AppRoutes.reportDetailV2,
