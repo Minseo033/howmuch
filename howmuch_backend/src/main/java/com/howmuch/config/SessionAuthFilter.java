@@ -52,6 +52,10 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
 
+        // CORS preflight(OPTIONS)는 크리덴셜 없이 오므로 항상 통과시킵니다.
+        // 막으면 웹 브라우저가 인증 API 호출 자체를 차단합니다.
+        if ("OPTIONS".equalsIgnoreCase(method)) return false;
+
         if (path.startsWith("/api/user/")) return true;
         if (path.startsWith("/api/report/")) return true;
         if (path.startsWith("/api/ai/")) return true;
