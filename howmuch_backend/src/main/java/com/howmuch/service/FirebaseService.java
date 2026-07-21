@@ -1,5 +1,6 @@
 package com.howmuch.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
@@ -7,19 +8,43 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
-import java.util.ArrayList;
-import java.util.List;
 
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class FirebaseService {
 
     private final Firestore db;
-    private final List<Map<String, Object>> cachedStores = new ArrayList<>();
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * 착한가격업소(공공데이터) 인메모리 캐시.
+     * Firestore 일일 읽기 한도(무료 5만) 보호를 위해 요청마다 읽지 않습니다.
+     * volatile 참조 교체 방식이라 조회 중에도 안전합니다.
+     */
+    private volatile List<Map<String, Object>> cachedStores = List.of();
+
+    /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
+    private volatile List<Map<String, Object>> cachedUserStores = List.of();
+
+    /** 공공데이터 마지막 갱신 성공 시각 (24시간 가드: 1시간 주기 실행되지만 성공 후 24시간 내엔 Firestore 미호출) */
+    private volatile long lastGovRefreshSuccessMillis = 0L;
+
+    /** 스냅샷 파일 경로 (기본: 작업 디렉터리 data/stores-snapshot.json) */
+    @Value("${stores.snapshot.path:data/stores-snapshot.json}")
+    private String snapshotPath;
 
     public FirebaseService(Firestore db) {
         this.db = db;
@@ -27,17 +52,124 @@ public class FirebaseService {
 
     @PostConstruct
     public void initAllStores() {
+        // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
+        if (loadGovStoresFromDisk()) {
+            System.out.println("[캐시] 디스크 스냅샷에서 매장 " + cachedStores.size() + "개 로드");
+        // 2순위: 리포지토리에 커밋된 classpath 스냅샷 (신규 인스턴스 콜드스타트 대비)
+        } else if (loadGovStoresFromClasspath()) {
+            System.out.println("[캐시] classpath 스냅샷에서 매장 " + cachedStores.size() + "개 로드");
+        // 3순위: Firestore 로드 후 디스크에 영속화 (하루 1회 갱신 주기 내 최초 1회)
+        } else {
+            refreshGovStores();
+        }
+        // 사용자 제보 매장은 소량이므로 부팅 시 로드
+        loadUserStoresFromFirestore();
+    }
+
+    /**
+     * 공공데이터 매장 Firestore 갱신: 시작 10분 후 + 1시간 주기로 실행.
+     * 단, 마지막 성공 후 24시간이 지나지 않았으면 Firestore를 호출하지 않고 건너뜁니다.
+     * → 평시 일일 읽기 ~1.1만 1회, 실패(쿼터 초과) 시에도 1시간 뒤 자동 재시도.
+     */
+    @Scheduled(initialDelayString = "${stores.refresh.initial-delay-ms:600000}",
+            fixedDelayString = "${stores.refresh.delay-ms:3600000}")
+    public void refreshGovStores() {
+        if (System.currentTimeMillis() - lastGovRefreshSuccessMillis < 86_400_000L
+                && !cachedStores.isEmpty()) {
+            return;
+        }
         try {
-            System.out.println("앱 구동 시 전체 매장 데이터를 한 번만 로드합니다...");
+            System.out.println("[캐시] Firestore에서 공공데이터 매장 갱신 시도...");
             List<Map<String, Object>> stores = db.collection("stores")
                     .get().get().getDocuments().stream()
                     .map(DocumentSnapshot::getData)
                     .toList();
-            cachedStores.addAll(stores);
-            System.out.println("전체 매장 로드 완료: " + cachedStores.size() + "개");
+            if (!stores.isEmpty()) {
+                cachedStores = List.copyOf(stores);
+                lastGovRefreshSuccessMillis = System.currentTimeMillis();
+                persistGovStoresSnapshot(stores);
+                System.out.println("[캐시] 공공데이터 매장 갱신 완료: " + stores.size() + "개");
+            } else {
+                System.out.println("[캐시] Firestore 결과가 비어 있어 기존 캐시 유지");
+            }
         } catch (Exception e) {
-            e.printStackTrace();
-            System.err.println("전체 매장 데이터 로드 중 오류 발생!");
+            // 쿼터 초과 등 실패 시 기존 캐시 유지 (서비스 무중단)
+            System.err.println("[캐시] 공공데이터 매장 갱신 실패, 기존 캐시 유지: " + e.getMessage());
+        }
+    }
+
+    /** 사용자 제보 매장 갱신: 시작 5분 후 + 10분 주기 (소량 컬렉션) */
+    @Scheduled(initialDelayString = "${stores.user.refresh.initial-delay-ms:300000}",
+            fixedDelayString = "${stores.user.refresh.delay-ms:600000}")
+    public void refreshUserStores() {
+        loadUserStoresFromFirestore();
+    }
+
+    private void loadUserStoresFromFirestore() {
+        try {
+            List<Map<String, Object>> userStores = db.collection("stores_user")
+                    .get().get().getDocuments().stream()
+                    .map(doc -> {
+                        Map<String, Object> data = new HashMap<>(doc.getData());
+                        data.put("id", doc.getId());
+                        return data;
+                    })
+                    .toList();
+            cachedUserStores = List.copyOf(userStores);
+            System.out.println("[캐시] 사용자 제보 매장 로드 완료: " + userStores.size() + "개");
+        } catch (Exception e) {
+            System.err.println("[캐시] 사용자 제보 매장 로드 실패, 기존 캐시 유지: " + e.getMessage());
+        }
+    }
+
+    private boolean loadGovStoresFromDisk() {
+        try {
+            Path path = Path.of(snapshotPath);
+            if (!Files.exists(path) || Files.size(path) < 2) return false;
+            List<Map<String, Object>> stores = readStoresJson(Files.newInputStream(path));
+            if (stores.isEmpty()) return false;
+            cachedStores = List.copyOf(stores);
+            return true;
+        } catch (Exception e) {
+            System.err.println("[캐시] 디스크 스냅샷 로드 실패: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean loadGovStoresFromClasspath() {
+        try {
+            ClassPathResource resource = new ClassPathResource("stores-snapshot.json");
+            if (!resource.exists()) return false;
+            List<Map<String, Object>> stores = readStoresJson(resource.getInputStream());
+            if (stores.isEmpty()) return false;
+            cachedStores = List.copyOf(stores);
+            return true;
+        } catch (Exception e) {
+            System.err.println("[캐시] classpath 스냅샷 로드 실패: " + e.getMessage());
+            return false;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> readStoresJson(InputStream in) throws Exception {
+        try (in) {
+            return objectMapper.readValue(in, List.class);
+        }
+    }
+
+    /** 스냅샷을 임시 파일에 쓴 뒤 원자적으로 교체 (쓰기 중단으로 인한 파일 깨짐 방지) */
+    private void persistGovStoresSnapshot(List<Map<String, Object>> stores) {
+        try {
+            Path path = Path.of(snapshotPath);
+            if (path.getParent() != null) {
+                Files.createDirectories(path.getParent());
+            }
+            Path temp = path.resolveSibling(path.getFileName() + ".tmp");
+            objectMapper.writeValue(temp.toFile(), stores);
+            Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
+            System.out.println("[캐시] 스냅샷 저장 완료: " + path.toAbsolutePath());
+        } catch (Exception e) {
+            System.err.println("[캐시] 스냅샷 저장 실패(읽기 전용 FS 등): " + e.getMessage());
         }
     }
 
@@ -45,84 +177,77 @@ public class FirebaseService {
         return cachedStores;
     }
 
-    // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합)
-    public java.util.List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) throws Exception {
-        // 1. 정부 인증 업소 조회 (Blue) - 파이어베이스 과금 방지를 위해 메모리 캐시 사용!
-        java.util.List<Map<String, Object>> govStores = cachedStores.stream()
-                .filter(data -> {
-                    try {
-                        Object latObj = data.get("latitude");
-                        Object lngObj = data.get("longitude");
-                        if (latObj != null && lngObj != null) {
-                            double lat = Double.parseDouble(latObj.toString());
-                            double lng = Double.parseDouble(lngObj.toString());
-                            return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
-                        }
-                    } catch (NumberFormatException e) {
-                        return false;
-                    }
-                    return false;
-                })
+    // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합, 전량 인메모리)
+    public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
+        // 1. 정부 인증 업소 (Blue) - 메모리 캐시
+        List<Map<String, Object>> govStores = cachedStores.stream()
+                .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
                 .map(data -> {
                     Map<String, Object> map = new HashMap<>(data);
-                    map.put("source", "GOV"); // 💡 소스 구분용 플래그
+                    map.put("source", "GOV");
                     return map;
                 })
-                .limit(1000) // 클라이언트 부하를 위해 최대 1000개까지만 전달 (원래 300개였음)
+                .limit(1000)
                 .toList();
 
-        // 2. 사용자 제보 업소 조회 (Orange)
-        java.util.List<Map<String, Object>> userStores = db.collection("stores_user")
-                .whereGreaterThanOrEqualTo("latitude", minLat)
-                .whereLessThanOrEqualTo("latitude", maxLat)
+        // 2. 사용자 제보 업소 (Orange) - 메모리 캐시 (Firestore 실시간 조회 제거)
+        List<Map<String, Object>> userStores = cachedUserStores.stream()
+                .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
+                .map(data -> {
+                    Map<String, Object> map = new HashMap<>(data);
+                    map.put("source", "USER");
+                    return map;
+                })
                 .limit(200)
-                .get().get().getDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("source", "USER"); // 💡 소스 구분용 플래그
-                    return data;
-                })
-                .filter(data -> {
-                    try {
-                        Object lngObj = data.get("longitude");
-                        Object latObj = data.get("latitude");
-                        if (lngObj != null && latObj != null) {
-                            double lng = Double.parseDouble(lngObj.toString());
-                            double lat = Double.parseDouble(latObj.toString());
-                            return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
-                        }
-                    } catch (NumberFormatException e) {
-                        return false;
-                    }
-                    return false;
-                })
                 .toList();
 
         // 3. 통합 리스트 반환
-        java.util.List<Map<String, Object>> combined = new java.util.ArrayList<>();
+        List<Map<String, Object>> combined = new ArrayList<>();
         combined.addAll(govStores);
         combined.addAll(userStores);
         return combined;
     }
 
-    // 💡 사용자의 매장 제보 저장
+    private boolean isInBounds(Map<String, Object> data, double minLat, double maxLat, double minLng, double maxLng) {
+        try {
+            Object latObj = data.get("latitude");
+            Object lngObj = data.get("longitude");
+            if (latObj == null || lngObj == null) return false;
+            double lat = Double.parseDouble(latObj.toString());
+            double lng = Double.parseDouble(lngObj.toString());
+            return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    // 💡 사용자의 매장 제보 저장 (Firestore 쓰기 후 인메모리 캐시에도 즉시 반영)
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
 
         DocumentReference docRef = db.collection("stores_user").document();
         ApiFuture<WriteResult> future = docRef.set(report);
+        future.get();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = objectMapper.convertValue(report, Map.class);
+        data.put("id", docRef.getId());
+        List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
+        updated.add(data);
+        cachedUserStores = List.copyOf(updated);
+
         return docRef.getId();
     }
 
-    // 💡 사용자의 제보 목록 조회
-    public java.util.List<Map<String, Object>> getUserReports(String firebaseUid) throws Exception {
+    // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량)
+    public List<Map<String, Object>> getUserReports(String firebaseUid) throws Exception {
         return db.collection("stores_user")
                 .whereEqualTo("reporterId", firebaseUid)
                 .get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId()); // 문서 ID 포함
+                    data.put("id", doc.getId());
                     return data;
                 })
                 .toList();
@@ -179,7 +304,7 @@ public class FirebaseService {
         data.put("createdAt", java.time.Instant.now().toString());
 
         ApiFuture<WriteResult> future = db.collection("users").document(firebaseUid).set(data);
-        future.get(); // 저장 완료 대기
+        future.get();
 
         return UserProfileResponse.builder()
                 .firebaseUid(firebaseUid)
