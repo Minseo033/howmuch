@@ -7,6 +7,9 @@ services:
     envVars:
       - key: FIREBASE_CONFIG_PATH
         value: /etc/secrets/firebase-service-account.json
+      # 세션 토큰 HMAC 서명 키. Render가 안전한 랜덤 값을 자동 생성합니다 (대시보드 노출 최소화).
+      - key: SESSION_SECRET
+        generateValue: true
     secretFiles:
       - name: firebase-service-account.json
         mountPath: /etc/secrets/firebase-service-account.json
