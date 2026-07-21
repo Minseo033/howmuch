@@ -12,14 +12,11 @@ class AppRoutes {
   static const profileSetup = '/auth/profile-setup';
   static const home = '/home';
   static const homeAiFab = '/home/ai-fab';
-  static const homeAi = '/home-ai';
   static const aiRecommend = '/ai-recommend';
 
   static const communityFeed = '/community';
   static const reportCreate = '/community/report/new';
   static const reportComplete = '/community/report/complete';
-  static const myReports = '/community/reports';
-  static const reportDetail = '/community/report/detail';
   static const myReportsV2 = '/community/reports-v2';
   static const reportDetailV2 = '/community/report-detail-v2';
   static const communityPostDetail = '/community/post/detail';

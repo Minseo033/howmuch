@@ -8,8 +8,10 @@ import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
+import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 
 class ReviewWriteScreen extends ConsumerStatefulWidget {
@@ -69,9 +71,46 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     super.dispose();
   }
 
+  Future<void> _submitReview() async {
+    // 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
+    final storeName = widget.store?.storeName ?? '';
+    if (storeName.isEmpty) {
+      _showSnackBar('매장 정보가 없어 리뷰를 등록할 수 없습니다.');
+      return;
+    }
+
+    final nickname = ref.read(userProfileProvider).nickname;
+    final review = Review(
+      storeId: storeName,
+      storeName: storeName,
+      authorName: nickname.isNotEmpty ? nickname : '익명',
+      stars: _starRating,
+      menu: _menuController.text.isNotEmpty ? _menuController.text : '선택 안함',
+      content: _contentController.text.isNotEmpty
+          ? _contentController.text
+          : '정말 좋은 매장이네요!',
+    );
+
+    final success =
+        await ref.read(storeReviewProvider.notifier).addReview(review);
+    if (!mounted) return;
+
+    if (success) {
+      _showSnackBar('리뷰가 성공적으로 등록되었습니다.');
+      context.pop();
+    } else {
+      _showSnackBar('리뷰 등록에 실패했습니다. 로그인 상태를 확인해주세요.');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 리뷰 등록 API 연동
     return FigmaMobileCanvas(
       child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -170,25 +209,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
         bottomNavigationBar: CustomBottomButton(
           text: '리뷰 등록하기',
           backgroundColor: AppColors.primary,
-          onPressed: () {
-            final newReview = {
-              'initial': '나',
-              'name': '나의 리뷰 (테스트)',
-              'stars': _starRating,
-              'timeAgo': '방금 전',
-              'menu': _menuController.text.isNotEmpty ? _menuController.text : '선택 안함',
-              'content': _contentController.text.isNotEmpty ? _contentController.text : '정말 좋은 매장이네요!',
-              'likes': 0,
-              'ownerReply': null,
-            };
-
-            ref.read(storeReviewProvider.notifier).addReview(newReview);
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')),
-            );
-            context.pop();
-          },
+          onPressed: _submitReview,
         ),
       ),
     ),

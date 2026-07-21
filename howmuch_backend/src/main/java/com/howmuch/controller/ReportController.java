@@ -25,7 +25,13 @@ public class ReportController {
     private final KakaoLocalService kakaoLocalService;
 
     @PostMapping("/store")
-    public ResponseEntity<?> submitStoreReport(@RequestBody UserReportRequest report) {
+    public ResponseEntity<?> submitStoreReport(
+            jakarta.servlet.http.HttpServletRequest httpRequest,
+            @RequestBody UserReportRequest report) {
+        // 💡 제보자 식별자는 클라이언트 입력이 아닌 인증된 세션에서만 가져옵니다 (스푸핑 방지)
+        String reporterUid = (String) httpRequest.getAttribute(
+                com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
+        report.setReporterId(reporterUid);
         try {
             // 💡 입력된 주소를 바탕으로 위도/경도 및 지역 정보를 추출합니다.
             Map<String, Object> coords = kakaoLocalService.getCoordinatesFromAddress(report.getAddress());
@@ -53,7 +59,9 @@ public class ReportController {
     }
 
     @GetMapping("/my")
-    public ResponseEntity<?> getMyReports(@RequestHeader("X-Firebase-Uid") String firebaseUid) {
+    public ResponseEntity<?> getMyReports(jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(
+                com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
         try {
             log.info("[ReportController] 내 제보 목록 조회 요청 - uid: {}", firebaseUid);
             java.util.List<Map<String, Object>> reports = firebaseService.getUserReports(firebaseUid);

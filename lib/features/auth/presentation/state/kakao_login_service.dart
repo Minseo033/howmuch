@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_router.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 
@@ -13,8 +14,6 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
 class KakaoLoginService {
   final Ref _ref;
-  // 💡 Render 클라우드 서버 (24시간 운영)
-  final String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
 
   KakaoLoginService(this._ref);
 
@@ -40,14 +39,14 @@ class KakaoLoginService {
         debugPrint('카카오계정으로 로그인 성공');
       }
 
-      bool isBackendSuccess = await _authenticateWithBackend(token.accessToken);
-      if (isBackendSuccess) {
+      final session = await _authenticateWithBackend(token.accessToken);
+      if (session != null) {
         User user = await UserApi.instance.me();
         final email = user.kakaoAccount?.email ?? 'unknown';
-        // 백엔드 AuthService와 같은 uid 형식을 사용합니다.
-        final firebaseUid = 'kakao:${user.id}';
+        // 백엔드가 발급한 공식 uid/세션 토큰을 사용합니다.
+        final firebaseUid = session.uid;
 
-        // 💡 인증 상태 업데이트 (firebaseUid 포함)
+        // 💡 인증 상태 업데이트 (firebaseUid + 세션 토큰 포함)
         _ref
             .read(authStateProvider.notifier)
             .update(
@@ -56,12 +55,13 @@ class KakaoLoginService {
                 provider: '카카오',
                 email: email,
                 firebaseUid: firebaseUid,
+                sessionToken: session.sessionToken,
               ),
             );
 
         // 💡 프로필 존재 여부에 따라 라우팅 분기
         final profileService = UserProfileApiService();
-        final profile = await profileService.fetchProfile(firebaseUid);
+        final profile = await profileService.fetchProfile();
 
         if (profile != null) {
           // 기존 사용자: 프로필 데이터로 상태 업데이트 후 홈으로 이동
@@ -98,41 +98,59 @@ class KakaoLoginService {
     }
   }
 
-  Future<bool> _authenticateWithBackend(String accessToken) async {
-    final url = Uri.parse('$_backendBaseUrl/api/auth/kakao');
+  Future<({String uid, String sessionToken})?> _authenticateWithBackend(
+    String accessToken,
+  ) async {
+    final url = ApiClient.uri('/api/auth/kakao');
 
     try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true', // ngrok 경고 페이지 우회
-        },
-        body: jsonEncode({'kakaoAccessToken': accessToken}),
-      );
+      final response = await http
+          .post(
+            url,
+            headers: ApiClient.jsonHeaders(),
+            body: jsonEncode({'kakaoAccessToken': accessToken}),
+          )
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final customToken = data['firebaseCustomToken'];
-        debugPrint('백엔드 인증 성공: $customToken');
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final uid = data['firebaseUid'] as String?;
+        final sessionToken = data['sessionToken'] as String?;
 
-        return true;
+        if (uid == null || sessionToken == null) {
+          debugPrint('백엔드 인증 응답 형식 오류: $data');
+          return null;
+        }
+
+        // 💡 이후 모든 인증 API 요청에 사용할 세션 토큰 저장
+        await ApiClient.setSessionToken(sessionToken);
+        debugPrint('백엔드 인증 성공: uid=$uid');
+        return (uid: uid, sessionToken: sessionToken);
       } else {
         debugPrint('백엔드 인증 실패: ${response.statusCode}');
-        return false;
+        return null;
       }
     } catch (e) {
       debugPrint('백엔드 통신 에러: $e');
-      return false;
+      return null;
     }
   }
 
   Future<void> logout() async {
     try {
       await UserApi.instance.logout();
+      // 💡 세션 토큰도 함께 폐기 (서버 API 인증 불가 처리)
+      await ApiClient.setSessionToken(null);
       _ref
           .read(authStateProvider.notifier)
-          .update((state) => state.copyWith(isLoggedIn: false, email: ''));
+          .update(
+            (state) => state.copyWith(
+              isLoggedIn: false,
+              email: '',
+              firebaseUid: '',
+              sessionToken: '',
+            ),
+          );
       debugPrint('로그아웃 성공');
     } catch (error) {
       debugPrint('로그아웃 실패 $error');

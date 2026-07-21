@@ -211,12 +211,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     try {
       final authState = ref.read(authStateProvider);
-      final firebaseUid = authState.firebaseUid;
       final email = authState.email;
 
       final service = UserProfileApiService();
       await service.saveProfile(
-        firebaseUid,
         nickname: _nicknameController.text.trim(),
         email: email,
         region: _regionController.text.trim(),

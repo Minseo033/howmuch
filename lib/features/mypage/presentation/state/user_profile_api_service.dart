@@ -1,23 +1,19 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:howmuch/core/network/api_client.dart';
 
+/// 사용자 프로필 API 서비스.
+/// 세션 토큰(Authorization: Bearer)으로 인증하며, uid는 서버가 세션에서 식별합니다.
 class UserProfileApiService {
-  static const String _backendBaseUrl =
-      'https://howmuch-backend-1xnu.onrender.com';
-
-  static const Map<String, String> _baseHeaders = {
-    'Content-Type': 'application/json',
-  };
-
   /// 사용자 프로필 조회
-  /// 성공 시 Map 반환, 404면 null 반환
-  Future<Map<String, dynamic>?> fetchProfile(String firebaseUid) async {
-    final url = Uri.parse('$_backendBaseUrl/api/user/profile');
+  /// 성공 시 Map 반환, 404(신규 사용자)면 null 반환
+  Future<Map<String, dynamic>?> fetchProfile() async {
+    final url = ApiClient.uri('/api/user/profile');
     try {
       final response = await http
-          .get(url, headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid})
-          .timeout(const Duration(seconds: 10));
+          .get(url, headers: ApiClient.jsonHeaders(auth: true))
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -37,19 +33,18 @@ class UserProfileApiService {
   }
 
   /// 사용자 프로필 저장 (최초 설정)
-  Future<bool> saveProfile(
-    String firebaseUid, {
+  Future<bool> saveProfile({
     required String nickname,
     required String email,
     required String region,
     required List<String> favoriteCategories,
   }) async {
-    final url = Uri.parse('$_backendBaseUrl/api/user/profile');
+    final url = ApiClient.uri('/api/user/profile');
     try {
       final response = await http
           .post(
             url,
-            headers: {..._baseHeaders, 'X-Firebase-Uid': firebaseUid},
+            headers: ApiClient.jsonHeaders(auth: true),
             body: jsonEncode({
               'nickname': nickname,
               'email': email,
@@ -57,7 +52,7 @@ class UserProfileApiService {
               'favoriteCategories': favoriteCategories,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('프로필 저장 성공');

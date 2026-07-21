@@ -150,7 +150,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
       _tabRoute(AppRoutes.home, const HomeMapScreen()),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
-      _route(AppRoutes.homeAi, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
       _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
       GoRoute(
@@ -165,19 +164,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
-      _route(AppRoutes.myReports, const MyReportsV2Screen()),
-      GoRoute(
-        path: AppRoutes.reportDetail,
-        pageBuilder: (_, state) => CupertinoPage<void>(
-          key: state.pageKey,
-          child: ReportDetailV2Screen(
-            reportId: state.uri.queryParameters['id'],
-            initialReport: state.extra is UserReportStatus
-                ? state.extra as UserReportStatus
-                : null,
-          ),
-        ),
-      ),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
       GoRoute(
         path: AppRoutes.reportDetailV2,

@@ -14,6 +14,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
@@ -190,14 +191,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAllStores() async {
-    // 💡 Render 클라우드 서버 (24시간 운영 - 맥북 꺼도 됨!)
-    final url = 'https://howmuch-backend-1xnu.onrender.com/api/test/all';
+    // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
+    final url = ApiClient.uri('/api/stores/all');
     try {
       final response = await http
-          .get(Uri.parse(url), headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'Accept': 'application/json'
-          })
+          .get(url, headers: {'Accept': 'application/json'})
           .timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
@@ -759,16 +757,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng'] as double;
 
     try {
-      // 💡 Render 클라우드 서버 (24시간 운영)
-      String baseUrl = 'https://howmuch-backend-1xnu.onrender.com';
-      final url = '${baseUrl}/api/test/bounds?minLat=${minLat}&maxLat=${maxLat}&minLng=${minLng}&maxLng=${maxLng}';
+      // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
+      final url = ApiClient.uri('/api/stores/bounds', {
+        'minLat': '$minLat',
+        'maxLat': '$maxLat',
+        'minLng': '$minLng',
+        'maxLng': '$maxLng',
+      });
 
       final response = await http.get(
-        Uri.parse(url),
-        headers: {
-          'ngrok-skip-browser-warning': 'true',
-          'Accept': 'application/json'
-        }, // ngrok 경고 페이지 우회
+        url,
+        headers: {'Accept': 'application/json'},
       ).timeout(const Duration(seconds: 5));
       
       List<Store> fetchedStores = [];

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'user_report_model.dart';
 
@@ -10,22 +10,22 @@ final reportServiceProvider = Provider((ref) => ReportService(ref));
 
 class ReportService {
   final Ref _ref;
-  final String _backendBaseUrl = 'https://howmuch-backend-1xnu.onrender.com';
 
   ReportService(this._ref);
 
+  /// 가성비 매장 제보 등록 (세션 인증 필요, 제보자 uid는 서버가 세션에서 주입)
   Future<bool> submitReport(UserReport report) async {
-    final url = Uri.parse('$_backendBaseUrl/api/report/store');
+    final url = ApiClient.uri('/api/report/store');
 
     try {
       debugPrint('제보 데이터 전송 시작: ${report.storeName}');
       final response = await http
           .post(
             url,
-            headers: {'Content-Type': 'application/json'},
+            headers: ApiClient.jsonHeaders(auth: true),
             body: jsonEncode(report.toJson()),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -41,19 +41,19 @@ class ReportService {
     }
   }
 
+  /// 내 제보 내역 조회 (세션 인증 필요)
   Future<List<UserReportStatus>?> fetchMyReports() async {
-    final auth = _ref.read(authStateProvider);
-    final reporterId = auth.firebaseUid.isNotEmpty
-        ? auth.firebaseUid
-        : auth.email;
-    if (reporterId.isEmpty) return null;
+    if (!ApiClient.isAuthenticated) {
+      debugPrint('내 제보 목록 조회: 로그인 세션 없음');
+      return null;
+    }
 
-    final url = Uri.parse('$_backendBaseUrl/api/report/my');
+    final url = ApiClient.uri('/api/report/my');
 
     try {
       final response = await http
-          .get(url, headers: {'X-Firebase-Uid': reporterId})
-          .timeout(const Duration(seconds: 10));
+          .get(url, headers: ApiClient.jsonHeaders(auth: true))
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode != 200) {
         debugPrint('내 제보 목록 조회 실패: ${response.statusCode} ${response.body}');

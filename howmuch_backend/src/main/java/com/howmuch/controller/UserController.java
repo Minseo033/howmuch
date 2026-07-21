@@ -1,8 +1,10 @@
 package com.howmuch.controller;
 
+import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.service.FirebaseService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -18,12 +20,13 @@ public class UserController {
 
     /**
      * 유저 프로필 저장
-     * X-Firebase-Uid 헤더로 uid를 받아 Firestore에 저장 후 저장된 데이터 반환
+     * 세션 토큰(SessionAuthFilter)으로 인증된 uid 기준으로 Firestore에 저장
      */
     @PostMapping("/profile")
     public ResponseEntity<?> saveUserProfile(
-            @RequestHeader("X-Firebase-Uid") String firebaseUid,
+            HttpServletRequest httpRequest,
             @RequestBody UserProfileRequest request) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             log.info("[UserController] 프로필 저장 요청 - uid: {}", firebaseUid);
             UserProfileResponse response = firebaseService.saveUserProfile(firebaseUid, request);
@@ -36,12 +39,12 @@ public class UserController {
 
     /**
      * 유저 프로필 조회
-     * X-Firebase-Uid 헤더로 uid를 받아 Firestore에서 조회.
+     * 세션 토큰(SessionAuthFilter)으로 인증된 uid 기준으로 Firestore에서 조회.
      * 데이터가 있으면 200 OK + UserProfileResponse, 없으면 404 반환
      */
     @GetMapping("/profile")
-    public ResponseEntity<?> getUserProfile(
-            @RequestHeader("X-Firebase-Uid") String firebaseUid) {
+    public ResponseEntity<?> getUserProfile(HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             log.info("[UserController] 프로필 조회 요청 - uid: {}", firebaseUid);
             UserProfileResponse response = firebaseService.getUserProfile(firebaseUid);

@@ -1,47 +1,92 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/store/review_model.dart';
 
-class StoreReviewNotifier extends StateNotifier<List<Map<String, dynamic>>> {
-  StoreReviewNotifier() : super(_initialReviews);
+/// 매장 리뷰 상태.
+/// storeId → 리뷰 목록 맵으로 관리하며, 백엔드 /api/review와 연동합니다.
+class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
+  StoreReviewNotifier() : super(const {});
 
-  static final List<Map<String, dynamic>> _initialReviews = [
-    {
-      'initial': '절',
-      'name': '절약왕민수',
-      'stars': 4,
-      'timeAgo': '2일 전',
-      'menu': '김치찌개',
-      'content': '5,500원에 이 양과 맛이면 진짜 가성비 최고예요. 반찬도 깔끔합니다.',
-      'likes': 24,
-      'ownerReply': '늘 감사합니다 :)',
-    },
-    {
-      'initial': '동',
-      'name': '동네탐험가',
-      'stars': 5,
-      'timeAgo': '5일 전',
-      'menu': '제육볶음',
-      'content': '양이 진짜 많아요. 1인분으로 둘이 먹어도 충분.',
-      'likes': 18,
-      'ownerReply': null,
-    },
-    {
-      'initial': '강',
-      'name': '강남직장인',
-      'stars': 5,
-      'timeAgo': '1주 전',
-      'menu': '된장찌개',
-      'content': '회사 점심으로 자주 가요. 가격 안 올라서 좋네요.',
-      'likes': 11,
-      'ownerReply': null,
-    },
-  ];
+  /// 이미 로드를 시도한 storeId (중복 요청 방지)
+  final Set<String> _loadedStoreIds = {};
 
-  // 새 리뷰 추가용 메서드 (차후 다나님 연동 대비)
-  void addReview(Map<String, dynamic> review) {
-    state = [review, ...state];
+  List<Review> reviewsFor(String storeId) => state[storeId] ?? const [];
+
+  /// 특정 매장의 리뷰 목록을 서버에서 조회 (공개 API)
+  Future<void> loadReviews(String storeId) async {
+    if (storeId.isEmpty || _loadedStoreIds.contains(storeId)) return;
+    _loadedStoreIds.add(storeId);
+
+    final url = ApiClient.uri('/api/review', {'storeId': storeId});
+    try {
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        debugPrint('리뷰 조회 실패: ${response.statusCode}');
+        return;
+      }
+
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! List) return;
+
+      final reviews = decoded
+          .whereType<Map<String, dynamic>>()
+          .map(Review.fromJson)
+          .toList();
+      state = {...state, storeId: reviews};
+    } catch (e) {
+      debugPrint('리뷰 조회 통신 에러: $e');
+    }
+  }
+
+  /// 리뷰 작성 (세션 인증 필요). 성공 시 로컬 목록 맨 앞에 추가하고 true 반환.
+  Future<bool> addReview(Review review) async {
+    final url = ApiClient.uri('/api/review');
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: ApiClient.jsonHeaders(auth: true),
+            body: jsonEncode(review.toCreateJson()),
+          )
+          .timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        debugPrint('리뷰 등록 실패: ${response.statusCode} ${response.body}');
+        return false;
+      }
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final saved = Review(
+        id: (data['reviewId'] ?? '').toString(),
+        storeId: review.storeId,
+        storeName: review.storeName,
+        authorName: review.authorName,
+        stars: review.stars,
+        menu: review.menu,
+        content: review.content,
+        createdAt: DateTime.now(),
+      );
+      final current = state[review.storeId] ?? const <Review>[];
+      state = {
+        ...state,
+        review.storeId: [saved, ...current],
+      };
+      return true;
+    } catch (e) {
+      debugPrint('리뷰 등록 통신 에러: $e');
+      return false;
+    }
   }
 }
 
-final storeReviewProvider = StateNotifierProvider<StoreReviewNotifier, List<Map<String, dynamic>>>((ref) {
+final storeReviewProvider =
+    StateNotifierProvider<StoreReviewNotifier, Map<String, List<Review>>>(
+        (ref) {
   return StoreReviewNotifier();
 });

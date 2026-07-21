@@ -45,33 +45,6 @@ public class FirebaseService {
         return cachedStores;
     }
 
-    public String saveUserData(String userId, String name, String email) throws Exception {
-        Map<String, Object> docData = new HashMap<>();
-        docData.put("name", name);
-        docData.put("email", email);
-
-        ApiFuture<WriteResult> future = db.collection("users").document(userId).set(docData);
-
-        return "데이터 저장 완료 시간: " + future.get().getUpdateTime();
-    }
-
-    public String getUserData(String userId) throws Exception {
-        DocumentReference docRef = db.collection("users").document(userId);
-        ApiFuture<DocumentSnapshot> future = docRef.get();
-        DocumentSnapshot document = future.get();
-
-        if (document.exists()) {
-            return document.getData().toString();
-        } else {
-            return "해당 ID를 가진 유저 데이터가 존재하지 않습니다.";
-        }
-    }
-
-    // 💡 문서 개수를 가져오는 메서드 추가
-    public long getStoreCount() throws Exception {
-        return db.collection("stores").count().get().get().getCount();
-    }
-
     // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합)
     public java.util.List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) throws Exception {
         // 1. 정부 인증 업소 조회 (Blue) - 파이어베이스 과금 방지를 위해 메모리 캐시 사용!
@@ -153,6 +126,46 @@ public class FirebaseService {
                     return data;
                 })
                 .toList();
+    }
+
+    // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
+    public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("storeId", request.getStoreId());
+        data.put("storeName", request.getStoreName());
+        data.put("authorUid", authorUid);
+        data.put("authorName", request.getAuthorName());
+        data.put("menu", request.getMenu());
+        data.put("content", request.getContent());
+        data.put("stars", request.getStars());
+        data.put("likes", 0);
+        data.put("ownerReply", null);
+        data.put("createdAt", java.time.Instant.now().toString());
+
+        DocumentReference docRef = db.collection("reviews").document();
+        ApiFuture<WriteResult> future = docRef.set(data);
+        future.get();
+        return docRef.getId();
+    }
+
+    // 💡 특정 매장의 리뷰 목록 조회 (최신순 정렬 포함)
+    public List<Map<String, Object>> getReviews(String storeId) throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .whereEqualTo("storeId", storeId)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
+        reviews.sort((a, b) -> {
+            String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
+            String bTime = String.valueOf(b.getOrDefault("createdAt", ""));
+            return bTime.compareTo(aTime);
+        });
+        return reviews;
     }
 
     // 💡 유저 프로필 저장

@@ -7,6 +7,7 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
+import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 
@@ -23,12 +24,24 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
 
   final List<String> _filters = ['전체', '가격 만족', '양 많음', '재방문', '최신순'];
 
+  /// 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
+  String get _storeId => widget.store?.storeName ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(storeReviewProvider.notifier).loadReviews(_storeId);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final reviews = ref.watch(storeReviewProvider);
+    final reviews = ref.watch(storeReviewProvider)[_storeId] ??
+        const <Review>[];
     final reviewCount = reviews.length;
     final averageRating = reviewCount > 0
-        ? reviews.map((r) => r['stars'] as int).reduce((a, b) => a + b) / reviewCount
+        ? reviews.map((r) => r.stars).reduce((a, b) => a + b) / reviewCount
         : 0.0;
 
     return FigmaMobileCanvas(
@@ -180,7 +193,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
     );
   }
 
-  Widget _buildReviewCard(Map<String, dynamic> review) {
+  Widget _buildReviewCard(Review review) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -198,7 +211,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                 radius: 20,
                 backgroundColor: AppColors.primary,
                 child: Text(
-                  review['initial'],
+                  review.initial,
                   style: const TextStyle(
                     color: AppColors.white,
                     fontWeight: FontWeight.bold,
@@ -211,7 +224,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    review['name'],
+                    review.authorName,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
@@ -226,7 +239,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                           (i) => Icon(
                             Icons.star_rounded,
                             size: 14,
-                            color: i < (review['stars'] as int)
+                            color: i < review.stars
                                 ? AppColors.star
                                 : Colors.grey.shade300,
                           ),
@@ -234,7 +247,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        review['timeAgo'],
+                        review.timeAgo,
                         style: const TextStyle(
                           color: AppColors.muted,
                           fontSize: 12,
@@ -255,7 +268,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
-              '방문: ${review['menu']}',
+              '방문: ${review.menu}',
               style: const TextStyle(
                 color: AppColors.orangeTheme,
                 fontSize: 12,
@@ -266,7 +279,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
           const SizedBox(height: 10),
           // 리뷰 내용
           Text(
-            review['content'],
+            review.content,
             style: const TextStyle(
               fontSize: 14,
               height: 1.5,
@@ -284,7 +297,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
               ),
               const SizedBox(width: 4),
               Text(
-                '도움이 돼요 ${review['likes']}',
+                '도움이 돼요 ${review.likes}',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
               ),
               const SizedBox(width: 16),
@@ -301,7 +314,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
             ],
           ),
           // 사장님 답글
-          if (review['ownerReply'] != null) ...[
+          if (review.ownerReply != null) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.all(12),
@@ -328,8 +341,8 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                           fontSize: 13,
                         ),
                         children: [
-                          TextSpan(
-                            text: review['ownerReply'],
+                           TextSpan(
+                            text: review.ownerReply,
                             style: const TextStyle(
                               fontWeight: FontWeight.normal,
                             ),
