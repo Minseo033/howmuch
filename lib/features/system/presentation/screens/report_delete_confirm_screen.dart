@@ -41,10 +41,7 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
 
     void deleteReport() {
       final messenger = ScaffoldMessenger.of(context);
-      final reports = ref.read(userReportsProvider);
-      ref.read(userReportsProvider.notifier).state = reports
-          .where((report) => report.id != 'report-golmok')
-          .toList();
+      ref.read(userReportsProvider.notifier).removeReport('report-golmok');
 
       final profile = ref.read(userProfileProvider);
       ref.read(userProfileProvider.notifier).state = profile.copyWith(

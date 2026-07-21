@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -17,7 +18,14 @@ void main() async {
   );
 
   // 💡 디버그 콘솔에서 키 해시 확인용 (등록 후 삭제 가능)
-  debugPrint("카카오 키 해시: ${await KakaoSdk.origin}");
+  // 웹에서는 플랫폼 채널 미지원으로 예외가 날 수 있어 건너뜁니다.
+  if (!kIsWeb) {
+    try {
+      debugPrint("카카오 키 해시: ${await KakaoSdk.origin}");
+    } catch (e) {
+      debugPrint("카카오 키 해시 조회 실패(무시 가능): $e");
+    }
+  }
 
   // 💡 기기에 저장된 로그인 세션 토큰 복원 (앱 재시작 후에도 인증 유지)
   await ApiClient.restoreSession();

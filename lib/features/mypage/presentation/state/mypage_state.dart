@@ -328,6 +328,10 @@ class UserReportsNotifier extends StateNotifier<List<UserReportStatus>> {
     ];
   }
 
+  void removeReport(String id) {
+    state = state.where((report) => report.id != id).toList();
+  }
+
   void setReports(List<UserReportStatus> reports) {
     state = reports;
   }
