@@ -5,19 +5,16 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
-<<<<<<< Updated upstream
-=======
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.VisitResponseDto;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.scheduling.annotation.Scheduled;
->>>>>>> Stashed changes
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class FirebaseService {
@@ -56,9 +53,9 @@ public class FirebaseService {
     }
 
     // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합)
-    public java.util.List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) throws Exception {
+    public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) throws Exception {
         // 1. 정부 인증 업소 조회 (Blue)
-        java.util.List<Map<String, Object>> govStores = db.collection("stores")
+        List<Map<String, Object>> govStores = db.collection("stores")
                 .whereGreaterThanOrEqualTo("latitude", minLat)
                 .whereLessThanOrEqualTo("latitude", maxLat)
                 .limit(300)
@@ -75,10 +72,10 @@ public class FirebaseService {
                     }
                     return false;
                 })
-                .toList();
+                .collect(Collectors.toList());
 
         // 2. 사용자 제보 업소 조회 (Orange)
-        java.util.List<Map<String, Object>> userStores = db.collection("stores_user")
+        List<Map<String, Object>> userStores = db.collection("stores_user")
                 .whereGreaterThanOrEqualTo("latitude", minLat)
                 .whereLessThanOrEqualTo("latitude", maxLat)
                 .limit(200)
@@ -95,10 +92,10 @@ public class FirebaseService {
                     }
                     return false;
                 })
-                .toList();
+                .collect(Collectors.toList());
 
         // 3. 통합 리스트 반환
-        java.util.List<Map<String, Object>> combined = new java.util.ArrayList<>();
+        List<Map<String, Object>> combined = new ArrayList<>();
         combined.addAll(govStores);
         combined.addAll(userStores);
         return combined;
@@ -110,9 +107,6 @@ public class FirebaseService {
         ApiFuture<WriteResult> future = docRef.set(report);
         return docRef.getId();
     }
-<<<<<<< Updated upstream
-}
-=======
 
     // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량)
     public List<Map<String, Object>> getUserReports(String firebaseUid) throws Exception {
@@ -124,7 +118,7 @@ public class FirebaseService {
                     data.put("id", doc.getId());
                     return data;
                 })
-                .toList();
+                .collect(Collectors.toList());
     }
 
     // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
@@ -157,7 +151,7 @@ public class FirebaseService {
                     data.put("id", doc.getId());
                     return data;
                 })
-                .toList());
+                .collect(Collectors.toList()));
         // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
         reviews.sort((a, b) -> {
             String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
@@ -217,7 +211,7 @@ public class FirebaseService {
 
     // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
     public List<VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
-        List<DocumentSnapshot> documents = db.collection("visits")
+        var documents = db.collection("visits")
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments();
 
@@ -269,4 +263,3 @@ public class FirebaseService {
         return visits;
     }
 }
->>>>>>> Stashed changes
