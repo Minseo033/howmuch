@@ -18,6 +18,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/mypage/presentation/screens/account_management_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/connected_social_accounts_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/visit_history_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
@@ -67,6 +68,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.reportDetailV2, const ReportDetailV2Screen()),
       _route(AppRoutes.communityPostDetail, const CommunityPostDetailScreen()),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
+      _route(AppRoutes.visitHistory, const VisitHistoryScreen()),
       _route(
         AppRoutes.notificationSettings,
         const NotificationSettingsScreen(),

@@ -2,11 +2,21 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/core/theme/app_colors.dart';
-import 'package:howmuch/shared/widgets/custom_app_bar.dart';
-import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:howmuch/shared/widgets/status_badge.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../shared/widgets/figma_mobile_canvas.dart';
+
+abstract class _Colors {
+  static const backgroundDark = Color(0xFFF8FAFC);
+  static const muted = Color(0xFF64748B);
+  static const black = Color(0xFF0F172A);
+  static const primary = Color(0xFF2563EB);
+  static const primarySubtle = Color(0xFFEFF6FF);
+  static const orangeTheme = Color(0xFFF97316);
+  static const orangeLight = Color(0xFFFFF7ED);
+  static const success = Color(0xFF16A34A);
+  static const successSubtle = Color(0xFFF0FDF4);
+  static const white = Colors.white;
+}
 
 class VisitHistoryScreen extends StatefulWidget {
   const VisitHistoryScreen({super.key});
@@ -61,11 +71,9 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           _isLoading = false;
         });
       } else {
-        // 서버 응답 오류 발생 시 기본 샘플 데이터 표시 (Fallback)
         _loadFallbackData();
       }
     } catch (e) {
-      // 통신 에러 발생 시 기본 샘플 데이터 표시 (Fallback)
       _loadFallbackData();
     }
   }
@@ -150,43 +158,60 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return FigmaMobileCanvas(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: _Colors.backgroundDark,
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
-        appBar: CustomAppBar(
-          title: '방문 기록',
-          actions: [
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(right: 20),
-                child: RichText(
-                  text: TextSpan(
-                    text: '총 ',
-                    style: const TextStyle(color: AppColors.muted, fontSize: 14),
-                    children: [
-                      TextSpan(
-                        text: '${_visits.length}',
-                        style: const TextStyle(
-                          color: AppColors.black,
-                          fontWeight: FontWeight.bold,
+        backgroundColor: _Colors.backgroundDark,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: AppBar(
+            backgroundColor: _Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _Colors.black, size: 20),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: const Text(
+              '방문 기록',
+              style: TextStyle(
+                color: _Colors.black,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: true,
+            actions: [
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 20),
+                  child: RichText(
+                    text: TextSpan(
+                      text: '총 ',
+                      style: const TextStyle(color: _Colors.muted, fontSize: 14),
+                      children: [
+                        TextSpan(
+                          text: '${_visits.length}',
+                          style: const TextStyle(
+                            color: _Colors.black,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const TextSpan(text: '회'),
-                    ],
+                        const TextSpan(text: '회'),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         body: SafeArea(
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary),
+                  child: CircularProgressIndicator(color: _Colors.primary),
                 )
               : RefreshIndicator(
                   onRefresh: _fetchVisits,
-                  color: AppColors.primary,
+                  color: _Colors.primary,
                   child: Column(
                     children: [
                       _buildSummaryCard(),
@@ -200,7 +225,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                                     child: Text(
                                       '아직 방문 기록이 없습니다.',
                                       style: TextStyle(
-                                        color: AppColors.muted,
+                                        color: _Colors.muted,
                                         fontSize: 15,
                                       ),
                                     ),
@@ -232,7 +257,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       margin: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
-        color: AppColors.successSubtle,
+        color: _Colors.successSubtle,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -243,7 +268,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                 Text(
                   '${_visits.length}',
                   style: const TextStyle(
-                    color: AppColors.success,
+                    color: _Colors.success,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                   ),
@@ -263,7 +288,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                 Text(
                   '${_formatCurrency(_totalSavedAmount)}원',
                   style: const TextStyle(
-                    color: AppColors.success,
+                    color: _Colors.success,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -286,7 +311,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: _Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.grey.shade100),
       ),
@@ -297,12 +322,12 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: isGov ? AppColors.primarySubtle : AppColors.orangeLight,
+              color: isGov ? _Colors.primarySubtle : _Colors.orangeLight,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               item['icon'] as IconData,
-              color: isGov ? AppColors.primary : AppColors.orangeTheme,
+              color: isGov ? _Colors.primary : _Colors.orangeTheme,
               size: 26,
             ),
           ),
@@ -314,9 +339,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                 // 배지 + 이름 + 날짜
                 Row(
                   children: [
-                    StatusBadge(
-                      type: isGov ? BadgeType.government : BadgeType.user,
-                    ),
+                    _VisitBadge(isGov: isGov),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -330,7 +353,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                     Text(
                       item['date'] as String,
                       style: const TextStyle(
-                        color: AppColors.muted,
+                        color: _Colors.muted,
                         fontSize: 12,
                       ),
                     ),
@@ -340,7 +363,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                 // 메뉴 · 가격
                 Text(
                   '${item['menu']} · ${item['price']}',
-                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                  style: const TextStyle(color: _Colors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 6),
                 // 절약 금액
@@ -351,7 +374,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                     Text(
                       item['saving'] as String,
                       style: const TextStyle(
-                        color: AppColors.success,
+                        color: _Colors.success,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -362,6 +385,30 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VisitBadge extends StatelessWidget {
+  final bool isGov;
+  const _VisitBadge({required this.isGov});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: isGov ? _Colors.primarySubtle : _Colors.orangeLight,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        isGov ? '정부인증' : '사용자제보',
+        style: TextStyle(
+          color: isGov ? _Colors.primary : _Colors.orangeTheme,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

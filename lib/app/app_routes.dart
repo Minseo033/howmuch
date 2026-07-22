@@ -23,6 +23,9 @@ class AppRoutes {
   static const communityPostDetail = '/community/post/detail';
 
   static const mypage = '/mypage';
+  static const visitHistory = '/mypage/visits';
+  static const myReviews = '/mypage/reviews';
+  static const savingsReportDashboard = '/mypage/savings-report';
   static const notificationSettings = '/mypage/notifications';
   static const priceAlertSubscription = '/mypage/price-alerts';
   static const accountManagement = '/mypage/account';

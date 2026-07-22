@@ -110,7 +110,7 @@ class MypageScreen extends ConsumerWidget {
                         label: '방문 기록',
                         icon: Icons.location_on_outlined,
                         color: green,
-                        onTap: () {},
+                        onTap: () => context.push(AppRoutes.visitHistory),
                       ),
                     ),
                     Positioned(
