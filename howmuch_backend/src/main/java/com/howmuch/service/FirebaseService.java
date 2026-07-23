@@ -253,6 +253,60 @@ public class FirebaseService {
                 .toList();
     }
 
+    // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
+    public java.util.List<com.howmuch.dto.VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
+        var documents = db.collection("visits")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        java.util.List<com.howmuch.dto.VisitResponseDto> visits = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Long savedAmt = 0L;
+            if (data.get("savedAmount") != null) {
+                try {
+                    savedAmt = Long.parseLong(data.get("savedAmount").toString());
+                } catch (NumberFormatException ignored) {}
+            }
+
+            Long priceAmt = null;
+            if (data.get("price") != null) {
+                try {
+                    priceAmt = Long.parseLong(data.get("price").toString());
+                } catch (NumberFormatException ignored) {}
+            }
+
+            Boolean isGov = null;
+            if (data.get("isGov") != null) {
+                isGov = Boolean.parseBoolean(data.get("isGov").toString());
+            }
+
+            com.howmuch.dto.VisitResponseDto dto = com.howmuch.dto.VisitResponseDto.builder()
+                    .id(doc.getId())
+                    .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
+                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                    .savedAmount(savedAmt)
+                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .menu(data.get("menu") != null ? data.get("menu").toString() : null)
+                    .price(priceAmt)
+                    .isGov(isGov)
+                    .build();
+
+            visits.add(dto);
+        }
+
+        // 방문 일시 최신순 정렬
+        visits.sort((a, b) -> {
+            String aTime = a.getVisitedAt() != null ? a.getVisitedAt() : "";
+            String bTime = b.getVisitedAt() != null ? b.getVisitedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+
+        return visits;
+    }
+
     // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
     public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
         Map<String, Object> data = new HashMap<>();

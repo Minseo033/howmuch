@@ -59,6 +59,7 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         if (path.startsWith("/api/user/")) return true;
         if (path.startsWith("/api/report/")) return true;
         if (path.startsWith("/api/ai/")) return true;
+        if (path.startsWith("/api/visits")) return true;
         // 리뷰 조회(GET)는 공개, 작성(POST)만 인증 필요
         if (path.startsWith("/api/review") && !"GET".equalsIgnoreCase(method)) return true;
         return false;
