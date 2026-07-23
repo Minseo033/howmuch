@@ -6,14 +6,19 @@
 
 ---
 
-## ✅ 2주차 (7/21~7/27) — 방문·제보 마무리 [공지 완료]
+## ✅ 2주차 (7/21~7/27) — 방문·제보 마무리 [완료 7/23]
 
-| 담당 | 과제 |
-|---|---|
-| 박지환 (BE) | GET /api/visits 개발 (응답: 방문 일시, 매장명, 절약 금액). 여유 되면 방문 인증 POST도 |
-| 김다나 (FE) | 지환님 API 완성 공지 후 visit_history_screen.dart 연동. 총 방문 횟수·월별 절약 금액 동적 계산 |
-| 오태관 (FE) | report_detail_v2_screen.dart 연동 (UserReportStatus 활용). 상태별 스텝퍼, 반려 시 rejectReason 경고창, 매장 정보 카드 실데이터 |
-| 민서 (PM) | review_list_screen.dart 매장별 평점·리뷰 수 동적 계산 + GET /api/review/my (BE 지원) |
+| 담당 | 과제 | 결과 |
+|---|---|---|
+| 박지환 (BE) | GET /api/visits 개발 | ✅ 완료 — 세션 인증 적용, main 선별 이식 (VisitController/DTO/getUserVisits) |
+| 김다나 (FE) | visit_history_screen 연동 | ✅ 지환님이 API 연동 구현까지 완료하여 이식. 다나님은 3주차 savings로 재배정 |
+| 오태관 (FE) | report_detail_v2 연동 | ✅ 완료 (94b4b6e 머지) |
+| 민서 (PM) | 리뷰 평점·리뷰 수 동적 계산 | ✅ 완료 (매장별 storeId 키 맵 + API 연동) |
+
+> ⚠️ 브랜치 운영 원칙: 팀원 브랜치 통째 머지 금지 (구버전 공유 파일 롤백 위험).
+> 신규 파일/메서드만 선별 이식 후 리뷰 머지 — 지환님 브랜치도 이 방식으로 반영함.
+>
+> 인프라 상태 (7/23 기준): 세션 인증, ApiClient 일원화, /api/stores 캐시(콜드스타트 읽기 0), CORS/SPA 라우팅, /api/visits 라이브 완료.
 
 ## 3주차 (7/28~8/3) — 절약 코어 (앱 정체성 기능)
 
