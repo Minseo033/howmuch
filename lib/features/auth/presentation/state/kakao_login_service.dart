@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -124,6 +125,9 @@ class KakaoLoginService {
 
         // 💡 이후 모든 인증 API 요청에 사용할 세션 토큰 저장
         await ApiClient.setSessionToken(sessionToken);
+        // 💡 온보딩 완료 플래그 저장 (다음 실행부터 온보딩 건너뜀)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('onboarding_completed', true);
         debugPrint('백엔드 인증 성공: uid=$uid');
         return (uid: uid, sessionToken: sessionToken);
       } else {

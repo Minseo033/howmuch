@@ -4,12 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
-class MypageScreen extends ConsumerWidget {
+class MypageScreen extends ConsumerStatefulWidget {
   const MypageScreen({super.key});
 
   static const blue = AppColors.primary;
@@ -32,7 +33,27 @@ class MypageScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MypageScreen> createState() => _MypageScreenState();
+}
+
+class _MypageScreenState extends ConsumerState<MypageScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // 💡 내 제보를 서버에서 다시 불러옵니다.
+    // (앱 재시작 후 로컬 상태가 비어 미리보기가 사라지는 문제 방지)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMyReports());
+  }
+
+  Future<void> _loadMyReports() async {
+    final reports = await ref.read(reportServiceProvider).fetchMyReports();
+    if (reports != null && mounted) {
+      ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
     final auth = ref.watch(authStateProvider);
     final reports = ref.watch(userReportsProvider);
@@ -45,7 +66,7 @@ class MypageScreen extends ConsumerWidget {
         659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
 
     return FigmaMobileCanvas(
-      backgroundColor: surface,
+      backgroundColor: MypageScreen.surface,
       child: Stack(
         children: [
           Positioned.fill(
@@ -89,7 +110,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '내 제보',
                                 icon: Icons.description_outlined,
-                                color: orange,
+                                color: MypageScreen.orange,
                                 onTap: () =>
                                     context.push(AppRoutes.myReportsV2),
                               ),
@@ -99,7 +120,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '찜한 매장',
                                 icon: Icons.favorite_border_rounded,
-                                color: orange,
+                                color: MypageScreen.orange,
                                 onTap: () =>
                                     context.push(AppRoutes.favoriteStores),
                               ),
@@ -109,7 +130,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '내 리뷰',
                                 icon: Icons.rate_review_outlined,
-                                color: blue,
+                                color: MypageScreen.blue,
                                 onTap: () => context.push(AppRoutes.myReviews),
                               ),
                             ),
@@ -131,7 +152,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '방문 기록',
                                 icon: Icons.location_on_outlined,
-                                color: green,
+                                color: MypageScreen.green,
                                 onTap: () =>
                                     context.push(AppRoutes.visitHistory),
                               ),
@@ -141,7 +162,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '절약 리포트',
                                 icon: Icons.bar_chart_rounded,
-                                color: green,
+                                color: MypageScreen.green,
                                 onTap: () => context.go(
                                   AppRoutes.savingsReportDashboard,
                                 ),
@@ -152,7 +173,7 @@ class MypageScreen extends ConsumerWidget {
                               child: _QuickMenu(
                                 label: '알림 설정',
                                 icon: Icons.notifications_none_rounded,
-                                color: blue,
+                                color: MypageScreen.blue,
                                 onTap: () =>
                                     context.go(AppRoutes.notificationSettings),
                               ),

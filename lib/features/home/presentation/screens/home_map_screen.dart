@@ -565,6 +565,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _isMapInitialized = true;
         });
         _moveToCurrentLocation();
+        // 💡 카카오맵 SDK 로드는 비동기라, 맵 객체 등록 전에 호출된
+        // 중심 이동/위치 마커 갱신이 무시될 수 있습니다.
+        // 맵 준비 완료 후를 겨냥해 지연 재시도합니다.
+        for (final delay in [3, 8]) {
+          Future.delayed(Duration(seconds: delay), () {
+            if (mounted) _moveToCurrentLocation();
+          });
+        }
       } catch (e) {
         debugPrint('지도 초기화 에러: ${e}');
       }
