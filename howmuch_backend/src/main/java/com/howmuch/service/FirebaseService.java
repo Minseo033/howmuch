@@ -118,7 +118,116 @@ public class FirebaseService {
                     data.put("id", doc.getId());
                     return data;
                 })
-                .collect(Collectors.toList());
+                .toList();
+    }
+
+    // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
+    public java.util.List<com.howmuch.dto.VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
+        var documents = db.collection("visits")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        java.util.List<com.howmuch.dto.VisitResponseDto> visits = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Long savedAmt = parseLongSafely(data.get("savedAmount"));
+            Long priceAmt = parseLongSafely(data.get("price"));
+            Boolean isGov = parseBooleanSafely(data.get("isGov"));
+
+            com.howmuch.dto.VisitResponseDto dto = com.howmuch.dto.VisitResponseDto.builder()
+                    .id(doc.getId())
+                    .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
+                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                    .savedAmount(savedAmt != null ? savedAmt : 0L)
+                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .menu(data.get("menu") != null ? data.get("menu").toString() : null)
+                    .price(priceAmt)
+                    .isGov(isGov)
+                    .build();
+
+            visits.add(dto);
+        }
+
+        // 방문 일시 최신순 정렬
+        visits.sort((a, b) -> {
+            String aTime = a.getVisitedAt() != null ? a.getVisitedAt() : "";
+            String bTime = b.getVisitedAt() != null ? b.getVisitedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+
+        return visits;
+    }
+
+    // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
+    public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
+        var documents = db.collection("visits")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.SavingsHistoryResponse> historyList = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Long savedAmt = parseLongSafely(data.get("savedAmount"));
+            Long priceAmt = parseLongSafely(data.get("price"));
+            Boolean isGov = parseBooleanSafely(data.get("isGov"));
+
+            String visitedAtStr = data.get("visitedAt") != null ? data.get("visitedAt").toString() : null;
+            String dateStr = data.get("date") != null ? data.get("date").toString() : visitedAtStr;
+
+            com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
+                    .id(doc.getId())
+                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                    .visitedAt(visitedAtStr)
+                    .date(dateStr)
+                    .menu(data.get("menu") != null ? data.get("menu").toString() : null)
+                    .price(priceAmt)
+                    .savedAmount(savedAmt != null ? savedAmt : 0L)
+                    .isGov(isGov)
+                    .build();
+
+            historyList.add(dto);
+        }
+
+        // 방문/절약 일시 최신순 정렬
+        historyList.sort((a, b) -> {
+            String aTime = a.getVisitedAt() != null ? a.getVisitedAt() : (a.getDate() != null ? a.getDate() : "");
+            String bTime = b.getVisitedAt() != null ? b.getVisitedAt() : (b.getDate() != null ? b.getDate() : "");
+            return bTime.compareTo(aTime);
+        });
+
+        return historyList;
+    }
+
+    private Long parseLongSafely(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number num) {
+            return num.longValue();
+        }
+        try {
+            return (long) Double.parseDouble(obj.toString().trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Boolean parseBooleanSafely(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Boolean b) {
+            return b;
+        }
+        String str = obj.toString().trim();
+        if ("1".equals(str) || "true".equalsIgnoreCase(str)) {
+            return true;
+        }
+        if ("0".equals(str) || "false".equalsIgnoreCase(str)) {
+            return false;
+        }
+        return Boolean.parseBoolean(str);
     }
 
     // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
@@ -207,59 +316,5 @@ public class FirebaseService {
                 .favoriteCategories(favoriteCategories)
                 .createdAt((String) data.get("createdAt"))
                 .build();
-    }
-
-    // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
-    public List<VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
-        var documents = db.collection("visits")
-                .whereEqualTo("userId", firebaseUid)
-                .get().get().getDocuments();
-
-        List<VisitResponseDto> visits = new ArrayList<>();
-        for (DocumentSnapshot doc : documents) {
-            Map<String, Object> data = doc.getData();
-            if (data == null) continue;
-
-            Long savedAmt = 0L;
-            if (data.get("savedAmount") != null) {
-                try {
-                    savedAmt = Long.parseLong(data.get("savedAmount").toString());
-                } catch (NumberFormatException ignored) {}
-            }
-
-            Long priceAmt = null;
-            if (data.get("price") != null) {
-                try {
-                    priceAmt = Long.parseLong(data.get("price").toString());
-                } catch (NumberFormatException ignored) {}
-            }
-
-            Boolean isGov = null;
-            if (data.get("isGov") != null) {
-                isGov = Boolean.parseBoolean(data.get("isGov").toString());
-            }
-
-            VisitResponseDto dto = VisitResponseDto.builder()
-                    .id(doc.getId())
-                    .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
-                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
-                    .savedAmount(savedAmt)
-                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
-                    .menu(data.get("menu") != null ? data.get("menu").toString() : null)
-                    .price(priceAmt)
-                    .isGov(isGov)
-                    .build();
-
-            visits.add(dto);
-        }
-
-        // 방문 일시 최신순 정렬
-        visits.sort((a, b) -> {
-            String aTime = a.getVisitedAt() != null ? a.getVisitedAt() : "";
-            String bTime = b.getVisitedAt() != null ? b.getVisitedAt() : "";
-            return bTime.compareTo(aTime);
-        });
-
-        return visits;
     }
 }
