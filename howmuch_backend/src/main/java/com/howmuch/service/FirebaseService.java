@@ -394,4 +394,111 @@ public class FirebaseService {
                 .createdAt((String) data.get("createdAt"))
                 .build();
     }
+
+    // ==================== 찜하기 (favorites) ====================
+
+    /** 찜 문서 ID: 유저당 매장 1개 찜만 허용 (멱등 추가/삭제용) */
+    private String favoriteDocId(String firebaseUid, String storeId) {
+        return firebaseUid + "_" + storeId;
+    }
+
+    // 💡 찜 추가 (멱등: 같은 매장 재추가 시 덮어쓰기, 중복 문서 생성 안 됨)
+    public com.howmuch.dto.FavoriteResponse addFavorite(String firebaseUid, com.howmuch.dto.FavoriteRequest request) throws Exception {
+        String docId = favoriteDocId(firebaseUid, request.getStoreId());
+        String createdAt = java.time.Instant.now().toString();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("storeId", request.getStoreId());
+        data.put("storeName", request.getStoreName());
+        data.put("createdAt", createdAt);
+
+        db.collection("favorites").document(docId).set(data).get();
+
+        return com.howmuch.dto.FavoriteResponse.builder()
+                .id(docId)
+                .storeId(request.getStoreId())
+                .storeName(request.getStoreName())
+                .createdAt(createdAt)
+                .build();
+    }
+
+    // 💡 찜 해제 (존재하지 않아도 에러 없이 성공 처리 — 멱등)
+    public void removeFavorite(String firebaseUid, String storeId) throws Exception {
+        String docId = favoriteDocId(firebaseUid, storeId);
+        db.collection("favorites").document(docId).delete().get();
+    }
+
+    // 💡 내 찜 목록 조회 (최신순)
+    public List<com.howmuch.dto.FavoriteResponse> getFavorites(String firebaseUid) throws Exception {
+        List<com.howmuch.dto.FavoriteResponse> favorites = new ArrayList<>(db.collection("favorites")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    return com.howmuch.dto.FavoriteResponse.builder()
+                            .id(doc.getId())
+                            .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                            .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                            .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : null)
+                            .build();
+                })
+                .toList());
+        // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
+        favorites.sort((a, b) -> {
+            String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
+            String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+        return favorites;
+    }
+
+    // ==================== 절약 목표 (savings goal) ====================
+
+    // 💡 절약 목표 설정 (users/{uid} 문서에 병합 저장 → 앱 재시작 후에도 유지)
+    public com.howmuch.dto.SavingsGoalResponse saveSavingsGoal(String firebaseUid, Long goalAmount) throws Exception {
+        String updatedAt = java.time.Instant.now().toString();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("savingsGoalAmount", goalAmount);
+        data.put("savingsGoalUpdatedAt", updatedAt);
+
+        // SetOptions.merge(): 프로필 등 다른 필드를 지우지 않고 목표 필드만 갱신
+        db.collection("users").document(firebaseUid)
+                .set(data, com.google.cloud.firestore.SetOptions.merge())
+                .get();
+
+        return com.howmuch.dto.SavingsGoalResponse.builder()
+                .goalAmount(goalAmount)
+                .updatedAt(updatedAt)
+                .build();
+    }
+
+    // 💡 절약 목표 조회 (미설정 시 goalAmount=null)
+    public com.howmuch.dto.SavingsGoalResponse getSavingsGoal(String firebaseUid) throws Exception {
+        DocumentSnapshot document = db.collection("users").document(firebaseUid).get().get();
+
+        if (!document.exists()) {
+            return com.howmuch.dto.SavingsGoalResponse.builder()
+                    .goalAmount(null)
+                    .updatedAt(null)
+                    .build();
+        }
+
+        Map<String, Object> data = document.getData();
+        Long goalAmount = null;
+        Object raw = data.get("savingsGoalAmount");
+        if (raw instanceof Number num) {
+            goalAmount = num.longValue();
+        } else if (raw != null) {
+            try {
+                goalAmount = Long.parseLong(raw.toString());
+            } catch (NumberFormatException ignored) {}
+        }
+
+        return com.howmuch.dto.SavingsGoalResponse.builder()
+                .goalAmount(goalAmount)
+                .updatedAt(data.get("savingsGoalUpdatedAt") != null ? data.get("savingsGoalUpdatedAt").toString() : null)
+                .build();
+    }
 }
