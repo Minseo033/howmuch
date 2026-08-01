@@ -86,7 +86,66 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
 }
 
 final storeReviewProvider =
-    StateNotifierProvider<StoreReviewNotifier, Map<String, List<Review>>>(
-        (ref) {
-  return StoreReviewNotifier();
-});
+    StateNotifierProvider<StoreReviewNotifier, Map<String, List<Review>>>((
+      ref,
+    ) {
+      return StoreReviewNotifier();
+    });
+
+/// 로그인한 사용자의 리뷰 목록 상태.
+class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
+  MyReviewsNotifier() : super(const AsyncValue.loading());
+
+  bool _loaded = false;
+
+  Future<void> loadReviews({bool force = false}) async {
+    if (_loaded && !force) return;
+
+    if (!ApiClient.isAuthenticated) {
+      _loaded = true;
+      state = AsyncValue.error(
+        const MyReviewsAuthRequiredException(),
+        StackTrace.current,
+      );
+      return;
+    }
+
+    state = const AsyncValue.loading();
+    try {
+      final response = await http
+          .get(
+            ApiClient.uri('/api/review/me'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode != 200) {
+        throw Exception('내 리뷰 조회 실패: ${response.statusCode}');
+      }
+
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! List) {
+        throw const FormatException('내 리뷰 응답 형식이 올바르지 않습니다.');
+      }
+
+      final reviews = decoded
+          .whereType<Map<String, dynamic>>()
+          .map(Review.fromJson)
+          .toList();
+      _loaded = true;
+      state = AsyncValue.data(reviews);
+    } catch (error, stackTrace) {
+      debugPrint('내 리뷰 조회 통신 에러: $error');
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+}
+
+final myReviewsProvider =
+    StateNotifierProvider<MyReviewsNotifier, AsyncValue<List<Review>>>((ref) {
+      return MyReviewsNotifier();
+    });
+
+class MyReviewsAuthRequiredException implements Exception {
+  const MyReviewsAuthRequiredException();
+}

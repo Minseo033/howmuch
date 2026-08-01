@@ -347,6 +347,96 @@ public class FirebaseService {
         return reviews;
     }
 
+    // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)
+    public List<Map<String, Object>> getMyReviews(String authorUid) throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .whereEqualTo("authorUid", authorUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
+        reviews.sort((a, b) -> {
+            String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
+            String bTime = String.valueOf(b.getOrDefault("createdAt", ""));
+            return bTime.compareTo(aTime);
+        });
+        return reviews;
+    }
+
+    // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
+    public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
+        var documents = db.collection("visits")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.SavingsHistoryResponse> historyList = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Long savedAmt = parseLongSafely(data.get("savedAmount"));
+            Long priceAmt = parseLongSafely(data.get("price"));
+            Boolean isGov = parseBooleanSafely(data.get("isGov"));
+
+            String visitedAtStr = data.get("visitedAt") != null ? data.get("visitedAt").toString() : null;
+            String dateStr = data.get("date") != null ? data.get("date").toString() : visitedAtStr;
+
+            com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
+                    .id(doc.getId())
+                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                    .visitedAt(visitedAtStr)
+                    .date(dateStr)
+                    .menu(data.get("menu") != null ? data.get("menu").toString() : null)
+                    .price(priceAmt)
+                    .savedAmount(savedAmt != null ? savedAmt : 0L)
+                    .isGov(isGov)
+                    .build();
+
+            historyList.add(dto);
+        }
+
+        // 방문/절약 일시 최신순 정렬
+        historyList.sort((a, b) -> {
+            String aTime = a.getVisitedAt() != null ? a.getVisitedAt() : (a.getDate() != null ? a.getDate() : "");
+            String bTime = b.getVisitedAt() != null ? b.getVisitedAt() : (b.getDate() != null ? b.getDate() : "");
+            return bTime.compareTo(aTime);
+        });
+
+        return historyList;
+    }
+
+    private Long parseLongSafely(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Number num) {
+            return num.longValue();
+        }
+        try {
+            return (long) Double.parseDouble(obj.toString().trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Boolean parseBooleanSafely(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof Boolean b) {
+            return b;
+        }
+        String str = obj.toString().trim();
+        if ("1".equals(str) || "true".equalsIgnoreCase(str)) {
+            return true;
+        }
+        if ("0".equals(str) || "false".equalsIgnoreCase(str)) {
+            return false;
+        }
+        return Boolean.parseBoolean(str);
+    }
+
     // 💡 유저 프로필 저장
     public UserProfileResponse saveUserProfile(String firebaseUid, UserProfileRequest request) throws Exception {
         Map<String, Object> data = new HashMap<>();

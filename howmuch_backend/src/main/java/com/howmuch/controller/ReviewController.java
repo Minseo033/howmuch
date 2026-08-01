@@ -24,6 +24,22 @@ public class ReviewController {
 
     private final FirebaseService firebaseService;
 
+    /** 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순) */
+    @GetMapping("/me")
+    public ResponseEntity<?> getMyReviews(HttpServletRequest httpRequest) {
+        String authorUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        try {
+            List<Map<String, Object>> reviews = firebaseService.getMyReviews(authorUid);
+            return ResponseEntity.ok(reviews);
+        } catch (Exception e) {
+            log.error("[ReviewController] 내 리뷰 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "내 리뷰 조회 중 오류가 발생했습니다: " + e.getMessage()
+            ));
+        }
+    }
+
     /** 특정 매장의 리뷰 목록 조회 (최신순) */
     @GetMapping
     public ResponseEntity<?> getReviews(@RequestParam String storeId) {

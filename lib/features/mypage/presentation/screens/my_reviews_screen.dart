@@ -1,44 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
+import 'package:howmuch/features/store/review_model.dart';
+
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../../../shared/widgets/status_badge.dart';
-import 'package:howmuch/core/theme/app_colors.dart';
 
-class MyReviewsScreen extends StatelessWidget {
+class MyReviewsScreen extends ConsumerStatefulWidget {
   const MyReviewsScreen({super.key});
 
   @override
+  ConsumerState<MyReviewsScreen> createState() => _MyReviewsScreenState();
+}
+
+class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(myReviewsProvider.notifier).loadReviews();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 내 리뷰 내역 및 총 개수, 평균 별점 연동
-    final reviews = [
-      {
-        'isGov': true,
-        'name': '착한분식',
-        'date': '2026.05.10',
-        'rating': 5,
-        'visitedMenu': '김치찌개',
-        'content': '가격이 저렴하고 양이 많아요. 재방문 의사 100%!',
-        'likes': 24,
-      },
-      {
-        'isGov': false,
-        'name': '동네카페',
-        'date': '2026.05.07',
-        'rating': 4,
-        'visitedMenu': '아메리카노',
-        'content': '커피 맛있고 가격도 착해요. 다음에 또 갈게요.',
-        'likes': 8,
-      },
-      {
-        'isGov': true,
-        'name': '착한미용실',
-        'date': '2026.04.28',
-        'rating': 5,
-        'visitedMenu': '남성컷',
-        'content': '실력도 좋고 가격도 착한 편이에요.',
-        'likes': 15,
-      },
-    ];
+    final reviewsState = ref.watch(myReviewsProvider);
+    final reviewCount = reviewsState.valueOrNull?.length ?? 0;
 
     return FigmaMobileCanvas(
       backgroundColor: AppColors.backgroundDark,
@@ -53,10 +42,13 @@ class MyReviewsScreen extends StatelessWidget {
                 child: RichText(
                   text: TextSpan(
                     text: '총 ',
-                    style: const TextStyle(color: AppColors.muted, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13,
+                    ),
                     children: [
                       TextSpan(
-                        text: '${reviews.length}',
+                        text: '$reviewCount',
                         style: const TextStyle(
                           color: AppColors.black,
                           fontWeight: FontWeight.bold,
@@ -71,104 +63,104 @@ class MyReviewsScreen extends StatelessWidget {
           ],
         ),
         body: SafeArea(
-          child: Column(
-            children: [
-              _buildStatsHeader(reviews.length),
-              Expanded(
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  itemCount: reviews.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    return _buildReviewCard(context, reviews[index]);
-                  },
-                ),
-              ),
-            ],
+          child: reviewsState.when(
+            loading: () => _buildLoadingBody(),
+            error: (error, stackTrace) => _buildErrorBody(error),
+            data: _buildReviewBody,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildStatsHeader(int count) {
+  Widget _buildReviewBody(List<Review> reviews) {
+    final averageRating = reviews.isEmpty
+        ? 0.0
+        : reviews.map((review) => review.stars).reduce((a, b) => a + b) /
+              reviews.length;
+
+    return Column(
+      children: [
+        _buildStatsHeader(reviews.length, averageRating),
+        Expanded(
+          child: reviews.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: () => ref
+                      .read(myReviewsProvider.notifier)
+                      .loadReviews(force: true),
+                  child: ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    itemCount: reviews.length,
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(height: 12),
+                    itemBuilder: (context, index) {
+                      return _buildReviewCard(reviews[index]);
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatsHeader(int count, double averageRating) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Column(
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      text: '$count',
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      children: const [
-                        TextSpan(
-                          text: ' 개 작성',
-                          style: TextStyle(
-                            color: AppColors.muted,
-                            fontSize: 14,
-                            fontWeight: FontWeight.normal,
-                          ),
-                        ),
-                      ],
-                    ),
+            child: _StatsCard(
+              child: RichText(
+                text: TextSpan(
+                  text: '$count',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
+                  children: const [
+                    TextSpan(
+                      text: ' 개 작성',
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderLight),
-              ),
-              child: Column(
+            child: _StatsCard(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
-                        Icons.star_rounded,
-                        color: AppColors.warning,
-                        size: 20,
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        '4.7',
-                        style: TextStyle(
-                          color: AppColors.black,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Text(
-                        '평균 별점',
-                        style: TextStyle(color: AppColors.muted, fontSize: 13),
-                      ),
-                    ],
+                  const Icon(
+                    Icons.star_rounded,
+                    color: AppColors.warning,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    averageRating.toStringAsFixed(1),
+                    style: const TextStyle(
+                      color: AppColors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    '평균 별점',
+                    style: TextStyle(color: AppColors.muted, fontSize: 13),
                   ),
                 ],
               ),
@@ -179,9 +171,116 @@ class MyReviewsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildReviewCard(BuildContext context, Map<String, dynamic> review) {
-    final isGov = review['isGov'] as bool;
-    final rating = review['rating'] as int;
+  Widget _buildLoadingBody() {
+    return Column(
+      children: [
+        _buildStatsHeader(0, 0),
+        const Expanded(
+          child: Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildErrorBody(Object error) {
+    final authRequired = error is MyReviewsAuthRequiredException;
+    final title = authRequired ? '로그인이 필요해요.' : '내 리뷰를 불러오지 못했어요.';
+    final description = authRequired
+        ? '내가 작성한 리뷰는 로그인 후 확인할 수 있어요.'
+        : '잠시 후 다시 시도해주세요.';
+
+    return Column(
+      children: [
+        _buildStatsHeader(0, 0),
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    authRequired
+                        ? Icons.lock_outline_rounded
+                        : Icons.wifi_off_rounded,
+                    color: AppColors.muted,
+                    size: 44,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.black,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (!authRequired)
+                    OutlinedButton(
+                      onPressed: () {
+                        ref
+                            .read(myReviewsProvider.notifier)
+                            .loadReviews(force: true);
+                      },
+                      child: const Text('다시 불러오기'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return RefreshIndicator(
+      onRefresh: () =>
+          ref.read(myReviewsProvider.notifier).loadReviews(force: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        children: const [
+          SizedBox(height: 120),
+          Icon(Icons.rate_review_outlined, color: AppColors.muted, size: 48),
+          SizedBox(height: 14),
+          Text(
+            '아직 작성한 리뷰가 없어요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.black,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 8),
+          Text(
+            '방문한 매장에서 첫 리뷰를 남겨보세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppColors.muted, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(Review review) {
+    final dateText = _formatDate(review.createdAt);
+    final menuText = review.menu.isEmpty ? '방문 메뉴 정보 없음' : '방문: ${review.menu}';
+    final storeName = review.storeName.isEmpty ? '매장 이름 없음' : review.storeName;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -196,16 +295,16 @@ class MyReviewsScreen extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              StatusBadge(type: isGov ? BadgeType.government : BadgeType.user),
+              const StatusBadge(type: BadgeType.user),
               Text(
-                review['date'] as String,
+                dateText,
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            review['name'] as String,
+            storeName,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -219,7 +318,7 @@ class MyReviewsScreen extends StatelessWidget {
                 children: List.generate(5, (index) {
                   return Icon(
                     Icons.star_rounded,
-                    color: index < rating
+                    color: index < review.stars
                         ? AppColors.warning
                         : Colors.grey.shade300,
                     size: 16,
@@ -227,15 +326,19 @@ class MyReviewsScreen extends StatelessWidget {
                 }),
               ),
               const SizedBox(width: 8),
-              Text(
-                '방문: ${review['visitedMenu']}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+              Expanded(
+                child: Text(
+                  menuText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 10),
           Text(
-            review['content'] as String,
+            review.content,
             style: const TextStyle(
               fontSize: 14,
               color: Colors.black87,
@@ -244,76 +347,46 @@ class MyReviewsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.trending_up,
-                    color: AppColors.success,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '도움이 돼요 ${review['likes']}',
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () {
-                      // TODO(박지환 BE): 리뷰 수정 API 연동
-                    },
-                    style: TextButton.styleFrom(
-                      minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      '수정',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  TextButton(
-                    onPressed: () {
-                      // TODO(박지환 BE): 리뷰 삭제 API 연동
-                    },
-                    style: TextButton.styleFrom(
-                      minimumSize: Size.zero,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: const Text(
-                      '삭제',
-                      style: TextStyle(
-                        color: Colors.redAccent,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+              const Icon(Icons.trending_up, color: AppColors.success, size: 16),
+              const SizedBox(width: 4),
+              Text(
+                '도움이 돼요 ${review.likes}',
+                style: const TextStyle(color: AppColors.muted, fontSize: 13),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    final local = date.toLocal();
+    final year = local.year.toString().padLeft(4, '0');
+    final month = local.month.toString().padLeft(2, '0');
+    final day = local.day.toString().padLeft(2, '0');
+    return '$year.$month.$day';
+  }
+}
+
+class _StatsCard extends StatelessWidget {
+  const _StatsCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 56,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight),
+      ),
+      child: child,
     );
   }
 }
