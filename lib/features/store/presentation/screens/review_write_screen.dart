@@ -96,6 +96,8 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     if (!mounted) return;
 
     if (success) {
+      // 내 리뷰 화면 캐시 무효화 — 다음 진입 시 최신 목록/개수/평균 별점이 갱신됩니다.
+      ref.read(myReviewsProvider.notifier).invalidate();
       _showSnackBar('리뷰가 성공적으로 등록되었습니다.');
       context.pop();
     } else {

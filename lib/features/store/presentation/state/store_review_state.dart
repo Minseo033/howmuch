@@ -98,11 +98,17 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
 
   bool _loaded = false;
 
+  /// 리뷰 작성 등 외부 변경 시 캐시 무효화 — 다음 화면 진입 시 재조회됩니다.
+  void invalidate() {
+    _loaded = false;
+  }
+
   Future<void> loadReviews({bool force = false}) async {
     if (_loaded && !force) return;
 
     if (!ApiClient.isAuthenticated) {
-      _loaded = true;
+      // _loaded를 true로 두면 로그인 후 재진입필 때 early return되어
+      // 계속 '로그인이 필요해요'만 표시되므로, 미인증 상태는 로드 완료로 간주하지 않습니다.
       state = AsyncValue.error(
         const MyReviewsAuthRequiredException(),
         StackTrace.current,
