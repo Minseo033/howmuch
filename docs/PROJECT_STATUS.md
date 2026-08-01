@@ -1,6 +1,6 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-07-29
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-01
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
 ## 1. 프로젝트 구성
@@ -13,7 +13,7 @@
 - **세션 인증**: 카카오 로그인 → 백엔드 세션 토큰(HMAC-SHA256, 168h) → `Authorization: Bearer` + `SessionAuthFilter`(uid를 `authenticatedUid` attribute로 주입). 프론트는 `lib/core/network/api_client.dart`에서 토큰 저장/복원(SharedPreferences), `jsonHeaders(auth: true)`
 - **CORS**: 필터에서 OPTIONS preflight 항상 통과. WebConfig allowedOrigins(*)
 - **Firestore 쿼터 보호**: 공공데이터 11,207건은 `howmuch_backend/src/main/resources/stores-snapshot.json` 번들 + 인메모리 캐시. 부팅 로드: 디스크→classpath→Firestore. 갱신 1시간 주기 + 성공 후 24h 가드 (일 읽기 ~1.1만 1회). **콜드스타트 읽기 0 달성 완료**
-- **라이브 API**: /api/auth/kakao, /api/stores/all·bounds, /api/review(GET/POST), /api/report/store·my, /api/user/profile, /api/ai/chat, /api/visits, /api/public-data/sync
+- **라이브 API**: /api/auth/kakao, /api/stores/all·bounds, /api/review(GET/POST·me), /api/report/store·my, /api/user/profile, /api/ai/chat, /api/visits, /api/public-data/sync, /api/favorites(GET/POST/DELETE), /api/savings/goal(GET/POST)·history·stats
 - **리뷰 프론트**: Review 모델 + storeId(매장명) 키 맵 상태, 목록/작성 API 연동 완료
 - **웹 SPA**: vercel.json + web/vercel.json (빌드 산출물에 자동 포함) — 하위 경로 새로고침 200
 
@@ -29,11 +29,12 @@
 - **검증 도구**: `/tmp/howmuch-qa/` Playwright 스크립트 (qa.js, qa2~4.js, probe_geo.js). `node qa.js` 전체 화면 QA, `node probe_geo.js` 지도 위치 검증
 
 ## 5. 현재 진행 중 / 다음 작업 (3주차: 7/28~8/3)
-- **박지환 (BE)**: GET /api/savings/history + /api/savings/stats (visits 데이터 기반 월별 집계)
-- **김다나 (FE)**: savings 대시보드 + 절약 상세 화면 연동
-- **오태관 (FE)**: my_reviews_screen 연동
-- **민서 (PM)**: 찜하기 API (/api/favorites CRUD), 절약 목표 설정 API, GET /api/review/my
-- **먼저 확인할 것**: `git log --oneline -5` 로 7/23 버그 수정 4건의 커밋/배포 상태 확인 (미커밋이면 analyze→웹 빌드→커밋/푸시→vercel 배포→probe_geo.js 검증)
+- **박지환 (BE)**: ✅ 완료·이식 (2556eef) — GET /api/savings/history + /api/savings/stats
+- **김다나 (FE)**: ⏳ 미착수 — savings 대시보드 + 절약 상세 화면 연동 (다나 머지는 추후)
+- **오태관 (FE)**: ✅ 완료·이식 (2556eef) — my_reviews_screen 연동 + GET /api/review/me
+- **민서 (PM)**: ✅ 완료 (4186c0a) — /api/favorites CRUD, /api/savings/goal GET/POST (users/{uid} merge 저장으로 재시작 후에도 유지). GET /api/review/my는 태관의 /api/review/me로 대체
+- **인증 필터**: /api/favorites, /api/savings, /api/review/me 경로 등록 완료 (SessionAuthFilter)
+- **다음 확인할 것**: Render 배포(2556eef) 완료 후 신규 API 스모크 테스트 + 다나 savings 대시보드 연동 시 /api/savings/goal·stats 사용
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
