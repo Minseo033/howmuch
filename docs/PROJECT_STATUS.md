@@ -1,6 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-01
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-03
+> 최신 main: c9098d6 (회원가입 절약 목표 + 매장 상세 리뷰 실데이터화)
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
 ## 1. 프로젝트 구성
@@ -28,13 +29,23 @@
 - **웹**: `flutter build web --release` → `cd build/web && npx -y vercel@latest deploy --prod --yes` (minseo033 로그인 유지)
 - **검증 도구**: `/tmp/howmuch-qa/` Playwright 스크립트 (qa.js, qa2~4.js, probe_geo.js). `node qa.js` 전체 화면 QA, `node probe_geo.js` 지도 위치 검증
 
-## 5. 현재 진행 중 / 다음 작업 (3주차: 7/28~8/3)
-- **박지환 (BE)**: ✅ 완료·이식 (2556eef) — GET /api/savings/history + /api/savings/stats
-- **김다나 (FE)**: ⏳ 미착수 — savings 대시보드 + 절약 상세 화면 연동 (다나 머지는 추후)
-- **오태관 (FE)**: ✅ 완료·이식 (2556eef) — my_reviews_screen 연동 + GET /api/review/me
-- **민서 (PM)**: ✅ 완료 (4186c0a) — /api/favorites CRUD, /api/savings/goal GET/POST (users/{uid} merge 저장으로 재시작 후에도 유지). GET /api/review/my는 태관의 /api/review/me로 대체
-- **인증 필터**: /api/favorites, /api/savings, /api/review/me 경로 등록 완료 (SessionAuthFilter)
-- **다음 확인할 것**: Render 배포(2556eef) 완료 후 신규 API 스모크 테스트 + 다나 savings 대시보드 연동 시 /api/savings/goal·stats 사용
+## 5. 3주차 완료 내역 (7/28~8/3) — 8/1~8/3 QA·버그픽스·추가 작업 포함
+- **박지환 (BE)**: ✅ /api/savings/history + /api/savings/stats (2556eef 이식)
+- **오태관 (FE)**: ✅ my_reviews_screen + GET /api/review/me (2556eef) + 캐시 버그 2건 수정 (299630b: 로그인 후 미갱신, 리뷰 작성 후 목록 미반영 — MyReviewsNotifier.invalidate() 패턴)
+- **민서 (PM)**: ✅ /api/favorites CRUD + /api/savings/goal GET/POST (4186c0a) + 회원가입 화면 절약 목표 입력 (c9098d6, profile_setup_screen에 선택 필드, submit 시 goal 저장) + 매장 상세 리뷰 섹션 실데이터화 (c9098d6, _StoreReviewSection — storeId=매장명 키로 storeReviewProvider 재사용, 개수/평균/최신 3건/빈 상태)
+- **김다나 (FE)**: ⏳ 미착수 — savings 대시보드 + 절약 상세 화면 연동 (유일한 남은 3주차 과제)
+- **QA 완료 (8/1~8/3)**: 백엔드 공개/인증 스모크 17건 + 실세션 토큰 인증 API 19건 전부 통과 + Playwright 게스트 E2E (로그인→권한→홈→탭) 통과. 내 리뷰 로그인 필요 상태 라이브 확인. 스크립트: `/tmp/howmuch-qa/` (qa_v6.js 웹 E2E, qa_auth.js 인증 API — 토큰은 인자로 전달, 재사용 가능)
+
+## 5-1. 다음 작업 (우선순위 순)
+1. **다나 savings 대시보드 연동** — 백엔드 준비 완료 (/api/savings/goal·history·stats, period=this_month|last_month|this_year, 주차별/월별 차트). 현재 대시보드는 목업(24,500원·2026.05) 표시 중
+2. **매장 상세 별점 헤더 목업** ("4.6 · 리뷰 128") — storeReviewProvider 데이터로 실제 평균/개수 표시 가능 (백엔드 추가 작업 불필요)
+3. **마이페이지 프로필 목업** — 게스트/미로그인 시 "절약왕 민서" 목업 표시됨. 로그인 상태 연동 필요
+4. **남은 목업들**: 예상 절약 금액(2,000원), 영업시간, 찜 버튼("추후 개발 예정" 스낵바 → /api/favorites 연결 가능)
+
+## 5-2. 주의사항 (이번 세션에서 겪은 함정)
+- **Vercel 프로젝트 2개 존재**: `howmuch`(=howmuch-zeta.vercel.app, 진짜 프로덕션)와 `web`(구버전 잔재). `build/web/.vercel` 링크가 web을 가리키면 잘못 배포됨 → 배포 전 `npx vercel projects ls`로 확인, `vercel link --project howmuch` 후 deploy
+- **store_detail_screen.dart는 대형 파일(894줄)**: 구조 깨지기 쉬움. replace_in_file로 SEARCH 실패 시 fuzzy match로 엉뚱한 곳이 교철될 수 있음 → 작은 단위로 나누거나 Python 패치 사용 (`/tmp/patch_detail.py` 참고)
+- **웹 QA 팁**: Flutter web 텍스트는 시맨틱 활성화(flt-semantics-placeholder 클릭) 후 `document.body.innerText`로 추출. 하단 네비는 시맨틱에 안 잡혀서 좌표 클릭 (390x844 기준 홈 40,812 / 탐색 115 / 제보 195,805 / 리포트 272 / 마이 350)
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
