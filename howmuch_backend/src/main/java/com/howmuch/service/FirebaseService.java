@@ -71,11 +71,33 @@ public class FirebaseService {
      * 단, 마지막 성공 후 24시간이 지나지 않았으면 Firestore를 호출하지 않고 건너뜁니다.
      * → 평시 일일 읽기 ~1.1만 1회, 실패(쿼터 초과) 시에도 1시간 뒤 자동 재시도.
      */
+    /** 공공데이터 갱신 메타 문서 위치 (재시작 후에도 24h 가드 유지용) */
+    private static final String GOV_META_COLLECTION = "meta";
+    private static final String GOV_META_DOC = "govStores";
+
     @Scheduled(initialDelayString = "${stores.refresh.initial-delay-ms:600000}",
             fixedDelayString = "${stores.refresh.delay-ms:3600000}")
     public void refreshGovStores() {
         if (System.currentTimeMillis() - lastGovRefreshSuccessMillis < 86_400_000L
                 && !cachedStores.isEmpty()) {
+            return;
+        }
+        // 💡 인메모리 가드(lastGovRefreshSuccessMillis)는 재시작 시 0으로 초기화됨
+        // → Render 재배포/재시작마다 전량(1.1만) 강제 갱신되던 문제 방지:
+        //   Firestore 메타 문서의 마지막 갱신 시각을 읽기 1회로 확인해 24h 가드를 영속화
+        try {
+            DocumentSnapshot meta = db.collection(GOV_META_COLLECTION).document(GOV_META_DOC).get().get();
+            if (meta.exists() && meta.get("lastRefreshAt") != null) {
+                long last = Long.parseLong(meta.get("lastRefreshAt").toString());
+                if (System.currentTimeMillis() - last < 86_400_000L && !cachedStores.isEmpty()) {
+                    lastGovRefreshSuccessMillis = last;
+                    System.out.println("[캐시] 메타 문서 기준 24시간 내 갱신 이력 있음 — 전량 갱신 건너뜀 (읽기 절약)");
+                    return;
+                }
+            }
+        } catch (Exception e) {
+            // 메타 조회 실패(쿼터 초과 등) 시 전량 갱신 대신 이번 주기는 건너뜀 — 기존 캐시 유지
+            System.err.println("[캐시] 갱신 메타 조회 실패, 이번 주기 갱신 건너뜀: " + e.getMessage());
             return;
         }
         try {
@@ -88,6 +110,12 @@ public class FirebaseService {
                 cachedStores = List.copyOf(stores);
                 lastGovRefreshSuccessMillis = System.currentTimeMillis();
                 persistGovStoresSnapshot(stores);
+                try {
+                    db.collection(GOV_META_COLLECTION).document(GOV_META_DOC)
+                            .set(Map.of("lastRefreshAt", lastGovRefreshSuccessMillis)).get();
+                } catch (Exception metaEx) {
+                    System.err.println("[캐시] 갱신 메타 저장 실패(무시 가능): " + metaEx.getMessage());
+                }
                 System.out.println("[캐시] 공공데이터 매장 갱신 완료: " + stores.size() + "개");
             } else {
                 System.out.println("[캐시] Firestore 결과가 비어 있어 기존 캐시 유지");
