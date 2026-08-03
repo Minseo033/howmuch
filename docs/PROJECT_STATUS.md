@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-03
-> 최신 main: c9098d6 (회원가입 절약 목표 + 매장 상세 리뷰 실데이터화)
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-03 (2차)
+> 최신 main: 26d8a01 (다나 savings 연동 이식 완료 + 자동 로그인 실험 revert)
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
 ## 1. 프로젝트 구성
@@ -33,19 +33,22 @@
 - **박지환 (BE)**: ✅ /api/savings/history + /api/savings/stats (2556eef 이식)
 - **오태관 (FE)**: ✅ my_reviews_screen + GET /api/review/me (2556eef) + 캐시 버그 2건 수정 (299630b: 로그인 후 미갱신, 리뷰 작성 후 목록 미반영 — MyReviewsNotifier.invalidate() 패턴)
 - **민서 (PM)**: ✅ /api/favorites CRUD + /api/savings/goal GET/POST (4186c0a) + 회원가입 화면 절약 목표 입력 (c9098d6, profile_setup_screen에 선택 필드, submit 시 goal 저장) + 매장 상세 리뷰 섹션 실데이터화 (c9098d6, _StoreReviewSection — storeId=매장명 키로 storeReviewProvider 재사용, 개수/평균/최신 3건/빈 상태)
-- **김다나 (FE)**: ⏳ 미착수 — savings 대시보드 + 절약 상세 화면 연동 (유일한 남은 3주차 과제)
+- **김다나 (FE)**: ✅ savings 대시보드 + 절약 상세 + 목표 설정 연동 (46f68a8 선별 이식 + API 계약 수정). 대시보드: /api/savings/stats 3구간 + goal + favorites/report 개수 실데이터화, 상세: /api/savings/history 파싱·누적/평균 계산, 목표 설정: GET/POST /api/savings/goal. 목업은 API 실패 시 폴백으로만 표시. **→ 3주차 과제 전원 완료**
 - **QA 완료 (8/1~8/3)**: 백엔드 공개/인증 스모크 17건 + 실세션 토큰 인증 API 19건 전부 통과 + Playwright 게스트 E2E (로그인→권한→홈→탭) 통과. 내 리뷰 로그인 필요 상태 라이브 확인. 스크립트: `/tmp/howmuch-qa/` (qa_v6.js 웹 E2E, qa_auth.js 인증 API — 토큰은 인자로 전달, 재사용 가능)
 
 ## 5-1. 다음 작업 (우선순위 순)
-1. **다나 savings 대시보드 연동** — 백엔드 준비 완료 (/api/savings/goal·history·stats, period=this_month|last_month|this_year, 주차별/월별 차트). 현재 대시보드는 목업(24,500원·2026.05) 표시 중
-2. **매장 상세 별점 헤더 목업** ("4.6 · 리뷰 128") — storeReviewProvider 데이터로 실제 평균/개수 표시 가능 (백엔드 추가 작업 불필요)
-3. **마이페이지 프로필 목업** — 게스트/미로그인 시 "절약왕 민서" 목업 표시됨. 로그인 상태 연동 필요
-4. **남은 목업들**: 예상 절약 금액(2,000원), 영업시간, 찜 버튼("추후 개발 예정" 스낵바 → /api/favorites 연결 가능)
+1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
+2. **자동 로그인 재구현** — dc43efa(토큰 있으면 스플래시→홈 직행)를 26d8a01에서 revert. 원인: ① ApiClient.isAuthenticated는 로컬 토큰 문자열 존재만 체크 → 168h 만료 토큰으로 홈 진입 시 모든 인증 API 401인데 글로벌 401 핸들러·재로그인 유도가 없음 ② authStateProvider(isLoggedIn) 미복원 → 토큰은 있는데 앱은 게스트 상태로 동작하는 모순. 재구현 시: 스플래시에서 /api/user/profile로 토큰 검증 → 200이면 authState 복원 + 홈, 401이면 clearSession + 로그인 화면
+3. **매장 상세 별점 헤더 목업** ("4.6 · 리뷰 128") — storeReviewProvider 데이터로 실제 평균/개수 표시 가능 (백엔드 추가 작업 불필요)
+4. **마이페이지 프로필 목업** — 게스트/미로그인 시 "절약왕 민서" 목업 표시됨. 로그인 상태 연동 필요
+5. **남은 목업들**: 예상 절약 금액(2,000원), 영업시간, 찜 버튼("추후 개발 예정" 스낵바 → /api/favorites 연결 가능)
 
 ## 5-2. 주의사항 (이번 세션에서 겪은 함정)
+- **자동 로그인을 토큰 존재 체크만으로 구현 금지** (dc43efa → 11분 만에 26d8a01 revert): isAuthenticated는 만료 여부를 모르고, Riverpod authState도 복원 안 됨. 반드시 서버 검증 + authState 복원 + 401 시 clearSession/로그인 리다이렉트 경로 확보 후 도입
 - **Vercel 프로젝트 2개 존재**: `howmuch`(=howmuch-zeta.vercel.app, 진짜 프로덕션)와 `web`(구버전 잔재). `build/web/.vercel` 링크가 web을 가리키면 잘못 배포됨 → 배포 전 `npx vercel projects ls`로 확인, `vercel link --project howmuch` 후 deploy
 - **store_detail_screen.dart는 대형 파일(894줄)**: 구조 깨지기 쉬움. replace_in_file로 SEARCH 실패 시 fuzzy match로 엉뚱한 곳이 교철될 수 있음 → 작은 단위로 나누거나 Python 패치 사용 (`/tmp/patch_detail.py` 참고)
 - **웹 QA 팁**: Flutter web 텍스트는 시맨틱 활성화(flt-semantics-placeholder 클릭) 후 `document.body.innerText`로 추출. 하단 네비는 시맨틱에 안 잡혀서 좌표 클릭 (390x844 기준 홈 40,812 / 탐색 115 / 제보 195,805 / 리포트 272 / 마이 350)
+- **어드민 웹 페이지 (web/admin.html)**: flutter build 시 build/web에 자동 포함 → /admin.html로 서빙 (Vercel rewrite는 실제 파일을 덮지 않음). 인증: 어드민 전용 비밀번호 (X-Admin-Key 헤더 ↔ env ADMIN_KEY, 상수 시간 비교 + 실패 시 1초 지연) — 앱 세션과 무관, sessionStorage에만 보관. ADMIN_KEY 미설정 시 전부 403. 뷰 2개: 제보 관리(/api/admin/reports·approve·reject) + 대시보드(/api/admin/overview·users — 회원 수/매장 수/리뷰·방문·찜 수, 회원 목록 테이블. 매장 수는 인메모리 캐시라 읽기 0, 나머지는 count 집계). 승인 매장의 공식 stores 반영 로직은 미구현 (후속 과제)
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)

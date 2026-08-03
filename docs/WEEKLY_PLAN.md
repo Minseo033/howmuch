@@ -20,14 +20,14 @@
 >
 > 인프라 상태 (7/23 기준): 세션 인증, ApiClient 일원화, /api/stores 캐시(콜드스타트 읽기 0), CORS/SPA 라우팅, /api/visits 라이브 완료.
 
-## 3주차 (7/28~8/3) — 절약 코어 (앱 정체성 기능)
+## ✅ 3주차 (7/28~8/3) — 절약 코어 (앱 정체성 기능) [완료 8/3]
 
-| 담당 | 과제 |
-|---|---|
-| 박지환 (BE) | GET /api/savings/history + /api/savings/stats (visits 데이터 기반 월별 집계) |
-| 김다나 (FE) | 절약 대시보드(savings_report_dashboard) + 절약 상세(savings_detail) 화면 연동 |
-| 오태관 (FE) | 내 리뷰 목록 화면(my_reviews_screen) 연동 |
-| 민서 (PM) | 찜하기 API (/api/favorites CRUD) + 절약 목표 설정 API |
+| 담당 | 과제 | 결과 |
+|---|---|---|
+| 박지환 (BE) | GET /api/savings/history + /api/savings/stats (visits 데이터 기반 월별 집계) | ✅ 완료 (2556eef 이식) |
+| 김다나 (FE) | 절약 대시보드(savings_report_dashboard) + 절약 상세(savings_detail) 화면 연동 | ✅ 완료 (46f68a8 선별 이식 — 목표 설정 화면 연동까지 포함) |
+| 오태관 (FE) | 내 리뷰 목록 화면(my_reviews_screen) 연동 | ✅ 완료 (2556eef) + 캐시 버그 2건 수정 (299630b) |
+| 민서 (PM) | 찜하기 API (/api/favorites CRUD) + 절약 목표 설정 API | ✅ 완료 (4186c0a) + 회원가입 목표 입력·매장 상세 리뷰 실데이터화 (c9098d6) |
 
 ## 4주차 (8/4~8/10) — 커뮤니티·찜
 
@@ -35,8 +35,8 @@
 |---|---|
 | 박지환 (BE) | GET /api/community/feed + 피드 상세 |
 | 김다나 (FE) | community_feed + 게시글 상세(community_post_detail) 연동 |
-| 오태관 (FE) | 찜한 가게(favorite_stores) 연동 + 절약 목표 설정 화면 연동 |
-| 민서 (PM) | 어드민 API (/api/admin/reports + /{id}/approve + /{id}/reject, rejectReason 저장) |
+| 오태관 (FE) | 찜한 가게(favorite_stores) 연동 (절약 목표 설정 화면은 3주차에 완료됨) |
+| 민서 (PM) | 어드민 API (/api/admin/reports + approve/reject, rejectReason 저장) + 웹 어드민 페이지 (web/admin.html) — 어드민은 앱 내 화면 대신 웹 페이지로 전환 (8/3 결정) |
 
 ## 5주차 (8/11~8/17) — 어드민·알림·계정
 
@@ -44,7 +44,7 @@
 |---|---|
 | 박지환 (BE) | GET /api/notifications + 읽음 처리 |
 | 김다나 (FE) | 알림 화면(notifications) + 알림 설정 연동 |
-| 오태관 (FE) | 어드민 제보 처리 화면(admin_report_review) 연동 — 승인/반려 + 반려 사유 입력 |
+| 오태관 (FE) | 자동 로그인 재구현 (스플래시에서 /api/user/profile 토큰 검증 → authState 복원, 401 시 clearSession + 로그인 이동. 8/3 dc43efa→revert 참고) — 어드민 화면 연동은 웹 페이지 전환으로 취소 |
 | 민서 (PM) | 문의 API (/api/inquiry + /api/admin/inquiries) + 회원 탈퇴 (DELETE /api/user) |
 
 ## 6주차 (8/18~8/24) — 추천·통합 안정화

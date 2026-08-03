@@ -253,6 +253,106 @@ public class FirebaseService {
                 .toList();
     }
 
+    // 💡 [어드민] 제보 목록 조회 (status가 null이면 전체, 아니면 PENDING/APPROVED/REJECTED 필터, 최신순)
+    public List<Map<String, Object>> getAllReports(String status) throws Exception {
+        com.google.cloud.firestore.Query query = db.collection("stores_user");
+        if (status != null && !status.isBlank()) {
+            query = query.whereEqualTo("status", status);
+        }
+        return query.get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
+                        .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
+                .toList();
+    }
+
+    // 💡 [어드민] 제보 승인 — status를 APPROVED로 변경 (승인 매장의 공식 stores 반영은 별도 작업)
+    public void approveReport(String reportId) throws Exception {
+        updateReportStatus(reportId, "APPROVED", null);
+    }
+
+    // 💡 [어드민] 제보 반려 — status를 REJECTED로 변경 + 반려 사유 저장
+    public void rejectReport(String reportId, String reason) throws Exception {
+        updateReportStatus(reportId, "REJECTED", reason);
+    }
+
+    private void updateReportStatus(String reportId, String status, String rejectReason) throws Exception {
+        DocumentReference docRef = db.collection("stores_user").document(reportId);
+        if (!docRef.get().get().exists()) {
+            throw new IllegalArgumentException("제보를 찾을 수 없습니다: " + reportId);
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", status);
+        if (rejectReason != null) {
+            updates.put("rejectReason", rejectReason);
+        }
+        docRef.update(updates).get();
+
+        // 인메모리 캐시에도 즉시 반영 (bounds 조회 캐시와 상태 일치)
+        List<Map<String, Object>> updated = cachedUserStores.stream()
+                .map(item -> {
+                    if (reportId.equals(item.get("id"))) {
+                        Map<String, Object> copy = new HashMap<>(item);
+                        copy.putAll(updates);
+                        return copy;
+                    }
+                    return item;
+                })
+                .toList();
+        cachedUserStores = List.copyOf(updated);
+    }
+
+    // 💡 [어드민] 컬렉션 문서 수 (count 집계 쿼리 — 최대 1000건당 읽기 1회라 쿼터 부담 적음)
+    private long countCollection(String name) throws Exception {
+        return db.collection(name).count().get().get().getCount();
+    }
+
+    // 💡 [어드민] 대시보드 개요 지표 (매장 수는 인메모리 캐시 사용 — Firestore 읽기 0)
+    public Map<String, Object> getAdminOverview() throws Exception {
+        long pending = 0, approved = 0, rejected = 0;
+        for (Map<String, Object> store : cachedUserStores) {
+            switch (String.valueOf(store.getOrDefault("status", ""))) {
+                case "PENDING" -> pending++;
+                case "APPROVED" -> approved++;
+                case "REJECTED" -> rejected++;
+                default -> { }
+            }
+        }
+        Map<String, Object> userStores = new HashMap<>();
+        userStores.put("pending", pending);
+        userStores.put("approved", approved);
+        userStores.put("rejected", rejected);
+        userStores.put("total", cachedUserStores.size());
+
+        Map<String, Object> overview = new HashMap<>();
+        overview.put("users", countCollection("users"));
+        overview.put("reviews", countCollection("reviews"));
+        overview.put("visits", countCollection("visits"));
+        overview.put("favorites", countCollection("favorites"));
+        overview.put("govStores", cachedStores.size());
+        overview.put("userStores", userStores);
+        return overview;
+    }
+
+    // 💡 [어드민] 회원 목록 조회 (가입 최신순, 소량 컬렉션)
+    public List<Map<String, Object>> getAllUsers() throws Exception {
+        return db.collection("users")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
+                        .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
+                .toList();
+    }
+
     // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
     public java.util.List<com.howmuch.dto.VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
         var documents = db.collection("visits")
