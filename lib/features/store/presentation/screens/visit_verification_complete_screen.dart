@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -141,7 +142,7 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    context.push('/home/savings_report');
+                    context.push(AppRoutes.savingsReportDashboard);
                   },
                   child: const Text(
                     '절약 리포트 보기',

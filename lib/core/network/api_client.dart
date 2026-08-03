@@ -11,7 +11,7 @@ class ApiClient {
 
   static const String baseUrl = String.fromEnvironment(
     'BACKEND_BASE_URL',
-    defaultValue: 'https://howmuch-backend-1xnu.onrender.com',
+    defaultValue: 'http://192.168.219.103:8081',
   );
 
   static const Duration defaultTimeout = Duration(seconds: 15);

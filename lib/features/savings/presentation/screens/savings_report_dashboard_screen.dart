@@ -5,6 +5,9 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
 
 class SavingsReportDashboardScreen extends StatefulWidget {
   const SavingsReportDashboardScreen({super.key});
@@ -18,6 +21,97 @@ class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
   final SavingsGlobalState _state = SavingsGlobalState();
+  bool _isLoading = false;
+  Map<String, dynamic>? _statsData;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSavingsStats();
+  }
+
+  Future<void> _fetchSavingsStats() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/savings/stats'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _statsData = data;
+          _isLoading = false;
+        });
+      } else {
+        _loadFallbackData();
+      }
+    } catch (e) {
+      debugPrint('절약 대시보드 통계 조회 오류: $e');
+      _loadFallbackData();
+    }
+  }
+
+  void _loadFallbackData() {
+    setState(() {
+      _statsData = {
+        '이번 달': {
+          'savedAmount': 24500,
+          'goalAmount': 50000,
+          'visits': 6,
+          'favorites': 12,
+          'reports': 2,
+          'recommendation': '한식 매장에서 더 아낄 수 있어요',
+          'chartTitle': '주차별 절약 금액',
+          'chartDate': '2026.05',
+          'savings': [
+            {'label': '1주', 'amount': 4500, 'isMax': false},
+            {'label': '2주', 'amount': 7800, 'isMax': true},
+            {'label': '3주', 'amount': 5200, 'isMax': false},
+            {'label': '4주', 'amount': 7000, 'isMax': false},
+          ]
+        },
+        '지난 달': {
+          'savedAmount': 32000,
+          'goalAmount': 50000,
+          'visits': 8,
+          'favorites': 15,
+          'reports': 5,
+          'recommendation': '주말 카페 지출을 줄여보세요',
+          'chartTitle': '주차별 절약 금액',
+          'chartDate': '2026.04',
+          'savings': [
+            {'label': '1주', 'amount': 6000, 'isMax': false},
+            {'label': '2주', 'amount': 8000, 'isMax': false},
+            {'label': '3주', 'amount': 9000, 'isMax': true},
+            {'label': '4주', 'amount': 9000, 'isMax': true},
+          ]
+        },
+        '올해': {
+          'savedAmount': 154000,
+          'goalAmount': 600000,
+          'visits': 45,
+          'favorites': 60,
+          'reports': 12,
+          'recommendation': '가장 많이 절약한 달은 4월이에요',
+          'chartTitle': '월별 절약 금액',
+          'chartDate': '2026',
+          'savings': [
+            {'label': '1월', 'amount': 30000, 'isMax': false},
+            {'label': '2월', 'amount': 25000, 'isMax': false},
+            {'label': '3월', 'amount': 35000, 'isMax': false},
+            {'label': '4월', 'amount': 40000, 'isMax': true},
+            {'label': '5월', 'amount': 24000, 'isMax': false},
+          ]
+        }
+      };
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -139,25 +233,31 @@ class _SavingsReportDashboardScreenState
                   ),
                 ),
 
-                // Scrollable Content
+                 // Scrollable Content
                 Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(bottom: bottomNavHeight + 20),
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: _state.currentSaved,
-                      builder: (context, currentSavedValue, child) {
-                        return ValueListenableBuilder<int>(
-                          valueListenable: _state.monthlyGoal,
-                          builder: (context, goalValue, child) {
-                            return _buildDynamicContent(
-                              currentSavedValue,
-                              goalValue,
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF2563EB),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.only(bottom: bottomNavHeight + 20),
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: _state.currentSaved,
+                            builder: (context, currentSavedValue, child) {
+                              return ValueListenableBuilder<int>(
+                                valueListenable: _state.monthlyGoal,
+                                builder: (context, goalValue, child) {
+                                  return _buildDynamicContent(
+                                    currentSavedValue,
+                                    goalValue,
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -188,52 +288,57 @@ class _SavingsReportDashboardScreenState
     int visits = 0, favorites = 0, reports = 0;
     String recommendationSub = '';
 
-    if (_selectedTab == '이번 달') {
-      titlePrefix = '이번 달';
-      displayedSaved = currentSaved;
-      chartTitle = '주차별 절약 금액';
-      chartDate = '2026.05';
-      chartBars = [
-        _buildBar(label: '1주', amount: '4,500원', height: 50, isMax: false),
-        _buildBar(label: '2주', amount: '7,800원', height: 90, isMax: true),
-        _buildBar(label: '3주', amount: '5,200원', height: 60, isMax: false),
-        _buildBar(label: '4주', amount: '7,000원', height: 80, isMax: false),
-      ];
-      visits = 6;
-      favorites = 12;
-      reports = 2;
-      recommendationSub = '한식 매장에서 더 아낄 수 있어요';
-    } else if (_selectedTab == '지난 달') {
-      titlePrefix = '지난 달';
-      displayedSaved = 32000;
-      chartTitle = '주차별 절약 금액';
-      chartDate = '2026.04';
-      chartBars = [
-        _buildBar(label: '1주', amount: '6,000원', height: 60, isMax: false),
-        _buildBar(label: '2주', amount: '8,000원', height: 80, isMax: false),
-        _buildBar(label: '3주', amount: '9,000원', height: 100, isMax: true),
-        _buildBar(label: '4주', amount: '9,000원', height: 100, isMax: true),
-      ];
-      visits = 8;
-      favorites = 15;
-      reports = 5;
-      recommendationSub = '주말 카페 지출을 줄여보세요';
+    final tabData = _statsData?[_selectedTab];
+
+    if (tabData != null) {
+      titlePrefix = _selectedTab;
+      displayedSaved = (tabData['savedAmount'] as num?)?.toInt() ?? 0;
+      chartTitle = tabData['chartTitle'] ?? '절약 금액';
+      chartDate = tabData['chartDate'] ?? '';
+      visits = (tabData['visits'] as num?)?.toInt() ?? 0;
+      favorites = (tabData['favorites'] as num?)?.toInt() ?? 0;
+      reports = (tabData['reports'] as num?)?.toInt() ?? 0;
+      recommendationSub = tabData['recommendation'] ?? '';
+
+      final List<dynamic> savings = tabData['savings'] ?? [];
+      chartBars = savings.map((s) {
+        final label = s['label']?.toString() ?? '';
+        final amountVal = s['amount'];
+        final String amountStr = amountVal is num && amountVal >= 10000
+            ? '${(amountVal / 10000).toStringAsFixed(1).replaceAll('.0', '')}만'
+            : amountVal is num
+                ? '${_formatCurrency(amountVal.toInt())}원'
+                : s['amount']?.toString() ?? '';
+        final isMax = s['isMax'] == true;
+        
+        final double rawAmt = amountVal is num ? amountVal.toDouble() : 0.0;
+        double height = 40.0;
+        if (savings.isNotEmpty) {
+          final maxAmt = savings
+              .map((item) => (item['amount'] as num?)?.toDouble() ?? 0.0)
+              .reduce((a, b) => a > b ? a : b);
+          if (maxAmt > 0) {
+            height = (rawAmt / maxAmt) * 100.0;
+            if (height < 20) height = 20; // 최소 높이 보장
+          }
+        }
+        return _buildBar(
+          label: label,
+          amount: amountStr,
+          height: height,
+          isMax: isMax,
+        );
+      }).toList();
     } else {
-      titlePrefix = '올해';
-      displayedSaved = 154000;
-      chartTitle = '월별 절약 금액';
-      chartDate = '2026';
-      chartBars = [
-        _buildBar(label: '1월', amount: '3만', height: 60, isMax: false),
-        _buildBar(label: '2월', amount: '2.5만', height: 50, isMax: false),
-        _buildBar(label: '3월', amount: '3.5만', height: 70, isMax: false),
-        _buildBar(label: '4월', amount: '4만', height: 100, isMax: true),
-        _buildBar(label: '5월', amount: '2.4만', height: 40, isMax: false),
-      ];
-      visits = 45;
-      favorites = 60;
-      reports = 12;
-      recommendationSub = '가장 많이 절약한 달은 4월이에요';
+      titlePrefix = _selectedTab;
+      displayedSaved = 0;
+      chartTitle = '절약 금액';
+      chartDate = '';
+      chartBars = [];
+      visits = 0;
+      favorites = 0;
+      reports = 0;
+      recommendationSub = '데이터를 불러올 수 없습니다';
     }
 
     // Format the number
@@ -634,6 +739,13 @@ class _SavingsReportDashboardScreenState
           ],
         ),
       ),
+    );
+  }
+
+  String _formatCurrency(int value) {
+    return value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
     );
   }
 }
