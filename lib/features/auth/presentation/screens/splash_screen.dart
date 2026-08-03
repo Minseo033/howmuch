@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -39,6 +40,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     Timer(const Duration(milliseconds: 2500), () async {
       if (!mounted) return;
+      // 💡 저장된 세션 토큰이 있으면 로그인 화면을 건너뛰고 홈으로 자동 진입
+      // (main.dart에서 ApiClient.restoreSession()이 기존 토큰을 복원함)
+      if (ApiClient.isAuthenticated) {
+        context.go(AppRoutes.home);
+        return;
+      }
       // 💡 온보딩은 최초 1회만 표시합니다 (로그인 완료 시 플래그 저장됨)
       final prefs = await SharedPreferences.getInstance();
       final onboardingDone = prefs.getBool('onboarding_completed') ?? false;
