@@ -49,7 +49,22 @@
 - **store_detail_screen.dart는 대형 파일(894줄)**: 구조 깨지기 쉬움. replace_in_file로 SEARCH 실패 시 fuzzy match로 엉뚱한 곳이 교철될 수 있음 → 작은 단위로 나누거나 Python 패치 사용 (`/tmp/patch_detail.py` 참고)
 - **웹 QA 팁**: Flutter web 텍스트는 시맨틱 활성화(flt-semantics-placeholder 클릭) 후 `document.body.innerText`로 추출. 하단 네비는 시맨틱에 안 잡혀서 좌표 클릭 (390x844 기준 홈 40,812 / 탐색 115 / 제보 195,805 / 리포트 272 / 마이 350)
 - **어드민 웹 페이지 (web/admin.html)**: flutter build 시 build/web에 자동 포함 → /admin.html로 서빙 (Vercel rewrite는 실제 파일을 덮지 않음). 인증: 어드민 전용 비밀번호 (X-Admin-Key 헤더 ↔ env ADMIN_KEY, 상수 시간 비교 + 실패 시 1초 지연) — 앱 세션과 무관, sessionStorage에만 보관. ADMIN_KEY 미설정 시 전부 403. 뷰 2개: 제보 관리(/api/admin/reports·approve·reject) + 대시보드(/api/admin/overview·users — 회원 수/매장 수/리뷰·방문·찜 수, 회원 목록 테이블. 매장 수는 인메모리 캐시라 읽기 0, 나머지는 count 집계). 승인 매장의 공식 stores 반영 로직은 미구현 (후속 과제)
-- **푸시(재배포)할 때마다 공공데이터 1.1만 읽기 소진되던 구조적 결함 (8/3 사고 → 수정 완료)**: `lastGovRefreshSuccessMillis`가 인메모리라 재시작 시 0으로 초기화 → 부팅 10분 뒤 스케줄러가 24h 가드 무시하고 전량(11,207건) 강제 갱신. 8/3 푸시 6회 ≈ 최대 6.7만 읽기 → 일일 한도(5만) 초과로 어드민/앱 API 전부 RESOURCE_EXHAUSTED 발생. 수정: Firestore `meta/govStores` 문서에 마지막 갱신 시각 저장 → 재시작 후에도 24h 가드 유지 (주기 확인 비용 읽기 1회). 교훈: **docs만 바뀐 푸시도 Render 재배포를 트리거함** — 불필요한 재배포 자제 또는 build filter 고려. 쿼터 리셋: 매일 오후 4시 KST
+- **푸시(재배포)마다 공공데이터 1.1만 읽기 소진 (8/3 사고, 수정 완료)** — 상세는 5-3 참고
+
+## 5-3. 8/3 Firestore 일일 쿼터 소진 사고 기록 (원인·예방·주의사항)
+
+**증상**: 8/3 22시경 어드민 페이지·앱 API 전부 `RESOURCE_EXHAUSTED: Quota exceeded` (무료 플랜 일일 읽기 5만 소진). 리셋은 매일 오후 4시 KST (미 태평양시간 자정).
+
+**원인 (근본)**: 공공데이터 24h 갱신 가드(`lastGovRefreshSuccessMillis`)가 인메모리 변수라 **재시작 시 0으로 초기화** → Render 재배포/재시작 후 10분 뒤 스케줄러가 가드를 무시하고 11,207건 전량 강제 갱신. 당일 푸시 6회(다나 이식·자동로그인·revert·어드민 3건) × 1.1만 ≈ 최대 6.7만 읽기 → 한도 초과. 어드민 페이지 쿼리(수십 건)는 무관이었음.
+
+**수정 (0e519e7)**: 마지막 갱신 시각을 Firestore `meta/govStores` 문서에 저장 → 재시작 후에도 24h 가드 유지 (주기 확인 비용 읽기 1회). 메타 조회 실패 시 전량 갱신 대신 그 주기 건너뜀 (안전한 실패).
+
+**예방·주의사항**:
+1. **push = Render 재배포 = 비용** — docs만 바뀐 커밋도 재배포 트리거. 문서 전용 커밋은 모아서 하거나 Render build filter 고려
+2. 대량 조회 신규 추가 시 캐시 패턴 필수 (기존 원칙) + 건수 확인은 count 집계 쿼리 사용 (1000건당 읽기 1회)
+3. 쿼터 초과 시 앱 전체(리뷰/제보/프로필/방문)도 동시에 실패 — 사용자 안내는 "오후 4시 이후 재시도"
+4. 반복 발생하면 Blaze(종량제) 전환 (무료 5만 유지 + 초과분만 과금, 이 규모면 월 몇백 원) — 6주차 과제
+5. Firebase 콘솔 → Firestore 사용량 탭에서 일일 읽기 추적 가능
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
