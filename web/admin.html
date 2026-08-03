@@ -405,9 +405,11 @@
         </div>`,
       error: `
         <div class="state-box">
-          <div class="emoji">⚠️</div>
-          <h2>불러오기 실패</h2>
-          <p>${esc(data.message || '알 수 없는 오류')}</p>
+          <div class="emoji">${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? '📊' : '⚠️'}</div>
+          <h2>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? 'Firestore 일일 쿼터 초과' : '불러오기 실패'}</h2>
+          <p>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '')
+              ? '무료 플랜 하루 읽기 한도(5만)를 다 썼어요.<br>매일 오후 4시에 리셋됩니다. 급하면 Blaze(종량제) 전환 시 즉시 해결돼요.'
+              : esc(data.message || '알 수 없는 오류')}</p>
           <div class="login-row"><button class="btn btn-primary" id="retryBtn">다시 시도</button></div>
         </div>`,
       empty: `
