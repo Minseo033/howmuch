@@ -381,6 +381,34 @@ public class FirebaseService {
                 .toList();
     }
 
+    // 💡 매장명으로 업종 조회 (공공데이터 인메모리 캐시 사용 — Firestore 읽기 0)
+    public String findIndustryByStoreName(String storeName) {
+        if (storeName == null || storeName.isBlank()) return null;
+        return cachedStores.stream()
+                .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
+                .map(s -> s.get("industry") != null ? s.get("industry").toString() : null)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    // 💡 방문 기록 저장 (절약 금액은 VisitController에서 서버 룰로 계산되어 주입됨)
+    public String saveVisit(String firebaseUid, com.howmuch.dto.VisitRequest request, long savedAmount) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("storeId", request.getStoreId());
+        data.put("storeName", request.getStoreName());
+        data.put("menu", request.getMenu());
+        data.put("price", request.getPrice());
+        data.put("savedAmount", savedAmount);
+        data.put("isGov", findIndustryByStoreName(request.getStoreName()) != null);
+        data.put("visitedAt", java.time.Instant.now().toString());
+
+        DocumentReference docRef = db.collection("visits").document();
+        docRef.set(data).get();
+        return docRef.getId();
+    }
+
     // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
     public java.util.List<com.howmuch.dto.VisitResponseDto> getUserVisits(String firebaseUid) throws Exception {
         var documents = db.collection("visits")

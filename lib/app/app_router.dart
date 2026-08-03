@@ -120,9 +120,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _route(
-        AppRoutes.visitVerificationComplete,
-        const VisitVerificationCompleteScreen(),
+      GoRoute(
+        path: AppRoutes.visitVerificationComplete,
+        pageBuilder: (_, state) {
+          final extra = state.extra is Map ? state.extra as Map : const {};
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: VisitVerificationCompleteScreen(
+              savedAmount: (extra['savedAmount'] as num?)?.toInt() ?? 0,
+              storeName: extra['storeName']?.toString() ?? '방문 매장',
+              menu: extra['menu']?.toString() ?? '',
+              price: (extra['price'] as num?)?.toInt() ?? 0,
+            ),
+          );
+        },
       ),
       _route(
         AppRoutes.directionsExternalApp,
