@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
 
@@ -23,6 +26,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     _goalController = TextEditingController(
       text: _state.monthlyGoal.value.toString(),
     );
+    // 저장된 목표를 서버에서 불러와 초기값으로 반영
+    _loadGoal();
   }
 
   @override
@@ -31,11 +36,46 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     super.dispose();
   }
 
-  void _saveGoal() {
+  /// GET /api/savings/goal — 저장된 목표 금액을 입력창에 반영
+  Future<void> _loadGoal() async {
+    try {
+      final response = await http
+          .get(
+            ApiClient.uri('/api/savings/goal'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes))
+            as Map<String, dynamic>;
+        final goal = (data['goalAmount'] as num?)?.toInt();
+        if (goal != null && goal > 0 && mounted) {
+          _goalController.text = goal.toString();
+          _state.monthlyGoal.value = goal;
+        }
+      }
+    } catch (e) {
+      debugPrint('절약 목표 조회 실패: $e');
+    }
+  }
+
+  Future<void> _saveGoal() async {
     final int newGoal =
         int.tryParse(_goalController.text.replaceAll(',', '')) ?? 30000;
     _state.monthlyGoal.value = newGoal;
-    context.pop();
+    // 서버에 목표 저장 (실패해도 화면은 유지)
+    try {
+      await http
+          .post(
+            ApiClient.uri('/api/savings/goal'),
+            headers: ApiClient.jsonHeaders(auth: true),
+            body: jsonEncode({'goalAmount': newGoal}),
+          )
+          .timeout(ApiClient.defaultTimeout);
+    } catch (e) {
+      debugPrint('절약 목표 저장 실패: $e');
+    }
+    if (mounted) context.pop();
   }
 
   @override
@@ -77,99 +117,79 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           width: 0.909,
                         ),
                       ),
-                      child: ValueListenableBuilder<int>(
-                        valueListenable: _state.currentSaved,
-                        builder: (context, currentSaved, _) {
-                          return ValueListenableBuilder<TextEditingValue>(
-                            valueListenable: _goalController,
-                            builder: (context, textValue, _) {
-                              final int currentGoal =
-                                  int.tryParse(
-                                    textValue.text.replaceAll(',', ''),
-                                  ) ??
-                                  1;
-                              final double currentPercentage =
-                                  (currentSaved / currentGoal * 100).clamp(
-                                    0,
-                                    100,
-                                  );
-
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    '이번 달 절약 목표',
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontFamilyFallback: ['Noto Sans KR'],
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF64748B),
-                                      fontSize: 11,
-                                      height: 16.5 / 11,
-                                    ),
+                      child: ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _goalController,
+                        builder: (context, textValue, _) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '이번 달 절약 목표',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11,
+                                  height: 16.5 / 11,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                height: 52,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF4F6FA),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: const Color(0xFF2563EB),
+                                    width: 0.909,
                                   ),
-                                  const SizedBox(height: 6),
-                                  Container(
-                                    height: 52,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF4F6FA),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: const Color(0xFF2563EB),
-                                        width: 0.909,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _goalController,
+                                        cursorColor: const Color(
+                                          0xFF2563EB,
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter
+                                              .digitsOnly,
+                                        ],
+                                        style: const TextStyle(
+                                          fontFamily: 'Inter',
+                                          fontFamilyFallback: ['Noto Sans KR'],
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF0F172A),
+                                          fontSize: 24,
+                                          height: 36 / 24,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                          isDense: true,
+                                        ),
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _goalController,
-                                            cursorColor: const Color(
-                                              0xFF2563EB,
-                                            ),
-                                            keyboardType: TextInputType.number,
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter
-                                                  .digitsOnly,
-                                            ],
-                                            style: const TextStyle(
-                                              fontFamily: 'Inter',
-                                              fontFamilyFallback: [
-                                                'Noto Sans KR',
-                                              ],
-                                              fontWeight: FontWeight.w800,
-                                              color: Color(0xFF0F172A),
-                                              fontSize: 24,
-                                              height: 36 / 24,
-                                            ),
-                                            decoration: const InputDecoration(
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.zero,
-                                              isDense: true,
-                                            ),
-                                          ),
-                                        ),
-                                        const Text(
-                                          '원',
-                                          style: TextStyle(
-                                            fontFamily: 'Inter',
-                                            fontFamilyFallback: [
-                                              'Noto Sans KR',
-                                            ],
-                                            color: Color(0xFF64748B),
-                                            fontSize: 13,
-                                            height: 19.5 / 13,
-                                          ),
-                                        ),
-                                      ],
+                                    const Text(
+                                      '원',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFF64748B),
+                                        fontSize: 13,
+                                        height: 19.5 / 13,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              );
-                            },
+                                  ],
+                                ),
+                              ),
+                            ],
                           );
                         },
                       ),

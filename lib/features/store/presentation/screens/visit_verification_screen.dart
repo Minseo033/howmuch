@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -105,7 +106,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           text: '방문 인증하기',
           backgroundColor: AppColors.primary,
           onPressed: () {
-            context.push('/home/visit_complete');
+            context.push(AppRoutes.visitVerificationComplete);
           },
         ),
       ),

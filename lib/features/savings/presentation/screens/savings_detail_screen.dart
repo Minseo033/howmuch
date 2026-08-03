@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
 
 class SavingsDetailItem {
   final String category; // '음식점', '카페', '미용'
@@ -36,53 +39,182 @@ class SavingsDetailScreen extends StatefulWidget {
 
 class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   String _selectedFilter = '전체';
+  bool _isLoading = false;
+  List<SavingsDetailItem> _allItems = [];
+  int _totalSavedAmount = 24500; // 기본/요약용 총합
+  int _visitCount = 6;
+  int _averageSaved = 4083;
 
-  final List<SavingsDetailItem> _allItems = [
-    SavingsDetailItem(
-      category: '음식점',
-      badgeText: '정부 인증',
-      badgeColor: const Color(0xFF2563EB),
-      badgeBg: const Color(0xFFEFF4FF),
-      date: '2026.05.10',
-      storeName: '착한분식',
-      menuName: '김치찌개',
-      price: '5,500원',
-      savingAmount: '평균가 대비 2,000원 절약',
-    ),
-    SavingsDetailItem(
-      category: '음식점',
-      badgeText: '정부 인증',
-      badgeColor: const Color(0xFF2563EB),
-      badgeBg: const Color(0xFFEFF4FF),
-      date: '2026.05.08',
-      storeName: '정다운식당',
-      menuName: '백반',
-      price: '6,500원',
-      savingAmount: '평균가 대비 1,500원 절약',
-    ),
-    SavingsDetailItem(
-      category: '카페',
-      badgeText: '사용자 제보',
-      badgeColor: const Color(0xFFF97316),
-      badgeBg: const Color(0xFFFFF3EA),
-      date: '2026.05.06',
-      storeName: '동네카페',
-      menuName: '아메리카노',
-      price: '2,000원',
-      savingAmount: '평균가 대비 2,300원 절약',
-    ),
-    SavingsDetailItem(
-      category: '미용',
-      badgeText: '정부 인증',
-      badgeColor: const Color(0xFF2563EB),
-      badgeBg: const Color(0xFFEFF4FF),
-      date: '2026.05.01',
-      storeName: '착한미용실',
-      menuName: '남성커트',
-      price: '8,000원',
-      savingAmount: '평균가 대비 7,000원 절약',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchSavingsHistory();
+  }
+
+  Future<void> _fetchSavingsHistory() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/savings/history'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        // 💡 실제 API는 List<SavingsHistoryResponse> 직렬 배열을 반환합니다.
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        final List<dynamic> historyData = decoded is List ? decoded : [];
+
+        final parsed = historyData.map((item) {
+          final isGov = item['isGov'] == true;
+          final String badgeText = isGov ? '정부 인증' : '사용자 제보';
+          final Color badgeColor = isGov ? const Color(0xFF2563EB) : const Color(0xFFF97316);
+          final Color badgeBg = isGov ? const Color(0xFFEFF4FF) : const Color(0xFFFFF3EA);
+
+          final int priceVal = (item['price'] as num?)?.toInt() ?? 0;
+          final int savedVal = (item['savedAmount'] as num?)?.toInt() ?? 0;
+
+          final String dateRaw = item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+          final String category = _categoryFromDate(dateRaw);
+
+          return SavingsDetailItem(
+            category: category,
+            badgeText: badgeText,
+            badgeColor: badgeColor,
+            badgeBg: badgeBg,
+            date: _formatDate(dateRaw),
+            storeName: item['storeName']?.toString() ?? '미등록 매장',
+            menuName: item['menu']?.toString() ?? '기타',
+            price: '${_formatCurrency(priceVal)}원',
+            savingAmount: '평균가 대비 ${_formatCurrency(savedVal)}원 절약',
+          );
+        }).toList();
+
+        // 이번 달 항목만 필터링해 요약 통계 계산
+        final now = DateTime.now();
+        final thisMonthItems = parsed.where((item) {
+          final d = _parseDate(item.date);
+          return d != null && d.year == now.year && d.month == now.month;
+        }).toList();
+
+        final totalSaved = thisMonthItems.fold<int>(
+          0,
+          (sum, it) => sum + _parseAmount(it.savingAmount),
+        );
+        final visitCount = thisMonthItems.length;
+        final averageSaved = visitCount > 0 ? totalSaved ~/ visitCount : 0;
+
+        setState(() {
+          _allItems = parsed;
+          _totalSavedAmount = totalSaved;
+          _visitCount = visitCount;
+          _averageSaved = averageSaved;
+          _isLoading = false;
+        });
+      } else {
+        _loadFallbackData();
+      }
+    } catch (e) {
+      debugPrint('절약 내역 조회 오류: $e');
+      _loadFallbackData();
+    }
+  }
+
+  /// ISO 8601/점 형식 날짜 문자열을 파싱 (실패 시 null)
+  DateTime? _parseDate(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+    try {
+      // "2026-08-03T..." 또는 "2026.08.03..."
+      final match = RegExp(r'(\d{4})[-.](\d{1,2})[-.](\d{1,2})').firstMatch(s);
+      if (match != null) {
+        return DateTime(
+          int.parse(match.group(1)!),
+          int.parse(match.group(2)!),
+          int.parse(match.group(3)!),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// "2026.08.03" 형태로 표시
+  String _formatDate(String raw) {
+    final d = _parseDate(raw);
+    if (d == null) return raw;
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 업종 필터용 카테고리 — API에 category 필드가 없어 빈 값으로 두고, 이 경우 모든 필터에 노출됩니다.
+  String _categoryFromDate(String raw) => '';
+
+  /// "평균가 대비 2,000원 절약" → 2000
+  int _parseAmount(String saving) {
+    final match = RegExp(r'([\d,]+)').firstMatch(saving);
+    if (match == null) return 0;
+    return int.tryParse(match.group(1)!.replaceAll(',', '')) ?? 0;
+  }
+
+  void _loadFallbackData() {
+    setState(() {
+      _allItems = [
+        SavingsDetailItem(
+          category: '음식점',
+          badgeText: '정부 인증',
+          badgeColor: const Color(0xFF2563EB),
+          badgeBg: const Color(0xFFEFF4FF),
+          date: '2026.05.10',
+          storeName: '착한분식',
+          menuName: '김치찌개',
+          price: '5,500원',
+          savingAmount: '평균가 대비 2,000원 절약',
+        ),
+        SavingsDetailItem(
+          category: '음식점',
+          badgeText: '정부 인증',
+          badgeColor: const Color(0xFF2563EB),
+          badgeBg: const Color(0xFFEFF4FF),
+          date: '2026.05.08',
+          storeName: '정다운식당',
+          menuName: '백반',
+          price: '6,500원',
+          savingAmount: '평균가 대비 1,500원 절약',
+        ),
+        SavingsDetailItem(
+          category: '카페',
+          badgeText: '사용자 제보',
+          badgeColor: const Color(0xFFF97316),
+          badgeBg: const Color(0xFFFFF3EA),
+          date: '2026.05.06',
+          storeName: '동네카페',
+          menuName: '아메리카노',
+          price: '2,000원',
+          savingAmount: '평균가 대비 2,300원 절약',
+        ),
+        SavingsDetailItem(
+          category: '미용',
+          badgeText: '정부 인증',
+          badgeColor: const Color(0xFF2563EB),
+          badgeBg: const Color(0xFFEFF4FF),
+          date: '2026.05.01',
+          storeName: '착한미용실',
+          menuName: '남성커트',
+          price: '8,000원',
+          savingAmount: '평균가 대비 7,000원 절약',
+        ),
+      ];
+      _isLoading = false;
+    });
+  }
+
+  String _formatCurrency(int value) {
+    return value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +223,8 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
     final filteredItems = _allItems.where((item) {
       if (_selectedFilter == '전체') return true;
+      // 카테고리 정보가 없는 항목(API 미제공)은 모든 필터에 표시
+      if (item.category.isEmpty) return true;
       return item.category == _selectedFilter;
     }).toList();
 
@@ -175,12 +309,12 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                 ).withValues(alpha: 0.2),
                               ),
                             ),
-                            child: const Column(
+                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '5월 누적 절약',
-                                  style: TextStyle(
+                                  '${DateTime.now().month}월 누적 절약',
+                                  style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     color: Color(0xFF64748B),
@@ -188,15 +322,15 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                SizedBox(height: AppSizes.smallSpacing),
+                                const SizedBox(height: AppSizes.smallSpacing),
                                 Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      '24,500',
-                                      style: TextStyle(
+                                      _formatCurrency(_totalSavedAmount),
+                                      style: const TextStyle(
                                         fontFamily: 'Inter',
                                         fontFamilyFallback: ['Noto Sans KR'],
                                         color: Color(0xFF10B981),
@@ -205,8 +339,8 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                         letterSpacing: -0.5,
                                       ),
                                     ),
-                                    SizedBox(width: 4),
-                                    Text(
+                                    const SizedBox(width: 4),
+                                    const Text(
                                       '원',
                                       style: TextStyle(
                                         fontFamily: 'Inter',
@@ -218,22 +352,22 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                     ),
                                   ],
                                 ),
-                                SizedBox(height: 12),
+                                const SizedBox(height: 12),
                                 Row(
                                   children: [
                                     Text(
-                                      '📍 6회 방문',
-                                      style: TextStyle(
+                                      '📍 $_visitCount회 방문',
+                                      style: const TextStyle(
                                         fontFamily: 'Inter',
                                         fontFamilyFallback: ['Noto Sans KR'],
                                         color: Color(0xFF64748B),
                                         fontSize: 11,
                                       ),
                                     ),
-                                    SizedBox(width: 12),
+                                    const SizedBox(width: 12),
                                     Text(
-                                      '· 평균 4,083원 절약',
-                                      style: TextStyle(
+                                      '· 평균 ${_formatCurrency(_averageSaved)}원 절약',
+                                      style: const TextStyle(
                                         fontFamily: 'Inter',
                                         fontFamilyFallback: ['Noto Sans KR'],
                                         color: Color(0xFF64748B),
@@ -264,21 +398,46 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                           ),
                           const SizedBox(height: AppSizes.itemSpacing),
                           // List of Savings
-                          ...filteredItems.map((item) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildSavingItem(
-                                badgeText: item.badgeText,
-                                badgeColor: item.badgeColor,
-                                badgeBg: item.badgeBg,
-                                date: item.date,
-                                storeName: item.storeName,
-                                menuName: item.menuName,
-                                price: item.price,
-                                savingAmount: item.savingAmount,
+                          if (_isLoading)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 40),
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF2563EB),
+                                ),
                               ),
-                            );
-                          }),
+                            )
+                          else if (filteredItems.isEmpty)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 40),
+                                child: Text(
+                                  '절약 내역이 없습니다.',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Color(0xFF64748B),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
+                            ...filteredItems.map((item) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _buildSavingItem(
+                                  badgeText: item.badgeText,
+                                  badgeColor: item.badgeColor,
+                                  badgeBg: item.badgeBg,
+                                  date: item.date,
+                                  storeName: item.storeName,
+                                  menuName: item.menuName,
+                                  price: item.price,
+                                  savingAmount: item.savingAmount,
+                                ),
+                              );
+                            }),
                           const SizedBox(height: AppSizes.itemSpacing),
                           // Info Banner
                           Container(
