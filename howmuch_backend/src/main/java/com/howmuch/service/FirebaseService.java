@@ -380,6 +380,48 @@ public class FirebaseService {
         return overview;
     }
 
+    // 💡 [어드민] 회원 삭제 — users 문서 + 해당 유저의 리뷰/제보/방문/찜 전부 삭제
+    public Map<String, Object> deleteUser(String firebaseUid) throws Exception {
+        Map<String, Object> result = new HashMap<>();
+        // users/{uid} 문서 삭제
+        db.collection("users").document(firebaseUid).delete().get();
+        // 연관 컬렉션 문서 전부 삭제 (각 컬렉션을 uid 필드로 조회)
+        result.put("reviews", deleteWhere("reviews", "authorUid", firebaseUid));
+        result.put("reports", deleteWhere("stores_user", "reporterId", firebaseUid));
+        result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
+        result.put("uid", firebaseUid);
+        return result;
+    }
+
+    /** 컬렉션에서 field == value 인 문서 전부 삭제하고 삭제 건수 반환 */
+    private int deleteWhere(String collection, String field, String value) throws Exception {
+        var docs = db.collection(collection).whereEqualTo(field, value).get().get().getDocuments();
+        int deleted = 0;
+        for (DocumentSnapshot doc : docs) {
+            doc.getReference().delete().get();
+            deleted++;
+        }
+        return deleted;
+    }
+
+    // 💡 [어드민] 회원별 활동 요약 — 제보/리뷰/방문/찜 개수 (회원 목록 확장용)
+    public Map<String, Object> getUserActivity(String firebaseUid) throws Exception {
+        Map<String, Object> activity = new HashMap<>();
+        activity.put("uid", firebaseUid);
+        activity.put("reports", countWhere("stores_user", "reporterId", firebaseUid));
+        activity.put("reviews", countWhere("reviews", "authorUid", firebaseUid));
+        activity.put("visits", countWhere("visits", "userId", firebaseUid));
+        activity.put("favorites", countWhere("favorites", "userId", firebaseUid));
+        return activity;
+    }
+
+    /** 컬렉션에서 field == value 인 문서 수 (count 집계 쿼리 — 읽기 절약) */
+    private long countWhere(String collection, String field, String value) throws Exception {
+        return db.collection(collection).whereEqualTo(field, value)
+                .count().get().get().getCount();
+    }
+
     // 💡 [어드민] 회원 목록 조회 (가입 최신순, 소량 컬렉션)
     public List<Map<String, Object>> getAllUsers() throws Exception {
         return db.collection("users")
@@ -514,6 +556,30 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
         return reviews;
+    }
+
+    // 💡 [어드민] 전체 리뷰 목록 (최신순, 매장명/작성자명 포함 — 소량 컬렉션)
+    public List<Map<String, Object>> getAllReviews() throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        reviews.sort((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
+                .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))));
+        return reviews;
+    }
+
+    // 💡 [어드민] 리뷰 삭제
+    public void deleteReview(String reviewId) throws Exception {
+        DocumentReference docRef = db.collection("reviews").document(reviewId);
+        if (!docRef.get().get().exists()) {
+            throw new IllegalArgumentException("리뷰를 찾을 수 없습니다: " + reviewId);
+        }
+        docRef.delete().get();
     }
 
     // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)

@@ -125,6 +125,83 @@ public class AdminController {
         }
     }
 
+    /** 회원 활동 상세 (GET /api/admin/users/{uid}/activity) — 제보/리뷰/방문/찜 개수 */
+    @GetMapping("/users/{uid}/activity")
+    public ResponseEntity<?> getUserActivity(@PathVariable String uid,
+                                             HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(firebaseService.getUserActivity(uid));
+        } catch (Exception e) {
+            log.error("[AdminController] 회원 활동 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "회원 활동 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 회원 삭제/강제 탈퇴 (DELETE /api/admin/users/{uid}) — users + 제보/리뷰/방문/찜 전부 삭제 */
+    @org.springframework.web.bind.annotation.DeleteMapping("/users/{uid}")
+    public ResponseEntity<?> deleteUser(@PathVariable String uid,
+                                        HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            Map<String, Object> result = firebaseService.deleteUser(uid);
+            log.warn("[AdminController] 회원 강제 탈퇴 - uid: {}, 삭제: {}", uid, result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[AdminController] 회원 삭제 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "회원 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 리뷰 목록 조회 (GET /api/admin/reviews) — 최신순 전체 */
+    @GetMapping("/reviews")
+    public ResponseEntity<?> getReviews(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(firebaseService.getAllReviews());
+        } catch (Exception e) {
+            log.error("[AdminController] 리뷰 목록 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "리뷰 목록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 리뷰 삭제 (DELETE /api/admin/reviews/{id}) */
+    @org.springframework.web.bind.annotation.DeleteMapping("/reviews/{id}")
+    public ResponseEntity<?> deleteReview(@PathVariable String id,
+                                          HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            firebaseService.deleteReview(id);
+            log.warn("[AdminController] 리뷰 삭제 - id: {}", id);
+            return ResponseEntity.ok(Map.of("success", true, "id", id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 리뷰 삭제 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "리뷰 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
     /** 제보 승인 (POST /api/admin/reports/{id}/approve) */
     @PostMapping("/reports/{id}/approve")
     public ResponseEntity<?> approveReport(@PathVariable String id,

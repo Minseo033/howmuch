@@ -91,6 +91,21 @@
 - 카카오 토큰: 백엔드가 카카오 /v2/user/me로 실제 검증 (클린트 uid 신뢰 안 함)
 - uid는 세션 attribute에서만 주입 (IDOR 스푸핑 방지됨)
 
+### 8/4 어드민 페이지 대폭 개선 (compileJava + node 문법 검증 통과)
+- **신규 백엔드 API** (전부 X-Admin-Key 인증, ADMIN_KEY 미설정 시 403):
+  - `GET  /api/admin/users/{uid}/activity` : 회원 활동 요약 (제보/리뷰/방문/찜 개수, count 집계 쿼리)
+  - `DELETE /api/admin/users/{uid}` : 회원 강제 탈퇴 — users 문서 + 제보/리뷰/방문/찜 전부 삭제 (삭제 건수 반환)
+  - `GET  /api/admin/reviews` : 전체 리뷰 목록 (최신순, 매장명/작성자명/별점/내용)
+  - `DELETE /api/admin/reviews/{id}` : 리뷰 삭제 (404 = 리뷰 없음)
+- **web/admin.html 전면 개편**: 다크 사이드바 + 그라데이션 로그인 오버레이 + 4개 뷰
+  - 대시보드: 6개 통계 카드(컬러 glow) + 최근 제보 5건 테이블
+  - 제보 관리: 상태 탭(대기/승인/반려/전체 + 건수) + 사이드바 대기 pill 배지
+  - 리뷰 관리: 별점 표시 + 내용 미리보기 + 삭제(확인 모달)
+  - 회원 관리: 아바타(이니셜+컬러) + 닉네임/이메일/지역 검색 + 상세(활동 모달) + 강제 탈퇴(경고 모달)
+  - 공통: 토스트, 모달(ESC/배경 클릭 닫기), 로딩/빈/에러/쿼터초과 상태 화면, 반응형(모바일 사이드바→상단 바)
+  - JS는 단일 IIFE로 통합 (여러 `<script>` 블록으로 나누면 스코프 깨짐 — node new Function으로 검증)
+- FirebaseService에 deleteUser/deleteWhere/getUserActivity/countWhere/getAllReviews/deleteReview 추가
+
 ### 8/4 코드 수정 내역 (compileJava + flutter analyze 통과)
 - **백엔드**: FirebaseService(isPubliclyVisible 필터), GeocodingService·KakaoLocalService·GeminiService(env 키 주입), SessionTokenService(fail-fast), SimpleRateLimiter(신규), AiController(레이트리밋+검증), 7개 컨트롤러(에러 메시지 일반화 + 입력 길이 검증), application.properties(신규 env 키 등록)
 - **프론트**: mypage_state.dart(목업 제거), mypage_screen.dart(_loadProfileSummary 실데이터 로드), savings_report_dashboard_screen.dart(폼백 삭제 + 에러/재시도 UI)
