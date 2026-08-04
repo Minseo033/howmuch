@@ -67,6 +67,29 @@
 4. 반복 발생하면 Blaze(종량제) 전환 (무료 5만 유지 + 초과분만 과금, 이 규모면 월 몇백 원) — 6주차 과제
 5. Firebase 콘솔 → Firestore 사용량 탭에서 일일 읽기 추적 가능
 
+## 5-4. 8/4 전체 코드 감사 결과 (BE/FE/인프라 전수 조사, 미해결 이슈)
+
+### CRITICAL (즉시 조치)
+1. **Firebase 개인키 git 히스토리 노출** — `3ad7151`에 firebase-service-account.json 실키 커밋, `8910c86`에서 삭제했으나 히스토리 잔존 (레포 public이라 `git show 3ad7151`으로 누구나 열림). → **Firebase 콘솔에서 키 폐기·재발급 + BFG/filter-repo로 히스토리 purge** (콘솔 작업 필요, 코드 작업만으로 해결 불가)
+2. **카카오 REST API 키 하드코딩** — GeocodingService.java, KakaoLocalService.java, lib/ 프론트 3곳에 평문. → 환경변수 이동 + 키 재발급 검토
+3. **PENDING·REJECTED 제보가 지도에 공개 노출** — getStoresInBounds/cachedUserStores에 status 필터 없음 → 미검토·반려 매장이 유저 지도에 표시됨 (어드민 승인제 무의미). → bounds 조회 시 APPROVED만 필터 (코드 수정 가능, 간단)
+
+### HIGH
+4. **마이페이지 통째 목업** — mypage_state.dart: 닉네임 "절약왕 민서", LV.3, 24,500원, 소셜 계정(가짜 날짜), 찜한 가게, 가격 알림 설정 전부 가짜 데이터가 실제 프로필처럼 표시
+5. **대시보드 폼백 가짜 통계** — _loadFallbackData(): 에러 시 24,500원·2026.05 차트를 실데이터처럼 표시 + 추천 배너 하드코딩 (폼백 표시 안내 없음)
+6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요
+7. **SESSION_SECRET 미설정 시 dev 기본값 사용** — 프로덕션에서 env 누락 시 `dev-only-...change-me`로 토큰 서명 → 위조 가능. 미설정 시 부팅 실패(fail-fast)로 변경 권장 (코드 수정 가능, 간단)
+8. **/api/ai/chat 레이트리밋 없음** — 로그인 유저의 무제한 호출로 AI API 비용 악용 가능
+
+### MEDIUM
+9. 입력 검증 0건 — Bean Validation 없음: 리뷰/제보/방문 길이 제한·중복 체크·레이트리밋 전무
+10. 요청 스레드 blocking `.get()` + Gemini 호출 타임아웃 없음 — 지연 시 스레드 고갈 가능
+11. 예외 메시지(e.getMessage()) 클라이언트 반환 — 내부 구조 노출 (어드민의 gRPC 에러 노출도 이것)
+
+### 확인된 안전 항목 (문제없음)
+- 카카오 토큰: 백엔드가 카카오 /v2/user/me로 실제 검증 (클라이언트 uid 신뢰 안 함)
+- uid는 세션 attribute에서만 주입 (IDOR 스푸핑 방지됨)
+
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
 - Firestore 쿼터: 유저 데이터(리뷰/제보/프로필/방문)만 읽음. 대량 조회 신규 추가 시 캐시 패턴 필수
