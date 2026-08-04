@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
@@ -31,6 +32,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   final _menuController = TextEditingController();
   bool _isSubmitting = false;
 
+  Timer? _estimateDebounce;
+  int? _estimatedSaved;
+  int? _referencePrice;
+  bool _matchedByMenu = false;
+
   XFile? _receiptImage;
   final ImagePicker _picker = ImagePicker();
 
@@ -52,6 +58,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   @override
   void dispose() {
+    _estimateDebounce?.cancel();
     _amountController.dispose();
     _menuController.dispose();
     super.dispose();
@@ -312,13 +319,14 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           const SizedBox(height: 12),
           TextField(
             controller: _menuController,
-            decoration: _inputDecoration('메뉴명 입력 (예: 김치찌개)'),
+            onChanged: (_) => _onInputChanged(),
+            decoration: _inputDecoration('메뉴 이름 (예: 김치찌개)'),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _amountController,
             keyboardType: TextInputType.number,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onInputChanged(),
             decoration: _inputDecoration('결제 금액 입력 (원)'),
           ),
         ],
@@ -349,13 +357,49 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     );
   }
 
-  /// 예상 절약 금액 미리보기 (v1 간이 룰: 평균가 10,000원 − 결제가. 최종 값은 서버가 업종 반영해 계산)
-  int? get _estimatedSaved {
-    final price = int.tryParse(
-            _amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
-        0;
-    if (price <= 0) return null;
-    return (10000 - price).clamp(0, 10000);
+  int get _priceValue =>
+      int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
+      0;
+
+  /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
+  void _onInputChanged() {
+    _estimateDebounce?.cancel();
+    _estimateDebounce =
+        Timer(const Duration(milliseconds: 400), _fetchEstimate);
+    setState(() {});
+  }
+
+  Future<void> _fetchEstimate() async {
+    final price = _priceValue;
+    if (price <= 0) {
+      setState(() {
+        _estimatedSaved = null;
+        _referencePrice = null;
+        _matchedByMenu = false;
+      });
+      return;
+    }
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/visits/estimate', {
+          'storeName': widget.storeName,
+          'menu': _menuController.text.trim(),
+          'price': '$price',
+        }),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+      if (response.statusCode == 200 && mounted) {
+        final data =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        setState(() {
+          _estimatedSaved = (data['savedAmount'] as num?)?.toInt();
+          _referencePrice = (data['referencePrice'] as num?)?.toInt();
+          _matchedByMenu = data['matchedByMenu'] == true;
+        });
+      }
+    } catch (e) {
+      debugPrint('예상 절약 금액 조회 오류: $e');
+    }
   }
 
   String _formatWon(int value) {
@@ -457,9 +501,13 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
-            '업종 평균가 대비 산정 (서버에서 최종 계산)',
-            style: TextStyle(color: Colors.black45, fontSize: 12),
+          Text(
+            _referencePrice == null
+                ? '한국소비자원 참가격 기준으로 자동 계산돼요'
+                : (_matchedByMenu
+                    ? '참가격 기준가 ${_formatWon(_referencePrice!)}원 기준'
+                    : '카테고리 평균가 ${_formatWon(_referencePrice!)}원 기준 (참가격 기반)'),
+            style: const TextStyle(color: Colors.black45, fontSize: 12),
           ),
         ],
       ),

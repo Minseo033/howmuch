@@ -4,6 +4,7 @@ import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.VisitRequest;
 import com.howmuch.dto.VisitResponseDto;
 import com.howmuch.service.FirebaseService;
+import com.howmuch.service.ReferencePrices;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -29,36 +31,6 @@ import java.util.Map;
 public class VisitController {
 
     private final FirebaseService firebaseService;
-
-    /**
-     * 절약 금액 v1 간이 룰: 업종 평균가 − 실제 결제가 (하한 0).
-     * TODO: 공공데이터/제보 가격 기반 실제 비교가로 고도화
-     */
-    private static final long DEFAULT_AVG_PRICE = 10_000L;
-    private static final Map<String, Long> INDUSTRY_AVG_PRICE = Map.of(
-            "한식", 10_000L,
-            "중식", 9_000L,
-            "일식", 11_000L,
-            "양식", 13_000L,
-            "카페", 6_000L,
-            "디저트", 6_000L,
-            "분식", 7_000L,
-            "치킨", 12_000L,
-            "패스트푸드", 9_000L
-    );
-
-    static long computeSavedAmount(String industry, long price) {
-        long avg = DEFAULT_AVG_PRICE;
-        if (industry != null) {
-            for (Map.Entry<String, Long> entry : INDUSTRY_AVG_PRICE.entrySet()) {
-                if (industry.contains(entry.getKey())) {
-                    avg = entry.getValue();
-                    break;
-                }
-            }
-        }
-        return Math.max(0L, avg - price);
-    }
 
     /**
      * 방문 기록 목록 조회 (GET /api/visits)
@@ -83,8 +55,33 @@ public class VisitController {
     }
 
     /**
+     * 예상 절약 금액 미리보기 (GET /api/visits/estimate?storeName=&menu=&price=)
+     * 인증 화면의 "예상 절약 금액" 카드에서 사용. POST와 동일한 룰로 계산해 기준가도 함께 반환.
+     */
+    @GetMapping("/estimate")
+    public ResponseEntity<?> estimateSavedAmount(
+            @RequestParam String storeName,
+            @RequestParam(required = false) String menu,
+            @RequestParam(defaultValue = "0") long price,
+            HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+        }
+
+        String industry = firebaseService.findIndustryByStoreName(storeName);
+        long referencePrice = ReferencePrices.referencePrice(menu, industry);
+        long savedAmount = Math.max(0L, referencePrice - price);
+        return ResponseEntity.ok(Map.of(
+                "referencePrice", referencePrice,
+                "savedAmount", savedAmount,
+                "matchedByMenu", ReferencePrices.matchMenuPrice(menu) != null
+        ));
+    }
+
+    /**
      * 방문 인증 생성 (POST /api/visits)
-     * 절약 금액은 클라이언트 입력이 아닌 서버 룰(업종 평균가 − 결제가)로 계산해 저장합니다.
+     * 절약 금액은 클라이언트 입력이 아닌 서버 룰(참가격 − 결제가)로 계산해 저장합니다.
      */
     @PostMapping
     public ResponseEntity<?> createVisit(@RequestBody VisitRequest request,
@@ -113,7 +110,9 @@ public class VisitController {
             if (industry == null || industry.isBlank()) {
                 industry = firebaseService.findIndustryByStoreName(request.getStoreName());
             }
-            long savedAmount = computeSavedAmount(industry, request.getPrice());
+            // 💡 절약 금액 = 참가격(시장 평균가) − 결제가 (ReferencePrices, 메뉴 매칭 우선)
+            long savedAmount = ReferencePrices.savedAmount(
+                    request.getMenu(), industry, request.getPrice());
             String visitId = firebaseService.saveVisit(firebaseUid, request, savedAmount);
             log.info("[VisitController] 방문 인증 완료 - id: {}, savedAmount: {}", visitId, savedAmount);
             return ResponseEntity.ok(Map.of(
