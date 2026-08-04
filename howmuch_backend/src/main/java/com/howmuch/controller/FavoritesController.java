@@ -49,7 +49,7 @@ public class FavoritesController {
             log.error("[FavoritesController] 찜 목록 조회 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "찜 목록 조회 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "찜 목록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }
@@ -71,13 +71,20 @@ public class FavoritesController {
                         "message", "storeId는 필수입니다."
                 ));
             }
+            if (request.getStoreId().length() > 200
+                    || (request.getStoreName() != null && request.getStoreName().length() > 100)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "입력값이 허용 길이를 초과했습니다."
+                ));
+            }
             FavoriteResponse favorite = firebaseService.addFavorite(firebaseUid, request);
             return ResponseEntity.ok(favorite);
         } catch (Exception e) {
             log.error("[FavoritesController] 찜 추가 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "찜 추가 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "찜 추가 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }
@@ -102,7 +109,7 @@ public class FavoritesController {
             log.error("[FavoritesController] 찜 해제 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "찜 해제 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "찜 해제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }

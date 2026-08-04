@@ -33,6 +33,21 @@ public class ReportController {
                 com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
         report.setReporterId(reporterUid);
         try {
+            // 💡 필수 입력 검증
+            if (report.getStoreName() == null || report.getStoreName().isBlank()
+                    || report.getAddress() == null || report.getAddress().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "매장명과 주소는 필수입니다."
+                ));
+            }
+            // 💡 입력 길이 제한
+            if (report.getStoreName().length() > 100 || report.getAddress().length() > 300) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "입력값이 허용 길이를 초과했습니다."
+                ));
+            }
             // 💡 입력된 주소를 바탕으로 위도/경도 및 지역 정보를 추출합니다.
             Map<String, Object> coords = kakaoLocalService.getCoordinatesFromAddress(report.getAddress());
             if (coords != null) {
@@ -53,7 +68,7 @@ public class ReportController {
             log.error("제보 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                 "success", false,
-                "message", "제보 저장 중 오류가 발생했습니다: " + e.getMessage()
+                "message", "제보 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }
@@ -70,7 +85,7 @@ public class ReportController {
             log.error("[ReportController] 내 제보 목록 조회 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                 "success", false,
-                "message", "제보 목록 조회 중 오류가 발생했습니다: " + e.getMessage()
+                "message", "제보 목록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }

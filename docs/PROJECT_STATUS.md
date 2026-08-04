@@ -2,6 +2,7 @@
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-04
 > 최신 main: 88b3943 (8/4 코드 감사 결과 기록. 미해결 이슈는 5-4 참조)
+> 8/4 감사 이슈 코드 수정 완료 — 상세는 5-4 하단 "8/4 코드 수정 내역" 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
 ## 1. 프로젝트 구성
@@ -71,24 +72,29 @@
 
 ### CRITICAL (즉시 조치)
 1. **Firebase 개인키 git 히스토리 노출** — `3ad7151`에 firebase-service-account.json 실키 커밋, `8910c86`에서 삭제했으나 히스토리 잔존 (레포 public이라 `git show 3ad7151`으로 누구나 열림). → **Firebase 콘솔에서 키 폐기·재발급 + BFG/filter-repo로 히스토리 purge** (콘솔 작업 필요, 코드 작업만으로 해결 불가)
-2. **카카오 REST API 키 하드코딩** — GeocodingService.java, KakaoLocalService.java, lib/ 프론트 3곳에 평문. → 환경변수 이동 + 키 재발급 검토
-3. **PENDING·REJECTED 제보가 지도에 공개 노출** — getStoresInBounds/cachedUserStores에 status 필터 없음 → 미검토·반려 매장이 유저 지도에 표시됨 (어드민 승인제 무의미). → bounds 조회 시 APPROVED만 필터 (코드 수정 가능, 간단)
+2. ~~카카오 REST API 키 하드코딩~~ → ✅ **해결 (8/4)** — GeocodingService/KakaoLocalService/GeminiService의 하드코딩 키 제거, `${KAKAO_REST_API_KEY}`·`${GEMINI_API_KEY}` 환경변수 주입으로 전환 (미설정 시 외부 호출 걸지 않고 안전 실패). **Render env에 두 키 등록 필요 + 노출된 구 키는 콘솔에서 재발급 권장** (프론트 profile_setup_screen의 REST 키·home_map의 JS 키는 클라 번들 특성상 도메인 제한으로 보호 — 카카오 콘솔에서 허용 도메인 확인 필요)
+3. ~~PENDING·REJECTED 제보가 지도에 공개 노출~~ → ✅ **해결 (8/4)** — `FirebaseService.getStoresInBounds`의 사용자 제보 스트림에 `isPubliclyVisible` 필터 추가: APPROVED 또는 승인제 이전 레거시(status 없음)만 지도 노출, PENDING·REJECTED 제외
 
 ### HIGH
-4. **마이페이지 통째 목업** — mypage_state.dart: 닉네임 "절약왕 민서", LV.3, 24,500원, 소셜 계정(가짜 날짜), 찜한 가게, 가격 알림 설정 전부 가짜 데이터가 실제 프로필처럼 표시
-5. **대시보드 폼백 가짜 통계** — _loadFallbackData(): 에러 시 24,500원·2026.05 차트를 실데이터처럼 표시 + 추천 배너 하드코딩 (폼백 표시 안내 없음)
-6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요
-7. **SESSION_SECRET 미설정 시 dev 기본값 사용** — 프로덕션에서 env 누락 시 `dev-only-...change-me`로 토큰 서명 → 위조 가능. 미설정 시 부팅 실패(fail-fast)로 변경 권장 (코드 수정 가능, 간단)
-8. **/api/ai/chat 레이트리밋 없음** — 로그인 유저의 무제한 호출로 AI API 비용 악용 가능
+4. ~~마이페이지 통째 목업~~ → ✅ **해결 (8/4)** — userProfileProvider 기본값을 게스트('게스트'/0건)로 교체, mypage_screen `_loadProfileSummary()`가 로그인 시 /api/user/profile + /api/savings/stats(this_month) + /api/report/my + /api/favorites로 닉네임/이메일/이번 달 절약액/제보 수/찜 수 실데이터 주입. 남은 목업: 가격 알림 설정·소셜 계정 화면(백엔드 없는 후순위), favorite_stores(태관 4주차 과제)
+5. ~~대시보드 폼백 가짜 통계~~ → ✅ **해결 (8/4)** — `_loadFallbackData()` 삭제. 통계 API 전부 실패 시 가짜 숫자 대신 `_buildErrorState()`(아이콘+안내+다시 시도 버튼) 표시. 일부 탭만 실패하면 실패 탭은 0으로 표시 (가짜 금액 아님)
+6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요. **⚠️ 태관 4주차 과제(favorite_stores 연동)와 범위가 겹치므로 태관에게 이관 — 이 브랜치에서 수정 금지**
+7. ~~SESSION_SECRET 미설정 시 dev 기본값 사용~~ → ✅ **해결 (8/4)** — SessionTokenService 생성자 fail-fast: 미설정/빈값이면 부팅 거부. dev 기본값은 `session.allow-dev-secret=true`(로컬 기본)에서만 허용 + 경고 로그. **운영은 Render env에 SESSION_SECRET(랜덤) + SESSION_ALLOW_DEV_SECRET=false 설정 필요**
+8. ~~/api/ai/chat 레이트리밋 없음~~ → ✅ **해결 (8/4)** — SimpleRateLimiter(인메모리 슬라이딩 윈도우) 추가, 유저당 시간당 20회(`AI_CHAT_MAX_PER_HOUR`로 조정) 초과 시 429. message 필수 + 1000자 상한 검증도 함께 추가
 
 ### MEDIUM
-9. 입력 검증 0건 — Bean Validation 없음: 리뷰/제보/방문 길이 제한·중복 체크·레이트리밋 전무
-10. 요청 스레드 blocking `.get()` + Gemini 호출 타임아웃 없음 — 지연 시 스레드 고갈 가능
-11. 예외 메시지(e.getMessage()) 클라이언트 반환 — 내부 구조 노출 (어드민의 gRPC 에러 노출도 이것)
+9. ~~입력 검증 0건~~ → ✅ **해결 (8/4)** — 컨트롤러 수동 검증 추가: 리뷰(content 2000자/필드 길이), 제보(storeName·address 필수+길이), 방문(storeName·price 범위, 상한 1천만), 찜(storeId 길이). Bean Validation 의존성은 이미 있으나 수동 검증으로 처리 (레이트리밋은 #8 참조)
+10. ~~요청 스레드 blocking + Gemini 타임아웃 없음~~ → ⚠️ **부분 해결 (8/4)** — Gemini 호출에 connect/read 타임아웃 10초(`GEMINI_TIMEOUT_MS`) 적용. Firestore blocking `.get()`은 현 구조상 유지 (스레드 고갈 리스크는 타임아웃으로 완화, 비동기 전환은 후속 과제)
+11. ~~예외 메시지(e.getMessage()) 클라이언트 반환~~ → ✅ **해결 (8/4)** — 전 컨트롤러(Review/Report/Visit/Favorites/User/Admin/Auth/Gemini)의 500 응답에서 날부 에러 상세 제거, 일반 안내 문구로 교체 (상세는 서버 로그에만)
 
 ### 확인된 안전 항목 (문제없음)
-- 카카오 토큰: 백엔드가 카카오 /v2/user/me로 실제 검증 (클라이언트 uid 신뢰 안 함)
+- 카카오 토큰: 백엔드가 카카오 /v2/user/me로 실제 검증 (클린트 uid 신뢰 안 함)
 - uid는 세션 attribute에서만 주입 (IDOR 스푸핑 방지됨)
+
+### 8/4 코드 수정 내역 (compileJava + flutter analyze 통과)
+- **백엔드**: FirebaseService(isPubliclyVisible 필터), GeocodingService·KakaoLocalService·GeminiService(env 키 주입), SessionTokenService(fail-fast), SimpleRateLimiter(신규), AiController(레이트리밋+검증), 7개 컨트롤러(에러 메시지 일반화 + 입력 길이 검증), application.properties(신규 env 키 등록)
+- **프론트**: mypage_state.dart(목업 제거), mypage_screen.dart(_loadProfileSummary 실데이터 로드), savings_report_dashboard_screen.dart(폼백 삭제 + 에러/재시도 UI)
+- **라이브 반영 필요**: Render env에 KAKAO_REST_API_KEY, GEMINI_API_KEY, SESSION_SECRET(+SESSION_ALLOW_DEV_SECRET=false) 등록 후 백엔드 push, 웹 재배포 (미등록 시 제보 주소 좌표 변환·AI 채팅이 안전 실패 모드로 동작)
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)

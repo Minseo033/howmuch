@@ -34,8 +34,10 @@ public class AuthController {
                     sessionToken
             ));
         } catch (Exception e) {
+            // 💡 날부 에러 상세는 로그에만 — 클라이언트에는 일반 메시지 (구조 노출 방지)
+            System.err.println("[AuthController] 카카오 인증 실패: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("인증 실패: " + e.getMessage());
+                    .body("인증에 실패했습니다. 카카오 로그인을 다시 시도해주세요.");
         }
     }
 }

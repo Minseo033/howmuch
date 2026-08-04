@@ -35,7 +35,7 @@ public class ReviewController {
             log.error("[ReviewController] 내 리뷰 조회 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "내 리뷰 조회 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "내 리뷰 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }
@@ -50,7 +50,7 @@ public class ReviewController {
             log.error("[ReviewController] 리뷰 조회 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "리뷰 조회 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "리뷰 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }
@@ -70,6 +70,22 @@ public class ReviewController {
                         "message", "매장 정보, 리뷰 내용, 별점(1~5)은 필수입니다."
                 ));
             }
+            // 💡 입력 길이 제한 (Firestore 쓰기 폭증/악용 방지)
+            if (request.getContent().length() > 2000) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "리뷰 내용은 2000자 이내로 입력해주세요."
+                ));
+            }
+            if (request.getStoreId().length() > 200
+                    || (request.getStoreName() != null && request.getStoreName().length() > 100)
+                    || (request.getAuthorName() != null && request.getAuthorName().length() > 50)
+                    || (request.getMenu() != null && request.getMenu().length() > 100)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "입력값이 허용 길이를 초과했습니다."
+                ));
+            }
 
             String reviewId = firebaseService.saveReview(authorUid, request);
             return ResponseEntity.ok(Map.of(
@@ -81,7 +97,7 @@ public class ReviewController {
             log.error("[ReviewController] 리뷰 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "리뷰 저장 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "리뷰 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }

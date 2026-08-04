@@ -50,7 +50,7 @@ public class VisitController {
             return ResponseEntity.ok(visits);
         } catch (Exception e) {
             log.error("[VisitController] 방문 기록 조회 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body("방문 기록 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(500).body("방문 기록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
 
@@ -104,6 +104,15 @@ public class VisitController {
                     "message", "price는 0 이상의 숫자여야 합니다."
             ));
         }
+        // 💡 입력 상한 검증 (비정상 대형 값/문자열 악용 방지)
+        if (request.getStoreName().length() > 100
+                || (request.getMenu() != null && request.getMenu().length() > 100)
+                || request.getPrice() > 10_000_000L) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "입력값이 허용 범위를 초과했습니다."
+            ));
+        }
 
         try {
             String industry = request.getIndustry();
@@ -124,7 +133,7 @@ public class VisitController {
             log.error("[VisitController] 방문 인증 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
-                    "message", "방문 인증 저장 중 오류가 발생했습니다: " + e.getMessage()
+                    "message", "방문 인증 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
     }

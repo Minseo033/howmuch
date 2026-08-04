@@ -219,7 +219,10 @@ public class FirebaseService {
                 .toList();
 
         // 2. 사용자 제보 업소 (Orange) - 메모리 캐시 (Firestore 실시간 조회 제거)
+        // 💡 어드민 승인(APPROVED)된 제변이나, 승인제 도입 이전의 레거시 제보(status 없음)만 지도에 노출.
+        //    PENDING(검토 중)·REJECTED(반려)는 공개 지도에서 제외합니다.
         List<Map<String, Object>> userStores = cachedUserStores.stream()
+                .filter(this::isPubliclyVisible)
                 .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
                 .map(data -> {
                     Map<String, Object> map = new HashMap<>(data);
@@ -234,6 +237,16 @@ public class FirebaseService {
         combined.addAll(govStores);
         combined.addAll(userStores);
         return combined;
+    }
+
+    /**
+     * 사용자 제보 매장이 공개 지도에 노출 가능한지 판별.
+     * APPROVED(어드민 승인) 또는 status 필드가 없는 레거시 제볼만 true.
+     */
+    private boolean isPubliclyVisible(Map<String, Object> data) {
+        Object status = data.get("status");
+        if (status == null || status.toString().isBlank()) return true; // 승인제 도입 전 레거시 데이터
+        return "APPROVED".equalsIgnoreCase(status.toString());
     }
 
     private boolean isInBounds(Map<String, Object> data, double minLat, double maxLat, double minLng, double maxLng) {

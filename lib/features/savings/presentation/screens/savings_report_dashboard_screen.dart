@@ -20,6 +20,7 @@ class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
   bool _isLoading = false;
+  bool _loadFailed = false;
   Map<String, dynamic>? _statsData;
 
   /// 탭 라벨 → 백엔드 period 파라미터 매핑
@@ -37,7 +38,10 @@ class _SavingsReportDashboardScreenState
 
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
   Future<void> _fetchAll() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
 
     try {
       final goal = await _fetchGoal();
@@ -46,8 +50,10 @@ class _SavingsReportDashboardScreenState
       final now = DateTime.now();
 
       final results = <String, dynamic>{};
+      bool anyStatsLoaded = false;
       for (final entry in _tabToPeriod.entries) {
         final stats = await _fetchStats(entry.value);
+        if (stats != null) anyStatsLoaded = true;
         results[entry.key] = _buildTabData(
           entry.key,
           stats,
@@ -60,12 +66,25 @@ class _SavingsReportDashboardScreenState
 
       if (!mounted) return;
       setState(() {
-        _statsData = results;
+        // 💡 감사 이슈: 통계 API가 전부 실패했는데 가짜 숫자를 실데이터처럼
+        //    보여주던 폼백 제거 — 실패 시 에러 안내 UI로 전환합니다.
+        if (anyStatsLoaded) {
+          _statsData = results;
+          _loadFailed = false;
+        } else {
+          _statsData = null;
+          _loadFailed = true;
+        }
         _isLoading = false;
       });
     } catch (e) {
       debugPrint('절약 대시보드 통계 조회 오류: $e');
-      _loadFallbackData();
+      if (!mounted) return;
+      setState(() {
+        _statsData = null;
+        _loadFailed = true;
+        _isLoading = false;
+      });
     }
   }
 
@@ -186,61 +205,63 @@ class _SavingsReportDashboardScreenState
     return '가장 많이 절약한 달을 확인해보세요';
   }
 
-  void _loadFallbackData() {
-    setState(() {
-      _statsData = {
-        '이번 달': {
-          'savedAmount': 24500,
-          'goalAmount': 50000,
-          'visits': 6,
-          'favorites': 12,
-          'reports': 2,
-          'recommendation': '한식 매장에서 더 아낄 수 있어요',
-          'chartTitle': '주차별 절약 금액',
-          'chartDate': '2026.05',
-          'savings': [
-            {'label': '1주', 'amount': 4500, 'isMax': false},
-            {'label': '2주', 'amount': 7800, 'isMax': true},
-            {'label': '3주', 'amount': 5200, 'isMax': false},
-            {'label': '4주', 'amount': 7000, 'isMax': false},
-          ]
-        },
-        '지난 달': {
-          'savedAmount': 32000,
-          'goalAmount': 50000,
-          'visits': 8,
-          'favorites': 15,
-          'reports': 5,
-          'recommendation': '주말 카페 지출을 줄여보세요',
-          'chartTitle': '주차별 절약 금액',
-          'chartDate': '2026.04',
-          'savings': [
-            {'label': '1주', 'amount': 6000, 'isMax': false},
-            {'label': '2주', 'amount': 8000, 'isMax': false},
-            {'label': '3주', 'amount': 9000, 'isMax': true},
-            {'label': '4주', 'amount': 9000, 'isMax': true},
-          ]
-        },
-        '올해': {
-          'savedAmount': 154000,
-          'goalAmount': 600000,
-          'visits': 45,
-          'favorites': 60,
-          'reports': 12,
-          'recommendation': '가장 많이 절약한 달은 4월이에요',
-          'chartTitle': '월별 절약 금액',
-          'chartDate': '2026',
-          'savings': [
-            {'label': '1월', 'amount': 30000, 'isMax': false},
-            {'label': '2월', 'amount': 25000, 'isMax': false},
-            {'label': '3월', 'amount': 35000, 'isMax': false},
-            {'label': '4월', 'amount': 40000, 'isMax': true},
-            {'label': '5월', 'amount': 24000, 'isMax': false},
-          ]
-        }
-      };
-      _isLoading = false;
-    });
+  /// 로드 실패 시 표시할 에러/재시도 UI
+  Widget _buildErrorState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.cloud_off_rounded,
+                color: Color(0xFF64748B), size: 40),
+            const SizedBox(height: 12),
+            const Text(
+              '절약 데이터를 불러오지 못했어요',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Color(0xFF0F172A),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '네트워크 상태를 확인하고 다시 시도해주세요',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Color(0xFF64748B),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: _fetchAll,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2563EB),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: const Text(
+                  '다시 시도',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -371,10 +392,17 @@ class _SavingsReportDashboardScreenState
                             color: Color(0xFF2563EB),
                           ),
                         )
-                      : SingleChildScrollView(
-                          padding: EdgeInsets.only(bottom: bottomNavHeight + 20),
-                          child: _buildDynamicContent(),
-                        ),
+                      : _loadFailed
+                          ? SingleChildScrollView(
+                              padding: EdgeInsets.only(
+                                  bottom: bottomNavHeight + 20),
+                              child: _buildErrorState(),
+                            )
+                          : SingleChildScrollView(
+                              padding: EdgeInsets.only(
+                                  bottom: bottomNavHeight + 20),
+                              child: _buildDynamicContent(),
+                            ),
                 ),
               ],
             ),
