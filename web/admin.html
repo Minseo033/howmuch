@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex, nofollow" />
-<title>얼마에요 어드민</title>
+<title>얼마고? 어드민</title>
 <style>
   :root {
     --bg: #F4F6FA;
@@ -48,11 +48,8 @@
     backdrop-filter: blur(8px);
   }
   .login-logo {
-    width: 60px; height: 60px; margin: 0 auto; border-radius: 18px;
-    background: linear-gradient(135deg, var(--primary), #0EA5E9);
-    color: #fff; font-size: 26px; font-weight: 900;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, .4);
+    width: 64px; height: 64px; margin: 0 auto; border-radius: 18px; object-fit: cover;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, .4); display: block;
   }
   .login-card h1 { font-size: 22px; font-weight: 800; margin-top: 18px; letter-spacing: -.5px; }
   .login-card p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
@@ -74,12 +71,10 @@
     color: #E2E8F0; display: flex; flex-direction: column;
     padding: 22px 14px; gap: 4px;
   }
-  .side-brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px; }
+  .side-brand { display: flex; align-items: center; gap: 11px; padding: 4px 10px 20px; }
   .side-logo {
-    width: 38px; height: 38px; border-radius: 11px;
-    background: linear-gradient(135deg, var(--primary), #0EA5E9);
-    color: #fff; font-size: 17px; font-weight: 900;
-    display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 11px; object-fit: cover;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, .35); display: block;
   }
   .side-brand h1 { font-size: 16px; font-weight: 800; letter-spacing: -.3px; color: #fff; }
   .side-brand span { display: block; font-size: 10px; color: #94A3B8; font-weight: 600; margin-top: 1px; }
@@ -90,7 +85,8 @@
     color: #CBD5E1; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
     text-align: left; transition: background .15s, color .15s;
   }
-  .nav-item .ico { font-size: 15px; width: 20px; text-align: center; }
+  .nav-item .ico { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .nav-item .ico svg { width: 18px; height: 18px; display: block; }
   .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
   .nav-item.active { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.4); }
   .nav-item .pill {
@@ -250,7 +246,8 @@
     background: var(--card); border: 1px solid var(--border); border-radius: 18px;
     padding: 64px 24px; text-align: center; box-shadow: var(--shadow);
   }
-  .state-box .emoji { font-size: 36px; }
+  .state-box .state-ico { width: 44px; height: 44px; margin: 0 auto; color: var(--muted); }
+  .state-box .state-ico svg { width: 44px; height: 44px; display: block; }
   .state-box h2 { font-size: 16px; font-weight: 800; margin-top: 14px; }
   .state-box p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.7; }
   .state-box code {
@@ -304,15 +301,47 @@
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  /* ── 반응형 ───────────────────── */
+  /* ── 반응형: 태블릿 ─────────────── */
+  @media (max-width: 1024px) {
+    .stats, .stats.cols3 { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ── 반응형: 모바일 ─────────────── */
   @media (max-width: 860px) {
     #app.on { flex-direction: column; }
-    aside { width: 100%; height: auto; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 12px; }
-    .side-brand { padding: 4px 8px; }
+    /* 사이드바를 상단 고정 헤더 바로 전환 — 브랜드 + 가로 스크롤 네비 */
+    aside {
+      width: 100%; height: auto; position: sticky; top: 0; z-index: 30;
+      flex-direction: row; align-items: center; flex-wrap: nowrap;
+      padding: 10px 14px; gap: 6px; overflow-x: auto; overflow-y: hidden;
+      scrollbar-width: none; box-shadow: 0 2px 12px rgba(2,6,23,.25);
+    }
+    aside::-webkit-scrollbar { display: none; }
+    .side-brand { padding: 0 8px 0 0; flex-shrink: 0; }
+    .side-logo { width: 32px; height: 32px; border-radius: 9px; }
+    .side-brand h1 { font-size: 14px; white-space: nowrap; }
+    .side-brand span { display: none; }
     .nav-label, .side-foot { display: none; }
-    .nav-item { width: auto; padding: 8px 12px; }
-    main { padding: 18px 16px 70px; }
+    .nav-item {
+      width: auto; flex-shrink: 0; white-space: nowrap;
+      padding: 8px 13px; font-size: 12.5px; gap: 7px;
+    }
+    .nav-item .pill { margin-left: 4px; }
+    main { padding: 18px 14px 80px; }
+    .topbar h2 { font-size: 18px; }
+    .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-card .value { font-size: 22px; }
+    .report-card { padding: 16px; }
+    .report-top { flex-direction: column; align-items: flex-start; }
+    .report-top .badge { margin-top: 6px; }
+    .search-row input { max-width: 100%; }
+    .data-table { min-width: 560px; }
+    .modal { padding: 20px; }
+  }
+  @media (max-width: 480px) {
     .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); }
+    .login-card { padding: 30px 22px; }
   }
 </style>
 </head>
@@ -321,8 +350,8 @@
 <!-- ══ 로그인 오버레이 ══ -->
 <div id="loginOverlay">
   <div class="login-card">
-    <div class="login-logo">얼</div>
-    <h1>얼마에요 어드민</h1>
+    <img class="login-logo" src="images/app_logo.png" alt="얼마고?" />
+    <h1>얼마고? 어드민</h1>
     <p>운영·관리 전용 페이지입니다.<br>팀 공유 어드민 비밀번호를 입력하세요.</p>
     <div class="login-row">
       <input id="keyInput" type="password" placeholder="어드민 비밀번호" autocomplete="off" />
@@ -336,18 +365,18 @@
 <div id="app">
   <aside>
     <div class="side-brand">
-      <div class="side-logo">얼</div>
+      <img class="side-logo" src="images/app_logo.png" alt="얼마고?" />
       <div>
-        <h1>얼마에요</h1>
+        <h1>얼마고?</h1>
         <span>ADMIN CONSOLE</span>
       </div>
     </div>
     <div class="nav-label">운영</div>
-    <button class="nav-item active" data-view="dashboard"><span class="ico">📊</span>대시보드</button>
-    <button class="nav-item" data-view="reports"><span class="ico">📮</span>제보 관리<span class="pill" id="pendingPill" hidden></span></button>
-    <button class="nav-item" data-view="reviews"><span class="ico">⭐</span>리뷰 관리</button>
+    <button class="nav-item active" data-view="dashboard"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="4" width="3" height="14" rx="1"/></svg></span>대시보드</button>
+    <button class="nav-item" data-view="reports"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></span>제보 관리<span class="pill" id="pendingPill" hidden></span></button>
+    <button class="nav-item" data-view="reviews"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8-6.1-3.4-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg></span>리뷰 관리</button>
     <div class="nav-label">계정</div>
-    <button class="nav-item" data-view="users"><span class="ico">👥</span>회원 관리</button>
+    <button class="nav-item" data-view="users"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg></span>회원 관리</button>
     <div class="side-foot">
       <button class="btn btn-light" id="logoutBtn" style="width:100%">로그아웃</button>
     </div>
@@ -396,7 +425,7 @@
 <!-- 회원 삭제 확인 모달 -->
 <div class="modal-backdrop" id="deleteUserModal">
   <div class="modal">
-    <h3>⚠️ 회원 강제 탈퇴</h3>
+    <h3>회원 강제 탈퇴</h3>
     <p id="deleteUserTarget"></p>
     <div class="warn-box">
       이 회원의 <b>프로필·제보·리뷰·방문 기록·찜</b>이 모두 영구 삭제됩니다.<br>
@@ -412,7 +441,7 @@
 <!-- 리뷰 삭제 확인 모달 -->
 <div class="modal-backdrop" id="deleteReviewModal">
   <div class="modal">
-    <h3>⚠️ 리뷰 삭제</h3>
+    <h3>리뷰 삭제</h3>
     <p id="deleteReviewTarget"></p>
     <div class="warn-box">이 리뷰가 영구 삭제됩니다. 되돌릴 수 없습니다.</div>
     <div class="modal-actions">
@@ -528,14 +557,14 @@
         </div>`,
       forbidden: `
         <div class="state-box">
-          <div class="emoji">⚙️</div>
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
           <h2>서버에 ADMIN_KEY가 설정되지 않았습니다</h2>
           <p>Render 대시보드 → howmuch-backend → Environment에<br>
              <code>ADMIN_KEY</code> 환경변수를 등록하고 재배포해주세요.</p>
         </div>`,
       error: `
         <div class="state-box">
-          <div class="emoji">${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? '📊' : '⚠️'}</div>
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
           <h2>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? 'Firestore 일일 쿼터 초과' : '불러오기 실패'}</h2>
           <p>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '')
               ? '묣료 플랜 하루 읽기 한도(5만)를 다 썼어요.<br>매일 오후 4시에 리셋됩니다.'
@@ -544,7 +573,7 @@
         </div>`,
       empty: `
         <div class="state-box">
-          <div class="emoji">✨</div>
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
           <h2>${esc(data.title || '데이터가 없습니다')}</h2>
           <p>${esc(data.sub || '')}</p>
         </div>`,
@@ -558,17 +587,17 @@
     const o = overview;
     const us = o.userStores || {};
     const cards = [
-      ['전체 회원', o.users, '', 'c-blue', '👥'],
-      ['공공데이터 매장', o.govStores, '착한가격업소', 'c-ink', '🏪'],
-      ['제보 매장', us.total, `대기 ${us.pending ?? 0} · 승인 ${us.approved ?? 0} · 반려 ${us.rejected ?? 0}`, 'c-amber', '📮'],
-      ['리뷰', o.reviews, '', 'c-violet', '⭐'],
-      ['방문 인증', o.visits, '', 'c-green', '✅'],
-      ['찜', o.favorites, '', 'c-red', '❤️'],
+      ['전체 회원', o.users, '', 'c-blue'],
+      ['공공데이터 매장', o.govStores, '착한가격업소', 'c-ink'],
+      ['제보 매장', us.total, `대기 ${us.pending ?? 0} · 승인 ${us.approved ?? 0} · 반려 ${us.rejected ?? 0}`, 'c-amber'],
+      ['리뷰', o.reviews, '', 'c-violet'],
+      ['방문 인증', o.visits, '', 'c-green'],
+      ['찜', o.favorites, '', 'c-red'],
     ];
-    const cardsHtml = cards.map(([label, val, sub, cls, ico]) => `
+    const cardsHtml = cards.map(([label, val, sub, cls]) => `
       <div class="stat-card ${cls}">
         <div class="glow"></div>
-        <div class="label">${ico} ${label}</div>
+        <div class="label">${label}</div>
         <div class="value">${Number(val ?? 0).toLocaleString('ko-KR')}</div>
         ${sub ? `<div class="sub">${esc(sub)}</div>` : ''}
       </div>`).join('');
@@ -616,7 +645,7 @@
     const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => r.status === currentTab);
     const listHtml = filtered.length
       ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
-      : `<div class="state-box"><div class="emoji">✨</div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인필보세요.</p></div>`;
+      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인필보세요.</p></div>`;
 
     content.innerHTML = tabsHtml + listHtml;
 
@@ -647,7 +676,7 @@
     const flags = [
       r.visitedRecently ? '최근 방문 인증됨' : null,
       r.checkedMenuPrice ? '메뉴 가격 확인됨' : null,
-      r.phoneNumber ? '📞 ' + esc(r.phoneNumber) : null,
+      r.phoneNumber ? 'Tel. ' + esc(r.phoneNumber) : null,
     ].filter(Boolean).map((f) => `<span class="flag">${f}</span>`).join('');
 
     const actions = r.status === 'PENDING' ? `
@@ -804,7 +833,7 @@
       const r = allReports.find((x) => x.id === id);
       if (r) r.status = 'APPROVED';
       renderReportsView();
-      toast('승인 완료 ✅');
+      toast('승인 완료');
     } catch (e) {
       btn.disabled = false;
       handleError(e);
