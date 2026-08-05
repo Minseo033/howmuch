@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-05
-> 최신 main: 3af493f (8/5 지환 4주차 커뮤니티 피드 API 선별 이식 + 보안 수정)
+> 최신 main: 4bec04b (8/5 401 응답 CORS 헤더 누락 수정 — 최상위 CorsFilter)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -39,6 +39,8 @@
 
 ## 5-0. 4주차 진행 내역 (8/4~8/10)
 - **박지환 (BE)**: ✅ GET /api/community/feed + /api/community/feed/{id} (a919b66 → 3af493f 선별 이식, e28c5ef push → Render 배포 완료). 신규 CommunityController + FeedResponseDto/FeedDetailResponseDto + FirebaseService getCommunityFeeds/getCommunityFeedDetail. **이식 시 보안 수정 3건**: ① REJECTED 제보 피드·상세 제외 (isFeedVisible — PENDING·APPROVED·레거시만 노출, 지도 isPubliclyVisible과 정책 일관성) ② rejectReason 공개 응답 제거 (내부 심사 코멘트 비공개) ③ createdAt 메모리 정렬 (Firestore 인덱스 불필요 + 레거시 호환). compileJava 통과. **라이브 검증 완료 (8/5)**: /api/community/feed 200 (11건, PENDING·APPROVED만, REJECTED 없음), /feed/{id} 200 (rejectReason 없음 확인), 없는 id 404. **⚠️ 쿼터 주의**: 피드 목록이 호출마다 stores_user 전체 읽기 + 작성자당 users 1회 — 제보 수 증가 시 인메모리 캐시 필요. likes/comments는 백엔드 미구현이라 전부 0 (목업 placeholder, 좋아요·댓글은 후속 과제). **→ 다나(FE) community_feed + community_post_detail 연동 가능**
+- **CORS 수정 (4bec04b, 8/5 배포 완료)**: SessionAuthFilter가 DispatcherServlet 이전에 401을 직접 반환 → addCorsMappings(MVC 레벨)가 적용 안 돼 401에 Access-Control-Allow-Origin 누락, 브라우저가 401을 CORS 에러로 오인 (웹에서 인증 API 전부 "CORS 실패"로 표시되던 문제). WebConfig에 HIGHEST_PRECEDENCE CorsFilter 빈 추가로 401 포함 모든 응답에 헤더 보장. **이제 프론트가 401을 정상 감지 가능** (자동 로그인 재구현의 전제 조건 해소). 라이브 검증: 401 응답에 allow-origin 헤더 확인, QA에서 CORS 에러 6건 소멸.
+- **웹 E2E QA 11/11 통과 (8/5)**: qa_v6.js 개선 — ① 하단 네비를 좌표 클릭 → 시맨틱 노드 JS 직접 클릭(y>780 필터)으로 교체 (마이페이지처럼 콘텐츠가 네비 영역과 겹치는 화면에서 좌표 클릭이 엉뚱한 항목(알림 설정)을 누르던 문제 해소, 좌표는 폼백으로 유지) ② 내 리뷰·제보 작성 같은 전체 화면(하단 네비 없음) 진입 후 Back/브라우저 뒤로가기로 복귀하는 단계 추가 ③ 09_제보화면 검증을 '가성비 매장 제보'/'기본 정보' 텍스트로 강화 (기존 t.length>10은 갇힌 화면에서도 통과하는 허술한 검사였음)
 
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
