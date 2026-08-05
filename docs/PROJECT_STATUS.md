@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-05
-> 최신 main: 314260e (8/4 오늘의 픽 5주차 민서 과제 재배정 + 6·7주차 조정)
+> 최신 main: 3af493f (8/5 지환 4주차 커뮤니티 피드 API 선별 이식 + 보안 수정)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -36,6 +36,9 @@
 - **민서 (PM)**: ✅ /api/favorites CRUD + /api/savings/goal GET/POST (4186c0a) + 회원가입 화면 절약 목표 입력 (c9098d6, profile_setup_screen에 선택 필드, submit 시 goal 저장) + 매장 상세 리뷰 섹션 실데이터화 (c9098d6, _StoreReviewSection — storeId=매장명 키로 storeReviewProvider 재사용, 개수/평균/최신 3건/빈 상태)
 - **김다나 (FE)**: ✅ savings 대시보드 + 절약 상세 + 목표 설정 연동 (46f68a8 선별 이식 + API 계약 수정). 대시보드: /api/savings/stats 3구간 + goal + favorites/report 개수 실데이터화, 상세: /api/savings/history 파싱·누적/평균 계산, 목표 설정: GET/POST /api/savings/goal. 목업은 API 실패 시 폴백으로만 표시. **→ 3주차 과제 전원 완료**
 - **QA 완료 (8/1~8/3)**: 백엔드 공개/인증 스모크 17건 + 실세션 토큰 인증 API 19건 전부 통과 + Playwright 게스트 E2E (로그인→권한→홈→탭) 통과. 내 리뷰 로그인 필요 상태 라이브 확인. 스크립트: `/tmp/howmuch-qa/` (qa_v6.js 웹 E2E, qa_auth.js 인증 API — 토큰은 인자로 전달, 재사용 가능)
+
+## 5-0. 4주차 진행 내역 (8/4~8/10)
+- **박지환 (BE)**: ✅ GET /api/community/feed + /api/community/feed/{id} (a919b66 → 3af493f 선별 이식). 신규 CommunityController + FeedResponseDto/FeedDetailResponseDto + FirebaseService getCommunityFeeds/getCommunityFeedDetail. **이식 시 보안 수정 3건**: ① REJECTED 제보 피드·상세 제외 (isFeedVisible — PENDING·APPROVED·레거시만 노출, 지도 isPubliclyVisible과 정책 일관성) ② rejectReason 공개 응답 제거 (내부 심사 코멘트 비공개) ③ createdAt 메모리 정렬 (Firestore 인덱스 불필요 + 레거시 호환). compileJava 통과. **⚠️ 쿼터 주의**: 피드 목록이 호출마다 stores_user 전체 읽기 + 작성자당 users 1회 — 제보 수 증가 시 인메모리 캐시 필요. likes/comments는 백엔드 미구현이라 전부 0 (목업 placeholder, 좋아요·댓글은 후속 과제). **→ 다나(FE) community_feed + community_post_detail 연동 가능**
 
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
