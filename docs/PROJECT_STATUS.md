@@ -1,8 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-04
-> 최신 main: 88b3943 (8/4 코드 감사 결과 기록. 미해결 이슈는 5-4 참조)
-> 8/4 감사 이슈 코드 수정 완료 — 상세는 5-4 하단 "8/4 코드 수정 내역" 참조
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-05
+> 최신 main: 314260e (8/4 오늘의 픽 5주차 민서 과제 재배정 + 6·7주차 조정)
+> 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
 ## 1. 프로젝트 구성
@@ -106,6 +106,24 @@
   - 공통: 토스트, 모달(ESC/배경 클릭 닫기), 로딩/빈/에러/쿼터초과 상태 화면, 반응형(모바일 사이드바→상단 바)
   - JS는 단일 IIFE로 통합 (여러 `<script>` 블록으로 나누면 스코프 깨짐 — node new Function으로 검증)
 - FirebaseService에 deleteUser/deleteWhere/getUserActivity/countWhere/getAllReviews/deleteReview 추가
+
+## 5-5. 8/5 세션 종료 시점 상태 요약 (핸드오프)
+
+**배포된 최신 상태 (2026-08-04 기준, 라이브 반영 완료)**
+- **백엔드**: 8/4 감사 이슈 코드 수정 + 어드민 관리 API(회원 활동/강제 탈퇴/리뷰 목록·삭제) push 완료 → Render 자동 배포. 라이브 스모크 /api/stores/all 200, /api/user/profile(무토큰) 401 확인. Render env 4개(SESSION_SECRET·SESSION_ALLOW_DEV_SECRET=false·KAKAO_REST_API_KEY·GEMINI_API_KEY) 등록 완료.
+- **웹**: 어드민 페이지 전면 개편 + 피드백(이모지 제거·로고 교체·얼마고?·모바일 레이아웃) 반영 후 Vercel 재배포 완료 → https://howmuch-zeta.vercel.app/admin.html (로고 images/app_logo.png 200 확인).
+- **커밋**: 8/4 감사 수정(d3a8fe3) → 어드민 개선(7c4d893) → UI 피드백(099a768) → 문서 재배정(314260e) 순으로 main push 완료.
+
+**미완료/다음 세션에서 이어갈 것**
+- 찜 연동(매장 상세 찜 버튼 + favorite_stores 화면 + docId 정규화 #6) = **태관 4주차 과제** — 코드 수정 금지, 이 브랜치에서 건드리지 않음
+- 자동 로그인 재구현 = **태관 5주차 과제** — 구현 방법(서버 검증 + authState 복원 + 401 시 clearSession)만 5-1·5-2에 기록됨
+- 오늘의 픽(기상청 날씨 연동 + 추천 룰 + 루트) = **민서 5주차 과제**로 재배정 완료 (8/4)
+- Firebase 노출 키 폐기·재발급 + git 히스토리 purge(감사 #1) = 콘솔 작업, 미완료
+- 카카오/Gemini 노출 구 키 재발급 = 권장, 미완료 (Render env는 기존 키로 등록돼 동작은 함)
+
+**이번 세션에서 사용자에게 확인받은 결정**
+- 찜 기능이 안 되는 건 버그가 아니라 프론트 연동 미구현 상태 — 태관 4주차 과제로 유지 결정
+- 오늘의 픽은 원래 기획에 있었으나 6주차 간단 버전엔 기상청 연동이 빠져 있었음 → 민서 5주차로 이관 확정
 
 ### 8/4 코드 수정 내역 (compileJava + flutter analyze 통과)
 - **백엔드**: FirebaseService(isPubliclyVisible 필터), GeocodingService·KakaoLocalService·GeminiService(env 키 주입), SessionTokenService(fail-fast), SimpleRateLimiter(신규), AiController(레이트리밋+검증), 7개 컨트롤러(에러 메시지 일반화 + 입력 길이 검증), application.properties(신규 env 키 등록)
