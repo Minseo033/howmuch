@@ -826,4 +826,151 @@ public class FirebaseService {
                 .updatedAt(data.get("savingsGoalUpdatedAt") != null ? data.get("savingsGoalUpdatedAt").toString() : null)
                 .build();
     }
+
+    // 💡 커뮤니티 피드 노출 여부 — 반려(REJECTED) 제보는 공개 피드에서 제외
+    // (PENDING=검토 중, APPROVED=승인 완료, status 없음=승인제 이전 레거시는 노출)
+    private boolean isFeedVisible(Map<String, Object> data) {
+        Object status = data.get("status");
+        if (status == null || status.toString().isBlank()) return true; // 레거시
+        return !"REJECTED".equalsIgnoreCase(status.toString());
+    }
+
+    // 💡 커뮤니티 피드 목록 조회 (최신순, REJECTED 제외)
+    // ⚠️ 쿼터: 호출마다 stores_user 전체 읽기 + 작성자당 users 1회 읽기.
+    //    제보 수 증가 시 인메모리 캐시 패턴 필요 (PROJECT_STATUS 5-2 참조).
+    public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
+        var documents = db.collection("stores_user")
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.FeedResponseDto> feeds = new ArrayList<>();
+        Map<String, String> authorCache = new HashMap<>();
+
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+            if (!isFeedVisible(data)) continue; // REJECTED 제외
+
+            String reporterId = (String) data.get("reporterId");
+            String author = "알 수 없음";
+            if (reporterId != null) {
+                if (authorCache.containsKey(reporterId)) {
+                    author = authorCache.get(reporterId);
+                } else {
+                    try {
+                        com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
+                        if (user != null && user.getNickname() != null) {
+                            author = user.getNickname();
+                        }
+                    } catch (Exception e) {
+                        // Ignore
+                    }
+                    authorCache.put(reporterId, author);
+                }
+            }
+
+            String storeName = (String) data.get("storeName");
+            String menu1 = (String) data.get("menu1");
+            String price1 = (String) data.get("price1");
+            String title = (storeName != null ? storeName : "") + " " + (menu1 != null ? menu1 : "") + " " + (price1 != null ? price1 : "");
+
+            String cityDistrict = (String) data.get("cityDistrict");
+            String location = cityDistrict != null ? cityDistrict : "알 수 없음";
+
+            String status = (String) data.get("status");
+            if (status == null) status = "PENDING";
+
+            String createdAt = (String) data.get("createdAt");
+            if (createdAt == null) createdAt = "";
+
+            @SuppressWarnings("unchecked")
+            List<String> imageUrls = (List<String>) data.get("imageUrls");
+            if (imageUrls == null) imageUrls = new ArrayList<>();
+
+            com.howmuch.dto.FeedResponseDto dto = com.howmuch.dto.FeedResponseDto.builder()
+                    .id(doc.getId())
+                    .location(location)
+                    .title(title.trim())
+                    .author(author)
+                    .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
+                    .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
+                    .status(status)
+                    .imageUrls(imageUrls)
+                    .createdAt(createdAt)
+                    .build();
+            feeds.add(dto);
+        }
+
+        // 최신순 정렬 (메모리 정렬 — Firestore 인덱스 불필요 + createdAt 없는 레거시 호환)
+        feeds.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        return feeds;
+    }
+
+    // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
+    public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id) throws Exception {
+        DocumentSnapshot doc = db.collection("stores_user").document(id).get().get();
+        if (!doc.exists()) {
+            return null;
+        }
+
+        Map<String, Object> data = doc.getData();
+        if (data == null) return null;
+        if (!isFeedVisible(data)) return null; // REJECTED는 상세도 비공개
+
+        String reporterId = (String) data.get("reporterId");
+        String author = "알 수 없음";
+        if (reporterId != null) {
+            try {
+                com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
+                if (user != null && user.getNickname() != null) {
+                    author = user.getNickname();
+                }
+            } catch (Exception e) {
+                // Ignore
+            }
+        }
+
+        String storeName = (String) data.get("storeName");
+        String menu1 = (String) data.get("menu1");
+        String price1 = (String) data.get("price1");
+        String title = (storeName != null ? storeName : "") + " " + (menu1 != null ? menu1 : "") + " " + (price1 != null ? price1 : "");
+
+        String cityDistrict = (String) data.get("cityDistrict");
+        String location = cityDistrict != null ? cityDistrict : "알 수 없음";
+
+        String status = (String) data.get("status");
+        if (status == null) status = "PENDING";
+
+        String createdAt = (String) data.get("createdAt");
+        if (createdAt == null) createdAt = "";
+
+        @SuppressWarnings("unchecked")
+        List<String> imageUrls = (List<String>) data.get("imageUrls");
+        if (imageUrls == null) imageUrls = new ArrayList<>();
+
+        return com.howmuch.dto.FeedDetailResponseDto.builder()
+                .id(doc.getId())
+                .location(location)
+                .title(title.trim())
+                .author(author)
+                .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
+                .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
+                .status(status)
+                .imageUrls(imageUrls)
+                .createdAt(createdAt)
+                .storeName(storeName != null ? storeName : "")
+                .address(data.get("address") != null ? (String) data.get("address") : "")
+                .phoneNumber(data.get("phoneNumber") != null ? (String) data.get("phoneNumber") : "")
+                .industry(data.get("industry") != null ? (String) data.get("industry") : "")
+                .menu1(menu1 != null ? menu1 : "")
+                .price1(price1 != null ? price1 : "")
+                .menu2(data.get("menu2") != null ? (String) data.get("menu2") : "")
+                .price2(data.get("price2") != null ? (String) data.get("price2") : "")
+                .menu3(data.get("menu3") != null ? (String) data.get("menu3") : "")
+                .price3(data.get("price3") != null ? (String) data.get("price3") : "")
+                .menu4(data.get("menu4") != null ? (String) data.get("menu4") : "")
+                .price4(data.get("price4") != null ? (String) data.get("price4") : "")
+                .visitedRecently(data.get("visitedRecently") != null && Boolean.parseBoolean(data.get("visitedRecently").toString()))
+                .checkedMenuPrice(data.get("checkedMenuPrice") != null && Boolean.parseBoolean(data.get("checkedMenuPrice").toString()))
+                .build();
+    }
 }
