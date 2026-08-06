@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-05
-> 최신 main: bfb3b4f (8/6 다나 4주차 커뮤니티 피드·상세 FE 연동 선별 이식 + 수정)
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
+> 최신 main: 079b56c (8/6 다나 FE 이식 + 문서 기록까지 완료, PR #3 닫힘)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -135,6 +135,33 @@
 - **백엔드**: FirebaseService(isPubliclyVisible 필터), GeocodingService·KakaoLocalService·GeminiService(env 키 주입), SessionTokenService(fail-fast), SimpleRateLimiter(신규), AiController(레이트리밋+검증), 7개 컨트롤러(에러 메시지 일반화 + 입력 길이 검증), application.properties(신규 env 키 등록)
 - **프론트**: mypage_state.dart(목업 제거), mypage_screen.dart(_loadProfileSummary 실데이터 로드), savings_report_dashboard_screen.dart(폼백 삭제 + 에러/재시도 UI)
 - **라이브 반영 필요**: Render env에 KAKAO_REST_API_KEY, GEMINI_API_KEY, SESSION_SECRET(+SESSION_ALLOW_DEV_SECRET=false) 등록 후 백엔드 push, 웹 재배포 (미등록 시 제보 주소 좌표 변환·AI 채팅이 안전 실패 모드로 동작)
+
+## 5-6. 8/6~8/7 세션 종료 시점 상태 요약 (핸드오프)
+
+**배포된 최신 상태 (2026-08-06 기준, 전부 라이브 반영 완료)**
+- **백엔드 (Render)**: 지환 4주차 커뮤니티 피드 API (GET /api/community/feed + /feed/{id}) + CORS 401 수정(4bec04b) 배포됨. 라이브 검증: feed 200 (PENDING·APPROVED만, REJECTED 제외), 401 응답에 CORS 헤더 확인.
+- **웹 (Vercel, howmuch-zeta)**: 다나 4주차 FE 연동(bfb3b4f) 배포됨. /community에서 실데이터 13건 표시 확인 (8/6). QA 11/11 통과.
+- **PR #3 (다나)**: 머지 없이 선별 이식 후 닫기 완료 (8/7).
+
+**8/5~8/6 세션에서 한 일 (커밋 순)**
+1. `3af493f` 지환 BE 피드 API 선별 이식 + 보안 수정 3건 (REJECTED 제외 isFeedVisible, rejectReason 비공개, createdAt 메모리 정렬)
+2. `4bec04b` CORS 401 수정 — WebConfig에 HIGHEST_PRECEDENCE CorsFilter 빈 (SessionAuthFilter의 401에 CORS 헤더 누락되던 문제, 웹에서 인증 API가 "CORS 에러"로 표시되던 것 해소. **자동 로그인 재구현의 401 감지 전제조건 해소됨**)
+3. qa_v6.js 개선 — 하단 네비를 시맨틱 노드 JS 직접 클릭(y>780 필터)으로 교체 + 전체 화면(내 리뷰/제보 작성) 진입 후 Back/page.goBack() 복귀. **11/11 통과**
+4. `bfb3b4f` 다나 FE 이식 + 수정 3건 — 폼백 목업 제거(PM 결정, 감사 #5와 일관), 지역 필터 완화(일치 없으면 전체 표시 — 실데이터 location이 '구로구' 등이라 빈 화면 되던 버그), 빈 상태 추가. pubspec.lock 구버전 롤백 5건은 이식 제외 (브랜치 전략 사례)
+
+**미완료/다음 세션에서 이어갈 것 (우선순위)**
+1. **태관 4주차 과제 (찜 연동)** — 찜한 가게 화면 + 매장 상세 찜 버튼 + docId 정규화(감사 #6). 8/6 시점 진행 보고 없음. **이 코드는 태관 범위라 main에서 수정 금지**
+2. 댓글·좋아요 백엔드 미구현 — 피드 카드 '댓글 0' vs 아래 목업 댓글 2건 불일치 상태로 라이브 중. 백엔드 추가 시 상세 화면 목업 _comments 제거 필요 (후속 과제 배정 필요)
+3. Firebase 노출 키 폐기·재발급 + git 히스토리 purge (감사 #1) — 콘솔 작업, 여전히 미완료
+4. 카카오/Gemini 노출 구 키 재발급 — 권장, 미완료
+5. 공개 GET API 레이트리밋 일괄 적용 — 6주차 통합 안정화 때 (현재 AiController만 적용)
+6. 피드 API 쿼터 — 호출마다 stores_user 전체 읽기. 제보 수 증가 시 인메모리 캐시 필요
+7. 외부 AI 코드 리뷰(8/5)에서 확인된 정리 후보: home_map_screen.dart 2,464줄 대형 파일 + 미사용 선언 8건, report_create_screen 미사용 필드 3건, withOpacity deprecated 11곳 — 6주차 폴리싱 때 검토. 단, 그 리뷰의 담당자 배정은 구버전 TODO 주석 인용이라 무시 (어드민은 웹 전환됨, 찜 API는 완료됨, 문의는 민서 5주차)
+
+**다음 세션 작업 팁 (이번 세션에서 겪은 환경 문제)**
+- 터미널 명령은 1초 이내로 짧게. 오래 걸리는 작업(빌드/QA/배포 대기)은 `> /tmp/xxx.log 2>&1 &` 백그라운드 실행 후 `sleep 30 && tail` 폴링으로 확인 — foreground sleep 300 같은 긴 대기 명령이 세션 중단 원인이었음
+- 재부팅 후 /tmp/howmuch-qa의 playwright가 날아가 있을 수 있음 → QA 전 `ls node_modules/playwright` 확인, 없으면 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install playwright` (브라우저는 ~/Library/Caches에 남아있음)
+- qa_v6.js 필수 컨텍스트: viewport 390x844, deviceScaleFactor 2, geolocation 권한, addInitScript로 'flutter.onboarding_completed'='true', 로드 후 9초 대기 + flt-semantics-placeholder 클릭
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
