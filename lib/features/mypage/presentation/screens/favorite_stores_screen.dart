@@ -10,11 +10,27 @@ class FavoriteStoresScreen extends ConsumerStatefulWidget {
   const FavoriteStoresScreen({super.key});
 
   @override
-  ConsumerState<FavoriteStoresScreen> createState() => _FavoriteStoresScreenState();
+  ConsumerState<FavoriteStoresScreen> createState() =>
+      _FavoriteStoresScreenState();
 }
 
 class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
-  String _selectedFilter = '전체';
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(favoriteStoresProvider.notifier).loadFavorites();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,13 +38,14 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
 
-    final allStores = ref.watch(favoriteStoresProvider);
-
+    final favoritesState = ref.watch(favoriteStoresProvider);
+    final allStores =
+        favoritesState.valueOrNull ?? const <FavoriteStoreModel>[];
+    final query = _searchQuery.trim().toLowerCase();
     final filteredStores = allStores
         .where(
           (store) =>
-              store.isFavorite &&
-              (_selectedFilter == '전체' || store.category == _selectedFilter),
+              query.isEmpty || store.storeName.toLowerCase().contains(query),
         )
         .toList();
 
@@ -61,43 +78,37 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                           width: 0.909,
                         ),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.search_rounded,
                             color: AppColors.textLight,
                             size: 16,
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            '찜한 매장 검색',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: AppColors.textLight,
-                              fontSize: 13,
-                              height: 19.5 / 13,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (value) {
+                                setState(() => _searchQuery = value);
+                              },
+                              decoration: const InputDecoration(
+                                hintText: '찜한 매장 검색',
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontFamilyFallback: ['Noto Sans KR'],
+                                color: AppColors.ink,
+                                fontSize: 13,
+                                height: 19.5 / 13,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Filter Chips
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        _buildFilterChip('전체'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('음식점'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('카페'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('생활서비스'),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -150,15 +161,49 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                   ),
                   const SizedBox(height: 12),
                   // List Items
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      children: filteredStores.map((store) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildFavoriteItem(store),
-                        );
-                      }).toList(),
+                  favoritesState.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.only(top: 80),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    error: (_, _) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildMessageBox(
+                        icon: Icons.wifi_off_rounded,
+                        title: '찜한 매장을 불러오지 못했어요',
+                        message: '잠시 후 다시 시도해 주세요.',
+                        actionText: '다시 불러오기',
+                        onAction: () {
+                          ref
+                              .read(favoriteStoresProvider.notifier)
+                              .loadFavorites(force: true);
+                        },
+                      ),
+                    ),
+                    data: (_) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: filteredStores.isEmpty
+                          ? _buildMessageBox(
+                              icon: Icons.favorite_border_rounded,
+                              title: query.isEmpty
+                                  ? '아직 찜한 매장이 없어요'
+                                  : '검색 결과가 없어요',
+                              message: query.isEmpty
+                                  ? '매장 상세 화면에서 하트를 누르면 여기에 모아볼 수 있어요.'
+                                  : '다른 매장명으로 검색해 보세요.',
+                            )
+                          : Column(
+                              children: filteredStores.map((store) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _buildFavoriteItem(store),
+                                );
+                              }).toList(),
+                            ),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -291,35 +336,53 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label) {
-    final isSelected = _selectedFilter == label;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = label;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 13.9, vertical: 7.9),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: isSelected ? AppColors.transparent : AppColors.border,
-            width: 0.909,
+  Widget _buildMessageBox({
+    required IconData icon,
+    required String title,
+    required String message,
+    String? actionText,
+    VoidCallback? onAction,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border, width: 0.909),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 34, color: AppColors.textLight),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              fontWeight: FontWeight.bold,
+              color: AppColors.black,
+              fontSize: 14,
+              height: 21 / 14,
+            ),
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontFamilyFallback: const ['Noto Sans KR'],
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? AppColors.white : AppColors.textBody,
-            fontSize: 12,
-            height: 18 / 12,
+          const SizedBox(height: 4),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.muted,
+              fontSize: 12,
+              height: 18 / 12,
+            ),
           ),
-        ),
+          if (actionText != null && onAction != null) ...[
+            const SizedBox(height: 16),
+            TextButton(onPressed: onAction, child: Text(actionText)),
+          ],
+        ],
       ),
     );
   }
@@ -417,7 +480,9 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 2,
                   children: [
                     Text(
                       store.menu,
@@ -429,18 +494,18 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                         height: 18 / 12,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Text(
-                      store.price,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: const ['Noto Sans KR'],
-                        fontWeight: FontWeight.bold,
-                        color: Color(store.priceColor),
-                        fontSize: 13,
-                        height: 19.5 / 13,
+                    if (store.price.isNotEmpty)
+                      Text(
+                        store.price,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: const ['Noto Sans KR'],
+                          fontWeight: FontWeight.bold,
+                          color: Color(store.priceColor),
+                          fontSize: 13,
+                          height: 19.5 / 13,
+                        ),
                       ),
-                    ),
                   ],
                 ),
                 if (store.alertText != null) ...[
@@ -451,7 +516,9 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                       fontFamily: 'Inter',
                       fontFamilyFallback: const ['Noto Sans KR'],
                       fontWeight: FontWeight.w600,
-                      color: store.alertColor != null ? Color(store.alertColor!) : null,
+                      color: store.alertColor != null
+                          ? Color(store.alertColor!)
+                          : null,
                       fontSize: 10,
                       height: 15 / 10,
                     ),
@@ -464,21 +531,21 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               GestureDetector(
-                onTap: () {
-                  final stores = ref.read(favoriteStoresProvider);
-                  final nextIsFavorite = !store.isFavorite;
-                  
-                  ref.read(favoriteStoresProvider.notifier).state = stores.map((s) {
-                    if (s.id == store.id) {
-                      return s.copyWith(isFavorite: nextIsFavorite);
-                    }
-                    return s;
-                  }).toList();
-
-                  final profile = ref.read(userProfileProvider);
-                  ref.read(userProfileProvider.notifier).state = profile.copyWith(
-                    favoriteStoreCount: profile.favoriteStoreCount + (nextIsFavorite ? 1 : -1),
-                  );
+                onTap: () async {
+                  try {
+                    await ref
+                        .read(favoriteStoresProvider.notifier)
+                        .removeFavorite(store.id);
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')),
+                    );
+                  } catch (_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('찜 해제에 실패했어요. 다시 시도해 주세요.')),
+                    );
+                  }
                 },
                 child: Icon(
                   store.isFavorite
