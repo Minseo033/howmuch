@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -34,17 +37,142 @@ class CommunityFeedScreen extends StatefulWidget {
 class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   int _selectedFilterIndex = 0;
   int _selectedLocationIndex = 0;
+  bool _isLoading = false;
+  List<dynamic> _rawFeeds = [];
 
   static const _locations = ['역삼동', '합정동'];
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchFeeds();
+  }
+
+  Future<void> _fetchFeeds() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/community/feed'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _rawFeeds = decoded is List ? decoded : [];
+          _isLoading = false;
+        });
+      } else {
+        _loadFallbackData();
+      }
+    } catch (e) {
+      debugPrint('커뮤니티 피드 조회 오류: $e');
+      _loadFallbackData();
+    }
+  }
+
+  void _loadFallbackData() {
+    setState(() {
+      _rawFeeds = [
+        {
+          'id': 'mock-1',
+          'location': '합정동',
+          'title': '골목밥상 제육덮밥 6,000원',
+          'author': '절약왕민수',
+          'likes': 32,
+          'comments': 8,
+          'status': 'APPROVED',
+        },
+        {
+          'id': 'mock-2',
+          'location': '역삼동',
+          'title': '동네카페 아메리카노 2,500원으로 인상',
+          'author': '강남직장인',
+          'likes': 12,
+          'comments': 4,
+          'status': 'NEEDS_EDIT',
+        },
+        {
+          'id': 'mock-3',
+          'location': '역삼동',
+          'title': '착한미용실 남성컷 8,000원',
+          'author': '동네탐험가',
+          'likes': 21,
+          'comments': 6,
+          'status': 'PENDING',
+        },
+      ];
+      _isLoading = false;
+    });
+  }
+
   List<_FeedItem> get _visibleFeedItems {
     final location = _locations[_selectedLocationIndex];
-    final items = _feedItems.where((item) => item.location == location);
+    final List<_FeedItem> items = _rawFeeds.map((data) {
+      final String id = data['id']?.toString() ?? '';
+      final String loc = data['location']?.toString() ?? '알 수 없음';
+      final String title = data['title']?.toString() ?? '';
+      final String author = data['author']?.toString() ?? '알 수 없음';
+      final int likes = (data['likes'] as num?)?.toInt() ?? 0;
+      final int comments = (data['comments'] as num?)?.toInt() ?? 0;
+      final String rawStatus = data['status']?.toString() ?? 'PENDING';
+
+      final String status = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => '승인 완료',
+        'PENDING' => '검토 중',
+        _ => '가격 변동',
+      };
+
+      final Color statusColor = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => CommunityFeedScreen.green,
+        'PENDING' => const Color(0xFF92400E),
+        _ => CommunityFeedScreen.orange,
+      };
+
+      final Color statusBackground = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => const Color(0xFFE8F8F1),
+        'PENDING' => const Color(0xFFFEF3C7),
+        _ => const Color(0xFFFFF3EA),
+      };
+
+      final Color? dotColor = rawStatus.toUpperCase() == 'PENDING'
+          ? CommunityFeedScreen.amber
+          : null;
+
+      final bool compactStatus = rawStatus.toUpperCase() == 'PENDING';
+
+      final hash = id.hashCode.abs();
+      final List<Color> bgColors = [
+        const Color(0xFFFFE4D4),
+        const Color(0xFFE0E7FF),
+        const Color(0xFFDCFCE7),
+        const Color(0xFFF3E8FF),
+      ];
+      final Color imageBackground = bgColors[hash % bgColors.length];
+
+      return _FeedItem(
+        id: id,
+        location: loc,
+        title: title,
+        author: author,
+        likes: likes,
+        comments: comments,
+        status: status,
+        statusColor: statusColor,
+        statusBackground: statusBackground,
+        imageBackground: imageBackground,
+        dotColor: dotColor,
+        compactStatus: compactStatus,
+      );
+    }).where((item) => item.location == location).toList();
 
     return switch (_selectedFilterIndex) {
       1 => items.where((item) => item.status == '가격 변동').toList(),
-      2 => (items.toList()..sort((a, b) => b.likes.compareTo(a.likes))),
-      _ => items.toList(),
+      2 => (items..sort((a, b) => b.likes.compareTo(a.likes))),
+      _ => items,
     };
   }
 
@@ -100,31 +228,38 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             top: topOffset + 150.64,
             right: 20,
             bottom: bottomNavHeight + 85,
-            child: SingleChildScrollView(
-              child: Column(
-                children: _visibleFeedItems
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 11.989),
-                        child: _FeedCard(
-                          title: item.title,
-                          author: item.author,
-                          likes: item.likes,
-                          comments: item.comments,
-                          status: item.status,
-                          statusColor: item.statusColor,
-                          statusBackground: item.statusBackground,
-                          imageBackground: item.imageBackground,
-                          dotColor: item.dotColor,
-                          compactStatus: item.compactStatus,
-                          onTap: () =>
-                              context.push(AppRoutes.communityPostDetail),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
+            child: _isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF2563EB),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: Column(
+                      children: _visibleFeedItems
+                          .map(
+                            (item) => Padding(
+                              padding: const EdgeInsets.only(bottom: 11.989),
+                              child: _FeedCard(
+                                title: item.title,
+                                author: item.author,
+                                likes: item.likes,
+                                comments: item.comments,
+                                status: item.status,
+                                statusColor: item.statusColor,
+                                statusBackground: item.statusBackground,
+                                imageBackground: item.imageBackground,
+                                dotColor: item.dotColor,
+                                compactStatus: item.compactStatus,
+                                onTap: () => context.push(
+                                  '${AppRoutes.communityPostDetail}?id=${item.id}',
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
           ),
           Positioned(
             left: AppSizes.horizontalPadding,
@@ -642,6 +777,7 @@ class _StatusBadge extends StatelessWidget {
 
 class _FeedItem {
   const _FeedItem({
+    required this.id,
     required this.location,
     required this.title,
     required this.author,
@@ -655,6 +791,7 @@ class _FeedItem {
     this.compactStatus = false,
   });
 
+  final String id;
   final String location;
   final String title;
   final String author;
@@ -667,41 +804,3 @@ class _FeedItem {
   final Color? dotColor;
   final bool compactStatus;
 }
-
-const _feedItems = [
-  _FeedItem(
-    location: '합정동',
-    title: '골목밥상 제육덮밥 6,000원',
-    author: '절약왕민수',
-    likes: 32,
-    comments: 8,
-    status: '승인 완료',
-    statusColor: CommunityFeedScreen.green,
-    statusBackground: Color(0xFFE8F8F1),
-    imageBackground: Color(0xFFFFE4D4),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '동네카페 아메리카노 2,500원으로 인상',
-    author: '강남직장인',
-    likes: 12,
-    comments: 4,
-    status: '가격 변동',
-    statusColor: CommunityFeedScreen.orange,
-    statusBackground: Color(0xFFFFF3EA),
-    imageBackground: Color(0xFFE0E7FF),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '착한미용실 남성컷 8,000원',
-    author: '동네탐험가',
-    likes: 21,
-    comments: 6,
-    status: '검토 중',
-    statusColor: Color(0xFF92400E),
-    statusBackground: Color(0xFFFEF3C7),
-    imageBackground: Color(0xFFDCFCE7),
-    dotColor: CommunityFeedScreen.amber,
-    compactStatus: true,
-  ),
-];
