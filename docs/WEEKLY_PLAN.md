@@ -20,14 +20,14 @@
 >
 > 인프라 상태 (7/23 기준): 세션 인증, ApiClient 일원화, /api/stores 캐시(콜드스타트 읽기 0), CORS/SPA 라우팅, /api/visits 라이브 완료.
 
-## 3주차 (7/28~8/3) — 절약 코어 (앱 정체성 기능)
+## ✅ 3주차 (7/28~8/3) — 절약 코어 (앱 정체성 기능) [완료 8/3]
 
-| 담당 | 과제 |
-|---|---|
-| 박지환 (BE) | GET /api/savings/history + /api/savings/stats (visits 데이터 기반 월별 집계) |
-| 김다나 (FE) | 절약 대시보드(savings_report_dashboard) + 절약 상세(savings_detail) 화면 연동 |
-| 오태관 (FE) | 내 리뷰 목록 화면(my_reviews_screen) 연동 |
-| 민서 (PM) | 찜하기 API (/api/favorites CRUD) + 절약 목표 설정 API |
+| 담당 | 과제 | 결과 |
+|---|---|---|
+| 박지환 (BE) | GET /api/savings/history + /api/savings/stats (visits 데이터 기반 월별 집계) | ✅ 완료 (2556eef 이식) |
+| 김다나 (FE) | 절약 대시보드(savings_report_dashboard) + 절약 상세(savings_detail) 화면 연동 | ✅ 완료 (46f68a8 선별 이식 — 목표 설정 화면 연동까지 포함) |
+| 오태관 (FE) | 내 리뷰 목록 화면(my_reviews_screen) 연동 | ✅ 완료 (2556eef) + 캐시 버그 2건 수정 (299630b) |
+| 민서 (PM) | 찜하기 API (/api/favorites CRUD) + 절약 목표 설정 API | ✅ 완료 (4186c0a) + 회원가입 목표 입력·매장 상세 리뷰 실데이터화 (c9098d6) |
 
 ## 4주차 (8/4~8/10) — 커뮤니티·찜
 
@@ -35,25 +35,25 @@
 |---|---|
 | 박지환 (BE) | GET /api/community/feed + 피드 상세 |
 | 김다나 (FE) | community_feed + 게시글 상세(community_post_detail) 연동 |
-| 오태관 (FE) | 찜한 가게(favorite_stores) 연동 + 절약 목표 설정 화면 연동 |
-| 민서 (PM) | 어드민 API (/api/admin/reports + /{id}/approve + /{id}/reject, rejectReason 저장) |
+| 오태관 (FE) | 찜한 가게(favorite_stores) 연동 (절약 목표 설정 화면은 3주차에 완료됨) |
+| 민서 (PM) | 어드민 API (/api/admin/reports + approve/reject, rejectReason 저장) + 웹 어드민 페이지 (web/admin.html) — 어드민은 앱 내 화면 대신 웹 페이지로 전환 (8/3 결정) |
 
-## 5주차 (8/11~8/17) — 어드민·알림·계정
+## 5주차 (8/11~8/17) — 어드민·알림·계정·오늘의 픽
 
 | 담당 | 과제 |
 |---|---|
 | 박지환 (BE) | GET /api/notifications + 읽음 처리 |
 | 김다나 (FE) | 알림 화면(notifications) + 알림 설정 연동 |
-| 오태관 (FE) | 어드민 제보 처리 화면(admin_report_review) 연동 — 승인/반려 + 반려 사유 입력 |
-| 민서 (PM) | 문의 API (/api/inquiry + /api/admin/inquiries) + 회원 탈퇴 (DELETE /api/user) |
+| 오태관 (FE) | 자동 로그인 재구현 (스플래시에서 /api/user/profile 토큰 검증 → authState 복원, 401 시 clearSession + 로그인 이동. 8/3 dc43efa→revert 참고) — 어드민 화면 연동은 웹 페이지 전환으로 취소 |
+| 민서 (PM) | 문의 API (/api/inquiry + /api/admin/inquiries) + 회원 탈퇴 (DELETE /api/user) + **오늘의 픽 전체 구현** (기상청 단기예보 연동 → 날씨 기반 추천 룰, todays_pick 화면 실데이터화, AI 챗봇 루트 추천(8-3/8-4) 연동, 최적 루트(optimal_route) 간이 구현) |
 
-## 6주차 (8/18~8/24) — 추천·통합 안정화
+## 6주차 (8/18~8/24) — 알림·통합 안정화
 
 | 담당 | 과제 |
 |---|---|
-| 박지환 (BE) | 오늘의 픽 추천 (관심 카테고리 + 동네 기반 룰, 간단 버전) |
-| 김다나 (FE) | 오늘의 픽(todays_pick) 연동 + 가격 알림 구독 |
-| 오태관 (FE) | 전체 화면 폴리싱 + 버그픽스 (최적 동선은 간이 구현 or 제외 → 90%의 -10%) |
+| 박지환 (BE) | 알림 발송 로직 (가격 변동 제보 시 찜 구독자 알림, 간단 버전) + 5주차 밀린 BE 보조 |
+| 김다나 (FE) | 가격 알림 구독 연동 + 오늘의 픽·루트 화면 폴리싱 (민서 5주차 산출물 UI 다듬기) |
+| 오태관 (FE) | 전체 화면 폴리싱 + 버그픽스 |
 | 민서 (PM) | 통합 테스트, Firestore 보안 룰, 공공데이터 스냅샷 자동화, Blaze(종량제) 전환 판단 |
 
 ## 7주차 (8/25~8/31) — QA·출시 버퍼
@@ -61,6 +61,8 @@
 | 담당 | 과제 |
 |---|---|
 | 전원 | 시나리오 QA (로그인→지도→제보→방문→리뷰→절약), 밀린 작업 흡수 |
+| 김다나 (FE) | 오늘의 픽·알림 QA 보조 + 스토어 스크린샷 촬영 보조 |
+| 오태관 (FE) | 버그픽스·UI 폴리싱 마무리 |
 | 민서 (PM) | 스토어 등록 준비 (스크린샷/설명문/개인정보처리방침), 성능 점검 (지도 마커, 캐시) |
 
 ---

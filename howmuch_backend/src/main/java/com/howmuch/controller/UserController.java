@@ -33,7 +33,7 @@ public class UserController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("[UserController] 프로필 저장 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body("프로필 저장 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(500).body("프로필 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
 
@@ -54,7 +54,7 @@ public class UserController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("[UserController] 프로필 조회 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body("프로필 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return ResponseEntity.status(500).body("프로필 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
 }

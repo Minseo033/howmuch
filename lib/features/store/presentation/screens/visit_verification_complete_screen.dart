@@ -1,17 +1,69 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:howmuch/app/app_routes.dart';
-import '../../../../shared/widgets/custom_app_bar.dart';
-import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:http/http.dart' as http;
 
-class VisitVerificationCompleteScreen extends StatelessWidget {
-  const VisitVerificationCompleteScreen({super.key});
+class VisitVerificationCompleteScreen extends StatefulWidget {
+  final int savedAmount;
+  final String storeName;
+  final String menu;
+  final int price;
+
+  const VisitVerificationCompleteScreen({
+    super.key,
+    this.savedAmount = 0,
+    this.storeName = '방문 매장',
+    this.menu = '',
+    this.price = 0,
+  });
+
+  @override
+  State<VisitVerificationCompleteScreen> createState() =>
+      _VisitVerificationCompleteScreenState();
+}
+
+class _VisitVerificationCompleteScreenState
+    extends State<VisitVerificationCompleteScreen> {
+  int? _monthlyTotal;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchMonthlyTotal();
+  }
+
+  /// 이번 달 누적 절약 금액 (GET /api/savings/stats?period=this_month)
+  Future<void> _fetchMonthlyTotal() async {
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+      if (response.statusCode == 200 && mounted) {
+        final data =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        setState(() {
+          _monthlyTotal = (data['totalSavedAmount'] as num?)?.toInt();
+        });
+      }
+    } catch (e) {
+      debugPrint('이번 달 누적 절약 조회 오류: $e');
+    }
+  }
+
+  String _formatWon(int value) {
+    return value.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (Match m) => '${m[1]},',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 절약 금액 및 방문 매장 정보 연동
     return FigmaMobileCanvas(
       child: Scaffold(
       backgroundColor: AppColors.white,
@@ -65,9 +117,9 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                       style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
-                      '2,000원',
-                      style: TextStyle(
+                    Text(
+                      '${_formatWon(widget.savedAmount)}원',
+                      style: const TextStyle(
                         color: AppColors.white,
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
@@ -76,14 +128,16 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                     const SizedBox(height: 20),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        Text(
+                      children: [
+                        const Text(
                           '이번 달 누적',
                           style: TextStyle(color: Colors.white70, fontSize: 14),
                         ),
                         Text(
-                          '26,500원',
-                          style: TextStyle(
+                          _monthlyTotal == null
+                              ? '조회 중…'
+                              : '${_formatWon(_monthlyTotal!)}원',
+                          style: const TextStyle(
                             color: AppColors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -106,24 +160,29 @@ class VisitVerificationCompleteScreen extends StatelessWidget {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
+                  children: [
+                    const Text(
                       '방문 매장',
                       style: TextStyle(color: AppColors.muted, fontSize: 13),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
-                      '착한분식',
-                      style: TextStyle(
+                      widget.storeName,
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      '김치찌개 5,500원',
-                      style: TextStyle(color: AppColors.muted, fontSize: 13),
-                    ),
+                    if (widget.menu.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '${widget.menu} ${_formatWon(widget.price)}원',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

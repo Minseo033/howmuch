@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
@@ -45,6 +46,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   final _nicknameController = TextEditingController();
   final _regionController = TextEditingController();
+  final _goalController = TextEditingController();
   final _nicknameFocus = FocusNode();
   final _regionFocus = FocusNode();
 
@@ -200,6 +202,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     _debounce?.cancel();
     _nicknameController.dispose();
     _regionController.dispose();
+    _goalController.dispose();
     _nicknameFocus.dispose();
     _regionFocus.dispose();
     super.dispose();
@@ -229,6 +232,25 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               favoriteCategories: _selectedCategories.toList(),
             ),
           );
+
+      // 이번 달 절약 목표: 입력했으면 저장하고, 저장이 안 돼도 무시하고 진행한다.
+      final goalDigits = _goalController.text.replaceAll(RegExp(r'[^0-9]'), '');
+      if (goalDigits.isNotEmpty) {
+        final goalAmount = int.tryParse(goalDigits);
+        if (goalAmount != null && goalAmount > 0) {
+          try {
+            await http
+                .post(
+                  ApiClient.uri('/api/savings/goal'),
+                  headers: ApiClient.jsonHeaders(auth: true),
+                  body: jsonEncode({'goalAmount': goalAmount}),
+                )
+                .timeout(ApiClient.defaultTimeout);
+          } catch (e) {
+            debugPrint('절약 목표 저장 실패(무시하고 진행): $e');
+          }
+        }
+      }
 
       if (mounted) context.go(AppRoutes.home);
     } catch (e) {
@@ -271,6 +293,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     _buildRegionSection(),
                     const SizedBox(height: 24),
                     _buildCategorySection(),
+                    const SizedBox(height: 24),
+                    _buildGoalSection(),
                     const SizedBox(height: 32),
                   ],
                 ),
@@ -783,6 +807,104 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         const SizedBox(height: 8),
         const Text(
           '선택한 업종 위주로 오늘의 픽과 절약 리포트가 정리돼요.',
+          style: TextStyle(
+            fontFamily: _font,
+            fontFamilyFallback: _fontFallback,
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: _hint,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ─── 이번 달 절약 목표 섹션 (선택)
+  Widget _buildGoalSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Text(
+              '이번 달 절약 목표',
+              style: TextStyle(
+                fontFamily: _font,
+                fontFamilyFallback: _fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _ink,
+              ),
+            ),
+            SizedBox(width: 6),
+            Text(
+              '· 선택',
+              style: TextStyle(
+                fontFamily: _font,
+                fontFamilyFallback: _fontFallback,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: _hint,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
+          ),
+          child: Row(
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 14),
+                child: Icon(Icons.savings_outlined, size: 18, color: _hint),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _goalController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
+                  style: const TextStyle(
+                    fontFamily: _font,
+                    fontFamilyFallback: _fontFallback,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: _ink,
+                  ),
+                  decoration: const InputDecoration(
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    filled: false,
+                    hintText: '예: 100000',
+                    hintStyle: TextStyle(
+                      fontFamily: _font,
+                      fontFamilyFallback: _fontFallback,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: _hint,
+                    ),
+                    suffixText: '원',
+                    suffixStyle: TextStyle(
+                      fontFamily: _font,
+                      fontFamilyFallback: _fontFallback,
+                      fontSize: 13,
+                      color: _muted,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          '목표를 정해 두면 절약 리포트에서 달성률을 보여드려요. 나중에 바꿀 수 있어요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,

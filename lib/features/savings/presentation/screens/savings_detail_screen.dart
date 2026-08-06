@@ -63,38 +63,54 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
       ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> body = jsonDecode(utf8.decode(response.bodyBytes));
-        
-        // 💡 총합 정보 파싱
-        _totalSavedAmount = (body['totalSavedAmount'] as num?)?.toInt() ?? 24500;
-        _visitCount = (body['visitCount'] as num?)?.toInt() ?? 6;
-        _averageSaved = (body['averageSaved'] as num?)?.toInt() ?? 4083;
+        // 💡 실제 API는 List<SavingsHistoryResponse> 직렬 배열을 반환합니다.
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        final List<dynamic> historyData = decoded is List ? decoded : [];
 
-        final List<dynamic> historyData = body['history'] ?? [];
         final parsed = historyData.map((item) {
-          final isGov = item['badgeText'] == '정부 인증' || item['isGov'] == true;
+          final isGov = item['isGov'] == true;
           final String badgeText = isGov ? '정부 인증' : '사용자 제보';
           final Color badgeColor = isGov ? const Color(0xFF2563EB) : const Color(0xFFF97316);
           final Color badgeBg = isGov ? const Color(0xFFEFF4FF) : const Color(0xFFFFF3EA);
-          
+
           final int priceVal = (item['price'] as num?)?.toInt() ?? 0;
           final int savedVal = (item['savedAmount'] as num?)?.toInt() ?? 0;
 
+          final String dateRaw = item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+          final String category = _categoryFromDate(dateRaw);
+
           return SavingsDetailItem(
-            category: item['category'] ?? '기타',
+            category: category,
             badgeText: badgeText,
             badgeColor: badgeColor,
             badgeBg: badgeBg,
-            date: item['date'] ?? item['visitedAt'] ?? '',
-            storeName: item['storeName'] ?? '미등록 매장',
-            menuName: item['menuName'] ?? item['menu'] ?? '기타',
+            date: _formatDate(dateRaw),
+            storeName: item['storeName']?.toString() ?? '미등록 매장',
+            menuName: item['menu']?.toString() ?? '기타',
             price: '${_formatCurrency(priceVal)}원',
             savingAmount: '평균가 대비 ${_formatCurrency(savedVal)}원 절약',
           );
         }).toList();
 
+        // 이번 달 항목만 필터링해 요약 통계 계산
+        final now = DateTime.now();
+        final thisMonthItems = parsed.where((item) {
+          final d = _parseDate(item.date);
+          return d != null && d.year == now.year && d.month == now.month;
+        }).toList();
+
+        final totalSaved = thisMonthItems.fold<int>(
+          0,
+          (sum, it) => sum + _parseAmount(it.savingAmount),
+        );
+        final visitCount = thisMonthItems.length;
+        final averageSaved = visitCount > 0 ? totalSaved ~/ visitCount : 0;
+
         setState(() {
           _allItems = parsed;
+          _totalSavedAmount = totalSaved;
+          _visitCount = visitCount;
+          _averageSaved = averageSaved;
           _isLoading = false;
         });
       } else {
@@ -106,6 +122,40 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     }
   }
 
+  /// ISO 8601/점 형식 날짜 문자열을 파싱 (실패 시 null)
+  DateTime? _parseDate(String raw) {
+    final s = raw.trim();
+    if (s.isEmpty) return null;
+    try {
+      // "2026-08-03T..." 또는 "2026.08.03..."
+      final match = RegExp(r'(\d{4})[-.](\d{1,2})[-.](\d{1,2})').firstMatch(s);
+      if (match != null) {
+        return DateTime(
+          int.parse(match.group(1)!),
+          int.parse(match.group(2)!),
+          int.parse(match.group(3)!),
+        );
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// "2026.08.03" 형태로 표시
+  String _formatDate(String raw) {
+    final d = _parseDate(raw);
+    if (d == null) return raw;
+    return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
+  }
+
+  /// 업종 필터용 카테고리 — API에 category 필드가 없어 빈 값으로 두고, 이 경우 모든 필터에 노출됩니다.
+  String _categoryFromDate(String raw) => '';
+
+  /// "평균가 대비 2,000원 절약" → 2000
+  int _parseAmount(String saving) {
+    final match = RegExp(r'([\d,]+)').firstMatch(saving);
+    if (match == null) return 0;
+    return int.tryParse(match.group(1)!.replaceAll(',', '')) ?? 0;
+  }
   void _loadFallbackData() {
     setState(() {
       _allItems = [
@@ -172,6 +222,8 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
     final filteredItems = _allItems.where((item) {
       if (_selectedFilter == '전체') return true;
+      // 카테고리 정보가 없는 항목(API 미제공)은 모든 필터에 표시
+      if (item.category.isEmpty) return true;
       return item.category == _selectedFilter;
     }).toList();
 

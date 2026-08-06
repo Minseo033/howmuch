@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -466,58 +469,9 @@ class StoreDetailScreen extends StatelessWidget {
                     const _Divider(),
 
                     // ─────────────────────────────────────────────
-                    //  리뷰 (목업)
+                    //  리뷰 (실데이터 — /api/review 연동)
                     // ─────────────────────────────────────────────
-                    _White(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                '리뷰',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                  color: _ink,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              _MockTag('목업 - 추후 개발 필요'),
-                              const Spacer(),
-                              GestureDetector(
-                                onTap: () => context.push(AppRoutes.reviewList, extra: store),
-                                child: const Text(
-                                  '전체보기',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: _blue,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          _Review(
-                            name: '김○○',
-                            text: '가격이 저렴하고 양이 많아요. 강력 추천합니다!',
-                            stars: 5,
-                            ago: '2일 전',
-                          ),
-                          const Divider(
-                            height: 24,
-                            color: AppColors.borderSubtle,
-                          ),
-                          _Review(
-                            name: '이○○',
-                            text: '착한 가격에 맛도 좋아요. 자주 올 것 같아요.',
-                            stars: 4,
-                            ago: '5일 전',
-                          ),
-                        ],
-                      ),
-                    ),
+                    _StoreReviewSection(store: store),
 
                     // 하단 여백 (하단 바 높이만큼)
                     const SizedBox(height: 100),
@@ -888,6 +842,135 @@ class _BottomIconBtn extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  매장 리뷰 섹션 (실데이터 — /api/review 연동)
+// ─────────────────────────────────────────────────────────
+class _StoreReviewSection extends ConsumerStatefulWidget {
+  final Store store;
+  const _StoreReviewSection({required this.store});
+
+  /// 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
+  String get storeKey => store.storeName;
+
+  @override
+  ConsumerState<_StoreReviewSection> createState() =>
+      _StoreReviewSectionState();
+}
+
+class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(storeReviewProvider.notifier).loadReviews(widget.storeKey);
+    });
+  }
+
+  String _ago(DateTime? dt) {
+    if (dt == null) return '';
+    final diff = DateTime.now().difference(dt.toLocal());
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+    if (diff.inDays < 1) return '${diff.inHours}시간 전';
+    if (diff.inDays < 30) return '${diff.inDays}일 전';
+    if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}개월 전';
+    return '${(diff.inDays / 365).floor()}년 전';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final reviews =
+        ref.watch(storeReviewProvider)[widget.storeKey] ?? const <Review>[];
+    final shown = reviews.take(3).toList();
+    final avg = reviews.isEmpty
+        ? 0.0
+        : reviews.map((r) => r.stars).reduce((a, b) => a + b) / reviews.length;
+
+    return _White(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                '리뷰',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textDark,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '${reviews.length}',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+              if (reviews.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                const Icon(Icons.star_rounded,
+                    color: AppColors.starAlt, size: 15),
+                const SizedBox(width: 2),
+                Text(
+                  avg.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+              ],
+              const Spacer(),
+              GestureDetector(
+                onTap: () =>
+                    context.push(AppRoutes.reviewList, extra: widget.store),
+                child: const Text(
+                  '전체보기',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (shown.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                '아직 리뷰가 없어요. 첫 리뷰의 주인공이 되어보세요!',
+                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+              ),
+            )
+          else
+            ...shown.asMap().entries.expand(
+                  (e) => [
+                    if (e.key > 0)
+                      const Divider(
+                        height: 24,
+                        color: AppColors.borderSubtle,
+                      ),
+                    _Review(
+                      name: e.value.authorName.isNotEmpty
+                          ? e.value.authorName
+                          : '익명',
+                      text: e.value.content,
+                      stars: e.value.stars,
+                      ago: _ago(e.value.createdAt),
+                    ),
+                  ],
+                ),
+        ],
       ),
     );
   }

@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -11,10 +12,13 @@ import java.util.Map;
 public class GeocodingService {
 
     private final WebClient webClient;
-    private final String KAKAO_API_KEY = "a262460cc196a9dd283003c7d54743b3";
+    // 💡 카카오 REST API 키는 환경변수(KAKAO_REST_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
+    private final String kakaoApiKey;
 
-    public GeocodingService(WebClient.Builder webClientBuilder) {
+    public GeocodingService(WebClient.Builder webClientBuilder,
+                            @Value("${kakao.rest-api-key:}") String kakaoApiKey) {
         this.webClient = webClientBuilder.baseUrl("https://dapi.kakao.com").build();
+        this.kakaoApiKey = kakaoApiKey;
     }
 
     /**
@@ -25,12 +29,17 @@ public class GeocodingService {
             return Mono.empty();
         }
 
+        if (kakaoApiKey == null || kakaoApiKey.isBlank()) {
+            // 키 미설정 시 외부 API 호출 없이 실패 안전하게 빈 결과 반환
+            return Mono.empty();
+        }
+
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/local/search/address.json")
                         .queryParam("query", address)
                         .build())
-                .header("Authorization", "KakaoAK " + KAKAO_API_KEY)
+                .header("Authorization", "KakaoAK " + kakaoApiKey)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
                 .map(jsonNode -> {

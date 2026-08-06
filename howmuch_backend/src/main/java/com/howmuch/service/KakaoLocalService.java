@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -18,12 +19,20 @@ import java.util.Map;
 @Service
 public class KakaoLocalService {
 
-    // 💡 카카오 개발자 센터의 REST API 키를 사용합니다.
-    private final String KAKAO_REST_API_KEY = "a262460cc196a9dd283003c7d54743b3"; 
+    // 💡 카카오 REST API 키는 환경변수(KAKAO_REST_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
+    private final String kakaoRestApiKey;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    public KakaoLocalService(@Value("${kakao.rest-api-key:}") String kakaoRestApiKey) {
+        this.kakaoRestApiKey = kakaoRestApiKey;
+    }
+
     public Map<String, Object> getCoordinatesFromAddress(String address) {
+        if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()) {
+            log.warn("KAKAO_REST_API_KEY 미설정 — 주소 좌표 변환 건너뜀 (주소: {})", address);
+            return null;
+        }
         try {
             String url = "https://dapi.kakao.com/v2/local/search/address.json";
             
@@ -34,7 +43,7 @@ public class KakaoLocalService {
                     .toUri();
 
             HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "KakaoAK " + KAKAO_REST_API_KEY);
+            headers.set("Authorization", "KakaoAK " + kakaoRestApiKey);
             // 💡 최신 카카오 로컬 API 정책에 의해 KA 헤더 및 Origin 헤더가 필수적으로 요구될 수 있습니다.
             headers.set("KA", "sdk/1.0 os/javascript origin/http://localhost:8081");
             headers.set("Origin", "http://localhost:8081");

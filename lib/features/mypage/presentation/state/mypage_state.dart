@@ -480,18 +480,20 @@ class FavoriteStoreModel {
   }
 }
 
-// TODO(박지환 BE): 사용자 프로필 API 응답으로 교체하세요.
+// 💡 감사 이슈(#4): 하드코딩 목업('절약왕 민서', 24,500원 등) 제거.
+//    기본값은 게스트 상태이며, 로그인 시 mypage_screen의 _loadProfileSummary가
+//    /api/user/profile + /api/savings/stats + /api/report/my + /api/favorites로 실데이터를 채웁니다.
 final userProfileProvider = StateProvider<UserProfile>(
   (ref) => const UserProfile(
-    nickname: '절약왕 민서',
-    email: 'minseo@email.com',
-    level: 'LV.3 절약러',
-    region: '서울시 강남구 역삼동',
-    favoriteCategories: ['한식', '분식', '카페'],
-    savedAmount: 24500,
-    visitCount: 12,
-    reportCount: 3,
-    favoriteStoreCount: 12,
+    nickname: '게스트',
+    email: '',
+    level: 'LV.1 새싹',
+    region: '',
+    favoriteCategories: [],
+    savedAmount: 0,
+    visitCount: 0,
+    reportCount: 0,
+    favoriteStoreCount: 0,
     nicknamePublic: true,
     activityPublic: false,
   ),

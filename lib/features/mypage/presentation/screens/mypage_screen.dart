@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -42,13 +46,110 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
     super.initState();
     // 💡 내 제보를 서버에서 다시 불러옵니다.
     // (앱 재시작 후 로컬 상태가 비어 미리보기가 사라지는 문제 방지)
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMyReports());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMyReports();
+      _loadProfileSummary();
+    });
   }
 
   Future<void> _loadMyReports() async {
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
     if (reports != null && mounted) {
       ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+    }
+  }
+
+  /// 💡 감사 이슈(#4): 마이페이지 목업 대신 실데이터 로드.
+  /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
+  /// 제보 수(/api/report/my) + 찜 수(/api/favorites)를 채웁니다.
+  Future<void> _loadProfileSummary() async {
+    final auth = ref.read(authStateProvider);
+    if (!auth.isLoggedIn) return;
+
+    // 1) 프로필 (닉네임/이메일/지역/관심 카테고리)
+    try {
+      final profile = await UserProfileApiService().fetchProfile();
+      if (profile != null && mounted) {
+        final rawCategories = profile['favoriteCategories'];
+        final categories = rawCategories is List
+            ? rawCategories.map((e) => e.toString()).toList()
+            : null;
+        ref.read(userProfileProvider.notifier).update(
+              (state) => state.copyWith(
+                nickname: profile['nickname']?.toString(),
+                email: profile['email']?.toString().isNotEmpty == true
+                    ? profile['email'].toString()
+                    : auth.email,
+                region: profile['region']?.toString(),
+                favoriteCategories: categories,
+              ),
+            );
+      } else if (mounted) {
+        // 프로필 미등록 사용자라도 로그인 이메일은 표시
+        ref
+            .read(userProfileProvider.notifier)
+            .update((state) => state.copyWith(email: auth.email));
+      }
+    } catch (e) {
+      debugPrint('마이페이지 프로필 로드 오류: $e');
+    }
+
+    // 2) 이번 달 절약 금액
+    try {
+      final res = await http
+          .get(
+            ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (res.statusCode == 200 && mounted) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        final saved = (data['totalSavedAmount'] as num?)?.toInt() ?? 0;
+        final visits = (data['totalVisits'] as num?)?.toInt() ?? 0;
+        ref.read(userProfileProvider.notifier).update(
+              (state) => state.copyWith(savedAmount: saved, visitCount: visits),
+            );
+      }
+    } catch (e) {
+      debugPrint('마이페이지 절약 통계 로드 오류: $e');
+    }
+
+    // 3) 찜한 매장 수
+    try {
+      final res = await http
+          .get(
+            ApiClient.uri('/api/favorites'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (res.statusCode == 200 && mounted) {
+        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+        final count = decoded is List ? decoded.length : 0;
+        ref
+            .read(userProfileProvider.notifier)
+            .update((state) => state.copyWith(favoriteStoreCount: count));
+      }
+    } catch (e) {
+      debugPrint('마이페이지 찜 수 로드 오류: $e');
+    }
+
+    // 4) 제보 수
+    try {
+      final res = await http
+          .get(
+            ApiClient.uri('/api/report/my'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (res.statusCode == 200 && mounted) {
+        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+        final count = decoded is List ? decoded.length : 0;
+        ref
+            .read(userProfileProvider.notifier)
+            .update((state) => state.copyWith(reportCount: count));
+      }
+    } catch (e) {
+      debugPrint('마이페이지 제보 수 로드 오류: $e');
     }
   }
 
