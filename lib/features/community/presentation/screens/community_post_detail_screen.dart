@@ -3,9 +3,13 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
 
 class CommunityPostDetailScreen extends StatefulWidget {
-  const CommunityPostDetailScreen({super.key});
+  final String postId;
+  const CommunityPostDetailScreen({super.key, this.postId = ''});
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -54,6 +58,50 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   ];
 
   bool _notifyEnabled = true;
+  bool _isLoading = false;
+  bool _hasError = false;
+  Map<String, dynamic>? _postData;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDetail();
+  }
+
+  Future<void> _fetchDetail() async {
+    if (widget.postId.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/community/feed/${widget.postId}'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _postData = decoded;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('게시글 상세 조회 오류: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -133,42 +181,66 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               top: topOffset + 48.878,
               right: 0,
               bottom: 0,
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  CommunityPostDetailScreen.contentLeft,
-                  15.99,
-                  CommunityPostDetailScreen.contentRight,
-                  bottomBarHeight + 24,
-                ),
-                children: [
-                  _PostCard(
-                    notifyEnabled: _notifyEnabled,
-                    onNotifyTap: () =>
-                        setState(() => _notifyEnabled = !_notifyEnabled),
-                  ),
-                  const SizedBox(height: 14.66),
-                  Text(
-                    '댓글 ${_comments.length}개',
-                    style: const TextStyle(
-                      color: CommunityPostDetailScreen.muted,
-                      fontFamily: CommunityPostDetailScreen.fontFamily,
-                      fontFamilyFallback:
-                          CommunityPostDetailScreen.fontFallback,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      height: 1.5,
-                      letterSpacing: .5,
-                    ),
-                  ),
-                  const SizedBox(height: 8.5),
-                  ..._comments.map(
-                    (comment) => Padding(
-                      padding: const EdgeInsets.only(bottom: 11.989),
-                      child: _CommentCard(comment: comment),
-                    ),
-                  ),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF2563EB),
+                      ),
+                    )
+                  : _hasError
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.cloud_off_outlined, color: CommunityPostDetailScreen.muted, size: 36),
+                              const SizedBox(height: 10),
+                              const Text('게시글을 불러오지 못했어요', style: TextStyle(color: CommunityPostDetailScreen.ink, fontSize: 13, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 4),
+                              const Text('네트워크 상태를 확인하고 다시 시도해주세요', style: TextStyle(color: CommunityPostDetailScreen.muted, fontSize: 11)),
+                              const SizedBox(height: 12),
+                              OutlinedButton(onPressed: _fetchDetail, child: const Text('다시 시도')),
+                            ],
+                          ),
+                        )
+                      : _postData == null
+                      ? const Center(child: Text('게시글을 찾을 수 없습니다.'))
+                      : ListView(
+                          padding: EdgeInsets.fromLTRB(
+                            CommunityPostDetailScreen.contentLeft,
+                            15.99,
+                            CommunityPostDetailScreen.contentRight,
+                            bottomBarHeight + 24,
+                          ),
+                          children: [
+                            _PostCard(
+                              postData: _postData,
+                              notifyEnabled: _notifyEnabled,
+                              onNotifyTap: () => setState(
+                                  () => _notifyEnabled = !_notifyEnabled),
+                            ),
+                            const SizedBox(height: 14.66),
+                            Text(
+                              '댓글 ${_comments.length}개',
+                              style: const TextStyle(
+                                color: CommunityPostDetailScreen.muted,
+                                fontFamily: CommunityPostDetailScreen.fontFamily,
+                                fontFamilyFallback:
+                                    CommunityPostDetailScreen.fontFallback,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                height: 1.5,
+                                letterSpacing: .5,
+                              ),
+                            ),
+                            const SizedBox(height: 8.5),
+                            ..._comments.map(
+                              (comment) => Padding(
+                                padding: const EdgeInsets.only(bottom: 11.989),
+                                child: _CommentCard(comment: comment),
+                              ),
+                            ),
+                          ],
+                        ),
             ),
             Positioned(
               left: 0,
@@ -354,13 +426,51 @@ class _PostHeader extends StatelessWidget {
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.notifyEnabled, required this.onNotifyTap});
+  const _PostCard({
+    required this.postData,
+    required this.notifyEnabled,
+    required this.onNotifyTap,
+  });
 
+  final Map<String, dynamic>? postData;
   final bool notifyEnabled;
   final VoidCallback onNotifyTap;
 
   @override
   Widget build(BuildContext context) {
+    if (postData == null) return const SizedBox.shrink();
+
+    final String title = postData!['title']?.toString() ?? '';
+    final String author = postData!['author']?.toString() ?? '알 수 없음';
+    final String location = postData!['location']?.toString() ?? '알 수 없음';
+    final String createdAt = postData!['createdAt']?.toString() ?? '';
+    final String rawStatus = postData!['status']?.toString() ?? 'PENDING';
+    final int likes = (postData!['likes'] as num?)?.toInt() ?? 0;
+    final int comments = (postData!['comments'] as num?)?.toInt() ?? 0;
+
+    final String storeName = postData!['storeName']?.toString() ?? '';
+    final String address = postData!['address']?.toString() ?? '';
+    final String phoneNumber = postData!['phoneNumber']?.toString() ?? '';
+    final String menu1 = postData!['menu1']?.toString() ?? '';
+    final String price1 = postData!['price1']?.toString() ?? '';
+    final String menu2 = postData!['menu2']?.toString() ?? '';
+    final String price2 = postData!['price2']?.toString() ?? '';
+    final String menu3 = postData!['menu3']?.toString() ?? '';
+    final String price3 = postData!['price3']?.toString() ?? '';
+    final String menu4 = postData!['menu4']?.toString() ?? '';
+    final String price4 = postData!['price4']?.toString() ?? '';
+    final bool visitedRecently = postData!['visitedRecently'] == true;
+    final bool checkedMenuPrice = postData!['checkedMenuPrice'] == true;
+    final List<dynamic> imageUrls = postData!['imageUrls'] ?? [];
+
+    final String authorInitial = author.isNotEmpty ? author[0] : '알';
+    final Color avatarBg = rawStatus.toUpperCase() == 'PENDING'
+        ? CommunityPostDetailScreen.softBlue
+        : CommunityPostDetailScreen.softOrange;
+    final Color avatarText = rawStatus.toUpperCase() == 'PENDING'
+        ? CommunityPostDetailScreen.blue
+        : CommunityPostDetailScreen.orange;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(
         AppSizes.horizontalPadding,
@@ -380,23 +490,29 @@ class _PostCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
+            children: [
               _AvatarBadge(
-                label: '강',
-                backgroundColor: CommunityPostDetailScreen.softOrange,
-                textColor: CommunityPostDetailScreen.orange,
+                label: authorInitial,
+                backgroundColor: avatarBg,
+                textColor: avatarText,
                 size: 31.989,
                 fontSize: 13,
               ),
-              SizedBox(width: 7.997),
-              Expanded(child: _AuthorMeta()),
-              _PostStatusBadge(),
+              const SizedBox(width: 7.997),
+              Expanded(
+                child: _AuthorMeta(
+                  author: author,
+                  date: createdAt,
+                  location: location,
+                ),
+              ),
+              _PostStatusBadge(status: rawStatus),
             ],
           ),
           const SizedBox(height: 11.989),
-          const Text(
-            '동네카페 아메리카노 2,500원으로 가격 인상됐어요',
-            style: TextStyle(
+          Text(
+            title,
+            style: const TextStyle(
               color: CommunityPostDetailScreen.ink,
               fontFamily: CommunityPostDetailScreen.fontFamily,
               fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
@@ -406,49 +522,172 @@ class _PostCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8.99),
-          const Text(
-            '어제 갔더니 2,000원에서 2,500원으로 올랐어요. 메뉴판 사진도 찍어왔어요. 앱에 아직 반영이 안 된 것 같아서 제보합니다.',
-            style: TextStyle(
-              color: CommunityPostDetailScreen.ink,
-              fontFamily: CommunityPostDetailScreen.fontFamily,
-              fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.6,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            height: 90,
-            decoration: BoxDecoration(
+          if (imageUrls.isNotEmpty) ...[
+            ClipRRect(
               borderRadius: BorderRadius.circular(14),
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  CommunityPostDetailScreen.softOrange,
-                  CommunityPostDetailScreen.softBlue,
-                ],
+              child: Image.network(
+                imageUrls.first.toString(),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  height: 90,
+                  color: Colors.grey.shade100,
+                  alignment: Alignment.center,
+                  child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                ),
               ),
             ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.image_outlined,
-              color: CommunityPostDetailScreen.muted,
-              size: 22,
+            const SizedBox(height: 10),
+          ] else ...[
+            Container(
+              height: 90,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    CommunityPostDetailScreen.softOrange,
+                    CommunityPostDetailScreen.softBlue,
+                  ],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.image_outlined,
+                color: CommunityPostDetailScreen.muted,
+                size: 22,
+              ),
             ),
-          ),
-          const SizedBox(height: 11.989),
+            const SizedBox(height: 10),
+          ],
+
+          if (storeName.isNotEmpty) ...[
+            const Divider(color: CommunityPostDetailScreen.border, height: 24),
+            Row(
+              children: [
+                const Icon(Icons.storefront_rounded, color: CommunityPostDetailScreen.blue, size: 16),
+                const SizedBox(width: 6),
+                const Text(
+                  '제보 매장 정보',
+                  style: TextStyle(
+                    color: CommunityPostDetailScreen.ink,
+                    fontFamily: CommunityPostDetailScreen.fontFamily,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              storeName,
+              style: const TextStyle(
+                color: CommunityPostDetailScreen.ink,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (address.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                address,
+                style: const TextStyle(
+                  color: CommunityPostDetailScreen.muted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+            if (phoneNumber.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                '전화번호: $phoneNumber',
+                style: const TextStyle(
+                  color: CommunityPostDetailScreen.muted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ],
+
+          if (menu1.isNotEmpty) ...[
+            const Divider(color: CommunityPostDetailScreen.border, height: 24),
+            Row(
+              children: [
+                const Icon(Icons.sell_outlined, color: CommunityPostDetailScreen.orange, size: 14),
+                const SizedBox(width: 6),
+                const Text(
+                  '제보 가격 정보',
+                  style: TextStyle(
+                    color: CommunityPostDetailScreen.ink,
+                    fontFamily: CommunityPostDetailScreen.fontFamily,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            _buildMenuRow(menu1, price1),
+            if (menu2.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _buildMenuRow(menu2, price2),
+            ],
+            if (menu3.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _buildMenuRow(menu3, price3),
+            ],
+            if (menu4.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _buildMenuRow(menu4, price4),
+            ],
+          ],
+
+          if (visitedRecently || checkedMenuPrice) ...[
+            const Divider(color: CommunityPostDetailScreen.border, height: 24),
+            Row(
+              children: [
+                if (visitedRecently) ...[
+                  const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 14),
+                  const SizedBox(width: 4),
+                  const Text(
+                    '최근 방문',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF10B981),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                if (checkedMenuPrice) ...[
+                  const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 14),
+                  const SizedBox(width: 4),
+                  const Text(
+                    '메뉴판 직접 확인',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF10B981),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+
+          const Divider(color: CommunityPostDetailScreen.border, height: 24),
           Row(
             children: [
-              const _PostMetric(
+              _PostMetric(
                 icon: Icons.thumb_up_alt_outlined,
-                label: '도움이 돼요 12',
+                label: '도움이 돼요 $likes',
               ),
               const SizedBox(width: AppSizes.itemSpacing),
-              const _PostMetric(
+              _PostMetric(
                 icon: Icons.mode_comment_outlined,
-                label: '댓글 2',
+                label: '댓글 $comments',
               ),
               const Spacer(),
               GestureDetector(
@@ -485,19 +724,54 @@ class _PostCard extends StatelessWidget {
       ),
     );
   }
+
+  Widget _buildMenuRow(String name, String price) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          name,
+          style: const TextStyle(
+            color: CommunityPostDetailScreen.ink,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          price,
+          style: const TextStyle(
+            color: CommunityPostDetailScreen.blue,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _AuthorMeta extends StatelessWidget {
-  const _AuthorMeta();
+  const _AuthorMeta({
+    required this.author,
+    required this.date,
+    required this.location,
+  });
+
+  final String author;
+  final String date;
+  final String location;
 
   @override
   Widget build(BuildContext context) {
+    final displayDate = date.isNotEmpty && date.length >= 10 ? date.substring(0, 10).replaceAll('-', '.') : date;
+    final metaText = displayDate.isNotEmpty ? '$displayDate · $location' : location;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
-          '강남직장인',
-          style: TextStyle(
+          author,
+          style: const TextStyle(
             color: CommunityPostDetailScreen.ink,
             fontFamily: CommunityPostDetailScreen.fontFamily,
             fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
@@ -507,8 +781,8 @@ class _AuthorMeta extends StatelessWidget {
           ),
         ),
         Text(
-          '2026.05.14 · 역삼동',
-          style: TextStyle(
+          metaText,
+          style: const TextStyle(
             color: CommunityPostDetailScreen.muted,
             fontFamily: CommunityPostDetailScreen.fontFamily,
             fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
@@ -523,15 +797,35 @@ class _AuthorMeta extends StatelessWidget {
 }
 
 class _PostStatusBadge extends StatelessWidget {
-  const _PostStatusBadge();
+  const _PostStatusBadge({required this.status});
+
+  final String status;
 
   @override
   Widget build(BuildContext context) {
+    final String label = switch (status.toUpperCase()) {
+      'APPROVED' => '승인 완료',
+      'PENDING' => '검토 중',
+      _ => '가격 변동',
+    };
+
+    final Color color = switch (status.toUpperCase()) {
+      'APPROVED' => const Color(0xFF10B981),
+      'PENDING' => CommunityPostDetailScreen.orange,
+      _ => CommunityPostDetailScreen.orange,
+    };
+
+    final Color bgColor = switch (status.toUpperCase()) {
+      'APPROVED' => const Color(0xFFE8F8F1),
+      'PENDING' => CommunityPostDetailScreen.softOrange,
+      _ => CommunityPostDetailScreen.softOrange,
+    };
+
     return Container(
       width: 70.497,
       height: 20.994,
       decoration: BoxDecoration(
-        color: CommunityPostDetailScreen.softOrange,
+        color: bgColor,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -540,16 +834,16 @@ class _PostStatusBadge extends StatelessWidget {
           Container(
             width: 5,
             height: 5,
-            decoration: const BoxDecoration(
-              color: CommunityPostDetailScreen.orange,
+            decoration: BoxDecoration(
+              color: color,
               shape: BoxShape.circle,
             ),
           ),
           const SizedBox(width: 4),
-          const Text(
-            '가격 변동',
+          Text(
+            label,
             style: TextStyle(
-              color: CommunityPostDetailScreen.orange,
+              color: color,
               fontFamily: CommunityPostDetailScreen.fontFamily,
               fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
               fontSize: 10,

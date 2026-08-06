@@ -188,7 +188,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _route(AppRoutes.communityPostDetail, const CommunityPostDetailScreen()),
+      GoRoute(
+        path: AppRoutes.communityPostDetail,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: CommunityPostDetailScreen(
+            postId: state.uri.queryParameters['id'] ?? '',
+          ),
+        ),
+      ),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(
         AppRoutes.notificationSettings,

@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -34,18 +37,211 @@ class CommunityFeedScreen extends StatefulWidget {
 class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   int _selectedFilterIndex = 0;
   int _selectedLocationIndex = 0;
+  bool _isLoading = false;
+  bool _hasError = false;
+  List<dynamic> _rawFeeds = [];
 
   static const _locations = ['역삼동', '합정동'];
 
+  @override
+  void initState() {
+    super.initState();
+    _fetchFeeds();
+  }
+
+  Future<void> _fetchFeeds() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final response = await http.get(
+        ApiClient.uri('/api/community/feed'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _rawFeeds = decoded is List ? decoded : [];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('커뮤니티 피드 조회 오류: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
+
   List<_FeedItem> get _visibleFeedItems {
     final location = _locations[_selectedLocationIndex];
-    final items = _feedItems.where((item) => item.location == location);
+    final List<_FeedItem> items = _rawFeeds.map((data) {
+      final String id = data['id']?.toString() ?? '';
+      final String loc = data['location']?.toString() ?? '알 수 없음';
+      final String title = data['title']?.toString() ?? '';
+      final String author = data['author']?.toString() ?? '알 수 없음';
+      final int likes = (data['likes'] as num?)?.toInt() ?? 0;
+      final int comments = (data['comments'] as num?)?.toInt() ?? 0;
+      final String rawStatus = data['status']?.toString() ?? 'PENDING';
+
+      final String status = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => '승인 완료',
+        'PENDING' => '검토 중',
+        _ => '가격 변동',
+      };
+
+      final Color statusColor = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => CommunityFeedScreen.green,
+        'PENDING' => const Color(0xFF92400E),
+        _ => CommunityFeedScreen.orange,
+      };
+
+      final Color statusBackground = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => const Color(0xFFE8F8F1),
+        'PENDING' => const Color(0xFFFEF3C7),
+        _ => const Color(0xFFFFF3EA),
+      };
+
+      final Color? dotColor = rawStatus.toUpperCase() == 'PENDING'
+          ? CommunityFeedScreen.amber
+          : null;
+
+      final bool compactStatus = rawStatus.toUpperCase() == 'PENDING';
+
+      final hash = id.hashCode.abs();
+      final List<Color> bgColors = [
+        const Color(0xFFFFE4D4),
+        const Color(0xFFE0E7FF),
+        const Color(0xFFDCFCE7),
+        const Color(0xFFF3E8FF),
+      ];
+      final Color imageBackground = bgColors[hash % bgColors.length];
+
+      return _FeedItem(
+        id: id,
+        location: loc,
+        title: title,
+        author: author,
+        likes: likes,
+        comments: comments,
+        status: status,
+        statusColor: statusColor,
+        statusBackground: statusBackground,
+        imageBackground: imageBackground,
+        dotColor: dotColor,
+        compactStatus: compactStatus,
+      );
+    }).toList();
+
+    // 지역 필터는 일치 항목이 있을 때만 적용 — 실데이터는 지역값이 다양('구로구' 등)이라
+    // 정확 일치 시 빈 화면이 되는 문제 방지. 일치 항목이 없으면 전체 표시.
+    final matched = items.where((item) => item.location == location).toList();
+    final List<_FeedItem> scoped = matched.isNotEmpty ? matched : items;
 
     return switch (_selectedFilterIndex) {
-      1 => items.where((item) => item.status == '가격 변동').toList(),
-      2 => (items.toList()..sort((a, b) => b.likes.compareTo(a.likes))),
-      _ => items.toList(),
+      1 => scoped.where((item) => item.status == '가격 변동').toList(),
+      2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
+      _ => scoped,
     };
+  }
+
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF2563EB),
+        ),
+      );
+    }
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: CommunityFeedScreen.hint,
+              size: 36,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '피드를 불러오지 못했어요',
+              style: TextStyle(
+                color: CommunityFeedScreen.ink,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '네트워크 상태를 확인하고 다시 시도해주세요',
+              style: TextStyle(
+                color: CommunityFeedScreen.muted,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _fetchFeeds,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+    final items = _visibleFeedItems;
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          '아직 제보가 없어요. 첫 제보를 남겨보세요!',
+          style: TextStyle(
+            color: CommunityFeedScreen.muted,
+            fontFamily: CommunityFeedScreen.fontFamily,
+            fontFamilyFallback: CommunityFeedScreen.fontFallback,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 11.989),
+                child: _FeedCard(
+                  title: item.title,
+                  author: item.author,
+                  likes: item.likes,
+                  comments: item.comments,
+                  status: item.status,
+                  statusColor: item.statusColor,
+                  statusBackground: item.statusBackground,
+                  imageBackground: item.imageBackground,
+                  dotColor: item.dotColor,
+                  compactStatus: item.compactStatus,
+                  onTap: () => context.push(
+                    '${AppRoutes.communityPostDetail}?id=${item.id}',
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 
   void _cycleLocation() {
@@ -100,31 +296,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             top: topOffset + 150.64,
             right: 20,
             bottom: bottomNavHeight + 85,
-            child: SingleChildScrollView(
-              child: Column(
-                children: _visibleFeedItems
-                    .map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 11.989),
-                        child: _FeedCard(
-                          title: item.title,
-                          author: item.author,
-                          likes: item.likes,
-                          comments: item.comments,
-                          status: item.status,
-                          statusColor: item.statusColor,
-                          statusBackground: item.statusBackground,
-                          imageBackground: item.imageBackground,
-                          dotColor: item.dotColor,
-                          compactStatus: item.compactStatus,
-                          onTap: () =>
-                              context.push(AppRoutes.communityPostDetail),
-                        ),
-                      ),
-                    )
-                    .toList(),
-              ),
-            ),
+            child: _buildContent(),
           ),
           Positioned(
             left: AppSizes.horizontalPadding,
@@ -642,6 +814,7 @@ class _StatusBadge extends StatelessWidget {
 
 class _FeedItem {
   const _FeedItem({
+    required this.id,
     required this.location,
     required this.title,
     required this.author,
@@ -655,6 +828,7 @@ class _FeedItem {
     this.compactStatus = false,
   });
 
+  final String id;
   final String location;
   final String title;
   final String author;
@@ -667,41 +841,3 @@ class _FeedItem {
   final Color? dotColor;
   final bool compactStatus;
 }
-
-const _feedItems = [
-  _FeedItem(
-    location: '합정동',
-    title: '골목밥상 제육덮밥 6,000원',
-    author: '절약왕민수',
-    likes: 32,
-    comments: 8,
-    status: '승인 완료',
-    statusColor: CommunityFeedScreen.green,
-    statusBackground: Color(0xFFE8F8F1),
-    imageBackground: Color(0xFFFFE4D4),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '동네카페 아메리카노 2,500원으로 인상',
-    author: '강남직장인',
-    likes: 12,
-    comments: 4,
-    status: '가격 변동',
-    statusColor: CommunityFeedScreen.orange,
-    statusBackground: Color(0xFFFFF3EA),
-    imageBackground: Color(0xFFE0E7FF),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '착한미용실 남성컷 8,000원',
-    author: '동네탐험가',
-    likes: 21,
-    comments: 6,
-    status: '검토 중',
-    statusColor: Color(0xFF92400E),
-    statusBackground: Color(0xFFFEF3C7),
-    imageBackground: Color(0xFFDCFCE7),
-    dotColor: CommunityFeedScreen.amber,
-    compactStatus: true,
-  ),
-];
