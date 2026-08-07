@@ -16,6 +16,8 @@ class TodaysPickItem {
   final Color badgeColor;
   final Color badgeBg;
   final List<String> tags;
+  final String? theme;
+  final String? reason;
 
   TodaysPickItem({
     required this.id,
@@ -28,6 +30,8 @@ class TodaysPickItem {
     required this.badgeColor,
     required this.badgeBg,
     required this.tags,
+    this.theme,
+    this.reason,
   });
 }
 
@@ -90,14 +94,22 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       final distance = p['distanceMeters'] != null
           ? '${p['distanceMeters']}m'
           : '${300 + idx * 150}m';
-      final tip = weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
-          ? '☔ 비 오는 날 추천'
-          : (temp != null && temp >= 28 ? '🌡️ 더운 날 시원한 메뉴' : '✨ 오늘의 추천');
+      // 백엔드가 낸 reason(이유 멘트)이 있으면 그걸 우선 사용, 없으면 기존 날씨 문구 폼백
+      final backendReason = p['reason'] as String?;
+      final backendTheme = p['theme'] as String?;
+      final backendMenu = p['matchedMenu'] as String?;
+      final tip = backendReason != null && backendReason.isNotEmpty
+          ? backendReason
+          : (weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
+              ? '☔ 비 오는 날 추천'
+              : (temp != null && temp >= 28 ? '🌡️ 더운 날 시원한 메뉴' : '✨ 오늘의 추천'));
 
       return TodaysPickItem(
         id: '${idx + 1}',
         storeName: p['storeName'] ?? '알 수 없음',
-        menuName: p['menu1'] ?? '메뉴 정보 없음',
+        menuName: backendMenu != null && backendMenu.isNotEmpty
+            ? backendMenu
+            : (p['menu1'] ?? '메뉴 정보 없음'),
         price: p['price1'] != null ? '${p['price1']}원' : '가격 정보 없음',
         tipText: tip,
         distance: distance,
@@ -105,6 +117,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         badgeColor: const Color(0xFF2563EB),
         badgeBg: const Color(0xFFEFF4FF),
         tags: ['날씨 기반', '가까운 거리', '저렴한 가격'],
+        theme: backendTheme,
+        reason: backendReason,
       );
     }).toList();
   }
@@ -330,6 +344,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                             menuName: item.menuName,
                                             price: item.price,
                                             tipText: item.tipText,
+                                            theme: item.theme,
                                           ),
                                         );
                                       }),
@@ -481,6 +496,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     required String menuName,
     required String price,
     required String tipText,
+    String? theme,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -537,38 +553,66 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeBg,
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: badgeColor,
-                                shape: BoxShape.circle,
-                              ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              badgeText,
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontFamilyFallback: const ['Noto Sans KR'],
-                                color: badgeColor,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: badgeColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  badgeText,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: const ['Noto Sans KR'],
+                                    color: badgeColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
+                          if (theme != null && theme.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF3EA),
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              child: Text(
+                                theme,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFFF97316),
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
                       Text(
                         distance,
