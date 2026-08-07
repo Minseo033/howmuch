@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: 9761b44 (8/7 태관 찜 연동 + 찜 후속 2건(docId 이스케이프·매장 메타)까지 완료 — **4주차 과제 전원 완료**)
+> 최신 main: 984c32a (8/7 태관 찜 연동 + 찜 후속 2건 + 커뮤니티 위치 현위치화까지 완료 — **4주차 과제 전원 완료**)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -170,6 +170,7 @@
 
 1. **감사 #6 — 찜 docId 이스케이프 (BE)**: FirebaseService favoriteDocId에 sanitizeForDocId 추가 ('_'→'__', '/'→'_s' 순 이스케이프 — 단사 함수라 매장명 충돌 없음). 매장명에 '/' 있어도 찜 정상 동작. removeFavorite는 구 형식(비이스케이프) docId도 함께 삭제해 이전 데이터 호환 유지.
 2. **찜 카드 매장 메타 (BE+FE)**: GET/POST /api/favorites 응답에 industry·menu1·price1·address 추가 — 공공데이터 인메모리 캐시에서 매장명 매칭이라 **Firestore 읽기 0** (제보 매장 등 캐시 미스는 null → 프론트는 기존 placeholder 유지). FavoriteResponse DTO 4필드 추가. 프론트 FavoriteStoreModel.fromJson이 메타 표시: 배지 '착한가격업소', 업종별 이모지, 대표메뉴, 가격("5000"→"5,000원" 수동 포맷 — intl 의존성 추가 회피).
+3. **커뮤니티 피드 위치 현위치화 (984c32a, FE)**: 사용자 리포트로 발견 — 피드 상단 위치 칩이 목업 '역삼동/합정동' 탭-순환이었음. geolocator 현위치 → 카카오 coord2regioncode 역지오코딩(profile_setup_screen과 동일 패턴·키)으로 행정동명(region_3depth_name, region_type='H' 우선) 표시. 조회 전 '내 동네', 권한 거부/실패 시 '전체' 폼백 (피드 목록은 어차피 전체 표시라 기능 영향 없음). 탭-순환 제거(칩은 읽기 전용). analyze 57(main 동일) + build web ✅ + 배포 완료.
 - 검증: compileJava ✅ + flutter analyze 57(main과 동일·신규 0) ✅ + build web ✅ → 커밋 후 push/배포
 - ⚠️ **이번 세션 함정**: replace_in_file 도중 세션 비정상 종료가 2건 발생하며 파일이 손상됨 — ① FirebaseService.java 첫 줄에 'ㅡ' 오타 삽입 → compileJava가 "class, interface, enum, or record expected"를 전 줄에 다발 (원인은 첫 줄 1글자) ② mypage_state.dart 문자열 깨짐 + '!!' 중복. **교훈: 편집 후 `git diff | grep '^+'`로 의도한 변경만 들어갔는지 반드시 확인** — 손상 잔해는 diff에서 바로 보임.
 
