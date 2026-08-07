@@ -8,6 +8,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -57,16 +58,20 @@ public class WeatherService {
             String baseDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             String baseTime = latestBaseTime(now);
 
-            // Decoding 키 기준 — '+', '/', '=' 등 특수문자를 명시적 인코딩 (미인코딩 시 '+'가 공백으로 깨짐)
-            String encodedKey = URLEncoder.encode(weatherApiKey, StandardCharsets.UTF_8);
+            // 포털 키 2종 모두 지원: Encoding 키(% 포함)는 그대로, Decoding 키는 인코딩해서 전달
+            // (Decoding 키의 '+'는 쿼리에서 공백으로 깨지고, Encoding 키를 또 인코딩하면 %25 이중 인코딩됨)
+            String serviceKey = weatherApiKey.contains("%")
+                    ? weatherApiKey
+                    : URLEncoder.encode(weatherApiKey, StandardCharsets.UTF_8);
             String url = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
-                    + "?serviceKey=" + encodedKey
+                    + "?serviceKey=" + serviceKey
                     + "&numOfRows=100&pageNo=1&dataType=JSON"
                     + "&base_date=" + baseDate
                     + "&base_time=" + baseTime
                     + "&nx=" + nx + "&ny=" + ny;
 
-            String response = restTemplate.getForObject(url, String.class);
+            // URI 객체로 전달해 RestTemplate의 재인코딩(이스케이프) 방지
+            String response = restTemplate.getForObject(URI.create(url), String.class);
             JsonNode root = objectMapper.readTree(response);
             JsonNode items = root.path("response").path("body").path("items").path("item");
 
