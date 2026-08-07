@@ -724,7 +724,29 @@ public class FirebaseService {
 
     /** 찜 문서 ID: 유저당 매장 1개 찜만 허용 (멱등 추가/삭제용) */
     private String favoriteDocId(String firebaseUid, String storeId) {
-        return firebaseUid + "_" + storeId;
+        return firebaseUid + "_" + sanitizeForDocId(storeId);
+    }
+
+    /**
+     * Firestore 문서 ID에는 '/'를 쓸 수 없어 매장명에 슬래시가 있으면 찜이 실패함 (8/4 감사 #6).
+     * '_' → '__', '/' → '_s' 순으로 이스케이프 (단사 함수라 서로 다른 매장명이 같은 ID로 충돌하지 않음).
+     */
+    private String sanitizeForDocId(String storeId) {
+        if (storeId == null) return "";
+        return storeId.replace("_", "__").replace("/", "_s");
+    }
+
+    /** 공공데이터 인메모리 캐시에서 매장명으로 매장 정보 조회 (Firestore 읽기 0). 없으면 null */
+    private Map<String, Object> findGovStoreByName(String storeName) {
+        if (storeName == null || storeName.isBlank()) return null;
+        return cachedStores.stream()
+                .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String strOrNull(Object value) {
+        return value != null ? value.toString() : null;
     }
 
     // 💡 찜 추가 (멱등: 같은 매장 재추가 시 덮어쓰기, 중복 문서 생성 안 됨)
@@ -740,11 +762,17 @@ public class FirebaseService {
 
         db.collection("favorites").document(docId).set(data).get();
 
+        // 공공데이터 캐시에 매장이 있으면 메타(업종/대표메뉴/가격/주소) 동봉 — 없으면 null (Firestore 읽기 0)
+        Map<String, Object> store = findGovStoreByName(request.getStoreName());
         return com.howmuch.dto.FavoriteResponse.builder()
                 .id(docId)
                 .storeId(request.getStoreId())
                 .storeName(request.getStoreName())
                 .createdAt(createdAt)
+                .industry(store != null ? strOrNull(store.get("industry")) : null)
+                .menu1(store != null ? strOrNull(store.get("menu1")) : null)
+                .price1(store != null ? strOrNull(store.get("price1")) : null)
+                .address(store != null ? strOrNull(store.get("address")) : null)
                 .build();
     }
 
@@ -752,6 +780,11 @@ public class FirebaseService {
     public void removeFavorite(String firebaseUid, String storeId) throws Exception {
         String docId = favoriteDocId(firebaseUid, storeId);
         db.collection("favorites").document(docId).delete().get();
+        // 8/7 docId 이스케이프 도입 전의 구 형식(원본 storeId 그대로) 문서도 함께 삭제 — 기존 찜 데이터 호환
+        String legacyDocId = firebaseUid + "_" + storeId;
+        if (!legacyDocId.equals(docId)) {
+            db.collection("favorites").document(legacyDocId).delete().get();
+        }
     }
 
     // 💡 내 찜 목록 조회 (최신순)
@@ -761,11 +794,18 @@ public class FirebaseService {
                 .get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
+                    String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
+                    // 공공데이터 캐시 매장 메타 동봉 (Firestore 읽기 0) — 제보 매장 등 캐시에 없으면 null
+                    Map<String, Object> store = findGovStoreByName(storeName);
                     return com.howmuch.dto.FavoriteResponse.builder()
                             .id(doc.getId())
                             .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
-                            .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                            .storeName(storeName)
                             .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : null)
+                            .industry(store != null ? strOrNull(store.get("industry")) : null)
+                            .menu1(store != null ? strOrNull(store.get("menu1")) : null)
+                            .price1(store != null ? strOrNull(store.get("price1")) : null)
+                            .address(store != null ? strOrNull(store.get("address")) : null)
                             .build();
                 })
                 .toList());

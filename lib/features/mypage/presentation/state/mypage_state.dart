@@ -466,19 +466,27 @@ class FavoriteStoreModel {
     final storeName = json['storeName']?.toString().trim();
     final storeId = json['storeId']?.toString().trim() ?? '';
     final createdAtText = json['createdAt']?.toString();
+    // 8/7: 백엔드가 공공데이터 인메모리 캐시에서 매칭한 매장 메타(업종/대표메뉴/가격/주소)를 동봉.
+    //      제보 매장 등 캐시 미스 시 null → 기존 placeholder 유지.
+    final industry = json['industry']?.toString().trim();
+    final menu1 = json['menu1']?.toString().trim();
+    final price1 = json['price1']?.toString().trim();
+    final hasMeta = industry != null && industry.isNotEmpty;
 
     return FavoriteStoreModel(
       id: storeId.isNotEmpty ? storeId : json['id']?.toString() ?? '',
-      category: '전체',
-      iconEmoji: _emojiForStoreName(storeName ?? ''),
+      category: hasMeta ? industry : '전체',
+      iconEmoji: _emojiForStore(industry, storeName ?? ''),
       iconBgColor: 0xFFDBEAFE,
-      badgeText: '찜한 매장',
+      badgeText: hasMeta ? '착한가격업소' : '찜한 매장',
       badgeColor: 0xFF2563EB,
       badgeBgColor: 0xFFDBEAFE,
       distance: '저장됨',
       storeName: storeName?.isNotEmpty == true ? storeName! : '매장명 없음',
-      menu: '상세 정보는 매장 화면에서 확인해 주세요',
-      price: '',
+      menu: (menu1 != null && menu1.isNotEmpty)
+          ? menu1
+          : '상세 정보는 매장 화면에서 확인해 주세요',
+      price: _formatPrice(price1),
       priceColor: 0xFF2563EB,
       buttonText: '찜 해제',
       buttonColor: 0xFFFEE2E2,
@@ -513,14 +521,36 @@ class FavoriteStoreModel {
     );
   }
 
-  static String _emojiForStoreName(String name) {
-    if (name.contains('카페') || name.contains('커피')) return '☕';
-    if (name.contains('미용') || name.contains('헤어') || name.contains('이용')) {
+  static String _emojiForStore(String? industry, String name) {
+    final key = '${industry ?? ''} $name';
+    if (key.contains('카페') || key.contains('커피')) return '☕';
+    if (key.contains('미용') || key.contains('헤어') || key.contains('이용')) {
       return '✂️';
     }
-    if (name.contains('세탁')) return '🧺';
-    if (name.contains('분식') || name.contains('국수')) return '🍜';
+    if (key.contains('세탁')) return '🧺';
+    if (key.contains('숙박')) return '🛏️';
+    if (key.contains('목욕')) return '🛁';
+    if (key.contains('중식')) return '🥟';
+    if (key.contains('일식')) return '🍣';
+    if (key.contains('양식')) return '🍝';
+    if (key.contains('분식') || key.contains('국수')) return '🍜';
     return '🍽️';
+  }
+
+  /// "5000" → "5,000원" (숫자 아닌 문자 제거 후 천 단위 구분. 파싱 실패 시 원문 유지)
+  static String _formatPrice(String? price1) {
+    if (price1 == null || price1.isEmpty) return '';
+    final digits = price1.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return price1;
+    final value = int.tryParse(digits);
+    if (value == null) return price1;
+    final s = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(s[i]);
+    }
+    return '$buffer원';
   }
 }
 
