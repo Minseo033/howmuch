@@ -103,7 +103,13 @@ flutter run -d chrome      # Web 미리보기
 
 ## 📸 스크린샷
 
-> 준비 중 — 앱 주요 화면 캡처를 추가할 예정입니다.
+<p>
+  <img src="docs/images/home.png" width="250" alt="홈 지도 — 주변 가성비 매장 탐색"/>
+  <img src="docs/images/explore.png" width="250" alt="탐색 — 실데이터 매장 목록과 오늘의 픽"/>
+  <img src="docs/images/mypage.png" width="250" alt="마이페이지 — 절약 현황과 내 활동"/>
+</p>
+
+<sub>홈 지도(카카오맵 + 가격 마커) · 탐색(검색 + 정부 인증/사용자 제보 배지 + 오늘의 픽) · 마이페이지(이번 달 절약 · 제보/찜 현황)</sub>
 
 ## 👥 팀
 
