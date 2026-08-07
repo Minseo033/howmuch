@@ -204,7 +204,6 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     await ApiClient.setSessionToken(null);
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
-      isAdmin: false,
       provider: '이메일',
       email: '',
     );

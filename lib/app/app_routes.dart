@@ -33,9 +33,6 @@ class AppRoutes {
   static const privacyPolicy = '/mypage/privacy-policy';
   static const termsOfService = '/mypage/terms';
 
-  static const adminReportReview = '/admin/reports';
-  static const adminInquiryReview = '/admin/inquiries';
-
   static const networkError = '/network-error';
   static const searchEmpty = '/search/empty';
   static const searchResult = '/search/result';

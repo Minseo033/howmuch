@@ -26,7 +26,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   static const _muted = Color(0xFF64748B);
   static const _hint = Color(0xFF94A3B8);
   static const _border = Color(0xFFE2E8F0);
-  static const _surface = Color(0xFFF8FAFF);
   static const _chipSelected = Color(0xFF2563EB);
   static const _chipSelectedText = Colors.white;
   static const _chipUnselected = Colors.white;

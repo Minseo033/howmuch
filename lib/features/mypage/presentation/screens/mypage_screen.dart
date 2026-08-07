@@ -156,13 +156,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
-    final auth = ref.watch(authStateProvider);
     final reports = ref.watch(userReportsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    final settingsCardHeight = (auth.isAdmin ? 448.0 : 358.0) + 89.0;
+    const settingsCardHeight = 358.0 + 89.0;
     final scrollContentHeight =
         659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
 
@@ -310,28 +309,6 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
                         onPublicDataTap: () =>
                             context.go(AppRoutes.publicDataSource),
                         onInquiryTap: () => context.go(AppRoutes.inquiry),
-                        isAdmin: auth.isAdmin,
-                        onAdminModeToggle: () {
-                          final next = !auth.isAdmin;
-                          // TODO(박지환 BE): 관리자 권한 API가 붙으면 이 개발용 토글은 제거하고 서버 권한값만 사용하세요.
-                          ref.read(authStateProvider.notifier).state = auth
-                              .copyWith(isAdmin: next);
-                          ScaffoldMessenger.of(context)
-                            ..clearSnackBars()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  next
-                                      ? '개발용 관리자 모드를 켰어요.'
-                                      : '개발용 관리자 모드를 껐어요.',
-                                ),
-                              ),
-                            );
-                        },
-                        onAdminReportTap: () =>
-                            context.push(AppRoutes.adminReportReview),
-                        onAdminInquiryTap: () =>
-                            context.push(AppRoutes.adminInquiryReview),
                         onNetworkErrorTap: () =>
                             context.push(AppRoutes.networkError),
                         onSessionExpiredTap: () =>
@@ -833,10 +810,6 @@ class _SettingsCard extends StatefulWidget {
     required this.onAccountTap,
     required this.onPublicDataTap,
     required this.onInquiryTap,
-    required this.isAdmin,
-    required this.onAdminModeToggle,
-    required this.onAdminReportTap,
-    required this.onAdminInquiryTap,
     required this.onNetworkErrorTap,
     required this.onSessionExpiredTap,
   });
@@ -845,10 +818,6 @@ class _SettingsCard extends StatefulWidget {
   final VoidCallback onAccountTap;
   final VoidCallback onPublicDataTap;
   final VoidCallback onInquiryTap;
-  final bool isAdmin;
-  final VoidCallback onAdminModeToggle;
-  final VoidCallback onAdminReportTap;
-  final VoidCallback onAdminInquiryTap;
   final VoidCallback onNetworkErrorTap;
   final VoidCallback onSessionExpiredTap;
 
@@ -942,22 +911,6 @@ class _SettingsCardState extends State<_SettingsCard> {
             onTap: widget.onInquiryTap,
           ),
           _DividerLine(),
-          _AdminModeRow(value: widget.isAdmin, onTap: widget.onAdminModeToggle),
-          if (widget.isAdmin) ...[
-            _DividerLine(),
-            _SettingRow(
-              icon: Icons.admin_panel_settings_outlined,
-              title: '관리자 제보 검토',
-              onTap: widget.onAdminReportTap,
-            ),
-            _DividerLine(),
-            _SettingRow(
-              icon: Icons.mark_chat_read_outlined,
-              title: '관리자 문의 검토',
-              onTap: widget.onAdminInquiryTap,
-            ),
-          ],
-          _DividerLine(),
           _SettingRow(
             icon: Icons.wifi_off_rounded,
             title: '네트워크 오류 화면',
@@ -1002,52 +955,6 @@ class _ToggleRow extends StatelessWidget {
               Icon(icon, color: MypageScreen.muted, size: 17),
               const SizedBox(width: 11.989),
               Text(title, style: _settingText),
-              const Spacer(),
-              _AdminModeSwitch(value: value),
-              const SizedBox(width: 16.903),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AdminModeRow extends StatelessWidget {
-  const _AdminModeRow({required this.value, required this.onTap});
-
-  final bool value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 43.46590805053711,
-          child: Row(
-            children: [
-              const SizedBox(width: 15.994),
-              const Icon(
-                Icons.science_outlined,
-                color: MypageScreen.muted,
-                size: 17,
-              ),
-              const SizedBox(width: 11.989),
-              const Text('개발용 관리자 모드', style: _settingText),
-              const SizedBox(width: 6),
-              Container(
-                height: 18,
-                padding: const EdgeInsets.symmetric(horizontal: 7),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                alignment: Alignment.center,
-                child: const Text('QA', style: _qaBadgeText),
-              ),
               const Spacer(),
               _AdminModeSwitch(value: value),
               const SizedBox(width: 16.903),
@@ -1279,15 +1186,6 @@ const _settingText = TextStyle(
   fontSize: 13,
   fontWeight: FontWeight.w400,
   height: 1.5,
-);
-
-const _qaBadgeText = TextStyle(
-  color: MypageScreen.blue,
-  fontFamily: MypageScreen.fontFamily,
-  fontFamilyFallback: MypageScreen.fontFallback,
-  fontSize: 9,
-  fontWeight: FontWeight.w800,
-  height: 1.2,
 );
 
 const _allowedText = TextStyle(

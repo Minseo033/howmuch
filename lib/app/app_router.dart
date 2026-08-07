@@ -3,8 +3,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/features/admin/presentation/screens/admin_inquiry_review_screen.dart';
-import 'package:howmuch/features/admin/presentation/screens/admin_report_review_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
@@ -217,8 +215,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _route(AppRoutes.privacyPolicy, const PrivacyPolicyScreen()),
       _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
-      _route(AppRoutes.adminReportReview, const AdminReportReviewScreen()),
-      _route(AppRoutes.adminInquiryReview, const AdminInquiryReviewScreen()),
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),

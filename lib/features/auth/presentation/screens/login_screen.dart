@@ -159,7 +159,6 @@ class LoginScreen extends ConsumerWidget {
       // 💡 타 소셜 로그인은 현재 더미 로직 유지
       ref.read(authStateProvider.notifier).state = AuthState(
         isLoggedIn: true,
-        isAdmin: false,
         provider: provider,
         email: 'user@example.com',
       );
