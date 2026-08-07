@@ -174,6 +174,16 @@
 - 검증: compileJava ✅ + flutter analyze 57(main과 동일·신규 0) ✅ + build web ✅ → 커밋 후 push/배포
 - ⚠️ **이번 세션 함정**: replace_in_file 도중 세션 비정상 종료가 2건 발생하며 파일이 손상됨 — ① FirebaseService.java 첫 줄에 'ㅡ' 오타 삽입 → compileJava가 "class, interface, enum, or record expected"를 전 줄에 다발 (원인은 첫 줄 1글자) ② mypage_state.dart 문자열 깨짐 + '!!' 중복. **교훈: 편집 후 `git diff | grep '^+'`로 의도한 변경만 들어갔는지 반드시 확인** — 손상 잔해는 diff에서 바로 보임.
 
+## 5-8. 5주차(8/11~8/17) 과제 단톡 공지 발송 (8/7)
+
+4주차 전원 완료 공지와 함께 5주차 과제 발송 완료. 요지:
+
+- **지환 (BE)**: GET /api/notifications (내 알림 목록, 최신순) + POST /api/notifications/{id}/read (읽음 처리, 본인 알림만). Firestore `notifications` 컬렉션 신규 (userId/title/body/type/isRead/createdAt). favorites 패턴 참고, uid는 세션 attribute에서만, 목록은 whereEqualTo + 메모리 정렬 (인덱스 불필요). 테스트 데이터 2~3건 수동 삽입 + 완성 시 응답 JSON 단톡 공유 (다나 연동용).
+- **다나 (FE)**: 알림 화면 + 알림 설정 연동. API 나오기 전 로딩/빈/에러 상태부터. analyze 신규 이슈 0 + build web.
+- **태관 (FE)**: 자동 로그인 재구현 — 스플래시 토큰 → /api/user/profile 검증 → 200: authState 복원+홈 / 401: clearSession+로그인 (방법 상세는 5-1 항목2·5-2 참조). CORS 401 수정(4bec04b)으로 전제조건 해소됨. 덤: 게스트가 매장 상세 하트 누륾면 '로그인이 필요해요' 유도 (5-7 ② 보류분과 동일 맥락).
+- **민서 (PM)**: 문의 API + /api/admin/inquiries, 회원 탈퇴(DELETE /api/user), 오늘의 픽(기상청 연동).
+- 공통: 개인 브랜치 커밋 → 통째 머지 금지(선별 이식), main push는 PM이 모아서 (Render 재배포 비용).
+
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
 - Firestore 쿼터: 유저 데이터(리뷰/제보/프로필/방문)만 읽음. 대량 조회 신규 추가 시 캐시 패턴 필수
