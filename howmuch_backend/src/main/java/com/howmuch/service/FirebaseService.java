@@ -1013,4 +1013,216 @@ public class FirebaseService {
                 .checkedMenuPrice(data.get("checkedMenuPrice") != null && Boolean.parseBoolean(data.get("checkedMenuPrice").toString()))
                 .build();
     }
+
+    // ==================== 문의 (inquiries) ====================
+
+    /**
+     * 문의 등록 — Firestore inquiries 컬렉션에 저장.
+     * userId(세션 uid), title, content, category, status(기본 PENDING), createdAt 포함.
+     */
+    public Map<String, Object> createInquiry(String firebaseUid, com.howmuch.dto.InquiryRequest request) throws Exception {
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("title", request.getTitle().trim());
+        data.put("content", request.getContent().trim());
+        data.put("category", request.getCategory() != null ? request.getCategory().trim() : "일반");
+        data.put("status", "PENDING");
+        data.put("createdAt", createdAt);
+
+        DocumentReference docRef = db.collection("inquiries").document();
+        docRef.set(data).get();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", docRef.getId());
+        result.put("status", "PENDING");
+        result.put("createdAt", createdAt);
+        return result;
+    }
+
+    /** 내 문의 목록 조회 (최신순) — 마이페이지 문의 내역용 */
+    public List<Map<String, Object>> getMyInquiries(String firebaseUid) throws Exception {
+        List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("title", data.get("title"));
+                    item.put("content", data.get("content"));
+                    item.put("category", data.get("category"));
+                    item.put("status", data.get("status"));
+                    item.put("createdAt", data.get("createdAt"));
+                    return item;
+                })
+                .toList());
+        inquiries.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return inquiries;
+    }
+
+    /** 어드민: 전체 문의 목록 조회 (최신순) — /api/admin/inquiries */
+    public List<Map<String, Object>> getAllInquiries() throws Exception {
+        List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("userId", data.get("userId"));
+                    item.put("title", data.get("title"));
+                    item.put("content", data.get("content"));
+                    item.put("category", data.get("category"));
+                    item.put("status", data.get("status"));
+                    item.put("createdAt", data.get("createdAt"));
+                    return item;
+                })
+                .toList());
+        inquiries.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return inquiries;
+    }
+
+    // ==================== 오늘의 픽 (todays pick) ====================
+
+    /**
+     * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
+     * Firestore 읽기 0 (cachedStores만 사용).
+     *
+     * @param weather 날씨 요약 (맑음/구름많음/흐림/비/눈/소나기/알 수 없음)
+     * @param temp    기온 (섭씨, null 가능)
+     * @param lat     사용자 위도 (거리 계산용, null 가능)
+     * @param lng     사용자 경도 (거리 계산용, null 가능)
+     * @return 추천 매장 리스트 (최대 4개)
+     */
+    public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
+        List<String> weatherKeywords = weatherKeywords(weather, temp);
+
+        List<Map<String, Object>> weatherMatched = new ArrayList<>();
+        List<Map<String, Object>> allStores = new ArrayList<>(cachedStores);
+
+        for (Map<String, Object> store : allStores) {
+            String industry = strOrNull(store.get("industry"));
+            String menu1 = strOrNull(store.get("menu1"));
+            String combined = (industry != null ? industry : "") + " " + (menu1 != null ? menu1 : "");
+            boolean matched = false;
+            for (String kw : weatherKeywords) {
+                if (combined.contains(kw)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (matched) {
+                weatherMatched.add(store);
+            }
+        }
+
+        List<Map<String, Object>> pool = weatherMatched.isEmpty() ? allStores : weatherMatched;
+
+        List<Map<String, Object>> scored = new ArrayList<>(pool);
+        if (lat != null && lng != null) {
+            scored.sort((a, b) -> Double.compare(
+                    haversine(lat, lng, parseLat(a), parseLng(a)),
+                    haversine(lat, lng, parseLat(b), parseLng(b))));
+        }
+
+        List<Map<String, Object>> picks = new ArrayList<>();
+        for (int i = 0; i < scored.size() && picks.size() < 4; i++) {
+            Map<String, Object> store = scored.get(i);
+            Map<String, Object> pick = new HashMap<>();
+            pick.put("storeName", strOrNull(store.get("storeName")));
+            pick.put("industry", strOrNull(store.get("industry")));
+            pick.put("menu1", strOrNull(store.get("menu1")));
+            pick.put("price1", strOrNull(store.get("price1")));
+            pick.put("address", strOrNull(store.get("address")));
+            pick.put("latitude", store.get("latitude"));
+            pick.put("longitude", store.get("longitude"));
+            if (lat != null && lng != null) {
+                pick.put("distanceMeters", (int) Math.round(haversine(lat, lng, parseLat(store), parseLng(store))));
+            }
+            picks.add(pick);
+        }
+        return picks;
+    }
+
+    /** 날씨/기온 기반 추천 키워드 */
+    private List<String> weatherKeywords(String weather, Integer temp) {
+        List<String> keywords = new ArrayList<>();
+        if (weather == null) weather = "알 수 없음";
+        switch (weather) {
+            case "비", "비/눈", "눈", "소나기" -> {
+                keywords.add("국밥");
+                keywords.add("칼국수");
+                keywords.add("국수");
+                keywords.add("찌개");
+                keywords.add("탕");
+                keywords.add("분식");
+                keywords.add("라면");
+                keywords.add("우동");
+            }
+            case "맑음" -> {
+                if (temp != null && temp >= 28) {
+                    keywords.add("냉면");
+                    keywords.add("빙수");
+                    keywords.add("아이스크림");
+                    keywords.add("샐러드");
+                    keywords.add("주스");
+                } else {
+                    keywords.add("김밥");
+                    keywords.add("분식");
+                    keywords.add("국수");
+                    keywords.add("덮밥");
+                }
+            }
+            case "구름많음", "흐림" -> {
+                keywords.add("국밥");
+                keywords.add("찌개");
+                keywords.add("탕");
+                keywords.add("덮밥");
+                keywords.add("김밥");
+            }
+            default -> {
+                keywords.add("김밥");
+                keywords.add("분식");
+                keywords.add("국수");
+                keywords.add("덮밥");
+            }
+        }
+        return keywords;
+    }
+
+    /** 하버사인 거리 (미터) */
+    private double haversine(double lat1, double lng1, double lat2, double lng2) {
+        double R = 6371000;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private double parseLat(Map<String, Object> store) {
+        try {
+            return Double.parseDouble(String.valueOf(store.get("latitude")));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private double parseLng(Map<String, Object> store) {
+        try {
+            return Double.parseDouble(String.valueOf(store.get("longitude")));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
 }
+

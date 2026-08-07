@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -176,7 +178,30 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
-    // TODO(박지환 BE): 실제 회원 탈퇴 API 호출 후 성공 응답을 받으면 로컬 세션을 종료합니다.
+    // 실제 회원 탈퇴 API 호출
+    try {
+      final url = ApiClient.uri('/api/user');
+      final response = await http
+          .delete(url, headers: ApiClient.jsonHeaders(auth: true))
+          .timeout(ApiClient.defaultTimeout);
+
+      if (!mounted) return;
+      if (response.statusCode != 200) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+        );
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+      );
+      return;
+    }
+
+    // 로컬 세션 종료
+    await ApiClient.setSessionToken(null);
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
       isAdmin: false,
