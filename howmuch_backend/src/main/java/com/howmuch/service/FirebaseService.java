@@ -1117,7 +1117,9 @@ public class FirebaseService {
      * @return 추천 매장 리스트 (최대 4개)
      */
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
-        List<String> weatherKeywords = weatherKeywords(weather, temp);
+        List<PickTheme> themes = weatherThemes(weather, temp);
+        PickTheme mainTheme = themes.get(0);
+        PickTheme altTheme = themes.size() > 1 ? themes.get(1) : null;
 
         // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
         //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
@@ -1129,44 +1131,39 @@ public class FirebaseService {
             }
         }
 
-        // 매칭된 매장 + 실제 매칭된 메뉴를 함께 보관 (카드 표시는 menu1이지만 추천 근거는 matchedMenu)
-        List<Map<String, Object>> weatherMatched = new ArrayList<>();
+        // 테마별 매칭 (매장 → 실제 매칭된 메뉴 추적). 대안 테마는 메인과 겹치지 않게 제외.
+        long dailySeed = java.time.LocalDate.now().toEpochDay();
         Map<String, String> matchedMenuByStore = new HashMap<>();
-        for (Map<String, Object> store : foodStores) {
-            String matchedMenu = findMatchedMenu(store, weatherKeywords);
-            if (matchedMenu != null) {
-                weatherMatched.add(store);
-                matchedMenuByStore.put(String.valueOf(store.get("storeName")), matchedMenu);
-            }
-        }
+        Map<String, String> themeByStore = new HashMap<>();
+        Map<String, String> reasonByStore = new HashMap<>();
 
-        // 날씨 매칭이 1건이라도 있으면 그 풀만, 없으면 식당 전체 풀 사용
-        List<Map<String, Object>> pool = weatherMatched.isEmpty() ? foodStores : weatherMatched;
+        List<Map<String, Object>> mainMatched = matchTheme(foodStores, mainTheme,
+                matchedMenuByStore, themeByStore, reasonByStore, Set.of());
+        List<Map<String, Object>> altMatched = altTheme != null
+                ? matchTheme(foodStores, altTheme,
+                        matchedMenuByStore, themeByStore, reasonByStore,
+                        Set.copyOf(themeByStore.keySet()))
+                : List.of();
 
-        // 거리 기준: 위치가 있으면 가까운 순으로 상위 후보군 선정
-        List<Map<String, Object>> scored = new ArrayList<>(pool);
-        if (lat != null && lng != null) {
-            scored.sort((a, b) -> Double.compare(
-                    haversine(lat, lng, parseLat(a), parseLng(a)),
-                    haversine(lat, lng, parseLat(b), parseLng(b))));
-            // 가까운 상위 20걸 중에서만 선정 (전국 랜덤 노출 방지)
-            if (scored.size() > CANDIDATE_POOL_SIZE) {
-                scored = new ArrayList<>(scored.subList(0, CANDIDATE_POOL_SIZE));
-            }
-        }
+        // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
+        List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
 
-        // 같은 날씨·같은 위치라도 매번 같은 4곳만 나오지 않도록 후보군을 날짜 시드로 섞는다.
-        // (날짜 시드 → 같은 날에는 결과 안정적, 다음 날이면 순서가 바뀜)
-        Collections.shuffle(scored, new Random(java.time.LocalDate.now().toEpochDay()));
+        // 가까운 순 상위 후보군 + 날짜 시드 셔플 (같은 날 안정적, 다음 날 순서 변경)
+        List<Map<String, Object>> mainCandidates = nearestShuffled(mainPool, lat, lng, CANDIDATE_POOL_SIZE, dailySeed);
+        List<Map<String, Object>> altCandidates = nearestShuffled(altMatched, lat, lng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
 
-        // 중복 매장명 제거하며 최대 4개 선정
+        // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
         Set<String> seenNames = new HashSet<>();
-        List<Map<String, Object>> picks = new ArrayList<>();
-        for (Map<String, Object> store : scored) {
-            if (picks.size() >= MAX_PICKS) break;
-            String name = strOrNull(store.get("storeName"));
-            if (name == null || !seenNames.add(name)) continue;
+        List<Map<String, Object>> chosen = new ArrayList<>();
+        addUnique(chosen, mainCandidates, MAIN_PICKS, seenNames);
+        addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
+        if (chosen.size() < MAX_PICKS) {
+            addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+        }
 
+        List<Map<String, Object>> picks = new ArrayList<>();
+        for (Map<String, Object> store : chosen) {
+            String name = strOrNull(store.get("storeName"));
             Map<String, Object> pick = new HashMap<>();
             pick.put("storeName", name);
             pick.put("industry", strOrNull(store.get("industry")));
@@ -1178,81 +1175,139 @@ public class FirebaseService {
             if (lat != null && lng != null) {
                 pick.put("distanceMeters", (int) Math.round(haversine(lat, lng, parseLat(store), parseLng(store))));
             }
-            // 추천 근거 메뉴(실제 매칭된 메뉴)를 함께 낼 수 있도록 matchedMenu 필드 추가
+            // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장은 null → 프론트 기본 멘트)
             pick.put("matchedMenu", matchedMenuByStore.get(name));
+            pick.put("theme", themeByStore.get(name));
+            pick.put("reason", reasonByStore.get(name));
             picks.add(pick);
         }
         return picks;
     }
 
-    /** 날씨/기온 기반 추천 키워드 — 공공데이터 스냅샷에 실제 존재하는 메뉴 기준 */
-    private List<String> weatherKeywords(String weather, Integer temp) {
-        List<String> keywords = new ArrayList<>();
+    /** 메인 테마 추천 개수 (나머지 1개는 대안 테마) */
+    private static final int MAIN_PICKS = 3;
+
+    /** 대안 테마 추천 개수 */
+    private static final int ALT_PICKS = 1;
+
+    /** 대안 테마 후보군 크기 */
+    private static final int ALT_CANDIDATE_POOL_SIZE = 10;
+
+    /** 추천 테마 — 라벨(칩 표시용) + 이유 멘트 + 매칭 키워드 */
+    private record PickTheme(String label, String reason, List<String> keywords) { }
+
+    /**
+     * 날씨/기온 기반 추천 테마 (메인 1개 + 대안 1개).
+     * "덥다고 냉멸만" 같은 단조로움을 피하기 위해 대안 테마를 섞는다
+     * (예: 폭염에도 '이열치열' 삼계탕, 비 오면 국물 + 파전).
+     */
+    private List<PickTheme> weatherThemes(String weather, Integer temp) {
         if (weather == null) weather = "알 수 없음";
         boolean hot = temp != null && temp >= 28;
         boolean cold = temp != null && temp <= 5;
         switch (weather) {
             case "비", "비/눈", "눈", "소나기" -> {
-                // 비·눈에는 따뜻한 국물/면류. "탕"은 탕수육 오매칭 때문에 제외하고 구체 메뉴로.
-                keywords.add("국밥");
-                keywords.add("칼국수");
-                keywords.add("국수");
-                keywords.add("찌개");
-                keywords.add("설렁탕");
-                keywords.add("갈비탕");
-                keywords.add("곰탕");
-                keywords.add("삼계탕");
-                keywords.add("전골");
-                keywords.add("순두부");
-                keywords.add("라면");
-                keywords.add("우동");
-                keywords.add("분식");
+                return List.of(
+                        new PickTheme("따뜻한 국물", "비 오는 날엔 뜨끈한 국물이 최고예요 🍜",
+                                List.of("국밥", "칼국수", "국수", "찌개", "설렁탕", "갈비탕", "곰탕",
+                                        "전골", "순두부", "우동", "수제비", "라면")),
+                        // "전" 단독은 전골 등과 오매칭이라 구체 전 메뉴로 한정
+                        new PickTheme("비 오면 파전", "비 오는 날엔 파전도 빼놓을 수 없죠 🥞",
+                                List.of("파전", "부침개", "김치전", "핼물전", "모둠전")));
             }
             case "맑음", "구름많음", "흐림" -> {
-                // 기온이 우선: 폭염/한파에는 하늘 상태와 무관하게 그에 맞는 메뉴 추천
                 if (hot) {
-                    keywords.add("냉면");
-                    keywords.add("콩국수");
-                    keywords.add("메밀");
-                    keywords.add("빙수");
-                    keywords.add("아이스크림");
-                    keywords.add("샐러드");
-                    keywords.add("주스");
-                } else if (cold) {
-                    keywords.add("국밥");
-                    keywords.add("찌개");
-                    keywords.add("설렁탕");
-                    keywords.add("갈비탕");
-                    keywords.add("곰탕");
-                    keywords.add("전골");
-                    keywords.add("우동");
-                    keywords.add("칼국수");
-                } else {
-                    keywords.add("김밥");
-                    keywords.add("분식");
-                    keywords.add("국수");
-                    keywords.add("덮밥");
+                    return List.of(
+                            new PickTheme("시원한 메뉴", "더운 날엔 시원한 한 끼 어때요? 🧊",
+                                    List.of("냉면", "콩국수", "메밀", "빙수", "아이스크림", "샐러드", "주스")),
+                            new PickTheme("이열치열", "이열치열! 뜨끈한 한 그릇도 별미예요 🔥",
+                                    List.of("삼계탕", "국밥", "설렁탕", "갈비탕", "곰탕")));
                 }
+                if (cold) {
+                    return List.of(
+                            new PickTheme("따뜻한 메뉴", "추운 날엔 따뜻한 국물이 생각나요 🍲",
+                                    List.of("국밥", "찌개", "설렁탕", "갈비탕", "곰탕", "전골", "우동", "칼국수", "수제비")),
+                            new PickTheme("매콤하게", "매운 맛으로 추위를 날려보세요 🌶️",
+                                    List.of("떡볶이", "마라탕", "매운")));
+                }
+                return List.of(
+                        new PickTheme("든든한 한 끼", "오늘 같은 날엔 든든한 한 끼 어때요 ✨",
+                                List.of("김밥", "분식", "국수", "덮밥")),
+                        new PickTheme("색다른 한 끼", "가끔은 색다른 메뉴로 기분 전환 🍽️",
+                                List.of("돈가스", "초밥", "족발", "보쌈")));
             }
             default -> {
-                // 날씨 조회 실패 시에도 기온 기반은 유지
                 if (hot) {
-                    keywords.add("냉면");
-                    keywords.add("콩국수");
-                    keywords.add("메밀");
-                } else if (cold) {
-                    keywords.add("국밥");
-                    keywords.add("찌개");
-                    keywords.add("전골");
-                } else {
-                    keywords.add("김밥");
-                    keywords.add("분식");
-                    keywords.add("국수");
-                    keywords.add("덮밥");
+                    return List.of(
+                            new PickTheme("시원한 메뉴", "더운 날엔 시원한 한 끼 어때요? 🧊",
+                                    List.of("냉면", "콩국수", "메밀")),
+                            new PickTheme("이열치열", "이열치열! 뜨끈한 한 그릇도 별미예요 🔥",
+                                    List.of("삼계탕", "국밥")));
                 }
+                if (cold) {
+                    return List.of(
+                            new PickTheme("따뜻한 메뉴", "추운 날엔 따뜻한 국물이 생각나요 🍲",
+                                    List.of("국밥", "찌개", "전골")),
+                            new PickTheme("매콤하게", "매운 맛으로 추위를 날려보세요 🌶️",
+                                    List.of("떡볶이", "마라탕")));
+                }
+                return List.of(
+                        new PickTheme("든든한 한 끼", "오늘 같은 날엔 든든한 한 끼 어때요 ✨",
+                                List.of("김밥", "분식", "국수", "덮밥")),
+                        new PickTheme("색다른 한 끼", "가끔은 색다른 메뉴로 기분 전환 🍽️",
+                                List.of("돈가스", "초밥", "족발", "보쌈")));
             }
         }
-        return keywords;
+    }
+
+    /** 테마 키워드와 매칭되는 매장 수집 + 매장별 매칭 메뉴/테마/이유 기록 (제외 매장명 스킵) */
+    private List<Map<String, Object>> matchTheme(List<Map<String, Object>> foodStores, PickTheme theme,
+                                                 Map<String, String> matchedMenuByStore,
+                                                 Map<String, String> themeByStore,
+                                                 Map<String, String> reasonByStore,
+                                                 Set<String> excludeNames) {
+        List<Map<String, Object>> matched = new ArrayList<>();
+        for (Map<String, Object> store : foodStores) {
+            String name = String.valueOf(store.get("storeName"));
+            if (excludeNames.contains(name)) continue;
+            String matchedMenu = findMatchedMenu(store, theme.keywords());
+            if (matchedMenu != null) {
+                matched.add(store);
+                matchedMenuByStore.put(name, matchedMenu);
+                themeByStore.put(name, theme.label());
+                reasonByStore.put(name, theme.reason());
+            }
+        }
+        return matched;
+    }
+
+    /** 가까운 순 정렬 후 상위 limit개를 날짜 시드로 셔플 (위치 없으면 셔플만) */
+    private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
+                                                      Double lat, Double lng, int limit, long seed) {
+        List<Map<String, Object>> scored = new ArrayList<>(pool);
+        if (lat != null && lng != null) {
+            scored.sort((a, b) -> Double.compare(
+                    haversine(lat, lng, parseLat(a), parseLng(a)),
+                    haversine(lat, lng, parseLat(b), parseLng(b))));
+            if (scored.size() > limit) {
+                scored = new ArrayList<>(scored.subList(0, limit));
+            }
+        }
+        Collections.shuffle(scored, new Random(seed));
+        return scored;
+    }
+
+    /** 중복 매장명 없이 후보에서 최대 count개 추가 */
+    private void addUnique(List<Map<String, Object>> chosen, List<Map<String, Object>> candidates,
+                           int count, Set<String> seenNames) {
+        int added = 0;
+        for (Map<String, Object> store : candidates) {
+            if (added >= count) break;
+            String name = strOrNull(store.get("storeName"));
+            if (name == null || !seenNames.add(name)) continue;
+            chosen.add(store);
+            added++;
+        }
     }
 
     /**
