@@ -8,6 +8,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -55,8 +57,10 @@ public class WeatherService {
             String baseDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             String baseTime = latestBaseTime(now);
 
+            // Decoding 키 기준 — '+', '/', '=' 등 특수문자를 명시적 인코딩 (미인코딩 시 '+'가 공백으로 깨짐)
+            String encodedKey = URLEncoder.encode(weatherApiKey, StandardCharsets.UTF_8);
             String url = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
-                    + "?serviceKey=" + weatherApiKey
+                    + "?serviceKey=" + encodedKey
                     + "&numOfRows=100&pageNo=1&dataType=JSON"
                     + "&base_date=" + baseDate
                     + "&base_time=" + baseTime
