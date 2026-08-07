@@ -55,6 +55,23 @@
 
 **배포 전 필요사항**: Render env에 WEATHER_API_KEY 등록 (공공데이터포털 기상청 단기예보 API 키, 미설정 시 오늘의 픽 날씨는 안전 실패). 기존 키(SESSION_SECRET/KAKAO/GEMINI/ADMIN_KEY)는 그대로.
 
+**다음 세션에서 이어갈 것 (우선순위)**:
+1. **배포**: WEATHER_API_KEY 등록 후 백엔드 push → Render 자동 배포, 웹 `flutter build web --release` → Vercel 재배포
+2. **자동 로그인 재구현** (태관 5주차): 스플래시 토큰 → /api/user/profile 검증 → 200: authState 복원+홈 / 401: clearSession+로그인. CORS 401 수정(4bec04b)으로 전제조건 해소됨.
+3. **알림 API** (지환 5주차): GET /api/notifications + POST /api/notifications/{id}/read. Firestore notifications 컬렉션 신규 (userId/title/body/type/isRead/createdAt).
+4. **알림 화면** (다나 5주차): 알림 화면 + 알림 설정 연동.
+5. **댓글·좋아요 백엔드** (후속): 피드 카드 '댓글 0' vs 목업 댓글 2건 불일치 해소.
+6. **피드 API 쿼터 개선**: 호출마다 stores_user 전체 읽기 → 인메모리 캐시 필요.
+7. **공개 GET API 레이트리밋**: 현재 AiController만 적용 — 전체 공개 API로 확대.
+8. **Firebase 키 폐기·재발급 + git 히스토리 purge** (감사 #1, 콘솔 작업).
+9. **카카오/Gemini 노출 구 키 재발급** (권장).
+10. **6주차 과제** (8/18~8/24): 알림 발송 로직(가격 변동 제보 시 찜 구독자 알림), 오늘의 픽·루트 화면 폴리싱, 전체 화면 폴리싱 + 버그픽스, 통합 테스트, Firestore 보안 룰, Blaze 전환 판단.
+
+**5주차 세션에서 겪은 환경 문제**:
+- replace_in_file이 대형 파일에서 엉뚱한 내용으로 덮어쓰는 사고 발생 (FirebaseService/GeminiService/UserController/AdminController가 서로 내용이 뒤바뀜) → git checkout으로 복원 후 재작성으로 해결. **교훈: 편집 후 `git diff`로 의도한 변경만 들어갔는지 반드시 확인**
+- 디스크 공간 부족 (ENOSPC)으로 write_to_file 실패 → build/.dart_tool/.gradle 정리로 해결
+- Python 스크립트로 파일 생성 시 터미널 타임아웃 주의 — 짧은 명령으로 분리 실행
+
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
 2. **자동 로그인 재구현** — dc43efa(토큰 있으면 스플래시→홈 직행)를 26d8a01에서 revert. 원인: ① ApiClient.isAuthenticated는 로컬 토큰 문자열 존재만 체크 → 168h 만료 토큰으로 홈 진입 시 모든 인증 API 401인데 글로벌 401 핸들러·재로그인 유도가 없음 ② authStateProvider(isLoggedIn) 미복원 → 토큰은 있는데 앱은 게스트 상태로 동작하는 모순. 재구현 시: 스플래시에서 /api/user/profile로 토큰 검증 → 200이면 authState 복원 + 홈, 401이면 clearSession + 로그인 화면
