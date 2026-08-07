@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: 984c32a (8/7 태관 찜 연동 + 찜 후속 2건 + 커뮤니티 위치 현위치화까지 완료 — **4주차 과제 전원 완료**)
+> 최신 main: 0e480da (8/7 **5주차 민서(PM) 과제 완료** — 문의 API + 회원 탈퇴 + 오늘의 픽(기상청 연동) + AI 루트 추천)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -43,6 +43,17 @@
 - **웹 E2E QA 11/11 통과 (8/5)**: qa_v6.js 개선 — ① 하단 네비를 좌표 클릭 → 시맨틱 노드 JS 직접 클릭(y>780 필터)으로 교체 (마이페이지처럼 콘텐츠가 네비 영역과 겹치는 화면에서 좌표 클릭이 엉뚱한 항목(알림 설정)을 누르던 문제 해소, 좌표는 폼백으로 유지) ② 내 리뷰·제보 작성 같은 전체 화면(하단 네비 없음) 진입 후 Back/브라우저 뒤로가기로 복귀하는 단계 추가 ③ 09_제보화면 검증을 '가성비 매장 제보'/'기본 정보' 텍스트로 강화 (기존 t.length>10은 갇힌 화면에서도 통과하는 허술한 검사였음)
 - **김다나 (FE)**: ✅ community_feed + community_post_detail 연동 (ec56278 → bfb3b4f 선별 이식, PR #3은 머지하지 않고 닫기). GET /api/community/feed + /feed/{id} 연동, 상세는 ?id= 쿼리 파라미터 라우팅. **pubspec.lock 구버전 롤백 5건(characters·matcher·material_color_utilities·meta·test_api 다운그레이드)은 이식 제외** — 브랜치 전략의 "구버전 공유 파일 롤백 방지" 사례. **이식 시 수정 3건**: ① 폼백 목업 제거 (PM 결정, 8/4 감사 #5와 일관 — API 실패 시 가짜 글 3건 대신 '불러오지 못했어요 + 다시 시도' 에러 UI, 피드·상세 양쪽) ② 지역 필터 버그 수정 (역삼동/합정동 정확 일치 → 실데이터 location은 '구로구' 등이라 빈 화면 되던 문제, 일치 항목 없으면 전체 표시로 완화) ③ 빈 상태 '아직 제보가 없어요' 추가. flutter analyze 57 이슈(main과 동일, 신규 0) + build web 성공 + Vercel 배포(howmuch-zeta). **라이브 검증 (8/6)**: /community에서 실데이터 13건 표시 확인 (상태 배지 '검토 중'/'승인 완료' 정상, QA 11/11 통과). ⚠️ 댓글 섹션은 목업 2건 유지 (댓글 백엔드 미구현 — 카드의 '댓글 0'과 목록 2건이 불일치하는 상태, 후속 과제). likes도 백엔드 미구현이라 전부 0
 - **오태관 (FE)**: ✅ 찜 연동 (9110c08 → 3e6a220 cherry-pick 이식, 8/7 — 충돌 없음, 프론트 3개 파일만 변경). ① favorite_stores 화면 /api/favorites 실데이터화 (하드코딩 목업 3건 제거, 매장명 검색 추가, 로딩/에러-재시도/빈 상태 UI) ② 매장 상세 하트 버튼 찜 추가/해제 연동 ('추후 개발 예정' 스낵바 제거, 낙관적 업데이트 + 실패 롤백) ③ 찜 수 마이페이지 userProfileProvider 낙관적 동기화. 카테고리 필터 칩은 제거됨 (favorites 응답이 storeId·storeName·createdAt뿐이라 카테고리 데이터 없음). flutter analyze error 0·신규 이슈 0 (57개 main과 동일) + build web 성공. ⚠️ 후속 확인 3건: ① 감사 #6 docId 정규화 → **✅ 8/7 해결 (5-7 참조)** ② 게스트가 하트 누륾면 401 실패 스낵바만 표시 (로그인 유도 없음 — 5주차 태관 자동 로그인 과제와 함께 개선 예정, 보류) ③ 찜 카드에 카테고리/메뉴/가격 없음 → **✅ 8/7 해결 (5-7 참조)**. **→ 4주차 과제 전원 완료**
+
+## 5-0-1. 5주차 민서(PM) 과제 완료 (8/7, 0e480da)
+
+**구현 완료**:
+1. **문의 API (BE)**: POST /api/inquiry (제목/내용/카테고리 필수 검증, 100/2000자 상한), GET /api/inquiry/my (내 문의 목록 최신순), GET /api/admin/inquiries (어드민 전체 조회). Firestore inquiries 컬렉션 신규. InquiryController + InquiryRequest DTO + FirebaseService createInquiry/getMyInquiries/getAllInquiries.
+2. **회원 탈퇴 (BE)**: DELETE /api/user (세션 인증 본인 계정만, users + 제보/리뷰/방문/찜 전부 삭제). UserController에 추가, FirebaseService.deleteUser 재사용.
+3. **오늘의 픽 (BE+FE)**: GET /api/recommendation/todays-pick (기상청 단기예보 getVilageFcst → 날씨/기온 → 날씨 기반 추천 룰(비/눈=따뜻한 국물, 맑음/더움=시원한 메뉴) → 공공데이터 인메모리 캐시에서 매장 선별, Firestore 읽기 0). WeatherService + RecommendationController + FirebaseService getTodaysPicks. 프론트 todays_pick_screen 실데이터화 (날씨 카드 실데이터, API 로딩/에러/재시도).
+4. **AI 루트 추천 (BE+FE)**: GET /api/recommendation/route (오늘의 픽 매장 목록을 Gemini에 전달해 최적 동선 추천). GeminiService.getRouteRecommendation + RecommendationController.getRoute. 프론트 optimal_route_screen 실데이터화 (AI 추천 이유 표시, 총 비용/거리 계산).
+5. **문의/탈퇴 화면 연동 (FE)**: inquiry_screen 문의 본고하기 버튼 실제 API 호출 (inquiry_service), withdrawal_screen 회원 탈퇴 실제 API 호출 (DELETE /api/user) + 로컬 세션 종료.
+
+**배포 전 필요사항**: Render env에 WEATHER_API_KEY 등록 (공공데이터포털 기상청 단기예보 API 키, 미설정 시 오늘의 픽 날씨는 안전 실패). 기존 키(SESSION_SECRET/KAKAO/GEMINI/ADMIN_KEY)는 그대로.
 
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
