@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: 3e6a220 (8/7 태관 찜 연동 이식까지 완료 — **4주차 과제 전원 완료**)
+> 최신 main: 9761b44 (8/7 태관 찜 연동 + 찜 후속 2건(docId 이스케이프·매장 메타)까지 완료 — **4주차 과제 전원 완료**)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -42,7 +42,7 @@
 - **CORS 수정 (4bec04b, 8/5 배포 완료)**: SessionAuthFilter가 DispatcherServlet 이전에 401을 직접 반환 → addCorsMappings(MVC 레벨)가 적용 안 돼 401에 Access-Control-Allow-Origin 누락, 브라우저가 401을 CORS 에러로 오인 (웹에서 인증 API 전부 "CORS 실패"로 표시되던 문제). WebConfig에 HIGHEST_PRECEDENCE CorsFilter 빈 추가로 401 포함 모든 응답에 헤더 보장. **이제 프론트가 401을 정상 감지 가능** (자동 로그인 재구현의 전제 조건 해소). 라이브 검증: 401 응답에 allow-origin 헤더 확인, QA에서 CORS 에러 6건 소멸.
 - **웹 E2E QA 11/11 통과 (8/5)**: qa_v6.js 개선 — ① 하단 네비를 좌표 클릭 → 시맨틱 노드 JS 직접 클릭(y>780 필터)으로 교체 (마이페이지처럼 콘텐츠가 네비 영역과 겹치는 화면에서 좌표 클릭이 엉뚱한 항목(알림 설정)을 누르던 문제 해소, 좌표는 폼백으로 유지) ② 내 리뷰·제보 작성 같은 전체 화면(하단 네비 없음) 진입 후 Back/브라우저 뒤로가기로 복귀하는 단계 추가 ③ 09_제보화면 검증을 '가성비 매장 제보'/'기본 정보' 텍스트로 강화 (기존 t.length>10은 갇힌 화면에서도 통과하는 허술한 검사였음)
 - **김다나 (FE)**: ✅ community_feed + community_post_detail 연동 (ec56278 → bfb3b4f 선별 이식, PR #3은 머지하지 않고 닫기). GET /api/community/feed + /feed/{id} 연동, 상세는 ?id= 쿼리 파라미터 라우팅. **pubspec.lock 구버전 롤백 5건(characters·matcher·material_color_utilities·meta·test_api 다운그레이드)은 이식 제외** — 브랜치 전략의 "구버전 공유 파일 롤백 방지" 사례. **이식 시 수정 3건**: ① 폼백 목업 제거 (PM 결정, 8/4 감사 #5와 일관 — API 실패 시 가짜 글 3건 대신 '불러오지 못했어요 + 다시 시도' 에러 UI, 피드·상세 양쪽) ② 지역 필터 버그 수정 (역삼동/합정동 정확 일치 → 실데이터 location은 '구로구' 등이라 빈 화면 되던 문제, 일치 항목 없으면 전체 표시로 완화) ③ 빈 상태 '아직 제보가 없어요' 추가. flutter analyze 57 이슈(main과 동일, 신규 0) + build web 성공 + Vercel 배포(howmuch-zeta). **라이브 검증 (8/6)**: /community에서 실데이터 13건 표시 확인 (상태 배지 '검토 중'/'승인 완료' 정상, QA 11/11 통과). ⚠️ 댓글 섹션은 목업 2건 유지 (댓글 백엔드 미구현 — 카드의 '댓글 0'과 목록 2건이 불일치하는 상태, 후속 과제). likes도 백엔드 미구현이라 전부 0
-- **오태관 (FE)**: ✅ 찜 연동 (9110c08 → 3e6a220 cherry-pick 이식, 8/7 — 충돌 없음, 프론트 3개 파일만 변경). ① favorite_stores 화면 /api/favorites 실데이터화 (하드코딩 목업 3건 제거, 매장명 검색 추가, 로딩/에러-재시도/빈 상태 UI) ② 매장 상세 하트 버튼 찜 추가/해제 연동 ('추후 개발 예정' 스낵바 제거, 낙관적 업데이트 + 실패 롤백) ③ 찜 수 마이페이지 userProfileProvider 낙관적 동기화. 카테고리 필터 칩은 제거됨 (favorites 응답이 storeId·storeName·createdAt뿐이라 카테고리 데이터 없음). flutter analyze error 0·신규 이슈 0 (57개 main과 동일) + build web 성공. ⚠️ 미해결 3건: ① **감사 #6 docId 정규화는 백엔드 수정 필요라 미포함** — 매장명에 `/` 등 Firestore ID 불가 문자 시 찜 실패 가능 (후속 BE 과제) ② 게스트가 하트 누륾면 401 실패 스낵바만 표시 (로그인 유도 없음 — 자동 로그인 과제와 함께 개선 권장) ③ 찜 카드에 카테고리/거리/가격 없음 (매장 메타 조인은 후속 과제). **→ 4주차 과제 전원 완료**
+- **오태관 (FE)**: ✅ 찜 연동 (9110c08 → 3e6a220 cherry-pick 이식, 8/7 — 충돌 없음, 프론트 3개 파일만 변경). ① favorite_stores 화면 /api/favorites 실데이터화 (하드코딩 목업 3건 제거, 매장명 검색 추가, 로딩/에러-재시도/빈 상태 UI) ② 매장 상세 하트 버튼 찜 추가/해제 연동 ('추후 개발 예정' 스낵바 제거, 낙관적 업데이트 + 실패 롤백) ③ 찜 수 마이페이지 userProfileProvider 낙관적 동기화. 카테고리 필터 칩은 제거됨 (favorites 응답이 storeId·storeName·createdAt뿐이라 카테고리 데이터 없음). flutter analyze error 0·신규 이슈 0 (57개 main과 동일) + build web 성공. ⚠️ 후속 확인 3건: ① 감사 #6 docId 정규화 → **✅ 8/7 해결 (5-7 참조)** ② 게스트가 하트 누륾면 401 실패 스낵바만 표시 (로그인 유도 없음 — 5주차 태관 자동 로그인 과제와 함께 개선 예정, 보류) ③ 찜 카드에 카테고리/메뉴/가격 없음 → **✅ 8/7 해결 (5-7 참조)**. **→ 4주차 과제 전원 완료**
 
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
@@ -86,7 +86,7 @@
 ### HIGH
 4. ~~마이페이지 통째 목업~~ → ✅ **해결 (8/4)** — userProfileProvider 기본값을 게스트('게스트'/0건)로 교체, mypage_screen `_loadProfileSummary()`가 로그인 시 /api/user/profile + /api/savings/stats(this_month) + /api/report/my + /api/favorites로 닉네임/이메일/이번 달 절약액/제보 수/찜 수 실데이터 주입. 남은 목업: 가격 알림 설정·소셜 계정 화면(백엔드 없는 후순위), favorite_stores(태관 4주차 과제)
 5. ~~대시보드 폼백 가짜 통계~~ → ✅ **해결 (8/4)** — `_loadFallbackData()` 삭제. 통계 API 전부 실패 시 가짜 숫자 대신 `_buildErrorState()`(아이콘+안내+다시 시도 버튼) 표시. 일부 탭만 실패하면 실패 탭은 0으로 표시 (가짜 금액 아님)
-6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요. ⚠️ FE 연동은 완료됐으나(3e6a220) **이 이슈는 백엔드(FirebaseService favoriteDocId) 수정 필요** — 후속 BE 과제
+6. ~~찜 docId에 매장명 사용~~ → ✅ **해결 (8/7)** — FirebaseService favoriteDocId에 sanitizeForDocId 이스케이프 추가 ('_'→'__', '/'→'_s', 단사라 충돌 없음). 매장명에 '/' 있어도 찜 가능. removeFavorite는 구 형식 문서도 함께 삭제해 기존 데이터 호환. 상세는 5-7
 7. ~~SESSION_SECRET 미설정 시 dev 기본값 사용~~ → ✅ **해결 (8/4)** — SessionTokenService 생성자 fail-fast: 미설정/빈값이면 부팅 거부. dev 기본값은 `session.allow-dev-secret=true`(로컬 기본)에서만 허용 + 경고 로그. **운영은 Render env에 SESSION_SECRET(랜덤) + SESSION_ALLOW_DEV_SECRET=false 설정 필요**
 8. ~~/api/ai/chat 레이트리밋 없음~~ → ✅ **해결 (8/4)** — SimpleRateLimiter(인메모리 슬라이딩 윈도우) 추가, 유저당 시간당 20회(`AI_CHAT_MAX_PER_HOUR`로 조정) 초과 시 429. message 필수 + 1000자 상한 검증도 함께 추가
 
@@ -163,6 +163,15 @@
 - 터미널 명령은 1초 이내로 짧게. 오래 걸리는 작업(빌드/QA/배포 대기)은 `> /tmp/xxx.log 2>&1 &` 백그라운드 실행 후 `sleep 30 && tail` 폴링으로 확인 — foreground sleep 300 같은 긴 대기 명령이 세션 중단 원인이었음
 - 재부팅 후 /tmp/howmuch-qa의 playwright가 날아가 있을 수 있음 → QA 전 `ls node_modules/playwright` 확인, 없으면 `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install playwright` (브라우저는 ~/Library/Caches에 남아있음)
 - qa_v6.js 필수 컨텍스트: viewport 390x844, deviceScaleFactor 2, geolocation 권한, addInitScript로 'flutter.onboarding_completed'='true', 로드 후 9초 대기 + flt-semantics-placeholder 클릭
+
+## 5-7. 8/7 찜 후속 구현 (PM 직접 — WEEKLY_PLAN 미포함 항목 2건)
+
+**배경**: 태관 찜 연동(3e6a220) 리뷰에서 확인된 후속 3건 중 추후 개발 일정에 없는 2건을 PM이 직접 구현. ② 게스트 하트 → 로그인 유도는 5주차 태관 "자동 로그인 재구현"과 같은 작업 단위(401 처리 UX)라 보류.
+
+1. **감사 #6 — 찜 docId 이스케이프 (BE)**: FirebaseService favoriteDocId에 sanitizeForDocId 추가 ('_'→'__', '/'→'_s' 순 이스케이프 — 단사 함수라 매장명 충돌 없음). 매장명에 '/' 있어도 찜 정상 동작. removeFavorite는 구 형식(비이스케이프) docId도 함께 삭제해 이전 데이터 호환 유지.
+2. **찜 카드 매장 메타 (BE+FE)**: GET/POST /api/favorites 응답에 industry·menu1·price1·address 추가 — 공공데이터 인메모리 캐시에서 매장명 매칭이라 **Firestore 읽기 0** (제보 매장 등 캐시 미스는 null → 프론트는 기존 placeholder 유지). FavoriteResponse DTO 4필드 추가. 프론트 FavoriteStoreModel.fromJson이 메타 표시: 배지 '착한가격업소', 업종별 이모지, 대표메뉴, 가격("5000"→"5,000원" 수동 포맷 — intl 의존성 추가 회피).
+- 검증: compileJava ✅ + flutter analyze 57(main과 동일·신규 0) ✅ + build web ✅ → 커밋 후 push/배포
+- ⚠️ **이번 세션 함정**: replace_in_file 도중 세션 비정상 종료가 2건 발생하며 파일이 손상됨 — ① FirebaseService.java 첫 줄에 'ㅡ' 오타 삽입 → compileJava가 "class, interface, enum, or record expected"를 전 줄에 다발 (원인은 첫 줄 1글자) ② mypage_state.dart 문자열 깨짐 + '!!' 중복. **교훈: 편집 후 `git diff | grep '^+'`로 의도한 변경만 들어갔는지 반드시 확인** — 손상 잔해는 diff에서 바로 보임.
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
