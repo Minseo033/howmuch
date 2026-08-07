@@ -35,8 +35,8 @@ public class RecommendationController {
     public ResponseEntity<?> getTodaysPick(@RequestParam(required = false) Double lat,
                                            @RequestParam(required = false) Double lng) {
         try {
-            // 기상청 단기예보 (서울 격자 60,127 기준)
-            Map<String, Object> weather = weatherService.getCurrentWeather(60, 127);
+            // 기상청 단기예보 (사용자 위치 → 격자 변환, 없으면 서울 기본)
+            Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
 
@@ -62,7 +62,7 @@ public class RecommendationController {
     public ResponseEntity<?> getRoute(@RequestParam(required = false) Double lat,
                                       @RequestParam(required = false) Double lng) {
         try {
-            Map<String, Object> weather = weatherService.getCurrentWeather(60, 127);
+            Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
 

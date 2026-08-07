@@ -2,6 +2,7 @@
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
 > 최신 main: 97088a4 (8/7 **기상청 키 인코딩 수정으로 오늘의 픽 날씨 라이브 정상화** + 미사용 코드 정리 + 어드민 모드 제거 + README 개편). **전부 push 완료 → Render 자동 배포, 라이브 검증 완료 (weatherAvailable:true)**
+> 8/7 **오늘의 픽 추천 로직 신빙성 점검·수정 완료** — 상세는 5-11 참조 (코드 수정, 미배포)
 > ⚠️ 웹 Vercel 재배포 미실시 (라이브 웹은 어드민 토글 있는 구버전) — 재배포 방법은 5-10 참조
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
@@ -251,8 +252,32 @@
 - ~~WEATHER_API_KEY Render env 미등록~~ → ✅ **해결 (8/7 저녁)** — 키 등록 후 403 `SERVICE_KEY_IS_NOT_REGISTERED_ERROR` 발생: 원인은 키 인코딩 (Encoding 키의 `%`가 RestTemplate String URL 방식에서 이중 인코딩). **97088a4에서 수정**: 키에 `%` 포함 시(Encoding) 그대로 + 없으면(Decoding) URLEncoder 인코딩, 그리고 String 대신 `URI.create()`로 전달해 재인코딩 방지. **양쪽 키 형식 모두 지원**. 라이브 검증: `weatherAvailable:true, 맑음, 34°` 정상. **교훈: 공공데이터포털 키는 Encoding/Decoding 2종 제공 — 어떤 키를 쓰든 동작하는 방어 코드가 정답**
 - ⚠️ **웹 Vercel 재배포 미실시** — 라이브 웹(howmuch-zeta)은 어드민 토글·신규 README 미반영 구버전. 재배포 시: `flutter build web --release` → `cd build/web && npx -y vercel@latest deploy --prod --yes` (배포 전 `npx vercel projects ls`로 howmuch 프로젝트 확인 — 5-2 함정 참조)
 
+## 5-11. 8/7 오늘의 픽 추천 로직 신빙성 점검·수정 (PM)
+
+**배경**: 8/7 라이브 정상화 후 추천 결과가 실제로 믿을 만한지 검증 요청. 코드 + 스냅샷 데이터(11,207건)로 시뮬레이션 점검.
+
+**발견된 문제 5건 (전부 수정)**:
+1. **비식당 추천 가능** — 공공데이터엔 미용업 1,555·세탁업 202·목욕업 112 등 비요식업 3,000건+ 포함. 키워드 매칭 실패 시 전체 풀에서 거리순 선정 → 미용실이 "오늘의 픽"으로 나올 수 있었음. → `FOOD_INDUSTRIES` 화이트리스트(한식·중식·일식·양식·기타요식업)로 식당만 추천.
+2. **날씨/기온이 '지금'이 아닐 수 있음** — getVilageFcst 100행을 순회하며 SKY/PTY/TMP를 덮어쓰기 → 리스트 마지막 예보 시각(수 시간 뒤~익일 새벽) 값이 표시되던 구조. → 슬롯(fcstDate+fcstTime)별로 모아 현재 시각과 가장 가까운 슬롯만 사용 (미래 우선, 없으면 최근 과거).
+3. **자정~새벽 2시 날씨 조회 실패** — latestBaseTime이 0~1시에 "0200" 반환 + base_date는 오늘 → 아직 발표 안 된 시각이라 빈 응답. → 발표 지연(+15분) 버퍼를 두고, 당일 첫 발표(02시) 전이면 전날 23시 발표분으로 역행.
+4. **날씨 격자 서울 고정** — 사용자 lat/lng는 거리 정렬에만 쓰이고 날씨는 전국 어디서나 서울 시청 기준. → 위경도→기상청 격자(Lambert Conformal Conic, 5km) 변환 공식으로 사용자 위치 날씨 조회.
+5. **추천 결과 고정·풀 빈약·오매칭** —
+   - 같은 날씨·같은 위치면 매번 동일한 4곳 → 후보군 상위 20건을 날짜 시드로 셔플 (같은 날 안정적, 다음 날 순서 변경)
+   - 더운 날 키워드(냉면/빙수/샐러드 등) 매칭이 105건(0.9%)뿐 → 콩국수·메밀 추가 (스냅샷 실재 메뉴 기준)
+   - '탕' 키워드에 탕수육 9건 오매칭 → '탕' 제거하고 설렁탕·갈비탕·곰탕·삼계탕·전골·순두부 등 구체 메뉴로
+   - 흐린 35° 폭염이면 국밥 추천 → 기온 우선 분기로 변경 (28°↑ 시원 메뉴, 5°↓ 따뜻 메뉴, 하늘 상태와 무관하게)
+
+**수정 파일**:
+- `WeatherService.java` — getCurrentWeather(Double lat, Double lng)로 변경, 슬롯 선택, base_time 역행, toGrid 추가, TMP 파싱 보강("34.0"도 허용)
+- `RecommendationController.java` — getCurrentWeather(lat, lng)로 호출 변경
+- `FirebaseService.java` — FOOD_INDUSTRIES, CANDIDATE_POOL_SIZE, MAX_PICKS 상수 추가. getTodaysPicks: 식당 필터 + findMatchedMenu(실제 매칭 메뉴 반환, matchedMenu 필드 추가) + 가까운 상위 20건 셔플 + 중복 매장명 제거. weatherKeywords: 기온 우선 분기, 구체 메뉴 키워드로 교체
+
+**검증**: compileJava 통과 ✅ + 실제 스냅샷 데이터 시뮬레이션 5케이스 ✅ (맑음34°→냉면·칼국수, 비22°→찌개·순두부, 맑음2°→순두부·국수, 흐림33°→냉면, 맑음15°→국수·덮밥 — 매칭 건수 446~3,386건, 전부 식당만)
+
+**남은 참고사항**: matchedMenu 필드는 API 응답에 추가됨(프론트는 아직 미사용, 카드는 기존처럼 menu1 표시 — 후속 폴리싱 때 matchedMenu로 교체 가능). **배포는 아직 안 됨** — 백엔드 push 시 Render 자동 배포.
+
 ## 6. 알려진 주의사항
-- Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
+- Render 물묣 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
 - Firestore 쿼터: 유저 데이터(리뷰/제보/프로필/방문)만 읽음. 대량 조회 신규 추가 시 캐시 패턴 필수
-- 웹에서 debugPrint는 릴리스 빌드에서 무력 — QA는 Playwright로
+- 웹에서 debugPrint는 릴리스 빌드에서 묵력 — QA는 Playwright로
 - 토큰 절약: 작업 단위로 새 채팅, 이 문서로 상황 인계

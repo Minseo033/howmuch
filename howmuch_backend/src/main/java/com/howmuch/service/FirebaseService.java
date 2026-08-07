@@ -19,9 +19,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 @Service
 public class FirebaseService {
@@ -1092,6 +1096,16 @@ public class FirebaseService {
 
     // ==================== 오늘의 픽 (todays pick) ====================
 
+    /** 추천 대상 요식업 업종 (공공데이터의 미용업·이용업·세탁업·숙박업·목욕업·기타비요식업 제외) */
+    private static final Set<String> FOOD_INDUSTRIES =
+            Set.of("한식", "중식", "일식", "양식", "기타요식업");
+
+    /** 최종 추천 개수 */
+    private static final int MAX_PICKS = 4;
+
+    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 4곳 선정) */
+    private static final int CANDIDATE_POOL_SIZE = 20;
+
     /**
      * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
      * Firestore 읽기 0 (cachedStores만 사용).
@@ -1105,39 +1119,56 @@ public class FirebaseService {
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
         List<String> weatherKeywords = weatherKeywords(weather, temp);
 
-        List<Map<String, Object>> weatherMatched = new ArrayList<>();
-        List<Map<String, Object>> allStores = new ArrayList<>(cachedStores);
-
-        for (Map<String, Object> store : allStores) {
+        // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
+        //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
+        List<Map<String, Object>> foodStores = new ArrayList<>();
+        for (Map<String, Object> store : cachedStores) {
             String industry = strOrNull(store.get("industry"));
-            String menu1 = strOrNull(store.get("menu1"));
-            String combined = (industry != null ? industry : "") + " " + (menu1 != null ? menu1 : "");
-            boolean matched = false;
-            for (String kw : weatherKeywords) {
-                if (combined.contains(kw)) {
-                    matched = true;
-                    break;
-                }
-            }
-            if (matched) {
-                weatherMatched.add(store);
+            if (industry != null && FOOD_INDUSTRIES.contains(industry)) {
+                foodStores.add(store);
             }
         }
 
-        List<Map<String, Object>> pool = weatherMatched.isEmpty() ? allStores : weatherMatched;
+        // 매칭된 매장 + 실제 매칭된 메뉴를 함께 보관 (카드 표시는 menu1이지만 추천 근거는 matchedMenu)
+        List<Map<String, Object>> weatherMatched = new ArrayList<>();
+        Map<String, String> matchedMenuByStore = new HashMap<>();
+        for (Map<String, Object> store : foodStores) {
+            String matchedMenu = findMatchedMenu(store, weatherKeywords);
+            if (matchedMenu != null) {
+                weatherMatched.add(store);
+                matchedMenuByStore.put(String.valueOf(store.get("storeName")), matchedMenu);
+            }
+        }
 
+        // 날씨 매칭이 1건이라도 있으면 그 풀만, 없으면 식당 전체 풀 사용
+        List<Map<String, Object>> pool = weatherMatched.isEmpty() ? foodStores : weatherMatched;
+
+        // 거리 기준: 위치가 있으면 가까운 순으로 상위 후보군 선정
         List<Map<String, Object>> scored = new ArrayList<>(pool);
         if (lat != null && lng != null) {
             scored.sort((a, b) -> Double.compare(
                     haversine(lat, lng, parseLat(a), parseLng(a)),
                     haversine(lat, lng, parseLat(b), parseLng(b))));
+            // 가까운 상위 20걸 중에서만 선정 (전국 랜덤 노출 방지)
+            if (scored.size() > CANDIDATE_POOL_SIZE) {
+                scored = new ArrayList<>(scored.subList(0, CANDIDATE_POOL_SIZE));
+            }
         }
 
+        // 같은 날씨·같은 위치라도 매번 같은 4곳만 나오지 않도록 후보군을 날짜 시드로 섞는다.
+        // (날짜 시드 → 같은 날에는 결과 안정적, 다음 날이면 순서가 바뀜)
+        Collections.shuffle(scored, new Random(java.time.LocalDate.now().toEpochDay()));
+
+        // 중복 매장명 제거하며 최대 4개 선정
+        Set<String> seenNames = new HashSet<>();
         List<Map<String, Object>> picks = new ArrayList<>();
-        for (int i = 0; i < scored.size() && picks.size() < 4; i++) {
-            Map<String, Object> store = scored.get(i);
+        for (Map<String, Object> store : scored) {
+            if (picks.size() >= MAX_PICKS) break;
+            String name = strOrNull(store.get("storeName"));
+            if (name == null || !seenNames.add(name)) continue;
+
             Map<String, Object> pick = new HashMap<>();
-            pick.put("storeName", strOrNull(store.get("storeName")));
+            pick.put("storeName", name);
             pick.put("industry", strOrNull(store.get("industry")));
             pick.put("menu1", strOrNull(store.get("menu1")));
             pick.put("price1", strOrNull(store.get("price1")));
@@ -1147,33 +1178,55 @@ public class FirebaseService {
             if (lat != null && lng != null) {
                 pick.put("distanceMeters", (int) Math.round(haversine(lat, lng, parseLat(store), parseLng(store))));
             }
+            // 추천 근거 메뉴(실제 매칭된 메뉴)를 함께 낼 수 있도록 matchedMenu 필드 추가
+            pick.put("matchedMenu", matchedMenuByStore.get(name));
             picks.add(pick);
         }
         return picks;
     }
 
-    /** 날씨/기온 기반 추천 키워드 */
+    /** 날씨/기온 기반 추천 키워드 — 공공데이터 스냅샷에 실제 존재하는 메뉴 기준 */
     private List<String> weatherKeywords(String weather, Integer temp) {
         List<String> keywords = new ArrayList<>();
         if (weather == null) weather = "알 수 없음";
+        boolean hot = temp != null && temp >= 28;
+        boolean cold = temp != null && temp <= 5;
         switch (weather) {
             case "비", "비/눈", "눈", "소나기" -> {
+                // 비·눈에는 따뜻한 국물/면류. "탕"은 탕수육 오매칭 때문에 제외하고 구체 메뉴로.
                 keywords.add("국밥");
                 keywords.add("칼국수");
                 keywords.add("국수");
                 keywords.add("찌개");
-                keywords.add("탕");
-                keywords.add("분식");
+                keywords.add("설렁탕");
+                keywords.add("갈비탕");
+                keywords.add("곰탕");
+                keywords.add("삼계탕");
+                keywords.add("전골");
+                keywords.add("순두부");
                 keywords.add("라면");
                 keywords.add("우동");
+                keywords.add("분식");
             }
-            case "맑음" -> {
-                if (temp != null && temp >= 28) {
+            case "맑음", "구름많음", "흐림" -> {
+                // 기온이 우선: 폭염/한파에는 하늘 상태와 무관하게 그에 맞는 메뉴 추천
+                if (hot) {
                     keywords.add("냉면");
+                    keywords.add("콩국수");
+                    keywords.add("메밀");
                     keywords.add("빙수");
                     keywords.add("아이스크림");
                     keywords.add("샐러드");
                     keywords.add("주스");
+                } else if (cold) {
+                    keywords.add("국밥");
+                    keywords.add("찌개");
+                    keywords.add("설렁탕");
+                    keywords.add("갈비탕");
+                    keywords.add("곰탕");
+                    keywords.add("전골");
+                    keywords.add("우동");
+                    keywords.add("칼국수");
                 } else {
                     keywords.add("김밥");
                     keywords.add("분식");
@@ -1181,21 +1234,42 @@ public class FirebaseService {
                     keywords.add("덮밥");
                 }
             }
-            case "구름많음", "흐림" -> {
-                keywords.add("국밥");
-                keywords.add("찌개");
-                keywords.add("탕");
-                keywords.add("덮밥");
-                keywords.add("김밥");
-            }
             default -> {
-                keywords.add("김밥");
-                keywords.add("분식");
-                keywords.add("국수");
-                keywords.add("덮밥");
+                // 날씨 조회 실패 시에도 기온 기반은 유지
+                if (hot) {
+                    keywords.add("냉면");
+                    keywords.add("콩국수");
+                    keywords.add("메밀");
+                } else if (cold) {
+                    keywords.add("국밥");
+                    keywords.add("찌개");
+                    keywords.add("전골");
+                } else {
+                    keywords.add("김밥");
+                    keywords.add("분식");
+                    keywords.add("국수");
+                    keywords.add("덮밥");
+                }
             }
         }
         return keywords;
+    }
+
+    /**
+     * 매장의 메뉴(menu1~menu4) 중 추천 키워드를 포함하는 "첫 번째 실제 메뉴"를 반환.
+     * 없으면 null. 카드에는 menu1 대신 이 매칭된 메뉴를 보여줘 추천 근거와 일치시킨다.
+     */
+    private String findMatchedMenu(Map<String, Object> store, List<String> keywords) {
+        for (String key : new String[]{"menu1", "menu2", "menu3", "menu4"}) {
+            String menu = strOrNull(store.get(key));
+            if (menu == null || menu.isBlank()) continue;
+            for (String kw : keywords) {
+                if (menu.contains(kw)) {
+                    return menu;
+                }
+            }
+        }
+        return null;
     }
 
     /** 하버사인 거리 (미터) */
