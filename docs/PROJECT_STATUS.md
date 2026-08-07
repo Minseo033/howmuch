@@ -1,7 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: 0e480da (8/7 **5주차 민서(PM) 과제 완료** — 문의 API + 회원 탈퇴 + 오늘의 픽(기상청 연동) + AI 루트 추천)
+> 최신 main: fda42f5 (8/7 **미사용 코드 정리 + 개발용 어드민 모드 제거** — analyze warning 16건 해소, 순삭제 3,086줄, 상세는 5-9)
+> 직전: 0e480da (8/7 5주차 민서(PM) 과제 완료 — 문의 API + 회원 탈퇴 + 오늘의 픽(기상청 연동) + AI 루트 추천)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -185,7 +186,7 @@
 4. 카카오/Gemini 노출 구 키 재발급 — 권장, 미완료
 5. 공개 GET API 레이트리밋 일괄 적용 — 6주차 통합 안정화 때 (현재 AiController만 적용)
 6. 피드 API 쿼터 — 호출마다 stores_user 전체 읽기. 제보 수 증가 시 인메모리 캐시 필요
-7. 외부 AI 코드 리뷰(8/5)에서 확인된 정리 후보: home_map_screen.dart 2,464줄 대형 파일 + 미사용 선언 8건, report_create_screen 미사용 필드 3건, withOpacity deprecated 11곳 — 6주차 폴리싱 때 검토. 단, 그 리뷰의 담당자 배정은 구버전 TODO 주석 인용이라 무시 (어드민은 웹 전환됨, 찜 API는 완료됨, 문의는 민서 5주차)
+7. ~~외부 AI 코드 리뷰(8/5)에서 확인된 정리 후보~~ → ✅ **해결 (8/7, 5-9 참조)** — home_map 미사용 선언 8건·report_create 미사용 필드 3건 정리 완료 + 개발용 어드민 모드 제거. 남은 것: withOpacity deprecated 등 info 레벨 43건 (기능 무관, 6주차 폴리싱 때 검토). 단, 그 리뷰의 담당자 배정은 구버전 TODO 주석 인용이라 무시 (어드민은 웹 전환됨, 찜 API는 완료됨, 문의는 민서 5주차)
 
 **다음 세션 작업 팁 (이번 세션에서 겪은 환경 문제)**
 - 터미널 명령은 1초 이내로 짧게. 오래 걸리는 작업(빌드/QA/배포 대기)은 `> /tmp/xxx.log 2>&1 &` 백그라운드 실행 후 `sleep 30 && tail` 폴링으로 확인 — foreground sleep 300 같은 긴 대기 명령이 세션 중단 원인이었음
@@ -211,6 +212,26 @@
 - **태관 (FE)**: 자동 로그인 재구현 — 스플래시 토큰 → /api/user/profile 검증 → 200: authState 복원+홈 / 401: clearSession+로그인 (방법 상세는 5-1 항목2·5-2 참조). CORS 401 수정(4bec04b)으로 전제조건 해소됨. 덤: 게스트가 매장 상세 하트 누륾면 '로그인이 필요해요' 유도 (5-7 ② 보류분과 동일 맥락).
 - **민서 (PM)**: 문의 API + /api/admin/inquiries, 회원 탈퇴(DELETE /api/user), 오늘의 픽(기상청 연동).
 - 공통: 개인 브랜치 커밋 → 통째 머지 금지(선별 이식), main push는 PM이 모아서 (Render 재배포 비용).
+
+## 5-9. 8/7 미사용 코드 정리 + 개발용 어드민 모드 제거 (PM)
+
+**미사용 코드 정리 (flutter analyze warning 16건 전부 해소)**:
+- `errors/report_delete_confirm_screen.dart` — 구버전 중복 파일 삭제 (라우터는 `system/` 신버전만 사용, diff로 구버전 확인 후 제거)
+- `report_create_screen` 미사용 필드 3건 (`_storeOptions`/`_addressOptions`/`_isSubmitting` + 관련 setState·try-finally 정리)
+- `home_map_screen` 미사용 선언 8건 + 연쇄 미사용 2건 (`_industryKeywords` 맵, `_TrianglePainter` — 각각 `_matchesIndustryFilter`·`_PriceMarker` 전용) — 233줄
+- search 화면: `search_filter`의 `muted` 필드, `search_result`의 `dart:convert` import·`_recentSearches`·`_RecentSearchesWidget` — 73줄
+- `profile_setup_screen`의 `_surface`, `report_service`의 `_ref` 생성자 주입 제거
+- 백엔드(Java)는 전수 조사 결과 미사용 클래스 없음 (FirebaseTokenResponse·StoreDto 등 전부 사용 중 확인)
+
+**개발용 어드민 모드 제거**:
+- 배경: 어드민은 8/3 웹 페이지(`web/admin.html`) 전환 결정. 앱 내 어드민 화면 2개는 100% 목업(하드코딩 데이터, API 호출 0건, 마이페이지 토글에 "관리자 권한 API가 붙으면 이 개발용 토글은 제거" TODO 명시)
+- 삭제: `lib/features/admin/` 전체(3개 파일 2,404줄), `/admin/reports`·`/admin/inquiries` 라우트, 마이페이지 '개발용 관리자 모드' 토글 + 조걶부 메뉴 2개 + `_AdminModeRow` + `_qaBadgeText`, `AuthState.isAdmin` 필드 (참조 3곳: login/withdrawal/session_expired 정리)
+- 유지: `_AdminModeSwitch` 위젯은 `_ToggleRow`(푸시·마케팅 토글)가 재사용 중이라 유지
+- `widget_test.dart` 어드민 테스트 3개 + 관련 expect 3줄 제거 (제거된 기능의 테스트)
+
+**검증**: flutter analyze 60 → **43 issues** (전부 기존 info 레벨 — withOpacity deprecated 11곳 등, 기능 무관) · **error 0 · warning 0** + `build web` 성공. 각 단계마다 grep 참조 검증 + git diff 확인, 대형 파일은 라인 기반 Python 패치(assert 검증 포함) 사용. ⚠️ `flutter test` 9개 실패는 **레거시 스위트가 변경 전부터 깨진 상태** (첫 실패가 어드민 무관한 온볼딩 테스트 — 기대 텍스트 '정부 인증 · 공공데이터'가 앱에 존재하지 않음). 팀 검증 기준(analyze + build web + Playwright)과 동일하게 통과. widget_test 전면 정비는 6주차 통합 테스트 과제로.
+
+**환경 메모**: 이 세션에서 디스크 99% 사용(여유 174MB)으로 flutter test 컴파일 ENOSPC + 세션 중단 발생 → `~/Library/Caches`의 ShipIt 계열 업데이트 잔재(VSCode 1.5GB·antigravity 0.7GB) + JetBrains 캐시(1.8GB) 정리로 5.6GB 확보. **빌드/테스트 전 `df -h` 확인 습관화 권장** (5-0-1의 ENOSPC 사고와 동일 패턴).
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
