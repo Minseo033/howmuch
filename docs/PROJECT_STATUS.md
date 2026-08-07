@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: 079b56c (8/6 다나 FE 이식 + 문서 기록까지 완료, PR #3 닫힘)
+> 최신 main: 3e6a220 (8/7 태관 찜 연동 이식까지 완료 — **4주차 과제 전원 완료**)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -42,13 +42,14 @@
 - **CORS 수정 (4bec04b, 8/5 배포 완료)**: SessionAuthFilter가 DispatcherServlet 이전에 401을 직접 반환 → addCorsMappings(MVC 레벨)가 적용 안 돼 401에 Access-Control-Allow-Origin 누락, 브라우저가 401을 CORS 에러로 오인 (웹에서 인증 API 전부 "CORS 실패"로 표시되던 문제). WebConfig에 HIGHEST_PRECEDENCE CorsFilter 빈 추가로 401 포함 모든 응답에 헤더 보장. **이제 프론트가 401을 정상 감지 가능** (자동 로그인 재구현의 전제 조건 해소). 라이브 검증: 401 응답에 allow-origin 헤더 확인, QA에서 CORS 에러 6건 소멸.
 - **웹 E2E QA 11/11 통과 (8/5)**: qa_v6.js 개선 — ① 하단 네비를 좌표 클릭 → 시맨틱 노드 JS 직접 클릭(y>780 필터)으로 교체 (마이페이지처럼 콘텐츠가 네비 영역과 겹치는 화면에서 좌표 클릭이 엉뚱한 항목(알림 설정)을 누르던 문제 해소, 좌표는 폼백으로 유지) ② 내 리뷰·제보 작성 같은 전체 화면(하단 네비 없음) 진입 후 Back/브라우저 뒤로가기로 복귀하는 단계 추가 ③ 09_제보화면 검증을 '가성비 매장 제보'/'기본 정보' 텍스트로 강화 (기존 t.length>10은 갇힌 화면에서도 통과하는 허술한 검사였음)
 - **김다나 (FE)**: ✅ community_feed + community_post_detail 연동 (ec56278 → bfb3b4f 선별 이식, PR #3은 머지하지 않고 닫기). GET /api/community/feed + /feed/{id} 연동, 상세는 ?id= 쿼리 파라미터 라우팅. **pubspec.lock 구버전 롤백 5건(characters·matcher·material_color_utilities·meta·test_api 다운그레이드)은 이식 제외** — 브랜치 전략의 "구버전 공유 파일 롤백 방지" 사례. **이식 시 수정 3건**: ① 폼백 목업 제거 (PM 결정, 8/4 감사 #5와 일관 — API 실패 시 가짜 글 3건 대신 '불러오지 못했어요 + 다시 시도' 에러 UI, 피드·상세 양쪽) ② 지역 필터 버그 수정 (역삼동/합정동 정확 일치 → 실데이터 location은 '구로구' 등이라 빈 화면 되던 문제, 일치 항목 없으면 전체 표시로 완화) ③ 빈 상태 '아직 제보가 없어요' 추가. flutter analyze 57 이슈(main과 동일, 신규 0) + build web 성공 + Vercel 배포(howmuch-zeta). **라이브 검증 (8/6)**: /community에서 실데이터 13건 표시 확인 (상태 배지 '검토 중'/'승인 완료' 정상, QA 11/11 통과). ⚠️ 댓글 섹션은 목업 2건 유지 (댓글 백엔드 미구현 — 카드의 '댓글 0'과 목록 2건이 불일치하는 상태, 후속 과제). likes도 백엔드 미구현이라 전부 0
+- **오태관 (FE)**: ✅ 찜 연동 (9110c08 → 3e6a220 cherry-pick 이식, 8/7 — 충돌 없음, 프론트 3개 파일만 변경). ① favorite_stores 화면 /api/favorites 실데이터화 (하드코딩 목업 3건 제거, 매장명 검색 추가, 로딩/에러-재시도/빈 상태 UI) ② 매장 상세 하트 버튼 찜 추가/해제 연동 ('추후 개발 예정' 스낵바 제거, 낙관적 업데이트 + 실패 롤백) ③ 찜 수 마이페이지 userProfileProvider 낙관적 동기화. 카테고리 필터 칩은 제거됨 (favorites 응답이 storeId·storeName·createdAt뿐이라 카테고리 데이터 없음). flutter analyze error 0·신규 이슈 0 (57개 main과 동일) + build web 성공. ⚠️ 미해결 3건: ① **감사 #6 docId 정규화는 백엔드 수정 필요라 미포함** — 매장명에 `/` 등 Firestore ID 불가 문자 시 찜 실패 가능 (후속 BE 과제) ② 게스트가 하트 누륾면 401 실패 스낵바만 표시 (로그인 유도 없음 — 자동 로그인 과제와 함께 개선 권장) ③ 찜 카드에 카테고리/거리/가격 없음 (매장 메타 조인은 후속 과제). **→ 4주차 과제 전원 완료**
 
 ## 5-1. 다음 작업 (우선순위 순)
 1. **4주차 과제 (8/4~8/10, WEEKLY_PLAN 참조)** — 지환(BE): GET /api/community/feed + 피드 상세 / 다나(FE): community_feed + community_post_detail 연동 / 태관(FE): favorite_stores 연동 (⚠️ "절약 목표 설정 화면 연동"은 46f68a8에서 이미 완료 → 찜한 가게만 배정) / 민서(PM): 어드민 API + 웹 어드민 페이지 ✅ 구현 완료 (8/3, 배포 대기 — AdminController + web/admin.html, compileJava 통과). **어드민은 앱 내 화면 대신 웹 페이지로 전환 결정 (8/3)**. 라이브 전 필요 3가지: ① Render env에 ADMIN_KEY 등록 (레포가 public이라 코드에 기본값 두지 않음, 미설정 시 전부 403) ② 백엔드 push ③ 웹 재배포. 접속: /admin.html → 어드민 전용 비밀번호 로그인 (앱 카카오 로그인과 무관, X-Admin-Key 헤더 인증, 실패 시 1초 지연으로 브루트포스 완화)
 2. **자동 로그인 재구현** — dc43efa(토큰 있으면 스플래시→홈 직행)를 26d8a01에서 revert. 원인: ① ApiClient.isAuthenticated는 로컬 토큰 문자열 존재만 체크 → 168h 만료 토큰으로 홈 진입 시 모든 인증 API 401인데 글로벌 401 핸들러·재로그인 유도가 없음 ② authStateProvider(isLoggedIn) 미복원 → 토큰은 있는데 앱은 게스트 상태로 동작하는 모순. 재구현 시: 스플래시에서 /api/user/profile로 토큰 검증 → 200이면 authState 복원 + 홈, 401이면 clearSession + 로그인 화면
 3. **매장 상세 별점 헤더 목업** ("4.6 · 리뷰 128") — storeReviewProvider 데이터로 실제 평균/개수 표시 가능 (백엔드 추가 작업 불필요)
 4. **마이페이지 프로필 목업** — 게스트/미로그인 시 "절약왕 민서" 목업 표시됨. 로그인 상태 연동 필요
-5. **남은 목업들**: 영업시간, 찜 버튼("추후 개발 예정" 스낵바 → /api/favorites 연결 가능 — 태관 4주차 과제)
+5. **남은 목업들**: 영업시간. ~~찜 버튼~~ → ✅ 8/7 태관 찜 연동 완료 (3e6a220)
 6. ~~오늘의 픽(날씨 추천) 기획~~ → ✅ 5주차 민서(PM) 과제로 변경 (8/4 결정): 기상청 단기예보 연동 → 날씨 기반 추천 룰 + todays_pick 실데이터화 + AI 챗봇 루트 추천(8-3/8-4) + 최적 루트 간이 구현. 기존 6주차 지환(BE)/다나(FE) 오늘의 픽 과제는 6주차 "알림·폴리싱"으로 재배정, 상세는 WEEKLY_PLAN 참조
 7. ~~예상 절약 금액(2,000원) 목업~~ → ✅ 방문 인증 플로우 실데이터화 완료 (8/3~8/4): POST /api/visits + 절약 금액 서버 룰 **v2 참가격 기반** (ReferencePrices.java — 한국소비자원 참가격 근사치 품목 테이블 60여 개, 메뉴 매칭 우선 → 실제 업종 11개 카테고리 평균 폼백. 절약 = 기준가 − 결제가, 하한 0). GET /api/visits/estimate 미리보기 API + 인증 화면 400ms 디바운스 연동 (참가격 기준가 표시). 완료 화면 실제 savedAmount + 이번 달 누적. ⚠️ 참가격 값은 근사치라 주기적 갱신 필요, 삼겹살 등 인분 단위 품목은 오차 가능
 
@@ -85,7 +86,7 @@
 ### HIGH
 4. ~~마이페이지 통째 목업~~ → ✅ **해결 (8/4)** — userProfileProvider 기본값을 게스트('게스트'/0건)로 교체, mypage_screen `_loadProfileSummary()`가 로그인 시 /api/user/profile + /api/savings/stats(this_month) + /api/report/my + /api/favorites로 닉네임/이메일/이번 달 절약액/제보 수/찜 수 실데이터 주입. 남은 목업: 가격 알림 설정·소셜 계정 화면(백엔드 없는 후순위), favorite_stores(태관 4주차 과제)
 5. ~~대시보드 폼백 가짜 통계~~ → ✅ **해결 (8/4)** — `_loadFallbackData()` 삭제. 통계 API 전부 실패 시 가짜 숫자 대신 `_buildErrorState()`(아이콘+안내+다시 시도 버튼) 표시. 일부 탭만 실패하면 실패 탭은 0으로 표시 (가짜 금액 아님)
-6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요. **⚠️ 태관 4주차 과제(favorite_stores 연동)와 범위가 겹치므로 태관에게 이관 — 이 브랜치에서 수정 금지**
+6. **찜 docId에 매장명 사용** — uid+"_"+storeId인데 storeId가 매장 "이름"이라 `/` 등 Firestore 문서 ID 불가 문자 시 찜 실패 → ID 정규화/해시 필요. ⚠️ FE 연동은 완료됐으나(3e6a220) **이 이슈는 백엔드(FirebaseService favoriteDocId) 수정 필요** — 후속 BE 과제
 7. ~~SESSION_SECRET 미설정 시 dev 기본값 사용~~ → ✅ **해결 (8/4)** — SessionTokenService 생성자 fail-fast: 미설정/빈값이면 부팅 거부. dev 기본값은 `session.allow-dev-secret=true`(로컬 기본)에서만 허용 + 경고 로그. **운영은 Render env에 SESSION_SECRET(랜덤) + SESSION_ALLOW_DEV_SECRET=false 설정 필요**
 8. ~~/api/ai/chat 레이트리밋 없음~~ → ✅ **해결 (8/4)** — SimpleRateLimiter(인메모리 슬라이딩 윈도우) 추가, 유저당 시간당 20회(`AI_CHAT_MAX_PER_HOUR`로 조정) 초과 시 429. message 필수 + 1000자 상한 검증도 함께 추가
 
@@ -150,7 +151,7 @@
 4. `bfb3b4f` 다나 FE 이식 + 수정 3건 — 폼백 목업 제거(PM 결정, 감사 #5와 일관), 지역 필터 완화(일치 없으면 전체 표시 — 실데이터 location이 '구로구' 등이라 빈 화면 되던 버그), 빈 상태 추가. pubspec.lock 구버전 롤백 5건은 이식 제외 (브랜치 전략 사례)
 
 **미완료/다음 세션에서 이어갈 것 (우선순위)**
-1. **태관 4주차 과제 (찜 연동)** — 찜한 가게 화면 + 매장 상세 찜 버튼 + docId 정규화(감사 #6). 8/6 시점 진행 보고 없음. **이 코드는 태관 범위라 main에서 수정 금지**
+1. ~~태관 4주차 과제 (찜 연동)~~ → ✅ **완료 (8/7, 9110c08 → 3e6a220 cherry-pick)** — 상세는 5-0 태관 항목. docId 정규화(감사 #6)는 BE 수정 필요라 후속 과제로 분리
 2. 댓글·좋아요 백엔드 미구현 — 피드 카드 '댓글 0' vs 아래 목업 댓글 2건 불일치 상태로 라이브 중. 백엔드 추가 시 상세 화면 목업 _comments 제거 필요 (후속 과제 배정 필요)
 3. Firebase 노출 키 폐기·재발급 + git 히스토리 purge (감사 #1) — 콘솔 작업, 여전히 미완료
 4. 카카오/Gemini 노출 구 키 재발급 — 권장, 미완료
