@@ -1,8 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: fda42f5 (8/7 **미사용 코드 정리 + 개발용 어드민 모드 제거** — analyze warning 16건 해소, 순삭제 3,086줄, 상세는 5-9)
-> 직전: 0e480da (8/7 5주차 민서(PM) 과제 완료 — 문의 API + 회원 탈퇴 + 오늘의 픽(기상청 연동) + AI 루트 추천)
+> 최신 main: abf5995 (8/7 **미사용 코드 정리 + 어드민 모드 제거 + README 포트폴리오 개편·스크린샷** — 상세는 5-9·5-10). **0e480da~abf5995 전부 push 완료 → Render 자동 배포**
+> ⚠️ WEATHER_API_KEY Render env 미등록 (오늘의 픽 날씨는 안전 실패) — 집에서 등록 예정. 웹 Vercel 재배포 미실시 (라이브 웹은 구버전)
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -232,6 +232,24 @@
 **검증**: flutter analyze 60 → **43 issues** (전부 기존 info 레벨 — withOpacity deprecated 11곳 등, 기능 무관) · **error 0 · warning 0** + `build web` 성공. 각 단계마다 grep 참조 검증 + git diff 확인, 대형 파일은 라인 기반 Python 패치(assert 검증 포함) 사용. ⚠️ `flutter test` 9개 실패는 **레거시 스위트가 변경 전부터 깨진 상태** (첫 실패가 어드민 무관한 온볼딩 테스트 — 기대 텍스트 '정부 인증 · 공공데이터'가 앱에 존재하지 않음). 팀 검증 기준(analyze + build web + Playwright)과 동일하게 통과. widget_test 전면 정비는 6주차 통합 테스트 과제로.
 
 **환경 메모**: 이 세션에서 디스크 99% 사용(여유 174MB)으로 flutter test 컴파일 ENOSPC + 세션 중단 발생 → `~/Library/Caches`의 ShipIt 계열 업데이트 잔재(VSCode 1.5GB·antigravity 0.7GB) + JetBrains 캐시(1.8GB) 정리로 5.6GB 확보. **빌드/테스트 전 `df -h` 확인 습관화 권장** (5-0-1의 ENOSPC 사고와 동일 패턴).
+
+## 5-10. 8/7 README 포트폴리오 개편 + push·배포 상태
+
+**README 개편 (f06e88e + abf5995)**:
+- 심사/포트폴리오형 전면 개편: 히어로(로고·기술 배지 6개·라이브 링크), 주요 기능 표 9개, 기술 스택, 아키텍처 다이어그램, 프로젝트 구조, 실행 방법, 팀, 문서 링크
+- 구버전 정보 정리: 제거된 개발용 어드민 토글 설명, 완료된 "2주차 목표", 구 브랜치 전략(PR 병합→선별 이식)
+- 팀 협업·AI 프롬프트·Figma 회고·환경 설정 주의사항은 **docs/TEAM_GUIDE.md로 분리** (신규)
+- 스크린샷 3종 (docs/images/): Playwright 캡처 — home.png·explore.png는 라이브(howmuch-zeta, 카카오맵 정상 도메인), mypage.png는 로컬 최신 빌드(어드민 토글 없는 신버전). 캡처 스크립트: /tmp/howmuch-qa/shots_v3.js (재사용 가능)
+
+**웹 캡처 시 확인된 함정 3가지** (qa_v6 팁 보강):
+1. 이 프로젝트 웹 빌드는 **path URL 전략** — `/#/path` 해시 접근 무시됨 (SPA 서버 필요 시 모든 경로를 index.html로 fallback)
+2. 스플래시는 온볼딩 완료 후 무조건 로그인 화면 이동 → 캡처는 '로그인 없이 둘러보기' 클릭으로 게스트 진입
+3. 하단 네비는 시맨틱 DOM에 안 잡힘 → 좌표 클릭(390x844 기준 탐색 115/리포트 272/마이 350, y=812). 일반 버튼은 `flt-semantics` JS 클릭 (placeholder는 page.evaluate로 활성화)
+
+**push·배포 (8/7)**:
+- `git push origin main` 완료 (df72d68..abf5995 — 7개 커밋: 0e480da 5주차 과제 + 이번 세션 4개 + docs 2개) → **Render 자동 배포 트리거됨**
+- ⚠️ **WEATHER_API_KEY Render env 미등록** — 오늘의 픽 날씨 카드는 안전 실패로 동작, 매장 추천 자체는 인메모리 캐시라 정상. **집에서 등록 예정** (공공데이터포털 기상청 단기예보 API 키)
+- ⚠️ **웹 Vercel 재배포 미실시** — 라이브 웹(howmuch-zeta)은 어드민 토글·신규 README 미반영 구버전. 재배포 시: `flutter build web --release` → `cd build/web && npx -y vercel@latest deploy --prod --yes` (배포 전 `npx vercel projects ls`로 howmuch 프로젝트 확인 — 5-2 함정 참조)
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
