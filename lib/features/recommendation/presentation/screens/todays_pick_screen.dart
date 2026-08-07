@@ -4,6 +4,8 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class TodaysPickItem {
   final String id;
@@ -62,7 +64,25 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
     try {
       final service = ref.read(todaysPickServiceProvider);
-      final data = await service.getTodaysPick();
+      // 지도에서 이미 확보한 위치가 있으면 그대로 사용, 없으면 geolocator로 조회
+      double? lat;
+      double? lng;
+      if (HomeMapScreen.globalUserPosition != null) {
+        lat = HomeMapScreen.globalUserPosition!.latitude;
+        lng = HomeMapScreen.globalUserPosition!.longitude;
+      } else {
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 3),
+          );
+          lat = pos.latitude;
+          lng = pos.longitude;
+        } catch (_) {
+          // 위치 조회 실패 시 null로 두고 서버에서 서울 기본 격자 사용
+        }
+      }
+      final data = await service.getTodaysPick(lat: lat, lng: lng);
       if (data['error'] == true) {
         setState(() {
           _errorMessage = '오늘의 픽을 불러오지 못했어요.';
