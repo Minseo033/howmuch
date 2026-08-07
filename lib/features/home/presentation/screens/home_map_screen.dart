@@ -1432,12 +1432,12 @@ class _TodayPickCard extends StatelessWidget {
           ],
         ),
         child: Row(
-          children: const [
+          children: [
             SizedBox(
               width: 55.99431610107422,
               height: 53.99147415161133,
               child: DecoratedBox(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1447,14 +1447,15 @@ class _TodayPickCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.thunderstorm_outlined,
                       color: HomeMapScreen.blue,
                       size: 20,
                     ),
-                    SizedBox(height: 1.989),
+                    const SizedBox(height: 1.989),
+                    // 날씨 API 연동 전이라 기온은 목업이 아니라 "알 수 없음"으로 표시
                     Text(
-                      '18°',
+                      '오늘',
                       style: TextStyle(
                         color: HomeMapScreen.blue,
                         fontFamily: HomeMapScreen.fontFamily,
@@ -1468,18 +1469,18 @@ class _TodayPickCard extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: 11.988616943359375),
-            Expanded(child: _TodayPickText()),
-            _RankDot(label: '1', color: HomeMapScreen.blue),
-            _RankDot(label: '2', color: HomeMapScreen.orange),
-            _RankDot(label: '3', color: HomeMapScreen.green),
-            SizedBox(width: 9.985779),
-            Icon(
+            const SizedBox(width: 11.988616943359375),
+            const Expanded(child: _TodayPickText()),
+            const _RankDot(label: '1', color: HomeMapScreen.blue),
+            const _RankDot(label: '2', color: HomeMapScreen.orange),
+            const _RankDot(label: '3', color: HomeMapScreen.green),
+            const SizedBox(width: 9.985779),
+            const Icon(
               Icons.chevron_right_rounded,
               color: HomeMapScreen.muted,
               size: 17,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
           ],
         ),
       ),
@@ -1524,9 +1525,9 @@ class _TodayPickText extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: .994),
+        const SizedBox(height: .994),
         Text(
-          '따뜻한 국물 메뉴 3곳',
+          '날씨 기반 추천 4곳',
           style: TextStyle(
             color: HomeMapScreen.ink,
             fontFamily: HomeMapScreen.fontFamily,
