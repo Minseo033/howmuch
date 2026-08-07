@@ -1,8 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-07
-> 최신 main: abf5995 (8/7 **미사용 코드 정리 + 어드민 모드 제거 + README 포트폴리오 개편·스크린샷** — 상세는 5-9·5-10). **0e480da~abf5995 전부 push 완료 → Render 자동 배포**
-> ⚠️ WEATHER_API_KEY Render env 미등록 (오늘의 픽 날씨는 안전 실패) — 집에서 등록 예정. 웹 Vercel 재배포 미실시 (라이브 웹은 구버전)
+> 최신 main: 97088a4 (8/7 **기상청 키 인코딩 수정으로 오늘의 픽 날씨 라이브 정상화** + 미사용 코드 정리 + 어드민 모드 제거 + README 개편). **전부 push 완료 → Render 자동 배포, 라이브 검증 완료 (weatherAvailable:true)**
+> ⚠️ 웹 Vercel 재배포 미실시 (라이브 웹은 어드민 토글 있는 구버전) — 재배포 방법은 5-10 참조
 > 8/4 감사 이슈 코드 수정 + 어드민 페이지 개선 + UI 피드백 반영 전부 배포 완료 — 상세는 5-4·5-5 참조
 > 장기 계획은 `docs/WEEKLY_PLAN.md` 참조 (8/31 개강까지 앱 90% 완성 목표)
 
@@ -248,7 +248,7 @@
 
 **push·배포 (8/7)**:
 - `git push origin main` 완료 (df72d68..abf5995 — 7개 커밋: 0e480da 5주차 과제 + 이번 세션 4개 + docs 2개) → **Render 자동 배포 트리거됨**
-- ⚠️ **WEATHER_API_KEY Render env 미등록** — 오늘의 픽 날씨 카드는 안전 실패로 동작, 매장 추천 자체는 인메모리 캐시라 정상. **집에서 등록 예정** (공공데이터포털 기상청 단기예보 API 키)
+- ~~WEATHER_API_KEY Render env 미등록~~ → ✅ **해결 (8/7 저녁)** — 키 등록 후 403 `SERVICE_KEY_IS_NOT_REGISTERED_ERROR` 발생: 원인은 키 인코딩 (Encoding 키의 `%`가 RestTemplate String URL 방식에서 이중 인코딩). **97088a4에서 수정**: 키에 `%` 포함 시(Encoding) 그대로 + 없으면(Decoding) URLEncoder 인코딩, 그리고 String 대신 `URI.create()`로 전달해 재인코딩 방지. **양쪽 키 형식 모두 지원**. 라이브 검증: `weatherAvailable:true, 맑음, 34°` 정상. **교훈: 공공데이터포털 키는 Encoding/Decoding 2종 제공 — 어떤 키를 쓰든 동작하는 방어 코드가 정답**
 - ⚠️ **웹 Vercel 재배포 미실시** — 라이브 웹(howmuch-zeta)은 어드민 토글·신규 README 미반영 구버전. 재배포 시: `flutter build web --release` → `cd build/web && npx -y vercel@latest deploy --prod --yes` (배포 전 `npx vercel projects ls`로 howmuch 프로젝트 확인 — 5-2 함정 참조)
 
 ## 6. 알려진 주의사항
