@@ -68,6 +68,10 @@
 8. **Firebase 키 폐기·재발급 + git 히스토리 purge** (감사 #1, 콘솔 작업).
 9. **카카오/Gemini 노출 구 키 재발급** (권장).
 10. **6주차 과제** (8/18~8/24): 알림 발송 로직(가격 변동 제보 시 찜 구독자 알림), 오늘의 픽·루트 화면 폴리싱, 전체 화면 폴리싱 + 버그픽스, 통합 테스트, Firestore 보안 룰, Blaze 전환 판단.
+11. **Swagger(springdoc-openapi) 도입** → **PM 결정 (8/7): 개발 전부 끝난 후 마지막에 도입** (7주차 QA·출시 버퍼 주간). 도입 시: build.gradle에 `springdoc-openapi-starter-webmvc-ui` 1줄 + /api/admin/** 는 @Hidden/GroupedOpenApi로 문서에서 숨김 + Bearer Authorize 버튼 설정. BE→FE 핸드오프 문서 자동화 + 포트폴리오 링크 효과.
+12. **개인정보처리방침 (8/8)**: 실제 코드 전수 감사 + 한국 개인정볼보호법 기준 방침 초안 완성 → `docs/PRIVACY_POLICY_DRAFT.md`. **감사에서 발견한 코드 이슈 4건**: ① 탈퇴 시 inquiries(문의 내역) 삭제 누락 (deleteUser에 추가 필요) ② 기존 앱 내 방침 화면(privacy_policy_screen.dart)이 허위 템플릿 (네이버/애플 로그인·프로필 사진·기기정보 수집·결제기록 5년 등 실제 없는 수집 기재) → 초안으로 교체 필요 ③ iOS 마이크 권한 문구 불필요 (사용 코드 없음) ④ 로그인 동의가 "간주" 문구뿐 (명시적 동의 체크 검토). 방침 빈칸: 사업자명·책임자 연락처·시행일·Firebase/Render 리전(국외 이전 고지 여부 결정). **7주차 스토어 등록 준비(개인정보처리방침 필수) 과제의 산출물로 사용.**
+13. **PC 웹 풀와이드 레이아웃 (논의 8/7)**: 거지맵식 데스크톱 레이아웃 — **홈 지도만** 데스크톱 브레이크포인트(≥1024px)로 풀와이드+사이드 패널 적용 제안 (전체 화면 반응형은 비추, 40개 절대좌표 화면 재작성 부담). 6주차 태관 폴리싱 과제 후보. FigmaMobileCanvas maxWebWidth 430 고정이 현재 제약.
+14. **거지맵 데이터 추출 검토 (8/7)**: 기술적으로 가능 확인 (api.hobos.studio 마커 API 무인증 bbox 쿼리, 샘플 10건 /tmp/geojimap_sample.json) — 그러나 **경쟁사 UGC라 실DB 적재는 부정경쟁방지법 리스크로 비추천** (PM 판단). 개발용 목업/벤치마킹 용도로만.
 
 **5주차 세션에서 겪은 환경 문제**:
 - replace_in_file이 대형 파일에서 엉뚱한 내용으로 덮어쓰는 사고 발생 (FirebaseService/GeminiService/UserController/AdminController가 서로 내용이 뒤바뀜) → git checkout으로 복원 후 재작성으로 해결. **교훈: 편집 후 `git diff`로 의도한 변경만 들어갔는지 반드시 확인**
