@@ -270,6 +270,15 @@ public class FirebaseService {
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
+        // 💡 요청 #7: 프론트가 기기 로컬 경로(photo.path)를 imageUrls에 그대로 볼 경우,
+        //    다른 기기/재실행 후 이미지가 깨지므로 http(s) 형태의 접근 가능한 URL만 남긴다.
+        //    (실제 이미지 업로드 스토리지 연동은 별도 과제 — 지금은 유효하지 않은 로컬 경로를 제거해 깨진 이미지 노출 방지)
+        if (report.getImageUrls() != null) {
+            List<String> validUrls = report.getImageUrls().stream()
+                    .filter(u -> u != null && (u.startsWith("http://") || u.startsWith("https://")))
+                    .toList();
+            report.setImageUrls(validUrls);
+        }
 
         DocumentReference docRef = db.collection("stores_user").document();
         ApiFuture<WriteResult> future = docRef.set(report);
@@ -1352,6 +1361,268 @@ public class FirebaseService {
         } catch (Exception e) {
             return 0;
         }
+    }
+
+    // ==================== 커뮤니티 댓글/좋아요/알림 (comments, feed_likes, feed_notifications) ====================
+
+    /** 제보(게시글)가 존재하고 공개 가능한지 확인. 없거나 REJECTED면 false */
+    public boolean feedExists(String postId) {
+        try {
+            DocumentSnapshot doc = db.collection("stores_user").document(postId).get().get();
+            if (!doc.exists()) return false;
+            Map<String, Object> data = doc.getData();
+            return data != null && isFeedVisible(data);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 작성자 uid → 닉네임 해결 (실패 시 '알 수 없음') */
+    private String resolveAuthor(String uid) {
+        if (uid == null) return "알 수 없음";
+        try {
+            com.howmuch.dto.UserProfileResponse user = getUserProfile(uid);
+            if (user != null && user.getNickname() != null && !user.getNickname().isBlank()) {
+                return user.getNickname();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return "알 수 없음";
+    }
+
+    /** 게시글의 comments/likes 카운터를 실제 컬렉션 기준으로 다시 계산해 저장 (요청 #6 최신화) */
+    private void syncFeedCounts(String postId) {
+        try {
+            long commentCount = db.collection("comments")
+                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+            long likeCount = db.collection("feed_likes")
+                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("comments", (int) commentCount);
+            updates.put("likes", (int) likeCount);
+            db.collection("stores_user").document(postId).update(updates).get();
+        } catch (Exception e) {
+            // 카운터 동기화 실패는 치명적이지 않으므로 로그만 (호출 흐름 유지)
+        }
+    }
+
+    /** 문서 스냅샷 → CommentResponse 변환 */
+    private com.howmuch.dto.CommentResponse toCommentResponse(DocumentSnapshot doc, String requesterUid) {
+        Map<String, Object> data = doc.getData();
+        if (data == null) data = new HashMap<>();
+        String uid = data.get("userId") != null ? data.get("userId").toString() : null;
+        String content = data.get("content") != null ? data.get("content").toString() : "";
+        String createdAt = data.get("createdAt") != null ? data.get("createdAt").toString() : "";
+        boolean isMine = requesterUid != null && requesterUid.equals(uid);
+        int replyCount = 0;
+        Object rc = data.get("replyCount");
+        if (rc != null) {
+            try { replyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
+        }
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(doc.getId())
+                .author(resolveAuthor(uid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(isMine)
+                .replyCount(replyCount)
+                .build();
+    }
+
+    // 💡 댓글 목록 조회 (최상위 댓글만, parentId 없음). 오래된순
+    public List<com.howmuch.dto.CommentResponse> getComments(String postId, String requesterUid) throws Exception {
+        List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
+                .whereEqualTo("postId", postId)
+                .get().get().getDocuments());
+        List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            Map<String, Object> data = doc.getData();
+            Object parentId = data != null ? data.get("parentId") : null;
+            if (parentId == null) { // 최상위 댓글만
+                result.add(toCommentResponse(doc, requesterUid));
+            }
+        }
+        // 복합 인덱스 없이 메모리 정렬 (오래된순)
+        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
+        return result;
+    }
+
+    // 💡 댓글 작성
+    public com.howmuch.dto.CommentResponse createComment(String postId, String requesterUid, String content) throws Exception {
+        DocumentReference docRef = db.collection("comments").document();
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("postId", postId);
+        data.put("userId", requesterUid);
+        data.put("content", content);
+        data.put("createdAt", createdAt);
+        data.put("replyCount", 0);
+        data.put("parentId", null);
+        docRef.set(data).get();
+        syncFeedCounts(postId);
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(docRef.getId())
+                .author(resolveAuthor(requesterUid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(true)
+                .replyCount(0)
+                .build();
+    }
+
+    // 💡 답글 목록 조회 (오래된순)
+    public List<com.howmuch.dto.CommentResponse> getReplies(String commentId, String requesterUid) throws Exception {
+        List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
+                .whereEqualTo("parentId", commentId)
+                .get().get().getDocuments());
+        List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            result.add(toCommentResponse(doc, requesterUid));
+        }
+        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
+        return result;
+    }
+
+    // 💡 답글 작성 (부모 댓글 replyCount 증가 + 게시글 comments 갱신)
+    public com.howmuch.dto.CommentResponse createReply(String commentId, String requesterUid, String content) throws Exception {
+        DocumentSnapshot parent = db.collection("comments").document(commentId).get().get();
+        if (!parent.exists()) return null;
+        Map<String, Object> parentData = parent.getData();
+        String postId = parentData != null && parentData.get("postId") != null ? parentData.get("postId").toString() : null;
+
+        DocumentReference docRef = db.collection("comments").document();
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("postId", postId);
+        data.put("userId", requesterUid);
+        data.put("content", content);
+        data.put("createdAt", createdAt);
+        data.put("parentId", commentId);
+        data.put("replyCount", 0);
+        docRef.set(data).get();
+
+        // 부모 댓글 replyCount 갱신
+        int parentReplyCount = 0;
+        Object rc = parentData != null ? parentData.get("replyCount") : null;
+        if (rc != null) {
+            try { parentReplyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
+        }
+        db.collection("comments").document(commentId).update("replyCount", parentReplyCount + 1).get();
+
+        if (postId != null) syncFeedCounts(postId);
+
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(docRef.getId())
+                .author(resolveAuthor(requesterUid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(true)
+                .replyCount(0)
+                .build();
+    }
+
+    // 💡 좋아요 추가 (멱등: uid_postId docId로 중복 방지). 최신 likes/likedByMe 반환
+    public Map<String, Object> likeFeed(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", uid);
+        data.put("postId", postId);
+        data.put("createdAt", java.time.Instant.now().toString());
+        db.collection("feed_likes").document(docId).set(data).get();
+        syncFeedCounts(postId);
+        int likes = getLikeCount(postId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("likes", likes);
+        result.put("likedByMe", true);
+        return result;
+    }
+
+    // 💡 좋아요 취소 (멱등). 최신 likes/likedByMe 반환
+    public Map<String, Object> unlikeFeed(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        db.collection("feed_likes").document(docId).delete().get();
+        syncFeedCounts(postId);
+        int likes = getLikeCount(postId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("likes", likes);
+        result.put("likedByMe", false);
+        return result;
+    }
+
+    private int getLikeCount(String postId) throws Exception {
+        return db.collection("feed_likes").whereEqualTo("postId", postId).get().get().getDocuments().size();
+    }
+
+    // 💡 게시글 알림 구독 (멱등)
+    public Map<String, Object> subscribeFeedNotification(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", uid);
+        data.put("postId", postId);
+        data.put("createdAt", java.time.Instant.now().toString());
+        db.collection("feed_notifications").document(docId).set(data).get();
+        Map<String, Object> result = new HashMap<>();
+        result.put("notificationEnabled", true);
+        return result;
+    }
+
+    // 💡 게시글 알림 구독 해제 (멱등)
+    public Map<String, Object> unsubscribeFeedNotification(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        db.collection("feed_notifications").document(docId).delete().get();
+        Map<String, Object> result = new HashMap<>();
+        result.put("notificationEnabled", false);
+        return result;
+    }
+
+    // ==================== 알림함 (notifications) — 지환 5주차 과제 선별 이식 ====================
+
+    // 💡 내 알림 목록 조회 (최신순)
+    public List<com.howmuch.dto.NotificationResponseDto> getNotifications(String firebaseUid) throws Exception {
+        var documents = db.collection("notifications")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.NotificationResponseDto> notifications = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Boolean isRead = parseBooleanSafely(data.get("isRead"));
+
+            notifications.add(com.howmuch.dto.NotificationResponseDto.builder()
+                    .id(doc.getId())
+                    .title(data.get("title") != null ? data.get("title").toString() : "")
+                    .body(data.get("body") != null ? data.get("body").toString() : "")
+                    .type(data.get("type") != null ? data.get("type").toString() : "")
+                    .isRead(isRead != null ? isRead : false)
+                    .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : "")
+                    .build());
+        }
+
+        // 복합 인덱스 없이 메모리에서 최신순 정렬
+        notifications.sort((a, b) -> {
+            String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
+            String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+        return notifications;
+    }
+
+    // 💡 알림 읽음 처리 (본인 알림만 가능 — 다른 유저 알림이면 거부)
+    public void markNotificationAsRead(String notificationId, String firebaseUid) throws Exception {
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
+        DocumentSnapshot document = docRef.get().get();
+
+        if (!document.exists()) {
+            throw new IllegalArgumentException("알림이 존재하지 않습니다: " + notificationId);
+        }
+        String ownerId = document.getString("userId");
+        if (!firebaseUid.equals(ownerId)) {
+            throw new IllegalArgumentException("본인 알림만 읽음 처리할 수 있습니다.");
+        }
+        docRef.update("isRead", true).get();
     }
 }
 

@@ -67,6 +67,11 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         if (path.equals("/api/review/me")) return true;
         // 리뷰 조회(GET)는 공개, 작성(POST)만 인증 필요
         if (path.startsWith("/api/review") && !"GET".equalsIgnoreCase(method)) return true;
+        // 커뮤니티: 피드/댓글/답글 "조회(GET)"는 공개, 작성·좋아요·알림(POST/DELETE)은 인증 필요
+        // (uid가 있어야 isMine 계산·작성자 기록·멱등 좋아요/구독이 가능)
+        if (path.startsWith("/api/community/") && !"GET".equalsIgnoreCase(method)) return true;
+        // 알림함(내 알림 목록/읽음)은 인증 필요
+        if (path.startsWith("/api/notifications")) return true;
         return false;
     }
 }
