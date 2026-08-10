@@ -1624,5 +1624,109 @@ public class FirebaseService {
         }
         docRef.update("isRead", true).get();
     }
+
+    // ==================== 어드민: 댓글·알림·통계 ====================
+
+    // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
+    public List<Map<String, Object>> getAllComments() throws Exception {
+        List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("postId", data.get("postId"));
+                    item.put("userId", data.get("userId"));
+                    item.put("content", data.get("content"));
+                    item.put("createdAt", data.get("createdAt"));
+                    item.put("parentId", data.get("parentId"));
+                    item.put("isReply", data.get("parentId") != null);
+                    return item;
+                })
+                .toList());
+        comments.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return comments;
+    }
+
+    // 💡 [어드민] 댓글/답글 삭제 — 답글이면 부모 댓글 replyCount 감소, 댓글이면 답글도 함께 삭제 + 게시글 카운터 갱신
+    public void deleteComment(String commentId) throws Exception {
+        DocumentReference docRef = db.collection("comments").document(commentId);
+        DocumentSnapshot doc = docRef.get().get();
+        if (!doc.exists()) {
+            throw new IllegalArgumentException("댓글을 찾을 수 없습니다: " + commentId);
+        }
+        Map<String, Object> data = doc.getData();
+        String postId = data != null && data.get("postId") != null ? data.get("postId").toString() : null;
+        Object parentId = data != null ? data.get("parentId") : null;
+
+        // 댓글이면 소속 답글 전부 삭제
+        if (parentId == null) {
+            var replies = db.collection("comments").whereEqualTo("parentId", commentId).get().get().getDocuments();
+            for (DocumentSnapshot reply : replies) {
+                reply.getReference().delete().get();
+            }
+        }
+        docRef.delete().get();
+
+        // 답글이면 부모 댓글 replyCount 감소
+        if (parentId != null) {
+            try {
+                DocumentReference parentRef = db.collection("comments").document(parentId.toString());
+                DocumentSnapshot parent = parentRef.get().get();
+                if (parent.exists()) {
+                    Object rc = parent.get("replyCount");
+                    int count = 0;
+                    if (rc != null) { try { count = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {} }
+                    parentRef.update("replyCount", Math.max(0, count - 1)).get();
+                }
+            } catch (Exception e) { /* 카운터 감소 실패는 무시 */ }
+        }
+        // 게시글 comments/likes 카운터 갱신
+        if (postId != null) syncFeedCounts(postId);
+    }
+
+    // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
+    public Map<String, Object> sendAdminNotification(String targetUid, String title, String body, String type) throws Exception {
+        String createdAt = java.time.Instant.now().toString();
+        int sent = 0;
+        List<String> targetUids = new ArrayList<>();
+        if (targetUid != null && !targetUid.isBlank()) {
+            targetUids.add(targetUid);
+        } else {
+            // 전체 발송: users 전체
+            for (DocumentSnapshot u : db.collection("users").get().get().getDocuments()) {
+                targetUids.add(u.getId());
+            }
+        }
+        for (String uid : targetUids) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", uid);
+            data.put("title", title);
+            data.put("body", body);
+            data.put("type", type != null && !type.isBlank() ? type : "admin");
+            data.put("isRead", false);
+            data.put("createdAt", createdAt);
+            db.collection("notifications").document().set(data).get();
+            sent++;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("sent", sent);
+        result.put("broadcast", targetUid == null || targetUid.isBlank());
+        return result;
+    }
+
+    // 💡 [어드민] 커뮤니티 활동 지표 — 댓글/좋아요/알림 수 (대시보드 확장용)
+    public Map<String, Object> getCommunityStats() throws Exception {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("comments", countCollection("comments"));
+        stats.put("feedLikes", countCollection("feed_likes"));
+        stats.put("feedNotifications", countCollection("feed_notifications"));
+        stats.put("notifications", countCollection("notifications"));
+        return stats;
+    }
 }
 
