@@ -1,7 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-10
-> 최신 main: 6b738dd (8/10 **동네제보 댓글/답글/좋아요/알림구독 API + 알림함 API + 이미지 로컬경로 필터** — 지환 5주차 알림함 선별 이식 포함, 로컬 스모크 전수 통과) — 상세는 5-13 참조
+> 최신 main: cfad439 (8/11 **어드민 페이지 대폭 확장** — 댓글 관리·문의 관리·알림 발송 탭 + 커뮤니티 통계, 로컬 스모크 통과) — 상세는 5-14 참조
+> 그 이전 6b738dd (8/10 **동네제보 댓글/답글/좋아요/알림구독 API + 알림함 API + 이미지 로컬경로 필터** — 지환 5주차 알림함 선별 이식 포함, 로컬 스모크 전수 통과) — 상세는 5-13 참조
 > 그 이전 1839ab8 (8/8 **개인정보 전수 감사 + 처리방침 초안** — docs 전용, 코드 변경 없음). 753a443까지 **전부 push 완료 → Render 자동 배포, Vercel 재배포 완료**
 > 8/8 **개인정보처리방침 초안 완성** (`docs/PRIVACY_POLICY_DRAFT.md`) + 감사에서 코드 이슈 4건 발견 — 상세는 5-12 참조
 > 8/7~8/8 **의사결정 4건 기록**: Swagger 도입 시기(마지막) / PC 웹 풀와이드(홈 지도만, 6주차 후보) / 거지맵 데이터(실DB 적재 비추) / 개인정보 방침 — 상세는 5-12 참조
@@ -362,6 +363,27 @@
 **지환 알림함 선별 이식 (통째 머지 불가 판정)**: 지환 브랜치(origin/team/jihwan-backend, 알람 API 1·2차)에 **미해결 git 충돌 마커(`<<<<<<< Updated upstream`/`=======`/`>>>>>>> Stashed changes`)가 그대로 커밋돼 있음** — 1차(PATCH·uid 미검증)와 2차(POST·본인 검증)가 stash 충돌 상태로 섞임. → 2차(최신 의도) 기준으로 깨끗하게 재작성 + 팀 보안 원칙(500에 e.getMessage() 노출 금지) 적용. 지환 브랜치는 이식 후 폐기 가능.
 
 **다음 과제**: 태관 FE — 동네제보 상세 댓글/좋아요/알림 연동 (백엔드 계약 일치 확인됨). 다나 FE — 알림함 화면 연동.
+
+## 5-14. 8/11 어드민 페이지 대폭 확장 (PM, 커밋 cfad439)
+
+**배경**: 동네제보 댓글/좋아요/알림 기능이 새로 생기면서(5-13) 이 데이터를 운영자가 관리할 어드민 기능이 필요해짐. 기존 어드민(제보/리뷰/회원/대시보드)에 커뮤니티 관리 기능을 추가.
+
+**신규 백엔드 어드민 API** (전부 X-Admin-Key 인증, ADMIN_KEY 미설정 시 403):
+- `GET /api/admin/comments` — 전체 댓글·답글 최신순 (id/postId/userId/content/createdAt/parentId/isReply)
+- `DELETE /api/admin/comments/{id}` — 댓글 삭제. 댓글이면 소속 답글 전부 삭제 + 답글이면 부모 replyCount 감소 + 게시글 comments 카운터 갱신(syncFeedCounts)
+- `POST /api/admin/notifications` — 알림 발송. body: {title, body, type?, targetUid?}. targetUid 없으면 전체 회원 발송. 제목 100자·내용 500자 상한. notifications 컬렉션에 문서 생성 → 다나 알림함 화면에서 조회됨
+- `GET /api/admin/community/stats` — 커뮤니티 지표 (comments/feedLikes/feedNotifications/notifications 수, count 집계)
+
+**web/admin.html 신규 탭 3개** (사이드바 '운영' 그룹):
+- **댓글 관리**: 전체 댓글·답글 테이블 (구분 배지 댓글/답글, 내용 미리보기, 작성자·게시글 uid, 작성일) + 삭제(확인 모달)
+- **문의 관리**: 전체 문의 테이블 (제목/카테고리, 내용 미리보기, 작성자, 상태 배지, 접수일) — 기존에 API만 있고 탭이 없던 것 추가
+- **알림 발송**: 커뮤니티 통계 카드 3개(댓글·답글/좋아요/발송된 알림) + 발송 폼 (전체 회원/특정 회원 uid 탭 전환, 제목·내용 입력, 발송 확인, 발송 후 통계 갱신)
+
+**추가 수정**: NotificationResponseDto의 `isRead`에 `@JsonProperty("isRead")` 추가 — Lombok @Data가 `boolean isRead`를 JSON `read`로 직렬화하던 것을 프론트 명세 `isRead`로 고정 (다나 알림함 연동용). CommentResponse의 isMine과 동일한 패턴.
+
+**검증**: compileJava BUILD SUCCESSFUL + admin.html JS node --check 통과 + 로컬 스모크 (커뮤니티 통계 {comments:3,feedLikes:1,feedNotifications:1,notifications:0}, 댓글 목록 3건, 알림 발송 {sent:1} → smoketest 유저 알림함에 저장 확인, 댓글 삭제 {success:true}, 잘못된 키·무키 401).
+
+**배포**: 백엔드 push → Render 자동 배포. 어드민 페이지는 웹 파일이라 `flutter build web --release` → Vercel 재배포 필요 (admin.html이 build/web에 자동 포함).
 
 ## 6. 알려진 주의사항
 - Render 물묣 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
