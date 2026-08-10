@@ -1,7 +1,8 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-10
-> 최신 main: 1839ab8 (8/8 **개인정보 전수 감사 + 처리방침 초안** — docs 전용, 코드 변경 없음). 그 이전 753a443까지 **전부 push 완료 → Render 자동 배포, Vercel 재배포 완료**
+> 최신 main: 6b738dd (8/10 **동네제보 댓글/답글/좋아요/알림구독 API + 알림함 API + 이미지 로컬경로 필터** — 지환 5주차 알림함 선별 이식 포함, 로컬 스모크 전수 통과) — 상세는 5-13 참조
+> 그 이전 1839ab8 (8/8 **개인정보 전수 감사 + 처리방침 초안** — docs 전용, 코드 변경 없음). 753a443까지 **전부 push 완료 → Render 자동 배포, Vercel 재배포 완료**
 > 8/8 **개인정보처리방침 초안 완성** (`docs/PRIVACY_POLICY_DRAFT.md`) + 감사에서 코드 이슈 4건 발견 — 상세는 5-12 참조
 > 8/7~8/8 **의사결정 4건 기록**: Swagger 도입 시기(마지막) / PC 웹 풀와이드(홈 지도만, 6주차 후보) / 거지맵 데이터(실DB 적재 비추) / 개인정보 방침 — 상세는 5-12 참조
 > 8/7 **오늘의 픽 추천 로직 신빙성 점검·수정 완료** — 상세는 5-11 참조 (백엔드+프론트 모두 배포 완료)
@@ -326,6 +327,41 @@
 - **방침 초안**: 법정 8항목 전부 포함(수집/목적, 보유기간, 파기, 제3자, 위탁, 권리행사, 책임자, 자동수집·쿠키). 코드로 확인 불가한 건 지어내지 않고 **빈칸 11개** (사업자명·시행일·책임자 연락처·문의 이메일·Firebase/Render 리전=국외 이전 고지 여부·로그 보관 기간·14세 미만 정책)
 - **후속 코드 과제 4건**: ① deleteUser에 inquiries 삭제 추가 ② 방침 화면을 초안으로 교체 ③ iOS 마이크 권한 문구 제거 ④ 로그인 동의 "간주"→명시적 체크 검토
 - ⚠️ 참고용 초안, 법률 자문 아님 — 실서비스 전 변호사 검토 필요. **7주차 스토어 등록 준비 과제의 산출물로 사용 예정**
+
+## 5-13. 8/10 동네제보 댓글/좋아요/알림 백엔드 전면 구현 + 지환 알림함 이식 (PM, 커밋 6b738dd)
+
+**배경**: 태관이 4주차에 동네제보 상세 화면(community_post_detail)을 만들면서 댓글/답글/좋아요/알림 API 호출 코드(community_service.dart)까지 미리 작성핸뒀으나, 백엔드가 없어 전부 실패하는 상태였음 (WEEKLY_PLAN에도 미배정 공백). PM이 직접 백엔드 전면 구현. **태관은 프론트 연동만 이어서 하면 됨.**
+
+**구현된 API (전부 태관 프론트 community_service.dart 계약과 100% 일치)**:
+| 기능 | 메서드·경로 | 응답 |
+|---|---|---|
+| 댓글 목록 | GET /api/community/feed/{postId}/comments | [{id, author, content, createdAt, isMine, replyCount}] |
+| 댓글 작성 | POST /api/community/feed/{postId}/comments (body: content) | 생성 댓글 |
+| 답글 목록 | GET /api/community/comments/{commentId}/replies | 답글 목록 |
+| 답글 작성 | POST /api/community/comments/{commentId}/replies (body: content) | 생성 답글 |
+| 좋아요 | POST·DELETE /api/community/feed/{postId}/like | {likes, likedByMe} |
+| 알림 구독 | POST·DELETE /api/community/feed/{postId}/notification | {notificationEnabled} |
+| 알림함 목록 | GET /api/notifications | [{id,title,body,type,isRead,createdAt}] (지환) |
+| 알림 읽음 | POST /api/notifications/{id}/read | (본인 알림만, 지환) |
+
+**신규 파일**: controller/CommunityCommentsController·CommunityFeedInteractionsController·NotificationController, dto/CommentRequest·CommentResponse·NotificationResponseDto. **수정**: FirebaseService(+271줄), SessionAuthFilter(+7줄).
+
+**핵심 설계**:
+- Firestore 신규 컬렉션 4개: `comments`(댓글+답글 통합, parentId로 구분), `feed_likes`, `feed_notifications`, `notifications`
+- 좋아요·알림구독은 `uid + "_" + sanitizeForDocId(postId)` docId로 **멱등** (중복 추가 방지, favorites 패턴)
+- **카운터 자동 갱신 (태관 요청 #6)**: 댓글/답글/좋아요 작성·삭제 시 `syncFeedCounts`가 comments·likes를 실제 컬렉션 기준으로 재계산해 stores_user 문서에 저장 → 목록/상세가 항상 최신
+- **이미지 로컬경로 필터 (태관 요청 #7)**: saveUserReport에서 imageUrls 중 http(s) 아닌 기기 로컬 경로 제거 → 다른 기기/재실행 후 깨진 이미지 노출 방지. 실제 업로드(Firebase Storage 등)는 별도 과제
+- 보안: uid는 세션 attribute에서만 주입(IDOR 방지), REJECTED·없는 글 404, 내용 1000자 상한, 인증 필요 시 401
+
+**⚠️ 스모크에서 잡은 치명 버그 — SessionAuthFilter 경로 누락**: requiresAuth()에 `/api/community/`·`/api/notifications`가 등록돼 있지 않아 필터가 uid를 주입하지 않음 → 모든 인증 쓰기가 401. **라이브에서도 똑같이 터졌을 버그를 로컬 스모크에서 발견해 수정** (community는 GET=공개/비GET=인증, notifications=전부 인증). 이것이 처음 401이 난 진짜 원인 (토큰 문제 아님).
+
+**isMine 직렬화 주의**: Lombok @Data는 `boolean isMine`을 JSON `mine`으로 직렬화 → 태관 명세 `isMine`과 불일치. CommentResponse에 `@JsonProperty("isMine")` 추가로 고정 (태관 프론트는 mine도 읽지만 명세 일치가 깔끔).
+
+**로컬 스모크 전수 통과 (8081)**: 댓글 작성/목록/답글 작성/목록/좋아요 추가→취소→중복방지/알림 구독·해제/카운터 0→2(comments)·0→1→0(likes) 자동 갱신/공개 GET 비로그인 조회(isMine=false)/쓰기 401/없는 글 404/알림함 200.
+
+**지환 알림함 선별 이식 (통째 머지 불가 판정)**: 지환 브랜치(origin/team/jihwan-backend, 알람 API 1·2차)에 **미해결 git 충돌 마커(`<<<<<<< Updated upstream`/`=======`/`>>>>>>> Stashed changes`)가 그대로 커밋돼 있음** — 1차(PATCH·uid 미검증)와 2차(POST·본인 검증)가 stash 충돌 상태로 섞임. → 2차(최신 의도) 기준으로 깨끗하게 재작성 + 팀 보안 원칙(500에 e.getMessage() 노출 금지) 적용. 지환 브랜치는 이식 후 폐기 가능.
+
+**다음 과제**: 태관 FE — 동네제보 상세 댓글/좋아요/알림 연동 (백엔드 계약 일치 확인됨). 다나 FE — 알림함 화면 연동.
 
 ## 6. 알려진 주의사항
 - Render 물묣 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
