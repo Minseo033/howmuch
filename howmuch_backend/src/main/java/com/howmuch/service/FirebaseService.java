@@ -451,4 +451,45 @@ public class FirebaseService {
                 .rejectReason(data.get("rejectReason") != null ? (String) data.get("rejectReason") : "")
                 .build();
     }
+
+    // 💡 내 알림 목록 조회
+    public List<com.howmuch.dto.NotificationResponseDto> getNotifications(String firebaseUid) throws Exception {
+        var documents = db.collection("notifications")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.NotificationResponseDto> notifications = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Boolean isRead = parseBooleanSafely(data.get("isRead"));
+
+            com.howmuch.dto.NotificationResponseDto dto = com.howmuch.dto.NotificationResponseDto.builder()
+                    .id(doc.getId())
+                    .title(data.get("title") != null ? data.get("title").toString() : "")
+                    .body(data.get("body") != null ? data.get("body").toString() : "")
+                    .type(data.get("type") != null ? data.get("type").toString() : "")
+                    .isRead(isRead != null ? isRead : false)
+                    .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : "")
+                    .build();
+
+            notifications.add(dto);
+        }
+
+        // 최신순 정렬
+        notifications.sort((a, b) -> {
+            String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
+            String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+
+        return notifications;
+    }
+
+    // 💡 알림 읽음 처리
+    public void markNotificationAsRead(String notificationId) throws Exception {
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
+        docRef.update("isRead", true).get();
+    }
 }
