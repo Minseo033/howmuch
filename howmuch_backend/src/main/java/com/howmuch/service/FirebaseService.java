@@ -160,6 +160,111 @@ public class FirebaseService {
         return visits;
     }
 
+<<<<<<< Updated upstream
+=======
+    // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
+    public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("storeId", request.getStoreId());
+        data.put("storeName", request.getStoreName());
+        data.put("authorUid", authorUid);
+        data.put("authorName", request.getAuthorName());
+        data.put("menu", request.getMenu());
+        data.put("content", request.getContent());
+        data.put("stars", request.getStars());
+        data.put("likes", 0);
+        data.put("ownerReply", null);
+        data.put("createdAt", java.time.Instant.now().toString());
+
+        DocumentReference docRef = db.collection("reviews").document();
+        ApiFuture<WriteResult> future = docRef.set(data);
+        future.get();
+        return docRef.getId();
+    }
+
+    // 💡 특정 매장의 리뷰 목록 조회 (최신순 정렬 포함)
+    public List<Map<String, Object>> getReviews(String storeId) throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .whereEqualTo("storeId", storeId)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
+        reviews.sort((a, b) -> {
+            String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
+            String bTime = String.valueOf(b.getOrDefault("createdAt", ""));
+            return bTime.compareTo(aTime);
+        });
+        return reviews;
+    }
+
+    // 💡 [어드민] 전체 리뷰 목록 (최신순, 매장명/작성자명 포함 — 소량 컬렉션)
+    public List<Map<String, Object>> getAllReviews() throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        reviews.sort((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
+                .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))));
+        return reviews;
+    }
+
+    // 💡 알림 읽음 처리 (본인 알림만 가능)
+    public void markNotificationAsRead(String notificationId, String firebaseUid) throws Exception {
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
+        ApiFuture<DocumentSnapshot> future = docRef.get();
+        DocumentSnapshot document = future.get();
+        
+        if (document.exists()) {
+            String ownerId = document.getString("userId");
+            if (firebaseUid.equals(ownerId)) {
+                docRef.update("isRead", true).get();
+            } else {
+                throw new Exception("권한이 없습니다.");
+            }
+        } else {
+            throw new Exception("알림이 존재하지 않습니다.");
+        }
+    }
+
+    // 💡 [어드민] 리뷰 삭제
+    public void deleteReview(String reviewId) throws Exception {
+        DocumentReference docRef = db.collection("reviews").document(reviewId);
+        if (!docRef.get().get().exists()) {
+            throw new IllegalArgumentException("리뷰를 찾을 수 없습니다: " + reviewId);
+        }
+        docRef.delete().get();
+    }
+
+    // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)
+    public List<Map<String, Object>> getMyReviews(String authorUid) throws Exception {
+        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .whereEqualTo("authorUid", authorUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .toList());
+        // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
+        reviews.sort((a, b) -> {
+            String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
+            String bTime = String.valueOf(b.getOrDefault("createdAt", ""));
+            return bTime.compareTo(aTime);
+        });
+        return reviews;
+    }
+
+>>>>>>> Stashed changes
     // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
     public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
         var documents = db.collection("visits")
@@ -491,5 +596,40 @@ public class FirebaseService {
     public void markNotificationAsRead(String notificationId) throws Exception {
         DocumentReference docRef = db.collection("notifications").document(notificationId);
         docRef.update("isRead", true).get();
+    }
+
+    // 💡 내 알림 목록 조회
+    public List<com.howmuch.dto.NotificationResponseDto> getNotifications(String firebaseUid) throws Exception {
+        var documents = db.collection("notifications")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.NotificationResponseDto> notifications = new java.util.ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            java.util.Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Boolean isRead = parseBooleanSafely(data.get("isRead"));
+
+            com.howmuch.dto.NotificationResponseDto dto = com.howmuch.dto.NotificationResponseDto.builder()
+                    .id(doc.getId())
+                    .title(data.get("title") != null ? data.get("title").toString() : "")
+                    .body(data.get("body") != null ? data.get("body").toString() : "")
+                    .type(data.get("type") != null ? data.get("type").toString() : "")
+                    .isRead(isRead != null ? isRead : false)
+                    .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : "")
+                    .build();
+
+            notifications.add(dto);
+        }
+
+        // 최신순 정렬
+        notifications.sort((a, b) -> {
+            String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
+            String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+
+        return notifications;
     }
 }

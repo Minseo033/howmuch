@@ -8,7 +8,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+<<<<<<< Updated upstream
 import org.springframework.web.bind.annotation.PatchMapping;
+=======
+import org.springframework.web.bind.annotation.PostMapping;
+>>>>>>> Stashed changes
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,7 +22,11 @@ import java.util.List;
 /**
  * 알림 API 컨트롤러.
  * GET /api/notifications: 인증된 사용자의 알림 목록 반환
+<<<<<<< Updated upstream
  * PATCH /api/notifications/{id}/read: 알림 읽음 처리
+=======
+ * POST /api/notifications/{id}/read: 알림 읽음 처리
+>>>>>>> Stashed changes
  */
 @Slf4j
 @RestController
@@ -52,7 +60,11 @@ public class NotificationController {
     /**
      * 알림 읽음 처리
      */
+<<<<<<< Updated upstream
     @PatchMapping("/{id}/read")
+=======
+    @PostMapping("/{id}/read")
+>>>>>>> Stashed changes
     public ResponseEntity<?> markAsRead(@PathVariable String id, HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         log.info("[NotificationController] 알림 읽음 처리 요청 - uid: {}, notificationId: {}", firebaseUid, id);
@@ -62,7 +74,11 @@ public class NotificationController {
                 return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
             }
 
+<<<<<<< Updated upstream
             firebaseService.markNotificationAsRead(id);
+=======
+            firebaseService.markNotificationAsRead(id, firebaseUid);
+>>>>>>> Stashed changes
             return ResponseEntity.ok("알림 읽음 처리 완료");
         } catch (Exception e) {
             log.error("[NotificationController] 알림 읽음 처리 중 오류 발생: ", e);
