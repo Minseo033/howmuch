@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -107,11 +108,31 @@ class AccountManagementScreen extends ConsumerWidget {
                 top: 520.09912109375 + topOffset,
                 height: 49.289772033691406,
                 child: _LogoutCard(
-                  onTap: () {
+                  onTap: () async {
                     // TODO(박지환 BE): 실제 로그아웃 API가 붙으면 서버 세션/refresh token을 먼저 폐기하세요.
+                    await ApiClient.setSessionToken(null);
                     ref.read(authStateProvider.notifier).state = auth.copyWith(
                       isLoggedIn: false,
+                      email: '',
+                      firebaseUid: '',
+                      sessionToken: '',
                     );
+                    ref
+                        .read(userProfileProvider.notifier)
+                        .state = const UserProfile(
+                      nickname: '게스트',
+                      email: '',
+                      level: 'LV.1 새싹',
+                      region: '',
+                      favoriteCategories: [],
+                      savedAmount: 0,
+                      visitCount: 0,
+                      reportCount: 0,
+                      favoriteStoreCount: 0,
+                      nicknamePublic: true,
+                      activityPublic: false,
+                    );
+                    if (!context.mounted) return;
                     context.go(AppRoutes.login);
                   },
                 ),

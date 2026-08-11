@@ -33,9 +33,5 @@ class AuthState {
 }
 
 final authStateProvider = StateProvider<AuthState>(
-  (ref) => const AuthState(
-    isLoggedIn: false,
-    provider: '이메일',
-    email: 'minseo@example.com',
-  ),
+  (ref) => const AuthState(isLoggedIn: false, provider: '이메일', email: ''),
 );

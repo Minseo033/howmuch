@@ -56,6 +56,10 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
           )
           .timeout(ApiClient.defaultTimeout);
 
+      if (response.statusCode == 401) {
+        throw const MyReviewsAuthRequiredException();
+      }
+
       if (response.statusCode != 200) {
         debugPrint('리뷰 등록 실패: ${response.statusCode} ${response.body}');
         return false;

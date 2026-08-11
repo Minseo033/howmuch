@@ -30,18 +30,21 @@ public class SessionAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (requiresAuth(request)) {
-            String header = request.getHeader("Authorization");
-            String token = (header != null && header.startsWith("Bearer "))
-                    ? header.substring(7) : null;
-            String uid = sessionTokenService.verifyAndGetUid(token);
+        String header = request.getHeader("Authorization");
+        String token = (header != null && header.startsWith("Bearer "))
+                ? header.substring(7) : null;
+        String uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
 
+        if (requiresAuth(request)) {
             if (uid == null) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"success\":false,\"message\":\"인증이 필요합니다. 다시 로그인해주세요.\"}");
                 return;
             }
+        }
+
+        if (uid != null) {
             request.setAttribute(UID_ATTRIBUTE, uid);
         }
         filterChain.doFilter(request, response);

@@ -18,6 +18,8 @@ public class FeedDetailResponseDto {
     private String author;
     private int likes;
     private int comments;
+    private boolean likedByMe;
+    private boolean notificationEnabled;
     private String status;
     private List<String> imageUrls;
     private String createdAt;

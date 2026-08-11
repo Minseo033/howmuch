@@ -960,6 +960,10 @@ public class FirebaseService {
 
     // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
     public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id) throws Exception {
+        return getCommunityFeedDetail(id, null);
+    }
+
+    public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id, String requesterUid) throws Exception {
         DocumentSnapshot doc = db.collection("stores_user").document(id).get().get();
         if (!doc.exists()) {
             return null;
@@ -1007,6 +1011,8 @@ public class FirebaseService {
                 .author(author)
                 .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                 .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
+                .likedByMe(isFeedLikedBy(id, requesterUid))
+                .notificationEnabled(isFeedNotificationEnabled(id, requesterUid))
                 .status(status)
                 .imageUrls(imageUrls)
                 .createdAt(createdAt)
@@ -1554,6 +1560,18 @@ public class FirebaseService {
         return db.collection("feed_likes").whereEqualTo("postId", postId).get().get().getDocuments().size();
     }
 
+    private boolean isFeedLikedBy(String postId, String uid) throws Exception {
+        if (uid == null || uid.isBlank()) return false;
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        return db.collection("feed_likes").document(docId).get().get().exists();
+    }
+
+    private boolean isFeedNotificationEnabled(String postId, String uid) throws Exception {
+        if (uid == null || uid.isBlank()) return false;
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        return db.collection("feed_notifications").document(docId).get().get().exists();
+    }
+
     // 💡 게시글 알림 구독 (멱등)
     public Map<String, Object> subscribeFeedNotification(String postId, String uid) throws Exception {
         String docId = uid + "_" + sanitizeForDocId(postId);
@@ -1729,4 +1747,3 @@ public class FirebaseService {
         return stats;
     }
 }
-

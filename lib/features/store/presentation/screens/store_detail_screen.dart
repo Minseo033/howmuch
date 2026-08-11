@@ -3,6 +3,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -864,12 +865,20 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(favoriteStoresProvider.notifier).loadFavorites();
+      if (ApiClient.isAuthenticated) {
+        ref.read(favoriteStoresProvider.notifier).loadFavorites();
+      }
     });
   }
 
   Future<void> _toggleFavorite() async {
     if (_busy) return;
+    if (!ApiClient.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요해요.')),
+      );
+      return;
+    }
     setState(() => _busy = true);
 
     final notifier = ref.read(favoriteStoresProvider.notifier);

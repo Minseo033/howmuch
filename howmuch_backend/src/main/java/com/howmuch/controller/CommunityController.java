@@ -1,8 +1,10 @@
 package com.howmuch.controller;
 
+import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.FeedDetailResponseDto;
 import com.howmuch.dto.FeedResponseDto;
 import com.howmuch.service.FirebaseService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -35,9 +37,11 @@ public class CommunityController {
 
     // 💡 커뮤니티 피드 상세 조회
     @GetMapping("/feed/{id}")
-    public ResponseEntity<FeedDetailResponseDto> getFeedDetail(@PathVariable String id) {
+    public ResponseEntity<FeedDetailResponseDto> getFeedDetail(@PathVariable String id,
+                                                               HttpServletRequest request) {
         try {
-            FeedDetailResponseDto detail = firebaseService.getCommunityFeedDetail(id);
+            String uid = (String) request.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+            FeedDetailResponseDto detail = firebaseService.getCommunityFeedDetail(id, uid);
             if (detail == null) {
                 return ResponseEntity.notFound().build();
             }
