@@ -398,7 +398,13 @@
 
 **제외한 변경**: 브랜치 전체 머지, 기존 `main` 백엔드 구현 덮어쓰기, community_feed 로컬 파일 경로 처리(5-13에서 서버 필터 적용됨), 제보 화면 레이아웃 변경, store_detail 대량 포맷 변경. 필요한 메서드·조건문과 신규 `community_service.dart`만 이식.
 
-**검증**: `./gradlew compileJava` BUILD SUCCESSFUL. `flutter analyze`는 기존과 같은 info 43건(error 0·warning 0), 변경 파일만 분석 시 기존 `withOpacity` info 1건. `git diff --check` 통과. 디스크 여유 3.0GB(99%)와 기존 레거시 widget_test 실패 이력 때문에 전체 웹 빌드·widget test는 이번 이식에서 미실행.
+**검증 (8/11 재점검 완료)**:
+- 디스크: Flutter/Gradle 산출물 + Antigravity 업데이트 캐시 + Dart 분석 캐시만 정리해 여유 2.4GB → 4.0GB 확보. Playwright·Gradle·Pub 패키지 캐시는 유지.
+- 백엔드: `./gradlew test` BUILD SUCCESSFUL. `FeedDetailResponseDtoTest` 신규 추가 — `likedByMe`·`notificationEnabled` JSON 키 직렬화 통과.
+- Flutter: 신규 `community_service_test.dart` 3/3 통과(댓글 계약·답글 호환 키·좋아요 상태). 전체 레거시 `widget_test.dart`는 기존과 동일하게 5개 통과·9개 실패(삭제된 목업 문구/사용자명 기대, HTTP mock·WebView mock 부재 등 이번 이식과 무관).
+- 정적 분석/빌드: `flutter analyze` 기존 info 43건(error 0·warning 0), `flutter build web --release` 성공(43초, `build/web` 44MB), `git diff --check` 통과.
+- 라이브/브라우저: Render `GET /api/community/feed`·상세·댓글 모두 200, 상세에 `likedByMe`·`notificationEnabled` 확인. 로컬 release 웹 Playwright 기본 4화면 스모크 통과. 동네제보 상세는 실 API 좋아요 수 반영·댓글 빈 상태·좋아요/알림 UI·목업 댓글 제거·page error 0 전부 통과. 캡처: `/tmp/howmuch-qa/shots/community_detail_smoke.png`.
+- 별도 발견: 기존 8/10 제보 1건에 만료성 `blob:` 이미지 URL이 남아 있어 화면은 `이미지 없음` 폴백 표시. 신규 저장분은 5-13의 서버 필터가 차단하며, 레거시 데이터 정리는 별도 과제.
 
 **현재 상태**: 기능 커밋 24b8be2는 로컬 `main`에만 존재. 문서 커밋 후 `origin/main` push 시 Render 백엔드 자동 배포가 시작되며, Flutter 웹은 별도 build·Vercel 수동 배포 필요.
 
