@@ -68,6 +68,12 @@ public class ReportController {
                     "success", false,
                     "message", "로그인이 필요합니다."
             ));
+        } catch (IllegalStateException e) {
+            log.warn("제보 사진 저장소가 설정되지 않았습니다.");
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "사진 저장소를 준비 중입니다. 잠시 후 다시 시도해주세요."
+            ));
         } catch (Exception e) {
             log.error("제보 사진 업로드 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
@@ -103,6 +109,11 @@ public class ReportController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            log.warn("제보 사진 저장소가 설정되지 않았습니다.");
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "사진 저장소를 준비 중입니다. 잠시 후 다시 시도해주세요."));
         } catch (Exception e) {
             log.error("제보 사진 정리 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

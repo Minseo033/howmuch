@@ -8,7 +8,6 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.beans.factory.annotation.Value;
 
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
@@ -19,9 +18,6 @@ import java.util.Base64;
 
 @Configuration
 public class FirebaseConfig {
-
-    @Value("${firebase.storage-bucket:}")
-    private String storageBucket;
 
     @PostConstruct
     public void initFirebase() {
@@ -62,12 +58,9 @@ public class FirebaseConfig {
                         "FIREBASE_CREDENTIALS_BASE64 환경변수 또는 src/main/resources/firebase-service-account.json 경로를 확인하십시오.");
             }
 
-            FirebaseOptions.Builder optionsBuilder = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount));
-            if (storageBucket != null && !storageBucket.isBlank()) {
-                optionsBuilder.setStorageBucket(storageBucket);
-            }
-            FirebaseOptions options = optionsBuilder.build();
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .build();
 
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);

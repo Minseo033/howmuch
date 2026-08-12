@@ -6,10 +6,6 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
-import com.google.cloud.storage.BlobId;
-import com.google.cloud.storage.BlobInfo;
-import com.google.cloud.storage.Bucket;
-import com.google.firebase.cloud.StorageClient;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.NotificationSettingsDto;
@@ -22,10 +18,6 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.annotation.PostConstruct;
 
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -39,13 +31,13 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
-import java.util.UUID;
 
 @Slf4j
 @Service
 public class FirebaseService {
 
     private final Firestore db;
+    private final ReportImageStorage reportImageStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -68,8 +60,9 @@ public class FirebaseService {
     @Value("${stores.snapshot.path:data/stores-snapshot.json}")
     private String snapshotPath;
 
-    public FirebaseService(Firestore db) {
+    public FirebaseService(Firestore db, ReportImageStorage reportImageStorage) {
         this.db = db;
+        this.reportImageStorage = reportImageStorage;
     }
 
     @PostConstruct
@@ -363,8 +356,6 @@ public class FirebaseService {
             throw new IllegalArgumentException("사진은 최대 3장까지 업로드할 수 있습니다.");
         }
 
-        Bucket bucket = reportImageBucket();
-        List<BlobId> uploadedBlobIds = new ArrayList<>();
         List<String> imageUrls = new ArrayList<>();
         try {
             for (MultipartFile image : images) {
@@ -382,46 +373,30 @@ public class FirebaseService {
                             "JPEG, PNG, WebP 형식의 이미지 파일만 업로드할 수 있습니다.");
                 }
 
-                String token = UUID.randomUUID().toString();
-                String objectName = "report-images/%s/%s%s".formatted(
-                        sanitizeForObjectName(reporterUid),
-                        UUID.randomUUID(),
-                        extensionFromContentType(contentType));
-                BlobId blobId = BlobId.of(bucket.getName(), objectName);
-                BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
-                        .setContentType(contentType)
-                        .setMetadata(Map.of("firebaseStorageDownloadTokens", token))
-                        .build();
-                bucket.getStorage().create(blobInfo, bytes);
-                uploadedBlobIds.add(blobId);
-
-                String encodedName = URLEncoder.encode(objectName, StandardCharsets.UTF_8)
-                        .replace("+", "%20");
-                imageUrls.add("https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media&token=%s"
-                        .formatted(bucket.getName(), encodedName, token));
+                imageUrls.add(reportImageStorage.upload(reporterUid, bytes, contentType));
             }
             return List.copyOf(imageUrls);
         } catch (Exception e) {
-            deleteBlobsQuietly(bucket, uploadedBlobIds);
+            try {
+                reportImageStorage.deleteOwned(reporterUid, imageUrls);
+            } catch (Exception cleanupError) {
+                log.warn("부분 업로드된 제보 사진 정리에 실패했습니다. uid={}",
+                        reporterUid, cleanupError);
+            }
             throw e;
         }
     }
 
-    public int deleteReportImages(String reporterUid, List<String> imageUrls) {
+    public int deleteReportImages(String reporterUid, List<String> imageUrls) throws Exception {
+        if (reporterUid == null || reporterUid.isBlank()) {
+            throw new SecurityException("로그인이 필요합니다.");
+        }
         if (imageUrls == null || imageUrls.isEmpty()) return 0;
         if (imageUrls.size() > REPORT_IMAGE_MAX_COUNT) {
             throw new IllegalArgumentException("한 번에 최대 3장의 사진만 정리할 수 있습니다.");
         }
-        Bucket bucket = reportImageBucket();
-        int deleted = 0;
-        for (String imageUrl : new LinkedHashSet<>(imageUrls)) {
-            String objectName = reportImageObjectName(bucket, reporterUid, imageUrl);
-            if (objectName == null) continue;
-            if (bucket.getStorage().delete(BlobId.of(bucket.getName(), objectName))) {
-                deleted++;
-            }
-        }
-        return deleted;
+        return reportImageStorage.deleteOwned(
+                reporterUid, new LinkedHashSet<>(imageUrls));
     }
 
     private List<String> normalizeReportImageUrls(
@@ -447,52 +422,7 @@ public class FirebaseService {
     }
 
     private boolean isOwnedReportImageUrl(String reporterUid, String imageUrl) {
-        Bucket bucket = reportImageBucket();
-        return reportImageObjectName(bucket, reporterUid, imageUrl) != null;
-    }
-
-    private String reportImageObjectName(
-            Bucket bucket,
-            String reporterUid,
-            String imageUrl) {
-        try {
-            URI uri = URI.create(imageUrl);
-            if (!"https".equalsIgnoreCase(uri.getScheme())
-                    || !"firebasestorage.googleapis.com".equalsIgnoreCase(uri.getHost())) {
-                return null;
-            }
-            String pathPrefix = "/v0/b/" + bucket.getName() + "/o/";
-            String rawPath = uri.getRawPath();
-            if (rawPath == null || !rawPath.startsWith(pathPrefix)) return null;
-            String objectName = URLDecoder.decode(
-                    rawPath.substring(pathPrefix.length()), StandardCharsets.UTF_8);
-            String ownerPrefix = "report-images/" + sanitizeForObjectName(reporterUid) + "/";
-            return objectName.startsWith(ownerPrefix) ? objectName : null;
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
-    }
-
-    private Bucket reportImageBucket() {
-        try {
-            Bucket bucket = StorageClient.getInstance().bucket();
-            if (bucket == null || bucket.getName() == null || bucket.getName().isBlank()) {
-                throw new IllegalStateException("Firebase Storage bucket is not configured.");
-            }
-            return bucket;
-        } catch (IllegalArgumentException e) {
-            throw new IllegalStateException("Firebase Storage bucket is not configured.", e);
-        }
-    }
-
-    private void deleteBlobsQuietly(Bucket bucket, List<BlobId> blobIds) {
-        for (BlobId blobId : blobIds) {
-            try {
-                bucket.getStorage().delete(blobId);
-            } catch (Exception cleanupError) {
-                log.warn("부분 업로드된 제보 사진 정리에 실패했습니다. object={}", blobId.getName(), cleanupError);
-            }
-        }
+        return reportImageStorage.isOwnedBy(reporterUid, imageUrl);
     }
 
     String detectReportImageContentType(byte[] bytes) {
@@ -526,19 +456,6 @@ public class FirebaseService {
             return "image/webp";
         }
         return null;
-    }
-
-    private String extensionFromContentType(String contentType) {
-        return switch (contentType) {
-            case "image/png" -> ".png";
-            case "image/webp" -> ".webp";
-            default -> ".jpg";
-        };
-    }
-
-    private String sanitizeForObjectName(String value) {
-        if (value == null || value.isBlank()) return "anonymous";
-        return value.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     private List<String> stringList(Object value) {
@@ -666,14 +583,7 @@ public class FirebaseService {
 
     private int deleteReportImagePrefix(String firebaseUid) {
         try {
-            Bucket bucket = reportImageBucket();
-            String prefix = "report-images/" + sanitizeForObjectName(firebaseUid) + "/";
-            int deleted = 0;
-            for (com.google.cloud.storage.Blob blob : bucket.list(
-                    com.google.cloud.storage.Storage.BlobListOption.prefix(prefix)).iterateAll()) {
-                if (blob.delete()) deleted++;
-            }
-            return deleted;
+            return reportImageStorage.deleteAllOwned(firebaseUid);
         } catch (Exception e) {
             log.warn("회원 탈퇴 중 제보 이미지 정리에 실패했습니다. uid={}", firebaseUid, e);
             return 0;

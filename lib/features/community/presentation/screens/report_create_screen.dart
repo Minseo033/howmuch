@@ -332,6 +332,9 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       if (mounted) _showSnack(error.message);
     } catch (error) {
       debugPrint('제보 저장 중 예외: $error');
+      if (!reportSaved && uploadedImageUrls.isNotEmpty) {
+        await reportService.cleanupReportImages(uploadedImageUrls);
+      }
       if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

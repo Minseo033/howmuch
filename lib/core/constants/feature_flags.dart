@@ -3,6 +3,6 @@ class FeatureFlags {
 
   static const bool reportImageUploadEnabled = bool.fromEnvironment(
     'REPORT_IMAGE_UPLOAD_ENABLED',
-    defaultValue: false,
+    defaultValue: true,
   );
 }

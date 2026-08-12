@@ -32,6 +32,9 @@ dependencies {
     // Firebase Admin SDK
     implementation 'com.google.firebase:firebase-admin:9.3.0'
 
+    // Report image storage
+    implementation 'com.cloudinary:cloudinary-http5:2.3.0'
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
