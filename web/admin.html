@@ -375,6 +375,9 @@
     <button class="nav-item active" data-view="dashboard"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="4" width="3" height="14" rx="1"/></svg></span>대시보드</button>
     <button class="nav-item" data-view="reports"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></span>제보 관리<span class="pill" id="pendingPill" hidden></span></button>
     <button class="nav-item" data-view="reviews"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8-6.1-3.4-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg></span>리뷰 관리</button>
+    <button class="nav-item" data-view="comments"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>댓글 관리</button>
+    <button class="nav-item" data-view="inquiries"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>문의 관리</button>
+    <button class="nav-item" data-view="notifications"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>알림 발송</button>
     <div class="nav-label">계정</div>
     <button class="nav-item" data-view="users"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg></span>회원 관리</button>
     <div class="side-foot">
@@ -451,6 +454,19 @@
   </div>
 </div>
 
+<!-- 댓글 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteCommentModal">
+  <div class="modal">
+    <h3>댓글 삭제</h3>
+    <p id="deleteCommentTarget"></p>
+    <div class="warn-box">이 댓글(답글 포함)이 영구 삭제됩니다. 되돌릴 수 없습니다.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteCommentModal">취소</button>
+      <button class="btn btn-danger" id="deleteCommentConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -468,18 +484,25 @@
   let allReviews = [];
   let overview = null;
   let users = null;
+  let allComments = null;
+  let allInquiries = null;
+  let communityStats = null;
   let currentTab = 'PENDING';
   let currentView = 'dashboard';
   let userSearch = '';
   let rejectTargetId = null;
   let deleteTargetUid = null;
   let deleteReviewId = null;
+  let deleteCommentId = null;
 
   const VIEW_META = {
-    dashboard: ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
-    reports:   ['제보 관리', '사용자가 제보한 매장을 검토·승인·반려합니다'],
-    reviews:   ['리뷰 관리', '작성된 리뷰를 조회·삭제합니다'],
-    users:     ['회원 관리', '가입 회원을 조회·관리합니다'],
+    dashboard:     ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
+    reports:       ['제보 관리', '사용자가 제보한 매장을 검토·승인·반려합니다'],
+    reviews:       ['리뷰 관리', '작성된 리뷰를 조회·삭제합니다'],
+    comments:      ['댓글 관리', '동네제보 댓글·답글을 조회·삭제합니다'],
+    inquiries:     ['문의 관리', '사용자 문의를 조회합니다'],
+    notifications: ['알림 발송', '전체 또는 특정 회원에게 알림을 보냅니다'],
+    users:         ['회원 관리', '가입 회원을 조회·관리합니다'],
   };
 
   /* ── 유틸 ─────────────────────────── */
@@ -824,6 +847,132 @@
     }
   }
 
+  /* ══ 뷰 5: 댓글 관리 ══ */
+  function renderCommentsView() {
+    const rows = (allComments || []).map((c) => {
+      const contentText = String(c.content || '');
+      const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      const kind = c.isReply ? '<span class="badge" style="color:var(--violet);background:var(--violet-soft)">답글</span>'
+                             : '<span class="badge" style="color:var(--primary);background:var(--primary-soft)">댓글</span>';
+      return `<tr>
+        <td>${kind}</td>
+        <td style="max-width:340px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td class="uid-cell">${shortUid(c.userId)}</td>
+        <td class="uid-cell">${shortUid(c.postId)}</td>
+        <td style="white-space:nowrap">${fmtDate(c.createdAt)}</td>
+        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(preview)}">삭제</button></td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="section-title">전체 댓글·답글 <span class="chip">${(allComments || []).length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>구분</th><th>내용</th><th>작성자</th><th>게시글</th><th>작성일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">작성된 댓글이 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    content.querySelectorAll('[data-delcomment]').forEach((btn) => {
+      btn.onclick = () => {
+        deleteCommentId = btn.dataset.delcomment;
+        $('deleteCommentTarget').textContent = btn.dataset.summary || deleteCommentId;
+        openModal('deleteCommentModal');
+      };
+    });
+  }
+
+  /* ══ 뷰 6: 문의 관리 ══ */
+  function renderInquiriesView() {
+    const rows = (allInquiries || []).map((q) => {
+      const contentText = String(q.content || '');
+      const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      const statusBadge = q.status === 'PENDING'
+        ? '<span class="badge PENDING">대기</span>'
+        : '<span class="badge APPROVED">처리됨</span>';
+      return `<tr>
+        <td><b>${esc(q.title) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(q.category) || '일반'}</div></td>
+        <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td class="uid-cell">${shortUid(q.userId)}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ══ 뷰 7: 알림 발송 ══ */
+  function renderNotificationsView() {
+    const s = communityStats || {};
+    content.innerHTML = `
+      <div class="stats cols3">
+        <div class="stat-card c-violet"><div class="glow"></div><div class="label">댓글·답글</div><div class="value">${Number(s.comments ?? 0).toLocaleString('ko-KR')}</div></div>
+        <div class="stat-card c-red"><div class="glow"></div><div class="label">좋아요</div><div class="value">${Number(s.feedLikes ?? 0).toLocaleString('ko-KR')}</div></div>
+        <div class="stat-card c-blue"><div class="glow"></div><div class="label">발송된 알림</div><div class="value">${Number(s.notifications ?? 0).toLocaleString('ko-KR')}</div></div>
+      </div>
+      <div class="section-title">알림 보내기</div>
+      <div class="card" style="padding:24px;max-width:560px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">대상</label>
+            <div class="tabs" style="margin-bottom:0">
+              <button class="tab active" id="notifAll" type="button">전체 회원</button>
+              <button class="tab" id="notifOne" type="button">특정 회원 (uid)</button>
+            </div>
+            <input id="notifTargetUid" type="text" placeholder="대상 회원 uid 입력" style="display:none;width:100%;margin-top:10px;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">제목</label>
+            <input id="notifTitle" type="text" maxlength="100" placeholder="알림 제목" style="width:100%;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">내용</label>
+            <textarea id="notifBody" maxlength="500" placeholder="알림 내용" style="width:100%;height:110px;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;resize:none;font-size:13px;font-family:inherit;line-height:1.5"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn btn-primary" id="notifSend">발송하기</button>
+          </div>
+        </div>
+      </div>`;
+
+    const allTab = $('notifAll'), oneTab = $('notifOne'), uidInput = $('notifTargetUid');
+    allTab.onclick = () => { allTab.classList.add('active'); oneTab.classList.remove('active'); uidInput.style.display = 'none'; };
+    oneTab.onclick = () => { oneTab.classList.add('active'); allTab.classList.remove('active'); uidInput.style.display = 'block'; uidInput.focus(); };
+    $('notifSend').onclick = doSendNotification;
+  }
+
+  async function doSendNotification() {
+    const title = $('notifTitle').value.trim();
+    const body = $('notifBody').value.trim();
+    const targetUid = $('notifTargetUid').style.display === 'none' ? '' : $('notifTargetUid').value.trim();
+    if (!title || !body) { toast('제목과 내용을 입력해주세요'); return; }
+    if ($('notifTargetUid').style.display !== 'none' && !targetUid) { toast('대상 회원 uid를 입력해주세요'); return; }
+    if (!confirm(targetUid ? `해당 회원에게 알림을 보낼까요?` : '전체 회원에게 알림을 보낼까요?')) return;
+    $('notifSend').disabled = true;
+    try {
+      const res = await api('/api/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ title, body, type: 'admin', targetUid: targetUid || undefined }),
+      });
+      toast(`알림 발송 완료 — ${res.sent}명에게 전송됨`);
+      $('notifTitle').value = ''; $('notifBody').value = ''; $('notifTargetUid').value = '';
+      communityStats = await api('/api/admin/community/stats');
+      renderNotificationsView();
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('notifSend').disabled = false;
+    }
+  }
+
   /* ── 액션 ─────────────────────────── */
   async function doApprove(id, btn) {
     if (!confirm('이 제보를 승인할까요?')) return;
@@ -899,6 +1048,21 @@
     }
   }
 
+  async function doDeleteComment() {
+    $('deleteCommentConfirm').disabled = true;
+    try {
+      await api(`/api/admin/comments/${encodeURIComponent(deleteCommentId)}`, { method: 'DELETE' });
+      allComments = (allComments || []).filter((c) => c.id !== deleteCommentId);
+      closeModal('deleteCommentModal');
+      renderCommentsView();
+      toast('댓글 삭제 완료');
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteCommentConfirm').disabled = false;
+    }
+  }
+
   function handleError(e) {
     if (e.code === 401) { showLogin(true); return; }
     if (e.code === 403) { renderState('forbidden'); return; }
@@ -923,6 +1087,15 @@
     } else if (view === 'reviews') {
       if (allReviews.length) renderReviewsView();
       else await loadReviews();
+    } else if (view === 'comments') {
+      if (allComments) renderCommentsView();
+      else await loadComments();
+    } else if (view === 'inquiries') {
+      if (allInquiries) renderInquiriesView();
+      else await loadInquiries();
+    } else if (view === 'notifications') {
+      if (communityStats) renderNotificationsView();
+      else await loadCommunityStats();
     } else if (view === 'users') {
       if (users) renderUsersView();
       else await loadUsers();
@@ -964,6 +1137,30 @@
     } catch (e) { handleLoadError(e); }
   }
 
+  async function loadComments() {
+    renderState('loading');
+    try {
+      allComments = await api('/api/admin/comments');
+      renderCommentsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadInquiries() {
+    renderState('loading');
+    try {
+      allInquiries = await api('/api/admin/inquiries');
+      renderInquiriesView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadCommunityStats() {
+    renderState('loading');
+    try {
+      communityStats = await api('/api/admin/community/stats');
+      renderNotificationsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
   function handleLoadError(e) {
     if (e.code === 401) showLogin(true);
     else if (e.code === 403) renderState('forbidden');
@@ -976,6 +1173,9 @@
     if (currentView === 'dashboard') { overview = null; await loadDashboard(); }
     else if (currentView === 'reports') await loadReports();
     else if (currentView === 'reviews') await loadReviews();
+    else if (currentView === 'comments') await loadComments();
+    else if (currentView === 'inquiries') await loadInquiries();
+    else if (currentView === 'notifications') await loadCommunityStats();
     else if (currentView === 'users') await loadUsers();
   }
 
@@ -1025,6 +1225,7 @@
   $('rejectConfirm').onclick = doReject;
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;
+  $('deleteCommentConfirm').onclick = doDeleteComment;
   document.querySelectorAll('[data-close]').forEach((btn) => {
     btn.onclick = () => closeModal(btn.dataset.close);
   });

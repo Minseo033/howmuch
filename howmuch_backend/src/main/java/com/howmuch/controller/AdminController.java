@@ -254,4 +254,117 @@ public class AdminController {
             ));
         }
     }
+
+    /** 문의 목록 조회 (GET /api/admin/inquiries) — 최신순 전체 */
+    @GetMapping("/inquiries")
+    public ResponseEntity<?> getInquiries(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(firebaseService.getAllInquiries());
+        } catch (Exception e) {
+            log.error("[AdminController] 문의 목록 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "문의 목록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 댓글/답글 목록 조회 (GET /api/admin/comments) — 최신순 전체, 모더레이션용 */
+    @GetMapping("/comments")
+    public ResponseEntity<?> getComments(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(firebaseService.getAllComments());
+        } catch (Exception e) {
+            log.error("[AdminController] 댓글 목록 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "댓글 목록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 댓글/답글 삭제 (DELETE /api/admin/comments/{id}) */
+    @org.springframework.web.bind.annotation.DeleteMapping("/comments/{id}")
+    public ResponseEntity<?> deleteComment(@PathVariable String id,
+                                           HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            firebaseService.deleteComment(id);
+            log.warn("[AdminController] 댓글 삭제 - id: {}", id);
+            return ResponseEntity.ok(Map.of("success", true, "id", id));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 댓글 삭제 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "댓글 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 알림 발송 (POST /api/admin/notifications, body: {title, body, type?, targetUid?}) — targetUid 없으면 전체 발송 */
+    @PostMapping("/notifications")
+    public ResponseEntity<?> sendNotification(@RequestBody Map<String, String> body,
+                                              HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        String title = body != null ? body.get("title") : null;
+        String content = body != null ? body.get("body") : null;
+        String type = body != null ? body.get("type") : null;
+        String targetUid = body != null ? body.get("targetUid") : null;
+
+        if (title == null || title.isBlank() || content == null || content.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "제목(title)과 내용(body)은 필수입니다."
+            ));
+        }
+        if (title.length() > 100 || content.length() > 500) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "제목은 100자, 내용은 500자 이내로 입력해주세요."
+            ));
+        }
+
+        try {
+            Map<String, Object> result = firebaseService.sendAdminNotification(
+                    targetUid, title.trim(), content.trim(), type);
+            log.warn("[AdminController] 알림 발송 - 대상: {}, 발송 수: {}", 
+                    (targetUid != null && !targetUid.isBlank()) ? targetUid : "전체", result.get("sent"));
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[AdminController] 알림 발송 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "알림 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
+    /** 커뮤니티 활동 지표 (GET /api/admin/community/stats) — 댓글/좋아요/알림 수 */
+    @GetMapping("/community/stats")
+    public ResponseEntity<?> getCommunityStats(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(firebaseService.getCommunityStats());
+        } catch (Exception e) {
+            log.error("[AdminController] 커뮤니티 지표 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "커뮤니티 지표 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
 }

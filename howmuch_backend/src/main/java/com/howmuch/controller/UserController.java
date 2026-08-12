@@ -57,4 +57,21 @@ public class UserController {
             return ResponseEntity.status(500).body("프로필 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
         }
     }
+
+    /**
+     * 회원 탈퇴 (DELETE /api/user)
+     * 세션 인증된 본인 계정만 탈퇴 가능. users 문서 + 제보/리뷰/방문/찜 전부 삭제.
+     */
+    @DeleteMapping
+    public ResponseEntity<?> deleteUser(HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        try {
+            log.warn("[UserController] 회원 탈퇴 요청 - uid: {}", firebaseUid);
+            java.util.Map<String, Object> result = firebaseService.deleteUser(firebaseUid);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[UserController] 회원 탈퇴 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body("회원 탈퇴 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        }
+    }
 }

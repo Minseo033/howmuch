@@ -3,8 +3,10 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -102,10 +104,7 @@ class StoreDetailScreen extends StatelessWidget {
                   onPressed: () => context.pop(),
                 ),
                 actions: [
-                  IconButton(
-                    icon: const Icon(Icons.favorite_border_rounded, size: 22),
-                    onPressed: () => _snack(context, '찜 기능은 추후 개발 예정입니다.'),
-                  ),
+                  _FavoriteStoreButton(store: store),
                   IconButton(
                     icon: const Icon(Icons.share_rounded, size: 22),
                     onPressed: () {},
@@ -843,6 +842,92 @@ class _BottomIconBtn extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FavoriteStoreButton extends ConsumerStatefulWidget {
+  const _FavoriteStoreButton({required this.store});
+
+  final Store store;
+
+  @override
+  ConsumerState<_FavoriteStoreButton> createState() =>
+      _FavoriteStoreButtonState();
+}
+
+class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
+  bool _busy = false;
+
+  String get _storeId => widget.store.storeName;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ApiClient.isAuthenticated) {
+        ref.read(favoriteStoresProvider.notifier).loadFavorites();
+      }
+    });
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_busy) return;
+    if (!ApiClient.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('로그인이 필요해요.')),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+
+    final notifier = ref.read(favoriteStoresProvider.notifier);
+    final wasFavorite = notifier.isFavorite(_storeId);
+
+    try {
+      if (wasFavorite) {
+        await notifier.removeFavorite(_storeId);
+      } else {
+        await notifier.addFavorite(
+          storeId: _storeId,
+          storeName: widget.store.storeName,
+        );
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(wasFavorite ? '찜을 해제했어요.' : '찜한 매장에 추가했어요.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final favorites = ref.watch(favoriteStoresProvider);
+    final isFavorite =
+        favorites.valueOrNull?.any((store) => store.id == _storeId) ?? false;
+
+    return IconButton(
+      icon: _busy
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              color: isFavorite ? AppColors.error : null,
+              size: 22,
+            ),
+      onPressed: _busy ? null : _toggleFavorite,
     );
   }
 }

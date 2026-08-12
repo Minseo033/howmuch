@@ -7,6 +7,7 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:geolocator/geolocator.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -36,21 +37,83 @@ class CommunityFeedScreen extends StatefulWidget {
 
 class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   int _selectedFilterIndex = 0;
-  int _selectedLocationIndex = 0;
   bool _isLoading = false;
+  bool _hasError = false;
   List<dynamic> _rawFeeds = [];
 
-  static const _locations = ['역삼동', '합정동'];
+  // 8/7: 목업 지역('역삼동/합정동' 순환) 제거 → 현위치 행정동명 표시.
+  // 조회 완료 전에는 '내 동네'로 표시하고, 권한 거부/실패 시에는 '전체'로 표시.
+  String _locationLabel = '내 동네';
+
+  // 회원가입 화면(profile_setup_screen)과 동일한 카카오 REST 키.
+  // 클라이언트 번들 특성상 노출되며, 카카오 콘솔의 플랫폼(도메인/OS) 제한으로 보호됨.
+  static const String _kakaoRestApiKey = 'a262460cc196a9dd283003c7d54743b3';
 
   @override
   void initState() {
     super.initState();
     _fetchFeeds();
+    _loadCurrentLocationLabel();
+  }
+
+  /// 현위치 → 카카오 coord2regioncode 역지오코딩으로 행정동명 조회.
+  /// 권한 거부·실패 시 조용히 '전체'로 폼백 (피드 목록은 항상 전체 표시라 UX 영향 없음).
+  Future<void> _loadCurrentLocationLabel() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return _setLocationFallback();
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return _setLocationFallback();
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final url = Uri.parse(
+        'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json'
+        '?x=${position.longitude}&y=${position.latitude}',
+      );
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
+      );
+      if (response.statusCode != 200) return _setLocationFallback();
+
+      final data = jsonDecode(response.body);
+      final docs = data['documents'] as List?;
+      if (docs == null || docs.isEmpty) return _setLocationFallback();
+
+      // 행정동(H) 우선, 없으면 첫 문서
+      final doc = docs.firstWhere(
+        (d) => d['region_type'] == 'H',
+        orElse: () => docs.first,
+      );
+      final dong = doc['region_3depth_name']?.toString() ?? '';
+      if (!mounted) return;
+      setState(() {
+        _locationLabel = dong.isNotEmpty ? dong : '전체';
+      });
+    } catch (e) {
+      debugPrint('커뮤니티 현위치 조회 실패: $e');
+      _setLocationFallback();
+    }
+  }
+
+  void _setLocationFallback() {
+    if (!mounted) return;
+    setState(() => _locationLabel = '전체');
   }
 
   Future<void> _fetchFeeds() async {
     setState(() {
       _isLoading = true;
+      _hasError = false;
     });
 
     try {
@@ -66,51 +129,21 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           _isLoading = false;
         });
       } else {
-        _loadFallbackData();
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
       }
     } catch (e) {
       debugPrint('커뮤니티 피드 조회 오류: $e');
-      _loadFallbackData();
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
     }
   }
 
-  void _loadFallbackData() {
-    setState(() {
-      _rawFeeds = [
-        {
-          'id': 'mock-1',
-          'location': '합정동',
-          'title': '골목밥상 제육덮밥 6,000원',
-          'author': '절약왕민수',
-          'likes': 32,
-          'comments': 8,
-          'status': 'APPROVED',
-        },
-        {
-          'id': 'mock-2',
-          'location': '역삼동',
-          'title': '동네카페 아메리카노 2,500원으로 인상',
-          'author': '강남직장인',
-          'likes': 12,
-          'comments': 4,
-          'status': 'NEEDS_EDIT',
-        },
-        {
-          'id': 'mock-3',
-          'location': '역삼동',
-          'title': '착한미용실 남성컷 8,000원',
-          'author': '동네탐험가',
-          'likes': 21,
-          'comments': 6,
-          'status': 'PENDING',
-        },
-      ];
-      _isLoading = false;
-    });
-  }
-
   List<_FeedItem> get _visibleFeedItems {
-    final location = _locations[_selectedLocationIndex];
     final List<_FeedItem> items = _rawFeeds.map((data) {
       final String id = data['id']?.toString() ?? '';
       final String loc = data['location']?.toString() ?? '알 수 없음';
@@ -167,19 +200,108 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         dotColor: dotColor,
         compactStatus: compactStatus,
       );
-    }).where((item) => item.location == location).toList();
+    }).toList();
+
+    // 현위치 라벨과 일치하는 제보가 있으면 그 지역만, 없으면 전체 표시.
+    // (실데이터 location은 '구로구' 등 다양한 형식이라 정확 일치가 거의 없을 수 있음)
+    final matched = items.where((item) => item.location == _locationLabel).toList();
+    final List<_FeedItem> scoped = matched.isNotEmpty ? matched : items;
 
     return switch (_selectedFilterIndex) {
-      1 => items.where((item) => item.status == '가격 변동').toList(),
-      2 => (items..sort((a, b) => b.likes.compareTo(a.likes))),
-      _ => items,
+      1 => scoped.where((item) => item.status == '가격 변동').toList(),
+      2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
+      _ => scoped,
     };
   }
 
-  void _cycleLocation() {
-    setState(() {
-      _selectedLocationIndex = (_selectedLocationIndex + 1) % _locations.length;
-    });
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF2563EB),
+        ),
+      );
+    }
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: CommunityFeedScreen.hint,
+              size: 36,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '피드를 불러오지 못했어요',
+              style: TextStyle(
+                color: CommunityFeedScreen.ink,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '네트워크 상태를 확인하고 다시 시도해주세요',
+              style: TextStyle(
+                color: CommunityFeedScreen.muted,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _fetchFeeds,
+              child: const Text('다시 시도'),
+            ),
+          ],
+        ),
+      );
+    }
+    final items = _visibleFeedItems;
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          '아직 제보가 없어요. 첫 제보를 남겨보세요!',
+          style: TextStyle(
+            color: CommunityFeedScreen.muted,
+            fontFamily: CommunityFeedScreen.fontFamily,
+            fontFamilyFallback: CommunityFeedScreen.fontFallback,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 11.989),
+                child: _FeedCard(
+                  title: item.title,
+                  author: item.author,
+                  likes: item.likes,
+                  comments: item.comments,
+                  status: item.status,
+                  statusColor: item.statusColor,
+                  statusBackground: item.statusBackground,
+                  imageBackground: item.imageBackground,
+                  dotColor: item.dotColor,
+                  compactStatus: item.compactStatus,
+                  onTap: () => context.push(
+                    '${AppRoutes.communityPostDetail}?id=${item.id}',
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 
   @override
@@ -207,10 +329,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             top: topOffset + 60.87,
             right: 20,
             height: 28,
-            child: _LocationRow(
-              location: _locations[_selectedLocationIndex],
-              onTap: _cycleLocation,
-            ),
+            child: _LocationRow(location: _locationLabel),
           ),
           Positioned(
             left: AppSizes.horizontalPadding,
@@ -228,38 +347,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             top: topOffset + 150.64,
             right: 20,
             bottom: bottomNavHeight + 85,
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF2563EB),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      children: _visibleFeedItems
-                          .map(
-                            (item) => Padding(
-                              padding: const EdgeInsets.only(bottom: 11.989),
-                              child: _FeedCard(
-                                title: item.title,
-                                author: item.author,
-                                likes: item.likes,
-                                comments: item.comments,
-                                status: item.status,
-                                statusColor: item.statusColor,
-                                statusBackground: item.statusBackground,
-                                imageBackground: item.imageBackground,
-                                dotColor: item.dotColor,
-                                compactStatus: item.compactStatus,
-                                onTap: () => context.push(
-                                  '${AppRoutes.communityPostDetail}?id=${item.id}',
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
+            child: _buildContent(),
           ),
           Positioned(
             left: AppSizes.horizontalPadding,
@@ -356,16 +444,15 @@ class _Header extends StatelessWidget {
 }
 
 class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.location, required this.onTap});
+  const _LocationRow({required this.location});
 
   final String location;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _LocationChip(location: location, onTap: onTap),
+        _LocationChip(location: location),
         const SizedBox(width: AppSizes.smallSpacing),
         Text(
           '$location 기준',
@@ -384,45 +471,40 @@ class _LocationRow extends StatelessWidget {
 }
 
 class _LocationChip extends StatelessWidget {
-  const _LocationChip({required this.location, required this.onTap});
+  const _LocationChip({required this.location});
 
   final String location;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 28,
-        padding: const EdgeInsets.only(left: 10, right: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF4FF),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              size: 12,
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.only(left: 10, right: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF4FF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.location_on_outlined,
+            size: 12,
+            color: CommunityFeedScreen.blue,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            location,
+            style: const TextStyle(
               color: CommunityFeedScreen.blue,
+              fontFamily: CommunityFeedScreen.fontFamily,
+              fontFamilyFallback: CommunityFeedScreen.fontFallback,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
             ),
-            const SizedBox(width: 4),
-            Text(
-              location,
-              style: const TextStyle(
-                color: CommunityFeedScreen.blue,
-                fontFamily: CommunityFeedScreen.fontFamily,
-                fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -70,4 +70,40 @@ public class GeminiService {
             return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
         }
     }
+
+    /**
+     * AI 루트 추천 — 오늘의 픽 매장 목록을 받아 최적 동선(식사→카페 등)을 추천.
+     * Gemini에 매장 정보를 전달해 순서/이유를 받아온다.
+     * @param picks 오늘의 픽 매장 목록 (storeName/menu1/price1/distanceMeters 포함)
+     * @return AI 추천 루트 텍스트
+     */
+    public String getRouteRecommendation(List<Map<String, Object>> picks) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            log.warn("GEMINI_API_KEY 미설정 — 루트 추천 불가");
+            return "AI 루트 추천이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
+        }
+        if (picks == null || picks.isEmpty()) {
+            return "추천할 매장이 없습니다.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("다음은 오늘의 픽으로 선정된 착한가격업소 매장 목록입니다. ");
+        sb.append("이 중에서 식사부터 카페까지 저렴한 동선(루트)을 추천해주세요. ");
+        sb.append("각 매장의 순서와 이동 이유를 간결하게 한국어로 알려주세요. ");
+        sb.append("응답은 '1. 매장명 (메뉴, 가격, 거리) - 이유' 형식으로 최대 3개까지만 나열해주세요.\n\n");
+        for (int i = 0; i < picks.size(); i++) {
+            Map<String, Object> p = picks.get(i);
+            sb.append(i + 1).append(". ")
+              .append(p.get("storeName")).append(" / ")
+              .append(p.get("menu1")).append(" / ")
+              .append(p.get("price1")).append("원");
+            if (p.get("distanceMeters") != null) {
+                sb.append(" / ").append(p.get("distanceMeters")).append("m");
+            }
+            sb.append("\n");
+        }
+
+        return getAiResponse(sb.toString());
+    }
 }
+

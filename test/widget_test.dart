@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/howmuch_app.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
 void main() {
   testWidgets('starts at the first onboarding screen', (tester) async {
@@ -59,58 +58,6 @@ void main() {
     expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('절약왕 민서'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
-    expect(find.text('개발용 관리자 모드'), findsOneWidget);
-    expect(find.text('관리자 제보 검토'), findsNothing);
-    expect(find.text('관리자 문의 검토'), findsNothing);
-  });
-
-  testWidgets('toggles temporary admin mode from mypage QA row', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
-
-    await _goToRoute(tester, AppRoutes.mypage);
-    expect(find.text('관리자 제보 검토'), findsNothing);
-
-    await tester.ensureVisible(find.text('개발용 관리자 모드'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('개발용 관리자 모드'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('개발용 관리자 모드를 켰어요.'), findsOneWidget);
-    await tester.ensureVisible(find.text('관리자 제보 검토'));
-    await tester.pumpAndSettle();
-    expect(find.text('관리자 제보 검토'), findsOneWidget);
-    expect(find.text('관리자 문의 검토'), findsOneWidget);
-  });
-
-  testWidgets('shows admin menu only for admin users', (tester) async {
-    _setMobileViewport(tester);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authStateProvider.overrideWith(
-            (ref) => const AuthState(
-              isLoggedIn: true,
-              isAdmin: true,
-              provider: '카카오',
-              email: 'admin@howmuch.local',
-            ),
-          ),
-        ],
-        child: const HowmuchApp(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.ensureVisible(find.text('관리자 제보 검토'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('관리자 제보 검토'), findsOneWidget);
-    expect(find.text('관리자 문의 검토'), findsOneWidget);
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
@@ -284,49 +231,6 @@ void main() {
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
-  });
-
-  testWidgets('opens admin review screens and updates local workflow', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
-
-    await _goToRoute(tester, AppRoutes.adminReportReview);
-
-    expect(find.text('제보 검토'), findsOneWidget);
-    expect(find.text('골목밥상'), findsOneWidget);
-    expect(find.text('검증 체크리스트'), findsOneWidget);
-
-    await tester.tap(find.text('중복 매장 여부'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('승인').last);
-    await tester.pumpAndSettle();
-    expect(find.text('골목밥상 제보를 승인했어요.'), findsOneWidget);
-
-    await _goToRoute(tester, AppRoutes.adminInquiryReview);
-    expect(find.text('문의 검토'), findsOneWidget);
-    expect(find.text('제보한 매장이 7일째 검토 중이에요'), findsOneWidget);
-
-    await tester.tap(find.textContaining('답변하기').first);
-    await tester.pumpAndSettle();
-    expect(find.text('답변 내용'), findsOneWidget);
-    expect(find.text('답변 보내기'), findsOneWidget);
-
-    await tester.ensureVisible(
-      find.byKey(const ValueKey('send_admin_inquiry_reply')),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('send_admin_inquiry_reply')));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('답변 내용'), findsNothing);
-
-    await tester.tap(find.text('완료').last);
-    await tester.pumpAndSettle();
-    expect(find.text('답변 완료'), findsAtLeastNWidgets(1));
-    expect(find.text('제보한 매장이 7일째 검토 중이에요'), findsOneWidget);
   });
 
   testWidgets('opens empty search result from home and handles actions', (

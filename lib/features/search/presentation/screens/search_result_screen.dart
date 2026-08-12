@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -58,8 +57,6 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   // 디바운스
   Timer? _debounce;
-
-  static final List<String> _recentSearches = [];
 
   @override
   void initState() {
@@ -1326,75 +1323,6 @@ class SearchFilter {
       sortOrder: sortOrder ?? this.sortOrder,
       govCertified: govCertified ?? this.govCertified,
       userReported: userReported ?? this.userReported,
-    );
-  }
-}
-
-class _RecentSearchesWidget extends StatelessWidget {
-  const _RecentSearchesWidget({
-    required this.searches,
-    required this.onTap,
-    required this.onRemove,
-  });
-
-  final List<String> searches;
-  final ValueChanged<String> onTap;
-  final ValueChanged<String> onRemove;
-
-  @override
-  Widget build(BuildContext context) {
-    if (searches.isEmpty) {
-      return const Center(
-        child: Text(
-          '최근 검색어가 없습니다.',
-          style: TextStyle(
-            color: SearchResultScreen.muted,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 10),
-          child: Text(
-            '최근 검색어',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: SearchResultScreen.ink,
-            ),
-          ),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: searches.length,
-            itemBuilder: (context, index) {
-              final term = searches[index];
-              return ListTile(
-                leading: const Icon(Icons.history, color: SearchResultScreen.muted, size: 20),
-                title: Text(
-                  term,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: SearchResultScreen.ink,
-                  ),
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close_rounded, color: SearchResultScreen.hint, size: 18),
-                  onPressed: () => onRemove(term),
-                ),
-                onTap: () => onTap(term),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-              );
-            },
-          ),
-        ),
-      ],
     );
   }
 }

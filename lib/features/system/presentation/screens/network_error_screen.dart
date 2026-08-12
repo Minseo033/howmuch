@@ -69,11 +69,7 @@ class NetworkErrorScreen extends StatelessWidget {
                   children: [
                     _PrimaryButton(
                       label: '다시 시도',
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('연결 상태를 다시 확인했어요.')),
-                        );
-                      },
+                      onPressed: () => context.go(AppRoutes.splash),
                     ),
                     const SizedBox(height: 10),
                     _SecondaryButton(

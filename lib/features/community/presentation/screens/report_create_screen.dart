@@ -24,20 +24,12 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   static const _priceSectionOffset = 354.46;
   static const _baseConfirmSectionOffset = 490.23;
   static const _basePriceCardHeight = 91.776;
-  static const _storeOptions = ['골목밥상', '동네카페', '착한분식', '우리식당'];
   static const _categoryOptions = [
     '음식점 · 한식',
     '음식점 · 카페',
     '음식점 · 분식',
     '서비스 · 미용',
   ];
-  static const _addressOptions = [
-    '서울시 마포구 합정동',
-    '서울시 강남구 역삼동',
-    '서울시 송파구 잠실동',
-    '서울시 성동구 성수동',
-  ];
-
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
   late final TextEditingController _storeController;
@@ -45,7 +37,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   late final TextEditingController _addressController;
   bool _visitedRecently = true;
   bool _checkedMenuPrice = true;
-  bool _isSubmitting = false;
   int _activeStep = 1;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
@@ -198,125 +189,109 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    final auth = ref.read(authStateProvider);
 
-    try {
-      final auth = ref.read(authStateProvider);
+    // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
+    final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
+    final price1 = _menuPrices.isNotEmpty
+        ? _menuPrices[0].price.text.trim()
+        : '';
+    final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
+    final price2 = _menuPrices.length > 1
+        ? _menuPrices[1].price.text.trim()
+        : '';
+    final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
+    final price3 = _menuPrices.length > 2
+        ? _menuPrices[2].price.text.trim()
+        : '';
+    final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
+    final price4 = _menuPrices.length > 3
+        ? _menuPrices[3].price.text.trim()
+        : '';
+    final savedMenuPrices = _menuPrices
+        .map(
+          (item) => UserReportMenuPrice(
+            menu: item.menu.text.trim(),
+            price: item.price.text.trim(),
+          ),
+        )
+        .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
+        .toList();
 
-      // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
-      final menu1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].menu.text.trim()
-          : '';
-      final price1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].price.text.trim()
-          : '';
-      final menu2 = _menuPrices.length > 1
-          ? _menuPrices[1].menu.text.trim()
-          : '';
-      final price2 = _menuPrices.length > 1
-          ? _menuPrices[1].price.text.trim()
-          : '';
-      final menu3 = _menuPrices.length > 2
-          ? _menuPrices[2].menu.text.trim()
-          : '';
-      final price3 = _menuPrices.length > 2
-          ? _menuPrices[2].price.text.trim()
-          : '';
-      final menu4 = _menuPrices.length > 3
-          ? _menuPrices[3].menu.text.trim()
-          : '';
-      final price4 = _menuPrices.length > 3
-          ? _menuPrices[3].price.text.trim()
-          : '';
-      final savedMenuPrices = _menuPrices
-          .map(
-            (item) => UserReportMenuPrice(
-              menu: item.menu.text.trim(),
-              price: item.price.text.trim(),
-            ),
-          )
-          .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
-          .toList();
+    final backendReport = UserReport(
+      cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
+      cityDistrict: '',
+      storeName: _storeController.text.trim(),
+      industry: _categoryController.text.trim(),
+      address: _addressController.text.trim(),
+      phoneNumber: '', // 입력 필드에 없으므로 공백
+      menu1: menu1,
+      price1: price1,
+      menu2: menu2,
+      price2: price2,
+      menu3: menu3,
+      price3: price3,
+      menu4: menu4,
+      price4: price4,
+      imageUrls: _photos.map((photo) => photo.path).toList(),
+      reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
+      visitedRecently: _visitedRecently,
+      checkedMenuPrice: _checkedMenuPrice,
+      latitude: 0.0, // 주소로 백엔드에서 위경도 변환
+      longitude: 0.0,
+    );
 
-      final backendReport = UserReport(
-        cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
-        cityDistrict: '',
-        storeName: _storeController.text.trim(),
-        industry: _categoryController.text.trim(),
+    final initialReport = widget.initialReport;
+    final success = initialReport != null
+        ? true
+        : await ref.read(reportServiceProvider).submitReport(backendReport);
+
+    if (success) {
+      // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
+      final localReport = UserReportStatus(
+        id:
+            initialReport?.id ??
+            'report-${DateTime.now().millisecondsSinceEpoch}',
+        store: _storeController.text.trim(),
+        menu: '$menu1 $price1원',
+        status: initialReport?.status ?? '검토 중',
+        statusColor: initialReport?.statusColor ?? 0xFFF59E0B,
+        statusBg: initialReport?.statusBg ?? 0xFFFEF3C7,
+        textColor: initialReport?.textColor ?? 0xFF92400E,
+        category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
-        phoneNumber: '', // 입력 필드에 없으므로 공백
-        menu1: menu1,
-        price1: price1,
-        menu2: menu2,
-        price2: price2,
-        menu3: menu3,
-        price3: price3,
-        menu4: menu4,
-        price4: price4,
+        menuPrices: savedMenuPrices,
         imageUrls: _photos.map((photo) => photo.path).toList(),
-        reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
-        latitude: 0.0, // 주소로 백엔드에서 위경도 변환
-        longitude: 0.0,
+        createdAt:
+            initialReport?.createdAt ??
+            DateTime.now().toUtc().toIso8601String(),
+        rejectReason: initialReport?.rejectReason ?? '',
       );
 
-      final initialReport = widget.initialReport;
-      final success = initialReport != null
-          ? true
-          : await ref.read(reportServiceProvider).submitReport(backendReport);
-
-      if (success) {
-        // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
-        final localReport = UserReportStatus(
-          id:
-              initialReport?.id ??
-              'report-${DateTime.now().millisecondsSinceEpoch}',
-          store: _storeController.text.trim(),
-          menu: '$menu1 $price1원',
-          status: initialReport?.status ?? '검토 중',
-          statusColor: initialReport?.statusColor ?? 0xFFF59E0B,
-          statusBg: initialReport?.statusBg ?? 0xFFFEF3C7,
-          textColor: initialReport?.textColor ?? 0xFF92400E,
-          category: _categoryController.text.trim(),
-          address: _addressController.text.trim(),
-          menuPrices: savedMenuPrices,
-          imageUrls: _photos.map((photo) => photo.path).toList(),
-          visitedRecently: _visitedRecently,
-          checkedMenuPrice: _checkedMenuPrice,
-          createdAt:
-              initialReport?.createdAt ??
-              DateTime.now().toUtc().toIso8601String(),
-          rejectReason: initialReport?.rejectReason ?? '',
-        );
-
-        if (initialReport == null) {
-          ref.read(userReportsProvider.notifier).addReport(localReport);
-        } else {
-          ref.read(userReportsProvider.notifier).updateReport(localReport);
-        }
-
-        if (initialReport == null) {
-          final profile = ref.read(userProfileProvider);
-          ref.read(userProfileProvider.notifier).state = profile.copyWith(
-            reportCount: profile.reportCount + 1,
-          );
-        }
-
-        if (mounted) {
-          if (initialReport == null) {
-            context.push(AppRoutes.reportComplete);
-          } else {
-            context.go('${AppRoutes.reportDetailV2}?id=${localReport.id}');
-          }
-        }
+      if (initialReport == null) {
+        ref.read(userReportsProvider.notifier).addReport(localReport);
       } else {
-        _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
+        ref.read(userReportsProvider.notifier).updateReport(localReport);
       }
-    } finally {
+
+      if (initialReport == null) {
+        final profile = ref.read(userProfileProvider);
+        ref.read(userProfileProvider.notifier).state = profile.copyWith(
+          reportCount: profile.reportCount + 1,
+        );
+      }
+
       if (mounted) {
-        setState(() => _isSubmitting = false);
+        if (initialReport == null) {
+          context.push(AppRoutes.reportComplete);
+        } else {
+          context.go('${AppRoutes.reportDetailV2}?id=${localReport.id}');
+        }
       }
+    } else {
+      _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
     }
   }
 

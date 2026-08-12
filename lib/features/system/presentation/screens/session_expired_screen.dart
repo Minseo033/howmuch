@@ -41,7 +41,6 @@ class SessionExpiredScreen extends ConsumerWidget {
     void close() {
       ref.read(authStateProvider.notifier).state = const AuthState(
         isLoggedIn: false,
-        isAdmin: false,
         provider: '',
         email: 'minseo@example.com',
       );

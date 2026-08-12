@@ -71,79 +71,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   String _searchQuery = '';
   SearchFilter _searchFilter = const SearchFilter();
 
-  // ── 필터 UI 업종 → 실제 DB industry 키워드 매핑 ──
-  static const _industryKeywords = <String, List<String>>{
-    '음식점': [
-      '한식',
-      '중식',
-      '일식',
-      '양식',
-      '분식',
-      '패스트푸드',
-      '음식',
-      '식당',
-      '반찬',
-      '도시락',
-      '국수',
-      '치킨',
-      '피자',
-      '족발',
-      '감자탕',
-      '삼겹살',
-      '고깃집',
-      '정육',
-      '떡볶이',
-      '김밥',
-    ],
-    '카페': [
-      '카페',
-      '커피',
-      '음료',
-      '베이커리',
-      '빵',
-      '제과',
-      '디저트',
-      '차(음료)',
-      '주스',
-      '스무디',
-      '아이스크림',
-    ],
-    '미용': ['미용', '헤어', '네일', '피부', '뷰티', '화장', '미용실', '이발'],
-    '세탁': ['세탁', '빨래', '클리닝', '드라이'],
-    '생활서비스': [
-      '수선',
-      '열쇠',
-      '인쇄',
-      '복사',
-      '사진',
-      '촬영',
-      '스튜디오',
-      '생활',
-      '서비스',
-      '수리',
-      '기타',
-    ],
-  };
-
-  bool _matchesIndustryFilter(Store store, String filterIndustry) {
-    if (filterIndustry.isEmpty || filterIndustry == '전체') return true;
-    final keywords = _industryKeywords[filterIndustry];
-    if (keywords == null) {
-      // 매핑에 없으면 단순 포함 비교
-      return store.industry.contains(filterIndustry);
-    }
-    final lowerIndustry = store.industry.toLowerCase();
-    final lowerName = store.storeName.toLowerCase();
-    final lowerMenu = store.menu1.toLowerCase();
-
-    return keywords.any((kw) {
-      final k = kw.toLowerCase();
-      return lowerIndustry.contains(k) ||
-          lowerName.contains(k) ||
-          lowerMenu.contains(k);
-    });
-  }
-
   Future<void> _openSearch({bool openFilter = false}) async {
     final result = await context.push<Map<String, dynamic>>(
       AppRoutes.searchResult,
@@ -936,26 +863,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _handleMarkerClick(String storeId) {
-    try {
-      final store = _currentStores.firstWhere(
-        (s) => s.storeName + s.address == storeId,
-      );
-      setState(() {
-        _selectedStore = store;
-        _showStoreSummary = true;
-      });
-    } catch (e) {
-      debugPrint('가게 찾기 실패: $e');
-    }
-  }
-
-  void _showStore() {
-    setState(() {
-      _showStoreSummary = true;
-    });
-  }
-
   void _hideStore() {
     if (!_showStoreSummary) {
       return;
@@ -983,8 +890,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final screenHeight = kIsWeb ? screenSize.height : FigmaMobileCanvas.height;
 
     final storeCardTop = screenHeight - storeCardBottomGap - storeCardHeight;
-    final aiControlLeft = screenWidth - AppSizes.horizontalPadding - 143;
-    final spotlightAiLeft = screenWidth - 2 - 157;
     final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
     final bottomBase = screenHeight - bottomNavHeight;
     final floatingLocationTop = _showStoreSummary
@@ -1371,22 +1276,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 }
 
-class _StoreTapTarget extends StatelessWidget {
-  const _StoreTapTarget({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.translucent,
-      child: child,
-    );
-  }
-}
-
 class _SearchBar extends StatelessWidget {
   const _SearchBar({required this.onTap, this.onFilterTap, this.query = ''});
 
@@ -1543,12 +1432,12 @@ class _TodayPickCard extends StatelessWidget {
           ],
         ),
         child: Row(
-          children: const [
+          children: [
             SizedBox(
               width: 55.99431610107422,
               height: 53.99147415161133,
               child: DecoratedBox(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -1558,14 +1447,15 @@ class _TodayPickCard extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.thunderstorm_outlined,
                       color: HomeMapScreen.blue,
                       size: 20,
                     ),
-                    SizedBox(height: 1.989),
+                    const SizedBox(height: 1.989),
+                    // 날씨 API 연동 전이라 기온은 목업이 아니라 "알 수 없음"으로 표시
                     Text(
-                      '18°',
+                      '오늘',
                       style: TextStyle(
                         color: HomeMapScreen.blue,
                         fontFamily: HomeMapScreen.fontFamily,
@@ -1579,18 +1469,18 @@ class _TodayPickCard extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(width: 11.988616943359375),
-            Expanded(child: _TodayPickText()),
-            _RankDot(label: '1', color: HomeMapScreen.blue),
-            _RankDot(label: '2', color: HomeMapScreen.orange),
-            _RankDot(label: '3', color: HomeMapScreen.green),
-            SizedBox(width: 9.985779),
-            Icon(
+            const SizedBox(width: 11.988616943359375),
+            const Expanded(child: _TodayPickText()),
+            const _RankDot(label: '1', color: HomeMapScreen.blue),
+            const _RankDot(label: '2', color: HomeMapScreen.orange),
+            const _RankDot(label: '3', color: HomeMapScreen.green),
+            const SizedBox(width: 9.985779),
+            const Icon(
               Icons.chevron_right_rounded,
               color: HomeMapScreen.muted,
               size: 17,
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
           ],
         ),
       ),
@@ -1635,9 +1525,9 @@ class _TodayPickText extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: .994),
+        const SizedBox(height: .994),
         Text(
-          '따뜻한 국물 메뉴 3곳',
+          '날씨 기반 추천 4곳',
           style: TextStyle(
             color: HomeMapScreen.ink,
             fontFamily: HomeMapScreen.fontFamily,
@@ -1875,108 +1765,6 @@ class _DetailButton extends StatelessWidget {
             Icon(Icons.chevron_right_rounded, color: Colors.white, size: 13),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _HomeMapPainter extends CustomPainter {
-  const _HomeMapPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // TODO(박지환 BE): 실제 지도 API 연결 후 이 더미 지도 그림은 삭제하세요.
-    final road = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 12
-      ..strokeCap = StrokeCap.square;
-    final roadDashed = Paint()
-      ..color = const Color(0xFFD9E2EE)
-      ..strokeWidth = 1.4
-      ..strokeCap = StrokeCap.square;
-    final park = Paint()..color = const Color(0xFFD7EED5);
-    final water = Paint()..color = const Color(0x1F2563EB);
-
-    canvas.drawLine(Offset(0, 258), Offset(size.width, 225), road);
-    canvas.drawLine(Offset(0, 496), Offset(size.width, 530), road);
-    canvas.drawLine(Offset(132, 0), Offset(126, size.height), road);
-    canvas.drawLine(Offset(250, 0), Offset(273, size.height), road);
-
-    for (var i = 0; i < 30; i++) {
-      final x = i * 14.0;
-      canvas.drawLine(
-        Offset(x, 252 - i * .9),
-        Offset(x + 7, 251 - i * .9),
-        roadDashed,
-      );
-    }
-
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        const Rect.fromLTWH(200, 304, 115, 114),
-        const Radius.circular(12),
-      ),
-      park,
-    );
-    canvas.drawCircle(
-      const Offset(238, 351),
-      10,
-      Paint()..color = const Color(0xFFB7DDB6),
-    );
-    canvas.drawCircle(
-      const Offset(276, 379),
-      14,
-      Paint()..color = const Color(0xFFB7DDB6),
-    );
-    canvas.drawCircle(const Offset(187, 728), 42, water);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _PriceMarker extends StatelessWidget {
-  const _PriceMarker();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 122,
-      height: 29,
-      child: Column(
-        children: [
-          Container(
-            width: 122,
-            height: 24,
-            decoration: BoxDecoration(
-              color: HomeMapScreen.blue,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x40000000),
-                  blurRadius: 16,
-                  offset: Offset(0, 8),
-                ),
-              ],
-            ),
-            alignment: Alignment.center,
-            child: const Text(
-              '●  착한분식 5,500원',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-          ),
-          CustomPaint(
-            size: const Size(9, 5),
-            painter: _TrianglePainter(HomeMapScreen.blue),
-          ),
-        ],
       ),
     );
   }
@@ -2342,26 +2130,6 @@ class _Dot extends StatelessWidget {
       child: SizedBox(width: size, height: size),
     );
   }
-}
-
-class _TrianglePainter extends CustomPainter {
-  const _TrianglePainter(this.color);
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = color;
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..lineTo(size.width / 2, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 const _smallText = TextStyle(

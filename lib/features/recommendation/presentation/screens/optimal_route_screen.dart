@@ -1,9 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 
-class OptimalRouteScreen extends StatelessWidget {
+class OptimalRouteScreen extends ConsumerStatefulWidget {
   const OptimalRouteScreen({super.key});
+
+  @override
+  ConsumerState<OptimalRouteScreen> createState() => _OptimalRouteScreenState();
+}
+
+class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, dynamic>? _routeData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoute();
+  }
+
+  Future<void> _loadRoute() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final service = ref.read(todaysPickServiceProvider);
+      final data = await service.getRoute();
+      if (data['error'] == true) {
+        setState(() {
+          _errorMessage = '루트를 불러오지 못했어요.';
+          _isLoading = false;
+        });
+        return;
+      }
+      setState(() {
+        _routeData = data;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = '네트워크 오류가 발생했습니다.';
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<dynamic> get _picks => _routeData?['picks'] ?? [];
+
+  int get _totalCost {
+    int sum = 0;
+    for (var p in _picks) {
+      final price = p['price1'];
+      if (price != null) {
+        final parsed = int.tryParse(price.toString().replaceAll(',', ''));
+        if (parsed != null) sum += parsed;
+      }
+    }
+    return sum;
+  }
+
+  int get _totalDistance {
+    int sum = 0;
+    for (var p in _picks) {
+      final d = p['distanceMeters'];
+      if (d != null) sum += (d as num).toInt();
+    }
+    return sum;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +83,6 @@ class OptimalRouteScreen extends StatelessWidget {
       backgroundColor: Colors.white,
       child: Stack(
         children: [
-          // Header
           Positioned(
             left: 0,
             right: 0,
@@ -49,225 +116,226 @@ class OptimalRouteScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 40), // Balance the back button
+                  const SizedBox(width: 40),
                 ],
               ),
             ),
           ),
-          // Content
           Positioned.fill(
-            top: topOffset + 50.96590805053711, // Below header
-            child: SingleChildScrollView(
-              padding: EdgeInsets.only(bottom: 100 + bottomOffset),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      '식사부터 카페까지 저렴한 동선을 추천해요',
-                      style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                    ),
-                    const SizedBox(height: 16),
-                    // Map Placeholder
-                    Container(
-                      height: 180,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
+            top: topOffset + 50.96590805053711,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _errorMessage != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(_errorMessage!),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: _loadRoute,
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
                         ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Stack(
-                        children: [
-                          const Center(
-                            child: Icon(
-                              Icons.map,
-                              color: Colors.black12,
-                              size: 48,
-                            ),
-                          ),
-                          // Mock markers
-                          Positioned(
-                            top: 40,
-                            left: 60,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                      )
+                    : SingleChildScrollView(
+                        padding: EdgeInsets.only(bottom: 100 + bottomOffset),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '식사부터 카페까지 저렴한 동선을 추천해요',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                               ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 8,
-                                    offset: Offset(0, 4),
+                              const SizedBox(height: 16),
+                              Container(
+                                height: 180,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
                                   ),
-                                ],
-                              ),
-                              child: const Text(
-                                '1 착한분식',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    const Center(
+                                      child: Icon(
+                                        Icons.map,
+                                        color: Colors.black12,
+                                        size: 48,
+                                      ),
+                                    ),
+                                    if (_picks.isNotEmpty)
+                                      Positioned(
+                                        top: 40,
+                                        left: 60,
+                                        child: _buildMarker('1', _picks[0]['storeName'] ?? '', const Color(0xFF2563EB)),
+                                      ),
+                                    if (_picks.length > 1)
+                                      Positioned(
+                                        top: 90,
+                                        right: 60,
+                                        child: _buildMarker('2', _picks[1]['storeName'] ?? '', const Color(0xFFF97316)),
+                                      ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 90,
-                            right: 60,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                              const SizedBox(height: 24),
+                              const Text(
+                                '추천 동선',
+                                style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF97316),
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 8,
-                                    offset: Offset(0, 4),
+                              const SizedBox(height: 12),
+                              if (_picks.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Center(child: Text('추천할 매장이 없어요.')),
+                                )
+                              else
+                                ..._picks.asMap().entries.map((entry) {
+                                  final idx = entry.key;
+                                  final p = entry.value;
+                                  final storeName = p['storeName'] ?? '알 수 없음';
+                                  final menu = p['menu1'] ?? '';
+                                  final price = p['price1'] != null ? '${p['price1']}원' : '';
+                                  final distance = p['distanceMeters'] != null ? '${p['distanceMeters']}m' : '';
+
+                                  return Column(
+                                    children: [
+                                      _buildRouteStep(
+                                        index: '${idx + 1}',
+                                        storeName: storeName,
+                                        details: '$menu $price · $distance',
+                                      ),
+                                      if (idx < _picks.length - 1) _buildConnection('도보 ${((p['distanceMeters'] ?? 500) / 80).round()}분'),
+                                    ],
+                                  );
+                                }),
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE8F8F1),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          '총 예상 비용',
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_totalCost}원',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0F172A),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          '총 거리',
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${_totalDistance}m',
+                                          style: const TextStyle(
+                                            color: Color(0xFF0F172A),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      height: 1,
+                                      color: const Color(0xFF10B981).withOpacity(0.2),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Row(
+                                      children: [
+                                        Icon(
+                                          Icons.directions_walk,
+                                          color: Color(0xFF64748B),
+                                          size: 12,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'AI 추천 동선',
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (_routeData?['route'] != null) ...[
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: const Color(0xFFE5E7EB)),
                                   ),
-                                ],
-                              ),
-                              child: const Text(
-                                '2 동네카페',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'AI 추천 이유',
+                                        style: TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        _routeData!['route'].toString(),
+                                        style: const TextStyle(
+                                          color: Color(0xFF475569),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '추천 동선',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Route Steps
-                    _buildRouteStep(
-                      index: '1',
-                      storeName: '착한분식',
-                      details: '김치찌개 5,500원 · 320m',
-                    ),
-                    _buildConnection('도보 6분'),
-                    _buildRouteStep(
-                      index: '2',
-                      storeName: '동네카페',
-                      details: '아메리카노 2,000원 · 500m',
-                    ),
-                    const SizedBox(height: 16),
-                    // Summary Card
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F8F1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '총 예상 비용',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              Text(
-                                '7,500원',
-                                style: TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
+                              ],
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '예상 절약',
-                                style: TextStyle(
-                                  color: Color(0xFF10B981),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                '약 4,300원',
-                                style: TextStyle(
-                                  color: Color(0xFF10B981),
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            height: 1,
-                            color: const Color(0xFF10B981).withOpacity(0.2),
-                          ),
-                          const SizedBox(height: 12),
-                          const Row(
-                            children: [
-                              Icon(
-                                Icons.directions_walk,
-                                color: Color(0xFF64748B),
-                                size: 12,
-                              ),
-                              SizedBox(width: 4),
-                              Text(
-                                '총 820m',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 11,
-                                ),
-                              ),
-                              SizedBox(width: 16),
-                              Text(
-                                '예상 소요 12분',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
-          // Sticky Bottom
           Positioned(
             bottom: 0,
             left: 0,
@@ -302,6 +370,31 @@ class OptimalRouteScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMarker(String index, String name, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        '$index $name',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

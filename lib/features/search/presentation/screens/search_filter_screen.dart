@@ -18,7 +18,6 @@ class SearchFilterSheet extends StatefulWidget {
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
   static const blue = Color(0xFF2563EB);
   static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
   static const surface = Color(0xFFF4F6FA);
   static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Inter';

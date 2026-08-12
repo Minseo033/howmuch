@@ -1,4 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:http/http.dart' as http;
 
 class UserProfile {
   const UserProfile({
@@ -434,6 +438,7 @@ class FavoriteStoreModel {
     required this.buttonText,
     required this.buttonColor,
     required this.buttonTextColor,
+    this.createdAt,
     this.isFavorite = true,
   });
 
@@ -454,7 +459,43 @@ class FavoriteStoreModel {
   final String buttonText;
   final int buttonColor;
   final int buttonTextColor;
+  final DateTime? createdAt;
   final bool isFavorite;
+
+  factory FavoriteStoreModel.fromJson(Map<String, dynamic> json) {
+    final storeName = json['storeName']?.toString().trim();
+    final storeId = json['storeId']?.toString().trim() ?? '';
+    final createdAtText = json['createdAt']?.toString();
+    // 8/7: 백엔드가 공공데이터 인메모리 캐시에서 매칭한 매장 메타(업종/대표메뉴/가격/주소)를 동봉.
+    //      제보 매장 등 캐시 미스 시 null → 기존 placeholder 유지.
+    final industry = json['industry']?.toString().trim();
+    final menu1 = json['menu1']?.toString().trim();
+    final price1 = json['price1']?.toString().trim();
+    final hasMeta = industry != null && industry.isNotEmpty;
+
+    return FavoriteStoreModel(
+      id: storeId.isNotEmpty ? storeId : json['id']?.toString() ?? '',
+      category: hasMeta ? industry : '전체',
+      iconEmoji: _emojiForStore(industry, storeName ?? ''),
+      iconBgColor: 0xFFDBEAFE,
+      badgeText: hasMeta ? '착한가격업소' : '찜한 매장',
+      badgeColor: 0xFF2563EB,
+      badgeBgColor: 0xFFDBEAFE,
+      distance: '저장됨',
+      storeName: storeName?.isNotEmpty == true ? storeName! : '매장명 없음',
+      menu: (menu1 != null && menu1.isNotEmpty)
+          ? menu1
+          : '상세 정보는 매장 화면에서 확인해 주세요',
+      price: _formatPrice(price1),
+      priceColor: 0xFF2563EB,
+      buttonText: '찜 해제',
+      buttonColor: 0xFFFEE2E2,
+      buttonTextColor: 0xFFDC2626,
+      createdAt: createdAtText == null
+          ? null
+          : DateTime.tryParse(createdAtText),
+    );
+  }
 
   FavoriteStoreModel copyWith({bool? isFavorite}) {
     return FavoriteStoreModel(
@@ -475,8 +516,41 @@ class FavoriteStoreModel {
       buttonText: buttonText,
       buttonColor: buttonColor,
       buttonTextColor: buttonTextColor,
+      createdAt: createdAt,
       isFavorite: isFavorite ?? this.isFavorite,
     );
+  }
+
+  static String _emojiForStore(String? industry, String name) {
+    final key = '${industry ?? ''} $name';
+    if (key.contains('카페') || key.contains('커피')) return '☕';
+    if (key.contains('미용') || key.contains('헤어') || key.contains('이용')) {
+      return '✂️';
+    }
+    if (key.contains('세탁')) return '🧺';
+    if (key.contains('숙박')) return '🛏️';
+    if (key.contains('목욕')) return '🛁';
+    if (key.contains('중식')) return '🥟';
+    if (key.contains('일식')) return '🍣';
+    if (key.contains('양식')) return '🍝';
+    if (key.contains('분식') || key.contains('국수')) return '🍜';
+    return '🍽️';
+  }
+
+  /// "5000" → "5,000원" (숫자 아닌 문자 제거 후 천 단위 구분. 파싱 실패 시 원문 유지)
+  static String _formatPrice(String? price1) {
+    if (price1 == null || price1.isEmpty) return '';
+    final digits = price1.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return price1;
+    final value = int.tryParse(digits);
+    if (value == null) return price1;
+    final s = value.toString();
+    final buffer = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(s[i]);
+    }
+    return '$buffer원';
   }
 }
 
@@ -581,63 +655,156 @@ final socialAccountsProvider = StateProvider<List<SocialAccount>>(
   ],
 );
 
-// TODO(박지환 BE): 찜한 매장 API 응답으로 교체하세요.
-final favoriteStoresProvider = StateProvider<List<FavoriteStoreModel>>(
-  (ref) => const [
-    FavoriteStoreModel(
-      id: '1',
-      category: '음식점',
-      iconEmoji: '🍚',
-      iconBgColor: 0xFFDBEAFE, // AppColors.primaryLight
-      badgeText: '정부 인증',
-      badgeColor: 0xFF2563EB, // AppColors.primary
-      badgeBgColor: 0xFFDBEAFE, // AppColors.primaryLight
-      distance: '320m',
-      storeName: '착한분식',
-      menu: '김치찌개',
-      price: '5,500원',
-      priceColor: 0xFF2563EB, // AppColors.primary
-      alertText: '✓ 최근 가격 변동 없음',
-      alertColor: 0xFF64748B, // AppColors.muted
-      buttonText: '길찾기',
-      buttonColor: 0xFF2563EB, // AppColors.primary
-      buttonTextColor: 0xFFFFFFFF, // AppColors.white
-    ),
-    FavoriteStoreModel(
-      id: '2',
-      category: '카페',
-      iconEmoji: '☕',
-      iconBgColor: 0xFFFFEDD5, // AppColors.warningLight
-      badgeText: '사용자 제보',
-      badgeColor: 0xFFF97316, // AppColors.warning
-      badgeBgColor: 0xFFFFEDD5, // AppColors.warningLight
-      distance: '540m',
-      storeName: '동네카페',
-      menu: '아메리카노',
-      price: '2,000원',
-      priceColor: 0xFFF97316, // AppColors.warning
-      alertText: '⚠️ 가격 변동 제보 1건',
-      alertColor: 0xFFF97316, // AppColors.warning
-      buttonText: '상세보기',
-      buttonColor: 0xFFF8FAFC, // AppColors.background
-      buttonTextColor: 0xFF0F172A, // AppColors.ink
-    ),
-    FavoriteStoreModel(
-      id: '3',
-      category: '생활서비스',
-      iconEmoji: '✂️',
-      iconBgColor: 0xFFDBEAFE, // AppColors.primaryLight
-      badgeText: '정부 인증',
-      badgeColor: 0xFF2563EB, // AppColors.primary
-      badgeBgColor: 0xFFDBEAFE, // AppColors.primaryLight
-      distance: '1.1km',
-      storeName: '착한미용실',
-      menu: '커트',
-      price: '8,000원',
-      priceColor: 0xFF2563EB, // AppColors.primary
-      buttonText: '길찾기',
-      buttonColor: 0xFF2563EB, // AppColors.primary
-      buttonTextColor: 0xFFFFFFFF, // AppColors.white
-    ),
-  ],
-);
+final favoriteApiServiceProvider = Provider((ref) => FavoriteApiService());
+
+final favoriteStoresProvider =
+    StateNotifierProvider<
+      FavoriteStoresNotifier,
+      AsyncValue<List<FavoriteStoreModel>>
+    >(
+      (ref) => FavoriteStoresNotifier(
+        ref.read(favoriteApiServiceProvider),
+        ref.read(userProfileProvider.notifier),
+      ),
+    );
+
+class FavoriteApiService {
+  Future<List<FavoriteStoreModel>> fetchFavorites() async {
+    final res = await http
+        .get(
+          ApiClient.uri('/api/favorites'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+
+    if (res.statusCode != 200) {
+      throw Exception('찜 목록을 불러오지 못했습니다. (${res.statusCode})');
+    }
+
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! List) return const [];
+
+    return decoded
+        .whereType<Map>()
+        .map(
+          (item) =>
+              FavoriteStoreModel.fromJson(Map<String, dynamic>.from(item)),
+        )
+        .toList();
+  }
+
+  Future<FavoriteStoreModel> addFavorite({
+    required String storeId,
+    required String storeName,
+  }) async {
+    final res = await http
+        .post(
+          ApiClient.uri('/api/favorites'),
+          headers: ApiClient.jsonHeaders(auth: true),
+          body: jsonEncode({'storeId': storeId, 'storeName': storeName}),
+        )
+        .timeout(ApiClient.defaultTimeout);
+
+    if (res.statusCode != 200) {
+      throw Exception('찜 추가에 실패했습니다. (${res.statusCode})');
+    }
+
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    if (decoded is! Map) {
+      throw Exception('찜 추가 응답을 확인할 수 없습니다.');
+    }
+    return FavoriteStoreModel.fromJson(Map<String, dynamic>.from(decoded));
+  }
+
+  Future<void> removeFavorite(String storeId) async {
+    final res = await http
+        .delete(
+          ApiClient.uri('/api/favorites/${Uri.encodeComponent(storeId)}'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+
+    if (res.statusCode != 200) {
+      throw Exception('찜 해제에 실패했습니다. (${res.statusCode})');
+    }
+  }
+}
+
+class FavoriteStoresNotifier
+    extends StateNotifier<AsyncValue<List<FavoriteStoreModel>>> {
+  FavoriteStoresNotifier(this._api, this._profileNotifier)
+    : super(const AsyncValue.loading());
+
+  final FavoriteApiService _api;
+  final StateController<UserProfile> _profileNotifier;
+  bool _loaded = false;
+
+  Future<void> loadFavorites({bool force = false}) async {
+    if (_loaded && !force) return;
+    _loaded = true;
+    state = const AsyncValue.loading();
+    try {
+      final favorites = await _api.fetchFavorites();
+      state = AsyncValue.data(favorites);
+      _syncCount(favorites.length);
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
+  bool isFavorite(String storeId) {
+    return state.valueOrNull?.any((store) => store.id == storeId) ?? false;
+  }
+
+  Future<void> addFavorite({
+    required String storeId,
+    required String storeName,
+  }) async {
+    final previous = state.valueOrNull ?? const <FavoriteStoreModel>[];
+    if (previous.any((store) => store.id == storeId)) return;
+
+    final optimistic = FavoriteStoreModel.fromJson({
+      'storeId': storeId,
+      'storeName': storeName,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+    state = AsyncValue.data([optimistic, ...previous]);
+    _syncCount(previous.length + 1);
+
+    try {
+      final saved = await _api.addFavorite(
+        storeId: storeId,
+        storeName: storeName,
+      );
+      state = AsyncValue.data([
+        saved,
+        ...previous.where((store) => store.id != storeId),
+      ]);
+    } catch (error) {
+      state = AsyncValue.data(previous);
+      _syncCount(previous.length);
+      rethrow;
+    }
+  }
+
+  Future<void> removeFavorite(String storeId) async {
+    final previous = state.valueOrNull ?? const <FavoriteStoreModel>[];
+    final next = previous.where((store) => store.id != storeId).toList();
+    state = AsyncValue.data(next);
+    _syncCount(next.length);
+
+    try {
+      await _api.removeFavorite(storeId);
+    } catch (error) {
+      state = AsyncValue.data(previous);
+      _syncCount(previous.length);
+      rethrow;
+    }
+  }
+
+  void _syncCount(int count) {
+    _profileNotifier.update(
+      (profile) => profile.copyWith(favoriteStoreCount: count),
+    );
+  }
+}

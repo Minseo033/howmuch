@@ -19,9 +19,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 @Service
 public class FirebaseService {
@@ -266,6 +270,15 @@ public class FirebaseService {
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
+        // 💡 요청 #7: 프론트가 기기 로컬 경로(photo.path)를 imageUrls에 그대로 볼 경우,
+        //    다른 기기/재실행 후 이미지가 깨지므로 http(s) 형태의 접근 가능한 URL만 남긴다.
+        //    (실제 이미지 업로드 스토리지 연동은 별도 과제 — 지금은 유효하지 않은 로컬 경로를 제거해 깨진 이미지 노출 방지)
+        if (report.getImageUrls() != null) {
+            List<String> validUrls = report.getImageUrls().stream()
+                    .filter(u -> u != null && (u.startsWith("http://") || u.startsWith("https://")))
+                    .toList();
+            report.setImageUrls(validUrls);
+        }
 
         DocumentReference docRef = db.collection("stores_user").document();
         ApiFuture<WriteResult> future = docRef.set(report);
@@ -724,7 +737,29 @@ public class FirebaseService {
 
     /** 찜 문서 ID: 유저당 매장 1개 찜만 허용 (멱등 추가/삭제용) */
     private String favoriteDocId(String firebaseUid, String storeId) {
-        return firebaseUid + "_" + storeId;
+        return firebaseUid + "_" + sanitizeForDocId(storeId);
+    }
+
+    /**
+     * Firestore 문서 ID에는 '/'를 쓸 수 없어 매장명에 슬래시가 있으면 찜이 실패함 (8/4 감사 #6).
+     * '_' → '__', '/' → '_s' 순으로 이스케이프 (단사 함수라 서로 다른 매장명이 같은 ID로 충돌하지 않음).
+     */
+    private String sanitizeForDocId(String storeId) {
+        if (storeId == null) return "";
+        return storeId.replace("_", "__").replace("/", "_s");
+    }
+
+    /** 공공데이터 인메모리 캐시에서 매장명으로 매장 정보 조회 (Firestore 읽기 0). 없으면 null */
+    private Map<String, Object> findGovStoreByName(String storeName) {
+        if (storeName == null || storeName.isBlank()) return null;
+        return cachedStores.stream()
+                .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String strOrNull(Object value) {
+        return value != null ? value.toString() : null;
     }
 
     // 💡 찜 추가 (멱등: 같은 매장 재추가 시 덮어쓰기, 중복 문서 생성 안 됨)
@@ -740,11 +775,17 @@ public class FirebaseService {
 
         db.collection("favorites").document(docId).set(data).get();
 
+        // 공공데이터 캐시에 매장이 있으면 메타(업종/대표메뉴/가격/주소) 동봉 — 없으면 null (Firestore 읽기 0)
+        Map<String, Object> store = findGovStoreByName(request.getStoreName());
         return com.howmuch.dto.FavoriteResponse.builder()
                 .id(docId)
                 .storeId(request.getStoreId())
                 .storeName(request.getStoreName())
                 .createdAt(createdAt)
+                .industry(store != null ? strOrNull(store.get("industry")) : null)
+                .menu1(store != null ? strOrNull(store.get("menu1")) : null)
+                .price1(store != null ? strOrNull(store.get("price1")) : null)
+                .address(store != null ? strOrNull(store.get("address")) : null)
                 .build();
     }
 
@@ -752,6 +793,11 @@ public class FirebaseService {
     public void removeFavorite(String firebaseUid, String storeId) throws Exception {
         String docId = favoriteDocId(firebaseUid, storeId);
         db.collection("favorites").document(docId).delete().get();
+        // 8/7 docId 이스케이프 도입 전의 구 형식(원본 storeId 그대로) 문서도 함께 삭제 — 기존 찜 데이터 호환
+        String legacyDocId = firebaseUid + "_" + storeId;
+        if (!legacyDocId.equals(docId)) {
+            db.collection("favorites").document(legacyDocId).delete().get();
+        }
     }
 
     // 💡 내 찜 목록 조회 (최신순)
@@ -761,11 +807,18 @@ public class FirebaseService {
                 .get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
+                    String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
+                    // 공공데이터 캐시 매장 메타 동봉 (Firestore 읽기 0) — 제보 매장 등 캐시에 없으면 null
+                    Map<String, Object> store = findGovStoreByName(storeName);
                     return com.howmuch.dto.FavoriteResponse.builder()
                             .id(doc.getId())
                             .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
-                            .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                            .storeName(storeName)
                             .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : null)
+                            .industry(store != null ? strOrNull(store.get("industry")) : null)
+                            .menu1(store != null ? strOrNull(store.get("menu1")) : null)
+                            .price1(store != null ? strOrNull(store.get("price1")) : null)
+                            .address(store != null ? strOrNull(store.get("address")) : null)
                             .build();
                 })
                 .toList());
@@ -907,6 +960,10 @@ public class FirebaseService {
 
     // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
     public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id) throws Exception {
+        return getCommunityFeedDetail(id, null);
+    }
+
+    public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id, String requesterUid) throws Exception {
         DocumentSnapshot doc = db.collection("stores_user").document(id).get().get();
         if (!doc.exists()) {
             return null;
@@ -954,6 +1011,8 @@ public class FirebaseService {
                 .author(author)
                 .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                 .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
+                .likedByMe(isFeedLikedBy(id, requesterUid))
+                .notificationEnabled(isFeedNotificationEnabled(id, requesterUid))
                 .status(status)
                 .imageUrls(imageUrls)
                 .createdAt(createdAt)
@@ -972,5 +1031,719 @@ public class FirebaseService {
                 .visitedRecently(data.get("visitedRecently") != null && Boolean.parseBoolean(data.get("visitedRecently").toString()))
                 .checkedMenuPrice(data.get("checkedMenuPrice") != null && Boolean.parseBoolean(data.get("checkedMenuPrice").toString()))
                 .build();
+    }
+
+    // ==================== 문의 (inquiries) ====================
+
+    /**
+     * 문의 등록 — Firestore inquiries 컬렉션에 저장.
+     * userId(세션 uid), title, content, category, status(기본 PENDING), createdAt 포함.
+     */
+    public Map<String, Object> createInquiry(String firebaseUid, com.howmuch.dto.InquiryRequest request) throws Exception {
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("title", request.getTitle().trim());
+        data.put("content", request.getContent().trim());
+        data.put("category", request.getCategory() != null ? request.getCategory().trim() : "일반");
+        data.put("status", "PENDING");
+        data.put("createdAt", createdAt);
+
+        DocumentReference docRef = db.collection("inquiries").document();
+        docRef.set(data).get();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", docRef.getId());
+        result.put("status", "PENDING");
+        result.put("createdAt", createdAt);
+        return result;
+    }
+
+    /** 내 문의 목록 조회 (최신순) — 마이페이지 문의 내역용 */
+    public List<Map<String, Object>> getMyInquiries(String firebaseUid) throws Exception {
+        List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("title", data.get("title"));
+                    item.put("content", data.get("content"));
+                    item.put("category", data.get("category"));
+                    item.put("status", data.get("status"));
+                    item.put("createdAt", data.get("createdAt"));
+                    return item;
+                })
+                .toList());
+        inquiries.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return inquiries;
+    }
+
+    /** 어드민: 전체 문의 목록 조회 (최신순) — /api/admin/inquiries */
+    public List<Map<String, Object>> getAllInquiries() throws Exception {
+        List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("userId", data.get("userId"));
+                    item.put("title", data.get("title"));
+                    item.put("content", data.get("content"));
+                    item.put("category", data.get("category"));
+                    item.put("status", data.get("status"));
+                    item.put("createdAt", data.get("createdAt"));
+                    return item;
+                })
+                .toList());
+        inquiries.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return inquiries;
+    }
+
+    // ==================== 오늘의 픽 (todays pick) ====================
+
+    /** 추천 대상 요식업 업종 (공공데이터의 미용업·이용업·세탁업·숙박업·목욕업·기타비요식업 제외) */
+    private static final Set<String> FOOD_INDUSTRIES =
+            Set.of("한식", "중식", "일식", "양식", "기타요식업");
+
+    /** 최종 추천 개수 */
+    private static final int MAX_PICKS = 4;
+
+    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 4곳 선정) */
+    private static final int CANDIDATE_POOL_SIZE = 20;
+
+    /**
+     * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
+     * Firestore 읽기 0 (cachedStores만 사용).
+     *
+     * @param weather 날씨 요약 (맑음/구름많음/흐림/비/눈/소나기/알 수 없음)
+     * @param temp    기온 (섭씨, null 가능)
+     * @param lat     사용자 위도 (거리 계산용, null 가능)
+     * @param lng     사용자 경도 (거리 계산용, null 가능)
+     * @return 추천 매장 리스트 (최대 4개)
+     */
+    public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
+        List<PickTheme> themes = weatherThemes(weather, temp);
+        PickTheme mainTheme = themes.get(0);
+        PickTheme altTheme = themes.size() > 1 ? themes.get(1) : null;
+
+        // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
+        //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
+        List<Map<String, Object>> foodStores = new ArrayList<>();
+        for (Map<String, Object> store : cachedStores) {
+            String industry = strOrNull(store.get("industry"));
+            if (industry != null && FOOD_INDUSTRIES.contains(industry)) {
+                foodStores.add(store);
+            }
+        }
+
+        // 테마별 매칭 (매장 → 실제 매칭된 메뉴 추적). 대안 테마는 메인과 겹치지 않게 제외.
+        long dailySeed = java.time.LocalDate.now().toEpochDay();
+        Map<String, String> matchedMenuByStore = new HashMap<>();
+        Map<String, String> themeByStore = new HashMap<>();
+        Map<String, String> reasonByStore = new HashMap<>();
+
+        List<Map<String, Object>> mainMatched = matchTheme(foodStores, mainTheme,
+                matchedMenuByStore, themeByStore, reasonByStore, Set.of());
+        List<Map<String, Object>> altMatched = altTheme != null
+                ? matchTheme(foodStores, altTheme,
+                        matchedMenuByStore, themeByStore, reasonByStore,
+                        Set.copyOf(themeByStore.keySet()))
+                : List.of();
+
+        // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
+        List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
+
+        // 가까운 순 상위 후보군 + 날짜 시드 셔플 (같은 날 안정적, 다음 날 순서 변경)
+        List<Map<String, Object>> mainCandidates = nearestShuffled(mainPool, lat, lng, CANDIDATE_POOL_SIZE, dailySeed);
+        List<Map<String, Object>> altCandidates = nearestShuffled(altMatched, lat, lng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
+
+        // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
+        Set<String> seenNames = new HashSet<>();
+        List<Map<String, Object>> chosen = new ArrayList<>();
+        addUnique(chosen, mainCandidates, MAIN_PICKS, seenNames);
+        addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
+        if (chosen.size() < MAX_PICKS) {
+            addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+        }
+
+        List<Map<String, Object>> picks = new ArrayList<>();
+        for (Map<String, Object> store : chosen) {
+            String name = strOrNull(store.get("storeName"));
+            Map<String, Object> pick = new HashMap<>();
+            pick.put("storeName", name);
+            pick.put("industry", strOrNull(store.get("industry")));
+            pick.put("menu1", strOrNull(store.get("menu1")));
+            pick.put("price1", strOrNull(store.get("price1")));
+            pick.put("address", strOrNull(store.get("address")));
+            pick.put("latitude", store.get("latitude"));
+            pick.put("longitude", store.get("longitude"));
+            if (lat != null && lng != null) {
+                pick.put("distanceMeters", (int) Math.round(haversine(lat, lng, parseLat(store), parseLng(store))));
+            }
+            // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장은 null → 프론트 기본 멘트)
+            pick.put("matchedMenu", matchedMenuByStore.get(name));
+            pick.put("theme", themeByStore.get(name));
+            pick.put("reason", reasonByStore.get(name));
+            picks.add(pick);
+        }
+        return picks;
+    }
+
+    /** 메인 테마 추천 개수 (나머지 1개는 대안 테마) */
+    private static final int MAIN_PICKS = 3;
+
+    /** 대안 테마 추천 개수 */
+    private static final int ALT_PICKS = 1;
+
+    /** 대안 테마 후보군 크기 */
+    private static final int ALT_CANDIDATE_POOL_SIZE = 10;
+
+    /** 추천 테마 — 라벨(칩 표시용) + 이유 멘트 + 매칭 키워드 */
+    private record PickTheme(String label, String reason, List<String> keywords) { }
+
+    /**
+     * 날씨/기온 기반 추천 테마 (메인 1개 + 대안 1개).
+     * "덥다고 냉멸만" 같은 단조로움을 피하기 위해 대안 테마를 섞는다
+     * (예: 폭염에도 '이열치열' 삼계탕, 비 오면 국물 + 파전).
+     */
+    private List<PickTheme> weatherThemes(String weather, Integer temp) {
+        if (weather == null) weather = "알 수 없음";
+        boolean hot = temp != null && temp >= 28;
+        boolean cold = temp != null && temp <= 5;
+        switch (weather) {
+            case "비", "비/눈", "눈", "소나기" -> {
+                return List.of(
+                        new PickTheme("따뜻한 국물", "비 오는 날엔 뜨끈한 국물이 최고예요 🍜",
+                                List.of("국밥", "칼국수", "국수", "찌개", "설렁탕", "갈비탕", "곰탕",
+                                        "전골", "순두부", "우동", "수제비", "라면")),
+                        // "전" 단독은 전골 등과 오매칭이라 구체 전 메뉴로 한정
+                        new PickTheme("비 오면 파전", "비 오는 날엔 파전도 빼놓을 수 없죠 🥞",
+                                List.of("파전", "부침개", "김치전", "핼물전", "모둠전")));
+            }
+            case "맑음", "구름많음", "흐림" -> {
+                if (hot) {
+                    return List.of(
+                            new PickTheme("시원한 메뉴", "더운 날엔 시원한 한 끼 어때요? 🧊",
+                                    List.of("냉면", "콩국수", "메밀", "빙수", "아이스크림", "샐러드", "주스")),
+                            new PickTheme("이열치열", "이열치열! 뜨끈한 한 그릇도 별미예요 🔥",
+                                    List.of("삼계탕", "국밥", "설렁탕", "갈비탕", "곰탕")));
+                }
+                if (cold) {
+                    return List.of(
+                            new PickTheme("따뜻한 메뉴", "추운 날엔 따뜻한 국물이 생각나요 🍲",
+                                    List.of("국밥", "찌개", "설렁탕", "갈비탕", "곰탕", "전골", "우동", "칼국수", "수제비")),
+                            new PickTheme("매콤하게", "매운 맛으로 추위를 날려보세요 🌶️",
+                                    List.of("떡볶이", "마라탕", "매운")));
+                }
+                return List.of(
+                        new PickTheme("든든한 한 끼", "오늘 같은 날엔 든든한 한 끼 어때요 ✨",
+                                List.of("김밥", "분식", "국수", "덮밥")),
+                        new PickTheme("색다른 한 끼", "가끔은 색다른 메뉴로 기분 전환 🍽️",
+                                List.of("돈가스", "초밥", "족발", "보쌈")));
+            }
+            default -> {
+                if (hot) {
+                    return List.of(
+                            new PickTheme("시원한 메뉴", "더운 날엔 시원한 한 끼 어때요? 🧊",
+                                    List.of("냉면", "콩국수", "메밀")),
+                            new PickTheme("이열치열", "이열치열! 뜨끈한 한 그릇도 별미예요 🔥",
+                                    List.of("삼계탕", "국밥")));
+                }
+                if (cold) {
+                    return List.of(
+                            new PickTheme("따뜻한 메뉴", "추운 날엔 따뜻한 국물이 생각나요 🍲",
+                                    List.of("국밥", "찌개", "전골")),
+                            new PickTheme("매콤하게", "매운 맛으로 추위를 날려보세요 🌶️",
+                                    List.of("떡볶이", "마라탕")));
+                }
+                return List.of(
+                        new PickTheme("든든한 한 끼", "오늘 같은 날엔 든든한 한 끼 어때요 ✨",
+                                List.of("김밥", "분식", "국수", "덮밥")),
+                        new PickTheme("색다른 한 끼", "가끔은 색다른 메뉴로 기분 전환 🍽️",
+                                List.of("돈가스", "초밥", "족발", "보쌈")));
+            }
+        }
+    }
+
+    /** 테마 키워드와 매칭되는 매장 수집 + 매장별 매칭 메뉴/테마/이유 기록 (제외 매장명 스킵) */
+    private List<Map<String, Object>> matchTheme(List<Map<String, Object>> foodStores, PickTheme theme,
+                                                 Map<String, String> matchedMenuByStore,
+                                                 Map<String, String> themeByStore,
+                                                 Map<String, String> reasonByStore,
+                                                 Set<String> excludeNames) {
+        List<Map<String, Object>> matched = new ArrayList<>();
+        for (Map<String, Object> store : foodStores) {
+            String name = String.valueOf(store.get("storeName"));
+            if (excludeNames.contains(name)) continue;
+            String matchedMenu = findMatchedMenu(store, theme.keywords());
+            if (matchedMenu != null) {
+                matched.add(store);
+                matchedMenuByStore.put(name, matchedMenu);
+                themeByStore.put(name, theme.label());
+                reasonByStore.put(name, theme.reason());
+            }
+        }
+        return matched;
+    }
+
+    /** 가까운 순 정렬 후 상위 limit개를 날짜 시드로 셔플 (위치 없으면 셔플만) */
+    private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
+                                                      Double lat, Double lng, int limit, long seed) {
+        List<Map<String, Object>> scored = new ArrayList<>(pool);
+        if (lat != null && lng != null) {
+            scored.sort((a, b) -> Double.compare(
+                    haversine(lat, lng, parseLat(a), parseLng(a)),
+                    haversine(lat, lng, parseLat(b), parseLng(b))));
+            if (scored.size() > limit) {
+                scored = new ArrayList<>(scored.subList(0, limit));
+            }
+        }
+        Collections.shuffle(scored, new Random(seed));
+        return scored;
+    }
+
+    /** 중복 매장명 없이 후보에서 최대 count개 추가 */
+    private void addUnique(List<Map<String, Object>> chosen, List<Map<String, Object>> candidates,
+                           int count, Set<String> seenNames) {
+        int added = 0;
+        for (Map<String, Object> store : candidates) {
+            if (added >= count) break;
+            String name = strOrNull(store.get("storeName"));
+            if (name == null || !seenNames.add(name)) continue;
+            chosen.add(store);
+            added++;
+        }
+    }
+
+    /**
+     * 매장의 메뉴(menu1~menu4) 중 추천 키워드를 포함하는 "첫 번째 실제 메뉴"를 반환.
+     * 없으면 null. 카드에는 menu1 대신 이 매칭된 메뉴를 보여줘 추천 근거와 일치시킨다.
+     */
+    private String findMatchedMenu(Map<String, Object> store, List<String> keywords) {
+        for (String key : new String[]{"menu1", "menu2", "menu3", "menu4"}) {
+            String menu = strOrNull(store.get(key));
+            if (menu == null || menu.isBlank()) continue;
+            for (String kw : keywords) {
+                if (menu.contains(kw)) {
+                    return menu;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 하버사인 거리 (미터) */
+    private double haversine(double lat1, double lng1, double lat2, double lng2) {
+        double R = 6371000;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private double parseLat(Map<String, Object> store) {
+        try {
+            return Double.parseDouble(String.valueOf(store.get("latitude")));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    private double parseLng(Map<String, Object> store) {
+        try {
+            return Double.parseDouble(String.valueOf(store.get("longitude")));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    // ==================== 커뮤니티 댓글/좋아요/알림 (comments, feed_likes, feed_notifications) ====================
+
+    /** 제보(게시글)가 존재하고 공개 가능한지 확인. 없거나 REJECTED면 false */
+    public boolean feedExists(String postId) {
+        try {
+            DocumentSnapshot doc = db.collection("stores_user").document(postId).get().get();
+            if (!doc.exists()) return false;
+            Map<String, Object> data = doc.getData();
+            return data != null && isFeedVisible(data);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** 작성자 uid → 닉네임 해결 (실패 시 '알 수 없음') */
+    private String resolveAuthor(String uid) {
+        if (uid == null) return "알 수 없음";
+        try {
+            com.howmuch.dto.UserProfileResponse user = getUserProfile(uid);
+            if (user != null && user.getNickname() != null && !user.getNickname().isBlank()) {
+                return user.getNickname();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return "알 수 없음";
+    }
+
+    /** 게시글의 comments/likes 카운터를 실제 컬렉션 기준으로 다시 계산해 저장 (요청 #6 최신화) */
+    private void syncFeedCounts(String postId) {
+        try {
+            long commentCount = db.collection("comments")
+                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+            long likeCount = db.collection("feed_likes")
+                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("comments", (int) commentCount);
+            updates.put("likes", (int) likeCount);
+            db.collection("stores_user").document(postId).update(updates).get();
+        } catch (Exception e) {
+            // 카운터 동기화 실패는 치명적이지 않으므로 로그만 (호출 흐름 유지)
+        }
+    }
+
+    /** 문서 스냅샷 → CommentResponse 변환 */
+    private com.howmuch.dto.CommentResponse toCommentResponse(DocumentSnapshot doc, String requesterUid) {
+        Map<String, Object> data = doc.getData();
+        if (data == null) data = new HashMap<>();
+        String uid = data.get("userId") != null ? data.get("userId").toString() : null;
+        String content = data.get("content") != null ? data.get("content").toString() : "";
+        String createdAt = data.get("createdAt") != null ? data.get("createdAt").toString() : "";
+        boolean isMine = requesterUid != null && requesterUid.equals(uid);
+        int replyCount = 0;
+        Object rc = data.get("replyCount");
+        if (rc != null) {
+            try { replyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
+        }
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(doc.getId())
+                .author(resolveAuthor(uid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(isMine)
+                .replyCount(replyCount)
+                .build();
+    }
+
+    // 💡 댓글 목록 조회 (최상위 댓글만, parentId 없음). 오래된순
+    public List<com.howmuch.dto.CommentResponse> getComments(String postId, String requesterUid) throws Exception {
+        List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
+                .whereEqualTo("postId", postId)
+                .get().get().getDocuments());
+        List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            Map<String, Object> data = doc.getData();
+            Object parentId = data != null ? data.get("parentId") : null;
+            if (parentId == null) { // 최상위 댓글만
+                result.add(toCommentResponse(doc, requesterUid));
+            }
+        }
+        // 복합 인덱스 없이 메모리 정렬 (오래된순)
+        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
+        return result;
+    }
+
+    // 💡 댓글 작성
+    public com.howmuch.dto.CommentResponse createComment(String postId, String requesterUid, String content) throws Exception {
+        DocumentReference docRef = db.collection("comments").document();
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("postId", postId);
+        data.put("userId", requesterUid);
+        data.put("content", content);
+        data.put("createdAt", createdAt);
+        data.put("replyCount", 0);
+        data.put("parentId", null);
+        docRef.set(data).get();
+        syncFeedCounts(postId);
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(docRef.getId())
+                .author(resolveAuthor(requesterUid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(true)
+                .replyCount(0)
+                .build();
+    }
+
+    // 💡 답글 목록 조회 (오래된순)
+    public List<com.howmuch.dto.CommentResponse> getReplies(String commentId, String requesterUid) throws Exception {
+        List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
+                .whereEqualTo("parentId", commentId)
+                .get().get().getDocuments());
+        List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        for (DocumentSnapshot doc : docs) {
+            result.add(toCommentResponse(doc, requesterUid));
+        }
+        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
+        return result;
+    }
+
+    // 💡 답글 작성 (부모 댓글 replyCount 증가 + 게시글 comments 갱신)
+    public com.howmuch.dto.CommentResponse createReply(String commentId, String requesterUid, String content) throws Exception {
+        DocumentSnapshot parent = db.collection("comments").document(commentId).get().get();
+        if (!parent.exists()) return null;
+        Map<String, Object> parentData = parent.getData();
+        String postId = parentData != null && parentData.get("postId") != null ? parentData.get("postId").toString() : null;
+
+        DocumentReference docRef = db.collection("comments").document();
+        String createdAt = java.time.Instant.now().toString();
+        Map<String, Object> data = new HashMap<>();
+        data.put("postId", postId);
+        data.put("userId", requesterUid);
+        data.put("content", content);
+        data.put("createdAt", createdAt);
+        data.put("parentId", commentId);
+        data.put("replyCount", 0);
+        docRef.set(data).get();
+
+        // 부모 댓글 replyCount 갱신
+        int parentReplyCount = 0;
+        Object rc = parentData != null ? parentData.get("replyCount") : null;
+        if (rc != null) {
+            try { parentReplyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
+        }
+        db.collection("comments").document(commentId).update("replyCount", parentReplyCount + 1).get();
+
+        if (postId != null) syncFeedCounts(postId);
+
+        return com.howmuch.dto.CommentResponse.builder()
+                .id(docRef.getId())
+                .author(resolveAuthor(requesterUid))
+                .content(content)
+                .createdAt(createdAt)
+                .isMine(true)
+                .replyCount(0)
+                .build();
+    }
+
+    // 💡 좋아요 추가 (멱등: uid_postId docId로 중복 방지). 최신 likes/likedByMe 반환
+    public Map<String, Object> likeFeed(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", uid);
+        data.put("postId", postId);
+        data.put("createdAt", java.time.Instant.now().toString());
+        db.collection("feed_likes").document(docId).set(data).get();
+        syncFeedCounts(postId);
+        int likes = getLikeCount(postId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("likes", likes);
+        result.put("likedByMe", true);
+        return result;
+    }
+
+    // 💡 좋아요 취소 (멱등). 최신 likes/likedByMe 반환
+    public Map<String, Object> unlikeFeed(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        db.collection("feed_likes").document(docId).delete().get();
+        syncFeedCounts(postId);
+        int likes = getLikeCount(postId);
+        Map<String, Object> result = new HashMap<>();
+        result.put("likes", likes);
+        result.put("likedByMe", false);
+        return result;
+    }
+
+    private int getLikeCount(String postId) throws Exception {
+        return db.collection("feed_likes").whereEqualTo("postId", postId).get().get().getDocuments().size();
+    }
+
+    private boolean isFeedLikedBy(String postId, String uid) throws Exception {
+        if (uid == null || uid.isBlank()) return false;
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        return db.collection("feed_likes").document(docId).get().get().exists();
+    }
+
+    private boolean isFeedNotificationEnabled(String postId, String uid) throws Exception {
+        if (uid == null || uid.isBlank()) return false;
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        return db.collection("feed_notifications").document(docId).get().get().exists();
+    }
+
+    // 💡 게시글 알림 구독 (멱등)
+    public Map<String, Object> subscribeFeedNotification(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", uid);
+        data.put("postId", postId);
+        data.put("createdAt", java.time.Instant.now().toString());
+        db.collection("feed_notifications").document(docId).set(data).get();
+        Map<String, Object> result = new HashMap<>();
+        result.put("notificationEnabled", true);
+        return result;
+    }
+
+    // 💡 게시글 알림 구독 해제 (멱등)
+    public Map<String, Object> unsubscribeFeedNotification(String postId, String uid) throws Exception {
+        String docId = uid + "_" + sanitizeForDocId(postId);
+        db.collection("feed_notifications").document(docId).delete().get();
+        Map<String, Object> result = new HashMap<>();
+        result.put("notificationEnabled", false);
+        return result;
+    }
+
+    // ==================== 알림함 (notifications) — 지환 5주차 과제 선별 이식 ====================
+
+    // 💡 내 알림 목록 조회 (최신순)
+    public List<com.howmuch.dto.NotificationResponseDto> getNotifications(String firebaseUid) throws Exception {
+        var documents = db.collection("notifications")
+                .whereEqualTo("userId", firebaseUid)
+                .get().get().getDocuments();
+
+        List<com.howmuch.dto.NotificationResponseDto> notifications = new ArrayList<>();
+        for (DocumentSnapshot doc : documents) {
+            Map<String, Object> data = doc.getData();
+            if (data == null) continue;
+
+            Boolean isRead = parseBooleanSafely(data.get("isRead"));
+
+            notifications.add(com.howmuch.dto.NotificationResponseDto.builder()
+                    .id(doc.getId())
+                    .title(data.get("title") != null ? data.get("title").toString() : "")
+                    .body(data.get("body") != null ? data.get("body").toString() : "")
+                    .type(data.get("type") != null ? data.get("type").toString() : "")
+                    .isRead(isRead != null ? isRead : false)
+                    .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : "")
+                    .build());
+        }
+
+        // 복합 인덱스 없이 메모리에서 최신순 정렬
+        notifications.sort((a, b) -> {
+            String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
+            String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
+            return bTime.compareTo(aTime);
+        });
+        return notifications;
+    }
+
+    // 💡 알림 읽음 처리 (본인 알림만 가능 — 다른 유저 알림이면 거부)
+    public void markNotificationAsRead(String notificationId, String firebaseUid) throws Exception {
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
+        DocumentSnapshot document = docRef.get().get();
+
+        if (!document.exists()) {
+            throw new IllegalArgumentException("알림이 존재하지 않습니다: " + notificationId);
+        }
+        String ownerId = document.getString("userId");
+        if (!firebaseUid.equals(ownerId)) {
+            throw new IllegalArgumentException("본인 알림만 읽음 처리할 수 있습니다.");
+        }
+        docRef.update("isRead", true).get();
+    }
+
+    // ==================== 어드민: 댓글·알림·통계 ====================
+
+    // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
+    public List<Map<String, Object>> getAllComments() throws Exception {
+        List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
+                .get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = doc.getData();
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", doc.getId());
+                    item.put("postId", data.get("postId"));
+                    item.put("userId", data.get("userId"));
+                    item.put("content", data.get("content"));
+                    item.put("createdAt", data.get("createdAt"));
+                    item.put("parentId", data.get("parentId"));
+                    item.put("isReply", data.get("parentId") != null);
+                    return item;
+                })
+                .toList());
+        comments.sort((a, b) -> {
+            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
+            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
+            return bTime.compareTo(aTime);
+        });
+        return comments;
+    }
+
+    // 💡 [어드민] 댓글/답글 삭제 — 답글이면 부모 댓글 replyCount 감소, 댓글이면 답글도 함께 삭제 + 게시글 카운터 갱신
+    public void deleteComment(String commentId) throws Exception {
+        DocumentReference docRef = db.collection("comments").document(commentId);
+        DocumentSnapshot doc = docRef.get().get();
+        if (!doc.exists()) {
+            throw new IllegalArgumentException("댓글을 찾을 수 없습니다: " + commentId);
+        }
+        Map<String, Object> data = doc.getData();
+        String postId = data != null && data.get("postId") != null ? data.get("postId").toString() : null;
+        Object parentId = data != null ? data.get("parentId") : null;
+
+        // 댓글이면 소속 답글 전부 삭제
+        if (parentId == null) {
+            var replies = db.collection("comments").whereEqualTo("parentId", commentId).get().get().getDocuments();
+            for (DocumentSnapshot reply : replies) {
+                reply.getReference().delete().get();
+            }
+        }
+        docRef.delete().get();
+
+        // 답글이면 부모 댓글 replyCount 감소
+        if (parentId != null) {
+            try {
+                DocumentReference parentRef = db.collection("comments").document(parentId.toString());
+                DocumentSnapshot parent = parentRef.get().get();
+                if (parent.exists()) {
+                    Object rc = parent.get("replyCount");
+                    int count = 0;
+                    if (rc != null) { try { count = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {} }
+                    parentRef.update("replyCount", Math.max(0, count - 1)).get();
+                }
+            } catch (Exception e) { /* 카운터 감소 실패는 무시 */ }
+        }
+        // 게시글 comments/likes 카운터 갱신
+        if (postId != null) syncFeedCounts(postId);
+    }
+
+    // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
+    public Map<String, Object> sendAdminNotification(String targetUid, String title, String body, String type) throws Exception {
+        String createdAt = java.time.Instant.now().toString();
+        int sent = 0;
+        List<String> targetUids = new ArrayList<>();
+        if (targetUid != null && !targetUid.isBlank()) {
+            targetUids.add(targetUid);
+        } else {
+            // 전체 발송: users 전체
+            for (DocumentSnapshot u : db.collection("users").get().get().getDocuments()) {
+                targetUids.add(u.getId());
+            }
+        }
+        for (String uid : targetUids) {
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", uid);
+            data.put("title", title);
+            data.put("body", body);
+            data.put("type", type != null && !type.isBlank() ? type : "admin");
+            data.put("isRead", false);
+            data.put("createdAt", createdAt);
+            db.collection("notifications").document().set(data).get();
+            sent++;
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("sent", sent);
+        result.put("broadcast", targetUid == null || targetUid.isBlank());
+        return result;
+    }
+
+    // 💡 [어드민] 커뮤니티 활동 지표 — 댓글/좋아요/알림 수 (대시보드 확장용)
+    public Map<String, Object> getCommunityStats() throws Exception {
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("comments", countCollection("comments"));
+        stats.put("feedLikes", countCollection("feed_likes"));
+        stats.put("feedNotifications", countCollection("feed_notifications"));
+        stats.put("notifications", countCollection("notifications"));
+        return stats;
     }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
@@ -222,9 +223,36 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                 child: _StickyButton(
                   safeBottom: bottomOffset,
                   label: '문의 보내기',
-                  onPressed: () {
+                  onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
-                    // TODO(박지환 BE): 문의 등록 API와 첨부 사진 업로드 API가 붙으면 제목/본문/유형/사진을 함께 전송하세요.
+                    final title = _titleController.text.trim();
+                    final content = _bodyController.text.trim();
+                    final category = _types[_selectedType];
+
+                    if (title.isEmpty) {
+                      messenger.showSnackBar(const SnackBar(content: Text('제목을 입력해주세요.')));
+                      return;
+                    }
+                    if (content.isEmpty) {
+                      messenger.showSnackBar(const SnackBar(content: Text('내용을 입력해주세요.')));
+                      return;
+                    }
+
+                    final service = ref.read(inquiryServiceProvider);
+                    final result = await service.createInquiry(
+                      title: title,
+                      content: content,
+                      category: category,
+                    );
+
+                    if (!context.mounted) return;
+                    if (result['error'] == true) {
+                      messenger.showSnackBar(
+                        SnackBar(content: Text(result['message'] ?? '문의 등록에 실패했습니다.')),
+                      );
+                      return;
+                    }
+
                     messenger.clearSnackBars();
                     context.go(AppRoutes.mypage);
                     messenger.showSnackBar(

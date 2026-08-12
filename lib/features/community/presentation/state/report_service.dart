@@ -6,12 +6,10 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'user_report_model.dart';
 
-final reportServiceProvider = Provider((ref) => ReportService(ref));
+final reportServiceProvider = Provider((ref) => ReportService());
 
 class ReportService {
-  final Ref _ref;
-
-  ReportService(this._ref);
+  ReportService();
 
   /// 가성비 매장 제보 등록 (세션 인증 필요, 제보자 uid는 서버가 세션에서 주입)
   Future<bool> submitReport(UserReport report) async {
