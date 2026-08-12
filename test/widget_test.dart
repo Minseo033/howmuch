@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/howmuch_app.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   testWidgets('starts at the first onboarding screen', (tester) async {
@@ -62,7 +65,7 @@ void main() {
 
   testWidgets('opens mypage notification and account screens', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpWidget(_appWithNotificationSettingsApi());
     await tester.pumpAndSettle();
 
     await _goToRoute(tester, AppRoutes.notificationSettings);
@@ -128,7 +131,7 @@ void main() {
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
+    await tester.pumpWidget(_appWithNotificationSettingsApi());
     await tester.pumpAndSettle();
 
     await _goToRoute(tester, AppRoutes.notificationSettings);
@@ -385,4 +388,34 @@ void _setMobileViewport(WidgetTester tester) {
 Future<void> _goToRoute(WidgetTester tester, String route) async {
   GoRouter.of(tester.element(find.byType(Scaffold).first)).go(route);
   await tester.pumpAndSettle();
+}
+
+Widget _appWithNotificationSettingsApi() {
+  return ProviderScope(
+    overrides: [
+      notificationSettingsApiServiceProvider.overrideWithValue(
+        _FakeNotificationSettingsApiService(),
+      ),
+    ],
+    child: const HowmuchApp(),
+  );
+}
+
+class _FakeNotificationSettingsApiService
+    extends NotificationSettingsApiService {
+  _FakeNotificationSettingsApiService()
+    : super(MockClient((_) async => http.Response('{}', 200)));
+
+  NotificationSettings _settings = NotificationSettings.defaults;
+
+  @override
+  Future<NotificationSettings> fetchSettings() async => _settings;
+
+  @override
+  Future<NotificationSettings> saveSettings(
+    NotificationSettings settings,
+  ) async {
+    _settings = settings;
+    return _settings;
+  }
 }

@@ -117,10 +117,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     });
 
     try {
-      final response = await http.get(
-        ApiClient.uri('/api/community/feed'),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
+      final response = await http
+          .get(
+            ApiClient.uri('/api/community/feed'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -152,6 +154,15 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       final int likes = (data['likes'] as num?)?.toInt() ?? 0;
       final int comments = (data['comments'] as num?)?.toInt() ?? 0;
       final String rawStatus = data['status']?.toString() ?? 'PENDING';
+      final imageUrls = data['imageUrls'] is List
+          ? data['imageUrls'] as List
+          : const [];
+      final String? imageUrl = imageUrls
+          .map((url) => url.toString())
+          .where(
+            (url) => url.startsWith('http://') || url.startsWith('https://'),
+          )
+          .firstOrNull;
 
       final String status = switch (rawStatus.toUpperCase()) {
         'APPROVED' => '승인 완료',
@@ -197,6 +208,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         statusColor: statusColor,
         statusBackground: statusBackground,
         imageBackground: imageBackground,
+        imageUrl: imageUrl,
         dotColor: dotColor,
         compactStatus: compactStatus,
       );
@@ -204,7 +216,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
     // 현위치 라벨과 일치하는 제보가 있으면 그 지역만, 없으면 전체 표시.
     // (실데이터 location은 '구로구' 등 다양한 형식이라 정확 일치가 거의 없을 수 있음)
-    final matched = items.where((item) => item.location == _locationLabel).toList();
+    final matched = items
+        .where((item) => item.location == _locationLabel)
+        .toList();
     final List<_FeedItem> scoped = matched.isNotEmpty ? matched : items;
 
     return switch (_selectedFilterIndex) {
@@ -217,9 +231,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: Color(0xFF2563EB),
-        ),
+        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
       );
     }
     if (_hasError) {
@@ -254,10 +266,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton(
-              onPressed: _fetchFeeds,
-              child: const Text('다시 시도'),
-            ),
+            OutlinedButton(onPressed: _fetchFeeds, child: const Text('다시 시도')),
           ],
         ),
       );
@@ -291,6 +300,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   statusColor: item.statusColor,
                   statusBackground: item.statusBackground,
                   imageBackground: item.imageBackground,
+                  imageUrl: item.imageUrl,
                   dotColor: item.dotColor,
                   compactStatus: item.compactStatus,
                   onTap: () => context.push(
@@ -595,6 +605,7 @@ class _FeedCard extends StatelessWidget {
     required this.statusColor,
     required this.statusBackground,
     required this.imageBackground,
+    required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
     required this.onTap,
@@ -608,6 +619,7 @@ class _FeedCard extends StatelessWidget {
   final Color statusColor;
   final Color statusBackground;
   final Color imageBackground;
+  final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
   final VoidCallback onTap;
@@ -635,13 +647,13 @@ class _FeedCard extends StatelessWidget {
               width: 91.989,
               height: imageHeight,
               color: imageBackground,
-              child: const Center(
-                child: Icon(
-                  Icons.image_outlined,
-                  color: CommunityFeedScreen.hint,
-                  size: 22,
-                ),
-              ),
+              child: imageUrl == null
+                  ? const _FeedImageFallback()
+                  : Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const _FeedImageFallback(),
+                    ),
             ),
             Expanded(
               child: Padding(
@@ -869,6 +881,7 @@ class _FeedItem {
     required this.statusColor,
     required this.statusBackground,
     required this.imageBackground,
+    required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
   });
@@ -883,6 +896,22 @@ class _FeedItem {
   final Color statusColor;
   final Color statusBackground;
   final Color imageBackground;
+  final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
+}
+
+class _FeedImageFallback extends StatelessWidget {
+  const _FeedImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.image_outlined,
+        color: CommunityFeedScreen.hint,
+        size: 22,
+      ),
+    );
+  }
 }

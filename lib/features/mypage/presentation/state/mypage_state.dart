@@ -95,6 +95,47 @@ class NotificationSettings {
   final String quietStart;
   final String quietEnd;
 
+  static const defaults = NotificationSettings(
+    all: true,
+    review: true,
+    report: true,
+    price: true,
+    todayPick: true,
+    quietHours: false,
+    quietStart: '22:00',
+    quietEnd: '08:00',
+  );
+
+  factory NotificationSettings.fromJson(Map<String, dynamic> json) {
+    return NotificationSettings(
+      all: json['all'] is bool ? json['all'] as bool : defaults.all,
+      review: json['review'] is bool ? json['review'] as bool : defaults.review,
+      report: json['report'] is bool ? json['report'] as bool : defaults.report,
+      price: json['price'] is bool ? json['price'] as bool : defaults.price,
+      todayPick: json['todayPick'] is bool
+          ? json['todayPick'] as bool
+          : defaults.todayPick,
+      quietHours: json['quietHours'] is bool
+          ? json['quietHours'] as bool
+          : defaults.quietHours,
+      quietStart: json['quietStart']?.toString() ?? defaults.quietStart,
+      quietEnd: json['quietEnd']?.toString() ?? defaults.quietEnd,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'all': all,
+      'review': review,
+      'report': report,
+      'price': price,
+      'todayPick': todayPick,
+      'quietHours': quietHours,
+      'quietStart': quietStart,
+      'quietEnd': quietEnd,
+    };
+  }
+
   NotificationSettings copyWith({
     bool? all,
     bool? review,
@@ -579,18 +620,114 @@ final userReportsProvider =
       (ref) => UserReportsNotifier(const []),
     );
 
-final notificationSettingsProvider = StateProvider<NotificationSettings>(
-  (ref) => const NotificationSettings(
-    all: true,
-    review: false,
-    report: true,
-    price: true,
-    todayPick: true,
-    quietHours: true,
-    quietStart: '오후 10:00',
-    quietEnd: '오전 08:00',
-  ),
-);
+class NotificationSettingsApiException implements Exception {
+  const NotificationSettingsApiException(this.message, {this.statusCode});
+
+  final String message;
+  final int? statusCode;
+
+  bool get isUnauthorized => statusCode == 401 || statusCode == 403;
+
+  @override
+  String toString() => message;
+}
+
+class NotificationSettingsApiService {
+  const NotificationSettingsApiService(this._client);
+
+  final http.Client _client;
+
+  Future<NotificationSettings> fetchSettings() async {
+    final response = await _client
+        .get(
+          ApiClient.uri('/api/notifications/settings'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    return _parseResponse(response, action: '불러오기');
+  }
+
+  Future<NotificationSettings> saveSettings(
+    NotificationSettings settings,
+  ) async {
+    final response = await _client
+        .put(
+          ApiClient.uri('/api/notifications/settings'),
+          headers: ApiClient.jsonHeaders(auth: true),
+          body: jsonEncode(settings.toJson()),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    return _parseResponse(response, action: '저장');
+  }
+
+  NotificationSettings _parseResponse(
+    http.Response response, {
+    required String action,
+  }) {
+    if (response.statusCode != 200) {
+      throw NotificationSettingsApiException(
+        response.statusCode == 401 || response.statusCode == 403
+            ? '알림 설정을 사용하려면 로그인이 필요합니다.'
+            : '알림 설정 $action에 실패했습니다.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map) {
+      throw const FormatException('알림 설정 응답 형식이 올바르지 않습니다.');
+    }
+    return NotificationSettings.fromJson(Map<String, dynamic>.from(decoded));
+  }
+}
+
+final notificationSettingsApiServiceProvider =
+    Provider<NotificationSettingsApiService>((ref) {
+      final client = http.Client();
+      ref.onDispose(client.close);
+      return NotificationSettingsApiService(client);
+    });
+
+class NotificationSettingsNotifier
+    extends StateNotifier<AsyncValue<NotificationSettings>> {
+  NotificationSettingsNotifier(this._api) : super(const AsyncValue.loading()) {
+    loadSettings();
+  }
+
+  final NotificationSettingsApiService _api;
+
+  Future<void> loadSettings() async {
+    state = const AsyncValue.loading();
+    try {
+      state = AsyncValue.data(await _api.fetchSettings());
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
+  void updateSettings(NotificationSettings settings) {
+    state = AsyncValue.data(settings);
+  }
+
+  Future<bool> saveSettings(NotificationSettings settings) async {
+    try {
+      state = AsyncValue.data(await _api.saveSettings(settings));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+final notificationSettingsProvider =
+    StateNotifierProvider<
+      NotificationSettingsNotifier,
+      AsyncValue<NotificationSettings>
+    >(
+      (ref) => NotificationSettingsNotifier(
+        ref.watch(notificationSettingsApiServiceProvider),
+      ),
+    );
 
 final priceAlertSettingsProvider = StateProvider<PriceAlertSettings>(
   (ref) => const PriceAlertSettings(

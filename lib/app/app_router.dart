@@ -60,10 +60,18 @@ import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final platformUri = Uri.tryParse(
+    WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+  );
+  final isOauthCallback =
+      platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
+    // 카카오 OAuth 콜백은 SDK가 처리할 수 있도록 원래 경로를 보존합니다.
+    overridePlatformDefaultLocation: !isOauthCallback,
     redirect: (context, state) {
-      if (state.uri.host == 'oauth') {
+      if (state.uri.host == 'oauth' || state.uri.path == '/oauth') {
         return '/oauth_loading';
       }
       return null;

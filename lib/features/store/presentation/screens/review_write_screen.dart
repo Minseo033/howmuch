@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
@@ -11,7 +12,9 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/store/presentation/state/review_form_validator.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 
 class ReviewWriteScreen extends ConsumerStatefulWidget {
@@ -24,9 +27,13 @@ class ReviewWriteScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
-  int _starRating = 4;
-  bool _isVisitedRecently = true;
-  bool _isPriceChecked = true;
+  final _formKey = GlobalKey<FormState>();
+
+  int _starRating = 0;
+  bool _isVisitedRecently = false;
+  bool _isPriceChecked = false;
+  bool _isSubmitting = false;
+  bool _showValidationErrors = false;
 
   late final TextEditingController _menuController;
   late final TextEditingController _priceController;
@@ -52,15 +59,8 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   @override
   void initState() {
     super.initState();
-    _menuController = TextEditingController(text: widget.store?.menu1 ?? '');
-    
-    final rawPrice = widget.store?.price1 ?? '';
-    final priceDigits = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
-    _priceController = TextEditingController(
-      text: priceDigits.isNotEmpty
-          ? priceDigits.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')
-          : '',
-    );
+    _menuController = TextEditingController();
+    _priceController = TextEditingController();
   }
 
   @override
@@ -72,10 +72,35 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   Future<void> _submitReview() async {
+    if (_isSubmitting) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+
     // 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
-    final storeName = widget.store?.storeName ?? '';
+    final storeName = widget.store?.storeName.trim() ?? '';
     if (storeName.isEmpty) {
       _showSnackBar('매장 정보가 없어 리뷰를 등록할 수 없습니다.');
+      return;
+    }
+    if (!ApiClient.isAuthenticated) {
+      _showSnackBar('리뷰를 등록하려면 로그인이 필요합니다.');
+      return;
+    }
+
+    setState(() => _showValidationErrors = true);
+    final textFieldsValid = _formKey.currentState?.validate() ?? false;
+    final ratingError = ReviewFormValidator.validateRating(_starRating);
+    final confirmationError = ReviewFormValidator.validateConfirmations(
+      visitedRecently: _isVisitedRecently,
+      priceChecked: _isPriceChecked,
+    );
+    if (!textFieldsValid || ratingError != null || confirmationError != null) {
+      _showSnackBar('필수 항목을 확인해주세요.');
+      return;
+    }
+
+    final price = ReviewFormValidator.parsePrice(_priceController.text);
+    if (price == null) {
+      _showSnackBar('실제 결제 가격을 확인해주세요.');
       return;
     }
 
@@ -83,16 +108,20 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     final review = Review(
       storeId: storeName,
       storeName: storeName,
-      authorName: nickname.isNotEmpty ? nickname : '익명',
+      authorName: nickname.trim().isNotEmpty ? nickname.trim() : '사용자',
       stars: _starRating,
-      menu: _menuController.text.isNotEmpty ? _menuController.text : '선택 안함',
-      content: _contentController.text.isNotEmpty
-          ? _contentController.text
-          : '정말 좋은 매장이네요!',
+      menu: _menuController.text.trim(),
+      price: price,
+      content: _contentController.text.trim(),
     );
 
-    final success =
-        await ref.read(storeReviewProvider.notifier).addReview(review);
+    setState(() => _isSubmitting = true);
+    late final bool success;
+    try {
+      success = await ref.read(storeReviewProvider.notifier).addReview(review);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
     if (!mounted) return;
 
     if (success) {
@@ -106,115 +135,141 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
     return FigmaMobileCanvas(
       child: GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.white,
-        appBar: const CustomAppBar(title: '리뷰 작성'),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 매장 정보 카드
-                _buildStoreCard(),
-                const SizedBox(height: 24),
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          backgroundColor: AppColors.white,
+          appBar: const CustomAppBar(title: '리뷰 작성'),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                autovalidateMode: _showValidationErrors
+                    ? AutovalidateMode.onUserInteraction
+                    : AutovalidateMode.disabled,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 매장 정보 카드
+                    _buildStoreCard(),
+                    const SizedBox(height: 24),
 
-                // 별점
-                const Text(
-                  '별점',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
+                    // 별점
+                    const Text(
+                      '별점',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _buildStarRating(),
+                    const SizedBox(height: 24),
+
+                    // 방문 메뉴
+                    const Text(
+                      '방문 메뉴',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildTextField(
+                      _menuController,
+                      widget.store?.menu1.isNotEmpty == true
+                          ? '${widget.store!.menu1} 등 방문 메뉴'
+                          : '방문 메뉴',
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 실제 결제 가격
+                    const Text(
+                      '실제 결제 가격',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildPriceField(),
+                    const SizedBox(height: 20),
+
+                    // 리뷰 내용
+                    const Text(
+                      '리뷰 내용',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildReviewContentField(),
+                    const SizedBox(height: 20),
+
+                    // 사진 첨부
+                    const Text(
+                      '사진 첨부 (선택)',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.muted,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildPhotoAttach(),
+                    const SizedBox(height: 20),
+
+                    // 체크박스
+                    _buildCheckbox('최근 1개월 이내 방문했어요', _isVisitedRecently, (v) {
+                      setState(() => _isVisitedRecently = v ?? false);
+                    }),
+                    const SizedBox(height: 10),
+                    _buildCheckbox('가격 정보를 직접 확인했어요', _isPriceChecked, (v) {
+                      setState(() => _isPriceChecked = v ?? false);
+                    }),
+                    if (_showValidationErrors &&
+                        ReviewFormValidator.validateConfirmations(
+                              visitedRecently: _isVisitedRecently,
+                              priceChecked: _isPriceChecked,
+                            ) !=
+                            null) ...[
+                      const SizedBox(height: 6),
+                      const Padding(
+                        padding: EdgeInsets.only(left: 12),
+                        child: Text(
+                          '방문 및 가격 확인 항목에 동의해주세요.',
+                          style: TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                  ],
                 ),
-                const SizedBox(height: 10),
-                _buildStarRating(),
-                const SizedBox(height: 24),
-
-                // 방문 메뉴
-                const Text(
-                  '방문 메뉴',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(_menuController, '김치찌개'),
-                const SizedBox(height: 20),
-
-                // 실제 결제 가격
-                const Text(
-                  '실제 결제 가격',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildPriceField(),
-                const SizedBox(height: 20),
-
-                // 리뷰 내용
-                const Text(
-                  '리뷰 내용',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildReviewContentField(),
-                const SizedBox(height: 20),
-
-                // 사진 첨부
-                const Text(
-                  '사진 첨부 (선택)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildPhotoAttach(),
-                const SizedBox(height: 20),
-
-                // 체크박스
-                _buildCheckbox('최근 1개월 이내 방문했어요', _isVisitedRecently, (v) {
-                  setState(() => _isVisitedRecently = v ?? false);
-                }),
-                const SizedBox(height: 10),
-                _buildCheckbox('가격 정보를 직접 확인했어요', _isPriceChecked, (v) {
-                  setState(() => _isPriceChecked = v ?? false);
-                }),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: CustomBottomButton(
-          text: '리뷰 등록하기',
-          backgroundColor: AppColors.primary,
-          onPressed: _submitReview,
+          bottomNavigationBar: CustomBottomButton(
+            text: _isSubmitting ? '등록 중...' : '리뷰 등록하기',
+            backgroundColor: AppColors.primary,
+            onPressed: _isSubmitting ? null : _submitReview,
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -244,43 +299,69 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   Widget _buildStarRating() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          ...List.generate(5, (i) {
-            return GestureDetector(
-              onTap: () => setState(() => _starRating = i + 1),
-              child: Icon(
-                Icons.star_rounded,
-                size: 36,
-                color: i < _starRating
-                    ? AppColors.star
-                    : Colors.grey.shade300,
+    final ratingError = _showValidationErrors
+        ? ReviewFormValidator.validateRating(_starRating)
+        : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: ratingError == null ? Colors.grey.shade200 : Colors.red,
+            ),
+          ),
+          child: Row(
+            children: [
+              ...List.generate(5, (i) {
+                return GestureDetector(
+                  onTap: () => setState(() => _starRating = i + 1),
+                  child: Icon(
+                    Icons.star_rounded,
+                    size: 36,
+                    color: i < _starRating
+                        ? AppColors.star
+                        : Colors.grey.shade300,
+                  ),
+                );
+              }),
+              const SizedBox(width: 12),
+              Text(
+                _starRating == 0 ? '선택 전' : '$_starRating.0',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            );
-          }),
-          const SizedBox(width: 12),
-          Text(
-            '${_starRating}.0',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ],
+          ),
+        ),
+        if (ratingError != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              ratingError,
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
           ),
         ],
-      ),
+      ],
     );
   }
 
   Widget _buildTextField(TextEditingController controller, String hint) {
-    return TextField(
+    return TextFormField(
       controller: controller,
+      maxLength: 100,
+      validator: ReviewFormValidator.validateMenu,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.muted),
+        counterText: '',
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -302,10 +383,15 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   Widget _buildPriceField() {
-    return TextField(
+    final storePrice = widget.store?.price1 ?? '';
+    return TextFormField(
       controller: _priceController,
       keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
+      validator: ReviewFormValidator.validatePrice,
       decoration: InputDecoration(
+        hintText: storePrice.isEmpty ? '실제 결제 가격' : '$storePrice 참고',
+        hintStyle: const TextStyle(color: AppColors.muted),
         suffixText: '원',
         suffixStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.symmetric(
@@ -329,12 +415,15 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   Widget _buildReviewContentField() {
-    return TextField(
+    return TextFormField(
       controller: _contentController,
       maxLines: 4,
+      maxLength: 2000,
+      validator: ReviewFormValidator.validateContent,
       decoration: InputDecoration(
         hintText: '맛, 양, 가격에 대한 솔직한 후기를 남겨주세요.',
         hintStyle: const TextStyle(color: AppColors.muted),
+        counterText: '',
         contentPadding: const EdgeInsets.all(16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -418,7 +507,11 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ),

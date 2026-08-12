@@ -6,15 +6,26 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.firebase.cloud.StorageClient;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
+import com.howmuch.dto.NotificationSettingsDto;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.annotation.PostConstruct;
 
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -23,10 +34,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
+@Slf4j
 @Service
 public class FirebaseService {
 
@@ -42,6 +57,9 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
+
+    private static final int REPORT_IMAGE_MAX_COUNT = 3;
+    private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
 
     /** 공공데이터 마지막 갱신 성공 시각 (24시간 가드: 1시간 주기 실행되지만 성공 후 24시간 내엔 Firestore 미호출) */
     private volatile long lastGovRefreshSuccessMillis = 0L;
@@ -270,28 +288,265 @@ public class FirebaseService {
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
-        // 💡 요청 #7: 프론트가 기기 로컬 경로(photo.path)를 imageUrls에 그대로 볼 경우,
-        //    다른 기기/재실행 후 이미지가 깨지므로 http(s) 형태의 접근 가능한 URL만 남긴다.
-        //    (실제 이미지 업로드 스토리지 연동은 별도 과제 — 지금은 유효하지 않은 로컬 경로를 제거해 깨진 이미지 노출 방지)
-        if (report.getImageUrls() != null) {
-            List<String> validUrls = report.getImageUrls().stream()
-                    .filter(u -> u != null && (u.startsWith("http://") || u.startsWith("https://")))
-                    .toList();
-            report.setImageUrls(validUrls);
-        }
+        report.setImageUrls(normalizeReportImageUrls(
+                report.getReporterId(), report.getImageUrls(), Set.of()));
 
         DocumentReference docRef = db.collection("stores_user").document();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = objectMapper.convertValue(report, Map.class);
         ApiFuture<WriteResult> future = docRef.set(report);
         future.get();
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> data = objectMapper.convertValue(report, Map.class);
         data.put("id", docRef.getId());
         List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
         updated.add(data);
         cachedUserStores = List.copyOf(updated);
 
         return docRef.getId();
+    }
+
+    public void updateUserReport(
+            String reportId,
+            String reporterUid,
+            com.howmuch.dto.UserReportRequest report) throws Exception {
+        DocumentReference docRef = db.collection("stores_user").document(reportId);
+        DocumentSnapshot existing = docRef.get().get();
+        if (!existing.exists()) {
+            throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+        }
+        if (!reporterUid.equals(existing.getString("reporterId"))) {
+            throw new SecurityException("본인의 제보만 수정할 수 있습니다.");
+        }
+
+        List<String> existingImageUrls = stringList(existing.get("imageUrls"));
+        report.setReporterId(reporterUid);
+        report.setStatus("PENDING");
+        report.setCreatedAt(stringOrDefault(
+                existing.getData(), "createdAt", java.time.Instant.now().toString()));
+        report.setRejectReason(null);
+        report.setImageUrls(normalizeReportImageUrls(
+                reporterUid,
+                report.getImageUrls(),
+                Set.copyOf(existingImageUrls)));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> data = objectMapper.convertValue(report, Map.class);
+        docRef.update(data).get();
+
+        Map<String, Object> mergedData = new HashMap<>(existing.getData());
+        mergedData.putAll(data);
+        mergedData.put("id", reportId);
+        cachedUserStores = cachedUserStores.stream()
+                .map(item -> reportId.equals(item.get("id")) ? mergedData : item)
+                .toList();
+
+        List<String> removedImages = existingImageUrls.stream()
+                .filter(url -> !report.getImageUrls().contains(url))
+                .toList();
+        try {
+            deleteReportImages(reporterUid, removedImages);
+        } catch (Exception e) {
+            log.warn("수정 후 제거된 제보 사진 정리에 실패했습니다. reportId={}", reportId, e);
+        }
+    }
+
+    public List<String> uploadReportImages(
+            String reporterUid,
+            List<MultipartFile> images) throws Exception {
+        if (reporterUid == null || reporterUid.isBlank()) {
+            throw new SecurityException("로그인이 필요합니다.");
+        }
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+        if (images.size() > REPORT_IMAGE_MAX_COUNT) {
+            throw new IllegalArgumentException("사진은 최대 3장까지 업로드할 수 있습니다.");
+        }
+
+        Bucket bucket = reportImageBucket();
+        List<BlobId> uploadedBlobIds = new ArrayList<>();
+        List<String> imageUrls = new ArrayList<>();
+        try {
+            for (MultipartFile image : images) {
+                if (image == null || image.isEmpty()) {
+                    throw new IllegalArgumentException("비어 있는 사진은 업로드할 수 없습니다.");
+                }
+                if (image.getSize() > REPORT_IMAGE_MAX_BYTES) {
+                    throw new IllegalArgumentException("이미지 용량은 한 장당 5MB 이하여야 합니다.");
+                }
+
+                byte[] bytes = image.getBytes();
+                String contentType = detectReportImageContentType(bytes);
+                if (contentType == null) {
+                    throw new IllegalArgumentException(
+                            "JPEG, PNG, WebP 형식의 이미지 파일만 업로드할 수 있습니다.");
+                }
+
+                String token = UUID.randomUUID().toString();
+                String objectName = "report-images/%s/%s%s".formatted(
+                        sanitizeForObjectName(reporterUid),
+                        UUID.randomUUID(),
+                        extensionFromContentType(contentType));
+                BlobId blobId = BlobId.of(bucket.getName(), objectName);
+                BlobInfo blobInfo = BlobInfo.newBuilder(blobId)
+                        .setContentType(contentType)
+                        .setMetadata(Map.of("firebaseStorageDownloadTokens", token))
+                        .build();
+                bucket.getStorage().create(blobInfo, bytes);
+                uploadedBlobIds.add(blobId);
+
+                String encodedName = URLEncoder.encode(objectName, StandardCharsets.UTF_8)
+                        .replace("+", "%20");
+                imageUrls.add("https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media&token=%s"
+                        .formatted(bucket.getName(), encodedName, token));
+            }
+            return List.copyOf(imageUrls);
+        } catch (Exception e) {
+            deleteBlobsQuietly(bucket, uploadedBlobIds);
+            throw e;
+        }
+    }
+
+    public int deleteReportImages(String reporterUid, List<String> imageUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return 0;
+        if (imageUrls.size() > REPORT_IMAGE_MAX_COUNT) {
+            throw new IllegalArgumentException("한 번에 최대 3장의 사진만 정리할 수 있습니다.");
+        }
+        Bucket bucket = reportImageBucket();
+        int deleted = 0;
+        for (String imageUrl : new LinkedHashSet<>(imageUrls)) {
+            String objectName = reportImageObjectName(bucket, reporterUid, imageUrl);
+            if (objectName == null) continue;
+            if (bucket.getStorage().delete(BlobId.of(bucket.getName(), objectName))) {
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
+    private List<String> normalizeReportImageUrls(
+            String reporterUid,
+            List<String> imageUrls,
+            Set<String> allowedExistingUrls) {
+        if (imageUrls == null || imageUrls.isEmpty()) return List.of();
+        LinkedHashSet<String> uniqueUrls = new LinkedHashSet<>();
+        for (String imageUrl : imageUrls) {
+            if (imageUrl == null || imageUrl.isBlank()) continue;
+            boolean allowedExisting = allowedExistingUrls.contains(imageUrl)
+                    && (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"));
+            if (!allowedExisting
+                    && !isOwnedReportImageUrl(reporterUid, imageUrl)) {
+                throw new IllegalArgumentException("유효하지 않은 제보 이미지 URL이 포함되어 있습니다.");
+            }
+            uniqueUrls.add(imageUrl);
+        }
+        if (uniqueUrls.size() > REPORT_IMAGE_MAX_COUNT) {
+            throw new IllegalArgumentException("사진은 최대 3장까지 첨부할 수 있습니다.");
+        }
+        return List.copyOf(uniqueUrls);
+    }
+
+    private boolean isOwnedReportImageUrl(String reporterUid, String imageUrl) {
+        Bucket bucket = reportImageBucket();
+        return reportImageObjectName(bucket, reporterUid, imageUrl) != null;
+    }
+
+    private String reportImageObjectName(
+            Bucket bucket,
+            String reporterUid,
+            String imageUrl) {
+        try {
+            URI uri = URI.create(imageUrl);
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || !"firebasestorage.googleapis.com".equalsIgnoreCase(uri.getHost())) {
+                return null;
+            }
+            String pathPrefix = "/v0/b/" + bucket.getName() + "/o/";
+            String rawPath = uri.getRawPath();
+            if (rawPath == null || !rawPath.startsWith(pathPrefix)) return null;
+            String objectName = URLDecoder.decode(
+                    rawPath.substring(pathPrefix.length()), StandardCharsets.UTF_8);
+            String ownerPrefix = "report-images/" + sanitizeForObjectName(reporterUid) + "/";
+            return objectName.startsWith(ownerPrefix) ? objectName : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    private Bucket reportImageBucket() {
+        try {
+            Bucket bucket = StorageClient.getInstance().bucket();
+            if (bucket == null || bucket.getName() == null || bucket.getName().isBlank()) {
+                throw new IllegalStateException("Firebase Storage bucket is not configured.");
+            }
+            return bucket;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException("Firebase Storage bucket is not configured.", e);
+        }
+    }
+
+    private void deleteBlobsQuietly(Bucket bucket, List<BlobId> blobIds) {
+        for (BlobId blobId : blobIds) {
+            try {
+                bucket.getStorage().delete(blobId);
+            } catch (Exception cleanupError) {
+                log.warn("부분 업로드된 제보 사진 정리에 실패했습니다. object={}", blobId.getName(), cleanupError);
+            }
+        }
+    }
+
+    String detectReportImageContentType(byte[] bytes) {
+        if (bytes == null) return null;
+        if (bytes.length >= 3
+                && (bytes[0] & 0xFF) == 0xFF
+                && (bytes[1] & 0xFF) == 0xD8
+                && (bytes[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (bytes.length >= 8
+                && (bytes[0] & 0xFF) == 0x89
+                && bytes[1] == 0x50
+                && bytes[2] == 0x4E
+                && bytes[3] == 0x47
+                && bytes[4] == 0x0D
+                && bytes[5] == 0x0A
+                && bytes[6] == 0x1A
+                && bytes[7] == 0x0A) {
+            return "image/png";
+        }
+        if (bytes.length >= 12
+                && bytes[0] == 0x52
+                && bytes[1] == 0x49
+                && bytes[2] == 0x46
+                && bytes[3] == 0x46
+                && bytes[8] == 0x57
+                && bytes[9] == 0x45
+                && bytes[10] == 0x42
+                && bytes[11] == 0x50) {
+            return "image/webp";
+        }
+        return null;
+    }
+
+    private String extensionFromContentType(String contentType) {
+        return switch (contentType) {
+            case "image/png" -> ".png";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
+    }
+
+    private String sanitizeForObjectName(String value) {
+        if (value == null || value.isBlank()) return "anonymous";
+        return value.replaceAll("[^A-Za-z0-9._-]", "_");
+    }
+
+    private List<String> stringList(Object value) {
+        if (!(value instanceof List<?> list)) return List.of();
+        return list.stream()
+                .filter(item -> item != null && !item.toString().isBlank())
+                .map(Object::toString)
+                .toList();
     }
 
     // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량)
@@ -403,8 +658,26 @@ public class FirebaseService {
         result.put("reports", deleteWhere("stores_user", "reporterId", firebaseUid));
         result.put("visits", deleteWhere("visits", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
+        db.collection("notification_settings").document(firebaseUid).delete().get();
+        result.put("reportImages", deleteReportImagePrefix(firebaseUid));
         result.put("uid", firebaseUid);
         return result;
+    }
+
+    private int deleteReportImagePrefix(String firebaseUid) {
+        try {
+            Bucket bucket = reportImageBucket();
+            String prefix = "report-images/" + sanitizeForObjectName(firebaseUid) + "/";
+            int deleted = 0;
+            for (com.google.cloud.storage.Blob blob : bucket.list(
+                    com.google.cloud.storage.Storage.BlobListOption.prefix(prefix)).iterateAll()) {
+                if (blob.delete()) deleted++;
+            }
+            return deleted;
+        } catch (Exception e) {
+            log.warn("회원 탈퇴 중 제보 이미지 정리에 실패했습니다. uid={}", firebaseUid, e);
+            return 0;
+        }
     }
 
     /** 컬렉션에서 field == value 인 문서 전부 삭제하고 삭제 건수 반환 */
@@ -533,12 +806,16 @@ public class FirebaseService {
 
     // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
     public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
+        if (authorUid == null || authorUid.isBlank()) {
+            throw new IllegalArgumentException("인증된 사용자만 리뷰를 저장할 수 있습니다.");
+        }
         Map<String, Object> data = new HashMap<>();
         data.put("storeId", request.getStoreId());
         data.put("storeName", request.getStoreName());
         data.put("authorUid", authorUid);
         data.put("authorName", request.getAuthorName());
         data.put("menu", request.getMenu());
+        data.put("price", request.getPrice());
         data.put("content", request.getContent());
         data.put("stars", request.getStars());
         data.put("likes", 0);
@@ -1641,6 +1918,91 @@ public class FirebaseService {
             throw new IllegalArgumentException("본인 알림만 읽음 처리할 수 있습니다.");
         }
         docRef.update("isRead", true).get();
+    }
+
+    public NotificationSettingsDto getNotificationSettings(String firebaseUid) throws Exception {
+        DocumentSnapshot document = db.collection("notification_settings")
+                .document(firebaseUid)
+                .get().get();
+        if (!document.exists()) {
+            return defaultNotificationSettings();
+        }
+
+        Map<String, Object> data = document.getData();
+        NotificationSettingsDto defaults = defaultNotificationSettings();
+        return NotificationSettingsDto.builder()
+                .all(booleanOrDefault(data, "all", defaults.getAll()))
+                .review(booleanOrDefault(data, "review", defaults.getReview()))
+                .report(booleanOrDefault(data, "report", defaults.getReport()))
+                .price(booleanOrDefault(data, "price", defaults.getPrice()))
+                .todayPick(booleanOrDefault(data, "todayPick", defaults.getTodayPick()))
+                .quietHours(booleanOrDefault(data, "quietHours", defaults.getQuietHours()))
+                .quietStart(stringOrDefault(data, "quietStart", defaults.getQuietStart()))
+                .quietEnd(stringOrDefault(data, "quietEnd", defaults.getQuietEnd()))
+                .build();
+    }
+
+    public NotificationSettingsDto saveNotificationSettings(
+            String firebaseUid,
+            NotificationSettingsDto requested) throws Exception {
+        boolean allEnabled = Boolean.TRUE.equals(requested.getReview())
+                && Boolean.TRUE.equals(requested.getReport())
+                && Boolean.TRUE.equals(requested.getPrice())
+                && Boolean.TRUE.equals(requested.getTodayPick());
+        NotificationSettingsDto normalized = NotificationSettingsDto.builder()
+                .all(allEnabled)
+                .review(requested.getReview())
+                .report(requested.getReport())
+                .price(requested.getPrice())
+                .todayPick(requested.getTodayPick())
+                .quietHours(requested.getQuietHours())
+                .quietStart(requested.getQuietStart())
+                .quietEnd(requested.getQuietEnd())
+                .build();
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("all", normalized.getAll());
+        data.put("review", normalized.getReview());
+        data.put("report", normalized.getReport());
+        data.put("price", normalized.getPrice());
+        data.put("todayPick", normalized.getTodayPick());
+        data.put("quietHours", normalized.getQuietHours());
+        data.put("quietStart", normalized.getQuietStart());
+        data.put("quietEnd", normalized.getQuietEnd());
+        data.put("updatedAt", java.time.Instant.now().toString());
+        db.collection("notification_settings").document(firebaseUid).set(data).get();
+        return normalized;
+    }
+
+    private NotificationSettingsDto defaultNotificationSettings() {
+        return NotificationSettingsDto.builder()
+                .all(true)
+                .review(true)
+                .report(true)
+                .price(true)
+                .todayPick(true)
+                .quietHours(false)
+                .quietStart("22:00")
+                .quietEnd("08:00")
+                .build();
+    }
+
+    private boolean booleanOrDefault(
+            Map<String, Object> data,
+            String key,
+            boolean defaultValue) {
+        Boolean value = parseBooleanSafely(data != null ? data.get(key) : null);
+        return value != null ? value : defaultValue;
+    }
+
+    private String stringOrDefault(
+            Map<String, Object> data,
+            String key,
+            String defaultValue) {
+        Object value = data != null ? data.get(key) : null;
+        return value != null && !value.toString().isBlank()
+                ? value.toString()
+                : defaultValue;
     }
 
     // ==================== 어드민: 댓글·알림·통계 ====================
