@@ -5,14 +5,18 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.KakaoLocalService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -23,6 +27,32 @@ public class ReportController {
 
     private final FirebaseService firebaseService;
     private final KakaoLocalService kakaoLocalService;
+
+    @PostMapping(value = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadReportImages(
+            jakarta.servlet.http.HttpServletRequest httpRequest,
+            @RequestParam("images") List<MultipartFile> images) {
+        String reporterUid = (String) httpRequest.getAttribute(
+                com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
+        try {
+            List<String> imageUrls = firebaseService.uploadReportImages(reporterUid, images);
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "imageUrls", imageUrls
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("제보 사진 업로드 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "사진 업로드 중 오류가 발생했습니다."
+            ));
+        }
+    }
 
     @PostMapping("/store")
     public ResponseEntity<?> submitStoreReport(

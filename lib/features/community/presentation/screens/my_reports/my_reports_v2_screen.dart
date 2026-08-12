@@ -146,7 +146,7 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                 20,
                 15.994,
                 20,
-                (safePadding.bottom > 0 ? safePadding.bottom + 68 : 88) + 44,
+                safePadding.bottom + 120,
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [_buildCurrentTab()],
@@ -156,11 +156,16 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
           if (_filter == ReportFilter.all)
             Positioned(
               left: 0,
-              bottom: safePadding.bottom > 0 ? safePadding.bottom + 20 : 40,
+              bottom: 0,
               right: 0,
-              height: 88,
+              height: safePadding.bottom + 88,
               child: Container(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  12,
+                  20,
+                  safePadding.bottom + 20,
+                ),
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(

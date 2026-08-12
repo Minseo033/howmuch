@@ -4,12 +4,57 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:image_picker/image_picker.dart';
 import 'user_report_model.dart';
 
 final reportServiceProvider = Provider((ref) => ReportService());
 
 class ReportService {
   ReportService();
+
+  /// 제보 사진 업로드. 성공하면 서버에서 접근 가능한 이미지 URL 목록을 반환합니다.
+  Future<List<String>?> uploadReportImages(List<XFile> images) async {
+    if (images.isEmpty) return const [];
+
+    final request = http.MultipartRequest(
+      'POST',
+      ApiClient.uri('/api/report/images'),
+    );
+    request.headers['Accept'] = 'application/json';
+    final token = ApiClient.sessionToken;
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    try {
+      for (final image in images) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'images',
+            await image.readAsBytes(),
+            filename: image.name,
+          ),
+        );
+      }
+
+      final response = await request.send().timeout(ApiClient.defaultTimeout);
+      final body = await response.stream.bytesToString();
+      if (response.statusCode != 200) {
+        debugPrint('제보 사진 업로드 실패: ${response.statusCode} $body');
+        return null;
+      }
+
+      final decoded = jsonDecode(body);
+      final urls = decoded is Map<String, dynamic>
+          ? decoded['imageUrls']
+          : null;
+      if (urls is! List) return null;
+      return urls.map((url) => url.toString()).toList();
+    } catch (e) {
+      debugPrint('제보 사진 업로드 통신 에러: $e');
+      return null;
+    }
+  }
 
   /// 가성비 매장 제보 등록 (세션 인증 필요, 제보자 uid는 서버가 세션에서 주입)
   Future<bool> submitReport(UserReport report) async {

@@ -6,15 +6,22 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
+import com.google.cloud.storage.Bucket;
+import com.google.firebase.cloud.StorageClient;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import jakarta.annotation.PostConstruct;
 
 import java.io.InputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -26,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 public class FirebaseService {
@@ -42,6 +50,8 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
+
+    private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
 
     /** 공공데이터 마지막 갱신 성공 시각 (24시간 가드: 1시간 주기 실행되지만 성공 후 24시간 내엔 Firestore 미호출) */
     private volatile long lastGovRefreshSuccessMillis = 0L;
@@ -292,6 +302,67 @@ public class FirebaseService {
         cachedUserStores = List.copyOf(updated);
 
         return docRef.getId();
+    }
+
+    public List<String> uploadReportImages(String reporterUid, List<MultipartFile> images) throws Exception {
+        if (images == null || images.isEmpty()) {
+            return List.of();
+        }
+
+        Bucket bucket = StorageClient.getInstance().bucket();
+        if (bucket == null) {
+            throw new IllegalStateException("Firebase Storage bucket is not configured.");
+        }
+
+        List<String> imageUrls = new ArrayList<>();
+        for (MultipartFile image : images) {
+            if (image == null || image.isEmpty()) {
+                continue;
+            }
+            if (image.getSize() > REPORT_IMAGE_MAX_BYTES) {
+                throw new IllegalArgumentException("이미지 용량은 5MB 이하만 업로드할 수 있습니다.");
+            }
+
+            String contentType = image.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new IllegalArgumentException("이미지 파일만 업로드할 수 있습니다.");
+            }
+
+            String token = UUID.randomUUID().toString();
+            String extension = extensionFromContentType(contentType);
+            String objectName = "report-images/%s/%s%s".formatted(
+                    sanitizeForObjectName(reporterUid),
+                    UUID.randomUUID(),
+                    extension
+            );
+
+            BlobInfo blobInfo = BlobInfo.newBuilder(BlobId.of(bucket.getName(), objectName))
+                    .setContentType(contentType)
+                    .setMetadata(Map.of("firebaseStorageDownloadTokens", token))
+                    .build();
+            bucket.getStorage().create(blobInfo, image.getBytes());
+
+            String encodedName = URLEncoder.encode(objectName, StandardCharsets.UTF_8).replace("+", "%20");
+            imageUrls.add("https://firebasestorage.googleapis.com/v0/b/%s/o/%s?alt=media&token=%s"
+                    .formatted(bucket.getName(), encodedName, token));
+        }
+        return imageUrls;
+    }
+
+    private String extensionFromContentType(String contentType) {
+        return switch (contentType) {
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
+    }
+
+    private String sanitizeForObjectName(String value) {
+        if (value == null || value.isBlank()) {
+            return "anonymous";
+        }
+        return value.replaceAll("[^A-Za-z0-9._-]", "_");
     }
 
     // 💡 사용자의 제보 목록 조회 (내 제보 현황은 실시간성이 중요하므로 Firestore 유지, 소량)

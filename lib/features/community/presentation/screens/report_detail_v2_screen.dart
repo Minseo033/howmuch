@@ -50,9 +50,9 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
         reports.where((item) => item.id == widget.reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
-    final actionBottomGap = bottomOffset + 46;
+    final bottomOffset = safePadding.bottom + 20;
     const actionHeight = 45.994;
+    final actionBarHeight = safePadding.bottom + 78;
 
     void goBack() {
       if (context.canPop()) {
@@ -110,7 +110,7 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
                 ReportDetailV2Screen._contentLeft,
                 15.992,
                 ReportDetailV2Screen._contentRight,
-                actionBottomGap + actionHeight + 24,
+                actionBarHeight + 24,
               ),
               children: [
                 _ReportInfoCard(report: report),
@@ -125,13 +125,22 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
             left: 0,
             bottom: 0,
             right: 0,
-            height: actionBottomGap + actionHeight,
-            child: Padding(
+            height: actionBarHeight,
+            child: Container(
               padding: EdgeInsets.fromLTRB(
                 ReportDetailV2Screen._contentLeft,
-                0,
+                12,
                 ReportDetailV2Screen._contentRight,
-                actionBottomGap,
+                bottomOffset,
+              ),
+              decoration: const BoxDecoration(
+                color: ReportDetailV2Screen._surface,
+                border: Border(
+                  top: BorderSide(
+                    color: ReportDetailV2Screen._border,
+                    width: .909,
+                  ),
+                ),
               ),
               child: Row(
                 children: [

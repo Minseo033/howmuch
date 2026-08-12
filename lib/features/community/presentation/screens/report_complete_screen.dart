@@ -29,7 +29,7 @@ class ReportCompleteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom + 48;
+    final bottomOffset = safePadding.bottom + 24;
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
@@ -112,7 +112,7 @@ class ReportCompleteScreen extends StatelessWidget {
                 ),
                 Positioned(
                   left: 20,
-                  bottom: bottomOffset + 66,
+                  bottom: bottomOffset + 62,
                   right: 20,
                   height: 50,
                   child: _BottomActionButton(

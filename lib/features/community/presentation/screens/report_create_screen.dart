@@ -130,7 +130,14 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   bool get _confirmInfoComplete {
-    return _visitedRecently && _checkedMenuPrice;
+    return _basicInfoComplete &&
+        _priceInfoComplete &&
+        _visitedRecently &&
+        _checkedMenuPrice;
+  }
+
+  bool _isRemoteImageUrl(String value) {
+    return value.startsWith('http://') || value.startsWith('https://');
   }
 
   void _onFormChanged() {
@@ -217,6 +224,22 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         )
         .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
         .toList();
+    final existingImageUrls = _photos
+        .map((photo) => photo.path)
+        .where(_isRemoteImageUrl)
+        .toList();
+    final photosToUpload = _photos
+        .where((photo) => !_isRemoteImageUrl(photo.path))
+        .toList();
+    final reportService = ref.read(reportServiceProvider);
+    final uploadedImageUrls = await reportService.uploadReportImages(
+      photosToUpload,
+    );
+    if (uploadedImageUrls == null) {
+      _showSnack('사진 업로드에 실패했습니다. 다시 시도해주세요.');
+      return;
+    }
+    final reportImageUrls = [...existingImageUrls, ...uploadedImageUrls];
 
     final backendReport = UserReport(
       cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
@@ -233,7 +256,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       price3: price3,
       menu4: menu4,
       price4: price4,
-      imageUrls: _photos.map((photo) => photo.path).toList(),
+      imageUrls: reportImageUrls,
       reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
       visitedRecently: _visitedRecently,
       checkedMenuPrice: _checkedMenuPrice,
@@ -244,7 +267,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     final initialReport = widget.initialReport;
     final success = initialReport != null
         ? true
-        : await ref.read(reportServiceProvider).submitReport(backendReport);
+        : await reportService.submitReport(backendReport);
 
     if (success) {
       // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
@@ -261,7 +284,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         menuPrices: savedMenuPrices,
-        imageUrls: _photos.map((photo) => photo.path).toList(),
+        imageUrls: reportImageUrls,
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
         createdAt:
@@ -1328,6 +1351,9 @@ class _PhotoThumbnailSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photo = this.photo;
+    final imagePath = photo?.path ?? '';
+    final isRemoteImage =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -1340,7 +1366,13 @@ class _PhotoThumbnailSlot extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (photo != null)
+            if (photo != null && isRemoteImage)
+              Image.network(
+                imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const _PhotoThumbnailFallback(),
+              )
+            else if (photo != null)
               FutureBuilder<Uint8List>(
                 future: photo.readAsBytes(),
                 builder: (context, snapshot) {
@@ -1348,19 +1380,11 @@ class _PhotoThumbnailSlot extends StatelessWidget {
                     return Image.memory(snapshot.data!, fit: BoxFit.cover);
                   }
 
-                  return const ColoredBox(
-                    color: Color(0xFFFFF3EA),
-                    child: Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: ReportCreateStyle.orange,
-                        ),
-                      ),
-                    ),
-                  );
+                  if (snapshot.hasError) {
+                    return const _PhotoThumbnailFallback();
+                  }
+
+                  return const _PhotoThumbnailLoading();
                 },
               )
             else
@@ -1427,6 +1451,45 @@ class _PhotoThumbnailSlot extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailLoading extends StatelessWidget {
+  const _PhotoThumbnailLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFFFF3EA),
+      child: Center(
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: ReportCreateStyle.orange,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailFallback extends StatelessWidget {
+  const _PhotoThumbnailFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFFFF3EA),
+      child: Center(
+        child: Icon(
+          Icons.camera_alt_outlined,
+          color: ReportCreateStyle.muted,
+          size: 20,
         ),
       ),
     );
