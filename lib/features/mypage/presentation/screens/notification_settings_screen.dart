@@ -6,7 +6,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
-class NotificationSettingsScreen extends ConsumerWidget {
+class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   static const blue = AppColors.primary;
@@ -29,8 +29,15 @@ class NotificationSettingsScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(notificationSettingsProvider);
+  ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
+  bool _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(notificationSettingsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -39,7 +46,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
         705.7955322265625 + topOffset + saveFooterHeight + 20;
 
     void update(NotificationSettings value) {
-      ref.read(notificationSettingsProvider.notifier).state = value;
+      ref.read(notificationSettingsProvider.notifier).updateSettings(value);
     }
 
     void updateTypes({
@@ -47,8 +54,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
       bool? report,
       bool? todayPick,
       bool? review,
+      required NotificationSettings current,
     }) {
-      final next = settings.copyWith(
+      final next = current.copyWith(
         price: price,
         report: report,
         todayPick: todayPick,
@@ -67,91 +75,159 @@ class NotificationSettingsScreen extends ConsumerWidget {
     }
 
     return FigmaMobileCanvas(
-      backgroundColor: surface,
+      backgroundColor: NotificationSettingsScreen.surface,
       child: Stack(
         children: [
           Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 64.8720703125 + topOffset,
-                      height: 73.29544830322266,
-                      child: _AllNotificationCard(
-                        value: settings.all,
-                        onTap: () {
-                          final next = !settings.all;
-                          update(
-                            settings.copyWith(
-                              all: next,
-                              price: next,
-                              report: next,
-                              todayPick: next,
-                              review: next,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      left: 23.991485595703125,
-                      top: 154.16162109375 + topOffset,
-                      child: const _SectionLabel('알림 유형'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 178.650390625 + topOffset,
-                      height: 272.64202880859375,
-                      child: _NotificationTypeCard(
-                        settings: settings,
-                        onPriceTap: () => updateTypes(price: !settings.price),
-                        onReportTap: () =>
-                            updateTypes(report: !settings.report),
-                        onTodayPickTap: () =>
-                            updateTypes(todayPick: !settings.todayPick),
-                        onReviewTap: () =>
-                            updateTypes(review: !settings.review),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 463.28125 + topOffset,
-                      height: 67.76988220214844,
-                      child: _PriceAlertEntryCard(
-                        onTap: () =>
-                            context.go(AppRoutes.priceAlertSubscription),
-                      ),
-                    ),
-                    Positioned(
-                      left: 23.991485595703125,
-                      top: 547.04541015625 + topOffset,
-                      child: const _SectionLabel('방해 금지 시간'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 571.5341796875 + topOffset,
-                      height: 134.2613525390625,
-                      child: _QuietHoursCard(
-                        settings: settings,
-                        onToggle: () => update(
-                          settings.copyWith(quietHours: !settings.quietHours),
-                        ),
-                      ),
-                    ),
-                  ],
+            child: settingsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  color: NotificationSettingsScreen.blue,
                 ),
               ),
+              error: (err, stack) => Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF1F5F9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.error_outline_rounded,
+                          color: AppColors.warning,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '설정을 불러오지 못했어요',
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF0F172A),
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        '잠시 후 다시 시도해 주세요.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: Color(0xFF64748B),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: 140,
+                        height: 40,
+                        child: FilledButton(
+                          onPressed: () => ref.read(notificationSettingsProvider.notifier).loadSettings(),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: NotificationSettingsScreen.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text(
+                            '다시 시도',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              data: (settings) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: scrollContentHeight,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 64.8720703125 + topOffset,
+                          height: 73.29544830322266,
+                          child: _AllNotificationCard(
+                            value: settings.all,
+                            onTap: () {
+                              final next = !settings.all;
+                              update(
+                                settings.copyWith(
+                                  all: next,
+                                  price: next,
+                                  report: next,
+                                  todayPick: next,
+                                  review: next,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          left: 23.991485595703125,
+                          top: 154.16162109375 + topOffset,
+                          child: const _SectionLabel('알림 유형'),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 178.650390625 + topOffset,
+                          height: 272.64202880859375,
+                          child: _NotificationTypeCard(
+                            settings: settings,
+                            onPriceTap: () => updateTypes(price: !settings.price, current: settings),
+                            onReportTap: () => updateTypes(report: !settings.report, current: settings),
+                            onTodayPickTap: () => updateTypes(todayPick: !settings.todayPick, current: settings),
+                            onReviewTap: () => updateTypes(review: !settings.review, current: settings),
+                          ),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 463.28125 + topOffset,
+                          height: 67.76988220214844,
+                          child: _PriceAlertEntryCard(
+                            onTap: () => context.go(AppRoutes.priceAlertSubscription),
+                          ),
+                        ),
+                        Positioned(
+                          left: 23.991485595703125,
+                          top: 547.04541015625 + topOffset,
+                          child: const _SectionLabel('방해 금지 시간'),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 571.5341796875 + topOffset,
+                          height: 134.2613525390625,
+                          child: _QuietHoursCard(
+                            settings: settings,
+                            onToggle: () => update(
+                              settings.copyWith(quietHours: !settings.quietHours),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           _Header(topOffset: topOffset, title: '알림 설정', onBack: goBack),
@@ -160,17 +236,41 @@ class NotificationSettingsScreen extends ConsumerWidget {
             bottom: 0,
             right: 0,
             height: saveFooterHeight,
-            child: _StickySaveButton(
-              safeBottom: bottomOffset,
-              onPressed: () {
-                final messenger = ScaffoldMessenger.of(context);
-                // TODO(박지환 BE): 알림 설정 저장 API가 붙으면 현재 provider 상태를 서버에 저장하세요.
-                messenger.clearSnackBars();
-                context.go(AppRoutes.mypage);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('알림 설정을 저장했어요.')),
-                );
-              },
+            child: settingsAsync.maybeWhen(
+              data: (settings) => _StickySaveButton(
+                safeBottom: bottomOffset,
+                isSaving: _isSaving,
+                onPressed: () async {
+                  setState(() {
+                    _isSaving = true;
+                  });
+                  final messenger = ScaffoldMessenger.of(context);
+                  final router = GoRouter.of(context);
+                  final success = await ref
+                      .read(notificationSettingsProvider.notifier)
+                      .saveSettings(settings);
+                  if (mounted) {
+                    setState(() {
+                      _isSaving = false;
+                    });
+                    messenger.clearSnackBars();
+                    if (success) {
+                      router.go(AppRoutes.mypage);
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('알림 설정을 저장했어요.')),
+                      );
+                    } else {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('설정 저장 중 오류가 발생했습니다. 다시 시도해 주세요.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              orElse: () => const SizedBox.shrink(),
             ),
           ),
         ],
@@ -550,7 +650,11 @@ class _TimeBox extends StatelessWidget {
 }
 
 class _StickySaveButton extends StatelessWidget {
-  const _StickySaveButton({required this.safeBottom, required this.onPressed});
+  const _StickySaveButton({
+    required this.safeBottom,
+    required this.onPressed,
+    this.isSaving = false,
+  });
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
@@ -559,6 +663,7 @@ class _StickySaveButton extends StatelessWidget {
 
   final double safeBottom;
   final VoidCallback onPressed;
+  final bool isSaving;
 
   static double effectiveSafeBottom(double safeBottom) {
     return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
@@ -607,8 +712,17 @@ class _StickySaveButton extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                onPressed: onPressed,
-                child: const Text('설정 저장'),
+                onPressed: isSaving ? null : onPressed,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('설정 저장'),
               ),
             ),
           ),

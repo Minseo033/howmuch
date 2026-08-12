@@ -579,18 +579,48 @@ final userReportsProvider =
       (ref) => UserReportsNotifier(const []),
     );
 
-final notificationSettingsProvider = StateProvider<NotificationSettings>(
-  (ref) => const NotificationSettings(
-    all: true,
-    review: false,
-    report: true,
-    price: true,
-    todayPick: true,
-    quietHours: true,
-    quietStart: '오후 10:00',
-    quietEnd: '오전 08:00',
-  ),
-);
+class NotificationSettingsNotifier extends StateNotifier<AsyncValue<NotificationSettings>> {
+  NotificationSettingsNotifier() : super(const AsyncValue.loading()) {
+    loadSettings();
+  }
+
+  Future<void> loadSettings() async {
+    state = const AsyncValue.loading();
+    // 💡 API 조회 딜레이 시뮬레이션
+    await Future.delayed(const Duration(milliseconds: 800));
+    state = const AsyncValue.data(NotificationSettings(
+      all: true,
+      review: false,
+      report: true,
+      price: true,
+      todayPick: true,
+      quietHours: true,
+      quietStart: '오후 10:00',
+      quietEnd: '오전 08:00',
+    ));
+  }
+
+  void updateSettings(NotificationSettings settings) {
+    state = AsyncValue.data(settings);
+  }
+
+  Future<bool> saveSettings(NotificationSettings settings) async {
+    // 💡 API 저장 딜레이 시뮬레이션
+    await Future.delayed(const Duration(milliseconds: 1000));
+    
+    // 테스트용 랜덤 성공/실패 시뮬레이션 (15% 확률로 저장 실패 에러 상태 구현)
+    final isSuccess = DateTime.now().millisecond % 7 != 0;
+    if (isSuccess) {
+      state = AsyncValue.data(settings);
+    }
+    return isSuccess;
+  }
+}
+
+final notificationSettingsProvider =
+    StateNotifierProvider<NotificationSettingsNotifier, AsyncValue<NotificationSettings>>(
+      (ref) => NotificationSettingsNotifier(),
+    );
 
 final priceAlertSettingsProvider = StateProvider<PriceAlertSettings>(
   (ref) => const PriceAlertSettings(
