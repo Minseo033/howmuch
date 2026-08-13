@@ -83,28 +83,19 @@ void main() {
 
     await _goToRoute(tester, AppRoutes.accountManagement);
     expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
-    expect(find.text('연결된 소셜 계정'), findsOneWidget);
+    expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('회원 탈퇴'), findsOneWidget);
   });
 
-  testWidgets('manages connected social accounts', (tester) async {
+  testWidgets('shows login account without fabricated social accounts', (tester) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.connectedSocialAccounts);
-    expect(find.text('연결된 소셜 계정'), findsAtLeastNWidgets(1));
-    expect(find.text('연결된 계정 · 2개'), findsOneWidget);
-    expect(find.text('Apple ID'), findsOneWidget);
-
-    await tester.tap(find.text('주 계정 변경'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Apple ID').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Apple ID 계정을 주 계정으로 변경했어요.'), findsOneWidget);
-
-    await tester.tap(find.text('해제'));
-    await tester.pumpAndSettle();
-    expect(find.text('카카오 계정을 해제했어요.'), findsOneWidget);
+    expect(find.text('로그인 계정'), findsAtLeastNWidgets(1));
+    expect(find.text('로그인 정보 없음'), findsOneWidget);
+    expect(find.text('현재는 카카오 로그인만 지원합니다.'), findsOneWidget);
+    expect(find.text('Apple ID'), findsNothing);
   });
 
   testWidgets('opens withdrawal screen and asks for final confirmation', (

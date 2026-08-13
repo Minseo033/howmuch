@@ -426,40 +426,6 @@ class PriceAlertSettings {
   }
 }
 
-class SocialAccount {
-  const SocialAccount({
-    required this.id,
-    required this.name,
-    required this.email,
-    required this.connected,
-    required this.connectedAt,
-    required this.isPrimary,
-  });
-
-  final String id;
-  final String name;
-  final String email;
-  final bool connected;
-  final String connectedAt;
-  final bool isPrimary;
-
-  SocialAccount copyWith({
-    String? email,
-    bool? connected,
-    String? connectedAt,
-    bool? isPrimary,
-  }) {
-    return SocialAccount(
-      id: id,
-      name: name,
-      email: email ?? this.email,
-      connected: connected ?? this.connected,
-      connectedAt: connectedAt ?? this.connectedAt,
-      isPrimary: isPrimary ?? this.isPrimary,
-    );
-  }
-}
-
 class FavoriteStoreModel {
   const FavoriteStoreModel({
     required this.id,
@@ -753,43 +719,6 @@ final priceAlertSettingsProvider = StateProvider<PriceAlertSettings>(
     notifyOnRise: true,
     notifyOnNewMenu: false,
   ),
-);
-
-final socialAccountsProvider = StateProvider<List<SocialAccount>>(
-  (ref) => const [
-    SocialAccount(
-      id: 'kakao',
-      name: '카카오',
-      email: 'minseo@email.com',
-      connected: true,
-      connectedAt: '2025.10.04',
-      isPrimary: true,
-    ),
-    SocialAccount(
-      id: 'apple',
-      name: 'Apple ID',
-      email: 'minseo@privaterelay.apple',
-      connected: true,
-      connectedAt: '2026.02.18',
-      isPrimary: false,
-    ),
-    SocialAccount(
-      id: 'naver',
-      name: '네이버',
-      email: '',
-      connected: false,
-      connectedAt: '',
-      isPrimary: false,
-    ),
-    SocialAccount(
-      id: 'google',
-      name: 'Google',
-      email: '',
-      connected: false,
-      connectedAt: '',
-      isPrimary: false,
-    ),
-  ],
 );
 
 final favoriteApiServiceProvider = Provider((ref) => FavoriteApiService());
