@@ -177,6 +177,7 @@
   }
   .badge.PENDING  { color: var(--amber); background: var(--amber-soft); }
   .badge.APPROVED { color: var(--green); background: var(--green-soft); }
+  .badge.ANSWERED { color: var(--primary); background: var(--primary-soft); }
   .badge.REJECTED { color: var(--red);   background: var(--red-soft); }
   .stars { color: var(--amber); font-size: 12px; letter-spacing: 1px; }
 
@@ -483,6 +484,19 @@
   </div>
 </div>
 
+<!-- 문의 답변 모달 -->
+<div class="modal-backdrop" id="answerInquiryModal">
+  <div class="modal">
+    <h3 id="answerInquiryHeading">문의 답변</h3>
+    <p id="answerInquiryTarget"></p>
+    <textarea id="answerInquiryText" maxlength="2000" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="answerInquiryModal">취소</button>
+      <button class="btn btn-primary" id="answerInquiryConfirm">답변 저장</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -512,6 +526,7 @@
   let deleteTargetUid = null;
   let deleteReviewId = null;
   let deleteCommentId = null;
+  let answerInquiryId = null;
 
   const VIEW_META = {
     dashboard:     ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
@@ -933,15 +948,17 @@
     const rows = (allInquiries || []).map((q) => {
       const contentText = String(q.content || '');
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
-      const statusBadge = q.status === 'PENDING'
+      const isAnswered = q.status === 'ANSWERED' || Boolean(q.answer);
+      const statusBadge = !isAnswered
         ? '<span class="badge PENDING">대기</span>'
-        : '<span class="badge APPROVED">처리됨</span>';
+        : '<span class="badge ANSWERED">답변 완료</span>';
       return `<tr>
         <td><b>${esc(q.title) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(q.category) || '일반'}</div></td>
         <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
         <td class="uid-cell">${shortUid(q.userId)}</td>
         <td>${statusBadge}</td>
         <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
+        <td><button class="btn btn-sm ${isAnswered ? 'btn-ghost' : 'btn-primary'}" data-answer-inquiry="${esc(q.id)}">${isAnswered ? '답변 수정' : '답변하기'}</button></td>
       </tr>`;
     }).join('');
 
@@ -949,10 +966,14 @@
       <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span></div>
       <div class="card table-wrap">
         <table class="data-table">
-          <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
+          <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
         </table>
       </div>`;
+
+    content.querySelectorAll('[data-answer-inquiry]').forEach((btn) => {
+      btn.onclick = () => openAnswerInquiryModal(btn.dataset.answerInquiry);
+    });
   }
 
   /* ══ 뷰 7: 알림 발송 ══ */
@@ -1061,6 +1082,45 @@
       handleError(e);
     } finally {
       $('rejectConfirm').disabled = false;
+    }
+  }
+
+  function openAnswerInquiryModal(id) {
+    const inquiry = (allInquiries || []).find((item) => item.id === id);
+    if (!inquiry) return;
+    answerInquiryId = id;
+    $('answerInquiryHeading').textContent = inquiry.answer ? '문의 답변 수정' : '문의 답변';
+    $('answerInquiryTarget').textContent = `「${inquiry.title || id}」 문의에 답변합니다.`;
+    $('answerInquiryText').value = inquiry.answer || '';
+    openModal('answerInquiryModal');
+    setTimeout(() => $('answerInquiryText').focus(), 50);
+  }
+
+  async function doAnswerInquiry() {
+    const answer = $('answerInquiryText').value.trim();
+    if (!answer) { $('answerInquiryText').focus(); return; }
+    if (!answerInquiryId) return;
+
+    $('answerInquiryConfirm').disabled = true;
+    try {
+      const result = await api(`/api/admin/inquiries/${encodeURIComponent(answerInquiryId)}/answer`, {
+        method: 'POST',
+        body: JSON.stringify({ answer }),
+      });
+      const inquiry = (allInquiries || []).find((item) => item.id === answerInquiryId);
+      if (inquiry) {
+        inquiry.answer = answer;
+        inquiry.answeredAt = result.answeredAt;
+        inquiry.status = result.status || 'ANSWERED';
+      }
+      closeModal('answerInquiryModal');
+      renderInquiriesView();
+      toast('답변 저장 및 사용자 알림 등록 완료');
+      answerInquiryId = null;
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('answerInquiryConfirm').disabled = false;
     }
   }
 
@@ -1301,6 +1361,7 @@
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;
   $('deleteCommentConfirm').onclick = doDeleteComment;
+  $('answerInquiryConfirm').onclick = doAnswerInquiry;
   document.querySelectorAll('[data-close]').forEach((btn) => {
     btn.onclick = () => closeModal(btn.dataset.close);
   });

@@ -44,10 +44,9 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: '착한분식 가격이 변경된 것 같아요');
-    _bodyController = TextEditingController(
-      text: '지난 주에 방문했을 때 김치찌개가 6,000원이었어요.\n가격 확인 부탁드립니다.',
-    )..addListener(() => setState(() {}));
+    _titleController = TextEditingController();
+    _bodyController = TextEditingController()
+      ..addListener(() => setState(() {}));
   }
 
   @override
@@ -214,6 +213,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                 topOffset: topOffset,
                 title: '문의하기',
                 onBack: () => context.go(AppRoutes.mypage),
+                onHistory: () => context.push(AppRoutes.inquiryHistory),
               ),
               Positioned(
                 left: 0,
@@ -230,11 +230,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     final category = _types[_selectedType];
 
                     if (title.isEmpty) {
-                      messenger.showSnackBar(const SnackBar(content: Text('제목을 입력해주세요.')));
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('제목을 입력해주세요.')),
+                      );
                       return;
                     }
                     if (content.isEmpty) {
-                      messenger.showSnackBar(const SnackBar(content: Text('내용을 입력해주세요.')));
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('내용을 입력해주세요.')),
+                      );
                       return;
                     }
 
@@ -248,12 +252,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     if (!context.mounted) return;
                     if (result['error'] == true) {
                       messenger.showSnackBar(
-                        SnackBar(content: Text(result['message'] ?? '문의 등록에 실패했습니다.')),
+                        SnackBar(
+                          content: Text(result['message'] ?? '문의 등록에 실패했습니다.'),
+                        ),
                       );
                       return;
                     }
 
                     messenger.clearSnackBars();
+                    ref.invalidate(myInquiriesProvider);
                     context.go(AppRoutes.mypage);
                     messenger.showSnackBar(
                       const SnackBar(content: Text('문의가 접수되었어요.')),
@@ -274,11 +281,13 @@ class _Header extends StatelessWidget {
     required this.topOffset,
     required this.title,
     required this.onBack,
+    required this.onHistory,
   });
 
   final double topOffset;
   final String title;
   final VoidCallback onBack;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -323,11 +332,28 @@ class _Header extends StatelessWidget {
               left: 0,
               right: 0,
               top: 11.98876953125 + topOffset,
-              child: const IgnorePointer(
+              child: IgnorePointer(
                 child: Text(
-                  '문의하기',
+                  title,
                   textAlign: TextAlign.center,
                   style: _headerTitleText,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 4,
+              top: topOffset,
+              width: 48,
+              height: 48.877838134765625,
+              child: Tooltip(
+                message: '내 문의 내역',
+                child: IconButton(
+                  onPressed: onHistory,
+                  icon: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: InquiryScreen.ink,
+                    size: 22,
+                  ),
                 ),
               ),
             ),

@@ -80,6 +80,36 @@ class AdminControllerTest {
     }
 
     @Test
+    void savesAnInquiryAnswerThroughTheAdminContract() throws Exception {
+        Map<String, Object> answered = Map.of(
+                "success", true,
+                "id", "inquiry-1",
+                "status", "ANSWERED");
+        when(firebaseService.answerInquiry("inquiry-1", "확인 후 수정하겠습니다."))
+                .thenReturn(answered);
+
+        ResponseEntity<?> response = controller.answerInquiry(
+                "inquiry-1",
+                Map.of("answer", "확인 후 수정하겠습니다."),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(answered);
+        verify(firebaseService).answerInquiry("inquiry-1", "확인 후 수정하겠습니다.");
+    }
+
+    @Test
+    void rejectsBlankInquiryAnswersBeforeCallingTheService() {
+        ResponseEntity<?> response = controller.answerInquiry(
+                "inquiry-1",
+                Map.of("answer", "  "),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void keepsAdminOperationsClosedWhenTheServerKeyIsMissing() {
         ReflectionTestUtils.setField(controller, "adminKey", "");
 

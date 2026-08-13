@@ -1365,7 +1365,9 @@ public class FirebaseService {
                     item.put("content", data.get("content"));
                     item.put("category", data.get("category"));
                     item.put("status", data.get("status"));
+                    item.put("answer", data.get("answer"));
                     item.put("createdAt", data.get("createdAt"));
+                    item.put("answeredAt", data.get("answeredAt"));
                     return item;
                 })
                 .toList());
@@ -1390,7 +1392,9 @@ public class FirebaseService {
                     item.put("content", data.get("content"));
                     item.put("category", data.get("category"));
                     item.put("status", data.get("status"));
+                    item.put("answer", data.get("answer"));
                     item.put("createdAt", data.get("createdAt"));
+                    item.put("answeredAt", data.get("answeredAt"));
                     return item;
                 })
                 .toList());
@@ -1400,6 +1404,44 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
         return inquiries;
+    }
+
+    /** 어드민 문의 답변 등록 및 사용자 알림 생성 */
+    public Map<String, Object> answerInquiry(String inquiryId, String answer) throws Exception {
+        DocumentReference inquiryRef = db.collection("inquiries").document(inquiryId);
+        DocumentSnapshot inquiry = inquiryRef.get().get();
+        if (!inquiry.exists()) {
+            throw new IllegalArgumentException("문의를 찾을 수 없습니다.");
+        }
+
+        String userId = inquiry.getString("userId");
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("문의 작성자 정보를 찾을 수 없습니다.");
+        }
+
+        String answeredAt = java.time.Instant.now().toString();
+        Map<String, Object> update = new HashMap<>();
+        update.put("answer", answer);
+        update.put("answeredAt", answeredAt);
+        update.put("status", "ANSWERED");
+        inquiryRef.update(update).get();
+
+        String inquiryTitle = inquiry.getString("title");
+        createNotificationForUser(
+                userId,
+                "문의 답변이 도착했어요",
+                (inquiryTitle == null || inquiryTitle.isBlank())
+                        ? "등록한 문의에 답변이 등록되었습니다."
+                        : "'" + inquiryTitle + "' 문의에 답변이 등록되었습니다.",
+                "INQUIRY_ANSWER",
+                answeredAt);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("id", inquiryId);
+        result.put("status", "ANSWERED");
+        result.put("answeredAt", answeredAt);
+        return result;
     }
 
     // ==================== 오늘의 픽 (todays pick) ====================
@@ -2099,20 +2141,34 @@ public class FirebaseService {
             }
         }
         for (String uid : targetUids) {
-            Map<String, Object> data = new HashMap<>();
-            data.put("userId", uid);
-            data.put("title", title);
-            data.put("body", body);
-            data.put("type", type != null && !type.isBlank() ? type : "admin");
-            data.put("isRead", false);
-            data.put("createdAt", createdAt);
-            db.collection("notifications").document().set(data).get();
+            createNotificationForUser(
+                    uid,
+                    title,
+                    body,
+                    type != null && !type.isBlank() ? type : "admin",
+                    createdAt);
             sent++;
         }
         Map<String, Object> result = new HashMap<>();
         result.put("sent", sent);
         result.put("broadcast", targetUid == null || targetUid.isBlank());
         return result;
+    }
+
+    private void createNotificationForUser(
+            String userId,
+            String title,
+            String body,
+            String type,
+            String createdAt) throws Exception {
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", userId);
+        data.put("title", title);
+        data.put("body", body);
+        data.put("type", type);
+        data.put("isRead", false);
+        data.put("createdAt", createdAt);
+        db.collection("notifications").document().set(data).get();
     }
 
     // 💡 [어드민] 커뮤니티 활동 지표 — 댓글/좋아요/알림 수 (대시보드 확장용)

@@ -27,6 +27,7 @@ class AppRoutes {
   static const accountManagement = '/mypage/account';
   static const publicDataSource = '/mypage/public-data';
   static const inquiry = '/mypage/inquiry';
+  static const inquiryHistory = '/mypage/inquiries';
   static const profileEdit = '/mypage/profile-edit';
   static const withdrawal = '/mypage/withdrawal';
   static const connectedSocialAccounts = '/mypage/social-accounts';

@@ -58,6 +58,33 @@ void main() {
       expect(notification.isUnread, isTrue);
       expect(notification.section, '오늘');
     });
+
+    test('maps an inquiry answer notification for the in-app inbox', () async {
+      final service = NotificationApiService(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode([
+              {
+                'id': 'inquiry-answer-1',
+                'title': '문의 답변이 도착했어요',
+                'body': '등록한 문의에 답변이 등록되었습니다.',
+                'type': 'INQUIRY_ANSWER',
+                'isRead': false,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+
+      final notification = (await service.fetchNotifications()).single;
+
+      expect(notification.type, '문의 답변');
+      expect(notification.tabCategory, '전체');
+      expect(notification.isUnread, isTrue);
+    });
   });
 
   group('NotificationSettingsApiService', () {

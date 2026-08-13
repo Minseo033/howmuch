@@ -356,6 +356,46 @@ public class AdminController {
         }
     }
 
+    /** 문의 답변 등록 (POST /api/admin/inquiries/{id}/answer, body: {"answer": "..."}) */
+    @PostMapping("/inquiries/{id}/answer")
+    public ResponseEntity<?> answerInquiry(@PathVariable String id,
+                                           @RequestBody(required = false) Map<String, String> body,
+                                           HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        String answer = body != null ? body.get("answer") : null;
+        if (answer == null || answer.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "답변 내용(answer)은 필수입니다."
+            ));
+        }
+        if (answer.trim().length() > 2000) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "답변은 2000자 이내로 입력해주세요."
+            ));
+        }
+
+        try {
+            Map<String, Object> result = firebaseService.answerInquiry(id, answer.trim());
+            log.info("[AdminController] 문의 답변 등록 - id: {}", id);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false,
+                    "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("[AdminController] 문의 답변 등록 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "문의 답변 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
     /** 댓글/답글 목록 조회 (GET /api/admin/comments) — 최신순 전체, 모더레이션용 */
     @GetMapping("/comments")
     public ResponseEntity<?> getComments(HttpServletRequest httpRequest) {

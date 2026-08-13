@@ -16,6 +16,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/mypage/presentation/screens/account_management_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/connected_social_accounts_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/my_inquiries_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
@@ -217,6 +218,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.accountManagement, const AccountManagementScreen()),
       _route(AppRoutes.publicDataSource, const PublicDataSourceScreen()),
       _route(AppRoutes.inquiry, const InquiryScreen()),
+      _route(AppRoutes.inquiryHistory, const MyInquiriesScreen()),
       _route(AppRoutes.profileEdit, const ProfileEditScreen()),
       _route(AppRoutes.withdrawal, const WithdrawalScreen()),
       _route(

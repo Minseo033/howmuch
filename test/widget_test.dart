@@ -87,7 +87,9 @@ void main() {
     expect(find.text('회원 탈퇴'), findsOneWidget);
   });
 
-  testWidgets('shows login account without fabricated social accounts', (tester) async {
+  testWidgets('shows login account without fabricated social accounts', (
+    tester,
+  ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
@@ -175,11 +177,13 @@ void main() {
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
     expect(find.text('문의 유형'), findsOneWidget);
-    expect(find.text('착한분식 가격이 변경된 것 같아요'), findsOneWidget);
     expect(find.text('문의 보내기'), findsOneWidget);
 
     await tester.tap(find.text('기타'));
-    await tester.pumpAndSettle();
+    final fields = find.byType(TextField);
+    await tester.enterText(fields.at(0), '가격 정보 확인 요청');
+    await tester.enterText(fields.at(1), '표시된 가격이 현재 가격과 다른지 확인해주세요.');
+    await tester.pump();
     await tester.tap(find.text('문의 보내기'));
     await tester.pumpAndSettle();
     expect(find.text('마이'), findsAtLeastNWidgets(1));

@@ -164,6 +164,19 @@ class NotificationApiService {
   _NotificationStyle _styleFor(String rawType) {
     final type = rawType.toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
 
+    if (rawType == '문의 답변' || type == 'inquiry' || type == 'inquiry_answer') {
+      return const _NotificationStyle(
+        label: '문의 답변',
+        tabCategory: '전체',
+        iconData: Icons.support_agent_outlined,
+        iconColor: Color(0xFF7C3AED),
+        iconBgColor: Color.fromRGBO(124, 58, 237, 0.09),
+        borderColor: Color.fromRGBO(124, 58, 237, 0.2),
+        bgColor: Colors.white,
+        categoryColor: Color(0xFF7C3AED),
+      );
+    }
+
     if (rawType == '가격 변동' || type == 'price' || type == 'price_change') {
       return const _NotificationStyle(
         label: '가격 변동',
