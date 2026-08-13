@@ -521,7 +521,7 @@ class StoreDetailScreen extends StatelessWidget {
                         label: '가격 제보',
                         onTap: () => context.push(
                           AppRoutes.priceChangeReport,
-                          extra: store.storeName,
+                          extra: store,
                         ),
                         muted: false,
                       ),

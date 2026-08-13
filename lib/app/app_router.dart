@@ -117,14 +117,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
       GoRoute(
         path: AppRoutes.visitVerification,
-        pageBuilder: (_, state) => CupertinoPage<void>(
-          key: state.pageKey,
-          child: VisitVerificationScreen(
-            storeName: state.extra is String
-                ? state.extra as String
-                : '매장 정보 없음',
-          ),
-        ),
+        pageBuilder: (_, state) {
+          final extra = state.extra;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: VisitVerificationScreen(
+              store: extra is Store ? extra : null,
+              storeName: extra is String ? extra : '매장 정보 없음',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.visitVerificationComplete,

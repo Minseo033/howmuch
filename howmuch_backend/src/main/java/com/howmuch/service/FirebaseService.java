@@ -749,6 +749,8 @@ public class FirebaseService {
         data.put("price", request.getPrice());
         data.put("savedAmount", savedAmount);
         data.put("isGov", findIndustryByStoreName(request.getStoreName()) != null);
+        data.put("verificationMethod", request.getVerificationMethod());
+        data.put("verificationDistanceMeters", request.getVerificationDistanceMeters());
         data.put("visitedAt", java.time.Instant.now().toString());
 
         DocumentReference docRef = db.collection("visits").document();
@@ -786,6 +788,11 @@ public class FirebaseService {
                 isGov = Boolean.parseBoolean(data.get("isGov").toString());
             }
 
+            Double verificationDistanceMeters = null;
+            if (data.get("verificationDistanceMeters") instanceof Number distance) {
+                verificationDistanceMeters = distance.doubleValue();
+            }
+
             com.howmuch.dto.VisitResponseDto dto = com.howmuch.dto.VisitResponseDto.builder()
                     .id(doc.getId())
                     .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
@@ -795,6 +802,9 @@ public class FirebaseService {
                     .menu(data.get("menu") != null ? data.get("menu").toString() : null)
                     .price(priceAmt)
                     .isGov(isGov)
+                    .verificationMethod(data.get("verificationMethod") != null
+                            ? data.get("verificationMethod").toString() : null)
+                    .verificationDistanceMeters(verificationDistanceMeters)
                     .build();
 
             visits.add(dto);

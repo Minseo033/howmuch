@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
@@ -15,10 +15,12 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class VisitVerificationScreen extends StatefulWidget {
   final String storeName;
+  final Store? store;
 
   const VisitVerificationScreen({
     super.key,
     this.storeName = '매장 정보 없음',
+    this.store,
   });
 
   @override
@@ -27,33 +29,33 @@ class VisitVerificationScreen extends StatefulWidget {
 }
 
 class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
-  int _selectedMethod = 0;
   final _amountController = TextEditingController();
   final _menuController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isCheckingLocation = false;
+  double? _distanceMeters;
+  String? _locationError;
 
   Timer? _estimateDebounce;
   int? _estimatedSaved;
   int? _referencePrice;
   bool _matchedByMenu = false;
 
-  XFile? _receiptImage;
-  final ImagePicker _picker = ImagePicker();
+  String get _storeName => widget.store?.storeName ?? widget.storeName;
 
-  Future<void> _pickReceiptImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 70,
-      );
-      if (image != null) {
-        setState(() {
-          _receiptImage = image;
-        });
-      }
-    } catch (e) {
-      debugPrint('영수증 촬영 오류: $e');
-    }
+  bool get _hasStoreCoordinates {
+    final store = widget.store;
+    return store != null &&
+        VisitVerificationPolicy.hasValidStoreCoordinates(
+          store.latitude,
+          store.longitude,
+        );
+  }
+
+  bool get _isLocationVerified {
+    final distance = _distanceMeters;
+    return distance != null &&
+        VisitVerificationPolicy.isWithinVerificationRadius(distance);
   }
 
   @override
@@ -66,65 +68,52 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 매장 위치/거리 연동, 인증 API 연동
     return FigmaMobileCanvas(
       child: GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
-        appBar: const CustomAppBar(title: '방문 인증'),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 매장 카드
-                _buildStoreCard(),
-                const SizedBox(height: 24),
-                const Text(
-                  '인증 방식 선택',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                // 위치 인증 카드
-                _buildVerifyCard(
-                  index: 0,
-                  iconBgColor: AppColors.primary,
-                  icon: Icons.location_on_rounded,
-                  title: '위치로 인증하기',
-                  desc: '매장 근처에 있을 때 인증할 수 있어요. 현재 거리: 320m',
-                  extra: null,
-                ),
-                const SizedBox(height: 12),
-                // 영수증 인증 카드
-                _buildVerifyCard(
-                  index: 1,
-                  iconBgColor: AppColors.orangeTheme,
-                  icon: Icons.receipt_long_rounded,
-                  title: '영수증 사진으로 인증하기',
-                  desc: '영수증을 촬영해서 결제 금액을 등록할 수 있어요.',
-                  extra: _selectedMethod == 1 ? _buildReceiptInput() : null,
-                ),
-                const SizedBox(height: 24),
-                // 메뉴 · 결제 금액 입력
-                _buildMenuPriceSection(),
-                const SizedBox(height: 16),
-                // 예상 절약 금액 카드
-                _buildSavingsCard(),
-                const SizedBox(height: 20),
-              ],
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundDark,
+          appBar: const CustomAppBar(title: '방문 인증'),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 매장 카드
+                  _buildStoreCard(),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '위치 인증',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildLocationVerificationCard(),
+                  const SizedBox(height: 12),
+                  _buildReceiptComingSoonCard(),
+                  const SizedBox(height: 24),
+                  // 메뉴 · 결제 금액 입력
+                  _buildMenuPriceSection(),
+                  const SizedBox(height: 16),
+                  // 예상 절약 금액 카드
+                  _buildSavingsCard(),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: CustomBottomButton(
-          text: _isSubmitting ? '기록 중…' : '방문 인증하기',
-          backgroundColor: AppColors.primary,
-          onPressed: _isSubmitting ? () {} : _submit,
+          bottomNavigationBar: CustomBottomButton(
+            text: _isSubmitting
+                ? '기록 중…'
+                : _isLocationVerified
+                ? '방문 기록하기'
+                : '위치 인증 후 기록하기',
+            backgroundColor: AppColors.primary,
+            onPressed: _isSubmitting || !_isLocationVerified ? null : _submit,
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -143,13 +132,16 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.storeName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  _storeName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '가격 정보 확인 가능',
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                Text(
+                  widget.store?.address ?? '매장 위치 정보가 없습니다.',
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
             ),
@@ -160,9 +152,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
               color: AppColors.primarySubtle,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Text(
-              '320m',
-              style: TextStyle(
+            child: Text(
+              _distanceLabel,
+              style: const TextStyle(
                 color: AppColors.primary,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -174,129 +166,192 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     );
   }
 
-  Widget _buildVerifyCard({
-    required int index,
-    required Color iconBgColor,
-    required IconData icon,
-    required String title,
-    required String desc,
-    required Widget? extra,
-  }) {
-    final selected = _selectedMethod == index;
-    return FigmaMobileCanvas(
-      child: GestureDetector(
-      onTap: () => setState(() => _selectedMethod = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primarySubtle : AppColors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.shade200,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: iconBgColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(icon, color: AppColors.white, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        desc,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  selected
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: selected
-                      ? AppColors.primary
-                      : Colors.grey.shade300,
-                  size: 22,
-                ),
-              ],
-            ),
-            if (extra != null) ...[const SizedBox(height: 14), extra],
-          ],
+  String get _distanceLabel {
+    if (_isCheckingLocation) return '확인 중';
+    if (_isLocationVerified) {
+      return VisitVerificationPolicy.formatDistance(_distanceMeters!);
+    }
+    return '위치 확인 필요';
+  }
+
+  String get _locationDescription {
+    if (!_hasStoreCoordinates) return '이 매장은 위치 정보가 없어 인증할 수 없어요.';
+    if (_isCheckingLocation) return '현재 위치와 매장 거리를 확인하고 있어요.';
+    if (_isLocationVerified) {
+      return '매장까지 ${VisitVerificationPolicy.formatDistance(_distanceMeters!)} · 위치 인증 가능';
+    }
+    if (_distanceMeters != null) {
+      return '매장까지 ${VisitVerificationPolicy.formatDistance(_distanceMeters!)} · 300m 이내에서 인증할 수 있어요.';
+    }
+    return _locationError ?? '현재 위치를 확인하면 300m 이내에서 인증할 수 있어요.';
+  }
+
+  Future<void> _checkLocation() async {
+    if (!_hasStoreCoordinates) {
+      setState(() => _locationError = '매장 위치 정보가 없어 인증할 수 없어요.');
+      return;
+    }
+
+    setState(() {
+      _isCheckingLocation = true;
+      _locationError = null;
+      _distanceMeters = null;
+    });
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        throw const _LocationVerificationException('위치 서비스를 활성화해주세요.');
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        throw const _LocationVerificationException('위치 권한이 거부되었습니다.');
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw const _LocationVerificationException('설정에서 위치 권한을 허용해주세요.');
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
+      final store = widget.store!;
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        store.latitude,
+        store.longitude,
+      );
+      if (!mounted) return;
+      setState(() => _distanceMeters = distance);
+    } on _LocationVerificationException catch (error) {
+      if (mounted) setState(() => _locationError = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _locationError = '현재 위치를 가져오지 못했어요. 다시 시도해주세요.');
+      }
+    } finally {
+      if (mounted) setState(() => _isCheckingLocation = false);
+    }
+  }
+
+  Widget _buildLocationVerificationCard() {
+    final verified = _isLocationVerified;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: verified ? AppColors.primarySubtle : AppColors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: verified ? AppColors.primary : Colors.grey.shade200,
+          width: verified ? 2 : 1,
         ),
       ),
-    ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.location_on_rounded,
+                  color: AppColors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '현재 위치로 인증하기',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _locationDescription,
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                verified
+                    ? Icons.check_circle_rounded
+                    : Icons.location_searching_rounded,
+                color: verified ? AppColors.primary : Colors.grey.shade400,
+                size: 24,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isCheckingLocation ? null : _checkLocation,
+              icon: Icon(
+                _isCheckingLocation
+                    ? Icons.hourglass_top_rounded
+                    : Icons.my_location_rounded,
+              ),
+              label: Text(_isCheckingLocation ? '현재 위치 확인 중' : '현재 위치 확인'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildReceiptInput() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _pickReceiptImage,
-          child: Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-              image: _receiptImage != null
-                  ? DecorationImage(
-                      image: kIsWeb
-                          ? NetworkImage(_receiptImage!.path) as ImageProvider
-                          : FileImage(File(_receiptImage!.path)),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+  Widget _buildReceiptComingSoonCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.receipt_long_rounded, color: AppColors.muted, size: 24),
+          SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '영수증 인증',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  '개인정보 보관 정책을 준비하고 있어요. 현재는 위치 인증만 제공됩니다.',
+                  style: TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            child: _receiptImage == null
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt_outlined,
-                        color: Colors.grey.shade400,
-                        size: 24,
-                      ),
-                    ],
-                  )
-                : null,
           ),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Text(
-            '영수증 사진은 참고용으로만 사용돼요.',
-            style: TextStyle(color: AppColors.muted, fontSize: 12),
-          ),
-        ),
-      ],
+          Text('준비 중', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+        ],
+      ),
     );
   }
 
@@ -338,10 +393,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: AppColors.muted),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 14,
-      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -364,8 +416,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
   void _onInputChanged() {
     _estimateDebounce?.cancel();
-    _estimateDebounce =
-        Timer(const Duration(milliseconds: 400), _fetchEstimate);
+    _estimateDebounce = Timer(
+      const Duration(milliseconds: 400),
+      _fetchEstimate,
+    );
     setState(() {});
   }
 
@@ -380,14 +434,16 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       return;
     }
     try {
-      final response = await http.get(
-        ApiClient.uri('/api/visits/estimate', {
-          'storeName': widget.storeName,
-          'menu': _menuController.text.trim(),
-          'price': '$price',
-        }),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
+      final response = await http
+          .get(
+            ApiClient.uri('/api/visits/estimate', {
+              'storeName': _storeName,
+              'menu': _menuController.text.trim(),
+              'price': '$price',
+            }),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200 && mounted) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
@@ -411,13 +467,19 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   /// 방문 인증 생성 (POST /api/visits) — 절약 금액은 서버 룰로 계산됨
   Future<void> _submit() async {
-    final price = int.tryParse(
-            _amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
+    if (!_isLocationVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('매장 300m 이내에서 현재 위치를 확인해주세요.')),
+      );
+      return;
+    }
+    final price =
+        int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
         0;
     if (price <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('결제 금액을 입력해주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('결제 금액을 입력해주세요.')));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -427,9 +489,12 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             ApiClient.uri('/api/visits'),
             headers: ApiClient.jsonHeaders(auth: true),
             body: jsonEncode({
-              'storeName': widget.storeName,
+              'storeName': _storeName,
+              'industry': widget.store?.industry,
               'menu': _menuController.text.trim(),
               'price': price,
+              'verificationMethod': 'LOCATION',
+              'verificationDistanceMeters': _distanceMeters!.round(),
             }),
           )
           .timeout(ApiClient.defaultTimeout);
@@ -438,16 +503,19 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (response.statusCode == 200) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        context.push(AppRoutes.visitVerificationComplete, extra: {
-          'savedAmount': (data['savedAmount'] as num?)?.toInt() ?? 0,
-          'storeName': widget.storeName,
-          'menu': _menuController.text.trim(),
-          'price': price,
-        });
-      } else if (response.statusCode == 401) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('로그인이 필요한 기능입니다.')),
+        context.push(
+          AppRoutes.visitVerificationComplete,
+          extra: {
+            'savedAmount': (data['savedAmount'] as num?)?.toInt() ?? 0,
+            'storeName': _storeName,
+            'menu': _menuController.text.trim(),
+            'price': price,
+          },
         );
+      } else if (response.statusCode == 401) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('로그인이 필요한 기능입니다.')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('방문 기록에 실패했습니다. 잠시 후 다시 시도해주세요.')),
@@ -455,9 +523,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('네트워크 오류가 발생했습니다.')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -505,12 +573,18 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             _referencePrice == null
                 ? '한국소비자원 참가격 기준으로 자동 계산돼요'
                 : (_matchedByMenu
-                    ? '참가격 기준가 ${_formatWon(_referencePrice!)}원 기준'
-                    : '카테고리 평균가 ${_formatWon(_referencePrice!)}원 기준 (참가격 기반)'),
+                      ? '참가격 기준가 ${_formatWon(_referencePrice!)}원 기준'
+                      : '카테고리 평균가 ${_formatWon(_referencePrice!)}원 기준 (참가격 기반)'),
             style: const TextStyle(color: Colors.black45, fontSize: 12),
           ),
         ],
       ),
     );
   }
+}
+
+class _LocationVerificationException implements Exception {
+  const _LocationVerificationException(this.message);
+
+  final String message;
 }
