@@ -679,6 +679,29 @@
 - `flutter build web --release`, `git diff --check` 통과. 지도 화면 파일의 기존 analyzer info 12건은 이번 변경 전부터 있던 스타일 안내다.
 - 민서 브랜치 `team/minseo-pm-fe`의 `bef8933`을 `git merge --ff-only`로 로컬 `main`에 반영했다. GitHub push와 Render/Vercel 배포는 사용자의 별도 지시 전까지 하지 않는다.
 
+## 5-27. 8/13 모바일 FCM 푸시 알림 구현 (main 배포 전)
+
+**구현**:
+- Flutter에 `firebase_core`, `firebase_messaging`, `flutter_local_notifications`를 추가했다. Android/iOS 네이티브에서 로그인 세션이 복원되거나 로그인되면 알림 권한을 요청하고 FCM 기기 토큰을 등록한다.
+- 포그라운드 Android 알림은 로컬 시스템 알림으로 표시하며, 백그라운드 수신·알림 탭은 알림함(`/notifications`)으로 이동한다. 로그아웃 시 현재 기기 토큰을 해제한다. 웹은 기존 인앱 알림 흐름을 그대로 유지한다.
+- `POST/DELETE /api/notifications/devices`를 세션 인증 API로 추가했다. FCM 토큰은 원문을 문서 ID로 노출하지 않도록 SHA-256 ID로 저장하고, 다른 사용자가 해제할 수 없게 소유자를 확인한다.
+- 모든 서버 알림은 Firestore 알림함 기록을 먼저 남긴 뒤 FCM을 별도 발송한다. 만료·잘못된 토큰은 자동 정리하며, 전송 실패가 문의 답변·제보 같은 원래 작업을 실패시키지 않는다.
+- 기존 알림 설정의 유형별 토글과 방해 금지 시간(Asia/Seoul)을 푸시에도 동일하게 적용했고, 회원 탈퇴 시 등록 기기 토큰도 함께 삭제한다.
+
+**Firebase/플랫폼 설정**:
+- Firebase 프로젝트 `howmuch-c7e52`에 Android `com.example.howmuch`, iOS `com.ohtaegwan.howmuch` 앱을 등록하고 FCM HTTP v1 API 활성 상태를 확인했다. `google-services.json`, `GoogleService-Info.plist`, Android Google Services 플러그인, iOS 원격 알림 entitlement·background mode를 반영했다.
+- iOS CocoaPods를 정적 라이브러리+모듈 헤더 방식으로 정리해 Firebase Messaging 헤더 충돌을 해결했다.
+- iOS Firebase Console에는 아직 APNs 인증 키(`.p8`/Key ID)가 등록되지 않았다. 따라서 iPhone의 실제 원격 푸시는 해당 키 등록과 실기기 수신 확인이 남아 있다.
+
+**검증 결과**:
+- Flutter 전체 `flutter test --no-pub` 38건, 변경 Dart 파일 `flutter analyze --no-pub` 통과.
+- 격리된 새 Gradle 캐시에서 `NotificationControllerTest`, `FirebaseServiceUserDeletionTest`를 캐시 없이 재실행해 통과.
+- `flutter build web --release --no-pub`, Android `app:assembleDebug`, iOS `flutter build ios --debug --no-codesign --no-pub` 통과. iOS 산출물은 `build/ios/iphoneos/Runner.app`이며 코드 서명은 실기기 배포 시 별도로 적용한다.
+
+**실기기 QA 잔여**:
+- Android 실제 기기에서 로그인 후 알림 권한 허용, 어드민 알림 발송, 포그라운드·백그라운드 수신과 탭 이동을 확인한다.
+- iPhone은 Apple Developer APNs 인증 키를 Firebase에 등록한 후 위 시나리오를 동일하게 확인한다.
+
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
 - Firestore 쿼터: 유저 데이터(리뷰/제보/프로필/방문)만 읽음. 대량 조회 신규 추가 시 캐시 패턴 필수

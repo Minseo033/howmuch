@@ -10,6 +10,7 @@ import 'package:howmuch/app/app_router.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
+import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 
 final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
@@ -143,6 +144,9 @@ class KakaoLoginService {
   Future<void> logout() async {
     try {
       await UserApi.instance.logout();
+      await _ref
+          .read(pushNotificationServiceProvider)
+          .unregisterCurrentDevice();
       // 💡 세션 토큰도 함께 폐기 (서버 API 인증 불가 처리)
       await ApiClient.setSessionToken(null);
       _ref

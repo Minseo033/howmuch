@@ -34,7 +34,8 @@ class FirebaseServiceUserDeletionTest {
                 "comments",
                 "feed_likes",
                 "feed_notifications",
-                "notifications")) {
+                "notifications",
+                "device_tokens")) {
             stubEmptyQuery(firestore, collection, "userId", uid);
         }
         when(imageStorage.deleteAllOwned(uid)).thenReturn(2);
@@ -50,6 +51,7 @@ class FirebaseServiceUserDeletionTest {
                 .containsEntry("feedLikes", 0)
                 .containsEntry("feedSubscriptions", 0)
                 .containsEntry("notifications", 0)
+                .containsEntry("deviceTokens", 0)
                 .containsEntry("reportImages", 2);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> cache = (List<Map<String, Object>>)

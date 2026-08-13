@@ -6,6 +6,15 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.WriteResult;
+import com.google.firebase.messaging.AndroidConfig;
+import com.google.firebase.messaging.AndroidNotification;
+import com.google.firebase.messaging.ApnsConfig;
+import com.google.firebase.messaging.Aps;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.MessagingErrorCode;
+import com.google.firebase.messaging.Notification;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.NotificationSettingsDto;
@@ -21,6 +30,10 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -653,6 +666,7 @@ public class FirebaseService {
         result.put("feedLikes", deleteWhere("feed_likes", "userId", firebaseUid));
         result.put("feedSubscriptions", deleteWhere("feed_notifications", "userId", firebaseUid));
         result.put("notifications", deleteWhere("notifications", "userId", firebaseUid));
+        result.put("deviceTokens", deleteWhere("device_tokens", "userId", firebaseUid));
         db.collection("notification_settings").document(firebaseUid).delete().get();
         result.put("reportImages", deleteReportImagePrefix(firebaseUid));
         cachedUserStores = cachedUserStores.stream()
@@ -1978,6 +1992,35 @@ public class FirebaseService {
         docRef.update("isRead", true).get();
     }
 
+    /** 로그인한 기기의 FCM 토큰을 사용자에게 연결합니다. 토큰은 SHA-256 문서 ID로 저장합니다. */
+    public void registerDeviceToken(String firebaseUid, String token, String platform) throws Exception {
+        if (token == null || token.isBlank() || token.length() > 4096) {
+            throw new IllegalArgumentException("기기 토큰 형식이 올바르지 않습니다.");
+        }
+        if (!"android".equals(platform) && !"ios".equals(platform)) {
+            throw new IllegalArgumentException("지원하지 않는 기기 종류입니다.");
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("token", token);
+        data.put("platform", platform);
+        data.put("updatedAt", java.time.Instant.now().toString());
+        db.collection("device_tokens").document(deviceTokenDocumentId(token)).set(data).get();
+    }
+
+    /** 로그아웃 시 본인에게 속한 현재 기기 토큰만 해제합니다. */
+    public void unregisterDeviceToken(String firebaseUid, String token) throws Exception {
+        if (token == null || token.isBlank()) return;
+
+        DocumentReference reference = db.collection("device_tokens")
+                .document(deviceTokenDocumentId(token));
+        DocumentSnapshot document = reference.get().get();
+        if (document.exists() && firebaseUid.equals(document.getString("userId"))) {
+            reference.delete().get();
+        }
+    }
+
     public NotificationSettingsDto getNotificationSettings(String firebaseUid) throws Exception {
         DocumentSnapshot document = db.collection("notification_settings")
                 .document(firebaseUid)
@@ -2168,7 +2211,125 @@ public class FirebaseService {
         data.put("type", type);
         data.put("isRead", false);
         data.put("createdAt", createdAt);
-        db.collection("notifications").document().set(data).get();
+        DocumentReference notification = db.collection("notifications").document();
+        notification.set(data).get();
+        dispatchPushNotification(userId, notification.getId(), title, body, type);
+    }
+
+    /**
+     * Firestore 알림 저장 후 FCM을 별도 전송합니다. 네트워크·APNs 오류는 알림함
+     * 기록이나 문의 답변 같은 원래 작업을 실패시키지 않습니다.
+     */
+    private void dispatchPushNotification(
+            String userId,
+            String notificationId,
+            String title,
+            String body,
+            String type) {
+        try {
+            if (!shouldDeliverPush(userId, type)) {
+                return;
+            }
+            var devices = db.collection("device_tokens")
+                    .whereEqualTo("userId", userId)
+                    .get().get().getDocuments();
+            for (DocumentSnapshot device : devices) {
+                String token = device.getString("token");
+                if (token == null || token.isBlank()) continue;
+
+                Message message = Message.builder()
+                        .setToken(token)
+                        .setNotification(Notification.builder()
+                                .setTitle(title)
+                                .setBody(body)
+                                .build())
+                        .putData("notificationId", notificationId)
+                        .putData("type", type)
+                        .putData("route", "/notifications")
+                        .setAndroidConfig(AndroidConfig.builder()
+                                .setPriority(AndroidConfig.Priority.HIGH)
+                                .setNotification(AndroidNotification.builder()
+                                        .setChannelId("howmuch_notifications")
+                                        .setSound("default")
+                                        .build())
+                                .build())
+                        .setApnsConfig(ApnsConfig.builder()
+                                .setAps(Aps.builder().setSound("default").build())
+                                .build())
+                        .build();
+                try {
+                    FirebaseMessaging.getInstance().send(message);
+                } catch (FirebaseMessagingException e) {
+                    if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED
+                            || e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT) {
+                        device.getReference().delete();
+                    }
+                    log.warn("FCM 발송 실패: uid={}, code={}", userId, e.getMessagingErrorCode());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("FCM 기기 조회 또는 발송 실패: uid={}", userId, e);
+        }
+    }
+
+    /** 알림 설정과 방해 금지 시간을 푸시에도 동일하게 적용합니다. */
+    private boolean shouldDeliverPush(String userId, String type) throws Exception {
+        NotificationSettingsDto settings = getNotificationSettings(userId);
+        if (!isPushTypeEnabled(settings, type)) {
+            return false;
+        }
+        return !isQuietHoursNow(userId, settings);
+    }
+
+    private boolean isPushTypeEnabled(NotificationSettingsDto settings, String type) {
+        String normalizedType = type == null ? "" : type.toUpperCase();
+        if (normalizedType.contains("REVIEW")) {
+            return Boolean.TRUE.equals(settings.getReview());
+        }
+        if (normalizedType.contains("REPORT") || normalizedType.contains("INQUIRY")) {
+            return Boolean.TRUE.equals(settings.getReport());
+        }
+        if (normalizedType.contains("PRICE")) {
+            return Boolean.TRUE.equals(settings.getPrice());
+        }
+        if (normalizedType.contains("TODAY")) {
+            return Boolean.TRUE.equals(settings.getTodayPick());
+        }
+        // 운영 공지와 새 유형은 사용자가 모든 카테고리를 껐을 때만 막습니다.
+        return Boolean.TRUE.equals(settings.getReview())
+                || Boolean.TRUE.equals(settings.getReport())
+                || Boolean.TRUE.equals(settings.getPrice())
+                || Boolean.TRUE.equals(settings.getTodayPick());
+    }
+
+    private boolean isQuietHoursNow(String userId, NotificationSettingsDto settings) {
+        if (!Boolean.TRUE.equals(settings.getQuietHours())) {
+            return false;
+        }
+        try {
+            LocalTime start = LocalTime.parse(settings.getQuietStart());
+            LocalTime end = LocalTime.parse(settings.getQuietEnd());
+            if (start.equals(end)) {
+                return false;
+            }
+            LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"));
+            return start.isBefore(end)
+                    ? !now.isBefore(start) && now.isBefore(end)
+                    : !now.isBefore(start) || now.isBefore(end);
+        } catch (Exception e) {
+            log.warn("방해 금지 시간 형식이 올바르지 않아 푸시를 계속 전송합니다. uid={}", userId);
+            return false;
+        }
+    }
+
+    private String deviceTokenDocumentId(String token) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("기기 토큰 식별자를 만들지 못했습니다.", e);
+        }
     }
 
     // 💡 [어드민] 커뮤니티 활동 지표 — 댓글/좋아요/알림 수 (대시보드 확장용)
