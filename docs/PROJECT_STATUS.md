@@ -1,11 +1,11 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
 > 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-13
-> 최신 기능 배포 커밋: d46a877 (8/13 **Cloudinary 제보 사진 업로드 활성화**). `main == origin/main`, Render 백엔드 + Vercel 웹 배포·실계정 QA 완료. 상세는 5-17~5-20 참조
+> 최신 기능 배포 커밋: 8eb9952 (8/13 **6주차 운영 안정화**). `main == origin/main`, Render 백엔드 + Vercel 웹 배포·운영 QA 완료. 상세는 5-17~5-22 참조
 > 8/13 **다나·태관 통합 보완 완료**: 팀원 브랜치를 통째로 머지하지 않고 과제 변경만 선별 이식·보완했다. 최초 Spark 릴리스에서는 이미지를 비활성화했으나, 후속으로 Cloudinary Free 저장소를 도입해 사진 첨부까지 배포했다.
 > 8/13 **빈 리뷰 생성 차단 배포·QA 완료**: 빈 폼은 필드 오류만 표시하고 리뷰 수를 늘리지 않음. 유효 리뷰의 `price`·`authorUid` 저장 후 QA 데이터 삭제·원복까지 확인했다.
 > 8/13 **제보 사진 실서비스 E2E 완료**: 사진 선택·미리보기 → 백엔드/Cloudinary 업로드 → 제보 저장·상세 재조회 → 사진 제거·원본 404 → QA 문서 삭제·목록 원복까지 확인했다.
-> 8/13 **6주차 민서(PM) 선행 개발**: 제보 삭제·Cloudinary 사진 연쇄 삭제, Firestore 보안 룰, 주간 공공데이터 스냅샷 PR, Cloudinary 사용량 모니터링과 통합 회귀 테스트를 `codex/week6-pm-operations`에 구현했다. **아직 main 병합·운영 배포 전**이며 상세는 5-21 참조.
+> 8/13 **6주차 민서(PM) 선행 개발 배포 완료**: 제보 삭제·Cloudinary 사진 연쇄 삭제, Firestore 보안 룰, 주간 공공데이터 스냅샷 PR, Cloudinary 사용량 모니터링과 통합 회귀 테스트를 `8eb9952`로 main에 반영하고 운영 설정·배포·비파괴 QA까지 완료했다. 상세는 5-21~5-22 참조.
 > 이전 주요 기능 기준: 24b8be2 (자동 로그인·게스트 찜 방어·동네제보 댓글/답글/좋아요/알림 연동), 후속 커밋 afa502d·81c8da6 — 상세는 5-15 참조
 > 8/11 **어드민 확장**: 댓글 관리(목록·삭제) / 문의 관리(목록) / 알림 발송(전체·특정 회원) + 커뮤니티 통계 — 상세는 5-14 참조
 > 8/10 **동네제보 댓글/답글/좋아요/알림구독 백엔드 전면 구현** (태관 요청 7개) + **지환 알림함 선별 이식** + SessionAuthFilter 경로 누락 버그 수정 — 상세는 5-13 참조
@@ -568,7 +568,7 @@
 
 **최종 판정**: 제보 사진 기능은 **프론트 선택·미리보기, 백엔드 검증·업로드, Firestore URL 저장, 사용자/관리자 재조회, 수정 시 원본 정리까지 실서비스에서 정상 연동**됐다.
 
-## 5-21. 8/13 민서(PM) 6주차 선행 개발 (구현·로컬 검증 완료, 운영 반영 전)
+## 5-21. 8/13 민서(PM) 6주차 선행 개발 (main 배포·운영 설정 완료)
 
 **제보 삭제와 Cloudinary 연쇄 정리**:
 - 사용자 `DELETE /api/report/store/{id}`와 관리자 `DELETE /api/admin/reports/{id}`를 추가했다. 사용자 요청은 세션 uid와 저장된 `reporterId`가 일치해야 한다.
@@ -588,11 +588,25 @@
 - `flutter analyze`: error 0·warning 0·기존 info 42건. `flutter build web --release`, 어드민 원본/빌드 산출물 JavaScript 문법 검사, Firebase/Actions 구성 문법 검사와 `git diff --check` 통과.
 - 기존 99% 디스크에서 재생성 가능한 캐시와 오래된 Xcode DeviceSupport를 정리해 최종 검증 전 약 5.3GB 여유를 확보했다.
 
-**운영 반영 전 체크**:
-1. GitHub 저장소 Secret `ADMIN_KEY`를 등록해야 주간 스냅샷 워크플로가 운영 API를 호출할 수 있다.
-2. Render에 `PUBLIC_DATA_API_KEY`를 등록하고 과거 소스 이력에 포함됐던 기존 키는 교체해야 수동 원천 동기화를 안전하게 사용할 수 있다.
-3. Firebase CLI에서 대상 프로젝트를 직접 확인한 뒤 `firebase deploy --only firestore:rules`를 실행해야 한다. 저장소에는 오배포 방지를 위해 `.firebaserc`를 두지 않았다.
-4. 이 항목은 `codex/week6-pm-operations` 기준이며 production은 아직 `ddd5ed3`/기능 `d46a877`이다. main 병합·Render/Vercel 배포·실서비스 삭제 QA는 별도 릴리스 단계로 남는다.
+**운영 반영 결과**:
+1. GitHub 저장소 Secret `ADMIN_KEY`를 등록해 주간 스냅샷 워크플로가 운영 API를 호출할 수 있게 했다.
+2. Render에 `PUBLIC_DATA_API_KEY`를 등록하고 새 백엔드를 배포했다. 과거 Git 이력에 포함된 기존 키 교체는 별도 보안 후속 과제로 남는다.
+3. Firebase 프로젝트 `howmuch-c7e52`의 `(default)` Firestore DB에 클라이언트 전체 읽기·쓰기 거부 룰을 게시했다. Admin SDK 백엔드는 정상 동작한다.
+4. `8eb9952`를 main에 fast-forward 반영해 Render와 Vercel 운영 배포를 완료했다.
+
+## 5-22. 8/13 6주차 운영 배포 및 비파괴 QA
+
+**배포**:
+- 백엔드: Render 자동 배포 후 `GET /api/admin/storage/report-images/usage`가 관리자 인증으로 HTTP 200을 반환했다.
+- 웹: Vercel production 배포 `dpl_DAX74f8GvogDMeo2s4dyg4MPDLeA`, 운영 별칭 `https://howmuch-zeta.vercel.app` 반영을 확인했다.
+- 소스: 배포 시점의 로컬 `main`과 `origin/main`이 모두 `8eb9952fe6dc07aa0c4d8da8a05f9934f6a973d4`로 일치했다.
+
+**운영 검증**:
+- 관리자 인증 없이 `POST /api/admin/public-data/sync` 호출 시 401, 제거한 레거시 `GET /api/public-data/sync`는 404로 확인했다.
+- Firestore REST 비인증 직접 읽기는 403으로 차단됐다.
+- 운영 어드민에 로그인해 대시보드 통계와 Cloudinary 카드(저장 공간 117.4 KB), 최근 제보 목록을 확인했다.
+- 제보 관리에서 대기 6건을 불러오고 `삭제` 버튼의 영구 삭제 경고창까지 확인한 뒤 취소했다. 운영 데이터는 변경하지 않았다.
+- 실제 제보·Cloudinary 연쇄 삭제는 백엔드 자동 테스트로 검증했으며, 운영 데이터 파괴를 수반하는 삭제 E2E는 수행하지 않았다.
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
