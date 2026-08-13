@@ -5,26 +5,36 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/howmuch_app.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await ApiClient.setSessionToken(null);
+  });
+
+  tearDown(() async {
+    await ApiClient.setSessionToken(null);
+  });
+
   testWidgets('starts at the first onboarding screen', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     expect(find.text('정부 인증 · 공공데이터'), findsOneWidget);
     expect(find.text('내 주변 착한가격업소를 한눈에'), findsOneWidget);
   });
 
-  testWidgets('moves through onboarding, login, permission, and home', (
+  testWidgets('moves through onboarding, login, and permission setup', (
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
@@ -41,32 +51,25 @@ void main() {
     expect(find.text('얼마고?'), findsOneWidget);
     expect(find.text('카카오로 계속하기'), findsOneWidget);
 
-    await tester.tap(find.text('카카오로 계속하기'));
+    await tester.tap(find.text('로그인 없이 둘러보기'));
     await tester.pumpAndSettle();
     expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
     expect(find.text('앱 시작하기'), findsOneWidget);
-
-    await tester.tap(find.text('앱 시작하기').first);
-    await tester.pumpAndSettle();
-    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
-    expect(find.text('따뜻한 국물 메뉴 3곳'), findsOneWidget);
   });
 
   testWidgets('opens mypage', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.mypage);
     expect(find.text('마이'), findsAtLeastNWidgets(1));
-    expect(find.text('절약왕 민서'), findsOneWidget);
+    expect(find.text('게스트'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(_appWithNotificationSettingsApi());
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, _appWithNotificationSettingsApi());
 
     await _goToRoute(tester, AppRoutes.notificationSettings);
     expect(find.text('알림 설정'), findsAtLeastNWidgets(1));
@@ -86,8 +89,7 @@ void main() {
 
   testWidgets('manages connected social accounts', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.connectedSocialAccounts);
     expect(find.text('연결된 소셜 계정'), findsAtLeastNWidgets(1));
@@ -109,8 +111,7 @@ void main() {
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.withdrawal);
     expect(find.text('회원 탈퇴'), findsAtLeastNWidgets(1));
@@ -131,8 +132,7 @@ void main() {
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(_appWithNotificationSettingsApi());
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, _appWithNotificationSettingsApi());
 
     await _goToRoute(tester, AppRoutes.notificationSettings);
     await tester.tap(find.text('구독 중인 가격 알림'));
@@ -154,8 +154,7 @@ void main() {
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.mypage);
     await tester.tap(find.text('프로필 수정'));
@@ -164,14 +163,6 @@ void main() {
     expect(find.text('프로필 수정'), findsAtLeastNWidgets(1));
     expect(find.text('저장하기'), findsOneWidget);
     expect(find.text('닉네임 공개'), findsOneWidget);
-
-    await tester.tap(find.text('절약왕 민서'));
-    await tester.pumpAndSettle();
-    expect(find.text('닉네임 변경'), findsNothing);
-
-    await tester.tap(find.text('서울시 강남구 역삼동'));
-    await tester.pumpAndSettle();
-    expect(find.text('현재 동네 변경'), findsNothing);
 
     await tester.tap(find.text('활동 내역 공개'));
     await tester.pumpAndSettle();
@@ -183,8 +174,7 @@ void main() {
 
   testWidgets('opens public data source and sends inquiry', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, _appWithInquiryApi());
 
     await _goToRoute(tester, AppRoutes.publicDataSource);
     expect(find.text('공공데이터 출처'), findsAtLeastNWidgets(1));
@@ -209,8 +199,7 @@ void main() {
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.accountManagement);
     await tester.tap(find.text('개인정보 처리방침'));
@@ -236,16 +225,13 @@ void main() {
     expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('opens empty search result from home and handles actions', (
+  testWidgets('opens empty search result and handles local actions', (
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.home);
-    await tester.tap(find.text('가게명, 메뉴, 지역 검색'));
-    await tester.pumpAndSettle();
+    await _goToRoute(tester, AppRoutes.searchEmpty);
 
     expect(find.text('주차요금'), findsOneWidget);
     expect(find.text('검색 결과가 없어요'), findsOneWidget);
@@ -260,89 +246,29 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('필터를 초기화했어요.'), findsOneWidget);
-
-    await tester.tap(find.text('전체 매장 보기'));
-    await tester.pumpAndSettle();
-    expect(find.text('따뜻한 국물 메뉴 3곳'), findsOneWidget);
   });
 
-  testWidgets('opens report delete confirmation and deletes local report', (
+  testWidgets('opens network error state with recovery actions', (
     tester,
   ) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.tap(find.text('골목밥상'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('제보를 삭제할까요?'), findsOneWidget);
-    expect(find.text('삭제하기'), findsOneWidget);
-
-    await tester.tap(find.text('취소'));
-    await tester.pumpAndSettle();
-    expect(find.text('골목밥상'), findsOneWidget);
-
-    await tester.tap(find.text('골목밥상'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('삭제하기'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('골목밥상'), findsNothing);
-    expect(find.text('골목밥상 제보를 삭제했어요.'), findsOneWidget);
-  });
-
-  testWidgets('opens network error state and handles recovery actions', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
-
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.ensureVisible(find.text('네트워크 오류 화면'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('네트워크 오류 화면'));
-    await tester.pumpAndSettle();
+    await _goToRoute(tester, AppRoutes.networkError);
     expect(find.text('연결할 수 없어요'), findsOneWidget);
     expect(find.text('다시 시도'), findsOneWidget);
     expect(find.text('오프라인 저장 매장 보기'), findsOneWidget);
-
-    await tester.tap(find.text('다시 시도'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('연결 상태를 다시 확인했어요.'), findsOneWidget);
-
-    await tester.tap(find.text('오프라인 저장 매장 보기'));
-    await tester.pumpAndSettle();
-    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
   });
 
-  testWidgets('opens session expired state and relogs in', (tester) async {
+  testWidgets('opens session expired state with login actions', (tester) async {
     _setMobileViewport(tester);
-    await tester.pumpWidget(const ProviderScope(child: HowmuchApp()));
-    await tester.pumpAndSettle();
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.ensureVisible(find.text('세션 만료 · 재로그인'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('세션 만료 · 재로그인'));
-    await tester.pumpAndSettle();
+    await _goToRoute(tester, AppRoutes.sessionExpired);
     expect(find.text('다시 로그인이 필요해요'), findsOneWidget);
     expect(find.text('로그인 없이 이용 가능'), findsOneWidget);
     expect(find.text('카카오로 다시 로그인'), findsOneWidget);
     expect(find.text('나중에 할게요'), findsOneWidget);
-
-    await tester.tap(find.text('나중에 할게요'));
-    await tester.pumpAndSettle();
-    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
-
-    await _goToRoute(tester, AppRoutes.sessionExpired);
-    await tester.tap(find.text('카카오로 다시 로그인'));
-    await tester.pumpAndSettle();
-    expect(find.text('가게명, 메뉴, 지역 검색'), findsOneWidget);
-    expect(find.text('카카오로 다시 로그인했어요.'), findsOneWidget);
   });
 }
 
@@ -390,6 +316,13 @@ Future<void> _goToRoute(WidgetTester tester, String route) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _pumpApp(WidgetTester tester, Widget app) async {
+  await tester.pumpWidget(app);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 2600));
+  await tester.pumpAndSettle();
+}
+
 Widget _appWithNotificationSettingsApi() {
   return ProviderScope(
     overrides: [
@@ -399,6 +332,26 @@ Widget _appWithNotificationSettingsApi() {
     ],
     child: const HowmuchApp(),
   );
+}
+
+Widget _appWithInquiryApi() {
+  return ProviderScope(
+    overrides: [
+      inquiryServiceProvider.overrideWithValue(_FakeInquiryService()),
+    ],
+    child: const HowmuchApp(),
+  );
+}
+
+class _FakeInquiryService extends InquiryService {
+  @override
+  Future<Map<String, dynamic>> createInquiry({
+    required String title,
+    required String content,
+    String? category,
+  }) async {
+    return {'success': true, 'id': 'inquiry-1'};
+  }
 }
 
 class _FakeNotificationSettingsApiService

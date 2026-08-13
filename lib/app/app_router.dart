@@ -225,7 +225,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
-      _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
+      GoRoute(
+        path: AppRoutes.reportDeleteConfirm,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportDeleteConfirmScreen(
+            report: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
       _tabRoute(
         AppRoutes.savingsReportDashboard,

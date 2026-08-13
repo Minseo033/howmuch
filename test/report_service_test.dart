@@ -97,4 +97,66 @@ void main() {
       throwsA(isA<ReportServiceException>()),
     );
   });
+
+  test('deletes a report with the authenticated API contract', () async {
+    late http.Request capturedRequest;
+    final service = ReportService(
+      MockClient((request) async {
+        capturedRequest = request;
+        return http.Response(
+          jsonEncode({'success': true, 'id': 'report 1', 'deletedImages': 2}),
+          200,
+        );
+      }),
+    );
+
+    final deletedImages = await service.deleteReport('report 1');
+
+    expect(deletedImages, 2);
+    expect(capturedRequest.method, 'DELETE');
+    expect(capturedRequest.url.path, '/api/report/store/report%201');
+    expect(capturedRequest.headers['authorization'], 'Bearer test-session');
+  });
+
+  test(
+    'surfaces a safe server message when report deletion is forbidden',
+    () async {
+      final service = ReportService(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode({'success': false, 'message': '본인의 제보만 삭제할 수 있습니다.'}),
+            403,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+
+      await expectLater(
+        service.deleteReport('report-1'),
+        throwsA(
+          isA<ReportServiceException>()
+              .having((error) => error.statusCode, 'statusCode', 403)
+              .having((error) => error.message, 'message', contains('본인의 제보')),
+        ),
+      );
+    },
+  );
+
+  test('requires authentication before deleting a report', () async {
+    await ApiClient.setSessionToken(null);
+    final service = ReportService(
+      MockClient((_) async => fail('network request must not be sent')),
+    );
+
+    await expectLater(
+      service.deleteReport('report-1'),
+      throwsA(
+        isA<ReportServiceException>().having(
+          (error) => error.statusCode,
+          'statusCode',
+          401,
+        ),
+      ),
+    );
+  });
 }

@@ -13,6 +13,8 @@ services:
       # Cloudinary 콘솔의 API Environment variable 전체 값을 Render에서 직접 입력합니다.
       - key: CLOUDINARY_URL
         sync: false
+      - key: PUBLIC_DATA_API_KEY
+        sync: false
     secretFiles:
       - name: firebase-service-account.json
         mountPath: /etc/secrets/firebase-service-account.json

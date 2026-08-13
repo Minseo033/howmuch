@@ -139,6 +139,45 @@ class ReportService {
     );
   }
 
+  Future<int> deleteReport(String reportId) async {
+    final normalizedId = reportId.trim();
+    if (normalizedId.isEmpty) {
+      throw const ReportServiceException('삭제할 제보를 찾을 수 없습니다.');
+    }
+    _requireAuthentication();
+
+    final response = await _client
+        .delete(
+          ApiClient.uri(
+            '/api/report/store/${Uri.encodeComponent(normalizedId)}',
+          ),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    final body = utf8.decode(response.bodyBytes);
+    if (response.statusCode != 200) {
+      throw ReportServiceException(
+        _responseMessage(
+          body,
+          fallback: '제보 삭제에 실패했습니다.',
+          allowServerMessage:
+              response.statusCode == 403 ||
+              response.statusCode == 404 ||
+              response.statusCode == 409 ||
+              response.statusCode == 503,
+        ),
+        statusCode: response.statusCode,
+      );
+    }
+
+    final decoded = jsonDecode(body);
+    if (decoded is! Map || decoded['success'] != true) {
+      throw const FormatException('제보 삭제 응답 형식이 올바르지 않습니다.');
+    }
+    final deletedImages = decoded['deletedImages'];
+    return deletedImages is num ? deletedImages.toInt() : 0;
+  }
+
   Future<Map<String, dynamic>> _saveReport({
     required String method,
     required String path,

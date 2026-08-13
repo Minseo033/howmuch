@@ -1,11 +1,14 @@
 package com.howmuch.controller;
 
 import com.howmuch.service.FirebaseService;
+import com.howmuch.service.PublicDataService;
+import com.howmuch.service.ReportImageStorage;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +27,7 @@ import java.util.Map;
  * GET  /api/admin/reports?status=PENDING|APPROVED|REJECTED|ALL : 제보 목록 (기본 PENDING)
  * POST /api/admin/reports/{id}/approve                         : 제보 승인
  * POST /api/admin/reports/{id}/reject                          : 제보 반려 (body: {"reason": "..."} 필수)
+ * DELETE /api/admin/reports/{id}                               : 제보와 첨부 사진 삭제
  *
  * 인증: X-Admin-Key 헤더를 admin.key(환경변수 ADMIN_KEY)와 대조.
  * 앱 세션(카카오 로그인)과 무관한 어드민 전용 비밀번호. 미설정 시 모든 어드민 API는 403.
@@ -35,6 +39,8 @@ import java.util.Map;
 public class AdminController {
 
     private final FirebaseService firebaseService;
+    private final ReportImageStorage reportImageStorage;
+    private final PublicDataService publicDataService;
 
     @Value("${admin.key:}")
     private String adminKey;
@@ -105,6 +111,56 @@ public class AdminController {
                     "success", false,
                     "message", "개요 지표 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
+        }
+    }
+
+    /** Cloudinary 사용량 (GET /api/admin/storage/report-images/usage) */
+    @GetMapping("/storage/report-images/usage")
+    public ResponseEntity<?> getReportImageStorageUsage(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            return ResponseEntity.ok(reportImageStorage.getUsage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "Cloudinary 저장소가 설정되지 않았습니다."));
+        } catch (Exception e) {
+            log.error("[AdminController] Cloudinary 사용량 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(502).body(Map.of(
+                    "success", false,
+                    "message", "Cloudinary 사용량을 확인하지 못했습니다."));
+        }
+    }
+
+    /** 공공데이터 캐시 스냅샷 (GET /api/admin/stores/snapshot, Firestore 읽기 0) */
+    @GetMapping("/stores/snapshot")
+    public ResponseEntity<?> getStoresSnapshot(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        return ResponseEntity.ok(firebaseService.getGovStoresSnapshot());
+    }
+
+    /** 공공데이터 수동 동기화 (POST /api/admin/public-data/sync) */
+    @PostMapping("/public-data/sync")
+    public ResponseEntity<?> syncPublicData(HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            if (!publicDataService.syncAllPublicDataInBackground()) {
+                return ResponseEntity.status(409).body(Map.of(
+                        "success", false,
+                        "message", "공공데이터 동기화가 이미 진행 중입니다."));
+            }
+            return ResponseEntity.accepted().body(Map.of(
+                    "success", true,
+                    "message", "공공데이터 동기화를 시작했습니다."));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "공공데이터 API 키가 설정되지 않았습니다."));
         }
     }
 
@@ -252,6 +308,34 @@ public class AdminController {
                     "success", false,
                     "message", "제보 반려 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
+        }
+    }
+
+    /** 제보 삭제 (DELETE /api/admin/reports/{id}) - 첨부 사진까지 함께 삭제 */
+    @DeleteMapping("/reports/{id}")
+    public ResponseEntity<?> deleteReport(@PathVariable String id,
+                                          HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        try {
+            Map<String, Object> result = firebaseService.deleteReportAsAdmin(id);
+            log.warn("[AdminController] 제보 삭제 - id: {}, 삭제 사진: {}",
+                    id, result.get("deletedImages"));
+            return ResponseEntity.ok(result);
+        } catch (java.util.NoSuchElementException | IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            log.warn("[AdminController] 제보 사진 저장소가 설정되지 않아 삭제를 중단했습니다. id={}", id);
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "사진 저장소를 준비 중입니다. 잠시 후 다시 시도해주세요."));
+        } catch (Exception e) {
+            log.error("[AdminController] 제보 삭제 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "제보 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
     }
 

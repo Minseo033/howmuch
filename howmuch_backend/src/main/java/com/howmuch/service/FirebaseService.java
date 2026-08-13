@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -220,6 +221,21 @@ public class FirebaseService {
         return cachedStores;
     }
 
+    /** 자동화 작업이 classpath 스냅샷을 갱신할 수 있도록 안정된 순서의 캐시 복사본을 반환합니다. */
+    public List<Map<String, Object>> getGovStoresSnapshot() {
+        Comparator<Map<String, Object>> stableOrder = Comparator
+                .comparing(
+                        (Map<String, Object> item) -> String.valueOf(item.getOrDefault("storeName", "")),
+                        String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(
+                        item -> String.valueOf(item.getOrDefault("address", "")),
+                        String.CASE_INSENSITIVE_ORDER);
+        return cachedStores.stream()
+                .<Map<String, Object>>map(HashMap::new)
+                .sorted(stableOrder)
+                .toList();
+    }
+
     // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합, 전량 인메모리)
     public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
         // 1. 정부 인증 업소 (Blue) - 메모리 캐시
@@ -341,6 +357,65 @@ public class FirebaseService {
         } catch (Exception e) {
             log.warn("수정 후 제거된 제보 사진 정리에 실패했습니다. reportId={}", reportId, e);
         }
+    }
+
+    /** 사용자가 본인 제보를 삭제합니다. 첨부 사진 정리가 끝난 뒤 문서와 캐시를 제거합니다. */
+    public Map<String, Object> deleteUserReport(
+            String reportId,
+            String reporterUid) throws Exception {
+        if (reporterUid == null || reporterUid.isBlank()) {
+            throw new SecurityException("로그인이 필요합니다.");
+        }
+        return deleteReport(reportId, reporterUid);
+    }
+
+    /** 관리자가 제보를 삭제합니다. 소유자 정보는 저장된 제보 문서만 신뢰합니다. */
+    public Map<String, Object> deleteReportAsAdmin(String reportId) throws Exception {
+        return deleteReport(reportId, null);
+    }
+
+    private Map<String, Object> deleteReport(
+            String reportId,
+            String expectedReporterUid) throws Exception {
+        if (reportId == null || reportId.isBlank()) {
+            throw new IllegalArgumentException("삭제할 제보 ID가 필요합니다.");
+        }
+
+        DocumentReference docRef = db.collection("stores_user").document(reportId);
+        DocumentSnapshot existing = docRef.get().get();
+        if (!existing.exists()) {
+            throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+        }
+
+        String ownerUid = existing.getString("reporterId");
+        if (expectedReporterUid != null && !expectedReporterUid.equals(ownerUid)) {
+            throw new SecurityException("본인의 제보만 삭제할 수 있습니다.");
+        }
+
+        List<String> imageUrls = stringList(existing.get("imageUrls"));
+        List<String> ownedImageUrls = imageUrls.stream()
+                .filter(url -> reportImageStorage.isOwnedBy(ownerUid, url))
+                .toList();
+        int deletedImages = ownedImageUrls.isEmpty()
+                ? 0
+                : reportImageStorage.deleteOwned(ownerUid, ownedImageUrls);
+
+        int deletedComments = deleteWhere("comments", "postId", reportId);
+        int deletedLikes = deleteWhere("feed_likes", "postId", reportId);
+        int deletedSubscriptions = deleteWhere("feed_notifications", "postId", reportId);
+        docRef.delete().get();
+        cachedUserStores = cachedUserStores.stream()
+                .filter(item -> !reportId.equals(item.get("id")))
+                .toList();
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("id", reportId);
+        result.put("deletedImages", deletedImages);
+        result.put("deletedComments", deletedComments);
+        result.put("deletedLikes", deletedLikes);
+        result.put("deletedSubscriptions", deletedSubscriptions);
+        return result;
     }
 
     public List<String> uploadReportImages(
@@ -565,20 +640,41 @@ public class FirebaseService {
         return overview;
     }
 
-    // 💡 [어드민] 회원 삭제 — users 문서 + 해당 유저의 리뷰/제보/방문/찜 전부 삭제
+    // 💡 [어드민] 회원 삭제 — 프로필과 모든 사용자 생성 데이터를 삭제
     public Map<String, Object> deleteUser(String firebaseUid) throws Exception {
         Map<String, Object> result = new HashMap<>();
-        // users/{uid} 문서 삭제
-        db.collection("users").document(firebaseUid).delete().get();
-        // 연관 컬렉션 문서 전부 삭제 (각 컬렉션을 uid 필드로 조회)
+        // 연관 컬렉션을 먼저 지워 중간 실패 시 계정을 남겨 재시도할 수 있게 합니다.
         result.put("reviews", deleteWhere("reviews", "authorUid", firebaseUid));
-        result.put("reports", deleteWhere("stores_user", "reporterId", firebaseUid));
+        result.put("reports", deleteReportsByUser(firebaseUid));
         result.put("visits", deleteWhere("visits", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
+        result.put("inquiries", deleteWhere("inquiries", "userId", firebaseUid));
+        result.put("comments", deleteWhere("comments", "userId", firebaseUid));
+        result.put("feedLikes", deleteWhere("feed_likes", "userId", firebaseUid));
+        result.put("feedSubscriptions", deleteWhere("feed_notifications", "userId", firebaseUid));
+        result.put("notifications", deleteWhere("notifications", "userId", firebaseUid));
         db.collection("notification_settings").document(firebaseUid).delete().get();
         result.put("reportImages", deleteReportImagePrefix(firebaseUid));
+        cachedUserStores = cachedUserStores.stream()
+                .filter(item -> !firebaseUid.equals(item.get("reporterId")))
+                .toList();
+        db.collection("users").document(firebaseUid).delete().get();
         result.put("uid", firebaseUid);
         return result;
+    }
+
+    private int deleteReportsByUser(String firebaseUid) throws Exception {
+        var reports = db.collection("stores_user")
+                .whereEqualTo("reporterId", firebaseUid)
+                .get().get().getDocuments();
+        for (DocumentSnapshot report : reports) {
+            String reportId = report.getId();
+            deleteWhere("comments", "postId", reportId);
+            deleteWhere("feed_likes", "postId", reportId);
+            deleteWhere("feed_notifications", "postId", reportId);
+            report.getReference().delete().get();
+        }
+        return reports.size();
     }
 
     private int deleteReportImagePrefix(String firebaseUid) {

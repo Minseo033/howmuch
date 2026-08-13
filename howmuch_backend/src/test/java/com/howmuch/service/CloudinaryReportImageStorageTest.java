@@ -2,6 +2,8 @@ package com.howmuch.service;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,5 +58,20 @@ class CloudinaryReportImageStorageTest {
                 "user-1", new byte[]{1}, "image/jpeg"))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("not configured");
+    }
+
+    @Test
+    void exposesOnlyNonSensitiveUsageFields() {
+        Map<String, Object> usage = storage.sanitizeUsage(Map.of(
+                "plan", "Free",
+                "credits", Map.of("usage", 3.2, "limit", 25, "used_percent", 12.8),
+                "storage", Map.of("usage", 1024),
+                "api_key", "must-not-leak",
+                "cloud_name", "must-not-leak"));
+
+        assertThat(usage).containsEntry("plan", "Free")
+                .containsKey("credits")
+                .containsKey("storage")
+                .doesNotContainKeys("api_key", "cloud_name");
     }
 }

@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -193,6 +194,38 @@ public class ReportController {
                     "success", false,
                     "message", "제보 수정 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
+        }
+    }
+
+    @DeleteMapping("/store/{id}")
+    public ResponseEntity<?> deleteStoreReport(
+            @PathVariable String id,
+            jakarta.servlet.http.HttpServletRequest httpRequest) {
+        String reporterUid = (String) httpRequest.getAttribute(
+                com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
+        if (reporterUid == null || reporterUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
+
+        try {
+            return ResponseEntity.ok(firebaseService.deleteUserReport(id, reporterUid));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", "제보를 찾을 수 없습니다."));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(403).body(Map.of(
+                    "success", false, "message", "본인의 제보만 삭제할 수 있습니다."));
+        } catch (IllegalStateException e) {
+            log.warn("제보 사진 저장소가 설정되지 않아 삭제를 중단했습니다. reportId={}", id);
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "사진 저장소를 준비 중입니다. 잠시 후 다시 시도해주세요."));
+        } catch (Exception e) {
+            log.error("제보 삭제 중 오류 발생: reportId={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "제보 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
     }
 

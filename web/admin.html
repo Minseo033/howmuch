@@ -413,6 +413,22 @@
   </div>
 </div>
 
+<!-- 제보 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteReportModal">
+  <div class="modal">
+    <h3>제보 삭제</h3>
+    <p id="deleteReportTarget"></p>
+    <div class="warn-box">
+      제보와 첨부 사진이 모두 영구 삭제됩니다.<br>
+      승인된 제보는 지도에서도 즉시 제거되며 되돌릴 수 없습니다.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteReportModal">취소</button>
+      <button class="btn btn-danger" id="deleteReportConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
 <!-- 회원 활동 상세 모달 -->
 <div class="modal-backdrop" id="userModal">
   <div class="modal">
@@ -487,10 +503,12 @@
   let allComments = null;
   let allInquiries = null;
   let communityStats = null;
+  let storageUsage = null;
   let currentTab = 'PENDING';
   let currentView = 'dashboard';
   let userSearch = '';
   let rejectTargetId = null;
+  let deleteReportId = null;
   let deleteTargetUid = null;
   let deleteReviewId = null;
   let deleteCommentId = null;
@@ -526,6 +544,15 @@
   const fmtPrice = (p) => {
     const n = Number(String(p ?? '').replace(/[^\d]/g, ''));
     return isNaN(n) || n === 0 ? esc(p) : n.toLocaleString('ko-KR') + '원';
+  };
+
+  const fmtBytes = (value) => {
+    const bytes = Number(value);
+    if (!Number.isFinite(bytes) || bytes < 0) return '-';
+    if (bytes < 1024) return `${bytes.toLocaleString('ko-KR')} B`;
+    if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   };
 
   const shortUid = (uid) => uid ? esc(uid.slice(0, 8)) + '…' : '-';
@@ -617,11 +644,24 @@
       ['방문 인증', o.visits, '', 'c-green'],
       ['찜', o.favorites, '', 'c-red'],
     ];
+    const credits = storageUsage?.credits || {};
+    const storage = storageUsage?.storage || {};
+    if (storageUsage) {
+      const usedPercent = Number(credits.used_percent);
+      cards.push([
+        'Cloudinary',
+        Number.isFinite(usedPercent) ? `${usedPercent.toFixed(1)}%` : storageUsage.plan || '연결됨',
+        `저장 공간 ${fmtBytes(storage.usage)} · 5분 캐시`,
+        'c-blue',
+      ]);
+    } else {
+      cards.push(['Cloudinary', '확인 불가', '새로고침으로 다시 확인', 'c-ink']);
+    }
     const cardsHtml = cards.map(([label, val, sub, cls]) => `
       <div class="stat-card ${cls}">
         <div class="glow"></div>
         <div class="label">${label}</div>
-        <div class="value">${Number(val ?? 0).toLocaleString('ko-KR')}</div>
+        <div class="value">${typeof val === 'number' ? val.toLocaleString('ko-KR') : esc(val ?? '0')}</div>
         ${sub ? `<div class="sub">${esc(sub)}</div>` : ''}
       </div>`).join('');
 
@@ -681,6 +721,9 @@
     content.querySelectorAll('[data-reject]').forEach((btn) => {
       btn.onclick = () => openRejectModal(btn.dataset.reject, btn.dataset.name);
     });
+    content.querySelectorAll('[data-delreport]').forEach((btn) => {
+      btn.onclick = () => openDeleteReportModal(btn.dataset.delreport, btn.dataset.name);
+    });
   }
 
   function menuRows(r) {
@@ -702,11 +745,14 @@
       r.phoneNumber ? 'Tel. ' + esc(r.phoneNumber) : null,
     ].filter(Boolean).map((f) => `<span class="flag">${f}</span>`).join('');
 
-    const actions = r.status === 'PENDING' ? `
-      <div class="report-actions">
+    const reviewActions = r.status === 'PENDING' ? `
         <button class="btn btn-approve" data-approve="${esc(r.id)}">승인</button>
-        <button class="btn btn-reject" data-reject="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>
-      </div>` : '';
+        <button class="btn btn-reject" data-reject="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
+    const actions = `
+      <div class="report-actions">
+        ${reviewActions}
+        <button class="btn btn-danger" data-delreport="${esc(r.id)}" data-name="${esc(r.storeName)}">삭제</button>
+      </div>`;
 
     const reasonBox = (r.status === 'REJECTED' && r.rejectReason)
       ? `<div class="reject-reason-box"><b>반려 사유:</b> ${esc(r.rejectReason)}</div>` : '';
@@ -1018,6 +1064,32 @@
     }
   }
 
+  function openDeleteReportModal(id, name) {
+    deleteReportId = id;
+    $('deleteReportTarget').textContent = `「${name || id}」 제보를 삭제합니다.`;
+    openModal('deleteReportModal');
+  }
+
+  async function doDeleteReport() {
+    if (!deleteReportId) return;
+    $('deleteReportConfirm').disabled = true;
+    try {
+      const res = await api(`/api/admin/reports/${encodeURIComponent(deleteReportId)}`, {
+        method: 'DELETE',
+      });
+      allReports = allReports.filter((report) => report.id !== deleteReportId);
+      overview = null;
+      closeModal('deleteReportModal');
+      renderReportsView();
+      toast(`제보 삭제 완료 — 첨부 사진 ${res.deletedImages ?? 0}장 정리`);
+      deleteReportId = null;
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteReportConfirm').disabled = false;
+    }
+  }
+
   async function doDeleteUser() {
     $('deleteUserConfirm').disabled = true;
     try {
@@ -1105,9 +1177,10 @@
   async function loadDashboard() {
     renderState('loading');
     try {
-      [overview, allReports] = await Promise.all([
+      [overview, allReports, storageUsage] = await Promise.all([
         api('/api/admin/overview'),
         api('/api/admin/reports?status=ALL'),
+        api('/api/admin/storage/report-images/usage').catch(() => null),
       ]);
       renderDashboard();
     } catch (e) { handleLoadError(e); }
@@ -1169,6 +1242,7 @@
 
   async function refresh() {
     overview = null;
+    storageUsage = null;
     try { allReports = await api('/api/admin/reports?status=ALL'); } catch (_) {}
     if (currentView === 'dashboard') { overview = null; await loadDashboard(); }
     else if (currentView === 'reports') await loadReports();
@@ -1223,6 +1297,7 @@
     tab.onclick = () => switchView(tab.dataset.view);
   });
   $('rejectConfirm').onclick = doReject;
+  $('deleteReportConfirm').onclick = doDeleteReport;
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;
   $('deleteCommentConfirm').onclick = doDeleteComment;

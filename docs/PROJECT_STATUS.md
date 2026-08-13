@@ -5,6 +5,7 @@
 > 8/13 **다나·태관 통합 보완 완료**: 팀원 브랜치를 통째로 머지하지 않고 과제 변경만 선별 이식·보완했다. 최초 Spark 릴리스에서는 이미지를 비활성화했으나, 후속으로 Cloudinary Free 저장소를 도입해 사진 첨부까지 배포했다.
 > 8/13 **빈 리뷰 생성 차단 배포·QA 완료**: 빈 폼은 필드 오류만 표시하고 리뷰 수를 늘리지 않음. 유효 리뷰의 `price`·`authorUid` 저장 후 QA 데이터 삭제·원복까지 확인했다.
 > 8/13 **제보 사진 실서비스 E2E 완료**: 사진 선택·미리보기 → 백엔드/Cloudinary 업로드 → 제보 저장·상세 재조회 → 사진 제거·원본 404 → QA 문서 삭제·목록 원복까지 확인했다.
+> 8/13 **6주차 민서(PM) 선행 개발**: 제보 삭제·Cloudinary 사진 연쇄 삭제, Firestore 보안 룰, 주간 공공데이터 스냅샷 PR, Cloudinary 사용량 모니터링과 통합 회귀 테스트를 `codex/week6-pm-operations`에 구현했다. **아직 main 병합·운영 배포 전**이며 상세는 5-21 참조.
 > 이전 주요 기능 기준: 24b8be2 (자동 로그인·게스트 찜 방어·동네제보 댓글/답글/좋아요/알림 연동), 후속 커밋 afa502d·81c8da6 — 상세는 5-15 참조
 > 8/11 **어드민 확장**: 댓글 관리(목록·삭제) / 문의 관리(목록) / 알림 발송(전체·특정 회원) + 커뮤니티 통계 — 상세는 5-14 참조
 > 8/10 **동네제보 댓글/답글/좋아요/알림구독 백엔드 전면 구현** (태관 요청 7개) + **지환 알림함 선별 이식** + SessionAuthFilter 경로 누락 버그 수정 — 상세는 5-13 참조
@@ -25,7 +26,7 @@
 - **세션 인증**: 카카오 로그인 → 백엔드 세션 토큰(HMAC-SHA256, 168h) → `Authorization: Bearer` + `SessionAuthFilter`(uid를 `authenticatedUid` attribute로 주입). 프론트는 `lib/core/network/api_client.dart`에서 토큰 저장/복원(SharedPreferences), `jsonHeaders(auth: true)`
 - **CORS**: 필터에서 OPTIONS preflight 항상 통과. WebConfig allowedOrigins(*)
 - **Firestore 쿼터 보호**: 공공데이터 11,207건은 `howmuch_backend/src/main/resources/stores-snapshot.json` 번들 + 인메모리 캐시. 부팅 로드: 디스크→classpath→Firestore. 갱신 1시간 주기 + 성공 후 24h 가드 (일 읽기 ~1.1만 1회). **콜드스타트 읽기 0 달성 완료**
-- **라이브 API**: /api/auth/kakao, /api/stores/all·bounds, /api/review(GET/POST·me), /api/report/store·my, /api/user/profile, /api/ai/chat, /api/visits, /api/public-data/sync, /api/favorites(GET/POST/DELETE), /api/savings/goal(GET/POST)·history·stats
+- **배포 API(d46a877)**: /api/auth/kakao, /api/stores/all·bounds, /api/review(GET/POST·me), /api/report/store·my, /api/user/profile, /api/ai/chat, /api/visits, /api/public-data/sync, /api/favorites(GET/POST/DELETE), /api/savings/goal(GET/POST)·history·stats. 6주차 브랜치에서는 무인증 public-data sync를 제거하고 관리자 POST로 교체했다.
 - **리뷰 프론트**: Review 모델 + storeId(매장명) 키 맵 상태, 목록/작성 API 연동 완료
 - **웹 SPA**: vercel.json + web/vercel.json (빌드 산출물에 자동 포함) — 하위 경로 새로고침 200
 
@@ -566,6 +567,32 @@
 - 디스크 99%(여유 171MB)로 확장 프로그램 설치가 중단돼 재생성 가능한 npm·Gradle·Flutter 빌드 캐시를 정리했다. 최종 여유 공간은 약 854MB로 여전히 낮아 추가 운영 여유 확보가 필요하다.
 
 **최종 판정**: 제보 사진 기능은 **프론트 선택·미리보기, 백엔드 검증·업로드, Firestore URL 저장, 사용자/관리자 재조회, 수정 시 원본 정리까지 실서비스에서 정상 연동**됐다.
+
+## 5-21. 8/13 민서(PM) 6주차 선행 개발 (구현·로컬 검증 완료, 운영 반영 전)
+
+**제보 삭제와 Cloudinary 연쇄 정리**:
+- 사용자 `DELETE /api/report/store/{id}`와 관리자 `DELETE /api/admin/reports/{id}`를 추가했다. 사용자 요청은 세션 uid와 저장된 `reporterId`가 일치해야 한다.
+- 저장된 소유자 경로에 속한 Cloudinary 사진을 먼저 삭제하고, 성공한 경우에만 관련 댓글·좋아요·알림 구독, Firestore 제보 문서와 사용자 제보 캐시를 제거한다. 사진 저장소 오류 시 문서를 남겨 안전하게 재시도할 수 있다.
+- Flutter 내 제보 상세의 기존 무반응 버튼을 실제 삭제 확인·API 호출로 연결했다. 성공한 경우에만 목록과 프로필 제보 수를 갱신하며, 웹 어드민은 모든 상태의 제보 삭제와 사진 정리 건수를 지원한다.
+- 회원 삭제도 문의·댓글·피드 좋아요·알림 구독·알림·알림 설정과 제보 연관 데이터를 빠짐없이 정리하도록 보강했다.
+
+**보안·운영 자동화**:
+- Flutter 앱에 `cloud_firestore` 직접 접근이 없음을 확인하고 Firestore 클라이언트 읽기·쓰기를 전부 거부하는 `firestore.rules`, `firebase.json`, 배포 절차 문서를 추가했다. Admin SDK 백엔드 요청은 룰과 무관하게 유지된다.
+- 운영 인메모리 캐시를 안정된 순서로 반환하는 관리자 스냅샷 API와 1만 건 이상·필수 필드/좌표 99% 검증 스크립트를 추가했다. GitHub Actions는 매주 월요일 03:00(KST)에 검증된 classpath 스냅샷 변경 PR을 생성하거나 갱신한다.
+- 하드코딩된 공공데이터 키와 무인증 `GET /api/public-data/sync`를 제거했다. 동기화는 `PUBLIC_DATA_API_KEY`가 설정된 서버에서 관리자 `POST /api/admin/public-data/sync`로만 시작하며 중복 실행을 차단한다.
+- Cloudinary 사용량은 민감한 계정 필드를 제외한 뒤 `GET /api/admin/storage/report-images/usage`로 제공하고 5분간 캐시한다. 어드민 대시보드에는 크레딧 사용률과 저장 공간을 표시하며 조회 실패는 핵심 대시보드를 막지 않는다.
+
+**검증 결과**:
+- 백엔드 전체 `./gradlew test`와 `./gradlew clean build` 통과. 제보 소유권·삭제 순서·사진 실패 시 문서 보존·회원 연관 데이터·공공데이터 키 미설정·인증 필터 회귀 테스트를 포함한다.
+- Flutter 전체 `flutter test` 32개 통과. 삭제 API 성공·실패·무인증, 성공 후에만 상태 갱신하는 위젯 테스트를 포함하며 기존 레거시 위젯 테스트도 현재 앱 동작에 맞게 복구했다.
+- `flutter analyze`: error 0·warning 0·기존 info 42건. `flutter build web --release`, 어드민 원본/빌드 산출물 JavaScript 문법 검사, Firebase/Actions 구성 문법 검사와 `git diff --check` 통과.
+- 기존 99% 디스크에서 재생성 가능한 캐시와 오래된 Xcode DeviceSupport를 정리해 최종 검증 전 약 5.3GB 여유를 확보했다.
+
+**운영 반영 전 체크**:
+1. GitHub 저장소 Secret `ADMIN_KEY`를 등록해야 주간 스냅샷 워크플로가 운영 API를 호출할 수 있다.
+2. Render에 `PUBLIC_DATA_API_KEY`를 등록하고 과거 소스 이력에 포함됐던 기존 키는 교체해야 수동 원천 동기화를 안전하게 사용할 수 있다.
+3. Firebase CLI에서 대상 프로젝트를 직접 확인한 뒤 `firebase deploy --only firestore:rules`를 실행해야 한다. 저장소에는 오배포 방지를 위해 `.firebaserc`를 두지 않았다.
+4. 이 항목은 `codex/week6-pm-operations` 기준이며 production은 아직 `ddd5ed3`/기능 `d46a877`이다. main 병합·Render/Vercel 배포·실서비스 삭제 QA는 별도 릴리스 단계로 남는다.
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)

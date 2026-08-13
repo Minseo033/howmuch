@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -31,6 +32,10 @@ public class CloudinaryReportImageStorage implements ReportImageStorage {
     private final Cloudinary cloudinary;
     private final String cloudName;
     private final String reportFolder;
+    private volatile Map<String, Object> cachedUsage = Map.of();
+    private volatile long usageCachedAtMillis;
+
+    private static final long USAGE_CACHE_MILLIS = 5 * 60 * 1000L;
 
     public CloudinaryReportImageStorage(
             @Value("${cloudinary.url:}") String cloudinaryUrl,
@@ -112,6 +117,58 @@ public class CloudinaryReportImageStorage implements ReportImageStorage {
             nextCursor = stringOrNull(response.get("next_cursor"));
         } while (nextCursor != null);
         return deleted;
+    }
+
+    @Override
+    public synchronized Map<String, Object> getUsage() throws Exception {
+        long now = System.currentTimeMillis();
+        if (!cachedUsage.isEmpty()
+                && now - usageCachedAtMillis < USAGE_CACHE_MILLIS) {
+            return cachedUsage;
+        }
+
+        Map<?, ?> response = requireConfigured().api().usage(ObjectUtils.emptyMap());
+        cachedUsage = Map.copyOf(sanitizeUsage(response));
+        usageCachedAtMillis = now;
+        return cachedUsage;
+    }
+
+    Map<String, Object> sanitizeUsage(Map<?, ?> response) {
+        Map<String, Object> safe = new LinkedHashMap<>();
+        copySafeUsageValue(response, safe, "plan");
+        copySafeUsageValue(response, safe, "last_updated");
+        copySafeUsageValue(response, safe, "date_requested");
+        copySafeUsageValue(response, safe, "requests");
+        copySafeUsageValue(response, safe, "resources");
+        copySafeUsageValue(response, safe, "derived_resources");
+        copySafeUsageValue(response, safe, "transformations");
+        copySafeUsageValue(response, safe, "objects");
+        copySafeUsageValue(response, safe, "bandwidth");
+        copySafeUsageValue(response, safe, "storage");
+        copySafeUsageValue(response, safe, "credits");
+        return safe;
+    }
+
+    private void copySafeUsageValue(
+            Map<?, ?> source,
+            Map<String, Object> target,
+            String key) {
+        Object value = source.get(key);
+        if (value instanceof Number || value instanceof String || value instanceof Boolean) {
+            target.put(key, value);
+            return;
+        }
+        if (value instanceof Map<?, ?> nested) {
+            Map<String, Object> safeNested = new LinkedHashMap<>();
+            nested.forEach((nestedKey, nestedValue) -> {
+                if (nestedKey != null && (nestedValue instanceof Number
+                        || nestedValue instanceof String
+                        || nestedValue instanceof Boolean)) {
+                    safeNested.put(nestedKey.toString(), nestedValue);
+                }
+            });
+            target.put(key, Map.copyOf(safeNested));
+        }
     }
 
     String publicIdFromOwnedUrl(String ownerUid, String imageUrl) {

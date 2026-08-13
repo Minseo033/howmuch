@@ -144,11 +144,11 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
               ),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     flex: 5,
                     child: SizedBox(
                       height: actionHeight,
-                      child: _OutlineActionButton(),
+                      child: _OutlineActionButton(report: report),
                     ),
                   ),
                   const SizedBox(width: 7.997),
@@ -918,7 +918,9 @@ class _PhotoFallbackIcon extends StatelessWidget {
 }
 
 class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton();
+  const _OutlineActionButton({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -926,7 +928,7 @@ class _OutlineActionButton extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () {},
+        onTap: () => context.push(AppRoutes.reportDeleteConfirm, extra: report),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           decoration: BoxDecoration(
@@ -941,15 +943,15 @@ class _OutlineActionButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.mode_comment_outlined,
+                Icons.delete_outline_rounded,
                 size: 14,
-                color: ReportDetailV2Screen._ink,
+                color: Color(0xFFE53935),
               ),
               const SizedBox(width: 6),
               const Text(
-                '문의하기',
+                '삭제하기',
                 style: TextStyle(
-                  color: ReportDetailV2Screen._ink,
+                  color: Color(0xFFE53935),
                   fontFamily: ReportDetailV2Screen._fontFamily,
                   fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                   fontSize: 13,

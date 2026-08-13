@@ -38,4 +38,17 @@ class SessionAuthFilterReviewTest {
         assertThat(response.getStatus()).isEqualTo(200);
         verify(chain).doFilter(request, response);
     }
+
+    @Test
+    void blocksUnauthenticatedReportDeletion() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest(
+                "DELETE", "/api/report/store/report-1");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verifyNoInteractions(chain);
+    }
 }
