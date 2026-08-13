@@ -679,7 +679,7 @@
 - `flutter build web --release`, `git diff --check` 통과. 지도 화면 파일의 기존 analyzer info 12건은 이번 변경 전부터 있던 스타일 안내다.
 - 민서 브랜치 `team/minseo-pm-fe`의 `bef8933`을 `git merge --ff-only`로 로컬 `main`에 반영했다. GitHub push와 Render/Vercel 배포는 사용자의 별도 지시 전까지 하지 않는다.
 
-## 5-27. 8/13 모바일 FCM 푸시 알림 구현 (main 배포 전)
+## 5-27. 8/13 모바일 FCM 푸시 알림 구현 (main 배포 완료·실기기 QA 대기)
 
 **구현**:
 - Flutter에 `firebase_core`, `firebase_messaging`, `flutter_local_notifications`를 추가했다. Android/iOS 네이티브에서 로그인 세션이 복원되거나 로그인되면 알림 권한을 요청하고 FCM 기기 토큰을 등록한다.
@@ -701,6 +701,9 @@
 **실기기 QA 잔여**:
 - Android 실제 기기에서 로그인 후 알림 권한 허용, 어드민 알림 발송, 포그라운드·백그라운드 수신과 탭 이동을 확인한다.
 - iPhone은 Apple Developer APNs 인증 키를 Firebase에 등록한 후 위 시나리오를 동일하게 확인한다.
+
+**운영 반영**:
+- 커밋 `0361470`을 `origin/main`에 푸시했고 Render 자동 배포 후 `OPTIONS /api/notifications/devices`가 HTTP 200, `Allow: DELETE, POST, OPTIONS`를 반환하는 것을 확인했다. 운영 데이터는 만들거나 변경하지 않았다.
 
 ## 6. 알려진 주의사항
 - Render 무료 인스턴스는 슬립/휘발성 디스크 (classpath 스냅샷이 유일한 영속 캐시)
