@@ -37,6 +37,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
             .length ??
         0;
     final shouldShow = unreadCount > 0 && _dismissedUnreadCount != unreadCount;
+    final bannerTop = MediaQuery.sizeOf(context).height * .30;
 
     if (!shouldShow) return widget.child;
 
@@ -44,7 +45,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       children: [
         widget.child,
         Positioned(
-          top: 12,
+          top: bannerTop,
           left: 12,
           right: 12,
           child: SafeArea(
