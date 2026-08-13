@@ -31,7 +31,7 @@ import java.util.Map;
 public class VisitController {
 
     private static final String LOCATION_VERIFICATION = "LOCATION";
-    private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 300.0;
+    private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 50.0;
 
     private final FirebaseService firebaseService;
 
@@ -120,7 +120,7 @@ public class VisitController {
                 || distanceMeters > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "매장 300m 이내에서 인증해주세요."
+                    "message", "매장 50m 이내에서 인증해주세요."
             ));
         }
         // 💡 입력 상한 검증 (비정상 대형 값/문자열 악용 방지)

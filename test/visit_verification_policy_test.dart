@@ -15,11 +15,11 @@ void main() {
       );
     });
 
-    test('uses a 300 meter location verification radius', () {
+    test('uses a 50 meter location verification radius', () {
       expect(VisitVerificationPolicy.isWithinVerificationRadius(0), isTrue);
-      expect(VisitVerificationPolicy.isWithinVerificationRadius(300), isTrue);
+      expect(VisitVerificationPolicy.isWithinVerificationRadius(50), isTrue);
       expect(
-        VisitVerificationPolicy.isWithinVerificationRadius(300.1),
+        VisitVerificationPolicy.isWithinVerificationRadius(50.1),
         isFalse,
       );
     });

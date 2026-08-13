@@ -43,7 +43,7 @@ class VisitControllerTest {
     void rejectsVisitsWithoutVerifiedLocationEvidence() {
         authenticate();
         VisitRequest requestBody = validRequest();
-        requestBody.setVerificationDistanceMeters(300.1);
+        requestBody.setVerificationDistanceMeters(50.1);
 
         ResponseEntity<?> response = controller.createVisit(requestBody, request);
 
@@ -72,7 +72,7 @@ class VisitControllerTest {
                 .menu("김치찌개")
                 .price(8_000L)
                 .verificationMethod("LOCATION")
-                .verificationDistanceMeters(125.0)
+                .verificationDistanceMeters(25.0)
                 .build();
     }
 }
