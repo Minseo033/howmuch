@@ -62,6 +62,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   late final PageController _pageController;
   late int _step;
+  double _horizontalDragDistance = 0;
 
   @override
   void initState() {
@@ -98,6 +99,40 @@ class _OnboardingPageState extends State<OnboardingPage> {
     );
   }
 
+  void _goPrevious() {
+    if (_step == 0) return;
+
+    _pageController.animateToPage(
+      _step - 1,
+      duration: const Duration(milliseconds: 460),
+      curve: Curves.easeInOutCubic,
+    );
+  }
+
+  void _handleHorizontalDragStart(DragStartDetails details) {
+    _horizontalDragDistance = 0;
+  }
+
+  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
+    _horizontalDragDistance += details.primaryDelta ?? 0;
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    const distanceThreshold = 48.0;
+    const velocityThreshold = 300.0;
+
+    if (_horizontalDragDistance <= -distanceThreshold ||
+        velocity <= -velocityThreshold) {
+      _goNext();
+      return;
+    }
+    if (_horizontalDragDistance >= distanceThreshold ||
+        velocity >= velocityThreshold) {
+      _goPrevious();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FigmaMobileCanvas(
@@ -113,20 +148,26 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ],
           ),
         ),
-        child: PageView.builder(
-          controller: _pageController,
-          physics: const BouncingScrollPhysics(),
-          itemCount: widget.slides.length,
-          onPageChanged: (page) => setState(() => _step = page),
-          itemBuilder: (context, index) {
-            return _OnboardingSlideView(
-              slide: widget.slides[index],
-              step: index,
-              totalSteps: widget.slides.length,
-              onNext: _goNext,
-              onSkip: widget.onSkipPressed,
-            );
-          },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onHorizontalDragStart: _handleHorizontalDragStart,
+          onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+          onHorizontalDragEnd: _handleHorizontalDragEnd,
+          child: PageView.builder(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: widget.slides.length,
+            onPageChanged: (page) => setState(() => _step = page),
+            itemBuilder: (context, index) {
+              return _OnboardingSlideView(
+                slide: widget.slides[index],
+                step: index,
+                totalSteps: widget.slides.length,
+                onNext: _goNext,
+                onSkip: widget.onSkipPressed,
+              );
+            },
+          ),
         ),
       ),
     );
@@ -158,11 +199,14 @@ class _OnboardingSlideView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Spacer(flex: 3),
-          _ArtworkLayer(artwork: slide.artwork),
-          const Spacer(flex: 2),
-          _SlideCopy(slide: slide),
-          const Spacer(flex: 2),
+          const SizedBox(height: 64),
+          SizedBox(
+            height: 320,
+            child: Center(child: _ArtworkLayer(artwork: slide.artwork)),
+          ),
+          const SizedBox(height: 34),
+          SizedBox(height: 146, child: _SlideCopy(slide: slide)),
+          const SizedBox(height: 28),
           _StepIndicator(step: step, totalSteps: totalSteps),
           const SizedBox(height: 20),
           SizedBox(
@@ -215,12 +259,12 @@ class _ArtworkLayer extends StatelessWidget {
       ),
       OnboardingArtwork.savings => const SizedBox(
         width: 280,
-        height: 261.25,
+        height: 320,
         child: _SavingsArtwork(),
       ),
       OnboardingArtwork.storeReport => const SizedBox(
         width: 280,
-        height: 260,
+        height: 320,
         child: _StoreReportArtwork(),
       ),
     };
@@ -235,34 +279,50 @@ class _SlideCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        _Eyebrow(slide: slide),
+        SizedBox(
+          height: 25,
+          child: Center(child: _Eyebrow(slide: slide)),
+        ),
         const SizedBox(height: 12),
-        Text(
-          slide.title,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: OnboardingPage.ink,
-            fontFamily: OnboardingPage.fontFamily,
-            fontFamilyFallback: OnboardingPage.fontFallback,
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
-            height: 1.3,
+        SizedBox(
+          height: 62,
+          child: Center(
+            child: Text(
+              slide.title,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: OnboardingPage.ink,
+                fontFamily: OnboardingPage.fontFamily,
+                fontFamilyFallback: OnboardingPage.fontFallback,
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                height: 1.3,
+              ),
+            ),
           ),
         ),
         const SizedBox(height: 12),
-        Text(
-          slide.description,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: OnboardingPage.muted,
-            fontFamily: OnboardingPage.fontFamily,
-            fontFamilyFallback: OnboardingPage.fontFallback,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            height: 1.6,
+        SizedBox(
+          height: 42,
+          child: Center(
+            child: Text(
+              slide.description,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: OnboardingPage.muted,
+                fontFamily: OnboardingPage.fontFamily,
+                fontFamilyFallback: OnboardingPage.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.6,
+              ),
+            ),
           ),
         ),
       ],
