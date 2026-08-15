@@ -596,7 +596,8 @@ public class FirebaseService {
 
     private void updateReportStatus(String reportId, String status, String rejectReason) throws Exception {
         DocumentReference docRef = db.collection("stores_user").document(reportId);
-        if (!docRef.get().get().exists()) {
+        DocumentSnapshot snapshot = docRef.get().get();
+        if (!snapshot.exists()) {
             throw new IllegalArgumentException("제보를 찾을 수 없습니다: " + reportId);
         }
 
@@ -606,6 +607,14 @@ public class FirebaseService {
             updates.put("rejectReason", rejectReason);
         }
         docRef.update(updates).get();
+
+        // 💡 가격 변동 제보 승인 시 찜한 사용자에게 알림 발송
+        if ("APPROVED".equals(status)) {
+            String storeName = snapshot.getString("storeName");
+            if (storeName != null && !storeName.isBlank()) {
+                notifyUsersOnPriceReportApproved(storeName, reportId);
+            }
+        }
 
         // 인메모리 캐시에도 즉시 반영 (bounds 조회 캐시와 상태 일치)
         List<Map<String, Object>> updated = cachedUserStores.stream()
@@ -619,6 +628,49 @@ public class FirebaseService {
                 })
                 .toList();
         cachedUserStores = List.copyOf(updated);
+    }
+
+    // 💡 매장 가격 변동 제보 승인 시 알림 생성 및 발송
+    private void notifyUsersOnPriceReportApproved(String storeName, String reportId) throws Exception {
+        // 1. 해당 매장을 찜한 사용자 목록 조회 (favorites 컬렉션 활용)
+        var favoriteDocs = db.collection("favorites")
+                .whereEqualTo("storeName", storeName)
+                .get().get().getDocuments();
+
+        String createdAt = java.time.Instant.now().toString();
+
+        for (DocumentSnapshot favDoc : favoriteDocs) {
+            String userId = favDoc.getString("userId");
+            if (userId == null) continue;
+
+            // 2. 비활성화 사용자는 발송 대상에서 제외 (알림 설정 체크)
+            NotificationSettingsDto settings = getNotificationSettings(userId);
+            if (!Boolean.TRUE.equals(settings.getPrice())) {
+                continue;
+            }
+
+            // 3. 중복 알림 방지 (같은 제보로 이미 알림이 생성되었는지 확인)
+            String docId = "price_alert_" + reportId + "_" + userId;
+            DocumentReference notifRef = db.collection("notifications").document(docId);
+            if (notifRef.get().get().exists()) {
+                continue; // 이미 발송된 경우 스킵
+            }
+
+            // 4. 알림 생성 및 저장
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", userId);
+            data.put("title", "관심 매장 가격 변동");
+            data.put("body", "찜하신 '" + storeName + "' 매장의 가격 변동 제보가 승인되었습니다!");
+            data.put("type", "PRICE_ALERT");
+            data.put("isRead", false);
+            data.put("createdAt", createdAt);
+            data.put("relatedReportId", reportId);
+
+            notifRef.set(data).get();
+
+            // 5. 푸시 알림 발송 (기존 구조 재사용)
+            dispatchPushNotification(userId, docId, (String) data.get("title"), (String) data.get("body"), "PRICE_ALERT");
+        }
     }
 
     // 💡 [어드민] 컬렉션 문서 수 (count 집계 쿼리 — 최대 1000건당 읽기 1회라 쿼터 부담 적음)
