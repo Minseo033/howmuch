@@ -11,6 +11,8 @@ import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_approved_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_needs_edit_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_rejected_tab.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
+import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
 
 class MyReportsV2Screen extends ConsumerStatefulWidget {
   const MyReportsV2Screen({super.key});
@@ -79,6 +81,11 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
+    const topChromeHeight = HowmuchTopBar.height * 2;
+    final actionBarHeight = HowmuchBottomActionBar.heightFor(
+      safePadding.bottom,
+      contentHeight: 56,
+    );
     final reports = ref.watch(myReportDataProvider);
     final counts = <ReportFilter, int>{
       ReportFilter.all: reports.length,
@@ -105,14 +112,14 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
             left: 0,
             top: 0,
             right: 0,
-            height: topOffset + 97.756,
+            height: topOffset + topChromeHeight,
             child: const ColoredBox(color: Colors.white),
           ),
           Positioned(
             left: 0,
             top: topOffset,
             right: 0,
-            height: 48.878,
+            height: HowmuchTopBar.height,
             child: _Header(
               filter: _filter,
               onBack: () {
@@ -127,9 +134,9 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
           ),
           Positioned(
             left: 0,
-            top: topOffset + 48.878,
+            top: topOffset + HowmuchTopBar.height,
             right: 0,
-            height: 48.878,
+            height: HowmuchTopBar.height,
             child: _Tabs(
               selected: _filter,
               counts: counts,
@@ -138,7 +145,7 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
           ),
           Positioned(
             left: 0,
-            top: topOffset + 97.756,
+            top: topOffset + topChromeHeight,
             right: 0,
             bottom: 0,
             child: ListView(
@@ -146,7 +153,7 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                 20,
                 15.994,
                 20,
-                safePadding.bottom + 120,
+                actionBarHeight + 24,
               ),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [_buildCurrentTab()],
@@ -158,46 +165,40 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
               left: 0,
               bottom: 0,
               right: 0,
-              height: safePadding.bottom + 88,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  12,
-                  20,
-                  safePadding.bottom + 20,
-                ),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(
-                    top: BorderSide(
-                      color: MyReportsV2Screen.border,
-                      width: 0.909,
-                    ),
-                  ),
-                ),
-                child: Material(
-                  color: MyReportsV2Screen.blue,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    onTap: () => context.push(AppRoutes.reportCreate),
+              height: actionBarHeight,
+              child: HowmuchBottomActionBar(
+                safeBottom: safePadding.bottom,
+                child: SizedBox(
+                  height: 56,
+                  child: Material(
+                    color: MyReportsV2Screen.blue,
                     borderRadius: BorderRadius.circular(14),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.add_rounded, color: Colors.white, size: 20),
-                        SizedBox(width: 4),
-                        Text(
-                          '새 제보 등록하기',
-                          style: TextStyle(
+                    child: InkWell(
+                      onTap: () => context.push(AppRoutes.reportCreate),
+                      borderRadius: BorderRadius.circular(14),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
                             color: Colors.white,
-                            fontFamily: MyReportsV2Screen.fontFamily,
-                            fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            height: 1.5,
+                            size: 20,
                           ),
-                        ),
-                      ],
+                          SizedBox(width: 4),
+                          Text(
+                            '새 제보 등록하기',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontFamily: MyReportsV2Screen.fontFamily,
+                              fontFamilyFallback:
+                                  MyReportsV2Screen.fontFallback,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -237,59 +238,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: MyReportsV2Screen.border, width: .909),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 8,
-            top: 0,
-            width: 56,
-            height: 48.878,
-            child: IconButton(
-              onPressed: onBack,
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: MyReportsV2Screen.ink,
-                size: 24,
-              ),
-            ),
-          ),
-          Center(
-            child: Text(
-              _title,
-              style: const TextStyle(
-                color: MyReportsV2Screen.black,
-                fontFamily: MyReportsV2Screen.fontFamily,
-                fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-          ),
-          if (filter == ReportFilter.all)
-            Positioned(
-              right: 8,
-              top: 0,
-              width: 56,
-              height: 48.878,
-              child: IconButton(
-                onPressed: onSearch,
-                icon: const Icon(
-                  Icons.search_rounded,
-                  color: MyReportsV2Screen.ink,
-                  size: 22,
-                ),
-              ),
-            ),
-        ],
-      ),
+    return HowmuchTopBar(
+      title: _title,
+      onBack: onBack,
+      trailingIcon: filter == ReportFilter.all ? Icons.search_rounded : null,
+      onTrailingTap: filter == ReportFilter.all ? onSearch : null,
     );
   }
 }

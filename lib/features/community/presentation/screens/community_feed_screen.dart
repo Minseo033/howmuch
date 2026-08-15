@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
@@ -21,6 +23,7 @@ class CommunityFeedScreen extends StatefulWidget {
   static const muted = Color(0xFF64748B);
   static const hint = Color(0xFF94A3B8);
   static const border = Color(0xFFE5E7EB);
+  static const commentSurface = Color(0xFFF8FAFC);
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -40,6 +43,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   bool _isLoading = false;
   bool _hasError = false;
   List<dynamic> _rawFeeds = [];
+  Timer? _feedRefreshTimer;
 
   // 8/7: 목업 지역('역삼동/합정동' 순환) 제거 → 현위치 행정동명 표시.
   // 조회 완료 전에는 '내 동네'로 표시하고, 권한 거부/실패 시에는 '전체'로 표시.
@@ -53,7 +57,17 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   void initState() {
     super.initState();
     _fetchFeeds();
+    _feedRefreshTimer = Timer.periodic(
+      const Duration(seconds: 8),
+      (_) => _fetchFeeds(silent: true),
+    );
     _loadCurrentLocationLabel();
+  }
+
+  @override
+  void dispose() {
+    _feedRefreshTimer?.cancel();
+    super.dispose();
   }
 
   /// 현위치 → 카카오 coord2regioncode 역지오코딩으로 행정동명 조회.
@@ -110,11 +124,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     setState(() => _locationLabel = '전체');
   }
 
-  Future<void> _fetchFeeds() async {
-    setState(() {
-      _isLoading = true;
-      _hasError = false;
-    });
+  Future<void> _fetchFeeds({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+    }
 
     try {
       final response = await http
@@ -126,21 +142,29 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (!mounted) return;
         setState(() {
           _rawFeeds = decoded is List ? decoded : [];
           _isLoading = false;
+          _hasError = false;
         });
       } else {
+        if (!mounted) return;
         setState(() {
-          _isLoading = false;
-          _hasError = true;
+          if (!silent) {
+            _isLoading = false;
+            _hasError = true;
+          }
         });
       }
     } catch (e) {
       debugPrint('커뮤니티 피드 조회 오류: $e');
+      if (!mounted) return;
       setState(() {
-        _isLoading = false;
-        _hasError = true;
+        if (!silent) {
+          _isLoading = false;
+          _hasError = true;
+        }
       });
     }
   }
@@ -188,15 +212,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
       final bool compactStatus = rawStatus.toUpperCase() == 'PENDING';
 
-      final hash = id.hashCode.abs();
-      final List<Color> bgColors = [
-        const Color(0xFFFFE4D4),
-        const Color(0xFFE0E7FF),
-        const Color(0xFFDCFCE7),
-        const Color(0xFFF3E8FF),
-      ];
-      final Color imageBackground = bgColors[hash % bgColors.length];
-
       return _FeedItem(
         id: id,
         location: loc,
@@ -207,7 +222,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         status: status,
         statusColor: statusColor,
         statusBackground: statusBackground,
-        imageBackground: imageBackground,
         imageUrl: imageUrl,
         dotColor: dotColor,
         compactStatus: compactStatus,
@@ -299,7 +313,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   status: item.status,
                   statusColor: item.statusColor,
                   statusBackground: item.statusBackground,
-                  imageBackground: item.imageBackground,
                   imageUrl: item.imageUrl,
                   dotColor: item.dotColor,
                   compactStatus: item.compactStatus,
@@ -328,7 +341,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             left: 0,
             right: 0,
             top: topOffset,
-            height: 48.878,
+            height: HowmuchTopBar.height,
             child: _Header(
               onBack: () => context.go(AppRoutes.home),
               onSearch: () => context.push(AppRoutes.searchEmpty),
@@ -392,63 +405,11 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: CommunityFeedScreen.border)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: 13.98,
-            width: 28,
-            height: 20,
-            child: GestureDetector(
-              onTap: onBack,
-              behavior: HitTestBehavior.opaque,
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: CommunityFeedScreen.ink,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            top: 11.99,
-            child: Center(
-              child: Text(
-                '동네 제보',
-                style: TextStyle(
-                  color: CommunityFeedScreen.black,
-                  fontFamily: CommunityFeedScreen.fontFamily,
-                  fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: AppSizes.horizontalPadding,
-            top: 13.98,
-            width: 28,
-            height: 20,
-            child: GestureDetector(
-              onTap: onSearch,
-              behavior: HitTestBehavior.opaque,
-              child: const Icon(
-                Icons.search_rounded,
-                size: 22,
-                color: CommunityFeedScreen.ink,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return HowmuchTopBar(
+      title: '동네 제보',
+      onBack: onBack,
+      trailingIcon: Icons.search_rounded,
+      onTrailingTap: onSearch,
     );
   }
 }
@@ -604,7 +565,6 @@ class _FeedCard extends StatelessWidget {
     required this.status,
     required this.statusColor,
     required this.statusBackground,
-    required this.imageBackground,
     required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
@@ -618,7 +578,6 @@ class _FeedCard extends StatelessWidget {
   final String status;
   final Color statusColor;
   final Color statusBackground;
-  final Color imageBackground;
   final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
@@ -646,7 +605,7 @@ class _FeedCard extends StatelessWidget {
             Container(
               width: 91.989,
               height: imageHeight,
-              color: imageBackground,
+              color: CommunityFeedScreen.commentSurface,
               child: imageUrl == null
                   ? const _FeedImageFallback()
                   : Image.network(
@@ -880,7 +839,6 @@ class _FeedItem {
     required this.status,
     required this.statusColor,
     required this.statusBackground,
-    required this.imageBackground,
     required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
@@ -895,7 +853,6 @@ class _FeedItem {
   final String status;
   final Color statusColor;
   final Color statusBackground;
-  final Color imageBackground;
   final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
@@ -907,10 +864,24 @@ class _FeedImageFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Icon(
-        Icons.image_outlined,
-        color: CommunityFeedScreen.hint,
-        size: 22,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.image_not_supported_outlined,
+            color: CommunityFeedScreen.muted,
+            size: 21,
+          ),
+          SizedBox(height: 4),
+          Text(
+            '이미지 없음',
+            style: TextStyle(
+              color: CommunityFeedScreen.muted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

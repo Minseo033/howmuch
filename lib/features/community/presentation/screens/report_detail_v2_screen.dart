@@ -6,6 +6,8 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
+import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
 
 class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
@@ -50,9 +52,11 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
         reports.where((item) => item.id == widget.reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom + 20;
     const actionHeight = 45.994;
-    final actionBarHeight = safePadding.bottom + 78;
+    final actionBarHeight = HowmuchBottomActionBar.heightFor(
+      safePadding.bottom,
+      contentHeight: actionHeight,
+    );
 
     void goBack() {
       if (context.canPop()) {
@@ -97,12 +101,12 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
             left: 0,
             top: topOffset,
             right: 0,
-            height: 48.878,
+            height: HowmuchTopBar.height,
             child: _Header(onBack: goBack),
           ),
           Positioned(
             left: 0,
-            top: topOffset + 48.878,
+            top: topOffset + HowmuchTopBar.height,
             right: 0,
             bottom: 0,
             child: ListView(
@@ -126,22 +130,9 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
             bottom: 0,
             right: 0,
             height: actionBarHeight,
-            child: Container(
-              padding: EdgeInsets.fromLTRB(
-                ReportDetailV2Screen._contentLeft,
-                12,
-                ReportDetailV2Screen._contentRight,
-                bottomOffset,
-              ),
-              decoration: const BoxDecoration(
-                color: ReportDetailV2Screen._surface,
-                border: Border(
-                  top: BorderSide(
-                    color: ReportDetailV2Screen._border,
-                    width: .909,
-                  ),
-                ),
-              ),
+            child: HowmuchBottomActionBar(
+              safeBottom: safePadding.bottom,
+              backgroundColor: ReportDetailV2Screen._surface,
               child: Row(
                 children: [
                   Expanded(
@@ -202,57 +193,10 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: ReportDetailV2Screen._border)),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: 13.98,
-            width: 28,
-            height: 20,
-            child: GestureDetector(
-              onTap: onBack,
-              behavior: HitTestBehavior.opaque,
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: ReportDetailV2Screen._ink,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            top: 11.99,
-            child: Center(
-              child: Text(
-                '제보 상세',
-                style: TextStyle(
-                  color: ReportDetailV2Screen._black,
-                  fontFamily: ReportDetailV2Screen._fontFamily,
-                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: AppSizes.horizontalPadding,
-            top: 12.5,
-            child: const Icon(
-              Icons.chat_bubble_outline_rounded,
-              size: 20,
-              color: ReportDetailV2Screen._ink,
-            ),
-          ),
-        ],
-      ),
+    return HowmuchTopBar(
+      title: '제보 상세',
+      onBack: onBack,
+      trailingIcon: Icons.chat_bubble_outline_rounded,
     );
   }
 }

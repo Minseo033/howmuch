@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -303,17 +304,34 @@ final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
 
 class NotificationsNotifier
     extends StateNotifier<AsyncValue<List<NotificationModel>>> {
-  NotificationsNotifier(this._api) : super(const AsyncValue.loading());
+  NotificationsNotifier(this._api) : super(const AsyncValue.loading()) {
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 10),
+      (_) => loadNotifications(isRefresh: true),
+    );
+  }
 
   final NotificationApiService _api;
+  Timer? _refreshTimer;
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
 
   Future<void> loadNotifications({bool isRefresh = false}) async {
+    final previousList = state.valueOrNull;
     if (!isRefresh) {
       state = const AsyncValue.loading();
     }
     try {
       state = AsyncValue.data(await _api.fetchNotifications());
     } catch (error, stackTrace) {
+      if (isRefresh && previousList != null) {
+        state = AsyncValue.data(previousList);
+        return;
+      }
       state = AsyncValue.error(error, stackTrace);
     }
   }
