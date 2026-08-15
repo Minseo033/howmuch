@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/community_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
 class CommunityPostDetailScreen extends StatefulWidget {
   final String postId;
@@ -40,6 +42,7 @@ class CommunityPostDetailScreen extends StatefulWidget {
 class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   final _controller = TextEditingController();
   final CommunityService _service = const CommunityService();
+  Timer? _liveRefreshTimer;
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -58,6 +61,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   void initState() {
     super.initState();
     _fetchDetail();
+    _liveRefreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _refreshLiveData(),
+    );
   }
 
   Future<void> _fetchDetail() async {
@@ -133,8 +140,55 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
 
   @override
   void dispose() {
+    _liveRefreshTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshLiveData() async {
+    if (!mounted ||
+        widget.postId.isEmpty ||
+        _isLoading ||
+        _isSubmitting ||
+        _likeInFlight ||
+        _notificationInFlight) {
+      return;
+    }
+
+    try {
+      final detailFuture = _service.fetchFeedDetail(widget.postId);
+      final commentsFuture = _service.fetchComments(widget.postId);
+      final decoded = await detailFuture;
+      final comments = await commentsFuture;
+      final commentsWithReplies = await Future.wait(
+        comments.map((comment) async {
+          if (comment.replyCount <= 0) return comment;
+          try {
+            final replies = await _service.fetchReplies(comment.id);
+            return comment.copyWith(replies: replies);
+          } catch (_) {
+            return comment;
+          }
+        }),
+      );
+      if (!mounted) return;
+      setState(() {
+        _postData = decoded;
+        _likedByMe =
+            _readBool(decoded, const ['likedByMe', 'liked']) ?? _likedByMe;
+        _notificationEnabled =
+            _readBool(decoded, const [
+              'notificationEnabled',
+              'subscribed',
+              'notified',
+            ]) ??
+            _notificationEnabled;
+        _comments = commentsWithReplies;
+        _commentsUnavailable = false;
+      });
+    } catch (e) {
+      debugPrint('게시글 실시간 갱신 오류: $e');
+    }
   }
 
   Future<void> _submitComment() async {
@@ -294,6 +348,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         _postData = {...?_postData, 'likes': result.count};
         _likeInFlight = false;
       });
+      await _refreshDetailCounts();
     } catch (e) {
       debugPrint('도움이돼요 처리 오류: $e');
       if (!mounted) return;
@@ -318,6 +373,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         _notificationEnabled = enabled;
         _notificationInFlight = false;
       });
+      await _refreshDetailCounts();
     } catch (e) {
       debugPrint('알림 처리 오류: $e');
       if (!mounted) return;
@@ -381,12 +437,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               left: 0,
               top: topOffset,
               right: 0,
-              height: 48.878,
+              height: HowmuchTopBar.height,
               child: _PostHeader(onBack: goBack),
             ),
             Positioned(
               left: 0,
-              top: topOffset + 48.878,
+              top: topOffset + HowmuchTopBar.height,
               right: 0,
               bottom: 0,
               child: _isLoading
@@ -644,51 +700,7 @@ class _PostHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: CommunityPostDetailScreen.border),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: 13.98,
-            width: 28,
-            height: 20,
-            child: GestureDetector(
-              onTap: onBack,
-              behavior: HitTestBehavior.opaque,
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: CommunityPostDetailScreen.ink,
-              ),
-            ),
-          ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            top: 11.99,
-            child: Center(
-              child: Text(
-                '게시글 상세',
-                style: TextStyle(
-                  color: CommunityPostDetailScreen.black,
-                  fontFamily: CommunityPostDetailScreen.fontFamily,
-                  fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return HowmuchTopBar(title: '게시글 상세', onBack: onBack);
   }
 }
 

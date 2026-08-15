@@ -11,6 +11,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({super.key, this.initialReport});
@@ -459,6 +460,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
+    const stepProgressHeight = 60.98;
+    const topChromeHeight = HowmuchTopBar.height + stepProgressHeight;
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -470,21 +473,21 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
               left: 0,
               top: 0,
               right: 0,
-              height: topOffset + 107.46,
+              height: topOffset + topChromeHeight,
               child: const ColoredBox(color: Colors.white),
             ),
             Positioned(
               left: 0,
               top: topOffset,
               right: 0,
-              height: 46.477,
+              height: HowmuchTopBar.height,
               child: const _Header(),
             ),
             Positioned(
               left: 0,
-              top: topOffset + 46.477,
+              top: topOffset + HowmuchTopBar.height,
               right: 0,
-              height: 60.98,
+              height: stepProgressHeight,
               child: _StepProgress(
                 activeStep: _activeStep,
                 basicComplete: _basicInfoComplete,
@@ -495,7 +498,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
             ),
             Positioned(
               left: 0,
-              top: topOffset + 107.46,
+              top: topOffset + topChromeHeight,
               right: 0,
               bottom: 0,
               child: ListView(
@@ -616,47 +619,17 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 8,
-            top: 3,
-            width: 44,
-            height: 44,
-            child: IconButton(
-              onPressed: () {
-                if (context.canPop()) {
-                  context.pop();
-                  return;
-                }
-                context.go(AppRoutes.communityFeed);
-              },
-              icon: const Icon(Icons.arrow_back_rounded, size: 20),
-              color: ReportCreateStyle.ink,
-            ),
-          ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            top: 12,
-            child: Center(
-              child: Text(
-                '가성비 매장 제보',
-                style: TextStyle(
-                  color: ReportCreateStyle.black,
-                  fontFamily: ReportCreateStyle.fontFamily,
-                  fontFamilyFallback: ReportCreateStyle.fontFallback,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+    return HowmuchTopBar(
+      title: '가성비 매장 제보',
+      titleFontSize: 17,
+      showBorder: false,
+      onBack: () {
+        if (context.canPop()) {
+          context.pop();
+          return;
+        }
+        context.go(AppRoutes.communityFeed);
+      },
     );
   }
 }
