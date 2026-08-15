@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:image_picker/image_picker.dart';
 
-class ReportDetailV2Screen extends StatelessWidget {
-  const ReportDetailV2Screen({super.key});
+class ReportDetailV2Screen extends ConsumerStatefulWidget {
+  const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
+
+  final String? reportId;
+  final UserReportStatus? initialReport;
 
   static const _blue = Color(0xFF2563EB);
   static const _orange = Color(0xFFF97316);
@@ -13,8 +20,8 @@ class ReportDetailV2Screen extends StatelessWidget {
   static const _black = Color(0xFF0A0A0A);
   static const _muted = Color(0xFF64748B);
   static const _border = Color(0xFFE5E7EB);
+  static const _hint = Color(0xFF94A3B8);
   static const _surface = Color(0xFFF4F6FA);
-  static const _softOrange = Color(0xFFFFF3EA);
   static const _contentLeft = 20.0;
   static const _contentRight = 20.0;
   static const _fontFamily = 'Inter';
@@ -28,12 +35,24 @@ class ReportDetailV2Screen extends StatelessWidget {
   ];
 
   @override
+  ConsumerState<ReportDetailV2Screen> createState() =>
+      _ReportDetailV2ScreenState();
+}
+
+class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
+  String? _alertedRejectReportId;
+
+  @override
   Widget build(BuildContext context) {
+    final reports = ref.watch(userReportsProvider);
+    final report =
+        widget.initialReport ??
+        reports.where((item) => item.id == widget.reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
-    final actionBottomGap = bottomOffset + 46;
+    final bottomOffset = safePadding.bottom + 20;
     const actionHeight = 45.994;
+    final actionBarHeight = safePadding.bottom + 78;
 
     void goBack() {
       if (context.canPop()) {
@@ -43,76 +62,101 @@ class ReportDetailV2Screen extends StatelessWidget {
       context.go(AppRoutes.myReportsV2);
     }
 
+    if (report == null) {
+      return FigmaMobileCanvas(
+        backgroundColor: ReportDetailV2Screen._surface,
+        child: Center(
+          child: Text(
+            '제보 정보를 찾을 수 없어요.',
+            style: const TextStyle(
+              color: ReportDetailV2Screen._muted,
+              fontFamily: ReportDetailV2Screen._fontFamily,
+              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+
+    _showRejectReasonAlertIfNeeded(report);
+
     return FigmaMobileCanvas(
-      backgroundColor: _surface,
+      backgroundColor: ReportDetailV2Screen._surface,
       child: Stack(
         children: [
           Positioned(
             left: 0,
             top: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: topOffset,
             child: const ColoredBox(color: Colors.white),
           ),
           Positioned(
             left: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 48.878,
             child: _Header(onBack: goBack),
           ),
           Positioned(
             left: 0,
             top: topOffset + 48.878,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - topOffset - 48.878,
+            right: 0,
+            bottom: 0,
             child: ListView(
               padding: EdgeInsets.fromLTRB(
-                _contentLeft,
+                ReportDetailV2Screen._contentLeft,
                 15.992,
-                _contentRight,
-                actionBottomGap + actionHeight + 24,
+                ReportDetailV2Screen._contentRight,
+                actionBarHeight + 24,
               ),
-              children: const [
-                _ReportInfoCard(),
-                SizedBox(height: 11.989),
-                _ProgressCard(),
-                SizedBox(height: 11.99),
-                _ReasonCard(),
-                SizedBox(height: 11.989),
-                _PhotoSection(),
-                SizedBox(height: 11.989),
-                _DescriptionSection(),
+              children: [
+                _ReportInfoCard(report: report),
+                const SizedBox(height: 11.989),
+                _ProgressCard(report: report),
+                const SizedBox(height: 11.989),
+                _InfoMessageCard(report: report),
               ],
             ),
           ),
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
-            height: actionBottomGap + actionHeight,
-            child: Padding(
+            right: 0,
+            height: actionBarHeight,
+            child: Container(
               padding: EdgeInsets.fromLTRB(
-                _contentLeft,
-                0,
-                _contentRight,
-                actionBottomGap,
+                ReportDetailV2Screen._contentLeft,
+                12,
+                ReportDetailV2Screen._contentRight,
+                bottomOffset,
               ),
-              child: const Row(
+              decoration: const BoxDecoration(
+                color: ReportDetailV2Screen._surface,
+                border: Border(
+                  top: BorderSide(
+                    color: ReportDetailV2Screen._border,
+                    width: .909,
+                  ),
+                ),
+              ),
+              child: Row(
                 children: [
                   Expanded(
                     flex: 5,
                     child: SizedBox(
                       height: actionHeight,
-                      child: _OutlineActionButton(),
+                      child: _OutlineActionButton(report: report),
                     ),
                   ),
-                  SizedBox(width: 7.997),
+                  const SizedBox(width: 7.997),
                   Expanded(
                     flex: 7,
                     child: SizedBox(
                       height: actionHeight,
-                      child: _PrimaryActionButton(),
+                      child: _PrimaryActionButton(report: report),
                     ),
                   ),
                 ],
@@ -122,6 +166,32 @@ class ReportDetailV2Screen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showRejectReasonAlertIfNeeded(UserReportStatus report) {
+    final rejectReason = report.rejectReason.trim();
+    if (!report.status.contains('반려') || rejectReason.isEmpty) return;
+    if (_alertedRejectReportId == report.id) return;
+
+    _alertedRejectReportId = report.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('반려 사유'),
+            content: Text(rejectReason),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('확인'),
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 }
 
@@ -140,7 +210,7 @@ class _Header extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -172,6 +242,15 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
+          Positioned(
+            right: AppSizes.horizontalPadding,
+            top: 12.5,
+            child: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 20,
+              color: ReportDetailV2Screen._ink,
+            ),
+          ),
         ],
       ),
     );
@@ -179,12 +258,14 @@ class _Header extends StatelessWidget {
 }
 
 class _ReportInfoCard extends StatelessWidget {
-  const _ReportInfoCard();
+  const _ReportInfoCard({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -192,102 +273,108 @@ class _ReportInfoCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          _StatusRow(),
-          SizedBox(height: 7.997),
+        children: [
+          _UserBadgeRow(report: report),
+          const SizedBox(height: 12),
           Text(
-            '착한김밥',
-            style: TextStyle(
+            report.store.isEmpty ? '매장명 없음' : report.store,
+            style: const TextStyle(
               color: ReportDetailV2Screen._black,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 18,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               height: 1.5,
             ),
           ),
-          SizedBox(height: 7.997),
+          const SizedBox(height: 12),
           _InfoLine(
             label: '업종',
-            value: '음식점 · 분식',
+            value: report.category.isEmpty ? '입력 없음' : report.category,
             valueWeight: FontWeight.w600,
+            valueColor: ReportDetailV2Screen._ink,
           ),
-          SizedBox(height: 5.994),
-          _PriceLine(),
-          SizedBox(height: 5.994),
+          const SizedBox(height: AppSizes.smallSpacing),
           _InfoLine(
-            label: '위치',
-            value: '서울시 강남구 역삼동',
-            valueWeight: FontWeight.w500,
+            label: '주소',
+            value: report.address.isEmpty ? '입력 없음' : report.address,
+            valueWeight: FontWeight.w600,
+            valueColor: ReportDetailV2Screen._ink,
           ),
+          const SizedBox(height: AppSizes.smallSpacing),
+          _PriceLine(report: report),
+          const SizedBox(height: AppSizes.itemSpacing),
+          _PhotoSection(imageUrls: report.imageUrls),
         ],
       ),
     );
   }
 }
 
-class _StatusRow extends StatelessWidget {
-  const _StatusRow();
+class _UserBadgeRow extends StatelessWidget {
+  const _UserBadgeRow({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      children: const [
-        _StatusBadge(),
-        Spacer(),
-        Text(
-          '제보일 2026.05.08',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-            height: 1.5,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 5,
+              height: 5,
+              decoration: const BoxDecoration(
+                color: ReportDetailV2Screen._orange,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              '사용자 제보',
+              style: TextStyle(
+                color: ReportDetailV2Screen._orange,
+                fontFamily: ReportDetailV2Screen._fontFamily,
+                fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Color(report.statusBg),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 4,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Color(report.textColor),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                report.status,
+                style: TextStyle(
+                  color: Color(report.textColor),
+                  fontFamily: ReportDetailV2Screen._fontFamily,
+                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 70.497,
-      height: 20.994,
-      decoration: BoxDecoration(
-        color: ReportDetailV2Screen._softOrange,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-              color: ReportDetailV2Screen._orange,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          const Text(
-            '보완 요청',
-            style: TextStyle(
-              color: ReportDetailV2Screen._orange,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -297,11 +384,13 @@ class _InfoLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.valueWeight,
+    this.valueColor,
   });
 
   final String label;
   final String value;
   final FontWeight valueWeight;
+  final Color? valueColor;
 
   @override
   Widget build(BuildContext context) {
@@ -325,7 +414,7 @@ class _InfoLine extends StatelessWidget {
             textAlign: TextAlign.right,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: ReportDetailV2Screen._ink,
+              color: valueColor ?? ReportDetailV2Screen._ink,
               fontFamily: ReportDetailV2Screen._fontFamily,
               fontFamilyFallback: ReportDetailV2Screen._fontFallback,
               fontSize: 12,
@@ -340,13 +429,38 @@ class _InfoLine extends StatelessWidget {
 }
 
 class _PriceLine extends StatelessWidget {
-  const _PriceLine();
+  const _PriceLine({required this.report});
+
+  final UserReportStatus report;
+
+  List<(String, String)> get _items {
+    if (report.menuPrices.isNotEmpty) {
+      return report.menuPrices.map((item) {
+        final price = item.price.isEmpty
+            ? ''
+            : (item.price.endsWith('원') ? item.price : '${item.price}원');
+        return (item.menu, price);
+      }).toList();
+    }
+    final trimmed = report.menu.trim();
+    if (trimmed.isEmpty) return [('입력 없음', '')];
+    final lastSpace = trimmed.lastIndexOf(' ');
+    if (lastSpace == -1) return [(trimmed, '')];
+    return [
+      (
+        trimmed.substring(0, lastSpace).trim(),
+        trimmed.substring(lastSpace + 1).trim(),
+      ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final items = _items;
     return Row(
-      children: const [
-        Text(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
           '대표 메뉴',
           style: TextStyle(
             color: ReportDetailV2Screen._muted,
@@ -357,30 +471,42 @@ class _PriceLine extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        SizedBox(width: 20),
+        const SizedBox(width: 20),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                TextSpan(
-                  text: '김밥 ',
-                  style: TextStyle(color: ReportDetailV2Screen._ink),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${items[index].$1} ',
+                        style: const TextStyle(
+                          color: ReportDetailV2Screen._ink,
+                        ),
+                      ),
+                      TextSpan(
+                        text: items[index].$2,
+                        style: const TextStyle(
+                          color: ReportDetailV2Screen._orange,
+                        ),
+                      ),
+                    ],
+                  ),
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
-                TextSpan(
-                  text: '2,500원',
-                  style: TextStyle(color: ReportDetailV2Screen._orange),
-                ),
+                if (index != items.length - 1) const SizedBox(height: 3),
               ],
-            ),
-            textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
+            ],
           ),
         ),
       ],
@@ -389,12 +515,14 @@ class _PriceLine extends StatelessWidget {
 }
 
 class _ProgressCard extends StatelessWidget {
-  const _ProgressCard();
+  const _ProgressCard({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.904, 16.904, 13.991),
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -402,9 +530,9 @@ class _ProgressCard extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Text(
-            '검토 진행 단계',
+        children: [
+          const Text(
+            '검토 진행 상태',
             style: TextStyle(
               color: ReportDetailV2Screen._black,
               fontFamily: ReportDetailV2Screen._fontFamily,
@@ -414,8 +542,77 @@ class _ProgressCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
-          SizedBox(height: 13.991),
-          _ProgressSteps(),
+          const SizedBox(height: AppSizes.largeSpacing),
+          _ProgressSteps(report: report),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoMessageCard extends StatelessWidget {
+  const _InfoMessageCard({required this.report});
+
+  final UserReportStatus report;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNotice = report.rejectReason.trim().isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.horizontalPadding),
+      decoration: BoxDecoration(
+        color: hasNotice ? const Color(0xFFFFF3EA) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasNotice ? const Color(0xFFFED7AA) : const Color(0xFFDBEAFE),
+          width: .909,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            hasNotice ? Icons.warning_amber_rounded : Icons.access_time,
+            color: hasNotice
+                ? ReportDetailV2Screen._orange
+                : ReportDetailV2Screen._blue,
+            size: 16,
+          ),
+          const SizedBox(width: AppSizes.smallSpacing),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  report.status,
+                  style: TextStyle(
+                    color: hasNotice
+                        ? ReportDetailV2Screen._orange
+                        : ReportDetailV2Screen._blue,
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasNotice
+                      ? report.rejectReason.trim()
+                      : '현재 가격과 위치 정보를 확인하고 있어요.',
+                  style: const TextStyle(
+                    color: ReportDetailV2Screen._black,
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -423,24 +620,66 @@ class _ProgressCard extends StatelessWidget {
 }
 
 class _ProgressSteps extends StatelessWidget {
-  const _ProgressSteps();
+  const _ProgressSteps({required this.report});
+
+  final UserReportStatus report;
+
+  int get _currentIndex {
+    if (report.status.contains('승인')) return 3;
+    if (report.status.contains('반려') || report.status.contains('보완')) {
+      return 2;
+    }
+    return 1;
+  }
+
+  Color get _currentColor {
+    if (report.status.contains('승인')) return ReportDetailV2Screen._green;
+    if (report.status.contains('반려')) return const Color(0xFFEF4444);
+    return ReportDetailV2Screen._orange;
+  }
+
+  String get _reviewResultLabel {
+    if (report.status.contains('반려')) return '반려';
+    if (report.status.contains('보완')) return '보완 요청';
+    if (report.status.contains('승인')) return '승인 완료';
+    return '검토 결과';
+  }
 
   @override
   Widget build(BuildContext context) {
-    const items = [
-      _StepData('접수 완료', 0, ReportDetailV2Screen._green, true),
-      _StepData('정보 확인 중', 1, ReportDetailV2Screen._green, true),
-      _StepData('보완 요청', 2, ReportDetailV2Screen._orange, false),
-      _StepData('승인 대기', 3, Color(0xFFCBD5E1), false),
-      _StepData('지도 반영', 4, Color(0xFFCBD5E1), false),
+    final currentIndex = _currentIndex;
+    final items = [
+      _StepData('접수 완료', 0, ReportDetailV2Screen._green, currentIndex > 0),
+      _StepData(
+        '정보 확인',
+        1,
+        currentIndex >= 1
+            ? ReportDetailV2Screen._green
+            : const Color(0xFFCBD5E1),
+        currentIndex > 1,
+      ),
+      _StepData(
+        _reviewResultLabel,
+        2,
+        currentIndex >= 2 ? _currentColor : const Color(0xFFCBD5E1),
+        currentIndex > 2,
+      ),
+      _StepData(
+        '지도 반영',
+        3,
+        currentIndex >= 3
+            ? ReportDetailV2Screen._green
+            : const Color(0xFFCBD5E1),
+        currentIndex >= 3,
+      ),
     ];
 
     return SizedBox(
       height: 48,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          const circleSize = 21.989;
-          const connectorInset = 5.5;
+          const circleSize = 22.0;
+          const connectorInset = 5.0;
           const connectorHeight = 2.0;
           const labelTop = 28.5;
           final stepWidth = constraints.maxWidth / items.length;
@@ -461,7 +700,7 @@ class _ProgressSteps extends StatelessWidget {
                   width: stepWidth - circleSize - connectorInset * 2,
                   height: connectorHeight,
                   child: ColoredBox(
-                    color: index < 2
+                    color: index < currentIndex
                         ? ReportDetailV2Screen._green
                         : const Color(0xFFE2E8F0),
                   ),
@@ -480,7 +719,13 @@ class _ProgressSteps extends StatelessWidget {
                   left: stepWidth * index,
                   top: labelTop,
                   width: stepWidth,
-                  child: _StepLabel(item: items[index], isCurrent: index == 2),
+                  child: _StepLabel(
+                    item: items[index],
+                    isCurrent: index == currentIndex,
+                    currentColor: index == currentIndex
+                        ? _currentColor
+                        : ReportDetailV2Screen._orange,
+                  ),
                 ),
             ],
           );
@@ -521,10 +766,15 @@ class _StepCircle extends StatelessWidget {
 }
 
 class _StepLabel extends StatelessWidget {
-  const _StepLabel({required this.item, required this.isCurrent});
+  const _StepLabel({
+    required this.item,
+    required this.isCurrent,
+    required this.currentColor,
+  });
 
   final _StepData item;
   final bool isCurrent;
+  final Color currentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -535,8 +785,10 @@ class _StepLabel extends StatelessWidget {
       overflow: TextOverflow.visible,
       style: TextStyle(
         color: isCurrent
-            ? ReportDetailV2Screen._orange
-            : (item.done ? ReportDetailV2Screen._ink : ReportDetailV2Screen._muted),
+            ? currentColor
+            : (item.done
+                  ? ReportDetailV2Screen._ink
+                  : ReportDetailV2Screen._muted),
         fontFamily: ReportDetailV2Screen._fontFamily,
         fontFamilyFallback: ReportDetailV2Screen._fontFallback,
         fontSize: 9.5,
@@ -556,236 +808,119 @@ class _StepData {
   final bool done;
 }
 
-class _ReasonCard extends StatelessWidget {
-  const _ReasonCard();
+class _PhotoSection extends StatelessWidget {
+  const _PhotoSection({required this.imageUrls});
+
+  final List<String> imageUrls;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleImages = imageUrls.take(3).toList();
+    return SizedBox(
+      height: 70,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: visibleImages.isEmpty ? 1 : visibleImages.length,
+        separatorBuilder: (_, _) =>
+            const SizedBox(width: AppSizes.smallSpacing),
+        itemBuilder: (context, index) {
+          if (visibleImages.isEmpty) {
+            return const _EmptyPhotoSlot();
+          }
+          return _PhotoThumb(imagePath: visibleImages[index]);
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyPhotoSlot extends StatelessWidget {
+  const _EmptyPhotoSlot();
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.904, 16.903),
+      width: 70,
+      height: 70,
       decoration: BoxDecoration(
-        color: ReportDetailV2Screen._softOrange,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0x33F97316), width: .909),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: ReportDetailV2Screen._border,
+          width: 1,
+          style: BorderStyle.solid,
+        ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Row(
-            children: [
-              Icon(
-                Icons.warning_amber_rounded,
-                size: 14,
-                color: Color(0xFF9A3412),
-              ),
-              SizedBox(width: 6),
-              Text(
-                '보완 요청 사유',
-                style: TextStyle(
-                  color: Color(0xFF9A3412),
-                  fontFamily: ReportDetailV2Screen._fontFamily,
-                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 7.997),
-          _ReasonItem('메뉴판 사진이 흐려 가격 확인이 어렵습니다.'),
-          SizedBox(height: 5.994),
-          _ReasonItem('대표 메뉴 가격을 다시 확인해주세요.'),
-        ],
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.camera_alt_outlined,
+        color: ReportDetailV2Screen._hint,
+        size: 22,
       ),
-    );
-  }
-}
-
-class _ReasonItem extends StatelessWidget {
-  const _ReasonItem(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 4,
-          height: 4,
-          margin: const EdgeInsets.only(top: 7),
-          decoration: const BoxDecoration(
-            color: ReportDetailV2Screen._orange,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: Color(0xFF7C2D12),
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PhotoSection extends StatelessWidget {
-  const _PhotoSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '첨부 사진',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 5.994),
-        Row(
-          children: const [
-            _PhotoThumb(
-              colors: [Color(0xFFFCA5A5), Color(0xFFFBBF24)],
-              icon: Icons.image_outlined,
-              showWarning: true,
-            ),
-            SizedBox(width: 8),
-            _PhotoThumb(
-              colors: [Color(0xFFA7F3D0), Color(0xFF34D399)],
-              icon: Icons.image_outlined,
-            ),
-          ],
-        ),
-      ],
     );
   }
 }
 
 class _PhotoThumb extends StatelessWidget {
-  const _PhotoThumb({
-    required this.colors,
-    required this.icon,
-    this.showWarning = false,
-  });
+  const _PhotoThumb({required this.imagePath});
 
-  final List<Color> colors;
-  final IconData icon;
-  final bool showWarning;
+  final String imagePath;
 
   @override
   Widget build(BuildContext context) {
+    final isRemote =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
     return SizedBox(
       width: 70,
       height: 70,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: colors,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: const Icon(
-              Icons.image_outlined,
-              color: Colors.white,
-              size: 22,
-            ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFE2E8F0),
+            border: Border.all(color: ReportDetailV2Screen._border),
+            borderRadius: BorderRadius.circular(14),
           ),
-          if (showWarning)
-            Positioned(
-              right: -4,
-              top: -4,
-              child: Container(
-                width: 18,
-                height: 18,
-                decoration: BoxDecoration(
-                  color: ReportDetailV2Screen._orange,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+          child: isRemote
+              ? Image.network(
+                  imagePath,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const _PhotoFallbackIcon(),
+                )
+              : FutureBuilder(
+                  future: XFile(imagePath).readAsBytes(),
+                  builder: (context, snapshot) {
+                    final bytes = snapshot.data;
+                    if (bytes == null) {
+                      return const _PhotoFallbackIcon();
+                    }
+                    return Image.memory(bytes, fit: BoxFit.cover);
+                  },
                 ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 10,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _DescriptionSection extends StatelessWidget {
-  const _DescriptionSection();
+class _PhotoFallbackIcon extends StatelessWidget {
+  const _PhotoFallbackIcon();
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '입력한 설명',
-          style: TextStyle(
-            color: ReportDetailV2Screen._muted,
-            fontFamily: ReportDetailV2Screen._fontFamily,
-            fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1.5,
-          ),
-        ),
-        const SizedBox(height: 5.994),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(11.99, 11.9, 13.465, 13.9),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ReportDetailV2Screen._border, width: .909),
-          ),
-          child: const Text(
-            '역삼역 1번 출구 근처 작은 김밥집인데 김밥이 2,500원이라 정말 저렴해요. 점심에 자주 가는 곳입니다.',
-            style: TextStyle(
-              color: ReportDetailV2Screen._ink,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
+    return const Center(
+      child: Icon(
+        Icons.image_outlined,
+        color: ReportDetailV2Screen._hint,
+        size: 22,
+      ),
     );
   }
 }
 
 class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton();
+  const _OutlineActionButton({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -793,27 +928,30 @@ class _OutlineActionButton extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () => context.push(AppRoutes.inquiry),
+        onTap: () => context.push(AppRoutes.reportDeleteConfirm, extra: report),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ReportDetailV2Screen._border, width: .909),
+            border: Border.all(
+              color: ReportDetailV2Screen._border,
+              width: .909,
+            ),
           ),
           alignment: Alignment.center,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.mode_comment_outlined,
+                Icons.delete_outline_rounded,
                 size: 14,
-                color: ReportDetailV2Screen._ink,
+                color: Color(0xFFE53935),
               ),
               const SizedBox(width: 6),
               const Text(
-                '문의하기',
+                '삭제하기',
                 style: TextStyle(
-                  color: ReportDetailV2Screen._ink,
+                  color: Color(0xFFE53935),
                   fontFamily: ReportDetailV2Screen._fontFamily,
                   fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                   fontSize: 13,
@@ -830,12 +968,14 @@ class _OutlineActionButton extends StatelessWidget {
 }
 
 class _PrimaryActionButton extends StatelessWidget {
-  const _PrimaryActionButton();
+  const _PrimaryActionButton({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
     return FilledButton(
-      onPressed: () => context.push(AppRoutes.reportCreate),
+      onPressed: () => context.push(AppRoutes.reportCreate, extra: report),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

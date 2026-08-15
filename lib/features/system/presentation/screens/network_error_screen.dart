@@ -66,11 +66,7 @@ class NetworkErrorScreen extends StatelessWidget {
               children: [
                 _PrimaryButton(
                   label: '다시 시도',
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('연결 상태를 다시 확인했어요.')),
-                    );
-                  },
+                  onPressed: () => context.go(AppRoutes.splash),
                 ),
                 const SizedBox(height: 10),
                 _SecondaryButton(
@@ -90,7 +86,7 @@ class NetworkErrorScreen extends StatelessWidget {
           Positioned(
             left: 0,
             bottom: bottomOffset + 32,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             child: const Text(
               'Wi-Fi 또는 모바일 데이터를 확인해보세요',
               textAlign: TextAlign.center,

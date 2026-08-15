@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:geolocator/geolocator.dart';
 
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
@@ -32,25 +37,281 @@ class CommunityFeedScreen extends StatefulWidget {
 
 class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   int _selectedFilterIndex = 0;
-  int _selectedLocationIndex = 0;
+  bool _isLoading = false;
+  bool _hasError = false;
+  List<dynamic> _rawFeeds = [];
 
-  static const _locations = ['역삼동', '합정동'];
+  // 8/7: 목업 지역('역삼동/합정동' 순환) 제거 → 현위치 행정동명 표시.
+  // 조회 완료 전에는 '내 동네'로 표시하고, 권한 거부/실패 시에는 '전체'로 표시.
+  String _locationLabel = '내 동네';
+
+  // 회원가입 화면(profile_setup_screen)과 동일한 카카오 REST 키.
+  // 클라이언트 번들 특성상 노출되며, 카카오 콘솔의 플랫폼(도메인/OS) 제한으로 보호됨.
+  static const String _kakaoRestApiKey = 'a262460cc196a9dd283003c7d54743b3';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFeeds();
+    _loadCurrentLocationLabel();
+  }
+
+  /// 현위치 → 카카오 coord2regioncode 역지오코딩으로 행정동명 조회.
+  /// 권한 거부·실패 시 조용히 '전체'로 폼백 (피드 목록은 항상 전체 표시라 UX 영향 없음).
+  Future<void> _loadCurrentLocationLabel() async {
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        return _setLocationFallback();
+      }
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return _setLocationFallback();
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      final url = Uri.parse(
+        'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json'
+        '?x=${position.longitude}&y=${position.latitude}',
+      );
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
+      );
+      if (response.statusCode != 200) return _setLocationFallback();
+
+      final data = jsonDecode(response.body);
+      final docs = data['documents'] as List?;
+      if (docs == null || docs.isEmpty) return _setLocationFallback();
+
+      // 행정동(H) 우선, 없으면 첫 문서
+      final doc = docs.firstWhere(
+        (d) => d['region_type'] == 'H',
+        orElse: () => docs.first,
+      );
+      final dong = doc['region_3depth_name']?.toString() ?? '';
+      if (!mounted) return;
+      setState(() {
+        _locationLabel = dong.isNotEmpty ? dong : '전체';
+      });
+    } catch (e) {
+      debugPrint('커뮤니티 현위치 조회 실패: $e');
+      _setLocationFallback();
+    }
+  }
+
+  void _setLocationFallback() {
+    if (!mounted) return;
+    setState(() => _locationLabel = '전체');
+  }
+
+  Future<void> _fetchFeeds() async {
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+
+    try {
+      final response = await http
+          .get(
+            ApiClient.uri('/api/community/feed'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        setState(() {
+          _rawFeeds = decoded is List ? decoded : [];
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _isLoading = false;
+          _hasError = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('커뮤니티 피드 조회 오류: $e');
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
+    }
+  }
 
   List<_FeedItem> get _visibleFeedItems {
-    final location = _locations[_selectedLocationIndex];
-    final items = _feedItems.where((item) => item.location == location);
+    final List<_FeedItem> items = _rawFeeds.map((data) {
+      final String id = data['id']?.toString() ?? '';
+      final String loc = data['location']?.toString() ?? '알 수 없음';
+      final String title = data['title']?.toString() ?? '';
+      final String author = data['author']?.toString() ?? '알 수 없음';
+      final int likes = (data['likes'] as num?)?.toInt() ?? 0;
+      final int comments = (data['comments'] as num?)?.toInt() ?? 0;
+      final String rawStatus = data['status']?.toString() ?? 'PENDING';
+      final imageUrls = data['imageUrls'] is List
+          ? data['imageUrls'] as List
+          : const [];
+      final String? imageUrl = imageUrls
+          .map((url) => url.toString())
+          .where(
+            (url) => url.startsWith('http://') || url.startsWith('https://'),
+          )
+          .firstOrNull;
+
+      final String status = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => '승인 완료',
+        'PENDING' => '검토 중',
+        _ => '가격 변동',
+      };
+
+      final Color statusColor = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => CommunityFeedScreen.green,
+        'PENDING' => const Color(0xFF92400E),
+        _ => CommunityFeedScreen.orange,
+      };
+
+      final Color statusBackground = switch (rawStatus.toUpperCase()) {
+        'APPROVED' => const Color(0xFFE8F8F1),
+        'PENDING' => const Color(0xFFFEF3C7),
+        _ => const Color(0xFFFFF3EA),
+      };
+
+      final Color? dotColor = rawStatus.toUpperCase() == 'PENDING'
+          ? CommunityFeedScreen.amber
+          : null;
+
+      final bool compactStatus = rawStatus.toUpperCase() == 'PENDING';
+
+      final hash = id.hashCode.abs();
+      final List<Color> bgColors = [
+        const Color(0xFFFFE4D4),
+        const Color(0xFFE0E7FF),
+        const Color(0xFFDCFCE7),
+        const Color(0xFFF3E8FF),
+      ];
+      final Color imageBackground = bgColors[hash % bgColors.length];
+
+      return _FeedItem(
+        id: id,
+        location: loc,
+        title: title,
+        author: author,
+        likes: likes,
+        comments: comments,
+        status: status,
+        statusColor: statusColor,
+        statusBackground: statusBackground,
+        imageBackground: imageBackground,
+        imageUrl: imageUrl,
+        dotColor: dotColor,
+        compactStatus: compactStatus,
+      );
+    }).toList();
+
+    // 현위치 라벨과 일치하는 제보가 있으면 그 지역만, 없으면 전체 표시.
+    // (실데이터 location은 '구로구' 등 다양한 형식이라 정확 일치가 거의 없을 수 있음)
+    final matched = items
+        .where((item) => item.location == _locationLabel)
+        .toList();
+    final List<_FeedItem> scoped = matched.isNotEmpty ? matched : items;
 
     return switch (_selectedFilterIndex) {
-      1 => items.where((item) => item.status == '가격 변동').toList(),
-      2 => (items.toList()..sort((a, b) => b.likes.compareTo(a.likes))),
-      _ => items.toList(),
+      1 => scoped.where((item) => item.status == '가격 변동').toList(),
+      2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
+      _ => scoped,
     };
   }
 
-  void _cycleLocation() {
-    setState(() {
-      _selectedLocationIndex = (_selectedLocationIndex + 1) % _locations.length;
-    });
+  Widget _buildContent() {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+      );
+    }
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: CommunityFeedScreen.hint,
+              size: 36,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '피드를 불러오지 못했어요',
+              style: TextStyle(
+                color: CommunityFeedScreen.ink,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '네트워크 상태를 확인하고 다시 시도해주세요',
+              style: TextStyle(
+                color: CommunityFeedScreen.muted,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: _fetchFeeds, child: const Text('다시 시도')),
+          ],
+        ),
+      );
+    }
+    final items = _visibleFeedItems;
+    if (items.isEmpty) {
+      return const Center(
+        child: Text(
+          '아직 제보가 없어요. 첫 제보를 남겨보세요!',
+          style: TextStyle(
+            color: CommunityFeedScreen.muted,
+            fontFamily: CommunityFeedScreen.fontFamily,
+            fontFamilyFallback: CommunityFeedScreen.fontFallback,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: items
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.only(bottom: 11.989),
+                child: _FeedCard(
+                  title: item.title,
+                  author: item.author,
+                  likes: item.likes,
+                  comments: item.comments,
+                  status: item.status,
+                  statusColor: item.statusColor,
+                  statusBackground: item.statusBackground,
+                  imageBackground: item.imageBackground,
+                  imageUrl: item.imageUrl,
+                  dotColor: item.dotColor,
+                  compactStatus: item.compactStatus,
+                  onTap: () => context.push(
+                    '${AppRoutes.communityPostDetail}?id=${item.id}',
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
   }
 
   @override
@@ -65,8 +326,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         children: [
           Positioned(
             left: 0,
+            right: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
             height: 48.878,
             child: _Header(
               onBack: () => context.go(AppRoutes.home),
@@ -74,19 +335,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 60.87,
-            width: 335.45452880859375,
+            right: 20,
             height: 28,
-            child: _LocationRow(
-              location: _locations[_selectedLocationIndex],
-              onTap: _cycleLocation,
-            ),
+            child: _LocationRow(location: _locationLabel),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 100.85,
-            width: 335.45452880859375,
+            right: 20,
             height: 33.793,
             child: _FilterRow(
               selectedIndex: _selectedFilterIndex,
@@ -95,37 +353,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             ),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: topOffset + 150.64,
-            width: 335.45452880859375,
-            child: Column(
-              children: _visibleFeedItems
-                  .map(
-                    (item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 11.989),
-                      child: _FeedCard(
-                        title: item.title,
-                        author: item.author,
-                        likes: item.likes,
-                        comments: item.comments,
-                        status: item.status,
-                        statusColor: item.statusColor,
-                        statusBackground: item.statusBackground,
-                        imageBackground: item.imageBackground,
-                        dotColor: item.dotColor,
-                        compactStatus: item.compactStatus,
-                        onTap: () =>
-                            context.push(AppRoutes.communityPostDetail),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+            right: 20,
+            bottom: bottomNavHeight + 85,
+            child: _buildContent(),
           ),
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             bottom: bottomNavHeight + 16,
-            width: 335.45452880859375,
+            right: 20,
             height: 54.972,
             child: _NewReportButton(
               onTap: () => context.push(AppRoutes.reportCreate),
@@ -133,8 +370,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
           ),
           Positioned(
             left: 0,
+            right: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
             height: bottomNavHeight,
             child: HowmuchBottomNav(
               safeBottom: safePadding.bottom,
@@ -163,7 +400,7 @@ class _Header extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            left: 20,
+            left: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -196,7 +433,7 @@ class _Header extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 20,
+            right: AppSizes.horizontalPadding,
             top: 13.98,
             width: 28,
             height: 20,
@@ -217,17 +454,16 @@ class _Header extends StatelessWidget {
 }
 
 class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.location, required this.onTap});
+  const _LocationRow({required this.location});
 
   final String location;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _LocationChip(location: location, onTap: onTap),
-        const SizedBox(width: 8),
+        _LocationChip(location: location),
+        const SizedBox(width: AppSizes.smallSpacing),
         Text(
           '$location 기준',
           style: TextStyle(
@@ -245,45 +481,40 @@ class _LocationRow extends StatelessWidget {
 }
 
 class _LocationChip extends StatelessWidget {
-  const _LocationChip({required this.location, required this.onTap});
+  const _LocationChip({required this.location});
 
   final String location;
-  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 28,
-        padding: const EdgeInsets.only(left: 10, right: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF4FF),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.location_on_outlined,
-              size: 12,
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.only(left: 10, right: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF4FF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.location_on_outlined,
+            size: 12,
+            color: CommunityFeedScreen.blue,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            location,
+            style: const TextStyle(
               color: CommunityFeedScreen.blue,
+              fontFamily: CommunityFeedScreen.fontFamily,
+              fontFamilyFallback: CommunityFeedScreen.fontFallback,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
             ),
-            const SizedBox(width: 4),
-            Text(
-              location,
-              style: const TextStyle(
-                color: CommunityFeedScreen.blue,
-                fontFamily: CommunityFeedScreen.fontFamily,
-                fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -339,7 +570,7 @@ class _FilterChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 33.793,
-        padding: EdgeInsets.symmetric(horizontal: selected ? 13 : 13.909),
+        padding: EdgeInsets.symmetric(horizontal: AppSizes.horizontalPadding),
         decoration: BoxDecoration(
           color: selected ? CommunityFeedScreen.blue : Colors.white,
           border: selected
@@ -374,6 +605,7 @@ class _FeedCard extends StatelessWidget {
     required this.statusColor,
     required this.statusBackground,
     required this.imageBackground,
+    required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
     required this.onTap,
@@ -387,6 +619,7 @@ class _FeedCard extends StatelessWidget {
   final Color statusColor;
   final Color statusBackground;
   final Color imageBackground;
+  final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
   final VoidCallback onTap;
@@ -414,13 +647,13 @@ class _FeedCard extends StatelessWidget {
               width: 91.989,
               height: imageHeight,
               color: imageBackground,
-              child: const Center(
-                child: Icon(
-                  Icons.image_outlined,
-                  color: CommunityFeedScreen.hint,
-                  size: 22,
-                ),
-              ),
+              child: imageUrl == null
+                  ? const _FeedImageFallback()
+                  : Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const _FeedImageFallback(),
+                    ),
             ),
             Expanded(
               child: Padding(
@@ -638,6 +871,7 @@ class _StatusBadge extends StatelessWidget {
 
 class _FeedItem {
   const _FeedItem({
+    required this.id,
     required this.location,
     required this.title,
     required this.author,
@@ -647,10 +881,12 @@ class _FeedItem {
     required this.statusColor,
     required this.statusBackground,
     required this.imageBackground,
+    required this.imageUrl,
     this.dotColor,
     this.compactStatus = false,
   });
 
+  final String id;
   final String location;
   final String title;
   final String author;
@@ -660,44 +896,22 @@ class _FeedItem {
   final Color statusColor;
   final Color statusBackground;
   final Color imageBackground;
+  final String? imageUrl;
   final Color? dotColor;
   final bool compactStatus;
 }
 
-const _feedItems = [
-  _FeedItem(
-    location: '합정동',
-    title: '골목밥상 제육덮밥 6,000원',
-    author: '절약왕민수',
-    likes: 32,
-    comments: 8,
-    status: '승인 완료',
-    statusColor: CommunityFeedScreen.green,
-    statusBackground: Color(0xFFE8F8F1),
-    imageBackground: Color(0xFFFFE4D4),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '동네카페 아메리카노 2,500원으로 인상',
-    author: '강남직장인',
-    likes: 12,
-    comments: 4,
-    status: '가격 변동',
-    statusColor: CommunityFeedScreen.orange,
-    statusBackground: Color(0xFFFFF3EA),
-    imageBackground: Color(0xFFE0E7FF),
-  ),
-  _FeedItem(
-    location: '역삼동',
-    title: '착한미용실 남성컷 8,000원',
-    author: '동네탐험가',
-    likes: 21,
-    comments: 6,
-    status: '검토 중',
-    statusColor: Color(0xFF92400E),
-    statusBackground: Color(0xFFFEF3C7),
-    imageBackground: Color(0xFFDCFCE7),
-    dotColor: CommunityFeedScreen.amber,
-    compactStatus: true,
-  ),
-];
+class _FeedImageFallback extends StatelessWidget {
+  const _FeedImageFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Icon(
+        Icons.image_outlined,
+        color: CommunityFeedScreen.hint,
+        size: 22,
+      ),
+    );
+  }
+}

@@ -30,18 +30,21 @@ public class SessionAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        if (requiresAuth(request)) {
-            String header = request.getHeader("Authorization");
-            String token = (header != null && header.startsWith("Bearer "))
-                    ? header.substring(7) : null;
-            String uid = sessionTokenService.verifyAndGetUid(token);
+        String header = request.getHeader("Authorization");
+        String token = (header != null && header.startsWith("Bearer "))
+                ? header.substring(7) : null;
+        String uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
 
+        if (requiresAuth(request)) {
             if (uid == null) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json;charset=UTF-8");
                 response.getWriter().write("{\"success\":false,\"message\":\"인증이 필요합니다. 다시 로그인해주세요.\"}");
                 return;
             }
+        }
+
+        if (uid != null) {
             request.setAttribute(UID_ATTRIBUTE, uid);
         }
         filterChain.doFilter(request, response);
@@ -57,12 +60,23 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         if ("OPTIONS".equalsIgnoreCase(method)) return false;
 
         if (path.startsWith("/api/user/")) return true;
+        // 문의는 작성자 본인의 내역과 답변만 다루므로 세션 인증이 필수입니다.
+        if (path.startsWith("/api/inquiry")) return true;
         if (path.startsWith("/api/report/")) return true;
         if (path.startsWith("/api/ai/")) return true;
         if (path.startsWith("/api/visits")) return true;
+        // 찜하기·절약(목표/내역/통계)은 전부 인증 필요
+        if (path.startsWith("/api/favorites")) return true;
         if (path.startsWith("/api/savings")) return true;
+        // 내 리뷰 조회는 인증 필요, 매장별 리뷰 조회(GET)는 공개
+        if (path.equals("/api/review/me")) return true;
         // 리뷰 조회(GET)는 공개, 작성(POST)만 인증 필요
         if (path.startsWith("/api/review") && !"GET".equalsIgnoreCase(method)) return true;
+        // 커뮤니티: 피드/댓글/답글 "조회(GET)"는 공개, 작성·좋아요·알림(POST/DELETE)은 인증 필요
+        // (uid가 있어야 isMine 계산·작성자 기록·멱등 좋아요/구독이 가능)
+        if (path.startsWith("/api/community/") && !"GET".equalsIgnoreCase(method)) return true;
+        // 알림함(내 알림 목록/읽음)은 인증 필요
+        if (path.startsWith("/api/notifications")) return true;
         return false;
     }
 }

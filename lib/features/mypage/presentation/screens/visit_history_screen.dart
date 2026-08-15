@@ -28,6 +28,7 @@ class VisitHistoryScreen extends StatefulWidget {
 class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _visits = [];
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -38,13 +39,16 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   Future<void> _fetchVisits() async {
     setState(() {
       _isLoading = true;
+      _errorMessage = null;
     });
 
     try {
-      final response = await http.get(
-        ApiClient.uri('/api/visits'),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
+      final response = await http
+          .get(
+            ApiClient.uri('/api/visits'),
+            headers: ApiClient.jsonHeaders(auth: true),
+          )
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -52,16 +56,25 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           final isGov = item['isGov'] == true;
           final savedAmt = (item['savedAmount'] as num?)?.toInt() ?? 0;
           final priceAmt = (item['price'] as num?)?.toInt() ?? 0;
+          final verificationMethod = item['verificationMethod']?.toString();
+          final verificationDistance =
+              (item['verificationDistanceMeters'] as num?)?.toDouble();
           final dateStr = _formatDate(item['visitedAt']?.toString());
 
           return {
             'isGov': isGov,
             'name': item['storeName'] ?? '미등록 매장',
             'menu': item['menu'] ?? '일반 방문',
-            'price': priceAmt > 0 ? '${_formatCurrency(priceAmt)}원' : '가격 정보 없음',
+            'price': priceAmt > 0
+                ? '${_formatCurrency(priceAmt)}원'
+                : '가격 정보 없음',
             'savedAmount': savedAmt,
             'saving': '${_formatCurrency(savedAmt)}원 절약',
             'date': dateStr,
+            'verification':
+                verificationMethod == 'LOCATION' && verificationDistance != null
+                ? '위치 인증 · ${verificationDistance.round()}m'
+                : null,
             'icon': isGov ? Icons.smart_toy_rounded : Icons.local_cafe_rounded,
           };
         }).toList();
@@ -71,57 +84,21 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           _isLoading = false;
         });
       } else {
-        _loadFallbackData();
+        _showFetchError(
+          response.statusCode == 401
+              ? '로그인 후 방문 기록을 확인할 수 있어요.'
+              : '방문 기록을 불러오지 못했어요.',
+        );
       }
     } catch (e) {
-      _loadFallbackData();
+      _showFetchError('네트워크 상태를 확인한 뒤 다시 시도해주세요.');
     }
   }
 
-  void _loadFallbackData() {
+  void _showFetchError(String message) {
     setState(() {
-      _visits = [
-        {
-          'isGov': true,
-          'name': '착한분식',
-          'menu': '김치찌개',
-          'price': '5,500원',
-          'savedAmount': 2000,
-          'saving': '2,000원 절약',
-          'date': '2026.05.10',
-          'icon': Icons.smart_toy_rounded,
-        },
-        {
-          'isGov': false,
-          'name': '동네카페',
-          'menu': '아메리카노',
-          'price': '2,000원',
-          'savedAmount': 2300,
-          'saving': '2,300원 절약',
-          'date': '2026.05.07',
-          'icon': Icons.local_cafe_rounded,
-        },
-        {
-          'isGov': true,
-          'name': '착한칼국수',
-          'menu': '칼국수',
-          'price': '5,000원',
-          'savedAmount': 1500,
-          'saving': '1,500원 절약',
-          'date': '2026.05.04',
-          'icon': Icons.smart_toy_rounded,
-        },
-        {
-          'isGov': true,
-          'name': '정다운식당',
-          'menu': '백반',
-          'price': '6,500원',
-          'savedAmount': 1500,
-          'saving': '1,500원 절약',
-          'date': '2026.04.28',
-          'icon': Icons.smart_toy_rounded,
-        },
-      ];
+      _visits = [];
+      _errorMessage = message;
       _isLoading = false;
     });
   }
@@ -152,7 +129,10 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   }
 
   int get _totalSavedAmount {
-    return _visits.fold(0, (sum, item) => sum + ((item['savedAmount'] as int?) ?? 0));
+    return _visits.fold(
+      0,
+      (sum, item) => sum + ((item['savedAmount'] as int?) ?? 0),
+    );
   }
 
   @override
@@ -167,7 +147,11 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             backgroundColor: _Colors.white,
             elevation: 0,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _Colors.black, size: 20),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: _Colors.black,
+                size: 20,
+              ),
               onPressed: () => Navigator.of(context).pop(),
             ),
             title: const Text(
@@ -186,7 +170,10 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                   child: RichText(
                     text: TextSpan(
                       text: '총 ',
-                      style: const TextStyle(color: _Colors.muted, fontSize: 14),
+                      style: const TextStyle(
+                        color: _Colors.muted,
+                        fontSize: 14,
+                      ),
                       children: [
                         TextSpan(
                           text: '${_visits.length}',
@@ -216,7 +203,36 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                     children: [
                       _buildSummaryCard(),
                       Expanded(
-                        child: _visits.isEmpty
+                        child: _errorMessage != null
+                            ? ListView(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                children: [
+                                  const SizedBox(height: 88),
+                                  const Icon(
+                                    Icons.cloud_off_rounded,
+                                    color: _Colors.muted,
+                                    size: 36,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Center(
+                                    child: Text(
+                                      _errorMessage!,
+                                      style: const TextStyle(
+                                        color: _Colors.muted,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Center(
+                                    child: OutlinedButton(
+                                      onPressed: _fetchVisits,
+                                      child: const Text('다시 시도'),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : _visits.isEmpty
                             ? ListView(
                                 physics: const AlwaysScrollableScrollPhysics(),
                                 children: const [
@@ -239,7 +255,8 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                                   vertical: 12,
                                 ),
                                 itemCount: _visits.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 10),
                                 itemBuilder: (context, index) =>
                                     _buildVisitCard(_visits[index]),
                               ),
@@ -365,6 +382,17 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                   '${item['menu']} · ${item['price']}',
                   style: const TextStyle(color: _Colors.muted, fontSize: 13),
                 ),
+                if (item['verification'] != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    item['verification'] as String,
+                    style: const TextStyle(
+                      color: _Colors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 // 절약 금액
                 Row(

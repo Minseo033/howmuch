@@ -17,12 +17,29 @@ import java.util.Base64;
 @Service
 public class SessionTokenService {
 
+    private static final String DEV_FALLBACK_SECRET = "dev-only-howmuch-session-secret-change-me";
+
     private final String secret;
     private final long ttlMillis;
 
     public SessionTokenService(
-            @Value("${session.secret:dev-only-howmuch-session-secret-change-me}") String secret,
-            @Value("${session.ttl-hours:168}") long ttlHours) {
+            @Value("${session.secret:}") String secret,
+            @Value("${session.ttl-hours:168}") long ttlHours,
+            @Value("${session.allow-dev-secret:true}") boolean allowDevSecret) {
+        // 💡 fail-fast: 알려진 dev 기본값/빈 시크릿으로는 토큰 위조가 가능하므로,
+        //    운영(session.allow-dev-secret=false)에서는 부팅을 거부합니다.
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "SESSION_SECRET이 설정되지 않았습니다. 환경변수 SESSION_SECRET을 반드시 주입하세요.");
+        }
+        if (DEV_FALLBACK_SECRET.equals(secret) && !allowDevSecret) {
+            throw new IllegalStateException(
+                    "SESSION_SECRET에 dev 기본값이 사용되었습니다. 운영 환경에서는 반드시 새 랜덤 시크릿으로 교체하세요.");
+        }
+        if (DEV_FALLBACK_SECRET.equals(secret)) {
+            System.err.println("[보안 경고] SESSION_SECRET에 dev 기본값 사용 중 — 로컬 개발 전용. "
+                    + "운영 배포 시 SESSION_SECRET 환경변수와 session.allow-dev-secret=false를 설정하세요.");
+        }
         this.secret = secret;
         this.ttlMillis = ttlHours * 60L * 60L * 1000L;
     }

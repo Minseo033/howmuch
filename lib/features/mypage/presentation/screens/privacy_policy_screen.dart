@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PrivacyPolicyScreen extends StatefulWidget {
   const PrivacyPolicyScreen({super.key});
@@ -12,12 +13,12 @@ class PrivacyPolicyScreen extends StatefulWidget {
 }
 
 class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -54,21 +55,21 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
                       height: 73.80681610107422,
                       child: const _PrivacyIntroCard(),
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 150.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 253.0113525390625,
                       child: _TableOfContents(
                         onItemTap: _scrollToPolicyChapter,
@@ -76,8 +77,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 415.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 709,
                       child: const Column(
                         children: [
@@ -158,8 +159,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 1140.66748046875 + topOffset,
-                      width: 335.45452880859375,
                       height: 93.26704406738281,
                       child: _PrivacyManagerCard(
                         onInquiry: () => context.go(AppRoutes.inquiry),
@@ -167,8 +168,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 1249.9287109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 16.789772033691406,
                       child: const Center(
                         child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
@@ -261,11 +262,11 @@ class _LegalHeader extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: _PrivacyPolicyScreenState.border,
@@ -281,7 +282,7 @@ class _LegalHeader extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -316,7 +317,7 @@ class _LegalHeader extends StatelessWidget {
               width: 44,
               height: 44,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   borderRadius: BorderRadius.circular(22),
                   onTap: onAction,
@@ -342,8 +343,8 @@ class _PrivacyIntroCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
-        border: Border.all(color: const Color(0x212563EB), width: .909),
+        color: AppColors.primaryLight,
+        border: Border.all(color: AppColors.primaryAlpha, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -353,7 +354,7 @@ class _PrivacyIntroCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -425,7 +426,7 @@ class _TocRow extends StatelessWidget {
     return SizedBox(
       height: 27.4,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           onTap: onTap,
           child: Row(
@@ -476,7 +477,7 @@ class _PolicyChapter extends StatelessWidget {
                     width: 21.988,
                     height: 21.988,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF4FF),
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     alignment: Alignment.center,
@@ -572,7 +573,7 @@ class _PrivacyManagerCard extends StatelessWidget {
                   ),
                 ),
                 Material(
-                  color: const Color(0xFFEFF4FF),
+                  color: AppColors.primaryLight,
                   borderRadius: BorderRadius.circular(10),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
@@ -613,7 +614,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: _PrivacyPolicyScreenState.border,
           width: .909,

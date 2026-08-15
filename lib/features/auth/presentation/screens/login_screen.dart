@@ -24,22 +24,22 @@ class LoginScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
+
     return FigmaMobileCanvas(
-      child: Stack(
-        children: [
-          const Positioned(
-            left: 153.7215576171875,
-            top: 97.31533813476562,
-            width: 67.99715423583984,
-            height: 67.99715423583984,
-            child: _LoginLogo(),
-          ),
-          const Positioned(
-            left: 105.15625,
-            top: 183.13067626953125,
-            width: 165.1420440673828,
-            height: 45,
-            child: Text(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Spacer(flex: 3),
+            const SizedBox(
+              width: 68,
+              height: 68,
+              child: _LoginLogo(),
+            ),
+            const Spacer(flex: 1),
+            const Text(
               '얼마고?',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -51,13 +51,8 @@ class LoginScreen extends ConsumerWidget {
                 height: 1.5,
               ),
             ),
-          ),
-          const Positioned(
-            left: 105.15625,
-            top: 238.30966186523438,
-            width: 165.1420440673828,
-            height: 38.977272033691406,
-            child: Text(
+            const SizedBox(height: 12),
+            const Text(
               '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
               textAlign: TextAlign.center,
               style: TextStyle(
@@ -69,19 +64,15 @@ class LoginScreen extends ConsumerWidget {
                 height: 1.5,
               ),
             ),
-          ),
-          Positioned(
-            left: 27.9971923828125,
-            top: 374.616455078125,
-            width: 319.460205078125,
-            child: Column(
+            const Spacer(flex: 2),
+            Column(
               children: [
                 _SocialLoginButton(
                   label: '카카오로 계속하기',
                   backgroundColor: const Color(0xFFFEE500),
                   foregroundColor: const Color(0xFF191600),
                   icon: Icons.chat_bubble_rounded,
-                  onPressed: () => _handleSocialLogin(ref, context, provider: '카카오'),
+                  onPressed: () => _loginWith(ref, context, provider: '카카오'),
                 ),
                 const SizedBox(height: 10),
                 _SocialLoginButton(
@@ -89,7 +80,7 @@ class LoginScreen extends ConsumerWidget {
                   backgroundColor: const Color(0xFF03C75A),
                   foregroundColor: Colors.white,
                   textIcon: 'N',
-                  onPressed: () => _handleSocialLogin(ref, context, provider: '네이버'),
+                  onPressed: () => _loginWith(ref, context, provider: '네이버'),
                 ),
                 const SizedBox(height: 10),
                 _SocialLoginButton(
@@ -97,62 +88,56 @@ class LoginScreen extends ConsumerWidget {
                   backgroundColor: ink,
                   foregroundColor: Colors.white,
                   icon: Icons.apple_rounded,
-                  onPressed: () => _handleSocialLogin(ref, context, provider: 'Apple'),
+                  onPressed: () => _loginWith(ref, context, provider: 'Apple'),
                 ),
               ],
             ),
-          ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 566.57666015625,
-            width: 319.460205078125,
-            height: 16.49147605895996,
-            child: _DividerLabel(),
-          ),
-          Positioned(
-            left: 27.9971923828125,
-            top: 599.0624389648438,
-            width: 319.460205078125,
-            height: 50,
-            child: TextButton(
-              onPressed: () => context.go(AppRoutes.permissionSetup),
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFF1F5F9),
-                foregroundColor: ink,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: fontFamily,
-                  fontFamilyFallback: fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
-                ),
-              ),
-              child: const Text('로그인 없이 둘러보기'),
+            const SizedBox(height: 32),
+            const SizedBox(
+              height: 16.5,
+              child: _DividerLabel(),
             ),
-          ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 665.0567626953125,
-            width: 319.460205078125,
-            height: 56.96022415161133,
-            child: _LoginNotice(),
-          ),
-          const Positioned(
-            left: 27.9971923828125,
-            top: 737.0112915039062,
-            width: 319.460205078125,
-            height: 30,
-            child: _TermsText(),
-          ),
-        ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: TextButton(
+                onPressed: () => context.go(AppRoutes.permissionSetup),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  foregroundColor: ink,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: fontFamily,
+                    fontFamilyFallback: fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+                child: const Text('로그인 없이 둘러보기'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const SizedBox(
+              height: 56.96,
+              child: _LoginNotice(),
+            ),
+            const SizedBox(height: 16),
+            const SizedBox(
+              height: 30,
+              child: _TermsText(),
+            ),
+            SizedBox(height: safeBottom > 0 ? safeBottom / 2 : 20),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _handleSocialLogin(
+  Future<void> _loginWith(
     WidgetRef ref,
     BuildContext context, {
     required String provider,
@@ -160,25 +145,23 @@ class LoginScreen extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     if (provider == '카카오') {
-      final success = await ref.read(kakaoLoginServiceProvider).login();
-      if (success) {
+      final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
+      if (errorMsg == null) {
         if (context.mounted) {
-          context.go(AppRoutes.permissionSetup);
           messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
         }
       } else {
         if (context.mounted) {
-          messenger.showSnackBar(const SnackBar(content: Text('로그인에 실패했습니다.')));
+          messenger.showSnackBar(SnackBar(content: Text('로그인 실패: $errorMsg')));
         }
       }
     } else {
       // 💡 타 소셜 로그인은 현재 더미 로직 유지
-      ref.read(authStateProvider.notifier).update((state) => state.copyWith(
+      ref.read(authStateProvider.notifier).state = AuthState(
         isLoggedIn: true,
-        isAdmin: false,
         provider: provider,
         email: 'user@example.com',
-      ));
+      );
       if (context.mounted) {
         context.go(AppRoutes.permissionSetup);
         messenger.showSnackBar(SnackBar(content: Text('$provider로 로그인했어요. (더미)')));

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -55,6 +56,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    if (_isTyping) return;
+    
     final messageText = _controller.text.trim();
     if (messageText.isEmpty && _attachedPhoto == null) {
       return;
@@ -148,22 +151,22 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
             Positioned(
               left: 0,
               top: 0,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: topOffset + 58,
               child: _ChatHeader(topPadding: topOffset),
             ),
             Positioned(
               left: 0,
               top: topOffset + 57,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: 1,
               child: const ColoredBox(color: Color(0xFFE1E6EF)),
             ),
             Positioned(
               left: 0,
               top: contentTop,
-              width: FigmaMobileCanvas.width,
-              height: FigmaMobileCanvas.height - contentTop,
+              right: 0,
+              bottom: 0,
               child: ListView(
                 controller: _scrollController,
                 padding: EdgeInsets.fromLTRB(20, 25, 20, contentBottomPadding),
@@ -232,7 +235,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
             Positioned(
               left: 0,
               bottom: keyboardOffset + composerLift,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: composerHeight,
               child: _Composer(
                 controller: _controller,
@@ -465,7 +468,7 @@ class _GreetingBubble extends StatelessWidget {
         ],
       ),
       child: const Text(
-        '안녕하세요 민준님 👋\n현재 위치 서울 마포구 합정동 근처에서 추천드릴게요.\n아래에서 골라보시거나 직접 입력하셔도 돼요.',
+        '안녕하세요 고객님 👋\n현재 위치를 기반으로 가성비 매장을 추천드릴게요.\n아래에서 골라보시거나 직접 입력하셔도 돼요.',
         style: TextStyle(
           color: _AiUi.ink,
           fontFamily: _AiUi.fontFamily,
@@ -685,20 +688,27 @@ class _AttachmentPreview extends StatelessWidget {
             child: SizedBox(
               width: 38,
               height: 38,
-              child: Image.file(
-                File(photo.path),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const ColoredBox(
-                    color: Color(0xFFEFF6FF),
-                    child: Icon(
-                      Icons.image_outlined,
-                      color: Color(0xFF2563EB),
-                      size: 20,
+              child: kIsWeb
+                  ? Image.network(
+                      photo.path,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const ColoredBox(
+                          color: Color(0xFFEFF6FF),
+                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                        );
+                      },
+                    )
+                  : Image.file(
+                      File(photo.path),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const ColoredBox(
+                          color: Color(0xFFEFF6FF),
+                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -767,20 +777,27 @@ class _UserMessageBubble extends StatelessWidget {
                   child: SizedBox(
                     width: 236,
                     height: 132,
-                    child: Image.file(
-                      File(message.photo!.path),
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const ColoredBox(
-                          color: Color(0xFFEFF6FF),
-                          child: Icon(
-                            Icons.image_outlined,
-                            color: Color(0xFF2563EB),
-                            size: 30,
+                    child: kIsWeb
+                        ? Image.network(
+                            message.photo!.path,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const ColoredBox(
+                                color: Color(0xFFEFF6FF),
+                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                              );
+                            },
+                          )
+                        : Image.file(
+                            File(message.photo!.path),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const ColoredBox(
+                                color: Color(0xFFEFF6FF),
+                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
                   ),
                 ),
               if (message.text.isNotEmpty) ...[

@@ -4,17 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class ProfileEditScreen extends ConsumerStatefulWidget {
   const ProfileEditScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const disabled = Color(0xFFCBD5E1);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
+  static const disabled = AppColors.disabled;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -67,7 +68,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
@@ -92,8 +93,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 201.34912109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 144.65908813476562,
                       child: _BasicInfoCard(
                         nickname: profile.nickname,
@@ -107,8 +108,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 386.4912109375 + topOffset,
-                      width: 335.45452880859375,
                       height: 74.27556610107422,
                       child: _RegionCard(region: profile.region),
                     ),
@@ -119,8 +120,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     ),
                     Positioned(
                       left: 20,
+                      right: 20,
                       top: 501.25 + topOffset,
-                      width: 335.45452880859375,
                       height: 132.41476440429688,
                       child: _PrivacyCard(
                         nicknamePublic: _nicknamePublic,
@@ -150,7 +151,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
@@ -192,11 +193,11 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: ProfileEditScreen.border, width: .909),
           ),
@@ -209,7 +210,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -258,8 +259,8 @@ class _Avatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFFEFF4FF),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -277,12 +278,12 @@ class _CameraBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: ProfileEditScreen.blue,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.818),
+        border: Border.all(color: AppColors.white, width: 1.818),
       ),
       alignment: Alignment.center,
       child: const Icon(
         Icons.photo_camera_rounded,
-        color: Colors.white,
+        color: AppColors.white,
         size: 13,
       ),
     );
@@ -516,12 +517,12 @@ class _Toggle extends StatelessWidget {
                   child: Container(
                     width: 17.99715805053711,
                     height: 17.99715805053711,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: AppColors.black.withOpacity(0.2),
                           blurRadius: 3,
                           offset: Offset(0, 1),
                         ),
@@ -567,8 +568,8 @@ class _StickyButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: ProfileEditScreen.border, width: .909),
         ),
@@ -583,7 +584,7 @@ class _StickyButton extends StatelessWidget {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: ProfileEditScreen.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -615,7 +616,7 @@ class _RoundedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: ProfileEditScreen.border, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),

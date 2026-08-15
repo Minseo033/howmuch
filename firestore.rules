@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The Flutter app uses only the Spring API. Firebase Admin SDK requests
+    // bypass Firestore rules, so direct client access can remain fully closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -4,19 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
-class NotificationSettingsScreen extends ConsumerWidget {
+class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const disabled = Color(0xFFCBD5E1);
+  static const blue = AppColors.primary;
+  static const orange = AppColors.warning;
+  static const green = AppColors.success;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
+  static const disabled = AppColors.disabled;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -28,8 +29,17 @@ class NotificationSettingsScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(notificationSettingsProvider);
+  ConsumerState<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState
+    extends ConsumerState<NotificationSettingsScreen> {
+  bool _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final settingsAsync = ref.watch(notificationSettingsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -38,7 +48,7 @@ class NotificationSettingsScreen extends ConsumerWidget {
         705.7955322265625 + topOffset + saveFooterHeight + 20;
 
     void update(NotificationSettings value) {
-      ref.read(notificationSettingsProvider.notifier).state = value;
+      ref.read(notificationSettingsProvider.notifier).updateSettings(value);
     }
 
     void updateTypes({
@@ -46,8 +56,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
       bool? report,
       bool? todayPick,
       bool? review,
+      required NotificationSettings current,
     }) {
-      final next = settings.copyWith(
+      final next = current.copyWith(
         price: price,
         report: report,
         todayPick: todayPick,
@@ -65,116 +76,277 @@ class NotificationSettingsScreen extends ConsumerWidget {
       context.go(AppRoutes.mypage);
     }
 
+    Future<void> pickQuietTime({
+      required NotificationSettings current,
+      required bool isStart,
+    }) async {
+      final initialValue = isStart ? current.quietStart : current.quietEnd;
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: _parseTime(initialValue),
+        helpText: isStart ? '방해 금지 시작 시간' : '방해 금지 종료 시간',
+      );
+      if (picked == null) return;
+      final serialized = _serializeTime(picked);
+      update(
+        isStart
+            ? current.copyWith(quietStart: serialized)
+            : current.copyWith(quietEnd: serialized),
+      );
+    }
+
     return FigmaMobileCanvas(
-      backgroundColor: surface,
+      backgroundColor: NotificationSettingsScreen.surface,
       child: Stack(
         children: [
           Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: FigmaMobileCanvas.width,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
-                      height: 73.29544830322266,
-                      child: _AllNotificationCard(
-                        value: settings.all,
-                        onTap: () {
-                          final next = !settings.all;
-                          update(
-                            settings.copyWith(
-                              all: next,
-                              price: next,
-                              report: next,
-                              todayPick: next,
-                              review: next,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      left: 23.991485595703125,
-                      top: 154.16162109375 + topOffset,
-                      child: const _SectionLabel('알림 유형'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 178.650390625 + topOffset,
-                      width: 335.45452880859375,
-                      height: 272.64202880859375,
-                      child: _NotificationTypeCard(
-                        settings: settings,
-                        onPriceTap: () => updateTypes(price: !settings.price),
-                        onReportTap: () =>
-                            updateTypes(report: !settings.report),
-                        onTodayPickTap: () =>
-                            updateTypes(todayPick: !settings.todayPick),
-                        onReviewTap: () =>
-                            updateTypes(review: !settings.review),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 463.28125 + topOffset,
-                      width: 335.45452880859375,
-                      height: 67.76988220214844,
-                      child: _PriceAlertEntryCard(
-                        onTap: () =>
-                            context.go(AppRoutes.priceAlertSubscription),
-                      ),
-                    ),
-                    Positioned(
-                      left: 23.991485595703125,
-                      top: 547.04541015625 + topOffset,
-                      child: const _SectionLabel('방해 금지 시간'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 571.5341796875 + topOffset,
-                      width: 335.45452880859375,
-                      height: 134.2613525390625,
-                      child: _QuietHoursCard(
-                        settings: settings,
-                        onToggle: () => update(
-                          settings.copyWith(quietHours: !settings.quietHours),
-                        ),
-                      ),
-                    ),
-                  ],
+            child: settingsAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  color: NotificationSettingsScreen.blue,
                 ),
               ),
+              error: (err, stack) {
+                final unauthorized =
+                    err is NotificationSettingsApiException &&
+                    err.isUnauthorized;
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F5F9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.error_outline_rounded,
+                            color: AppColors.warning,
+                            size: 30,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          unauthorized ? '로그인이 필요해요' : '설정을 불러오지 못했어요',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          unauthorized
+                              ? '로그인한 뒤 알림 설정을 변경할 수 있어요.'
+                              : '잠시 후 다시 시도해 주세요.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 140,
+                          height: 40,
+                          child: FilledButton(
+                            onPressed: () => ref
+                                .read(notificationSettingsProvider.notifier)
+                                .loadSettings(),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: NotificationSettingsScreen.blue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              '다시 시도',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+              data: (settings) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: scrollContentHeight,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 64.8720703125 + topOffset,
+                          height: 73.29544830322266,
+                          child: _AllNotificationCard(
+                            value: settings.all,
+                            onTap: () {
+                              final next = !settings.all;
+                              update(
+                                settings.copyWith(
+                                  all: next,
+                                  price: next,
+                                  report: next,
+                                  todayPick: next,
+                                  review: next,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Positioned(
+                          left: 23.991485595703125,
+                          top: 154.16162109375 + topOffset,
+                          child: const _SectionLabel('알림 유형'),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 178.650390625 + topOffset,
+                          height: 272.64202880859375,
+                          child: _NotificationTypeCard(
+                            settings: settings,
+                            onPriceTap: () => updateTypes(
+                              price: !settings.price,
+                              current: settings,
+                            ),
+                            onReportTap: () => updateTypes(
+                              report: !settings.report,
+                              current: settings,
+                            ),
+                            onTodayPickTap: () => updateTypes(
+                              todayPick: !settings.todayPick,
+                              current: settings,
+                            ),
+                            onReviewTap: () => updateTypes(
+                              review: !settings.review,
+                              current: settings,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 463.28125 + topOffset,
+                          height: 67.76988220214844,
+                          child: _PriceAlertEntryCard(
+                            onTap: () =>
+                                context.go(AppRoutes.priceAlertSubscription),
+                          ),
+                        ),
+                        Positioned(
+                          left: 23.991485595703125,
+                          top: 547.04541015625 + topOffset,
+                          child: const _SectionLabel('방해 금지 시간'),
+                        ),
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 571.5341796875 + topOffset,
+                          height: 134.2613525390625,
+                          child: _QuietHoursCard(
+                            settings: settings,
+                            onToggle: () => update(
+                              settings.copyWith(
+                                quietHours: !settings.quietHours,
+                              ),
+                            ),
+                            onStartTap: () =>
+                                pickQuietTime(current: settings, isStart: true),
+                            onEndTap: () => pickQuietTime(
+                              current: settings,
+                              isStart: false,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           _Header(topOffset: topOffset, title: '알림 설정', onBack: goBack),
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: saveFooterHeight,
-            child: _StickySaveButton(
-              safeBottom: bottomOffset,
-              onPressed: () {
-                final messenger = ScaffoldMessenger.of(context);
-                // TODO(박지환 BE): 알림 설정 저장 API가 붙으면 현재 provider 상태를 서버에 저장하세요.
-                messenger.clearSnackBars();
-                context.go(AppRoutes.mypage);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('알림 설정을 저장했어요.')),
-                );
-              },
+            child: settingsAsync.maybeWhen(
+              data: (settings) => _StickySaveButton(
+                safeBottom: bottomOffset,
+                isSaving: _isSaving,
+                onPressed: () async {
+                  setState(() {
+                    _isSaving = true;
+                  });
+                  final messenger = ScaffoldMessenger.of(context);
+                  final router = GoRouter.of(context);
+                  final success = await ref
+                      .read(notificationSettingsProvider.notifier)
+                      .saveSettings(settings);
+                  if (mounted) {
+                    setState(() {
+                      _isSaving = false;
+                    });
+                    messenger.clearSnackBars();
+                    if (success) {
+                      router.go(AppRoutes.mypage);
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('알림 설정을 저장했어요.')),
+                      );
+                    } else {
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('설정 저장 중 오류가 발생했습니다. 다시 시도해 주세요.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              orElse: () => const SizedBox.shrink(),
             ),
           ),
         ],
       ),
     );
+  }
+
+  static TimeOfDay _parseTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return const TimeOfDay(hour: 22, minute: 0);
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return const TimeOfDay(hour: 22, minute: 0);
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  static String _serializeTime(TimeOfDay value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 
@@ -194,11 +366,11 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: NotificationSettingsScreen.border,
@@ -214,7 +386,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -410,7 +582,7 @@ class _PriceAlertEntryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
@@ -421,7 +593,7 @@ class _PriceAlertEntryCard extends StatelessWidget {
                 top: 15.88037109375,
                 child: _CircleIcon(
                   icon: Icons.notifications_none_rounded,
-                  bg: Color(0xFFEFF4FF),
+                  bg: AppColors.primaryLight,
                   color: NotificationSettingsScreen.blue,
                 ),
               ),
@@ -452,10 +624,17 @@ class _PriceAlertEntryCard extends StatelessWidget {
 }
 
 class _QuietHoursCard extends StatelessWidget {
-  const _QuietHoursCard({required this.settings, required this.onToggle});
+  const _QuietHoursCard({
+    required this.settings,
+    required this.onToggle,
+    required this.onStartTap,
+    required this.onEndTap,
+  });
 
   final NotificationSettings settings;
   final VoidCallback onToggle;
+  final VoidCallback onStartTap;
+  final VoidCallback onEndTap;
 
   @override
   Widget build(BuildContext context) {
@@ -465,7 +644,7 @@ class _QuietHoursCard extends StatelessWidget {
           Positioned(
             left: 0,
             top: 0,
-            width: 335.45452880859375,
+            right: 0,
             height: 49,
             child: GestureDetector(
               onTap: onToggle,
@@ -490,12 +669,20 @@ class _QuietHoursCard extends StatelessWidget {
           Positioned(
             left: 16.903411865234375,
             top: 52.88330078125,
-            child: _TimeBox(label: '시작 시간', value: settings.quietStart),
+            child: _TimeBox(
+              label: '시작 시간',
+              value: settings.quietStart,
+              onTap: onStartTap,
+            ),
           ),
           Positioned(
             right: 16.903411865234375,
             top: 52.88330078125,
-            child: _TimeBox(label: '종료 시간', value: settings.quietEnd),
+            child: _TimeBox(
+              label: '종료 시간',
+              value: settings.quietEnd,
+              onTap: onEndTap,
+            ),
           ),
         ],
       ),
@@ -504,10 +691,15 @@ class _QuietHoursCard extends StatelessWidget {
 }
 
 class _TimeBox extends StatelessWidget {
-  const _TimeBox({required this.label, required this.value});
+  const _TimeBox({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -519,37 +711,61 @@ class _TimeBox extends StatelessWidget {
         children: [
           Text(label, style: _muted11),
           const SizedBox(height: 5.994),
-          Container(
-            height: 41.9886360168457,
-            padding: const EdgeInsets.symmetric(horizontal: 11.988),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(
+          Material(
+            color: AppColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(
                 color: NotificationSettingsScreen.border,
                 width: .909,
               ),
-              borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
-              children: [
-                Text(value, style: _semi13),
-                const Spacer(),
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 14,
-                  color: NotificationSettingsScreen.muted,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: 41.9886360168457,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 11.988),
+                  child: Row(
+                    children: [
+                      Text(_displayTime(value), style: _semi13),
+                      const Spacer(),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: NotificationSettingsScreen.muted,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  String _displayTime(String rawValue) {
+    final parts = rawValue.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return rawValue;
+    }
+    final period = hour < 12 ? '오전' : '오후';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$period $displayHour:${minute.toString().padLeft(2, '0')}';
+  }
 }
 
 class _StickySaveButton extends StatelessWidget {
-  const _StickySaveButton({required this.safeBottom, required this.onPressed});
+  const _StickySaveButton({
+    required this.safeBottom,
+    required this.onPressed,
+    this.isSaving = false,
+  });
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
@@ -558,6 +774,7 @@ class _StickySaveButton extends StatelessWidget {
 
   final double safeBottom;
   final VoidCallback onPressed;
+  final bool isSaving;
 
   static double effectiveSafeBottom(double safeBottom) {
     return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
@@ -572,8 +789,8 @@ class _StickySaveButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.white,
         border: Border(
           top: BorderSide(
             color: NotificationSettingsScreen.border,
@@ -593,7 +810,7 @@ class _StickySaveButton extends StatelessWidget {
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: NotificationSettingsScreen.blue,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -606,8 +823,17 @@ class _StickySaveButton extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                onPressed: onPressed,
-                child: const Text('설정 저장'),
+                onPressed: isSaving ? null : onPressed,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text('설정 저장'),
               ),
             ),
           ),
@@ -656,12 +882,12 @@ class _HowmuchToggle extends StatelessWidget {
                   child: Container(
                     width: 17.99715805053711,
                     height: 17.99715805053711,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: AppColors.black.withOpacity(0.2),
                           blurRadius: 3,
                           offset: Offset(0, 1),
                         ),
@@ -687,7 +913,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: NotificationSettingsScreen.border,
           width: .909,

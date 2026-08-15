@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class ReportDeleteConfirmScreen extends ConsumerWidget {
-  const ReportDeleteConfirmScreen({super.key});
+class ReportDeleteConfirmScreen extends ConsumerStatefulWidget {
+  const ReportDeleteConfirmScreen({super.key, this.report});
+
+  final UserReportStatus? report;
 
   static const red = Color(0xFFE53935);
   static const redBg = Color(0xFFFEE2E2);
@@ -28,32 +31,25 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ReportDeleteConfirmScreen> createState() =>
+      _ReportDeleteConfirmScreenState();
+}
+
+class _ReportDeleteConfirmScreenState
+    extends ConsumerState<ReportDeleteConfirmScreen> {
+  bool _isDeleting = false;
+
+  @override
+  Widget build(BuildContext context) {
     final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
 
     void close() {
+      if (_isDeleting) return;
       if (context.canPop()) {
         context.pop();
       } else {
-        context.go(AppRoutes.mypage);
+        context.go(AppRoutes.myReportsV2);
       }
-    }
-
-    void deleteReport() {
-      final messenger = ScaffoldMessenger.of(context);
-      final reports = ref.read(userReportsProvider);
-      ref.read(userReportsProvider.notifier).state = reports
-          .where((report) => report.id != 'report-golmok')
-          .toList();
-
-      final profile = ref.read(userProfileProvider);
-      ref.read(userProfileProvider.notifier).state = profile.copyWith(
-        reportCount: math.max(0, profile.reportCount - 1),
-      );
-
-      // TODO(박지환 BE): 실제 제보 삭제 API가 붙으면 여기에서 삭제 요청 후 성공 시 상태를 갱신하세요.
-      context.go(AppRoutes.mypage);
-      messenger.showSnackBar(const SnackBar(content: Text('골목밥상 제보를 삭제했어요.')));
     }
 
     return FigmaMobileCanvas(
@@ -63,8 +59,8 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
           Positioned(
             left: 0,
             top: topOffset,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - topOffset,
+            right: 0,
+            bottom: 0,
             child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
           ),
           Positioned(
@@ -72,19 +68,64 @@ class ReportDeleteConfirmScreen extends ConsumerWidget {
             top: topOffset + 241.015625,
             width: 327.4715881347656,
             height: 317.96875,
-            child: _DeleteDialog(onCancel: close, onDelete: deleteReport),
+            child: _DeleteDialog(
+              report: widget.report,
+              isDeleting: _isDeleting,
+              onCancel: close,
+              onDelete: widget.report == null ? null : _deleteReport,
+            ),
           ),
         ],
       ),
     );
   }
+
+  Future<void> _deleteReport() async {
+    final report = widget.report;
+    if (report == null || _isDeleting) return;
+
+    setState(() => _isDeleting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(reportServiceProvider).deleteReport(report.id);
+      if (!mounted) return;
+
+      ref.read(userReportsProvider.notifier).removeReport(report.id);
+      final profile = ref.read(userProfileProvider);
+      ref.read(userProfileProvider.notifier).state = profile.copyWith(
+        reportCount: math.max(0, profile.reportCount - 1),
+      );
+
+      context.go(AppRoutes.myReportsV2);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${report.store} 제보를 삭제했어요.')),
+      );
+    } on ReportServiceException catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() => _isDeleting = false);
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('제보 삭제 중 오류가 발생했습니다.')),
+      );
+      setState(() => _isDeleting = false);
+    }
+  }
 }
 
 class _DeleteDialog extends StatelessWidget {
-  const _DeleteDialog({required this.onCancel, required this.onDelete});
+  const _DeleteDialog({
+    required this.report,
+    required this.isDeleting,
+    required this.onCancel,
+    required this.onDelete,
+  });
 
+  final UserReportStatus? report;
+  final bool isDeleting;
   final VoidCallback onCancel;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -122,14 +163,16 @@ class _DeleteDialog extends StatelessWidget {
                 style: _dialogTitleText,
               ),
             ),
-            const Positioned(
-              left: 81.207275390625,
+            Positioned(
+              left: 20,
               top: 129.474609375,
-              width: 165.0426025390625,
+              width: 287.4715881347656,
               height: 19.488636016845703,
               child: Text(
-                '골목밥상 · 제육덮밥 6,000원',
+                _subtitle,
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: _dialogSubtitleText,
               ),
             ),
@@ -145,12 +188,23 @@ class _DeleteDialog extends StatelessWidget {
               top: 262.5712890625,
               width: 327.4715881347656,
               height: 55.39772415161133,
-              child: _DialogActions(onCancel: onCancel, onDelete: onDelete),
+              child: _DialogActions(
+                isDeleting: isDeleting,
+                onCancel: onCancel,
+                onDelete: onDelete,
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String get _subtitle {
+    final value = report;
+    if (value == null) return '제보 정보를 찾을 수 없어요.';
+    final menu = value.menu.trim();
+    return menu.isEmpty ? value.store : '${value.store} · $menu';
   }
 }
 
@@ -201,7 +255,7 @@ class _WarningPanel extends StatelessWidget {
             width: 242.49998474121094,
             height: 57.6136360168457,
             child: Text(
-              '삭제 후에는 되돌릴 수 없어요.\n승인 완료된 제보는 지도에서도 삭제 요청됩니다.',
+              '삭제 후에는 되돌릴 수 없어요.\n승인 완료된 제보는 지도에서도 즉시 제거됩니다.',
               style: _warningText,
             ),
           ),
@@ -212,10 +266,15 @@ class _WarningPanel extends StatelessWidget {
 }
 
 class _DialogActions extends StatelessWidget {
-  const _DialogActions({required this.onCancel, required this.onDelete});
+  const _DialogActions({
+    required this.isDeleting,
+    required this.onCancel,
+    required this.onDelete,
+  });
 
+  final bool isDeleting;
   final VoidCallback onCancel;
-  final VoidCallback onDelete;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -230,14 +289,15 @@ class _DialogActions extends StatelessWidget {
           _DialogAction(
             label: '취소',
             color: ReportDeleteConfirmScreen.muted,
-            onTap: onCancel,
+            onTap: isDeleting ? null : onCancel,
             showDivider: true,
           ),
           _DialogAction(
-            label: '삭제하기',
+            label: isDeleting ? '삭제 중...' : '삭제하기',
             color: ReportDeleteConfirmScreen.red,
             bold: true,
-            onTap: onDelete,
+            onTap: isDeleting ? null : onDelete,
+            showProgress: isDeleting,
           ),
         ],
       ),
@@ -252,13 +312,15 @@ class _DialogAction extends StatelessWidget {
     required this.onTap,
     this.bold = false,
     this.showDivider = false,
+    this.showProgress = false,
   });
 
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool bold;
   final bool showDivider;
+  final bool showProgress;
 
   @override
   Widget build(BuildContext context) {
@@ -280,16 +342,34 @@ class _DialogAction extends StatelessWidget {
                     )
                   : null,
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontFamily: ReportDeleteConfirmScreen.fontFamily,
-                fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
-                fontSize: 15,
-                fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-                height: 1.5,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (showProgress) ...[
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: color,
+                    ),
+                  ),
+                  const SizedBox(width: 7),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: onTap == null && !showProgress
+                        ? color.withValues(alpha: .45)
+                        : color,
+                    fontFamily: ReportDeleteConfirmScreen.fontFamily,
+                    fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
+                    fontSize: 15,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

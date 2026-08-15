@@ -7,4 +7,6 @@ import lombok.Getter;
 @AllArgsConstructor
 public class FirebaseTokenResponse {
     private String firebaseCustomToken;
+    private String firebaseUid;
+    private String sessionToken;
 }

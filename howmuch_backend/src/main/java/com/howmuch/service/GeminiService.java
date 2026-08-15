@@ -3,10 +3,12 @@ package com.howmuch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -17,15 +19,29 @@ import java.util.Map;
 @Service
 public class GeminiService {
 
-    // 💡 보안을 위해 백엔드에서 API 키를 관리합니다.
-    private final String GEMINI_API_KEY = "AQ.Ab8RN6KJLj_c8YVe8Ou15dzGyMwUcfs1BKKYEqHP49UngpFfsQ";
-    private final String GEMINI_MODEL = "gemini-2.5-flash-lite"; // 사용자가 요청한 최신 2.5 Flash-Lite 모델
-    private final RestTemplate restTemplate = new RestTemplate();
+    // 💡 보안: Gemini API 키는 환경변수(GEMINI_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
+    private final String geminiApiKey;
+    private final String geminiModel = "gemini-2.5-flash-lite"; // 사용자가 요청한 최신 2.5 Flash-Lite 모델
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
+                         @Value("${gemini.timeout-ms:10000}") int timeoutMs) {
+        this.geminiApiKey = geminiApiKey;
+        // 💡 외부 AI 호출 타임아웃 — 지연 시 요청 스레드 고갈 방지
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(timeoutMs);
+        factory.setReadTimeout(timeoutMs);
+        this.restTemplate = new RestTemplate(factory);
+    }
+
     public String getAiResponse(String userMessage) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            log.warn("GEMINI_API_KEY 미설정 — AI 응답 불가");
+            return "AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
+        }
         // 💡 2.5 모델을 지원하는 v1beta 엔드포인트를 사용합니다.
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + GEMINI_API_KEY;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":generateContent?key=" + geminiApiKey;
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -49,8 +65,45 @@ public class GeminiService {
                     .path("text").asText();
 
         } catch (Exception e) {
+            // 💡 날부 에러 상세(e.getMessage())는 로그에만 남기고, 클라이언트에는 일반 메시지만 반환
             log.error("Gemini API 호출 중 오류 발생: ", e);
-            return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다: " + e.getMessage();
+            return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
         }
     }
+
+    /**
+     * AI 루트 추천 — 오늘의 픽 매장 목록을 받아 최적 동선(식사→카페 등)을 추천.
+     * Gemini에 매장 정보를 전달해 순서/이유를 받아온다.
+     * @param picks 오늘의 픽 매장 목록 (storeName/menu1/price1/distanceMeters 포함)
+     * @return AI 추천 루트 텍스트
+     */
+    public String getRouteRecommendation(List<Map<String, Object>> picks) {
+        if (geminiApiKey == null || geminiApiKey.isBlank()) {
+            log.warn("GEMINI_API_KEY 미설정 — 루트 추천 불가");
+            return "AI 루트 추천이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
+        }
+        if (picks == null || picks.isEmpty()) {
+            return "추천할 매장이 없습니다.";
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("다음은 오늘의 픽으로 선정된 착한가격업소 매장 목록입니다. ");
+        sb.append("이 중에서 식사부터 카페까지 저렴한 동선(루트)을 추천해주세요. ");
+        sb.append("각 매장의 순서와 이동 이유를 간결하게 한국어로 알려주세요. ");
+        sb.append("응답은 '1. 매장명 (메뉴, 가격, 거리) - 이유' 형식으로 최대 3개까지만 나열해주세요.\n\n");
+        for (int i = 0; i < picks.size(); i++) {
+            Map<String, Object> p = picks.get(i);
+            sb.append(i + 1).append(". ")
+              .append(p.get("storeName")).append(" / ")
+              .append(p.get("menu1")).append(" / ")
+              .append(p.get("price1")).append("원");
+            if (p.get("distanceMeters") != null) {
+                sb.append(" / ").append(p.get("distanceMeters")).append("m");
+            }
+            sb.append("\n");
+        }
+
+        return getAiResponse(sb.toString());
+    }
 }
+

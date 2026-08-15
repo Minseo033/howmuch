@@ -18,10 +18,12 @@ public class FeedDetailResponseDto {
     private String author;
     private int likes;
     private int comments;
+    private boolean likedByMe;
+    private boolean notificationEnabled;
     private String status;
     private List<String> imageUrls;
     private String createdAt;
-    
+
     // Details from UserReport
     private String storeName;
     private String address;
@@ -37,5 +39,4 @@ public class FeedDetailResponseDto {
     private String price4;
     private boolean visitedRecently;
     private boolean checkedMenuPrice;
-    private String rejectReason;
 }

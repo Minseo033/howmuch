@@ -14,6 +14,7 @@ public class ReviewRequest {
     private String storeName;
     private String authorName;
     private String menu;
+    private Integer price;
     private String content;
     private int stars;
 }

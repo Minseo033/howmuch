@@ -3,20 +3,22 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class InquiryScreen extends ConsumerStatefulWidget {
   const InquiryScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const disabled = Color(0xFFCBD5E1);
+  static const blue = AppColors.primary;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
+  static const disabled = AppColors.disabled;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -42,10 +44,9 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: '착한분식 가격이 변경된 것 같아요');
-    _bodyController = TextEditingController(
-      text: '지난 주에 방문했을 때 김치찌개가 6,000원이었어요.\n가격 확인 부탁드립니다.',
-    )..addListener(() => setState(() {}));
+    _titleController = TextEditingController();
+    _bodyController = TextEditingController()
+      ..addListener(() => setState(() {}));
   }
 
   @override
@@ -126,7 +127,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     parent: BouncingScrollPhysics(),
                   ),
                   child: SizedBox(
-                    width: FigmaMobileCanvas.width,
+                    width: double.infinity,
                     height: scrollContentHeight,
                     child: Stack(
                       children: [
@@ -174,21 +175,21 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                         Positioned(
                           left: 20,
                           top: 202.4716796875 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 72.4,
                           child: _TitleField(controller: _titleController),
                         ),
                         Positioned(
                           left: 20,
                           top: 290.45458984375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 136.4,
                           child: _BodyField(controller: _bodyController),
                         ),
                         Positioned(
                           left: 20,
                           top: 442.44287109375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 90.4,
                           child: _PhotoAttachBox(
                             attachments: _attachments,
@@ -199,7 +200,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                         Positioned(
                           left: 20,
                           top: 552.4287109375 + topOffset,
-                          width: 335.45452880859375,
+                          right: 20,
                           height: 40.46875,
                           child: _EmailBox(email: email),
                         ),
@@ -212,19 +213,54 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                 topOffset: topOffset,
                 title: '문의하기',
                 onBack: () => context.go(AppRoutes.mypage),
+                onHistory: () => context.push(AppRoutes.inquiryHistory),
               ),
               Positioned(
                 left: 0,
                 bottom: 0,
-                width: FigmaMobileCanvas.width,
+                right: 0,
                 height: footerHeight,
                 child: _StickyButton(
                   safeBottom: bottomOffset,
                   label: '문의 보내기',
-                  onPressed: () {
+                  onPressed: () async {
                     final messenger = ScaffoldMessenger.of(context);
-                    // TODO(박지환 BE): 문의 등록 API와 첨부 사진 업로드 API가 붙으면 제목/본문/유형/사진을 함께 전송하세요.
+                    final title = _titleController.text.trim();
+                    final content = _bodyController.text.trim();
+                    final category = _types[_selectedType];
+
+                    if (title.isEmpty) {
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('제목을 입력해주세요.')),
+                      );
+                      return;
+                    }
+                    if (content.isEmpty) {
+                      messenger.showSnackBar(
+                        const SnackBar(content: Text('내용을 입력해주세요.')),
+                      );
+                      return;
+                    }
+
+                    final service = ref.read(inquiryServiceProvider);
+                    final result = await service.createInquiry(
+                      title: title,
+                      content: content,
+                      category: category,
+                    );
+
+                    if (!context.mounted) return;
+                    if (result['error'] == true) {
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(result['message'] ?? '문의 등록에 실패했습니다.'),
+                        ),
+                      );
+                      return;
+                    }
+
                     messenger.clearSnackBars();
+                    ref.invalidate(myInquiriesProvider);
                     context.go(AppRoutes.mypage);
                     messenger.showSnackBar(
                       const SnackBar(content: Text('문의가 접수되었어요.')),
@@ -245,22 +281,24 @@ class _Header extends StatelessWidget {
     required this.topOffset,
     required this.title,
     required this.onBack,
+    required this.onHistory,
   });
 
   final double topOffset;
   final String title;
   final VoidCallback onBack;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: InquiryScreen.border, width: .909),
           ),
@@ -273,7 +311,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -294,11 +332,28 @@ class _Header extends StatelessWidget {
               left: 0,
               right: 0,
               top: 11.98876953125 + topOffset,
-              child: const IgnorePointer(
+              child: IgnorePointer(
                 child: Text(
-                  '문의하기',
+                  title,
                   textAlign: TextAlign.center,
                   style: _headerTitleText,
+                ),
+              ),
+            ),
+            Positioned(
+              right: 4,
+              top: topOffset,
+              width: 48,
+              height: 48.877838134765625,
+              child: Tooltip(
+                message: '내 문의 내역',
+                child: IconButton(
+                  onPressed: onHistory,
+                  icon: const Icon(
+                    Icons.receipt_long_outlined,
+                    color: InquiryScreen.ink,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -331,7 +386,7 @@ class _InquiryChip extends StatelessWidget {
             : 163.72158813476562,
         height: 41.80397415161133,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFEFF4FF) : Colors.white,
+          color: selected ? AppColors.primaryLight : AppColors.white,
           border: Border.all(
             color: selected ? InquiryScreen.blue : InquiryScreen.border,
             width: .909,
@@ -380,7 +435,7 @@ class _TitleField extends StatelessWidget {
             decoration: const InputDecoration(
               isCollapsed: true,
               filled: false,
-              fillColor: Colors.transparent,
+              fillColor: AppColors.transparent,
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -435,7 +490,7 @@ class _BodyField extends StatelessWidget {
             decoration: const InputDecoration(
               isCollapsed: true,
               filled: false,
-              fillColor: Colors.transparent,
+              fillColor: AppColors.transparent,
               counterText: '',
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
@@ -466,10 +521,10 @@ class _InputShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: InquiryScreen.border, width: .909),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -540,7 +595,7 @@ class _AddPhotoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
@@ -549,7 +604,7 @@ class _AddPhotoButton extends StatelessWidget {
           height: 63.99147415161133,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(
                 color: InquiryScreen.disabled,
                 width: 1.818,
@@ -601,7 +656,7 @@ class _PhotoThumbnail extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   border: Border.all(color: InquiryScreen.border, width: .909),
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -636,13 +691,13 @@ class _PhotoThumbnail extends StatelessWidget {
                 height: 20,
                 decoration: BoxDecoration(
                   color: InquiryScreen.ink,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                  border: Border.all(color: AppColors.white, width: 1.5),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
                   Icons.close_rounded,
                   size: 13,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -662,7 +717,7 @@ class _EmailBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -731,7 +786,7 @@ class _StickyButton extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: InquiryScreen.border, width: .909),
         ),
@@ -746,7 +801,7 @@ class _StickyButton extends StatelessWidget {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: InquiryScreen.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),

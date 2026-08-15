@@ -22,4 +22,6 @@ public class VisitResponseDto {
     private String menu;        // 이용 메뉴
     private Long price;         // 결제/이용 금액
     private Boolean isGov;      // 착한가격업소 여부
+    private String verificationMethod;
+    private Double verificationDistanceMeters;
 }

@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.google.cloud.firestore.Firestore;
 import com.howmuch.dto.PublicStoreResponseDto;
 import com.howmuch.dto.StoreDto;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -12,6 +13,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -20,20 +22,34 @@ public class PublicDataService {
     private final WebClient webClient;
     private final GeocodingService geocodingService;
     private final Firestore firestore;
+    private final String publicServiceKey;
+    private final AtomicBoolean syncRunning = new AtomicBoolean(false);
 
-    private final String PUBLIC_SERVICE_KEY = "6d18dc89fe8fe9ca957848b14987ebfd9cc3ec91e227e3312d6dc7c61d49f263";
-    private final String BASE_URL = "https://api.odcloud.kr/api/3045247/v1/uddi:12a36b40-6230-4401-b647-b8456a789c7f";
+    private static final String BASE_URL =
+            "https://api.odcloud.kr/api/3045247/v1/uddi:12a36b40-6230-4401-b647-b8456a789c7f";
 
-    public PublicDataService(WebClient.Builder webClientBuilder, GeocodingService geocodingService, Firestore firestore) {
+    public PublicDataService(
+            WebClient.Builder webClientBuilder,
+            GeocodingService geocodingService,
+            Firestore firestore,
+            @Value("${public-data.api-key:}") String publicServiceKey) {
         this.webClient = webClientBuilder.build();
         this.geocodingService = geocodingService;
         this.firestore = firestore;
+        this.publicServiceKey = publicServiceKey == null ? "" : publicServiceKey.trim();
     }
 
     /**
      * 모든 데이터를 백그라운드에서 동기화합니다.
      */
-    public void syncAllPublicDataInBackground() {
+    public boolean syncAllPublicDataInBackground() {
+        if (publicServiceKey.isBlank()) {
+            throw new IllegalStateException("PUBLIC_DATA_API_KEY is not configured.");
+        }
+        if (!syncRunning.compareAndSet(false, true)) {
+            return false;
+        }
+
         AtomicInteger totalSaved = new AtomicInteger(0);
         int perPage = 100;
 
@@ -73,13 +89,15 @@ public class PublicDataService {
                                 System.out.println("=========================================");
                             }));
                 })
+                .doFinally(signal -> syncRunning.set(false))
                 .subscribeOn(Schedulers.boundedElastic()) // 별도 스레드에서 실행
                 .subscribe(); // 비동기 실행 시작
+        return true;
     }
 
     private Mono<PublicStoreResponseDto> fetchPage(int page, int perPage) {
         URI targetUri = UriComponentsBuilder.fromHttpUrl(BASE_URL)
-                .queryParam("serviceKey", PUBLIC_SERVICE_KEY)
+                .queryParam("serviceKey", publicServiceKey)
                 .queryParam("page", page)
                 .queryParam("perPage", perPage)
                 .build()

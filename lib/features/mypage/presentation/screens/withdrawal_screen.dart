@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
   const WithdrawalScreen({super.key});
 
-  static const red = Color(0xFFEF4444);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const red = AppColors.error;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -57,14 +60,14 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: contentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 92.94033813476562,
                       child: const _WarningCard(),
                     ),
@@ -76,14 +79,14 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 198.29541015625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 223.1818084716797,
                       child: const _DeletedDataCard(),
                     ),
                     Positioned(
                       left: 20,
                       top: 433.4658203125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 58.039772033691406,
                       child: const _InfoBox(),
                     ),
@@ -95,7 +98,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 535.994140625 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 225.3408966064453,
                       child: _ReasonsCard(
                         reasons: _reasons,
@@ -107,7 +110,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     Positioned(
                       left: 20,
                       top: 777.32958984375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 70.99431610107422,
                       child: _ConsentCard(
                         confirmed: _confirmed,
@@ -127,7 +130,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyActions(
               safeBottom: bottomOffset,
@@ -175,10 +178,32 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
-    // TODO(박지환 BE): 실제 회원 탈퇴 API 호출 후 성공 응답을 받으면 로컬 세션을 종료합니다.
+    // 실제 회원 탈퇴 API 호출
+    try {
+      final url = ApiClient.uri('/api/user');
+      final response = await http
+          .delete(url, headers: ApiClient.jsonHeaders(auth: true))
+          .timeout(ApiClient.defaultTimeout);
+
+      if (!mounted) return;
+      if (response.statusCode != 200) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+        );
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+      );
+      return;
+    }
+
+    // 로컬 세션 종료
+    await ApiClient.setSessionToken(null);
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
-      isAdmin: false,
       provider: '이메일',
       email: '',
     );
@@ -205,11 +230,11 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: WithdrawalScreen.border, width: .909),
           ),
@@ -222,7 +247,7 @@ class _Header extends StatelessWidget {
               width: 68,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -263,8 +288,11 @@ class _WarningCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFFEE2E2),
-        border: Border.all(color: const Color(0x33EF4444), width: .909),
+        color: AppColors.errorLight,
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: .2),
+          width: .909,
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Stack(
@@ -274,7 +302,7 @@ class _WarningCard extends StatelessWidget {
             top: 16.9033203125,
             child: _CircleIcon(
               size: 37.99715805053711,
-              background: Colors.white,
+              background: AppColors.white,
               icon: Icons.warning_amber_rounded,
               iconColor: WithdrawalScreen.red,
               iconSize: 18,
@@ -383,7 +411,7 @@ class _InfoBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Stack(
@@ -471,7 +499,7 @@ class _ReasonRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
@@ -498,14 +526,17 @@ class _ConsentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x33EF4444), width: .909),
+            color: AppColors.white,
+            border: Border.all(
+              color: AppColors.error.withValues(alpha: .2),
+              width: .909,
+            ),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Stack(
@@ -573,7 +604,7 @@ class _StickyActions extends StatelessWidget {
 
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(
           top: BorderSide(color: WithdrawalScreen.border, width: .909),
         ),
@@ -590,7 +621,7 @@ class _StickyActions extends StatelessWidget {
                 Expanded(
                   child: _ActionButton(
                     label: '취소',
-                    background: Colors.white,
+                    background: AppColors.white,
                     foreground: WithdrawalScreen.ink,
                     borderColor: WithdrawalScreen.border,
                     onTap: onCancel,
@@ -601,7 +632,7 @@ class _StickyActions extends StatelessWidget {
                   child: _ActionButton(
                     label: '탈퇴하기',
                     background: WithdrawalScreen.red,
-                    foreground: Colors.white,
+                    foreground: AppColors.white,
                     shadowColor: WithdrawalScreen.red.withValues(alpha: .3),
                     onTap: onWithdraw,
                   ),
@@ -635,7 +666,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
@@ -686,16 +717,16 @@ class _RadioMark extends StatelessWidget {
       width: 20,
       height: 20,
       decoration: BoxDecoration(
-        color: selected ? WithdrawalScreen.red : Colors.white,
+        color: selected ? WithdrawalScreen.red : AppColors.white,
         border: Border.all(
-          color: selected ? WithdrawalScreen.red : const Color(0xFFCBD5E1),
+          color: selected ? WithdrawalScreen.red : AppColors.disabled,
           width: .909,
         ),
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
+          ? const Icon(Icons.check_rounded, color: AppColors.white, size: 13)
           : null,
     );
   }
@@ -712,15 +743,15 @@ class _CheckBoxMark extends StatelessWidget {
       width: 17.99715805053711,
       height: 17.99715805053711,
       decoration: BoxDecoration(
-        color: selected ? WithdrawalScreen.red : Colors.white,
+        color: selected ? WithdrawalScreen.red : AppColors.white,
         border: selected
             ? null
-            : Border.all(color: const Color(0xFFCBD5E1), width: .909),
+            : Border.all(color: AppColors.disabled, width: .909),
         borderRadius: BorderRadius.circular(4),
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(Icons.check_rounded, color: Colors.white, size: 12)
+          ? const Icon(Icons.check_rounded, color: AppColors.white, size: 12)
           : null,
     );
   }
@@ -762,7 +793,7 @@ class _RoundedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: WithdrawalScreen.border, width: .909),
         borderRadius: BorderRadius.circular(16),
       ),

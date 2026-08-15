@@ -27,12 +27,10 @@ class HowmuchBottomNav extends StatelessWidget {
   static const designHeight = 81.98863220214844;
   static const contentHeight = 60.002838134765625;
   static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 32.0;
+  static const contentLift = 0.0; // Removed the 32.0 compensation hack
 
   static double heightFor(double safeBottom) {
-    return contentHeight +
-        (safeBottom > designBottomReserve ? safeBottom : designBottomReserve) +
-        contentLift;
+    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0) + contentLift;
   }
 
   final double safeBottom;
@@ -40,9 +38,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomReserve = safeBottom > designBottomReserve
-        ? safeBottom
-        : designBottomReserve;
+    final bottomReserve = safeBottom > 8.0 ? safeBottom : 8.0;
 
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -83,15 +79,7 @@ class HowmuchBottomNav extends StatelessWidget {
                     icon: Icons.bar_chart_rounded,
                     label: '리포트',
                     active: activeTab == HowmuchBottomTab.savings,
-                    onTap: () {
-                      ScaffoldMessenger.of(context)
-                        ..clearSnackBars()
-                        ..showSnackBar(
-                          const SnackBar(
-                            content: Text('절약 리포트는 다음 우선순위에서 연결할게요.'),
-                          ),
-                        );
-                    },
+                    onTap: () => context.go(AppRoutes.savingsReportDashboard),
                   ),
                   _NavItem(
                     icon: Icons.person_outline_rounded,

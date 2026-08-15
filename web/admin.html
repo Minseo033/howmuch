@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>얼마고? 어드민</title>
+<style>
+  :root {
+    --bg: #F4F6FA;
+    --card: #FFFFFF;
+    --border: #E5E7EB;
+    --text: #0F172A;
+    --muted: #64748B;
+    --primary: #2563EB;
+    --primary-dark: #1D4ED8;
+    --primary-soft: #EFF4FF;
+    --green: #10B981;
+    --green-soft: #E8F8F1;
+    --red: #EF4444;
+    --red-soft: #FEF2F2;
+    --amber: #F59E0B;
+    --amber-soft: #FFFBEB;
+    --violet: #8B5CF6;
+    --violet-soft: #F3EFFF;
+    --shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .05);
+    --shadow-lg: 0 24px 64px rgba(15, 23, 42, .18);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 로그인 오버레이 ─────────────── */
+  #loginOverlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 45%, #0EA5E9 100%);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+  }
+  #loginOverlay.hidden { display: none; }
+  .login-card {
+    background: rgba(255,255,255,.97); border-radius: 24px;
+    padding: 40px 36px; width: 400px; max-width: 100%;
+    box-shadow: 0 32px 80px rgba(2, 6, 23, .35); text-align: center;
+    backdrop-filter: blur(8px);
+  }
+  .login-logo {
+    width: 64px; height: 64px; margin: 0 auto; border-radius: 18px; object-fit: cover;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, .4); display: block;
+  }
+  .login-card h1 { font-size: 22px; font-weight: 800; margin-top: 18px; letter-spacing: -.5px; }
+  .login-card p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .login-row { display: flex; gap: 8px; margin-top: 24px; }
+  .login-row input {
+    flex: 1; padding: 12px 16px; font-size: 14px;
+    border: 1.5px solid var(--border); border-radius: 12px; font-family: inherit;
+  }
+  .login-row input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  .login-error { color: var(--red); font-size: 12px; font-weight: 600; margin-top: 12px; }
+
+  /* ── 레이아웃: 사이드바 + 메인 ────── */
+  #app { display: none; min-height: 100vh; }
+  #app.on { display: flex; }
+
+  aside {
+    width: 232px; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
+    background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);
+    color: #E2E8F0; display: flex; flex-direction: column;
+    padding: 22px 14px; gap: 4px;
+  }
+  .side-brand { display: flex; align-items: center; gap: 11px; padding: 4px 10px 20px; }
+  .side-logo {
+    width: 40px; height: 40px; border-radius: 11px; object-fit: cover;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, .35); display: block;
+  }
+  .side-brand h1 { font-size: 16px; font-weight: 800; letter-spacing: -.3px; color: #fff; }
+  .side-brand span { display: block; font-size: 10px; color: #94A3B8; font-weight: 600; margin-top: 1px; }
+  .nav-label { font-size: 10px; font-weight: 700; color: #64748B; letter-spacing: .08em; padding: 14px 12px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px; width: 100%;
+    padding: 10px 12px; border: none; border-radius: 10px; background: transparent;
+    color: #CBD5E1; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    text-align: left; transition: background .15s, color .15s;
+  }
+  .nav-item .ico { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+  .nav-item .ico svg { width: 18px; height: 18px; display: block; }
+  .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
+  .nav-item.active { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.4); }
+  .nav-item .pill {
+    margin-left: auto; background: var(--amber); color: #0F172A;
+    font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px;
+  }
+  .side-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }
+
+  main { flex: 1; min-width: 0; padding: 26px 30px 90px; }
+
+  /* ── 상단바 ─────────────────────── */
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
+  .topbar h2 { font-size: 20px; font-weight: 800; letter-spacing: -.4px; }
+  .topbar .crumb { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .topbar-actions { display: flex; gap: 8px; }
+
+  /* ── 통계 카드 ─────────────────── */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  .stats.cols3 { grid-template-columns: repeat(3, 1fr); }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 18px 20px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .stat-card .glow {
+    position: absolute; top: -30px; right: -30px; width: 90px; height: 90px;
+    border-radius: 50%; opacity: .13; background: currentColor;
+  }
+  .stat-card .label { font-size: 12px; color: var(--muted); font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .stat-card .value { font-size: 28px; font-weight: 800; margin-top: 6px; letter-spacing: -.8px; }
+  .stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+  .stat-card.c-blue { color: var(--primary); } .stat-card.c-blue .value { color: var(--primary); }
+  .stat-card.c-amber { color: var(--amber); } .stat-card.c-amber .value { color: var(--amber); }
+  .stat-card.c-green { color: var(--green); } .stat-card.c-green .value { color: var(--green); }
+  .stat-card.c-red { color: var(--red); } .stat-card.c-red .value { color: var(--red); }
+  .stat-card.c-violet { color: var(--violet); } .stat-card.c-violet .value { color: var(--violet); }
+  .stat-card.c-ink { color: var(--text); }
+
+  /* ── 카드/테이블 공통 ───────────── */
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    box-shadow: var(--shadow);
+  }
+  .section-title { font-size: 15px; font-weight: 800; margin: 26px 0 12px; letter-spacing: -.2px; display: flex; align-items: center; gap: 8px; }
+  .section-title .chip { font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-soft); padding: 3px 9px; border-radius: 99px; }
+
+  .table-wrap { overflow-x: auto; border-radius: 18px; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
+  .data-table th {
+    text-align: left; font-size: 11px; color: var(--muted); font-weight: 700;
+    padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--bg);
+    white-space: nowrap; position: sticky; top: 0;
+  }
+  .data-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tbody tr { transition: background .12s; }
+  .data-table tbody tr:hover td { background: #FAFBFD; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
+    color: #fff; font-size: 13px; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .uid-cell { font-family: ui-monospace, monospace; font-size: 11px; color: var(--muted); }
+
+  /* ── 상태 탭 ───────────────────── */
+  .tabs { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .tab {
+    border: 1px solid var(--border); background: var(--card); color: var(--muted);
+    font-size: 13px; font-weight: 700; padding: 8px 16px; border-radius: 99px;
+    cursor: pointer; transition: all .15s; font-family: inherit;
+  }
+  .tab:hover { border-color: var(--primary); color: var(--primary); }
+  .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+  .tab .count { opacity: .75; font-weight: 600; margin-left: 4px; }
+
+  /* ── 검색 ─────────────────────── */
+  .search-row { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-row input {
+    flex: 1; max-width: 340px; padding: 10px 14px; font-size: 13px;
+    border: 1.5px solid var(--border); border-radius: 11px; font-family: inherit; background: var(--card);
+  }
+  .search-row input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+  /* ── 배지/버튼 ─────────────────── */
+  .badge {
+    display: inline-block; flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 99px;
+  }
+  .badge.PENDING  { color: var(--amber); background: var(--amber-soft); }
+  .badge.APPROVED { color: var(--green); background: var(--green-soft); }
+  .badge.ANSWERED { color: var(--primary); background: var(--primary-soft); }
+  .badge.REJECTED { color: var(--red);   background: var(--red-soft); }
+  .stars { color: var(--amber); font-size: 12px; letter-spacing: 1px; }
+
+  .btn {
+    border: none; border-radius: 10px; padding: 9px 18px;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: filter .15s, transform .05s, box-shadow .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
+  .btn-approve { background: var(--green); color: #fff; }
+  .btn-approve:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+  .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-reject { background: var(--red-soft); color: var(--red); border: 1px solid #FECACA; }
+  .btn-reject:hover:not(:disabled) { background: #FEE2E2; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover:not(:disabled) { filter: brightness(1.08); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); box-shadow: none; }
+  .btn-ghost:hover { color: var(--text); border-color: #CBD5E1; }
+  .btn-light { background: rgba(255,255,255,.12); color: #E2E8F0; border: 1px solid rgba(255,255,255,.15); }
+  .btn-light:hover { background: rgba(255,255,255,.2); }
+
+  /* ── 제보 카드 ─────────────────── */
+  .report-list { display: flex; flex-direction: column; gap: 14px; }
+  .report-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 22px 24px; box-shadow: var(--shadow); transition: box-shadow .15s;
+  }
+  .report-card:hover { box-shadow: var(--shadow-lg); }
+  .report-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .report-name { font-size: 16px; font-weight: 800; letter-spacing: -.2px; }
+  .report-name .industry {
+    font-size: 11px; font-weight: 700; color: var(--primary);
+    background: var(--primary-soft); padding: 3px 8px; border-radius: 6px;
+    margin-left: 8px; vertical-align: 2px;
+  }
+  .report-meta { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .menu-table {
+    width: 100%; margin-top: 14px; border-collapse: collapse;
+    font-size: 13px; background: var(--bg); border-radius: 12px; overflow: hidden;
+  }
+  .menu-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); }
+  .menu-table tr:last-child td { border-bottom: none; }
+  .menu-table td.price { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .report-flags { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+  .flag {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 8px;
+  }
+  .report-images { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .report-images img {
+    width: 74px; height: 74px; object-fit: cover; border-radius: 10px;
+    border: 1px solid var(--border); cursor: pointer; transition: transform .15s;
+  }
+  .report-images img:hover { transform: scale(1.05); }
+  .reject-reason-box {
+    margin-top: 12px; font-size: 12px; color: var(--red);
+    background: var(--red-soft); border-radius: 10px; padding: 10px 14px; line-height: 1.5;
+  }
+  .report-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  /* ── 상태 화면 (로딩/빈/에러) ──── */
+  .state-box {
+    background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+    padding: 64px 24px; text-align: center; box-shadow: var(--shadow);
+  }
+  .state-box .state-ico { width: 44px; height: 44px; margin: 0 auto; color: var(--muted); }
+  .state-box .state-ico svg { width: 44px; height: 44px; display: block; }
+  .state-box h2 { font-size: 16px; font-weight: 800; margin-top: 14px; }
+  .state-box p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.7; }
+  .state-box code {
+    background: var(--bg); padding: 2px 7px; border-radius: 6px;
+    font-size: 12px; color: var(--primary);
+  }
+  .spinner {
+    width: 36px; height: 36px; margin: 0 auto;
+    border: 3px solid var(--border); border-top-color: var(--primary);
+    border-radius: 50%; animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── 모달 ─────────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 50;
+    background: rgba(15, 23, 42, .5); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 22px; padding: 26px;
+    width: 460px; max-width: 100%; box-shadow: 0 24px 64px rgba(15,23,42,.3);
+    animation: pop .18s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .modal h3 { font-size: 16px; font-weight: 800; }
+  .modal p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
+  .modal .warn-box {
+    margin-top: 14px; font-size: 12px; color: var(--red);
+    background: var(--red-soft); border-radius: 10px; padding: 10px 14px; line-height: 1.6;
+  }
+  .modal textarea {
+    width: 100%; height: 96px; margin-top: 14px; padding: 12px 14px;
+    border: 1.5px solid var(--border); border-radius: 12px; resize: none;
+    font-size: 13px; font-family: inherit; line-height: 1.5;
+  }
+  .modal textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .act-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
+  .act-cell { background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
+  .act-cell .n { font-size: 20px; font-weight: 800; }
+  .act-cell .t { font-size: 11px; color: var(--muted); margin-top: 3px; font-weight: 600; }
+
+  /* ── 토스트 ───────────────────── */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: #fff; font-size: 13px; font-weight: 600;
+    padding: 12px 22px; border-radius: 99px; opacity: 0; pointer-events: none;
+    transition: all .25s; z-index: 60; box-shadow: 0 8px 24px rgba(15,23,42,.3);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── 반응형: 태블릿 ─────────────── */
+  @media (max-width: 1024px) {
+    .stats, .stats.cols3 { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* ── 반응형: 모바일 ─────────────── */
+  @media (max-width: 860px) {
+    #app.on { flex-direction: column; }
+    /* 사이드바를 상단 고정 헤더 바로 전환 — 브랜드 + 가로 스크롤 네비 */
+    aside {
+      width: 100%; height: auto; position: sticky; top: 0; z-index: 30;
+      flex-direction: row; align-items: center; flex-wrap: nowrap;
+      padding: 10px 14px; gap: 6px; overflow-x: auto; overflow-y: hidden;
+      scrollbar-width: none; box-shadow: 0 2px 12px rgba(2,6,23,.25);
+    }
+    aside::-webkit-scrollbar { display: none; }
+    .side-brand { padding: 0 8px 0 0; flex-shrink: 0; }
+    .side-logo { width: 32px; height: 32px; border-radius: 9px; }
+    .side-brand h1 { font-size: 14px; white-space: nowrap; }
+    .side-brand span { display: none; }
+    .nav-label, .side-foot { display: none; }
+    .nav-item {
+      width: auto; flex-shrink: 0; white-space: nowrap;
+      padding: 8px 13px; font-size: 12.5px; gap: 7px;
+    }
+    .nav-item .pill { margin-left: 4px; }
+    main { padding: 18px 14px 80px; }
+    .topbar h2 { font-size: 18px; }
+    .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .stat-card { padding: 14px 16px; }
+    .stat-card .value { font-size: 22px; }
+    .report-card { padding: 16px; }
+    .report-top { flex-direction: column; align-items: flex-start; }
+    .report-top .badge { margin-top: 6px; }
+    .search-row input { max-width: 100%; }
+    .data-table { min-width: 560px; }
+    .modal { padding: 20px; }
+  }
+  @media (max-width: 480px) {
+    .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); }
+    .login-card { padding: 30px 22px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ 로그인 오버레이 ══ -->
+<div id="loginOverlay">
+  <div class="login-card">
+    <img class="login-logo" src="images/app_logo.png" alt="얼마고?" />
+    <h1>얼마고? 어드민</h1>
+    <p>운영·관리 전용 페이지입니다.<br>팀 공유 어드민 비밀번호를 입력하세요.</p>
+    <div class="login-row">
+      <input id="keyInput" type="password" placeholder="어드민 비밀번호" autocomplete="off" />
+      <button class="btn btn-primary" id="loginBtn">로그인</button>
+    </div>
+    <div class="login-error" id="loginError" hidden>비밀번호가 올바르지 않습니다.</div>
+  </div>
+</div>
+
+<!-- ══ 앱 (사이드바 + 메인) ══ -->
+<div id="app">
+  <aside>
+    <div class="side-brand">
+      <img class="side-logo" src="images/app_logo.png" alt="얼마고?" />
+      <div>
+        <h1>얼마고?</h1>
+        <span>ADMIN CONSOLE</span>
+      </div>
+    </div>
+    <div class="nav-label">운영</div>
+    <button class="nav-item active" data-view="dashboard"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6" rx="1"/><rect x="12" y="8" width="3" height="10" rx="1"/><rect x="17" y="4" width="3" height="14" rx="1"/></svg></span>대시보드</button>
+    <button class="nav-item" data-view="reports"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg></span>제보 관리<span class="pill" id="pendingPill" hidden></span></button>
+    <button class="nav-item" data-view="reviews"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8-6.1-3.4-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg></span>리뷰 관리</button>
+    <button class="nav-item" data-view="comments"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>댓글 관리</button>
+    <button class="nav-item" data-view="inquiries"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>문의 관리</button>
+    <button class="nav-item" data-view="notifications"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>알림 발송</button>
+    <div class="nav-label">계정</div>
+    <button class="nav-item" data-view="users"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg></span>회원 관리</button>
+    <div class="side-foot">
+      <button class="btn btn-light" id="logoutBtn" style="width:100%">로그아웃</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div>
+        <h2 id="viewTitle">대시보드</h2>
+        <div class="crumb" id="viewCrumb">서비스 전체 현황을 한눈에 봅니다</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-ghost" id="refreshBtn">↻ 새로고침</button>
+      </div>
+    </div>
+
+    <div id="content"></div>
+  </main>
+</div>
+
+<!-- 반려 사유 모달 -->
+<div class="modal-backdrop" id="rejectModal">
+  <div class="modal">
+    <h3>제보 반려</h3>
+    <p id="rejectTarget"></p>
+    <textarea id="rejectReason" placeholder="반려 사유를 입력하세요 (제보자에게 표시됩니다)"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="rejectModal">취소</button>
+      <button class="btn btn-danger" id="rejectConfirm">반려하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 제보 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteReportModal">
+  <div class="modal">
+    <h3>제보 삭제</h3>
+    <p id="deleteReportTarget"></p>
+    <div class="warn-box">
+      제보와 첨부 사진이 모두 영구 삭제됩니다.<br>
+      승인된 제보는 지도에서도 즉시 제거되며 되돌릴 수 없습니다.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteReportModal">취소</button>
+      <button class="btn btn-danger" id="deleteReportConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 회원 활동 상세 모달 -->
+<div class="modal-backdrop" id="userModal">
+  <div class="modal">
+    <h3 id="userModalName">회원 상세</h3>
+    <p id="userModalSub"></p>
+    <div class="act-grid" id="userModalActs"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="userModal">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 회원 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteUserModal">
+  <div class="modal">
+    <h3>회원 강제 탈퇴</h3>
+    <p id="deleteUserTarget"></p>
+    <div class="warn-box">
+      이 회원의 <b>프로필·제보·리뷰·방문 기록·찜</b>이 모두 영구 삭제됩니다.<br>
+      이 작업은 되돌릴 수 없습니다.
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteUserModal">취소</button>
+      <button class="btn btn-danger" id="deleteUserConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 리뷰 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteReviewModal">
+  <div class="modal">
+    <h3>리뷰 삭제</h3>
+    <p id="deleteReviewTarget"></p>
+    <div class="warn-box">이 리뷰가 영구 삭제됩니다. 되돌릴 수 없습니다.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteReviewModal">취소</button>
+      <button class="btn btn-danger" id="deleteReviewConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 댓글 삭제 확인 모달 -->
+<div class="modal-backdrop" id="deleteCommentModal">
+  <div class="modal">
+    <h3>댓글 삭제</h3>
+    <p id="deleteCommentTarget"></p>
+    <div class="warn-box">이 댓글(답글 포함)이 영구 삭제됩니다. 되돌릴 수 없습니다.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteCommentModal">취소</button>
+      <button class="btn btn-danger" id="deleteCommentConfirm">영구 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 문의 답변 모달 -->
+<div class="modal-backdrop" id="answerInquiryModal">
+  <div class="modal">
+    <h3 id="answerInquiryHeading">문의 답변</h3>
+    <p id="answerInquiryTarget"></p>
+    <textarea id="answerInquiryText" maxlength="2000" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="answerInquiryModal">취소</button>
+      <button class="btn btn-primary" id="answerInquiryConfirm">답변 저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const API_BASE = 'https://howmuch-backend-1xnu.onrender.com';
+  // 어드민 전용 비밀번호 (백엔드 ADMIN_KEY 환경변수와 대조). 앱 카카오 로그인과 무관합니다.
+  const KEY_STORAGE = 'hm_admin_key';
+
+  const $ = (id) => document.getElementById(id);
+  const content = $('content');
+
+  let allReports = [];
+  let allReviews = [];
+  let overview = null;
+  let users = null;
+  let allComments = null;
+  let allInquiries = null;
+  let communityStats = null;
+  let storageUsage = null;
+  let currentTab = 'PENDING';
+  let currentView = 'dashboard';
+  let userSearch = '';
+  let rejectTargetId = null;
+  let deleteReportId = null;
+  let deleteTargetUid = null;
+  let deleteReviewId = null;
+  let deleteCommentId = null;
+  let answerInquiryId = null;
+
+  const VIEW_META = {
+    dashboard:     ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
+    reports:       ['제보 관리', '사용자가 제보한 매장을 검토·승인·반려합니다'],
+    reviews:       ['리뷰 관리', '작성된 리뷰를 조회·삭제합니다'],
+    comments:      ['댓글 관리', '동네제보 댓글·답글을 조회·삭제합니다'],
+    inquiries:     ['문의 관리', '사용자 문의를 조회합니다'],
+    notifications: ['알림 발송', '전체 또는 특정 회원에게 알림을 보냅니다'],
+    users:         ['회원 관리', '가입 회원을 조회·관리합니다'],
+  };
+
+  /* ── 유틸 ─────────────────────────── */
+  const getKey = () => sessionStorage.getItem(KEY_STORAGE) || '';
+
+  // 💡 DOM 기반 이스케이프 (엔티티 리터럴 없이 안전하게 XSS 방지)
+  const esc = (s) => {
+    const d = document.createElement('div');
+    d.textContent = String(s ?? '');
+    return d.innerHTML;
+  };
+
+  const fmtDate = (iso) => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) + ' ' +
+           d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const fmtPrice = (p) => {
+    const n = Number(String(p ?? '').replace(/[^\d]/g, ''));
+    return isNaN(n) || n === 0 ? esc(p) : n.toLocaleString('ko-KR') + '원';
+  };
+
+  const fmtBytes = (value) => {
+    const bytes = Number(value);
+    if (!Number.isFinite(bytes) || bytes < 0) return '-';
+    if (bytes < 1024) return `${bytes.toLocaleString('ko-KR')} B`;
+    if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 ** 3) return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+    return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  };
+
+  const shortUid = (uid) => uid ? esc(uid.slice(0, 8)) + '…' : '-';
+  const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' };
+  const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
+
+  const avatarColor = (seed) => {
+    let h = 0;
+    const s = String(seed || '?');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  };
+
+  const toast = (msg) => {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2400);
+  };
+
+  async function api(path, options = {}) {
+    const res = await fetch(API_BASE + path, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Key': getKey(),
+        ...(options.headers || {}),
+      },
+    });
+    if (res.status === 401) throw Object.assign(new Error('비밀번호 불일치'), { code: 401 });
+    if (res.status === 403) throw Object.assign(new Error('서버 키 미설정'), { code: 403 });
+    if (!res.ok) {
+      let msg = 'HTTP ' + res.status;
+      try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
+      throw Object.assign(new Error(msg), { code: res.status });
+    }
+    return res.json();
+  }
+
+  const openModal = (id) => $(id).classList.add('show');
+  const closeModal = (id) => $(id).classList.remove('show');
+
+  /* ── 상태 화면 ─────────────────────── */
+  function renderState(type, data = {}) {
+    const states = {
+      loading: `
+        <div class="state-box">
+          <div class="spinner"></div>
+          <h2 style="margin-top:18px">불러오는 중…</h2>
+          <p>서버가 슬립 상태(Render 물료 인스턴스)면 첫 요청에 30~60초 걸릴 수 있어요.</p>
+        </div>`,
+      forbidden: `
+        <div class="state-box">
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+          <h2>서버에 ADMIN_KEY가 설정되지 않았습니다</h2>
+          <p>Render 대시보드 → howmuch-backend → Environment에<br>
+             <code>ADMIN_KEY</code> 환경변수를 등록하고 재배포해주세요.</p>
+        </div>`,
+      error: `
+        <div class="state-box">
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <h2>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? 'Firestore 일일 쿼터 초과' : '불러오기 실패'}</h2>
+          <p>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '')
+              ? '묣료 플랜 하루 읽기 한도(5만)를 다 썼어요.<br>매일 오후 4시에 리셋됩니다.'
+              : esc(data.message || '알 수 없는 오류')}</p>
+          <div class="login-row" style="justify-content:center;margin-top:20px"><button class="btn btn-primary" id="retryBtn">다시 시도</button></div>
+        </div>`,
+      empty: `
+        <div class="state-box">
+          <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+          <h2>${esc(data.title || '데이터가 없습니다')}</h2>
+          <p>${esc(data.sub || '')}</p>
+        </div>`,
+    };
+    content.innerHTML = states[type];
+    if (type === 'error') $('retryBtn').onclick = refresh;
+  }
+
+  /* ══ 뷰 1: 대시보드 ══ */
+  function renderDashboard() {
+    const o = overview;
+    const us = o.userStores || {};
+    const cards = [
+      ['전체 회원', o.users, '', 'c-blue'],
+      ['공공데이터 매장', o.govStores, '착한가격업소', 'c-ink'],
+      ['제보 매장', us.total, `대기 ${us.pending ?? 0} · 승인 ${us.approved ?? 0} · 반려 ${us.rejected ?? 0}`, 'c-amber'],
+      ['리뷰', o.reviews, '', 'c-violet'],
+      ['방문 인증', o.visits, '', 'c-green'],
+      ['찜', o.favorites, '', 'c-red'],
+    ];
+    const credits = storageUsage?.credits || {};
+    const storage = storageUsage?.storage || {};
+    if (storageUsage) {
+      const usedPercent = Number(credits.used_percent);
+      cards.push([
+        'Cloudinary',
+        Number.isFinite(usedPercent) ? `${usedPercent.toFixed(1)}%` : storageUsage.plan || '연결됨',
+        `저장 공간 ${fmtBytes(storage.usage)} · 5분 캐시`,
+        'c-blue',
+      ]);
+    } else {
+      cards.push(['Cloudinary', '확인 불가', '새로고침으로 다시 확인', 'c-ink']);
+    }
+    const cardsHtml = cards.map(([label, val, sub, cls]) => `
+      <div class="stat-card ${cls}">
+        <div class="glow"></div>
+        <div class="label">${label}</div>
+        <div class="value">${typeof val === 'number' ? val.toLocaleString('ko-KR') : esc(val ?? '0')}</div>
+        ${sub ? `<div class="sub">${esc(sub)}</div>` : ''}
+      </div>`).join('');
+
+    const recentReports = (allReports || []).slice(0, 5).map((r) => `
+      <tr>
+        <td><b>${esc(r.storeName) || '(이름 없음)'}</b></td>
+        <td>${esc(r.industry) || '-'}</td>
+        <td><span class="badge ${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span></td>
+        <td style="white-space:nowrap">${fmtDate(r.createdAt)}</td>
+      </tr>`).join('');
+
+    content.innerHTML = `
+      <div class="stats cols3">${cardsHtml}</div>
+      <div class="section-title">최근 제보 <span class="chip">${allReports.length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>매장명</th><th>업종</th><th>상태</th><th>제보일</th></tr></thead>
+          <tbody>${recentReports || '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:32px">아직 제보가 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+  }
+
+  /* ══ 뷰 2: 제보 관리 ══ */
+  function reportCounts() {
+    const c = { PENDING: 0, APPROVED: 0, REJECTED: 0 };
+    allReports.forEach((r) => { if (c[r.status] !== undefined) c[r.status]++; });
+    return c;
+  }
+
+  function renderReportsView() {
+    const c = reportCounts();
+    const pill = $('pendingPill');
+    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
+    else pill.hidden = true;
+
+    const tabsHtml = `
+      <div class="tabs">
+        <button class="tab ${currentTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
+        <button class="tab ${currentTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+        <button class="tab ${currentTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
+        <button class="tab ${currentTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
+      </div>`;
+
+    const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => r.status === currentTab);
+    const listHtml = filtered.length
+      ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
+      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인필보세요.</p></div>`;
+
+    content.innerHTML = tabsHtml + listHtml;
+
+    content.querySelectorAll('.tab').forEach((tab) => {
+      tab.onclick = () => { currentTab = tab.dataset.status; renderReportsView(); };
+    });
+    content.querySelectorAll('[data-approve]').forEach((btn) => {
+      btn.onclick = () => doApprove(btn.dataset.approve, btn);
+    });
+    content.querySelectorAll('[data-reject]').forEach((btn) => {
+      btn.onclick = () => openRejectModal(btn.dataset.reject, btn.dataset.name);
+    });
+    content.querySelectorAll('[data-delreport]').forEach((btn) => {
+      btn.onclick = () => openDeleteReportModal(btn.dataset.delreport, btn.dataset.name);
+    });
+  }
+
+  function menuRows(r) {
+    const rows = [];
+    for (let i = 1; i <= 4; i++) {
+      const m = r['menu' + i], p = r['price' + i];
+      if (m && String(m).trim()) {
+        rows.push(`<tr><td>${esc(m)}</td><td class="price">${fmtPrice(p)}</td></tr>`);
+      }
+    }
+    return rows.length ? `<table class="menu-table">${rows.join('')}</table>` : '';
+  }
+
+  function reportCard(r) {
+    const images = Array.isArray(r.imageUrls) ? r.imageUrls.filter(Boolean) : [];
+    const flags = [
+      r.visitedRecently ? '최근 방문 인증됨' : null,
+      r.checkedMenuPrice ? '메뉴 가격 확인됨' : null,
+      r.phoneNumber ? 'Tel. ' + esc(r.phoneNumber) : null,
+    ].filter(Boolean).map((f) => `<span class="flag">${f}</span>`).join('');
+
+    const reviewActions = r.status === 'PENDING' ? `
+        <button class="btn btn-approve" data-approve="${esc(r.id)}">승인</button>
+        <button class="btn btn-reject" data-reject="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
+    const actions = `
+      <div class="report-actions">
+        ${reviewActions}
+        <button class="btn btn-danger" data-delreport="${esc(r.id)}" data-name="${esc(r.storeName)}">삭제</button>
+      </div>`;
+
+    const reasonBox = (r.status === 'REJECTED' && r.rejectReason)
+      ? `<div class="reject-reason-box"><b>반려 사유:</b> ${esc(r.rejectReason)}</div>` : '';
+
+    return `
+      <div class="report-card" data-id="${esc(r.id)}">
+        <div class="report-top">
+          <div>
+            <div class="report-name">${esc(r.storeName) || '(이름 없음)'}
+              ${r.industry ? `<span class="industry">${esc(r.industry)}</span>` : ''}
+            </div>
+            <div class="report-meta">
+              ${esc(r.address) || '-'}${r.cityDistrict ? ' · ' + esc(r.cityProvince + ' ' + r.cityDistrict) : ''}<br>
+              제보자 ${shortUid(r.reporterId)} · ${fmtDate(r.createdAt)}
+            </div>
+          </div>
+          <span class="badge ${esc(r.status)}">${STATUS_LABEL[r.status] || esc(r.status)}</span>
+        </div>
+        ${menuRows(r)}
+        ${flags ? `<div class="report-flags">${flags}</div>` : ''}
+        ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}')">`).join('')}</div>` : ''}
+        ${reasonBox}
+        ${actions}
+      </div>`;
+  }
+
+  /* ══ 뷰 3: 리뷰 관리 ══ */
+  function renderReviewsView() {
+    const rows = allReviews.map((r) => {
+      const stars = '★★★★★'.slice(0, Number(r.stars) || 0) + '☆☆☆☆☆'.slice(0, 5 - (Number(r.stars) || 0));
+      const contentText = String(r.content || '');
+      const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      return `<tr>
+        <td><b>${esc(r.storeName) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(r.menu) || ''}</div></td>
+        <td>${esc(r.authorName) || shortUid(r.authorUid)}</td>
+        <td><span class="stars">${stars}</span></td>
+        <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td style="white-space:nowrap">${fmtDate(r.createdAt)}</td>
+        <td><button class="btn btn-danger btn-sm" data-delreview="${esc(r.id)}" data-summary="${esc(r.storeName || '')} · ${esc(preview)}">삭제</button></td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="section-title">전체 리뷰 <span class="chip">${allReviews.length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>매장</th><th>작성자</th><th>별점</th><th>내용</th><th>작성일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">작성된 리뷰가 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    content.querySelectorAll('[data-delreview]').forEach((btn) => {
+      btn.onclick = () => {
+        deleteReviewId = btn.dataset.delreview;
+        $('deleteReviewTarget').textContent = btn.dataset.summary || deleteReviewId;
+        openModal('deleteReviewModal');
+      };
+    });
+  }
+
+  /* ══ 뷰 4: 회원 관리 ══ */
+  function renderUsersView() {
+    const q = userSearch.trim().toLowerCase();
+    const filtered = !q ? users : users.filter((u) =>
+      String(u.nickname || '').toLowerCase().includes(q) ||
+      String(u.email || '').toLowerCase().includes(q) ||
+      String(u.region || '').toLowerCase().includes(q));
+
+    const rows = filtered.map((u) => {
+      const cats = Array.isArray(u.favoriteCategories) && u.favoriteCategories.length
+        ? u.favoriteCategories.join(', ') : '-';
+      const goal = u.savingsGoalAmount ? Number(u.savingsGoalAmount).toLocaleString('ko-KR') + '원' : '-';
+      const name = u.nickname || '(이름 없음)';
+      return `<tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="avatar" style="background:${avatarColor(u.id || name)}">${esc(String(name).charAt(0))}</span>
+            <div><b>${esc(name)}</b><div class="uid-cell">${shortUid(u.id || u.firebaseUid)}</div></div>
+          </div>
+        </td>
+        <td>${esc(u.email) || '-'}</td>
+        <td>${esc(u.region) || '-'}</td>
+        <td>${esc(cats)}</td>
+        <td>${goal}</td>
+        <td style="white-space:nowrap">${fmtDate(u.createdAt)}</td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-ghost btn-sm" data-activity="${esc(u.id || u.firebaseUid)}" data-name="${esc(name)}">상세</button>
+          <button class="btn btn-danger btn-sm" data-deluser="${esc(u.id || u.firebaseUid)}" data-name="${esc(name)}">탈퇴</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="search-row">
+        <input id="userSearchInput" type="text" placeholder="닉네임·이메일·지역 검색…" value="${esc(userSearch)}" />
+      </div>
+      <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>회원</th><th>이메일</th><th>지역</th><th>관심 카테고리</th><th>절약 목표</th><th>가입일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px">일치하는 회원이 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    const si = $('userSearchInput');
+    si.oninput = () => { userSearch = si.value; renderUsersView(); };
+    si.focus();
+    si.setSelectionRange(si.value.length, si.value.length);
+
+    content.querySelectorAll('[data-activity]').forEach((btn) => {
+      btn.onclick = () => openUserActivity(btn.dataset.activity, btn.dataset.name);
+    });
+    content.querySelectorAll('[data-deluser]').forEach((btn) => {
+      btn.onclick = () => {
+        deleteTargetUid = btn.dataset.deluser;
+        $('deleteUserTarget').textContent = `「${btn.dataset.name}」 (${shortUid(deleteTargetUid)}) 회원을 강제 탈퇴합니다.`;
+        openModal('deleteUserModal');
+      };
+    });
+  }
+
+  async function openUserActivity(uid, name) {
+    $('userModalName').textContent = name;
+    $('userModalSub').textContent = '활동 내역을 불러오는 중…';
+    $('userModalActs').innerHTML = '';
+    openModal('userModal');
+    try {
+      const a = await api(`/api/admin/users/${encodeURIComponent(uid)}/activity`);
+      $('userModalSub').textContent = shortUid(uid) + ' · 활동 요약';
+      $('userModalActs').innerHTML = [
+        ['제보', a.reports, 'var(--amber)'],
+        ['리뷰', a.reviews, 'var(--violet)'],
+        ['방문 인증', a.visits, 'var(--green)'],
+        ['찜', a.favorites, 'var(--red)'],
+      ].map(([t, n, c]) => `<div class="act-cell"><div class="n" style="color:${c}">${Number(n ?? 0)}</div><div class="t">${t}</div></div>`).join('');
+    } catch (e) {
+      $('userModalSub').textContent = '활동 내역을 불러오지 못했습니다: ' + e.message;
+    }
+  }
+
+  /* ══ 뷰 5: 댓글 관리 ══ */
+  function renderCommentsView() {
+    const rows = (allComments || []).map((c) => {
+      const contentText = String(c.content || '');
+      const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      const kind = c.isReply ? '<span class="badge" style="color:var(--violet);background:var(--violet-soft)">답글</span>'
+                             : '<span class="badge" style="color:var(--primary);background:var(--primary-soft)">댓글</span>';
+      return `<tr>
+        <td>${kind}</td>
+        <td style="max-width:340px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td class="uid-cell">${shortUid(c.userId)}</td>
+        <td class="uid-cell">${shortUid(c.postId)}</td>
+        <td style="white-space:nowrap">${fmtDate(c.createdAt)}</td>
+        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(preview)}">삭제</button></td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="section-title">전체 댓글·답글 <span class="chip">${(allComments || []).length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>구분</th><th>내용</th><th>작성자</th><th>게시글</th><th>작성일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">작성된 댓글이 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    content.querySelectorAll('[data-delcomment]').forEach((btn) => {
+      btn.onclick = () => {
+        deleteCommentId = btn.dataset.delcomment;
+        $('deleteCommentTarget').textContent = btn.dataset.summary || deleteCommentId;
+        openModal('deleteCommentModal');
+      };
+    });
+  }
+
+  /* ══ 뷰 6: 문의 관리 ══ */
+  function renderInquiriesView() {
+    const rows = (allInquiries || []).map((q) => {
+      const contentText = String(q.content || '');
+      const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      const isAnswered = q.status === 'ANSWERED' || Boolean(q.answer);
+      const statusBadge = !isAnswered
+        ? '<span class="badge PENDING">대기</span>'
+        : '<span class="badge ANSWERED">답변 완료</span>';
+      return `<tr>
+        <td><b>${esc(q.title) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(q.category) || '일반'}</div></td>
+        <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td class="uid-cell">${shortUid(q.userId)}</td>
+        <td>${statusBadge}</td>
+        <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
+        <td><button class="btn btn-sm ${isAnswered ? 'btn-ghost' : 'btn-primary'}" data-answer-inquiry="${esc(q.id)}">${isAnswered ? '답변 수정' : '답변하기'}</button></td>
+      </tr>`;
+    }).join('');
+
+    content.innerHTML = `
+      <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span></div>
+      <div class="card table-wrap">
+        <table class="data-table">
+          <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th><th></th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
+        </table>
+      </div>`;
+
+    content.querySelectorAll('[data-answer-inquiry]').forEach((btn) => {
+      btn.onclick = () => openAnswerInquiryModal(btn.dataset.answerInquiry);
+    });
+  }
+
+  /* ══ 뷰 7: 알림 발송 ══ */
+  function renderNotificationsView() {
+    const s = communityStats || {};
+    content.innerHTML = `
+      <div class="stats cols3">
+        <div class="stat-card c-violet"><div class="glow"></div><div class="label">댓글·답글</div><div class="value">${Number(s.comments ?? 0).toLocaleString('ko-KR')}</div></div>
+        <div class="stat-card c-red"><div class="glow"></div><div class="label">좋아요</div><div class="value">${Number(s.feedLikes ?? 0).toLocaleString('ko-KR')}</div></div>
+        <div class="stat-card c-blue"><div class="glow"></div><div class="label">발송된 알림</div><div class="value">${Number(s.notifications ?? 0).toLocaleString('ko-KR')}</div></div>
+      </div>
+      <div class="section-title">알림 보내기</div>
+      <div class="card" style="padding:24px;max-width:560px">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">대상</label>
+            <div class="tabs" style="margin-bottom:0">
+              <button class="tab active" id="notifAll" type="button">전체 회원</button>
+              <button class="tab" id="notifOne" type="button">특정 회원 (uid)</button>
+            </div>
+            <input id="notifTargetUid" type="text" placeholder="대상 회원 uid 입력" style="display:none;width:100%;margin-top:10px;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">제목</label>
+            <input id="notifTitle" type="text" maxlength="100" placeholder="알림 제목" style="width:100%;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">내용</label>
+            <textarea id="notifBody" maxlength="500" placeholder="알림 내용" style="width:100%;height:110px;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;resize:none;font-size:13px;font-family:inherit;line-height:1.5"></textarea>
+          </div>
+          <div style="display:flex;justify-content:flex-end">
+            <button class="btn btn-primary" id="notifSend">발송하기</button>
+          </div>
+        </div>
+      </div>`;
+
+    const allTab = $('notifAll'), oneTab = $('notifOne'), uidInput = $('notifTargetUid');
+    allTab.onclick = () => { allTab.classList.add('active'); oneTab.classList.remove('active'); uidInput.style.display = 'none'; };
+    oneTab.onclick = () => { oneTab.classList.add('active'); allTab.classList.remove('active'); uidInput.style.display = 'block'; uidInput.focus(); };
+    $('notifSend').onclick = doSendNotification;
+  }
+
+  async function doSendNotification() {
+    const title = $('notifTitle').value.trim();
+    const body = $('notifBody').value.trim();
+    const targetUid = $('notifTargetUid').style.display === 'none' ? '' : $('notifTargetUid').value.trim();
+    if (!title || !body) { toast('제목과 내용을 입력해주세요'); return; }
+    if ($('notifTargetUid').style.display !== 'none' && !targetUid) { toast('대상 회원 uid를 입력해주세요'); return; }
+    if (!confirm(targetUid ? `해당 회원에게 알림을 보낼까요?` : '전체 회원에게 알림을 보낼까요?')) return;
+    $('notifSend').disabled = true;
+    try {
+      const res = await api('/api/admin/notifications', {
+        method: 'POST',
+        body: JSON.stringify({ title, body, type: 'admin', targetUid: targetUid || undefined }),
+      });
+      toast(`알림 발송 완료 — ${res.sent}명에게 전송됨`);
+      $('notifTitle').value = ''; $('notifBody').value = ''; $('notifTargetUid').value = '';
+      communityStats = await api('/api/admin/community/stats');
+      renderNotificationsView();
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('notifSend').disabled = false;
+    }
+  }
+
+  /* ── 액션 ─────────────────────────── */
+  async function doApprove(id, btn) {
+    if (!confirm('이 제보를 승인할까요?')) return;
+    btn.disabled = true;
+    try {
+      await api(`/api/admin/reports/${id}/approve`, { method: 'POST' });
+      const r = allReports.find((x) => x.id === id);
+      if (r) r.status = 'APPROVED';
+      renderReportsView();
+      toast('승인 완료');
+    } catch (e) {
+      btn.disabled = false;
+      handleError(e);
+    }
+  }
+
+  function openRejectModal(id, name) {
+    rejectTargetId = id;
+    $('rejectTarget').textContent = `「${name || id}」 제보를 반려합니다.`;
+    $('rejectReason').value = '';
+    openModal('rejectModal');
+    setTimeout(() => $('rejectReason').focus(), 50);
+  }
+
+  async function doReject() {
+    const reason = $('rejectReason').value.trim();
+    if (!reason) { $('rejectReason').focus(); return; }
+    $('rejectConfirm').disabled = true;
+    try {
+      await api(`/api/admin/reports/${rejectTargetId}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      const r = allReports.find((x) => x.id === rejectTargetId);
+      if (r) { r.status = 'REJECTED'; r.rejectReason = reason; }
+      closeModal('rejectModal');
+      renderReportsView();
+      toast('반려 완료');
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('rejectConfirm').disabled = false;
+    }
+  }
+
+  function openAnswerInquiryModal(id) {
+    const inquiry = (allInquiries || []).find((item) => item.id === id);
+    if (!inquiry) return;
+    answerInquiryId = id;
+    $('answerInquiryHeading').textContent = inquiry.answer ? '문의 답변 수정' : '문의 답변';
+    $('answerInquiryTarget').textContent = `「${inquiry.title || id}」 문의에 답변합니다.`;
+    $('answerInquiryText').value = inquiry.answer || '';
+    openModal('answerInquiryModal');
+    setTimeout(() => $('answerInquiryText').focus(), 50);
+  }
+
+  async function doAnswerInquiry() {
+    const answer = $('answerInquiryText').value.trim();
+    if (!answer) { $('answerInquiryText').focus(); return; }
+    if (!answerInquiryId) return;
+
+    $('answerInquiryConfirm').disabled = true;
+    try {
+      const result = await api(`/api/admin/inquiries/${encodeURIComponent(answerInquiryId)}/answer`, {
+        method: 'POST',
+        body: JSON.stringify({ answer }),
+      });
+      const inquiry = (allInquiries || []).find((item) => item.id === answerInquiryId);
+      if (inquiry) {
+        inquiry.answer = answer;
+        inquiry.answeredAt = result.answeredAt;
+        inquiry.status = result.status || 'ANSWERED';
+      }
+      closeModal('answerInquiryModal');
+      renderInquiriesView();
+      toast('답변 저장 및 사용자 알림 등록 완료');
+      answerInquiryId = null;
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('answerInquiryConfirm').disabled = false;
+    }
+  }
+
+  function openDeleteReportModal(id, name) {
+    deleteReportId = id;
+    $('deleteReportTarget').textContent = `「${name || id}」 제보를 삭제합니다.`;
+    openModal('deleteReportModal');
+  }
+
+  async function doDeleteReport() {
+    if (!deleteReportId) return;
+    $('deleteReportConfirm').disabled = true;
+    try {
+      const res = await api(`/api/admin/reports/${encodeURIComponent(deleteReportId)}`, {
+        method: 'DELETE',
+      });
+      allReports = allReports.filter((report) => report.id !== deleteReportId);
+      overview = null;
+      closeModal('deleteReportModal');
+      renderReportsView();
+      toast(`제보 삭제 완료 — 첨부 사진 ${res.deletedImages ?? 0}장 정리`);
+      deleteReportId = null;
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteReportConfirm').disabled = false;
+    }
+  }
+
+  async function doDeleteUser() {
+    $('deleteUserConfirm').disabled = true;
+    try {
+      const res = await api(`/api/admin/users/${encodeURIComponent(deleteTargetUid)}`, { method: 'DELETE' });
+      users = users.filter((u) => (u.id || u.firebaseUid) !== deleteTargetUid);
+      closeModal('deleteUserModal');
+      renderUsersView();
+      toast(`탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteUserConfirm').disabled = false;
+    }
+  }
+
+  async function doDeleteReview() {
+    $('deleteReviewConfirm').disabled = true;
+    try {
+      await api(`/api/admin/reviews/${encodeURIComponent(deleteReviewId)}`, { method: 'DELETE' });
+      allReviews = allReviews.filter((r) => r.id !== deleteReviewId);
+      closeModal('deleteReviewModal');
+      renderReviewsView();
+      toast('리뷰 삭제 완료');
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteReviewConfirm').disabled = false;
+    }
+  }
+
+  async function doDeleteComment() {
+    $('deleteCommentConfirm').disabled = true;
+    try {
+      await api(`/api/admin/comments/${encodeURIComponent(deleteCommentId)}`, { method: 'DELETE' });
+      allComments = (allComments || []).filter((c) => c.id !== deleteCommentId);
+      closeModal('deleteCommentModal');
+      renderCommentsView();
+      toast('댓글 삭제 완료');
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteCommentConfirm').disabled = false;
+    }
+  }
+
+  function handleError(e) {
+    if (e.code === 401) { showLogin(true); return; }
+    if (e.code === 403) { renderState('forbidden'); return; }
+    toast(e.message || '오류가 발생했습니다');
+  }
+
+  /* ── 로드 / 뷰 전환 ───────────────── */
+  async function switchView(view) {
+    currentView = view;
+    document.querySelectorAll('.nav-item').forEach((t) =>
+      t.classList.toggle('active', t.dataset.view === view));
+    const [title, crumb] = VIEW_META[view] || ['', ''];
+    $('viewTitle').textContent = title;
+    $('viewCrumb').textContent = crumb;
+
+    if (view === 'dashboard') {
+      if (overview && allReports.length) renderDashboard();
+      else await loadDashboard();
+    } else if (view === 'reports') {
+      if (allReports.length) renderReportsView();
+      else await loadReports();
+    } else if (view === 'reviews') {
+      if (allReviews.length) renderReviewsView();
+      else await loadReviews();
+    } else if (view === 'comments') {
+      if (allComments) renderCommentsView();
+      else await loadComments();
+    } else if (view === 'inquiries') {
+      if (allInquiries) renderInquiriesView();
+      else await loadInquiries();
+    } else if (view === 'notifications') {
+      if (communityStats) renderNotificationsView();
+      else await loadCommunityStats();
+    } else if (view === 'users') {
+      if (users) renderUsersView();
+      else await loadUsers();
+    }
+  }
+
+  async function loadDashboard() {
+    renderState('loading');
+    try {
+      [overview, allReports, storageUsage] = await Promise.all([
+        api('/api/admin/overview'),
+        api('/api/admin/reports?status=ALL'),
+        api('/api/admin/storage/report-images/usage').catch(() => null),
+      ]);
+      renderDashboard();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadReports() {
+    renderState('loading');
+    try {
+      allReports = await api('/api/admin/reports?status=ALL');
+      renderReportsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadReviews() {
+    renderState('loading');
+    try {
+      allReviews = await api('/api/admin/reviews');
+      renderReviewsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadUsers() {
+    renderState('loading');
+    try {
+      users = await api('/api/admin/users');
+      renderUsersView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadComments() {
+    renderState('loading');
+    try {
+      allComments = await api('/api/admin/comments');
+      renderCommentsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadInquiries() {
+    renderState('loading');
+    try {
+      allInquiries = await api('/api/admin/inquiries');
+      renderInquiriesView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  async function loadCommunityStats() {
+    renderState('loading');
+    try {
+      communityStats = await api('/api/admin/community/stats');
+      renderNotificationsView();
+    } catch (e) { handleLoadError(e); }
+  }
+
+  function handleLoadError(e) {
+    if (e.code === 401) showLogin(true);
+    else if (e.code === 403) renderState('forbidden');
+    else renderState('error', { message: e.message });
+  }
+
+  async function refresh() {
+    overview = null;
+    storageUsage = null;
+    try { allReports = await api('/api/admin/reports?status=ALL'); } catch (_) {}
+    if (currentView === 'dashboard') { overview = null; await loadDashboard(); }
+    else if (currentView === 'reports') await loadReports();
+    else if (currentView === 'reviews') await loadReviews();
+    else if (currentView === 'comments') await loadComments();
+    else if (currentView === 'inquiries') await loadInquiries();
+    else if (currentView === 'notifications') await loadCommunityStats();
+    else if (currentView === 'users') await loadUsers();
+  }
+
+  /* ── 로그인 / 로그아웃 ────────────── */
+  function showLogin(hasError) {
+    $('app').classList.remove('on');
+    $('loginOverlay').classList.remove('hidden');
+    $('loginError').hidden = !hasError;
+    setTimeout(() => $('keyInput').focus(), 50);
+  }
+
+  function showApp() {
+    $('loginOverlay').classList.add('hidden');
+    $('app').classList.add('on');
+  }
+
+  async function boot() {
+    if (!getKey()) { showLogin(false); return; }
+    showApp();
+    renderState('loading');
+    try {
+      await api('/api/admin/overview'); // 키 유효성 가볍게 확인
+      switchView('dashboard');
+    } catch (e) {
+      if (e.code === 401) showLogin(true);
+      else if (e.code === 403) renderState('forbidden');
+      else renderState('error', { message: e.message });
+    }
+  }
+
+  /* ── 이벤트 바인딩 ─────────────────── */
+  $('loginBtn').onclick = () => {
+    const v = $('keyInput').value.trim();
+    if (!v) return;
+    sessionStorage.setItem(KEY_STORAGE, v);
+    boot();
+  };
+  $('keyInput').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
+  $('logoutBtn').onclick = () => {
+    sessionStorage.removeItem(KEY_STORAGE);
+    location.reload();
+  };
+  $('refreshBtn').onclick = refresh;
+  document.querySelectorAll('.nav-item').forEach((tab) => {
+    tab.onclick = () => switchView(tab.dataset.view);
+  });
+  $('rejectConfirm').onclick = doReject;
+  $('deleteReportConfirm').onclick = doDeleteReport;
+  $('deleteUserConfirm').onclick = doDeleteUser;
+  $('deleteReviewConfirm').onclick = doDeleteReview;
+  $('deleteCommentConfirm').onclick = doDeleteComment;
+  $('answerInquiryConfirm').onclick = doAnswerInquiry;
+  document.querySelectorAll('[data-close]').forEach((btn) => {
+    btn.onclick = () => closeModal(btn.dataset.close);
+  });
+  document.querySelectorAll('.modal-backdrop').forEach((m) => {
+    m.onclick = (e) => { if (e.target === m) m.classList.remove('show'); };
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach((m) => m.classList.remove('show'));
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>

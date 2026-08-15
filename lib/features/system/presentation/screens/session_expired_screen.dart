@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,12 +32,15 @@ class SessionExpiredScreen extends ConsumerWidget {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final actionTop = FigmaMobileCanvas.height - bottomOffset - 16 - 111.988;
+    // On web use actual screen height, on native use design height
+    final effectiveHeight = kIsWeb
+        ? MediaQuery.sizeOf(context).height
+        : FigmaMobileCanvas.height;
+    final actionTop = effectiveHeight - bottomOffset - 16 - 111.988;
 
     void close() {
       ref.read(authStateProvider.notifier).state = const AuthState(
         isLoggedIn: false,
-        isAdmin: false,
         provider: '',
         email: 'minseo@example.com',
       );
@@ -45,16 +49,14 @@ class SessionExpiredScreen extends ConsumerWidget {
 
     void loginAgain() async {
       final messenger = ScaffoldMessenger.of(context);
-      final success = await ref.read(kakaoLoginServiceProvider).login();
-      
-      if (success) {
+      final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
+      if (errorMsg == null) {
         if (context.mounted) {
           context.go(AppRoutes.home);
-          messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
         }
       } else {
         if (context.mounted) {
-          messenger.showSnackBar(const SnackBar(content: Text('로그인에 실패했습니다.')));
+          messenger.showSnackBar(SnackBar(content: Text('재로그인 실패: $errorMsg')));
         }
       }
     }

@@ -4,19 +4,20 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class PriceAlertSubscriptionScreen extends ConsumerWidget {
   const PriceAlertSubscriptionScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const disabled = Color(0xFFCBD5E1);
+  static const blue = AppColors.primary;
+  static const orange = AppColors.warning;
+  static const green = AppColors.success;
+  static const ink = AppColors.ink;
+  static const black = AppColors.black;
+  static const muted = AppColors.muted;
+  static const surface = AppColors.surface;
+  static const border = AppColors.border;
+  static const disabled = AppColors.disabled;
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -59,7 +60,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
     }
 
     return FigmaMobileCanvas(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       child: Stack(
         children: [
           Positioned.fill(
@@ -68,14 +69,14 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                 parent: BouncingScrollPhysics(),
               ),
               child: SizedBox(
-                width: FigmaMobileCanvas.width,
+                width: double.infinity,
                 height: scrollContentHeight,
                 child: Stack(
                   children: [
                     Positioned(
                       left: 20,
                       top: 64.8720703125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 20.142044067382812,
                       child: const Text(
                         '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
@@ -85,7 +86,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 99.00537109375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 69.2897720336914,
                       child: _AllAlertCard(
                         value: settings.all,
@@ -111,7 +112,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 208.7783203125 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 223.86363220214844,
                       child: Column(
                         children: [
@@ -134,7 +135,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                     Positioned(
                       left: 20,
                       top: 477.13037109375 + topOffset,
-                      width: 335.45452880859375,
+                      right: 20,
                       height: 163.59375,
                       child: _ConditionCard(
                         settings: settings,
@@ -168,7 +169,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
           Positioned(
             left: 0,
             bottom: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
@@ -206,11 +207,11 @@ class _Header extends StatelessWidget {
     return Positioned(
       left: 0,
       top: 0,
-      width: FigmaMobileCanvas.width,
+      right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(
               color: PriceAlertSubscriptionScreen.border,
@@ -226,7 +227,7 @@ class _Header extends StatelessWidget {
               width: 72,
               height: 48.877838134765625,
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: onBack,
                   child: const Padding(
@@ -314,7 +315,7 @@ class _StoreAlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 335.45452880859375,
+      width: double.infinity,
       height: 69.2897720336914,
       child: _RoundedCard(
         child: GestureDetector(
@@ -485,12 +486,12 @@ class _ToggleSm extends StatelessWidget {
                   child: Container(
                     width: 20,
                     height: 20,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x33000000),
+                          color: AppColors.black.withOpacity(0.2),
                           blurRadius: 3,
                           offset: Offset(0, 1),
                         ),
@@ -536,8 +537,8 @@ class _StickyButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Colors.white,
+      decoration: BoxDecoration(
+        color: AppColors.white,
         border: Border(
           top: BorderSide(
             color: PriceAlertSubscriptionScreen.border,
@@ -555,7 +556,7 @@ class _StickyButton extends StatelessWidget {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: PriceAlertSubscriptionScreen.blue,
-                foregroundColor: Colors.white,
+                foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -587,7 +588,7 @@ class _RoundedCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: PriceAlertSubscriptionScreen.border,
           width: .909,

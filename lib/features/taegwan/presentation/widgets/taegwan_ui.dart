@@ -72,7 +72,7 @@ class TaegwanAppFrame extends StatelessWidget {
           Positioned(
             left: 0,
             top: 0,
-            width: FigmaMobileCanvas.width,
+            right: 0,
             height: 56 + topOffset,
             child: _Header(
               title: title,
@@ -85,8 +85,8 @@ class TaegwanAppFrame extends StatelessWidget {
           Positioned(
             left: 0,
             top: 56 + topOffset,
-            width: FigmaMobileCanvas.width,
-            height: FigmaMobileCanvas.height - 56 - topOffset,
+            right: 0,
+            bottom: 0,
             child: Padding(
               padding: EdgeInsets.only(bottom: bottomNavHeight),
               child: child,
@@ -96,7 +96,7 @@ class TaegwanAppFrame extends StatelessWidget {
             Positioned(
               left: 0,
               bottom: 0,
-              width: FigmaMobileCanvas.width,
+              right: 0,
               height: bottomNavHeight,
               child: HowmuchBottomNav(
                 safeBottom: safePadding.bottom,
