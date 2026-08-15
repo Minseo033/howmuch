@@ -99,7 +99,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
       );
       if (response.statusCode != 200) return _setLocationFallback();
 
-      final data = jsonDecode(response.body);
+      final data = ApiClient.decodeJson(response);
       final docs = data['documents'] as List?;
       if (docs == null || docs.isEmpty) return _setLocationFallback();
 

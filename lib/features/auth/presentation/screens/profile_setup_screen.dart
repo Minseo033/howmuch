@@ -51,8 +51,14 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   static const int _maxNickname = 12;
   static const List<String> _allCategories = [
-    '한식', '중식', '일식', '분식', '카페',
-    '패스트푸드', '치킨/피자', '생활서비스',
+    '한식',
+    '중식',
+    '일식',
+    '분식',
+    '카페',
+    '패스트푸드',
+    '치킨/피자',
+    '생활서비스',
   ];
 
   final Set<String> _selectedCategories = {};
@@ -75,17 +81,21 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   @override
   void initState() {
     super.initState();
-    // 전체 화면 리빌드 방지를 위해 addListener에서 setState 제거. 
+    // 전체 화면 리빌드 방지를 위해 addListener에서 setState 제거.
     // 대신 submit 버튼 상태만 업데이트하도록 필요할 때만 리빌드.
     _nicknameController.addListener(_onInputChanged);
     _regionController.addListener(_onRegionInputChanged);
 
-    _nicknameFocus.addListener(() => setState(() {
-          _nicknameFocused = _nicknameFocus.hasFocus;
-        }));
-    _regionFocus.addListener(() => setState(() {
-          _regionFocused = _regionFocus.hasFocus;
-        }));
+    _nicknameFocus.addListener(
+      () => setState(() {
+        _nicknameFocused = _nicknameFocus.hasFocus;
+      }),
+    );
+    _regionFocus.addListener(
+      () => setState(() {
+        _regionFocused = _regionFocus.hasFocus;
+      }),
+    );
   }
 
   void _onInputChanged() {
@@ -109,17 +119,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     }
     try {
       final url = Uri.parse(
-          'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}');
-      final response = await http.get(url, headers: {
-        'Authorization': 'KakaoAK $_kakaoRestApiKey',
-      });
+        'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}',
+      );
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
+      );
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = ApiClient.decodeJson(response);
         final docs = data['documents'] as List;
         if (mounted) {
           setState(() {
-            _regionSuggestions =
-                docs.map((d) => d['address_name'].toString()).toList();
+            _regionSuggestions = docs
+                .map((d) => d['address_name'].toString())
+                .toList();
           });
         }
       }
@@ -158,21 +171,25 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     setState(() => _isSearchingLocation = true);
     try {
       Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
       final url = Uri.parse(
-          'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${position.longitude}&y=${position.latitude}');
-      final response = await http.get(url, headers: {
-        'Authorization': 'KakaoAK $_kakaoRestApiKey',
-      });
+        'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${position.longitude}&y=${position.latitude}',
+      );
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
+      );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        final data = ApiClient.decodeJson(response);
         if (data['documents'] != null && data['documents'].isNotEmpty) {
           // 행정동 기준 주소 사용 (H)
           final doc = (data['documents'] as List).firstWhere(
-              (d) => d['region_type'] == 'H',
-              orElse: () => data['documents'][0]);
+            (d) => d['region_type'] == 'H',
+            orElse: () => data['documents'][0],
+          );
           _regionController.text = doc['address_name'];
           setState(() => _regionSuggestions.clear());
         }
@@ -223,7 +240,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         favoriteCategories: _selectedCategories.toList(),
       );
 
-      ref.read(userProfileProvider.notifier).update(
+      ref
+          .read(userProfileProvider.notifier)
+          .update(
             (state) => state.copyWith(
               nickname: _nicknameController.text.trim(),
               email: email,
@@ -265,46 +284,46 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     return FigmaMobileCanvas(
       child: Scaffold(
-      backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(
-                  left: 20,
-                  right: 20,
-                  top: 8,
-                  bottom: 24,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildStepBadge(),
-                    const SizedBox(height: 12),
-                    _buildTitle(),
-                    const SizedBox(height: 8),
-                    _buildSubtitle(),
-                    const SizedBox(height: 32),
-                    _buildNicknameSection(),
-                    const SizedBox(height: 24),
-                    _buildRegionSection(),
-                    const SizedBox(height: 24),
-                    _buildCategorySection(),
-                    const SizedBox(height: 24),
-                    _buildGoalSection(),
-                    const SizedBox(height: 32),
-                  ],
+        backgroundColor: Colors.white,
+        appBar: _buildAppBar(),
+        body: SafeArea(
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 20,
+                    top: 8,
+                    bottom: 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildStepBadge(),
+                      const SizedBox(height: 12),
+                      _buildTitle(),
+                      const SizedBox(height: 8),
+                      _buildSubtitle(),
+                      const SizedBox(height: 32),
+                      _buildNicknameSection(),
+                      const SizedBox(height: 24),
+                      _buildRegionSection(),
+                      const SizedBox(height: 24),
+                      _buildCategorySection(),
+                      const SizedBox(height: 24),
+                      _buildGoalSection(),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // 키보드가 열려있지 않을 때만 하단 버튼 표시
-            if (!isKeyboardOpen) _buildBottomButton(),
-          ],
+              // 키보드가 열려있지 않을 때만 하단 버튼 표시
+              if (!isKeyboardOpen) _buildBottomButton(),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -319,8 +338,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         onPressed: () {
           if (context.canPop()) context.pop();
         },
-        icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            size: 18, color: _ink),
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          size: 18,
+          color: _ink,
+        ),
         splashRadius: 20,
       ),
       title: const Text(
@@ -494,8 +516,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         color: _ink,
                       ),
                       decoration: const InputDecoration(
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 14,
+                        ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -572,11 +596,16 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                       width: 12,
                       height: 12,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: _blue),
+                        strokeWidth: 2,
+                        color: _blue,
+                      ),
                     )
                   else
-                    const Icon(Icons.my_location_rounded,
-                        size: 13, color: _blue),
+                    const Icon(
+                      Icons.my_location_rounded,
+                      size: 13,
+                      color: _blue,
+                    ),
                   const SizedBox(width: 4),
                   const Text(
                     '현재 위치로 설정',
@@ -622,8 +651,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     color: _ink,
                   ),
                   decoration: const InputDecoration(
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 14,
+                    ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -652,7 +683,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               border: Border.all(color: _border),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
+                  color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -766,8 +797,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: selected ? _chipSelected : _chipUnselected,
                   borderRadius: BorderRadius.circular(99),
@@ -780,8 +813,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (selected) ...[
-                      const Icon(Icons.check_rounded,
-                          size: 13, color: Colors.white),
+                      const Icon(
+                        Icons.check_rounded,
+                        size: 13,
+                        color: Colors.white,
+                      ),
                       const SizedBox(width: 4),
                     ],
                     Text(
@@ -790,8 +826,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         fontFamily: _font,
                         fontFamilyFallback: _fontFallback,
                         fontSize: 13,
-                        fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: selected
                             ? _chipSelectedText
                             : _chipUnselectedText,
@@ -874,8 +911,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                     color: _ink,
                   ),
                   decoration: const InputDecoration(
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 14,
+                    ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -948,8 +987,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.5,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
                         ),
                       )
                     : const Row(

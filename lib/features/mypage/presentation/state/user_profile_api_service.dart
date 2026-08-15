@@ -45,11 +45,10 @@ class UserProfileApiService {
         debugPrint('프로필 조회 인증 실패: ${response.statusCode}');
         throw UserProfileAuthException(response.statusCode);
       } else {
-        debugPrint('프로필 조회 실패: ${response.statusCode} ${response.body}');
+        final body = ApiClient.bodyText(response);
+        debugPrint('프로필 조회 실패: ${response.statusCode} $body');
         if (strict) {
-          throw UserProfileLoadException(
-            '${response.statusCode} ${response.body}',
-          );
+          throw UserProfileLoadException('${response.statusCode} $body');
         }
         return null;
       }
@@ -91,7 +90,9 @@ class UserProfileApiService {
         debugPrint('프로필 저장 성공');
         return true;
       } else {
-        debugPrint('프로필 저장 실패: ${response.statusCode} ${response.body}');
+        debugPrint(
+          '프로필 저장 실패: ${response.statusCode} ${ApiClient.bodyText(response)}',
+        );
         return false;
       }
     } catch (e) {

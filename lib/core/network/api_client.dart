@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 백엔드 API 공통 클라이언트.
@@ -58,5 +61,14 @@ class ApiClient {
       headers['Authorization'] = 'Bearer $_sessionToken';
     }
     return headers;
+  }
+
+  /// 서버가 charset을 생략해도 한글 JSON이 깨지지 않도록 UTF-8로 읽습니다.
+  static dynamic decodeJson(http.Response response) {
+    return jsonDecode(bodyText(response));
+  }
+
+  static String bodyText(http.Response response) {
+    return utf8.decode(response.bodyBytes);
   }
 }

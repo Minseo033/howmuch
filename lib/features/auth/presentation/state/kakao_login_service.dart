@@ -115,7 +115,7 @@ class KakaoLoginService {
           .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = ApiClient.decodeJson(response) as Map<String, dynamic>;
         final uid = data['firebaseUid'] as String?;
         final sessionToken = data['sessionToken'] as String?;
 

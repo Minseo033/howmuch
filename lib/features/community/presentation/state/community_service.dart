@@ -119,7 +119,10 @@ class CommunityService {
         .timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
 
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -138,7 +141,10 @@ class CommunityService {
         .timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
 
     return _decodeCommentList(response.bodyBytes);
@@ -156,7 +162,10 @@ class CommunityService {
         .timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
     if (response.bodyBytes.isEmpty) return null;
 
@@ -176,7 +185,10 @@ class CommunityService {
         .timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
 
     return _decodeCommentList(response.bodyBytes);
@@ -197,7 +209,10 @@ class CommunityService {
         .timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
     if (response.bodyBytes.isEmpty) return null;
 
@@ -225,7 +240,10 @@ class CommunityService {
     if (response.statusCode != 200 &&
         response.statusCode != 201 &&
         response.statusCode != 204) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
     if (response.bodyBytes.isEmpty) {
       return CommunityReactionResult(
@@ -265,7 +283,10 @@ class CommunityService {
     if (response.statusCode != 200 &&
         response.statusCode != 201 &&
         response.statusCode != 204) {
-      throw CommunityApiException(response.statusCode, response.body);
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
     }
     if (response.bodyBytes.isEmpty) return enabled;
 

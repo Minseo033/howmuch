@@ -61,11 +61,13 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
       }
 
       if (response.statusCode != 200) {
-        debugPrint('리뷰 등록 실패: ${response.statusCode} ${response.body}');
+        debugPrint(
+          '리뷰 등록 실패: ${response.statusCode} ${ApiClient.bodyText(response)}',
+        );
         return false;
       }
 
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = ApiClient.decodeJson(response) as Map<String, dynamic>;
       final saved = Review(
         id: (data['reviewId'] ?? '').toString(),
         storeId: review.storeId,
