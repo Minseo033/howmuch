@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
@@ -169,20 +171,176 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
       if (!mounted) return;
       showDialog<void>(
         context: context,
+        barrierColor: Colors.black.withValues(alpha: .4),
         builder: (context) {
-          return AlertDialog(
-            title: const Text('반려 사유'),
-            content: Text(rejectReason),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('확인'),
-              ),
-            ],
+          return _RejectReasonDialog(
+            report: report,
+            reason: rejectReason,
+            onConfirm: () => Navigator.of(context).pop(),
           );
         },
       );
     });
+  }
+}
+
+class _RejectReasonDialog extends StatelessWidget {
+  const _RejectReasonDialog({
+    required this.report,
+    required this.reason,
+    required this.onConfirm,
+  });
+
+  final UserReportStatus report;
+  final String reason;
+  final VoidCallback onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final dialogWidth = math.min(
+      327.4715881347656,
+      MediaQuery.sizeOf(context).width - 48,
+    );
+    final subtitle = report.menu.trim().isEmpty
+        ? report.store
+        : '${report.store} · ${report.menu.trim()}';
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SizedBox(
+        width: dialogWidth,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x38000000),
+                blurRadius: 60,
+                offset: Offset(0, 20),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        alignment: Alignment.center,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFFFEDD5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: ReportDetailV2Screen._orange,
+                          size: 25,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        '반려 사유를 확인해주세요',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: ReportDetailV2Screen._ink,
+                          fontFamily: ReportDetailV2Screen._fontFamily,
+                          fontFamilyFallback:
+                              ReportDetailV2Screen._fontFallback,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: ReportDetailV2Screen._muted,
+                          fontFamily: ReportDetailV2Screen._fontFamily,
+                          fontFamilyFallback:
+                              ReportDetailV2Screen._fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        constraints: const BoxConstraints(maxHeight: 132),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF3EA),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: const Color(0xFFFED7AA),
+                            width: .909,
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Text(
+                            reason,
+                            style: const TextStyle(
+                              color: ReportDetailV2Screen._black,
+                              fontFamily: ReportDetailV2Screen._fontFamily,
+                              fontFamilyFallback:
+                                  ReportDetailV2Screen._fontFallback,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(
+                  height: .909,
+                  thickness: .909,
+                  color: ReportDetailV2Screen._border,
+                ),
+                Material(
+                  color: Colors.white,
+                  child: InkWell(
+                    onTap: onConfirm,
+                    child: const SizedBox(
+                      height: 55,
+                      child: Center(
+                        child: Text(
+                          '확인',
+                          style: TextStyle(
+                            color: ReportDetailV2Screen._orange,
+                            fontFamily: ReportDetailV2Screen._fontFamily,
+                            fontFamilyFallback:
+                                ReportDetailV2Screen._fontFallback,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

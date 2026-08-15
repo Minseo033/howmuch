@@ -63,16 +63,22 @@ class _ReportDeleteConfirmScreenState
             bottom: 0,
             child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
           ),
-          Positioned(
-            left: 23.991455078125,
-            top: topOffset + 241.015625,
-            width: 327.4715881347656,
-            height: 317.96875,
-            child: _DeleteDialog(
-              report: widget.report,
-              isDeleting: _isDeleting,
-              onCancel: close,
-              onDelete: widget.report == null ? null : _deleteReport,
+          Positioned.fill(
+            top: topOffset,
+            child: Center(
+              child: SizedBox(
+                width: math.min(
+                  327.4715881347656,
+                  FigmaMobileCanvas.logicalWidthOf(context) - 48,
+                ),
+                height: 317.96875,
+                child: _DeleteDialog(
+                  report: widget.report,
+                  isDeleting: _isDeleting,
+                  onCancel: close,
+                  onDelete: widget.report == null ? null : _deleteReport,
+                ),
+              ),
             ),
           ),
         ],
