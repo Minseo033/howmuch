@@ -83,6 +83,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         }
       }
       final data = await service.getTodaysPick(lat: lat, lng: lng);
+      if (!mounted) return;
       if (data['error'] == true) {
         setState(() {
           _errorMessage = '오늘의 픽을 불러오지 못했어요.';
@@ -95,6 +96,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = '네트워크 오류가 발생했습니다.';
         _isLoading = false;
@@ -111,18 +113,23 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     return picks.asMap().entries.map((entry) {
       final idx = entry.key;
       final p = entry.value;
-      final distance = p['distanceMeters'] != null
-          ? '${p['distanceMeters']}m'
-          : '${300 + idx * 150}m';
+      final distanceValue = p['distanceMeters'];
+      final distanceNumber = _asDouble(distanceValue);
+      final distance = distanceNumber == null
+          ? '거리 정보 없음'
+          : '${distanceNumber.round()}m';
       // 백엔드가 낸 reason(이유 멘트)이 있으면 그걸 우선 사용, 없으면 기존 날씨 문구 폼백
       final backendReason = p['reason'] as String?;
       final backendTheme = p['theme'] as String?;
       final backendMenu = p['matchedMenu'] as String?;
+      final temperature = _asDouble(temp);
       final tip = backendReason != null && backendReason.isNotEmpty
           ? backendReason
           : (weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
               ? '☔ 비 오는 날 추천'
-              : (temp != null && temp >= 28 ? '🌡️ 더운 날 시원한 메뉴' : '✨ 오늘의 추천'));
+              : (temperature != null && temperature >= 28
+                  ? '🌡️ 더운 날 시원한 메뉴'
+                  : '✨ 오늘의 추천'));
 
       return TodaysPickItem(
         id: '${idx + 1}',
@@ -141,6 +148,11 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         reason: backendReason,
       );
     }).toList();
+  }
+
+  double? _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
   }
 
   @override

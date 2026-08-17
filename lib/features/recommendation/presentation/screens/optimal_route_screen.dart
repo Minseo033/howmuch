@@ -1,8 +1,12 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 class OptimalRouteScreen extends ConsumerStatefulWidget {
   const OptimalRouteScreen({super.key});
@@ -15,6 +19,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _routeData;
+  double? _userLatitude;
+  double? _userLongitude;
 
   @override
   void initState() {
@@ -30,7 +36,14 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
     try {
       final service = ref.read(todaysPickServiceProvider);
-      final data = await service.getRoute();
+      final position = await _resolveCurrentPosition();
+      _userLatitude = position?.latitude;
+      _userLongitude = position?.longitude;
+      final data = await service.getRoute(
+        lat: _userLatitude,
+        lng: _userLongitude,
+      );
+      if (!mounted) return;
       if (data['error'] == true) {
         setState(() {
           _errorMessage = '루트를 불러오지 못했어요.';
@@ -43,6 +56,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = '네트워크 오류가 발생했습니다.';
         _isLoading = false;
@@ -65,12 +79,75 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   }
 
   int get _totalDistance {
-    int sum = 0;
-    for (var p in _picks) {
-      final d = p['distanceMeters'];
-      if (d != null) sum += (d as num).toInt();
+    return _picks.asMap().entries.fold<int>(0, (sum, entry) {
+      final leg = _legDistanceMeters(entry.key);
+      return sum + (leg?.round() ?? 0);
+    });
+  }
+
+  String get _totalDistanceLabel {
+    if (_picks.isEmpty ||
+        _picks.asMap().keys.every((i) => _legDistanceMeters(i) == null)) {
+      return '거리 정보 없음';
     }
-    return sum;
+    return '${_totalDistance}m';
+  }
+
+  Future<Position?> _resolveCurrentPosition() async {
+    final cached = HomeMapScreen.globalUserPosition;
+    if (cached != null) return cached;
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 3),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  double? _number(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '');
+  }
+
+  ({double lat, double lng})? _coordinates(Object? raw) {
+    if (raw is! Map) return null;
+    final lat = _number(raw['latitude']);
+    final lng = _number(raw['longitude']);
+    if (lat == null || lng == null) return null;
+    return (lat: lat, lng: lng);
+  }
+
+  double? _legDistanceMeters(int index) {
+    if (index < 0 || index >= _picks.length) return null;
+    final current = _coordinates(_picks[index]);
+    if (current == null) return _number(_picks[index]['distanceMeters']);
+
+    final previous = index == 0
+        ? (_userLatitude != null && _userLongitude != null
+            ? (lat: _userLatitude!, lng: _userLongitude!)
+            : null)
+        : _coordinates(_picks[index - 1]);
+    if (previous == null) {
+      return index == 0 ? _number(_picks[index]['distanceMeters']) : null;
+    }
+
+    const earthRadiusMeters = 6371000.0;
+    final latDelta = _radians(current.lat - previous.lat);
+    final lngDelta = _radians(current.lng - previous.lng);
+    final a = math.pow(math.sin(latDelta / 2), 2) +
+        math.cos(_radians(previous.lat)) *
+            math.cos(_radians(current.lat)) *
+            math.pow(math.sin(lngDelta / 2), 2);
+    return earthRadiusMeters * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  double _radians(double degrees) => degrees * math.pi / 180;
+
+  String _distanceText(Object? value) {
+    final distance = _number(value);
+    return distance == null ? '거리 정보 없음' : '${distance.round()}m';
   }
 
   @override
@@ -313,16 +390,22 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   final storeName = p['storeName'] ?? '알 수 없음';
                                   final menu = p['menu1'] ?? '';
                                   final price = p['price1'] != null ? '${p['price1']}원' : '';
-                                  final distance = p['distanceMeters'] != null ? '${p['distanceMeters']}m' : '';
+                                  final distance = _distanceText(p['distanceMeters']);
+                                  final legDistance = _legDistanceMeters(idx);
 
                                   return Column(
                                     children: [
                                       _buildRouteStep(
                                         index: '${idx + 1}',
                                         storeName: storeName,
-                                        details: '$menu $price · $distance',
+                                        details: [menu, price, distance]
+                                            .where((part) => part.isNotEmpty)
+                                            .join(' · '),
                                       ),
-                                      if (idx < _picks.length - 1) _buildConnection('도보 ${((p['distanceMeters'] ?? 500) / 80).round()}분'),
+                                      if (idx < _picks.length - 1 && legDistance != null)
+                                        _buildConnection(
+                                          '도보 약 ${math.max(1, (legDistance / 80).round())}분',
+                                        ),
                                     ],
                                   );
                                 }),
@@ -367,7 +450,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                           ),
                                         ),
                                         Text(
-                                          '${_totalDistance}m',
+                                          _totalDistanceLabel,
                                           style: const TextStyle(
                                             color: Color(0xFF0F172A),
                                             fontSize: 14,

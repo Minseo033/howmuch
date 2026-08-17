@@ -612,7 +612,12 @@ public class FirebaseService {
         if ("APPROVED".equals(status)) {
             String storeName = snapshot.getString("storeName");
             if (storeName != null && !storeName.isBlank()) {
-                notifyUsersOnPriceReportApproved(storeName, reportId);
+                try {
+                    notifyUsersOnPriceReportApproved(storeName, reportId);
+                } catch (Exception e) {
+                    // 승인 상태 변경은 완료됐으므로 부가 알림 실패가 관리자 승인 결과를 실패로 만들지 않게 합니다.
+                    log.warn("가격 변동 알림 발송 실패: reportId={}, storeName={}", reportId, storeName, e);
+                }
             }
         }
 
