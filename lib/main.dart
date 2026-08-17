@@ -34,8 +34,12 @@ void main() async {
   await ApiClient.restoreSession();
 
   if (!kIsWeb) {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      debugPrint('Firebase 초기화 예외 처리 (앱 정상 계속 실행): $e');
+    }
   }
 
   usePathUrlStrategy();

@@ -124,25 +124,128 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
           Positioned.fill(
             top: topOffset + 50.96590805053711,
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF2563EB),
+                    ),
+                  )
                 : _errorMessage != null
                     ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(_errorMessage!),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _loadRoute,
-                              child: const Text('다시 시도'),
-                            ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFE2E8F0),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.error_outline_rounded,
+                                  color: Color(0xFF64748B),
+                                  size: 30,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                '추천 경로를 불러오지 못했어요',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: 140,
+                                height: 40,
+                                child: FilledButton(
+                                  onPressed: _loadRoute,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    '다시 시도',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       )
-                    : SingleChildScrollView(
-                        padding: EdgeInsets.only(bottom: 100 + bottomOffset),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
+                    : _picks.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFE2E8F0),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.alt_route_rounded,
+                                      color: Color(0xFF64748B),
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    '추천 동선 매장이 없어요',
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    '근처에 연속 탐방할 수 있는 착한가격업소가 부족하거나 위치 권한이 켜져 있지 않아요.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      color: Color(0xFF64748B),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : SingleChildScrollView(
+                            padding: EdgeInsets.only(bottom: 100 + bottomOffset),
+                            child: Padding(
+                              padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
