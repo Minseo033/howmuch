@@ -178,7 +178,10 @@ class NotificationApiService {
       );
     }
 
-    if (rawType == '가격 변동' || type == 'price' || type == 'price_change') {
+    if (rawType == '가격 변동' ||
+        type == 'price' ||
+        type == 'price_change' ||
+        type == 'price_alert') {
       return const _NotificationStyle(
         label: '가격 변동',
         tabCategory: '가격 변동',
@@ -188,6 +191,18 @@ class NotificationApiService {
         borderColor: Color.fromRGBO(249, 115, 22, 0.2),
         bgColor: Colors.white,
         categoryColor: Color(0xFFF97316),
+      );
+    }
+    if (type == 'feed_comment') {
+      return const _NotificationStyle(
+        label: '새 댓글',
+        tabCategory: '전체',
+        iconData: Icons.chat_bubble_outline_rounded,
+        iconColor: Color(0xFF2563EB),
+        iconBgColor: Color.fromRGBO(37, 99, 235, 0.09),
+        borderColor: Color(0xFFE5E7EB),
+        bgColor: Color(0xFFFAFBFC),
+        categoryColor: Color(0xFF2563EB),
       );
     }
     if (rawType == '제보 승인' ||
