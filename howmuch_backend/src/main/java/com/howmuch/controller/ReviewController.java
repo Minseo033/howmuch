@@ -62,12 +62,34 @@ public class ReviewController {
             @RequestBody ReviewRequest request) {
         String authorUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
-            if (request.getStoreId() == null || request.getStoreId().isBlank()
-                    || request.getContent() == null || request.getContent().isBlank()
+            if (authorUid == null || authorUid.isBlank()) {
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false,
+                        "message", "인증이 필요합니다. 다시 로그인해주세요."
+                ));
+            }
+            if (request == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "리뷰 입력값이 필요합니다."
+                ));
+            }
+
+            normalizeReviewRequest(request);
+            if (isBlank(request.getStoreId())
+                    || isBlank(request.getStoreName())
+                    || isBlank(request.getMenu())
+                    || isBlank(request.getContent())
                     || request.getStars() < 1 || request.getStars() > 5) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
-                        "message", "매장 정보, 리뷰 내용, 별점(1~5)은 필수입니다."
+                        "message", "매장 정보, 방문 메뉴, 리뷰 내용, 별점(1~5)은 필수입니다."
+                ));
+            }
+            if (request.getPrice() == null || request.getPrice() <= 0 || request.getPrice() > 10_000_000) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "실제 결제 가격은 1원 이상 1,000만원 이하로 입력해주세요."
                 ));
             }
             // 💡 입력 길이 제한 (Firestore 쓰기 폭증/악용 방지)
@@ -78,9 +100,9 @@ public class ReviewController {
                 ));
             }
             if (request.getStoreId().length() > 200
-                    || (request.getStoreName() != null && request.getStoreName().length() > 100)
-                    || (request.getAuthorName() != null && request.getAuthorName().length() > 50)
-                    || (request.getMenu() != null && request.getMenu().length() > 100)) {
+                    || request.getStoreName().length() > 100
+                    || request.getAuthorName().length() > 50
+                    || request.getMenu().length() > 100) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
                         "message", "입력값이 허용 길이를 초과했습니다."
@@ -100,5 +122,25 @@ public class ReviewController {
                     "message", "리뷰 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    private void normalizeReviewRequest(ReviewRequest request) {
+        request.setStoreId(trimToNull(request.getStoreId()));
+        request.setStoreName(trimToNull(request.getStoreName()));
+        request.setMenu(trimToNull(request.getMenu()));
+        request.setContent(trimToNull(request.getContent()));
+
+        String authorName = trimToNull(request.getAuthorName());
+        request.setAuthorName(authorName == null ? "사용자" : authorName);
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

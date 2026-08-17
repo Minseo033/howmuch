@@ -60,6 +60,8 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         if ("OPTIONS".equalsIgnoreCase(method)) return false;
 
         if (path.startsWith("/api/user/")) return true;
+        // 문의는 작성자 본인의 내역과 답변만 다루므로 세션 인증이 필수입니다.
+        if (path.startsWith("/api/inquiry")) return true;
         if (path.startsWith("/api/report/")) return true;
         if (path.startsWith("/api/ai/")) return true;
         if (path.startsWith("/api/visits")) return true;

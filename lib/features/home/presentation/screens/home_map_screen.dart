@@ -66,6 +66,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
+  bool _isCenteringLocation = false;
+  Future<void>? _freshLocationRequest;
   final PageController _pageController = PageController(viewportFraction: 0.88);
 
   String _searchQuery = '';
@@ -408,11 +410,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         function setMapCenter(lat, lng) {
           if (map) {
             var moveLatLon = new kakao.maps.LatLng(lat, lng);
-            map.panTo(moveLatLon);
+            map.setCenter(moveLatLon);
             if (map.getLevel() !== 3) {
-              setTimeout(function() {
-                map.setLevel(3, {animate: { duration: 300 }});
-              }, 400);
+              map.setLevel(3);
             }
           }
         }
@@ -507,76 +507,131 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _moveToCurrentLocation() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('위치 서비스를 활성화해주세요.')));
-      return;
+    if (_isCenteringLocation) return;
+    if (mounted) {
+      setState(() => _isCenteringLocation = true);
     }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        if (mounted)
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('위치 권한이 거부되었습니다.')));
-        return;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      if (mounted)
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 허용해주세요.')),
-        );
-      return;
-    }
-
-    _startLocationTracking();
 
     try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('위치 서비스를 활성화해주세요.')));
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('위치 권한이 거부되었습니다.')));
+          }
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 허용해주세요.')),
+          );
+        }
+        return;
+      }
+
+      _startLocationTracking();
+
+      // 이미 확보한 좌표나 OS 캐시를 먼저 사용해 지도 이동을 즉시 반응시킵니다.
       Position? position = _lastKnownPosition;
       if (position == null) {
         try {
-          position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.best,
-            timeLimit: kIsWeb ? const Duration(seconds: 20) : const Duration(seconds: 3),
-          );
-        } catch (e) {
           position = await Geolocator.getLastKnownPosition();
+        } catch (e) {
+          debugPrint('마지막 위치 조회 에러: $e');
         }
-        if (position != null) {
-          _lastKnownPosition = position;
-          HomeMapScreen.globalUserPosition = position;
-          _updateLocationMarker(position.latitude, position.longitude);
-        }
-      } else {
-        _updateLocationMarker(position.latitude, position.longitude);
       }
 
       if (position != null) {
-        if (kIsWeb) {
-          web_helper.setKakaoMapCenterWeb(
-            _viewId,
-            position.latitude,
-            position.longitude,
-          );
-        } else {
-          _safeRunJavaScript(
-            'setMapCenter(${position.latitude}, ${position.longitude});',
+        _storeUserPosition(position);
+        _centerMapOnPosition(position);
+        _refreshCurrentPositionInBackground();
+        return;
+      }
+
+      position = await _getFreshPosition();
+      if (position == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('현재 위치를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.')),
           );
         }
+        return;
       }
+      _storeUserPosition(position);
+      _centerMapOnPosition(position);
     } catch (e) {
-      debugPrint('위치 가져오기 에러: ${e}');
+      debugPrint('위치 가져오기 에러: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isCenteringLocation = false);
+      }
     }
+  }
+
+  Future<Position?> _getFreshPosition() async {
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: kIsWeb
+            ? const Duration(seconds: 10)
+            : const Duration(seconds: 5),
+      );
+    } catch (e) {
+      debugPrint('현재 위치 조회 에러: $e');
+      return null;
+    }
+  }
+
+  void _refreshCurrentPositionInBackground() {
+    if (_freshLocationRequest != null) return;
+    _freshLocationRequest = _refreshCurrentPosition();
+  }
+
+  Future<void> _refreshCurrentPosition() async {
+    try {
+      final position = await _getFreshPosition();
+      if (position != null && mounted) {
+        _storeUserPosition(position);
+      }
+    } finally {
+      _freshLocationRequest = null;
+    }
+  }
+
+  void _storeUserPosition(Position position) {
+    _lastKnownPosition = position;
+    HomeMapScreen.globalUserPosition = position;
+    _updateLocationMarker(position.latitude, position.longitude);
+  }
+
+  void _centerMapOnPosition(Position position) {
+    if (kIsWeb) {
+      web_helper.setKakaoMapCenterWeb(
+        _viewId,
+        position.latitude,
+        position.longitude,
+      );
+      return;
+    }
+    _safeRunJavaScript(
+      'setMapCenter(${position.latitude}, ${position.longitude});',
+    );
   }
 
   void _updateUserHeading(double heading) {
@@ -612,9 +667,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             distanceFilter: 2, // 2미터 이상 이동 시 갱신
           ),
         ).listen((Position position) {
-          _lastKnownPosition = position;
-          HomeMapScreen.globalUserPosition = position;
-          _updateLocationMarker(position.latitude, position.longitude);
+          _storeUserPosition(position);
         });
 
     if (!kIsWeb) {
@@ -713,7 +766,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         // Fallback to local _allStores if backend fails
         fetchedStores = _allStores;
       }
-      
+
       var stores = fetchedStores
           .where(
             (s) =>
@@ -1105,11 +1158,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: 52.0,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: GestureDetector(
-                onTap: _moveToCurrentLocation,
-                child: const _RoundIconButton(
-                  icon: Icons.near_me_rounded,
-                  color: HomeMapScreen.blue,
+              child: Tooltip(
+                message: '내 위치로 이동',
+                child: Semantics(
+                  button: true,
+                  label: '내 위치로 이동',
+                  child: GestureDetector(
+                    onTap: _moveToCurrentLocation,
+                    child: _RoundIconButton(
+                      icon: Icons.near_me_rounded,
+                      color: HomeMapScreen.blue,
+                      isLoading: _isCenteringLocation,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -1771,10 +1832,15 @@ class _DetailButton extends StatelessWidget {
 }
 
 class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({required this.icon, required this.color});
+  const _RoundIconButton({
+    required this.icon,
+    required this.color,
+    this.isLoading = false,
+  });
 
   final IconData icon;
   final Color color;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -1791,7 +1857,13 @@ class _RoundIconButton extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(icon, color: color, size: 22),
+      child: isLoading
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.2, color: color),
+            )
+          : Icon(icon, color: color, size: 22),
     );
   }
 }

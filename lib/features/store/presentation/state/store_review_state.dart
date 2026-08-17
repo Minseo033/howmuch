@@ -73,6 +73,7 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
         authorName: review.authorName,
         stars: review.stars,
         menu: review.menu,
+        price: review.price,
         content: review.content,
         createdAt: DateTime.now(),
       );

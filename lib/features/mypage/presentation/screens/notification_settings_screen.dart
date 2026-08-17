@@ -29,10 +29,12 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
   ];
 
   @override
-  ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+  ConsumerState<NotificationSettingsScreen> createState() =>
+      _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState
+    extends ConsumerState<NotificationSettingsScreen> {
   bool _isSaving = false;
 
   @override
@@ -74,6 +76,25 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
       context.go(AppRoutes.mypage);
     }
 
+    Future<void> pickQuietTime({
+      required NotificationSettings current,
+      required bool isStart,
+    }) async {
+      final initialValue = isStart ? current.quietStart : current.quietEnd;
+      final picked = await showTimePicker(
+        context: context,
+        initialTime: _parseTime(initialValue),
+        helpText: isStart ? '방해 금지 시작 시간' : '방해 금지 종료 시간',
+      );
+      if (picked == null) return;
+      final serialized = _serializeTime(picked);
+      update(
+        isStart
+            ? current.copyWith(quietStart: serialized)
+            : current.copyWith(quietEnd: serialized),
+      );
+    }
+
     return FigmaMobileCanvas(
       backgroundColor: NotificationSettingsScreen.surface,
       child: Stack(
@@ -85,69 +106,81 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                   color: NotificationSettingsScreen.blue,
                 ),
               ),
-              error: (err, stack) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          shape: BoxShape.circle,
+              error: (err, stack) {
+                final unauthorized =
+                    err is NotificationSettingsApiException &&
+                    err.isUnauthorized;
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF1F5F9),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.error_outline_rounded,
+                            color: AppColors.warning,
+                            size: 30,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.error_outline_rounded,
-                          color: AppColors.warning,
-                          size: 30,
+                        const SizedBox(height: 16),
+                        Text(
+                          unauthorized ? '로그인이 필요해요' : '설정을 불러오지 못했어요',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '설정을 불러오지 못했어요',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          fontSize: 16,
+                        const SizedBox(height: 6),
+                        Text(
+                          unauthorized
+                              ? '로그인한 뒤 알림 설정을 변경할 수 있어요.'
+                              : '잠시 후 다시 시도해 주세요.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        '잠시 후 다시 시도해 주세요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: 140,
-                        height: 40,
-                        child: FilledButton(
-                          onPressed: () => ref.read(notificationSettingsProvider.notifier).loadSettings(),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: NotificationSettingsScreen.blue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 140,
+                          height: 40,
+                          child: FilledButton(
+                            onPressed: () => ref
+                                .read(notificationSettingsProvider.notifier)
+                                .loadSettings(),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: NotificationSettingsScreen.blue,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              '다시 시도',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                          child: const Text(
-                            '다시 시도',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
               data: (settings) {
                 return SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(
@@ -191,10 +224,22 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                           height: 272.64202880859375,
                           child: _NotificationTypeCard(
                             settings: settings,
-                            onPriceTap: () => updateTypes(price: !settings.price, current: settings),
-                            onReportTap: () => updateTypes(report: !settings.report, current: settings),
-                            onTodayPickTap: () => updateTypes(todayPick: !settings.todayPick, current: settings),
-                            onReviewTap: () => updateTypes(review: !settings.review, current: settings),
+                            onPriceTap: () => updateTypes(
+                              price: !settings.price,
+                              current: settings,
+                            ),
+                            onReportTap: () => updateTypes(
+                              report: !settings.report,
+                              current: settings,
+                            ),
+                            onTodayPickTap: () => updateTypes(
+                              todayPick: !settings.todayPick,
+                              current: settings,
+                            ),
+                            onReviewTap: () => updateTypes(
+                              review: !settings.review,
+                              current: settings,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -203,7 +248,8 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                           top: 463.28125 + topOffset,
                           height: 67.76988220214844,
                           child: _PriceAlertEntryCard(
-                            onTap: () => context.go(AppRoutes.priceAlertSubscription),
+                            onTap: () =>
+                                context.go(AppRoutes.priceAlertSubscription),
                           ),
                         ),
                         Positioned(
@@ -219,7 +265,15 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                           child: _QuietHoursCard(
                             settings: settings,
                             onToggle: () => update(
-                              settings.copyWith(quietHours: !settings.quietHours),
+                              settings.copyWith(
+                                quietHours: !settings.quietHours,
+                              ),
+                            ),
+                            onStartTap: () =>
+                                pickQuietTime(current: settings, isStart: true),
+                            onEndTap: () => pickQuietTime(
+                              current: settings,
+                              isStart: false,
                             ),
                           ),
                         ),
@@ -276,6 +330,23 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
         ],
       ),
     );
+  }
+
+  static TimeOfDay _parseTime(String value) {
+    final parts = value.split(':');
+    if (parts.length != 2) return const TimeOfDay(hour: 22, minute: 0);
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return const TimeOfDay(hour: 22, minute: 0);
+    }
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  static String _serializeTime(TimeOfDay value) {
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 
@@ -553,10 +624,17 @@ class _PriceAlertEntryCard extends StatelessWidget {
 }
 
 class _QuietHoursCard extends StatelessWidget {
-  const _QuietHoursCard({required this.settings, required this.onToggle});
+  const _QuietHoursCard({
+    required this.settings,
+    required this.onToggle,
+    required this.onStartTap,
+    required this.onEndTap,
+  });
 
   final NotificationSettings settings;
   final VoidCallback onToggle;
+  final VoidCallback onStartTap;
+  final VoidCallback onEndTap;
 
   @override
   Widget build(BuildContext context) {
@@ -591,12 +669,20 @@ class _QuietHoursCard extends StatelessWidget {
           Positioned(
             left: 16.903411865234375,
             top: 52.88330078125,
-            child: _TimeBox(label: '시작 시간', value: settings.quietStart),
+            child: _TimeBox(
+              label: '시작 시간',
+              value: settings.quietStart,
+              onTap: onStartTap,
+            ),
           ),
           Positioned(
             right: 16.903411865234375,
             top: 52.88330078125,
-            child: _TimeBox(label: '종료 시간', value: settings.quietEnd),
+            child: _TimeBox(
+              label: '종료 시간',
+              value: settings.quietEnd,
+              onTap: onEndTap,
+            ),
           ),
         ],
       ),
@@ -605,10 +691,15 @@ class _QuietHoursCard extends StatelessWidget {
 }
 
 class _TimeBox extends StatelessWidget {
-  const _TimeBox({required this.label, required this.value});
+  const _TimeBox({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
   final String label;
   final String value;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -620,32 +711,52 @@ class _TimeBox extends StatelessWidget {
         children: [
           Text(label, style: _muted11),
           const SizedBox(height: 5.994),
-          Container(
-            height: 41.9886360168457,
-            padding: const EdgeInsets.symmetric(horizontal: 11.988),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              border: Border.all(
+          Material(
+            color: AppColors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(
                 color: NotificationSettingsScreen.border,
                 width: .909,
               ),
-              borderRadius: BorderRadius.circular(14),
             ),
-            child: Row(
-              children: [
-                Text(value, style: _semi13),
-                const Spacer(),
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 14,
-                  color: NotificationSettingsScreen.muted,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                height: 41.9886360168457,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 11.988),
+                  child: Row(
+                    children: [
+                      Text(_displayTime(value), style: _semi13),
+                      const Spacer(),
+                      const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 14,
+                        color: NotificationSettingsScreen.muted,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _displayTime(String rawValue) {
+    final parts = rawValue.split(':');
+    final hour = parts.isNotEmpty ? int.tryParse(parts[0]) : null;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    if (hour == null || minute == null || hour > 23 || minute > 59) {
+      return rawValue;
+    }
+    final period = hour < 12 ? '오전' : '오후';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$period $displayHour:${minute.toString().padLeft(2, '0')}';
   }
 }
 

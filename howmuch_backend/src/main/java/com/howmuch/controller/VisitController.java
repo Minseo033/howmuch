@@ -30,6 +30,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class VisitController {
 
+    private static final String LOCATION_VERIFICATION = "LOCATION";
+    private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 50.0;
+
     private final FirebaseService firebaseService;
 
     /**
@@ -104,6 +107,22 @@ public class VisitController {
                     "message", "price는 0 이상의 숫자여야 합니다."
             ));
         }
+        if (!LOCATION_VERIFICATION.equalsIgnoreCase(request.getVerificationMethod())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "현재 위치 인증이 필요합니다."
+            ));
+        }
+        Double distanceMeters = request.getVerificationDistanceMeters();
+        if (distanceMeters == null
+                || !Double.isFinite(distanceMeters)
+                || distanceMeters < 0
+                || distanceMeters > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "매장 50m 이내에서 인증해주세요."
+            ));
+        }
         // 💡 입력 상한 검증 (비정상 대형 값/문자열 악용 방지)
         if (request.getStoreName().length() > 100
                 || (request.getMenu() != null && request.getMenu().length() > 100)
@@ -125,9 +144,11 @@ public class VisitController {
             String visitId = firebaseService.saveVisit(firebaseUid, request, savedAmount);
             log.info("[VisitController] 방문 인증 완료 - id: {}, savedAmount: {}", visitId, savedAmount);
             return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "id", visitId,
-                    "savedAmount", savedAmount
+                "success", true,
+                "id", visitId,
+                "savedAmount", savedAmount,
+                "verificationMethod", LOCATION_VERIFICATION,
+                "verificationDistanceMeters", distanceMeters
             ));
         } catch (Exception e) {
             log.error("[VisitController] 방문 인증 저장 중 오류 발생: ", e);

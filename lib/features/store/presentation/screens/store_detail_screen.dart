@@ -12,7 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class StoreDetailScreen extends StatelessWidget {
+class StoreDetailScreen extends ConsumerWidget {
   final Store store;
   const StoreDetailScreen({super.key, required this.store});
 
@@ -72,7 +72,7 @@ class StoreDetailScreen extends StatelessWidget {
       ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(msg)));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final menus = [
       if (store.menu1.isNotEmpty) (name: store.menu1, price: store.price1),
       if (store.menu2.isNotEmpty) (name: store.menu2, price: store.price2),
@@ -81,6 +81,12 @@ class StoreDetailScreen extends StatelessWidget {
     ];
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
+    final reviews =
+        ref.watch(storeReviewProvider)[store.storeName] ?? const <Review>[];
+    final averageRating = reviews.isEmpty
+        ? null
+        : reviews.map((review) => review.stars).reduce((a, b) => a + b) /
+            reviews.length;
 
     return FigmaMobileCanvas(
       child: Scaffold(
@@ -164,133 +170,36 @@ class StoreDetailScreen extends StatelessWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                // 별점 (목업)
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.star_rounded,
-                                      color: AppColors.starAlt,
-                                      size: 15,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    const Text(
-                                      '4.6',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: _ink,
+                                if (averageRating != null)
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: AppColors.starAlt,
+                                        size: 15,
                                       ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    const Text(
-                                      '리뷰 128',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: _sub,
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        averageRating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: _ink,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _MockTag('목업'),
-                                  ],
-                                ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        '리뷰 ${reviews.length}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: _sub,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-
-                    const _Divider(),
-
-                    // ─────────────────────────────────────────────
-                    //  예상 절약 금액 (목업)
-                    // ─────────────────────────────────────────────
-                    _White(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                '예상 절약 금액',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _sub,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              _MockTag('목업 - 추후 개발 필요'),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              const Text(
-                                '2,000',
-                                style: TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w800,
-                                  color: _blue,
-                                  letterSpacing: -1,
-                                ),
-                              ),
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 4, left: 3),
-                                child: Text(
-                                  '원',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: _blue,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Padding(
-                                padding: EdgeInsets.only(bottom: 3),
-                                child: Text(
-                                  '주변 평균 대비',
-                                  style: TextStyle(fontSize: 12, color: _sub),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (store.menu1.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primarySubtle,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    store.menu1,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: _ink,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    _fmt(store.price1),
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                      color: _blue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -423,7 +332,6 @@ class StoreDetailScreen extends StatelessWidget {
                             icon: Icons.access_time_outlined,
                             label: '영업시간',
                             value: '정보 없음',
-                            isMock: true,
                           ),
                           const Divider(
                             height: 24,
@@ -493,7 +401,7 @@ class StoreDetailScreen extends StatelessWidget {
                 border: Border(top: BorderSide(color: _line)),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.black.withOpacity(0.06),
+                    color: AppColors.black.withValues(alpha: 0.06),
                     blurRadius: 12,
                     offset: const Offset(0, -4),
                   ),
@@ -521,7 +429,7 @@ class StoreDetailScreen extends StatelessWidget {
                         label: '가격 제보',
                         onTap: () => context.push(
                           AppRoutes.priceChangeReport,
-                          extra: store.storeName,
+                          extra: store,
                         ),
                         muted: false,
                       ),
@@ -613,47 +521,17 @@ class _Divider extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────
-//  목업 태그
-// ─────────────────────────────────────────────────────────
-class _MockTag extends StatelessWidget {
-  final String text;
-  const _MockTag(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.warningLight,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: AppColors.warningBorder),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 9,
-          color: AppColors.warningDark,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────
 //  정보 행
 // ─────────────────────────────────────────────────────────
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  final bool isMock;
   final VoidCallback? onTap;
   const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
-    this.isMock = false,
     this.onTap,
   });
 
@@ -680,17 +558,13 @@ class _InfoRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     value,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
-                      color: isMock
-                          ? AppColors.borderMedium
-                          : AppColors.textDark,
-                      fontStyle: isMock ? FontStyle.italic : FontStyle.normal,
+                      color: AppColors.textDark,
                     ),
                   ),
                 ),
-                if (isMock) _MockTag('추후 개발 필요'),
-                if (!isMock && onTap != null)
+                if (onTap != null)
                   const Icon(
                     Icons.copy_outlined,
                     size: 14,

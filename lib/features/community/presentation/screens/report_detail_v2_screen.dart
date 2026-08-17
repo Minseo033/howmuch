@@ -50,9 +50,9 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
         reports.where((item) => item.id == widget.reportId).firstOrNull;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
-    final actionBottomGap = bottomOffset + 46;
+    final bottomOffset = safePadding.bottom + 20;
     const actionHeight = 45.994;
+    final actionBarHeight = safePadding.bottom + 78;
 
     void goBack() {
       if (context.canPop()) {
@@ -110,7 +110,7 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
                 ReportDetailV2Screen._contentLeft,
                 15.992,
                 ReportDetailV2Screen._contentRight,
-                actionBottomGap + actionHeight + 24,
+                actionBarHeight + 24,
               ),
               children: [
                 _ReportInfoCard(report: report),
@@ -125,21 +125,30 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
             left: 0,
             bottom: 0,
             right: 0,
-            height: actionBottomGap + actionHeight,
-            child: Padding(
+            height: actionBarHeight,
+            child: Container(
               padding: EdgeInsets.fromLTRB(
                 ReportDetailV2Screen._contentLeft,
-                0,
+                12,
                 ReportDetailV2Screen._contentRight,
-                actionBottomGap,
+                bottomOffset,
+              ),
+              decoration: const BoxDecoration(
+                color: ReportDetailV2Screen._surface,
+                border: Border(
+                  top: BorderSide(
+                    color: ReportDetailV2Screen._border,
+                    width: .909,
+                  ),
+                ),
               ),
               child: Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     flex: 5,
                     child: SizedBox(
                       height: actionHeight,
-                      child: _OutlineActionButton(),
+                      child: _OutlineActionButton(report: report),
                     ),
                   ),
                   const SizedBox(width: 7.997),
@@ -909,7 +918,9 @@ class _PhotoFallbackIcon extends StatelessWidget {
 }
 
 class _OutlineActionButton extends StatelessWidget {
-  const _OutlineActionButton();
+  const _OutlineActionButton({required this.report});
+
+  final UserReportStatus report;
 
   @override
   Widget build(BuildContext context) {
@@ -917,7 +928,7 @@ class _OutlineActionButton extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () {},
+        onTap: () => context.push(AppRoutes.reportDeleteConfirm, extra: report),
         borderRadius: BorderRadius.circular(14),
         child: Container(
           decoration: BoxDecoration(
@@ -932,15 +943,15 @@ class _OutlineActionButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Icon(
-                Icons.mode_comment_outlined,
+                Icons.delete_outline_rounded,
                 size: 14,
-                color: ReportDetailV2Screen._ink,
+                color: Color(0xFFE53935),
               ),
               const SizedBox(width: 6),
               const Text(
-                '문의하기',
+                '삭제하기',
                 style: TextStyle(
-                  color: ReportDetailV2Screen._ink,
+                  color: Color(0xFFE53935),
                   fontFamily: ReportDetailV2Screen._fontFamily,
                   fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                   fontSize: 13,

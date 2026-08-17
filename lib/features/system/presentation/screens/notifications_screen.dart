@@ -4,43 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class NotificationModel {
-  final String id;
-  final String section; // '오늘', '이전'
-  final String type; // '가격 변동', '제보 승인', '오늘의 픽', '리뷰 반응', '공지사항'
-  final String tabCategory; // '가격 변동', '제보', '추천', '전체' (implicitly all)
-  final IconData iconData;
-  final Color iconColor;
-  final Color iconBgColor;
-  final Color borderColor;
-  final Color bgColor;
-  final Color categoryColor;
-  final String timeText;
-  final String messageText;
-  bool isUnread;
-
-  NotificationModel({
-    required this.id,
-    required this.section,
-    required this.type,
-    required this.tabCategory,
-    required this.iconData,
-    required this.iconColor,
-    required this.iconBgColor,
-    required this.borderColor,
-    this.bgColor = Colors.white,
-    required this.categoryColor,
-    required this.timeText,
-    required this.messageText,
-    this.isUnread = false,
-  });
-}
-
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
-  ConsumerState<NotificationsScreen> createState() => _NotificationsScreenState();
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
@@ -61,73 +30,82 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           Positioned.fill(
             child: notificationsAsync.when(
               loading: () => const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF2563EB),
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF2563EB)),
               ),
-              error: (err, stack) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE2E8F0),
-                          shape: BoxShape.circle,
+              error: (err, stack) {
+                final unauthorized =
+                    err is NotificationApiException && err.isUnauthorized;
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE2E8F0),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.error_outline_rounded,
+                            color: Color(0xFF64748B),
+                            size: 30,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.error_outline_rounded,
-                          color: Color(0xFF64748B),
-                          size: 30,
+                        const SizedBox(height: 16),
+                        Text(
+                          unauthorized ? '로그인이 필요해요' : '알림을 불러오지 못했어요',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF0F172A),
+                            fontSize: 16,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '알림을 불러오지 못했어요',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF0F172A),
-                          fontSize: 16,
+                        const SizedBox(height: 6),
+                        Text(
+                          unauthorized
+                              ? '로그인한 뒤 다시 확인해 주세요.'
+                              : '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      SizedBox(
-                        width: 140,
-                        height: 40,
-                        child: FilledButton(
-                          onPressed: () => ref.read(notificationsProvider.notifier).loadNotifications(),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF2563EB),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: 140,
+                          height: 40,
+                          child: FilledButton(
+                            onPressed: () => ref
+                                .read(notificationsProvider.notifier)
+                                .loadNotifications(),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              '다시 시도',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                          child: const Text(
-                            '다시 시도',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
               data: (notifications) {
                 final filteredNotifications = notifications.where((notif) {
                   if (_selectedTab == '전체') return true;
@@ -322,7 +300,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     right: 20,
                     top: 20.49,
                     child: GestureDetector(
-                      onTap: () => ref.read(notificationsProvider.notifier).markAllRead(),
+                      onTap: () => _runAction(
+                        ref.read(notificationsProvider.notifier).markAllRead(),
+                      ),
                       behavior: HitTestBehavior.opaque,
                       child: const Text(
                         '모두 읽음',
@@ -399,7 +379,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     return GestureDetector(
       onTap: () {
         if (notif.isUnread) {
-          ref.read(notificationsProvider.notifier).markRead(notif.id);
+          _runAction(
+            ref.read(notificationsProvider.notifier).markRead(notif.id),
+          );
         }
       },
       behavior: HitTestBehavior.opaque,
@@ -457,6 +439,21 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ],
                   ),
                   const SizedBox(height: 2.997),
+                  if (notif.title.isNotEmpty &&
+                      notif.title != notif.messageText) ...[
+                    Text(
+                      notif.title,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontFamilyFallback: ['Noto Sans KR'],
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                        fontSize: 13,
+                        height: 18.85 / 13,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
                   Text(
                     notif.messageText,
                     style: const TextStyle(
@@ -490,5 +487,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _runAction(Future<void> action) async {
+    try {
+      await action;
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
+        );
+    }
   }
 }

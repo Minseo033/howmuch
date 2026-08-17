@@ -7,6 +7,7 @@ class Review {
   final String authorName;
   final int stars;
   final String menu;
+  final int? price;
   final String content;
   final int likes;
   final String? ownerReply;
@@ -19,6 +20,7 @@ class Review {
     required this.authorName,
     required this.stars,
     this.menu = '',
+    this.price,
     required this.content,
     this.likes = 0,
     this.ownerReply,
@@ -46,10 +48,10 @@ class Review {
       id: (json['reviewId'] ?? json['id'] ?? '').toString(),
       storeId: (json['storeId'] ?? '').toString(),
       storeName: (json['storeName'] ?? '').toString(),
-      authorName:
-          (json['authorName'] ?? json['name'] ?? '익명').toString(),
+      authorName: (json['authorName'] ?? json['name'] ?? '익명').toString(),
       stars: (json['stars'] as num?)?.toInt() ?? 0,
       menu: (json['menu'] ?? '').toString(),
+      price: _parsePrice(json['price']),
       content: (json['content'] ?? '').toString(),
       likes: (json['likes'] as num?)?.toInt() ?? 0,
       ownerReply: json['ownerReply']?.toString(),
@@ -71,13 +73,20 @@ class Review {
     return DateTime.tryParse(raw.toString());
   }
 
+  static int? _parsePrice(dynamic raw) {
+    if (raw is num) return raw.toInt();
+    if (raw == null) return null;
+    return int.tryParse(raw.toString().replaceAll(RegExp(r'[^0-9]'), ''));
+  }
+
   /// 리뷰 작성 요청용 페이로드 (백엔드 ReviewRequest와 매칭)
   Map<String, dynamic> toCreateJson() => {
-        'storeId': storeId,
-        'storeName': storeName,
-        'authorName': authorName,
-        'menu': menu,
-        'content': content,
-        'stars': stars,
-      };
+    'storeId': storeId,
+    'storeName': storeName,
+    'authorName': authorName,
+    'menu': menu,
+    if (price != null) 'price': price,
+    'content': content,
+    'stars': stars,
+  };
 }

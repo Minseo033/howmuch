@@ -16,6 +16,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/mypage/presentation/screens/account_management_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/connected_social_accounts_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/my_inquiries_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
@@ -60,10 +61,18 @@ import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final platformUri = Uri.tryParse(
+    WidgetsBinding.instance.platformDispatcher.defaultRouteName,
+  );
+  final isOauthCallback =
+      platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
+    // 카카오 OAuth 콜백은 SDK가 처리할 수 있도록 원래 경로를 보존합니다.
+    overridePlatformDefaultLocation: !isOauthCallback,
     redirect: (context, state) {
-      if (state.uri.host == 'oauth') {
+      if (state.uri.host == 'oauth' || state.uri.path == '/oauth') {
         return '/oauth_loading';
       }
       return null;
@@ -109,14 +118,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
       GoRoute(
         path: AppRoutes.visitVerification,
-        pageBuilder: (_, state) => CupertinoPage<void>(
-          key: state.pageKey,
-          child: VisitVerificationScreen(
-            storeName: state.extra is String
-                ? state.extra as String
-                : '매장 정보 없음',
-          ),
-        ),
+        pageBuilder: (_, state) {
+          final extra = state.extra;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: VisitVerificationScreen(
+              store: extra is Store ? extra : null,
+              storeName: extra is String ? extra : '매장 정보 없음',
+            ),
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.visitVerificationComplete,
@@ -207,6 +218,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.accountManagement, const AccountManagementScreen()),
       _route(AppRoutes.publicDataSource, const PublicDataSourceScreen()),
       _route(AppRoutes.inquiry, const InquiryScreen()),
+      _route(AppRoutes.inquiryHistory, const MyInquiriesScreen()),
       _route(AppRoutes.profileEdit, const ProfileEditScreen()),
       _route(AppRoutes.withdrawal, const WithdrawalScreen()),
       _route(
@@ -217,7 +229,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
       _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
-      _route(AppRoutes.reportDeleteConfirm, const ReportDeleteConfirmScreen()),
+      GoRoute(
+        path: AppRoutes.reportDeleteConfirm,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportDeleteConfirmScreen(
+            report: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
       _tabRoute(
         AppRoutes.savingsReportDashboard,

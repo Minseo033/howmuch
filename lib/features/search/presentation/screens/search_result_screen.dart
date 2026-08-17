@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
@@ -53,6 +52,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   bool _loading = false;
   bool _searched = false;
   String _query = '';
+  String? _errorMessage;
   SearchFilter _filter = const SearchFilter();
 
   // 디바운스
@@ -89,12 +89,18 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       _loading = true;
       _searched = true;
       _query = q.trim();
+      _errorMessage = null;
     });
 
     // 💥 서버 요청 대신 HomeMapScreen에 로드된 전체 11,000개 캐시에서 직접 필터링
     try {
       if (howmuch_home.HomeMapScreen.globalAllStores.isEmpty) {
-        if (mounted) setState(() => _loading = false);
+        if (mounted) {
+          setState(() {
+            _results = [];
+            _errorMessage = '매장 데이터를 불러오는 중이에요. 잠시 후 다시 시도해주세요.';
+          });
+        }
         return;
       }
 
@@ -131,10 +137,14 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos != null) {
           double maxDist = 0;
-          if (_filter.distance == '500m 이내') maxDist = 500;
-          else if (_filter.distance == '1km 이내') maxDist = 1000;
-          else if (_filter.distance == '3km 이내') maxDist = 3000;
-          
+          if (_filter.distance == '500m 이내') {
+            maxDist = 500;
+          } else if (_filter.distance == '1km 이내') {
+            maxDist = 1000;
+          } else if (_filter.distance == '3km 이내') {
+            maxDist = 3000;
+          }
+
           if (maxDist > 0) {
             stores = stores.where((s) {
               final d = Geolocator.distanceBetween(
@@ -208,66 +218,16 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       setState(() => _results = stores);
     } catch (e) {
       debugPrint('검색 중 에러: $e');
-      if (mounted) setState(() => _results = _mockResults(q));
+      if (mounted) {
+        setState(() {
+          _results = [];
+          _errorMessage = '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  /// 백엔드 미연결 시 더미 데이터
-  List<Store> _mockResults(String q) => [
-    Store(
-      source: 'local',
-      storeName: '$q 맛집 1호',
-      address: '서울특별시 중구 명동길 12',
-      phoneNumber: '02-1234-5678',
-      industry: '한식',
-      menu1: '된장찌개',
-      price1: '7000',
-      menu2: '김치찌개',
-      price2: '7000',
-      menu3: '',
-      price3: '',
-      menu4: '',
-      price4: '',
-      latitude: 37.5636,
-      longitude: 126.9834,
-    ),
-    Store(
-      source: 'local',
-      storeName: '$q 식당',
-      address: '서울특별시 중구 을지로 3가 45',
-      phoneNumber: '02-9876-5432',
-      industry: '분식',
-      menu1: '떡볶이',
-      price1: '5000',
-      menu2: '순대',
-      price2: '4000',
-      menu3: '튀김',
-      price3: '3000',
-      menu4: '',
-      price4: '',
-      latitude: 37.5660,
-      longitude: 126.9920,
-    ),
-    Store(
-      source: 'local',
-      storeName: '착한 $q 집',
-      address: '서울특별시 종로구 종로 100',
-      phoneNumber: '02-5555-1234',
-      industry: '한식',
-      menu1: '백반',
-      price1: '6000',
-      menu2: '제육볶음',
-      price2: '8000',
-      menu3: '',
-      price3: '',
-      menu4: '',
-      price4: '',
-      latitude: 37.5700,
-      longitude: 126.9800,
-    ),
-  ];
 
   // ────────────────────────────────────────────────
   //  필터 바텀시트 열기
@@ -352,7 +312,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     color: SearchResultScreen.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Colors.black.withValues(alpha: 0.05),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -427,7 +387,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       strokeWidth: 2.5,
                     ),
                   )
-                : (_query.isEmpty && _filter.activeLabels.isEmpty) || (_searched && _results.isEmpty)
+                : _errorMessage != null
+                ? _SearchLoadError(
+                    message: _errorMessage!,
+                    onRetry: () => _doSearch(_query),
+                  )
+                : (_query.isEmpty && _filter.activeLabels.isEmpty) ||
+                      (_searched && _results.isEmpty)
                 ? _EmptyResult(
                     onReset: () {
                       setState(() => _filter = const SearchFilter());
@@ -911,6 +877,60 @@ class _IndustryChip extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w600,
           color: SearchResultScreen.muted,
+        ),
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  검색 오류
+// ──────────────────────────────────────────────────────────────
+class _SearchLoadError extends StatelessWidget {
+  const _SearchLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: SearchResultScreen.muted,
+              size: 36,
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              '매장 정보를 불러오지 못했어요',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: SearchResultScreen.ink,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: SearchResultScreen.muted,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('다시 시도'),
+            ),
+          ],
         ),
       ),
     );

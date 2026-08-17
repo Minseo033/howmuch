@@ -1,0 +1,65 @@
+name: Update stores snapshot
+
+on:
+  schedule:
+    # Monday 03:00 KST, before the weekly progress report.
+    - cron: '0 18 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-stores-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      SNAPSHOT_PATH: howmuch_backend/src/main/resources/stores-snapshot.json
+      BACKEND_BASE_URL: https://howmuch-backend-1xnu.onrender.com
+      BRANCH_NAME: automation/update-stores-snapshot
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download the cached production snapshot
+        env:
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+        run: |
+          test -n "$ADMIN_KEY"
+          curl --fail --show-error --silent \
+            --retry 4 --retry-all-errors --max-time 180 \
+            -H "X-Admin-Key: $ADMIN_KEY" \
+            "$BACKEND_BASE_URL/api/admin/stores/snapshot" \
+            -o "$RUNNER_TEMP/stores-snapshot.json"
+
+      - name: Validate and normalize the snapshot
+        run: node scripts/validate-stores-snapshot.mjs "$RUNNER_TEMP/stores-snapshot.json" "$SNAPSHOT_PATH"
+
+      - name: Open or update a snapshot pull request
+        run: |
+          if git diff --quiet -- "$SNAPSHOT_PATH"; then
+            echo "Snapshot is already current."
+            exit 0
+          fi
+
+          git config user.name "howmuch-automation"
+          git config user.email "howmuch-automation@users.noreply.github.com"
+          git checkout -B "$BRANCH_NAME"
+          git add "$SNAPSHOT_PATH"
+          git commit -m "chore: update public store snapshot"
+          git push --force-with-lease origin "$BRANCH_NAME"
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH_NAME" \
+            --title "chore: update public store snapshot" \
+            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count and required-field validation." \
+          || gh pr edit "$BRANCH_NAME" \
+            --title "chore: update public store snapshot" \
+            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count and required-field validation."

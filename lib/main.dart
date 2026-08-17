@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app/howmuch_app.dart';
 import 'core/network/api_client.dart';
+import 'features/system/presentation/state/push_notification_service.dart';
 
 void main() async {
   // 💡 비동기 작업을 위해 초기화 보장
@@ -29,6 +32,11 @@ void main() async {
 
   // 💡 기기에 저장된 로그인 세션 토큰 복원 (앱 재시작 후에도 인증 유지)
   await ApiClient.restoreSession();
+
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  }
 
   usePathUrlStrategy();
   runApp(const ProviderScope(child: HowmuchApp()));

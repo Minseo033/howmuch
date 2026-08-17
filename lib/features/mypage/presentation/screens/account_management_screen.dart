@@ -310,7 +310,7 @@ class _AccountInfoCard extends StatelessWidget {
           _AccountRow(title: '닉네임 변경', value: profile.nickname),
           const _CardDivider(),
           _AccountRow(
-            title: '연결된 소셜 계정',
+            title: '로그인 계정',
             value: provider,
             onTap: onSocialAccounts,
           ),

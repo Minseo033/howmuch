@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -38,6 +39,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   bool _visitedRecently = true;
   bool _checkedMenuPrice = true;
   int _activeStep = 1;
+  bool _isSubmitting = false;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
 
@@ -130,7 +132,14 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   bool get _confirmInfoComplete {
-    return _visitedRecently && _checkedMenuPrice;
+    return _basicInfoComplete &&
+        _priceInfoComplete &&
+        _visitedRecently &&
+        _checkedMenuPrice;
+  }
+
+  bool _isRemoteImageUrl(String value) {
+    return value.startsWith('http://') || value.startsWith('https://');
   }
 
   void _onFormChanged() {
@@ -184,114 +193,151 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _submit() async {
+    if (_isSubmitting) return;
     if (!_basicInfoComplete || !_priceInfoComplete) {
       _showSnack('필수 정보를 모두 입력해주세요.');
       return;
     }
 
     final auth = ref.read(authStateProvider);
+    if (!auth.isLoggedIn) {
+      _showSnack('제보하려면 로그인이 필요해요.');
+      return;
+    }
 
-    // 💡 메뉴 리스트를 1~4번 필드로 평탄화(Flatten)합니다.
-    final menu1 = _menuPrices.isNotEmpty ? _menuPrices[0].menu.text.trim() : '';
-    final price1 = _menuPrices.isNotEmpty
-        ? _menuPrices[0].price.text.trim()
-        : '';
-    final menu2 = _menuPrices.length > 1 ? _menuPrices[1].menu.text.trim() : '';
-    final price2 = _menuPrices.length > 1
-        ? _menuPrices[1].price.text.trim()
-        : '';
-    final menu3 = _menuPrices.length > 2 ? _menuPrices[2].menu.text.trim() : '';
-    final price3 = _menuPrices.length > 2
-        ? _menuPrices[2].price.text.trim()
-        : '';
-    final menu4 = _menuPrices.length > 3 ? _menuPrices[3].menu.text.trim() : '';
-    final price4 = _menuPrices.length > 3
-        ? _menuPrices[3].price.text.trim()
-        : '';
-    final savedMenuPrices = _menuPrices
-        .map(
-          (item) => UserReportMenuPrice(
-            menu: item.menu.text.trim(),
-            price: item.price.text.trim(),
-          ),
-        )
-        .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
-        .toList();
+    setState(() => _isSubmitting = true);
+    final reportService = ref.read(reportServiceProvider);
+    var uploadedImageUrls = <String>[];
+    var reportSaved = false;
 
-    final backendReport = UserReport(
-      cityProvince: '', // 백엔드 카카오 API가 주소를 기반으로 채움
-      cityDistrict: '',
-      storeName: _storeController.text.trim(),
-      industry: _categoryController.text.trim(),
-      address: _addressController.text.trim(),
-      phoneNumber: '', // 입력 필드에 없으므로 공백
-      menu1: menu1,
-      price1: price1,
-      menu2: menu2,
-      price2: price2,
-      menu3: menu3,
-      price3: price3,
-      menu4: menu4,
-      price4: price4,
-      imageUrls: _photos.map((photo) => photo.path).toList(),
-      reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
-      visitedRecently: _visitedRecently,
-      checkedMenuPrice: _checkedMenuPrice,
-      latitude: 0.0, // 주소로 백엔드에서 위경도 변환
-      longitude: 0.0,
-    );
+    try {
+      final menu1 = _menuPrices.isNotEmpty
+          ? _menuPrices[0].menu.text.trim()
+          : '';
+      final price1 = _menuPrices.isNotEmpty
+          ? _menuPrices[0].price.text.trim()
+          : '';
+      final menu2 = _menuPrices.length > 1
+          ? _menuPrices[1].menu.text.trim()
+          : '';
+      final price2 = _menuPrices.length > 1
+          ? _menuPrices[1].price.text.trim()
+          : '';
+      final menu3 = _menuPrices.length > 2
+          ? _menuPrices[2].menu.text.trim()
+          : '';
+      final price3 = _menuPrices.length > 2
+          ? _menuPrices[2].price.text.trim()
+          : '';
+      final menu4 = _menuPrices.length > 3
+          ? _menuPrices[3].menu.text.trim()
+          : '';
+      final price4 = _menuPrices.length > 3
+          ? _menuPrices[3].price.text.trim()
+          : '';
+      final savedMenuPrices = _menuPrices
+          .map(
+            (item) => UserReportMenuPrice(
+              menu: item.menu.text.trim(),
+              price: item.price.text.trim(),
+            ),
+          )
+          .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
+          .toList();
+      final existingImageUrls = _photos
+          .map((photo) => photo.path)
+          .where(_isRemoteImageUrl)
+          .toList();
+      final photosToUpload = _photos
+          .where((photo) => !_isRemoteImageUrl(photo.path))
+          .toList();
+      uploadedImageUrls = FeatureFlags.reportImageUploadEnabled
+          ? await reportService.uploadReportImages(photosToUpload)
+          : const [];
+      final reportImageUrls = [...existingImageUrls, ...uploadedImageUrls];
 
-    final initialReport = widget.initialReport;
-    final success = initialReport != null
-        ? true
-        : await ref.read(reportServiceProvider).submitReport(backendReport);
+      final backendReport = UserReport(
+        cityProvince: '',
+        cityDistrict: '',
+        storeName: _storeController.text.trim(),
+        industry: _categoryController.text.trim(),
+        address: _addressController.text.trim(),
+        phoneNumber: '',
+        menu1: menu1,
+        price1: price1,
+        menu2: menu2,
+        price2: price2,
+        menu3: menu3,
+        price3: price3,
+        menu4: menu4,
+        price4: price4,
+        imageUrls: reportImageUrls,
+        reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
+        visitedRecently: _visitedRecently,
+        checkedMenuPrice: _checkedMenuPrice,
+        latitude: 0.0,
+        longitude: 0.0,
+      );
 
-    if (success) {
-      // 백엔드 통신 성공 시, UI(마이페이지 상태)에도 즉각 반영
+      final initialReport = widget.initialReport;
+      final String reportId;
+      if (initialReport == null) {
+        reportId = await reportService.submitReport(backendReport);
+      } else {
+        await reportService.updateReport(initialReport.id, backendReport);
+        reportId = initialReport.id;
+      }
+      reportSaved = true;
+
       final localReport = UserReportStatus(
-        id:
-            initialReport?.id ??
-            'report-${DateTime.now().millisecondsSinceEpoch}',
+        id: reportId,
         store: _storeController.text.trim(),
         menu: '$menu1 $price1원',
-        status: initialReport?.status ?? '검토 중',
-        statusColor: initialReport?.statusColor ?? 0xFFF59E0B,
-        statusBg: initialReport?.statusBg ?? 0xFFFEF3C7,
-        textColor: initialReport?.textColor ?? 0xFF92400E,
+        status: '검토 중',
+        statusColor: 0xFFF59E0B,
+        statusBg: 0xFFFEF3C7,
+        textColor: 0xFF92400E,
         category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         menuPrices: savedMenuPrices,
-        imageUrls: _photos.map((photo) => photo.path).toList(),
+        imageUrls: reportImageUrls,
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
         createdAt:
             initialReport?.createdAt ??
             DateTime.now().toUtc().toIso8601String(),
-        rejectReason: initialReport?.rejectReason ?? '',
+        rejectReason: '',
       );
 
       if (initialReport == null) {
         ref.read(userReportsProvider.notifier).addReport(localReport);
-      } else {
-        ref.read(userReportsProvider.notifier).updateReport(localReport);
-      }
-
-      if (initialReport == null) {
         final profile = ref.read(userProfileProvider);
         ref.read(userProfileProvider.notifier).state = profile.copyWith(
           reportCount: profile.reportCount + 1,
         );
+      } else {
+        ref.read(userReportsProvider.notifier).updateReport(localReport);
       }
 
-      if (mounted) {
-        if (initialReport == null) {
-          context.push(AppRoutes.reportComplete);
-        } else {
-          context.go('${AppRoutes.reportDetailV2}?id=${localReport.id}');
-        }
+      if (!mounted) return;
+      if (initialReport == null) {
+        context.push(AppRoutes.reportComplete);
+      } else {
+        context.go('${AppRoutes.reportDetailV2}?id=$reportId');
       }
-    } else {
-      _showSnack('제보 제출에 실패했습니다. 다시 시도해주세요.');
+    } on ReportServiceException catch (error) {
+      if (!reportSaved && error.cleanupUploadedImages) {
+        await reportService.cleanupReportImages(uploadedImageUrls);
+      }
+      if (mounted) _showSnack(error.message);
+    } catch (error) {
+      debugPrint('제보 저장 중 예외: $error');
+      if (!reportSaved && uploadedImageUrls.isNotEmpty) {
+        await reportService.cleanupReportImages(uploadedImageUrls);
+      }
+      if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -379,6 +425,10 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _pickPhotos() async {
+    if (_photos.length >= ReportService.maxImageCount) {
+      _showSnack('사진은 최대 3장까지 첨부할 수 있어요.');
+      return;
+    }
     try {
       final pickedImage = await _imagePicker.pickImage(
         source: ImageSource.gallery,
@@ -479,9 +529,16 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                     onRemove: _removeMenuPrice,
                   ),
                   const SizedBox(height: 15.994),
-                  const _SectionLabel(title: '사진 및 확인', optional: true),
+                  const _SectionLabel(
+                    title: FeatureFlags.reportImageUploadEnabled
+                        ? '사진 및 확인'
+                        : '방문 확인',
+                    required: !FeatureFlags.reportImageUploadEnabled,
+                    optional: FeatureFlags.reportImageUploadEnabled,
+                  ),
                   const SizedBox(height: 10),
                   _PhotoConfirmCard(
+                    showPhotoUpload: FeatureFlags.reportImageUploadEnabled,
                     photos: _photos,
                     visitedRecently: _visitedRecently,
                     checkedMenuPrice: _checkedMenuPrice,
@@ -493,7 +550,11 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                         setState(() => _checkedMenuPrice = value),
                   ),
                   const SizedBox(height: 15.994),
-                  _SubmitFooter(onPressed: _submit),
+                  _SubmitFooter(
+                    onPressed: _submit,
+                    isSubmitting: _isSubmitting,
+                    isEditing: widget.initialReport != null,
+                  ),
                 ],
               ),
             ),
@@ -1148,6 +1209,7 @@ class _SuffixAction extends StatelessWidget {
 
 class _PhotoConfirmCard extends StatelessWidget {
   const _PhotoConfirmCard({
+    required this.showPhotoUpload,
     required this.photos,
     required this.visitedRecently,
     required this.checkedMenuPrice,
@@ -1157,6 +1219,7 @@ class _PhotoConfirmCard extends StatelessWidget {
     required this.onCheckedChanged,
   });
 
+  final bool showPhotoUpload;
   final List<XFile> photos;
   final bool visitedRecently;
   final bool checkedMenuPrice;
@@ -1173,13 +1236,15 @@ class _PhotoConfirmCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _PhotoUploadBox(photos: photos, onTap: onPhotoTap),
-          if (photos.isNotEmpty) ...[
-            const SizedBox(height: 7.997),
-            _PhotoThumbnailStrip(photos: photos, onRemove: onPhotoRemove),
-            const SizedBox(height: 9.989),
-          ] else
-            const SizedBox(height: 11.989),
+          if (showPhotoUpload) ...[
+            _PhotoUploadBox(photos: photos, onTap: onPhotoTap),
+            if (photos.isNotEmpty) ...[
+              const SizedBox(height: 7.997),
+              _PhotoThumbnailStrip(photos: photos, onRemove: onPhotoRemove),
+              const SizedBox(height: 9.989),
+            ] else
+              const SizedBox(height: 11.989),
+          ],
           _CheckLine(
             label: '최근 1개월 이내 방문했어요',
             value: visitedRecently,
@@ -1328,6 +1393,9 @@ class _PhotoThumbnailSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final photo = this.photo;
+    final imagePath = photo?.path ?? '';
+    final isRemoteImage =
+        imagePath.startsWith('http://') || imagePath.startsWith('https://');
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
@@ -1340,7 +1408,13 @@ class _PhotoThumbnailSlot extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (photo != null)
+            if (photo != null && isRemoteImage)
+              Image.network(
+                imagePath,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const _PhotoThumbnailFallback(),
+              )
+            else if (photo != null)
               FutureBuilder<Uint8List>(
                 future: photo.readAsBytes(),
                 builder: (context, snapshot) {
@@ -1348,19 +1422,11 @@ class _PhotoThumbnailSlot extends StatelessWidget {
                     return Image.memory(snapshot.data!, fit: BoxFit.cover);
                   }
 
-                  return const ColoredBox(
-                    color: Color(0xFFFFF3EA),
-                    child: Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: ReportCreateStyle.orange,
-                        ),
-                      ),
-                    ),
-                  );
+                  if (snapshot.hasError) {
+                    return const _PhotoThumbnailFallback();
+                  }
+
+                  return const _PhotoThumbnailLoading();
                 },
               )
             else
@@ -1427,6 +1493,45 @@ class _PhotoThumbnailSlot extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailLoading extends StatelessWidget {
+  const _PhotoThumbnailLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFFFF3EA),
+      child: Center(
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: ReportCreateStyle.orange,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoThumbnailFallback extends StatelessWidget {
+  const _PhotoThumbnailFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: Color(0xFFFFF3EA),
+      child: Center(
+        child: Icon(
+          Icons.camera_alt_outlined,
+          color: ReportCreateStyle.muted,
+          size: 20,
         ),
       ),
     );
@@ -1508,9 +1613,15 @@ class _CheckLine extends StatelessWidget {
 }
 
 class _SubmitFooter extends StatelessWidget {
-  const _SubmitFooter({required this.onPressed});
+  const _SubmitFooter({
+    required this.onPressed,
+    required this.isSubmitting,
+    required this.isEditing,
+  });
 
   final VoidCallback onPressed;
+  final bool isSubmitting;
+  final bool isEditing;
 
   @override
   Widget build(BuildContext context) {
@@ -1518,7 +1629,7 @@ class _SubmitFooter extends StatelessWidget {
       width: double.infinity,
       height: 50,
       child: FilledButton(
-        onPressed: onPressed,
+        onPressed: isSubmitting ? null : onPressed,
         style: FilledButton.styleFrom(
           backgroundColor: ReportCreateStyle.blue,
           foregroundColor: Colors.white,
@@ -1529,17 +1640,26 @@ class _SubmitFooter extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        child: const Text(
-          '제보 제출하기',
-          style: TextStyle(
-            color: Colors.white,
-            fontFamily: ReportCreateStyle.fontFamily,
-            fontFamilyFallback: ReportCreateStyle.fontFallback,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-          ),
-        ),
+        child: isSubmitting
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Text(
+                isEditing ? '제보 수정하기' : '제보 제출하기',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: ReportCreateStyle.fontFamily,
+                  fontFamilyFallback: ReportCreateStyle.fontFallback,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
+              ),
       ),
     );
   }
