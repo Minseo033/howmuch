@@ -440,7 +440,7 @@ class StoreDetailScreen extends ConsumerWidget {
                         label: '방문 인증',
                         onTap: () => context.push(
                           AppRoutes.visitVerification,
-                          extra: store.storeName,
+                          extra: store,
                         ),
                         muted: false,
                       ),
