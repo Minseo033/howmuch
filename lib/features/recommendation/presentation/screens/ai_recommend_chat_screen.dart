@@ -136,7 +136,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     final keyboardOffset = designScale <= 0
         ? 0.0
         : rawKeyboard / designScale;
-    
+
     // 키보드가 켜졌을 때는 홈 인디케이터 여백을 제외하고 10px로 밀착
     final bottomOffset = isKeyboardOpen ? 10.0 : (safePadding.bottom > 16 ? safePadding.bottom : 16.0);
     final composerLift = isKeyboardOpen ? 0.0 : 12.0;
