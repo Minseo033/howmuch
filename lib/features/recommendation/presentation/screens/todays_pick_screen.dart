@@ -4,6 +4,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -115,9 +116,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       final p = entry.value;
       final distanceValue = p['distanceMeters'];
       final distanceNumber = _asDouble(distanceValue);
-      final distance = distanceNumber == null
-          ? '거리 정보 없음'
-          : '${distanceNumber.round()}m';
+      final distance = formatRecommendationDistance(distanceNumber);
       // 백엔드가 낸 reason(이유 멘트)이 있으면 그걸 우선 사용, 없으면 기존 날씨 문구 폼백
       final backendReason = p['reason'] as String?;
       final backendTheme = p['theme'] as String?;
@@ -125,11 +124,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       final temperature = _asDouble(temp);
       final tip = backendReason != null && backendReason.isNotEmpty
           ? backendReason
-          : (weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
-              ? '☔ 비 오는 날 추천'
-              : (temperature != null && temperature >= 28
-                  ? '🌡️ 더운 날 시원한 메뉴'
-                  : '✨ 오늘의 추천'));
+          : (weather == '비' ||
+                    weather == '비/눈' ||
+                    weather == '눈' ||
+                    weather == '소나기'
+                ? '☔ 비 오는 날 추천'
+                : (temperature != null && temperature >= 28
+                      ? '🌡️ 더운 날 시원한 메뉴'
+                      : '✨ 오늘의 추천'));
 
       return TodaysPickItem(
         id: '${idx + 1}',
@@ -168,7 +170,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     final weather = _pickData?['weather'] ?? '알 수 없음';
     final temp = _pickData?['temp'];
     final now = DateTime.now();
-    final dateStr = '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final dateStr =
+        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -222,347 +225,408 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                           ),
                         )
                       : _errorMessage != null
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      width: 60,
-                                      height: 60,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFE2E8F0),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        Icons.error_outline_rounded,
-                                        color: Color(0xFF64748B),
-                                        size: 30,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 16),
-                                    const Text(
-                                      '오늘의 픽을 불러오지 못했어요',
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontFamilyFallback: ['Noto Sans KR'],
-                                        fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0F172A),
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _errorMessage!,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF64748B),
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    SizedBox(
-                                      width: 140,
-                                      height: 40,
-                                      child: FilledButton(
-                                        onPressed: _loadTodaysPick,
-                                        style: FilledButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2563EB),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          '다시 시도',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE2E8F0),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.error_outline_rounded,
+                                    color: Color(0xFF64748B),
+                                    size: 30,
+                                  ),
                                 ),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              physics: const AlwaysScrollableScrollPhysics(
-                                parent: BouncingScrollPhysics(),
-                              ),
-                              padding: EdgeInsets.only(
-                                top: 16,
-                                bottom: safePadding.bottom + 20,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFF2563EB), Color(0xFF3B82F6)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(24),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  '오늘의 픽을 불러오지 못했어요',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: 140,
+                                  height: 40,
+                                  child: FilledButton(
+                                    onPressed: _loadTodaysPick,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2563EB),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                    ),
+                                    child: const Text(
+                                      '다시 시도',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          padding: EdgeInsets.only(
+                            top: 16,
+                            bottom: safePadding.bottom + 20,
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF2563EB),
+                                        Color(0xFF3B82F6),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(24),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    dateStr,
-                                                    style: TextStyle(
-                                                      fontFamily: 'Inter',
-                                                      fontFamilyFallback: const ['Noto Sans KR'],
-                                                      color: Colors.white.withValues(alpha: 0.9),
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Text(
-                                                    weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
-                                                        ? '비가 오는 날이네요 ☔️'
-                                                        : (temp != null && temp >= 28 ? '더운 날이네요 🌡️' : '오늘의 날씨예요'),
-                                                    style: const TextStyle(
-                                                      fontFamily: 'Inter',
-                                                      fontFamilyFallback: ['Noto Sans KR'],
-                                                      color: Colors.white,
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
                                               Text(
-                                                temp != null ? '$temp°' : '-°',
+                                                dateStr,
+                                                style: TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontFamilyFallback: const [
+                                                    'Noto Sans KR',
+                                                  ],
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.9),
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                weather == '비' ||
+                                                        weather == '비/눈' ||
+                                                        weather == '눈' ||
+                                                        weather == '소나기'
+                                                    ? '비가 오는 날이네요 ☔️'
+                                                    : (temp != null &&
+                                                              temp >= 28
+                                                          ? '더운 날이네요 🌡️'
+                                                          : '오늘의 날씨예요'),
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
+                                                  fontFamilyFallback: [
+                                                    'Noto Sans KR',
+                                                  ],
                                                   color: Colors.white,
-                                                  fontSize: 32,
-                                                  fontWeight: FontWeight.w300,
-                                                  height: 1.0,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          const SizedBox(height: 16),
+                                          Text(
+                                            temp != null ? '$temp°' : '-°',
+                                            style: const TextStyle(
+                                              fontFamily: 'Inter',
+                                              color: Colors.white,
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.w300,
+                                              height: 1.0,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          weather == '비' ||
+                                                  weather == '비/눈' ||
+                                                  weather == '눈' ||
+                                                  weather == '소나기'
+                                              ? '🍜 따뜻한 국물 메뉴를 추천해요'
+                                              : (temp != null && temp >= 28
+                                                    ? '🧊 시원한 메뉴를 추천해요'
+                                                    : '✨ 오늘의 추천 메뉴'),
+                                          style: const TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontFamilyFallback: [
+                                              'Noto Sans KR',
+                                            ],
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    _buildFilterChip(
+                                      '날씨 기반',
+                                      const Color(0xFF2563EB),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _buildFilterChip(
+                                      '가까운 거리',
+                                      const Color(0xFF10B981),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    _buildFilterChip(
+                                      '저렴한 가격',
+                                      const Color(0xFFF97316),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                if (filteredItems.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 40,
+                                    ),
+                                    child: Center(
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
+                                            width: 60,
+                                            height: 60,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFE2E8F0),
+                                              shape: BoxShape.circle,
                                             ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withValues(alpha: 0.2),
-                                              borderRadius: BorderRadius.circular(12),
+                                            child: const Icon(
+                                              Icons.lightbulb_outline_rounded,
+                                              color: Color(0xFF64748B),
+                                              size: 28,
                                             ),
-                                            child: Text(
-                                              weather == '비' || weather == '비/눈' || weather == '눈' || weather == '소나기'
-                                                  ? '🍜 따뜻한 국물 메뉴를 추천해요'
-                                                  : (temp != null && temp >= 28 ? '🧊 시원한 메뉴를 추천해요' : '✨ 오늘의 추천 메뉴'),
-                                              style: const TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontFamilyFallback: ['Noto Sans KR'],
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          const Text(
+                                            '오늘 추천할 매장이 없어요',
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              fontFamilyFallback: [
+                                                'Noto Sans KR',
+                                              ],
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(0xFF0F172A),
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                            '선택하신 필터에 부합하는 매장이 없거나 주변 착한가격업소 데이터가 충분하지 않아요.',
+                                            textAlign: TextAlign.center,
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              fontFamilyFallback: [
+                                                'Noto Sans KR',
+                                              ],
+                                              color: Color(0xFF64748B),
+                                              fontSize: 12,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
-                                    Row(
-                                      children: [
-                                        _buildFilterChip('날씨 기반', const Color(0xFF2563EB)),
-                                        const SizedBox(width: 6),
-                                        _buildFilterChip('가까운 거리', const Color(0xFF10B981)),
-                                        const SizedBox(width: 6),
-                                        _buildFilterChip('저렴한 가격', const Color(0xFFF97316)),
-                                      ],
+                                  )
+                                else
+                                  ...filteredItems.asMap().entries.map((entry) {
+                                    int idx = entry.key;
+                                    var item = entry.value;
+
+                                    Color indexBg;
+                                    Color indexText;
+                                    if (idx == 0) {
+                                      indexBg = const Color(0xFFEFF4FF);
+                                      indexText = const Color(0xFF2563EB);
+                                    } else if (idx == 1) {
+                                      indexBg = const Color(0xFFFFF3EA);
+                                      indexText = const Color(0xFFF97316);
+                                    } else {
+                                      indexBg = const Color(0xFFE8F8F1);
+                                      indexText = const Color(0xFF10B981);
+                                    }
+
+                                    return Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: 12,
+                                      ),
+                                      child: _buildPickCard(
+                                        index: (idx + 1).toString(),
+                                        indexBgColor: indexBg,
+                                        indexTextColor: indexText,
+                                        badgeText: item.badgeText,
+                                        badgeColor: item.badgeColor,
+                                        badgeBg: item.badgeBg,
+                                        distance: item.distance,
+                                        storeName: item.storeName,
+                                        menuName: item.menuName,
+                                        price: item.price,
+                                        tipText: item.tipText,
+                                        theme: item.theme,
+                                      ),
+                                    );
+                                  }),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        height: 48,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(0xFFE5E7EB),
+                                          ),
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: const Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Icon(
+                                              Icons.map_outlined,
+                                              color: Color(0xFF0F172A),
+                                              size: 16,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              '지도에서 보기',
+                                              style: TextStyle(
+                                                fontFamily: 'Inter',
+                                                fontFamilyFallback: [
+                                                  'Noto Sans KR',
+                                                ],
+                                                color: Color(0xFF0F172A),
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                                    const SizedBox(height: 16),
-                                    if (filteredItems.isEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 40),
-                                        child: Center(
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: GestureDetector(
+                                        onTap: () => context.push(
+                                          AppRoutes.optimalRoute,
+                                        ),
+                                        child: Container(
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2563EB),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(
+                                                  0xFF2563EB,
+                                                ).withOpacity(0.3),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                            ],
+                                          ),
+                                          alignment: Alignment.center,
+                                          child: const Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
                                             children: [
-                                              Container(
-                                                width: 60,
-                                                height: 60,
-                                                decoration: const BoxDecoration(
-                                                  color: Color(0xFFE2E8F0),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(
-                                                  Icons.lightbulb_outline_rounded,
-                                                  color: Color(0xFF64748B),
-                                                  size: 28,
-                                                ),
+                                              Icon(
+                                                Icons.route,
+                                                color: Colors.white,
+                                                size: 16,
                                               ),
-                                              const SizedBox(height: 16),
-                                              const Text(
-                                                '오늘 추천할 매장이 없어요',
+                                              SizedBox(width: 8),
+                                              Text(
+                                                '이 루트로 보기',
                                                 style: TextStyle(
                                                   fontFamily: 'Inter',
-                                                  fontFamilyFallback: ['Noto Sans KR'],
+                                                  fontFamilyFallback: [
+                                                    'Noto Sans KR',
+                                                  ],
+                                                  color: Colors.white,
+                                                  fontSize: 13,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF0F172A),
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 6),
-                                              const Text(
-                                                '선택하신 필터에 부합하는 매장이 없거나 주변 착한가격업소 데이터가 충분하지 않아요.',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontFamilyFallback: ['Noto Sans KR'],
-                                                  color: Color(0xFF64748B),
-                                                  fontSize: 12,
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      )
-                                    else
-                                      ...filteredItems.asMap().entries.map((entry) {
-                                        int idx = entry.key;
-                                        var item = entry.value;
-
-                                        Color indexBg;
-                                        Color indexText;
-                                        if (idx == 0) {
-                                          indexBg = const Color(0xFFEFF4FF);
-                                          indexText = const Color(0xFF2563EB);
-                                        } else if (idx == 1) {
-                                          indexBg = const Color(0xFFFFF3EA);
-                                          indexText = const Color(0xFFF97316);
-                                        } else {
-                                          indexBg = const Color(0xFFE8F8F1);
-                                          indexText = const Color(0xFF10B981);
-                                        }
-
-                                        return Padding(
-                                          padding: const EdgeInsets.only(bottom: 12),
-                                          child: _buildPickCard(
-                                            index: (idx + 1).toString(),
-                                            indexBgColor: indexBg,
-                                            indexTextColor: indexText,
-                                            badgeText: item.badgeText,
-                                            badgeColor: item.badgeColor,
-                                            badgeBg: item.badgeBg,
-                                            distance: item.distance,
-                                            storeName: item.storeName,
-                                            menuName: item.menuName,
-                                            price: item.price,
-                                            tipText: item.tipText,
-                                            theme: item.theme,
-                                          ),
-                                        );
-                                      }),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Container(
-                                            height: 48,
-                                            decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius: BorderRadius.circular(16),
-                                              border: Border.all(
-                                                color: const Color(0xFFE5E7EB),
-                                              ),
-                                            ),
-                                            alignment: Alignment.center,
-                                            child: const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Icon(
-                                                  Icons.map_outlined,
-                                                  color: Color(0xFF0F172A),
-                                                  size: 16,
-                                                ),
-                                                SizedBox(width: 8),
-                                                Text(
-                                                  '지도에서 보기',
-                                                  style: TextStyle(
-                                                    fontFamily: 'Inter',
-                                                    fontFamilyFallback: ['Noto Sans KR'],
-                                                    color: Color(0xFF0F172A),
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () => context.push(AppRoutes.optimalRoute),
-                                            child: Container(
-                                              height: 48,
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF2563EB),
-                                                borderRadius: BorderRadius.circular(16),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: const Color(0xFF2563EB).withOpacity(0.3),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 6),
-                                                  ),
-                                                ],
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: const Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.route,
-                                                    color: Colors.white,
-                                                    size: 16,
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    '이 루트로 보기',
-                                                    style: TextStyle(
-                                                      fontFamily: 'Inter',
-                                                      fontFamilyFallback: ['Noto Sans KR'],
-                                                      color: Colors.white,
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
+                              ],
                             ),
+                          ),
+                        ),
                 ),
               ],
             ),

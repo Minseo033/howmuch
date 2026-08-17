@@ -1792,7 +1792,8 @@ public class FirebaseService {
         // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
         List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
 
-        // 가까운 순 상위 후보군 + 날짜 시드 셔플 (같은 날 안정적, 다음 날 순서 변경)
+        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
+        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
         List<Map<String, Object>> mainCandidates = nearestShuffled(mainPool, lat, lng, CANDIDATE_POOL_SIZE, dailySeed);
         List<Map<String, Object>> altCandidates = nearestShuffled(altMatched, lat, lng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
 
@@ -1803,6 +1804,11 @@ public class FirebaseService {
         addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
         if (chosen.size() < MAX_PICKS) {
             addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+        }
+
+        if (lat != null && lng != null) {
+            chosen.sort(java.util.Comparator.comparingDouble(
+                    store -> haversine(lat, lng, parseLat(store), parseLng(store))));
         }
 
         List<Map<String, Object>> picks = new ArrayList<>();
@@ -1925,7 +1931,7 @@ public class FirebaseService {
         return matched;
     }
 
-    /** 가까운 순 정렬 후 상위 limit개를 날짜 시드로 셔플 (위치 없으면 셔플만) */
+    /** 가까운 순 상위 limit개를 반환한다. 위치가 없을 때만 날짜 시드로 섞는다. */
     private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
                                                       Double lat, Double lng, int limit, long seed) {
         List<Map<String, Object>> scored = new ArrayList<>(pool);
@@ -1933,11 +1939,13 @@ public class FirebaseService {
             scored.sort((a, b) -> Double.compare(
                     haversine(lat, lng, parseLat(a), parseLng(a)),
                     haversine(lat, lng, parseLat(b), parseLng(b))));
-            if (scored.size() > limit) {
-                scored = new ArrayList<>(scored.subList(0, limit));
-            }
         }
-        Collections.shuffle(scored, new Random(seed));
+        if (scored.size() > limit) {
+            scored = new ArrayList<>(scored.subList(0, limit));
+        }
+        if (lat == null || lng == null) {
+            Collections.shuffle(scored, new Random(seed));
+        }
         return scored;
     }
 

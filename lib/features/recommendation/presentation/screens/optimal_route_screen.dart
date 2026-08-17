@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/route_map_point.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/route_map_view.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -66,6 +69,25 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
   List<dynamic> get _picks => _routeData?['picks'] ?? [];
 
+  List<RouteMapPoint> get _routeMapPoints {
+    final points = <RouteMapPoint>[];
+    for (var index = 0; index < _picks.length; index++) {
+      final pick = _picks[index];
+      if (pick is! Map) continue;
+      final coordinates = _coordinates(pick);
+      if (coordinates == null) continue;
+      points.add(
+        RouteMapPoint(
+          order: index + 1,
+          name: pick['storeName']?.toString() ?? '알 수 없음',
+          latitude: coordinates.lat,
+          longitude: coordinates.lng,
+        ),
+      );
+    }
+    return points;
+  }
+
   int get _totalCost {
     int sum = 0;
     for (var p in _picks) {
@@ -90,7 +112,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
         _picks.asMap().keys.every((i) => _legDistanceMeters(i) == null)) {
       return '거리 정보 없음';
     }
-    return '${_totalDistance}m';
+    return formatRecommendationDistance(_totalDistance.toDouble());
   }
 
   Future<Position?> _resolveCurrentPosition() async {
@@ -126,8 +148,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
     final previous = index == 0
         ? (_userLatitude != null && _userLongitude != null
-            ? (lat: _userLatitude!, lng: _userLongitude!)
-            : null)
+              ? (lat: _userLatitude!, lng: _userLongitude!)
+              : null)
         : _coordinates(_picks[index - 1]);
     if (previous == null) {
       return index == 0 ? _number(_picks[index]['distanceMeters']) : null;
@@ -136,7 +158,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     const earthRadiusMeters = 6371000.0;
     final latDelta = _radians(current.lat - previous.lat);
     final lngDelta = _radians(current.lng - previous.lng);
-    final a = math.pow(math.sin(latDelta / 2), 2) +
+    final a =
+        math.pow(math.sin(latDelta / 2), 2) +
         math.cos(_radians(previous.lat)) *
             math.cos(_radians(current.lat)) *
             math.pow(math.sin(lngDelta / 2), 2);
@@ -146,8 +169,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   double _radians(double degrees) => degrees * math.pi / 180;
 
   String _distanceText(Object? value) {
-    final distance = _number(value);
-    return distance == null ? '거리 정보 없음' : '${distance.round()}m';
+    return formatRecommendationDistance(_number(value));
   }
 
   @override
@@ -202,325 +224,317 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
             top: topOffset + 50.96590805053711,
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF2563EB),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                   )
                 : _errorMessage != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 60,
-                                height: 60,
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFE2E8F0),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.error_outline_rounded,
-                                  color: Color(0xFF64748B),
-                                  size: 30,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                '추천 경로를 불러오지 못했어요',
-                                style: TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontFamilyFallback: ['Noto Sans KR'],
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                _errorMessage!,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontFamilyFallback: ['Noto Sans KR'],
-                                  color: Color(0xFF64748B),
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: 140,
-                                height: 40,
-                                child: FilledButton(
-                                  onPressed: _loadRoute,
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2563EB),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    '다시 시도',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFF64748B),
+                              size: 30,
+                            ),
                           ),
-                        ),
-                      )
-                    : _picks.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                          const SizedBox(height: 16),
+                          const Text(
+                            '추천 경로를 불러오지 못했어요',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          SizedBox(
+                            width: 140,
+                            height: 40,
+                            child: FilledButton(
+                              onPressed: _loadRoute,
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: const Text(
+                                '다시 시도',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _picks.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 60,
+                            height: 60,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE2E8F0),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.alt_route_rounded,
+                              color: Color(0xFF64748B),
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            '추천 동선 매장이 없어요',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF0F172A),
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            '근처에 연속 탐방할 수 있는 착한가격업소가 부족하거나 위치 권한이 켜져 있지 않아요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: EdgeInsets.only(bottom: 100 + bottomOffset),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '식사부터 카페까지 저렴한 동선을 추천해요',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            height: 180,
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8EEF6),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: RouteMapView(
+                              points: _routeMapPoints,
+                              userLatitude: _userLatitude,
+                              userLongitude: _userLongitude,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            '추천 동선',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          if (_picks.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(child: Text('추천할 매장이 없어요.')),
+                            )
+                          else
+                            ..._picks.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final p = entry.value;
+                              final storeName = p['storeName'] ?? '알 수 없음';
+                              final menu = p['menu1'] ?? '';
+                              final price = p['price1'] != null
+                                  ? '${p['price1']}원'
+                                  : '';
+                              final distance = _distanceText(
+                                p['distanceMeters'],
+                              );
+                              final legDistance = _legDistanceMeters(idx);
+
+                              return Column(
                                 children: [
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFE2E8F0),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.alt_route_rounded,
-                                      color: Color(0xFF64748B),
-                                      size: 28,
-                                    ),
+                                  _buildRouteStep(
+                                    index: '${idx + 1}',
+                                    storeName: storeName,
+                                    details: [menu, price, distance]
+                                        .where((part) => part.isNotEmpty)
+                                        .join(' · '),
                                   ),
-                                  const SizedBox(height: 16),
+                                  if (idx < _picks.length - 1 &&
+                                      legDistance != null)
+                                    _buildConnection(
+                                      '도보 약 ${math.max(1, (legDistance / 80).round())}분',
+                                    ),
+                                ],
+                              );
+                            }),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F8F1),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      '총 예상 비용',
+                                      style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${_totalCost}원',
+                                      style: const TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      '총 거리',
+                                      style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      _totalDistanceLabel,
+                                      style: const TextStyle(
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  height: 1,
+                                  color: const Color(
+                                    0xFF10B981,
+                                  ).withOpacity(0.2),
+                                ),
+                                const SizedBox(height: 12),
+                                const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.directions_walk,
+                                      color: Color(0xFF64748B),
+                                      size: 12,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'AI 추천 동선',
+                                      style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_routeData?['route'] != null) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   const Text(
-                                    '추천 동선 매장이 없어요',
+                                    'AI 추천 이유',
                                     style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontFamilyFallback: ['Noto Sans KR'],
-                                      fontWeight: FontWeight.bold,
                                       color: Color(0xFF0F172A),
-                                      fontSize: 15,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    '근처에 연속 탐방할 수 있는 착한가격업소가 부족하거나 위치 권한이 켜져 있지 않아요.',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontFamily: 'Inter',
-                                      fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF64748B),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _routeData!['route'].toString(),
+                                    style: const TextStyle(
+                                      color: Color(0xFF475569),
                                       fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          )
-                        : SingleChildScrollView(
-                            padding: EdgeInsets.only(bottom: 100 + bottomOffset),
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                '식사부터 카페까지 저렴한 동선을 추천해요',
-                                style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                              ),
-                              const SizedBox(height: 16),
-                              Container(
-                                height: 180,
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                                ),
-                                child: Stack(
-                                  children: [
-                                    const Center(
-                                      child: Icon(
-                                        Icons.map,
-                                        color: Colors.black12,
-                                        size: 48,
-                                      ),
-                                    ),
-                                    if (_picks.isNotEmpty)
-                                      Positioned(
-                                        top: 40,
-                                        left: 60,
-                                        child: _buildMarker('1', _picks[0]['storeName'] ?? '', const Color(0xFF2563EB)),
-                                      ),
-                                    if (_picks.length > 1)
-                                      Positioned(
-                                        top: 90,
-                                        right: 60,
-                                        child: _buildMarker('2', _picks[1]['storeName'] ?? '', const Color(0xFFF97316)),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              const Text(
-                                '추천 동선',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              if (_picks.isEmpty)
-                                const Padding(
-                                  padding: EdgeInsets.all(24),
-                                  child: Center(child: Text('추천할 매장이 없어요.')),
-                                )
-                              else
-                                ..._picks.asMap().entries.map((entry) {
-                                  final idx = entry.key;
-                                  final p = entry.value;
-                                  final storeName = p['storeName'] ?? '알 수 없음';
-                                  final menu = p['menu1'] ?? '';
-                                  final price = p['price1'] != null ? '${p['price1']}원' : '';
-                                  final distance = _distanceText(p['distanceMeters']);
-                                  final legDistance = _legDistanceMeters(idx);
-
-                                  return Column(
-                                    children: [
-                                      _buildRouteStep(
-                                        index: '${idx + 1}',
-                                        storeName: storeName,
-                                        details: [menu, price, distance]
-                                            .where((part) => part.isNotEmpty)
-                                            .join(' · '),
-                                      ),
-                                      if (idx < _picks.length - 1 && legDistance != null)
-                                        _buildConnection(
-                                          '도보 약 ${math.max(1, (legDistance / 80).round())}분',
-                                        ),
-                                    ],
-                                  );
-                                }),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFE8F8F1),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          '총 예상 비용',
-                                          style: TextStyle(
-                                            color: Color(0xFF64748B),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          '${_totalCost}원',
-                                          style: const TextStyle(
-                                            color: Color(0xFF0F172A),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        const Text(
-                                          '총 거리',
-                                          style: TextStyle(
-                                            color: Color(0xFF64748B),
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                        Text(
-                                          _totalDistanceLabel,
-                                          style: const TextStyle(
-                                            color: Color(0xFF0F172A),
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Container(
-                                      height: 1,
-                                      color: const Color(0xFF10B981).withOpacity(0.2),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    const Row(
-                                      children: [
-                                        Icon(
-                                          Icons.directions_walk,
-                                          color: Color(0xFF64748B),
-                                          size: 12,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'AI 추천 동선',
-                                          style: TextStyle(
-                                            color: Color(0xFF64748B),
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (_routeData?['route'] != null) ...[
-                                const SizedBox(height: 16),
-                                Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'AI 추천 이유',
-                                        style: TextStyle(
-                                          color: Color(0xFF0F172A),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        _routeData!['route'].toString(),
-                                        style: const TextStyle(
-                                          color: Color(0xFF475569),
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+                          ],
+                        ],
                       ),
+                    ),
+                  ),
           ),
           Positioned(
             bottom: 0,
@@ -556,31 +570,6 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMarker(String index, String name, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(30),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Text(
-        '$index $name',
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-        ),
       ),
     );
   }
