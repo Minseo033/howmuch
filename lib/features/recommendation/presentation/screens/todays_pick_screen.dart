@@ -204,19 +204,76 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                 ),
                 Expanded(
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF2563EB),
+                          ),
+                        )
                       : _errorMessage != null
                           ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(_errorMessage!),
-                                  const SizedBox(height: 12),
-                                  ElevatedButton(
-                                    onPressed: _loadTodaysPick,
-                                    child: const Text('다시 시도'),
-                                  ),
-                                ],
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFE2E8F0),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.error_outline_rounded,
+                                        color: Color(0xFF64748B),
+                                        size: 30,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 16),
+                                    const Text(
+                                      '오늘의 픽을 불러오지 못했어요',
+                                      style: TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF0F172A),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _errorMessage!,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontFamily: 'Inter',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFF64748B),
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    SizedBox(
+                                      width: 140,
+                                      height: 40,
+                                      child: FilledButton(
+                                        onPressed: _loadTodaysPick,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2563EB),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          '다시 시도',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             )
                           : SingleChildScrollView(
@@ -258,7 +315,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                     style: TextStyle(
                                                       fontFamily: 'Inter',
                                                       fontFamilyFallback: const ['Noto Sans KR'],
-                                                      color: Colors.white.withOpacity(0.9),
+                                                      color: Colors.white.withValues(alpha: 0.9),
                                                       fontSize: 12,
                                                       fontWeight: FontWeight.w600,
                                                     ),
@@ -297,7 +354,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               vertical: 8,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.2),
+                                              color: Colors.white.withValues(alpha: 0.2),
                                               borderRadius: BorderRadius.circular(12),
                                             ),
                                             child: Text(
@@ -328,9 +385,50 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     ),
                                     const SizedBox(height: 16),
                                     if (filteredItems.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.all(24),
-                                        child: Center(child: Text('추천할 매장이 없어요.')),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 40),
+                                        child: Center(
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                width: 60,
+                                                height: 60,
+                                                decoration: const BoxDecoration(
+                                                  color: Color(0xFFE2E8F0),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(
+                                                  Icons.lightbulb_outline_rounded,
+                                                  color: Color(0xFF64748B),
+                                                  size: 28,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16),
+                                              const Text(
+                                                '오늘 추천할 매장이 없어요',
+                                                style: TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontFamilyFallback: ['Noto Sans KR'],
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF0F172A),
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              const Text(
+                                                '선택하신 필터에 부합하는 매장이 없거나 주변 착한가격업소 데이터가 충분하지 않아요.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  fontFamilyFallback: ['Noto Sans KR'],
+                                                  color: Color(0xFF64748B),
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       )
                                     else
                                       ...filteredItems.asMap().entries.map((entry) {

@@ -156,7 +156,6 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     if (match == null) return 0;
     return int.tryParse(match.group(1)!.replaceAll(',', '')) ?? 0;
   }
-
   void _loadFallbackData() {
     setState(() {
       _allItems = [
