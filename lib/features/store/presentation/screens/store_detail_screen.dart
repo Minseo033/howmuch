@@ -733,7 +733,9 @@ class _FavoriteStoreButton extends ConsumerStatefulWidget {
 class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
   bool _busy = false;
 
-  String get _storeId => widget.store.storeName;
+  String get _storeId => widget.store.id.isNotEmpty
+      ? widget.store.id
+      : widget.store.storeName;
 
   @override
   void initState() {

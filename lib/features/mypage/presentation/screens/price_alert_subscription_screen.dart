@@ -30,7 +30,25 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(priceAlertSettingsProvider);
+    final settingsState = ref.watch(priceAlertSettingsProvider);
+    return settingsState.when(
+      loading: () => const _PriceAlertLoading(),
+      error: (error, _) => _PriceAlertError(
+        message: error is PriceAlertApiException
+            ? error.message
+            : '가격 알림 매장 목록을 불러오지 못했어요.',
+        onRetry: () =>
+            ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
+      ),
+      data: (settings) => _buildContent(context, ref, settings),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    WidgetRef ref,
+    PriceAlertSettings settings,
+  ) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -38,7 +56,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
     final scrollContentHeight = 592 + topOffset + footerHeight + 24;
 
     void update(PriceAlertSettings value) {
-      ref.read(priceAlertSettingsProvider.notifier).state = value;
+      ref.read(priceAlertSettingsProvider.notifier).updateLocal(value);
     }
 
     void updateStore(int index) {
@@ -91,6 +109,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                       child: _AllAlertCard(
                         value: settings.all,
                         onTap: () {
+                          if (settings.stores.isEmpty) return;
                           final next = !settings.all;
                           update(
                             settings.copyWith(
@@ -116,14 +135,21 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
                       height: 223.86363220214844,
                       child: Column(
                         children: [
-                          for (var i = 0; i < settings.stores.length; i++) ...[
-                            _StoreAlertCard(
-                              store: settings.stores[i],
-                              onTap: () => updateStore(i),
-                            ),
-                            if (i != settings.stores.length - 1)
-                              const SizedBox(height: 7.997),
-                          ],
+                          if (settings.stores.isEmpty)
+                            const _EmptyStoreAlert()
+                          else
+                            for (
+                              var i = 0;
+                              i < settings.stores.length;
+                              i++
+                            ) ...[
+                              _StoreAlertCard(
+                                store: settings.stores[i],
+                                onTap: () => updateStore(i),
+                              ),
+                              if (i != settings.stores.length - 1)
+                                const SizedBox(height: 7.997),
+                            ],
                         ],
                       ),
                     ),
@@ -174,10 +200,21 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
             child: _StickyButton(
               safeBottom: bottomOffset,
               label: '설정 저장',
-              onPressed: () {
+              onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
-                // TODO(박지환 BE): 가격 알림 구독/해제 API가 붙으면 매장별 알림 상태를 서버에 저장하세요.
                 messenger.clearSnackBars();
+                final saved = await ref
+                    .read(priceAlertSettingsProvider.notifier)
+                    .saveSettings(settings);
+                if (!context.mounted) return;
+                if (!saved) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
+                    ),
+                  );
+                  return;
+                }
                 context.go(AppRoutes.notificationSettings);
                 messenger.showSnackBar(
                   const SnackBar(content: Text('가격 알림을 저장했어요.')),
@@ -186,6 +223,70 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PriceAlertLoading extends StatelessWidget {
+  const _PriceAlertLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.white,
+      body: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _PriceAlertError extends StatelessWidget {
+  const _PriceAlertError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.white,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(message, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyStoreAlert extends StatelessWidget {
+  const _EmptyStoreAlert();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      height: 69.2897720336914,
+      child: Center(
+        child: Text(
+          '찜한 매장이 없어요. 매장을 찜하면 여기에서 설정할 수 있어요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: PriceAlertSubscriptionScreen.muted,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }

@@ -23,6 +23,9 @@ public class NotificationSettingsDto {
     private Boolean price;
     @NotNull
     private Boolean todayPick;
+    private Boolean notifyOnRise;
+    private Boolean notifyOnDrop;
+    private Boolean notifyOnNewMenu;
     @NotNull
     private Boolean quietHours;
 

@@ -19,6 +19,7 @@ class UserReport {
   final String reporterId;
   final bool visitedRecently;
   final bool checkedMenuPrice;
+  final String? changeType;
 
   UserReport({
     this.cityProvince = '',
@@ -41,6 +42,7 @@ class UserReport {
     required this.reporterId,
     required this.visitedRecently,
     required this.checkedMenuPrice,
+    this.changeType,
   });
 
   Map<String, dynamic> toJson() {
@@ -65,6 +67,7 @@ class UserReport {
       'reporterId': reporterId,
       'visitedRecently': visitedRecently,
       'checkedMenuPrice': checkedMenuPrice,
+      if (changeType != null) 'changeType': changeType,
     };
   }
 }

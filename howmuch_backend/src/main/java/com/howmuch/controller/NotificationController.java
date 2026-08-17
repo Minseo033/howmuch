@@ -4,6 +4,8 @@ import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.NotificationResponseDto;
 import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.DeviceTokenRequest;
+import com.howmuch.dto.PriceAlertSubscriptionDto;
+import com.howmuch.dto.PriceAlertSubscriptionRequest;
 import com.howmuch.service.FirebaseService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 /**
  * 알림 API 컨트롤러.
@@ -28,6 +31,8 @@ import java.util.Map;
  * POST /api/notifications/{id}/read 알림 읽음 처리 (본인 알림만)
  * GET  /api/notifications/settings  내 알림 설정 조회
  * PUT  /api/notifications/settings  내 알림 설정 저장
+ * GET  /api/notifications/price-alerts  찜 매장별 가격 알림 조회
+ * PUT  /api/notifications/price-alerts  찜 매장별 가격 알림 저장
  */
 @Slf4j
 @RestController
@@ -90,6 +95,53 @@ public class NotificationController {
             log.error("[NotificationController] 알림 설정 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "알림 설정 저장 중 오류가 발생했습니다."));
+        }
+    }
+
+    /** 찜한 매장별 가격 알림 구독 상태 조회 */
+    @GetMapping("/price-alerts")
+    public ResponseEntity<?> getPriceAlertSubscriptions(HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "인증 정보가 유효하지 않습니다."));
+        }
+
+        try {
+            List<PriceAlertSubscriptionDto> subscriptions =
+                    firebaseService.getPriceAlertSubscriptions(firebaseUid);
+            return ResponseEntity.ok(subscriptions);
+        } catch (Exception e) {
+            log.error("[NotificationController] 매장별 가격 알림 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "가격 알림 매장 목록을 불러오지 못했습니다."));
+        }
+    }
+
+    /** 찜한 매장별 가격 알림 구독 상태 저장 */
+    @PutMapping("/price-alerts")
+    public ResponseEntity<?> savePriceAlertSubscription(
+            @Valid @RequestBody PriceAlertSubscriptionRequest subscription,
+            HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "인증 정보가 유효하지 않습니다."));
+        }
+
+        try {
+            return ResponseEntity.ok(firebaseService.savePriceAlertSubscription(
+                    firebaseUid, subscription));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", "찜한 매장을 찾을 수 없습니다."));
+        } catch (Exception e) {
+            log.error("[NotificationController] 매장별 가격 알림 저장 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "가격 알림 설정을 저장하지 못했습니다."));
         }
     }
 

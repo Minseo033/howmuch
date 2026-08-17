@@ -1,4 +1,5 @@
 class Store {
+  final String id;
   final String storeName;
   final String address;
   final String phoneNumber;
@@ -16,6 +17,7 @@ class Store {
   final String source; // 💡 GOV 또는 USER
 
   Store({
+    this.id = '',
     required this.storeName,
     required this.address,
     required this.phoneNumber,
@@ -35,6 +37,7 @@ class Store {
 
   factory Store.fromJson(Map<String, dynamic> json) {
     return Store(
+      id: json['storeId']?.toString() ?? json['id']?.toString() ?? '',
       storeName: json['storeName']?.toString() ?? '이름 없음',
       address: json['address']?.toString() ?? '주소 정보 없음',
       phoneNumber: json['phoneNumber']?.toString() ?? '전화번호 없음',
@@ -55,6 +58,7 @@ class Store {
 
   Map<String, dynamic> toJson() {
     return {
+      'storeId': id,
       'storeName': storeName,
       'address': address,
       'phoneNumber': phoneNumber,
