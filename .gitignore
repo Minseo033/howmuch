@@ -11,6 +11,7 @@
 .flutter-plugins-dependencies
 .packages
 build/
+.flutter_mcp/
 
 # Java / Spring
 .gradle/

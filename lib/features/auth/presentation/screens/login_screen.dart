@@ -27,112 +27,112 @@ class LoginScreen extends ConsumerWidget {
     final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
 
     return FigmaMobileCanvas(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Spacer(flex: 3),
-            const SizedBox(
-              width: 68,
-              height: 68,
-              child: _LoginLogo(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxHeight < 700;
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.only(
+              bottom: safeBottom > 0 ? safeBottom / 2 : 20,
             ),
-            const Spacer(flex: 1),
-            const Text(
-              '얼마고?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: ink,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: muted,
-                fontFamily: fontFamily,
-                fontFamilyFallback: fontFallback,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
-              ),
-            ),
-            const Spacer(flex: 2),
-            Column(
-              children: [
-                _SocialLoginButton(
-                  label: '카카오로 계속하기',
-                  backgroundColor: const Color(0xFFFEE500),
-                  foregroundColor: const Color(0xFF191600),
-                  icon: Icons.chat_bubble_rounded,
-                  onPressed: () => _loginWith(ref, context, provider: '카카오'),
-                ),
-                const SizedBox(height: 10),
-                _SocialLoginButton(
-                  label: '네이버로 계속하기',
-                  backgroundColor: const Color(0xFF03C75A),
-                  foregroundColor: Colors.white,
-                  textIcon: 'N',
-                  onPressed: () => _loginWith(ref, context, provider: '네이버'),
-                ),
-                const SizedBox(height: 10),
-                _SocialLoginButton(
-                  label: 'Apple로 계속하기',
-                  backgroundColor: ink,
-                  foregroundColor: Colors.white,
-                  icon: Icons.apple_rounded,
-                  onPressed: () => _loginWith(ref, context, provider: 'Apple'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 32),
-            const SizedBox(
-              height: 16.5,
-              child: _DividerLabel(),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: TextButton(
-                onPressed: () => context.go(AppRoutes.permissionSetup),
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFF1F5F9),
-                  foregroundColor: ink,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(height: isCompact ? 24 : 96),
+                  const SizedBox(width: 68, height: 68, child: _LoginLogo()),
+                  SizedBox(height: isCompact ? 14 : 22),
+                  const Text(
+                    '얼마고?',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: ink,
+                      fontFamily: fontFamily,
+                      fontFamilyFallback: fontFallback,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      height: 1.5,
+                    ),
                   ),
-                  textStyle: const TextStyle(
-                    fontFamily: fontFamily,
-                    fontFamilyFallback: fontFallback,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    height: 1.5,
+                  const SizedBox(height: 12),
+                  const Text(
+                    '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: muted,
+                      fontFamily: fontFamily,
+                      fontFamilyFallback: fontFallback,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
                   ),
-                ),
-                child: const Text('로그인 없이 둘러보기'),
+                  SizedBox(height: isCompact ? 20 : 36),
+                  Column(
+                    children: [
+                      _SocialLoginButton(
+                        label: '카카오로 계속하기',
+                        backgroundColor: const Color(0xFFFEE500),
+                        foregroundColor: const Color(0xFF191600),
+                        icon: Icons.chat_bubble_rounded,
+                        onPressed: () =>
+                            _loginWith(ref, context, provider: '카카오'),
+                      ),
+                      const SizedBox(height: 10),
+                      _SocialLoginButton(
+                        label: '네이버로 계속하기',
+                        backgroundColor: const Color(0xFF03C75A),
+                        foregroundColor: Colors.white,
+                        textIcon: 'N',
+                        onPressed: () =>
+                            _loginWith(ref, context, provider: '네이버'),
+                      ),
+                      const SizedBox(height: 10),
+                      _SocialLoginButton(
+                        label: 'Apple로 계속하기',
+                        backgroundColor: ink,
+                        foregroundColor: Colors.white,
+                        icon: Icons.apple_rounded,
+                        onPressed: () =>
+                            _loginWith(ref, context, provider: 'Apple'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const SizedBox(height: 16.5, child: _DividerLabel()),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: TextButton(
+                      onPressed: () => context.go(AppRoutes.permissionSetup),
+                      style: TextButton.styleFrom(
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        foregroundColor: ink,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontFamily: fontFamily,
+                          fontFamilyFallback: fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.5,
+                        ),
+                      ),
+                      child: const Text('로그인 없이 둘러보기'),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 56.96, child: _LoginNotice()),
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 30, child: _TermsText()),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            const SizedBox(
-              height: 56.96,
-              child: _LoginNotice(),
-            ),
-            const SizedBox(height: 16),
-            const SizedBox(
-              height: 30,
-              child: _TermsText(),
-            ),
-            SizedBox(height: safeBottom > 0 ? safeBottom / 2 : 20),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -164,7 +164,9 @@ class LoginScreen extends ConsumerWidget {
       );
       if (context.mounted) {
         context.go(AppRoutes.permissionSetup);
-        messenger.showSnackBar(SnackBar(content: Text('$provider로 로그인했어요. (더미)')));
+        messenger.showSnackBar(
+          SnackBar(content: Text('$provider로 로그인했어요. (더미)')),
+        );
       }
     }
   }

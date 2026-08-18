@@ -200,12 +200,16 @@ class _OnboardingSlideView extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 64),
-          SizedBox(
-            height: 320,
-            child: Center(child: _ArtworkLayer(artwork: slide.artwork)),
+          Expanded(
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: _ArtworkLayer(artwork: slide.artwork),
+              ),
+            ),
           ),
           const SizedBox(height: 34),
-          SizedBox(height: 146, child: _SlideCopy(slide: slide)),
+          SizedBox(height: 153, child: _SlideCopy(slide: slide)),
           const SizedBox(height: 28),
           _StepIndicator(step: step, totalSteps: totalSteps),
           const SizedBox(height: 20),

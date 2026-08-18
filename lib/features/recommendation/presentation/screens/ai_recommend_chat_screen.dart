@@ -14,7 +14,8 @@ class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
 
   @override
-  ConsumerState<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
+  ConsumerState<AiRecommendChatScreen> createState() =>
+      _AiRecommendChatScreenState();
 }
 
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
@@ -57,7 +58,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
   Future<void> _sendMessage() async {
     if (_isTyping) return;
-    
+
     final messageText = _controller.text.trim();
     if (messageText.isEmpty && _attachedPhoto == null) {
       return;
@@ -80,7 +81,9 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     _scrollToLatest();
 
     // 💡 Gemini API 호출
-    final botResponse = await ref.read(aiChatServiceProvider).getGeminiResponse(messageText);
+    final botResponse = await ref
+        .read(aiChatServiceProvider)
+        .getGeminiResponse(messageText);
 
     if (mounted) {
       setState(() {
@@ -133,12 +136,12 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     final rawKeyboard = MediaQuery.viewInsetsOf(context).bottom;
     final isKeyboardOpen = rawKeyboard > 0;
     final designScale = FigmaMobileCanvas.designScaleFor(context);
-    final keyboardOffset = designScale <= 0
-        ? 0.0
-        : rawKeyboard / designScale;
+    final keyboardOffset = designScale <= 0 ? 0.0 : rawKeyboard / designScale;
 
     // 키보드가 켜졌을 때는 홈 인디케이터 여백을 제외하고 10px로 밀착
-    final bottomOffset = isKeyboardOpen ? 10.0 : (safePadding.bottom > 16 ? safePadding.bottom : 16.0);
+    final bottomOffset = isKeyboardOpen
+        ? 10.0
+        : (safePadding.bottom > 16 ? safePadding.bottom : 16.0);
     final composerLift = isKeyboardOpen ? 0.0 : 12.0;
     final hasAttachment = _attachedPhoto != null;
     final composerHeight = (hasAttachment ? 126.0 : 48.0) + 20.0 + bottomOffset;
@@ -175,7 +178,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 controller: _scrollController,
                 padding: EdgeInsets.fromLTRB(20, 25, 20, contentBottomPadding),
                 children: [
-                  const SizedBox(height: 156, child: _HeroCard()),
+                  const _HeroCard(),
                   const SizedBox(height: 24),
                   const Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -215,7 +218,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                          const SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: _BotAvatar(),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(child: _BotMessageBubble(message: message)),
                         ],
@@ -381,7 +388,11 @@ class _BotAvatar extends StatelessWidget {
         ),
         shape: BoxShape.circle,
       ),
-      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
+      child: const Icon(
+        Icons.auto_awesome_rounded,
+        color: Colors.white,
+        size: 17,
+      ),
     );
   }
 }
@@ -392,7 +403,7 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(23, 25, 23, 20),
+      padding: const EdgeInsets.fromLTRB(23, 21, 23, 14),
       decoration: BoxDecoration(
         color: const Color(0xFFF0EAFE),
         borderRadius: BorderRadius.circular(22),
@@ -422,7 +433,7 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 14),
+          SizedBox(height: 10),
           Text(
             '오늘은 뭘 드시고 싶으세요?',
             style: TextStyle(
@@ -434,7 +445,7 @@ class _HeroCard extends StatelessWidget {
               height: 1.25,
             ),
           ),
-          SizedBox(height: 12),
+          SizedBox(height: 8),
           Text(
             '예산·날씨·위치·취향을 종합해 가장 합리적인 한 끼를 추천해드려요.',
             style: TextStyle(
@@ -578,10 +589,7 @@ class _Composer extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (attachedPhoto != null) ...[
-            _AttachmentPreview(
-              photo: attachedPhoto!,
-              onRemove: onRemovePhoto,
-            ),
+            _AttachmentPreview(photo: attachedPhoto!, onRemove: onRemovePhoto),
             const SizedBox(height: 10),
           ],
           Row(
@@ -599,7 +607,9 @@ class _Composer extends StatelessWidget {
                     customBorder: const CircleBorder(),
                     child: Icon(
                       Icons.add_rounded,
-                      color: hasAttachment ? const Color(0xFF2563EB) : _AiUi.ink,
+                      color: hasAttachment
+                          ? const Color(0xFF2563EB)
+                          : _AiUi.ink,
                       size: 24,
                     ),
                   ),
@@ -621,7 +631,10 @@ class _Composer extends StatelessWidget {
                     ),
                     filled: true,
                     fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(999),
                       borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
@@ -702,7 +715,10 @@ class _AttachmentPreview extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return const ColoredBox(
                           color: Color(0xFFEFF6FF),
-                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Color(0xFF6B7280),
+                          ),
                         );
                       },
                     )
@@ -712,7 +728,10 @@ class _AttachmentPreview extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return const ColoredBox(
                           color: Color(0xFFEFF6FF),
-                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Color(0xFF6B7280),
+                          ),
                         );
                       },
                     ),
@@ -791,7 +810,12 @@ class _UserMessageBubble extends StatelessWidget {
                             errorBuilder: (context, error, stackTrace) {
                               return const ColoredBox(
                                 color: Color(0xFFEFF6FF),
-                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
                               );
                             },
                           )
@@ -801,7 +825,12 @@ class _UserMessageBubble extends StatelessWidget {
                             errorBuilder: (context, error, stackTrace) {
                               return const ColoredBox(
                                 color: Color(0xFFEFF6FF),
-                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -896,11 +925,7 @@ class _TypingIndicator extends StatelessWidget {
 }
 
 class _ChatMessage {
-  const _ChatMessage({
-    required this.text,
-    this.photo,
-    required this.isBot,
-  });
+  const _ChatMessage({required this.text, this.photo, required this.isBot});
 
   final String text;
   final XFile? photo;

@@ -1,12 +1,43 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  group('notificationRouteForType', () {
+    test('maps backend and display notification types to destinations', () {
+      expect(
+        notificationRouteForType('INQUIRY_ANSWER'),
+        AppRoutes.inquiryHistory,
+      );
+      expect(
+        notificationRouteForType('가격 변동'),
+        AppRoutes.priceAlertSubscription,
+      );
+      expect(
+        notificationRouteForType('FEED_COMMENT'),
+        AppRoutes.communityFeed,
+      );
+      expect(
+        notificationRouteForType('RECOMMENDATION'),
+        AppRoutes.todaysPick,
+      );
+      expect(
+        notificationRouteForType('제보 반려'),
+        AppRoutes.myReportsV2,
+      );
+    });
+
+    test('leaves generic admin notifications without a destination', () {
+      expect(notificationRouteForType('admin'), isNull);
+      expect(notificationRouteForType('공지사항'), isNull);
+    });
+  });
+
   group('NotificationApiService', () {
     test(
       'API failure is exposed instead of returning sample notifications',

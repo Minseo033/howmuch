@@ -130,14 +130,13 @@ void _injectRouteMapJs() {
           bounds.extend(position);
           linePath.push(position);
 
-          var marker = new kakao.maps.Marker({position: position, map: map});
           var label = document.createElement('div');
-          label.style.cssText = 'background:#2563EB;color:#fff;border:2px solid #fff;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(15,23,42,.24);';
-          label.innerText = point.order + ' ' + point.name;
+          label.style.cssText = 'display:flex;align-items:center;justify-content:center;width:28px;height:28px;box-sizing:border-box;background:#2563EB;color:#fff;border:2px solid #fff;border-radius:50%;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(15,23,42,.24);';
+          label.innerText = point.order;
           var overlay = new kakao.maps.CustomOverlay({
             position: position,
             content: label,
-            yAnchor: 2.2,
+            yAnchor: 0.5,
             zIndex: 5
           });
           overlay.setMap(map);
@@ -146,14 +145,13 @@ void _injectRouteMapJs() {
         if (userLat !== 0 || userLng !== 0) {
           var userPosition = new kakao.maps.LatLng(userLat, userLng);
           bounds.extend(userPosition);
-          var userMarker = new kakao.maps.Marker({position: userPosition, map: map});
           var userLabel = document.createElement('div');
-          userLabel.style.cssText = 'background:#0F172A;color:#fff;border:2px solid #fff;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(15,23,42,.2);';
-          userLabel.innerText = '현재 위치';
+          userLabel.style.cssText = 'width:20px;height:20px;box-sizing:border-box;background:#0F172A;border:4px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(15,23,42,.25);';
+          userLabel.innerText = '';
           var userOverlay = new kakao.maps.CustomOverlay({
             position: userPosition,
             content: userLabel,
-            yAnchor: 2.1,
+            yAnchor: 0.5,
             zIndex: 4
           });
           userOverlay.setMap(map);

@@ -144,9 +144,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      _route(
-        AppRoutes.directionsExternalApp,
-        const DirectionsExternalAppScreen(),
+      GoRoute(
+        path: AppRoutes.directionsExternalApp,
+        pageBuilder: (_, state) {
+          final extra = state.extra is Map ? state.extra as Map : const {};
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: DirectionsExternalAppScreen(
+              storeName: extra['storeName']?.toString() ?? '착한분식',
+              address: extra['address']?.toString() ?? '서울시 강남구 역삼동',
+              distanceLabel: extra['distanceLabel']?.toString() ?? '거리 정보 없음',
+            ),
+          );
+        },
       ),
       _route(AppRoutes.myReviews, const MyReviewsScreen()),
       _route(AppRoutes.visitHistory, const VisitHistoryScreen()),

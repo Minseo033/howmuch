@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_map_point.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_map_view.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/route_step_card.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -143,6 +145,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
   double? _legDistanceMeters(int index) {
     if (index < 0 || index >= _picks.length) return null;
+    if (_userLatitude == null || _userLongitude == null) {
+      return _number(_picks[index]['distanceMeters']);
+    }
     final current = _coordinates(_picks[index]);
     if (current == null) return _number(_picks[index]['distanceMeters']);
 
@@ -353,24 +358,37 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Container(
-                            height: 180,
-                            width: double.infinity,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8EEF6),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                              ),
-                            ),
-                            child: RouteMapView(
-                              points: _routeMapPoints,
-                              userLatitude: _userLatitude,
-                              userLongitude: _userLongitude,
-                            ),
+                          const SizedBox(height: 12),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final mapHeight = (constraints.maxWidth / 1.58)
+                                  .clamp(180.0, 212.0)
+                                  .toDouble();
+                              return SizedBox(
+                                height: mapHeight,
+                                width: double.infinity,
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8EEF6),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: RouteMapView(
+                                    points: _routeMapPoints,
+                                    userLatitude: _userLatitude,
+                                    userLongitude: _userLongitude,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
-                          const SizedBox(height: 24),
+                          if (_routeMapPoints.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            _buildRouteLegend(),
+                          ],
+                          const SizedBox(height: 20),
                           const Text(
                             '추천 동선',
                             style: TextStyle(
@@ -402,7 +420,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
                               return Column(
                                 children: [
-                                  _buildRouteStep(
+                                  RouteStepCard(
                                     index: '${idx + 1}',
                                     storeName: storeName,
                                     details: [menu, price, distance]
@@ -438,7 +456,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '${_totalCost}원',
+                                      '$_totalCost원',
                                       style: const TextStyle(
                                         color: Color(0xFF0F172A),
                                         fontSize: 16,
@@ -551,19 +569,36 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                 color: Colors.white,
                 border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
               ),
-              child: Container(
-                height: 50,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  '이 루트로 길찾기',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
+              child: GestureDetector(
+                onTap: () {
+                  final firstPick = _picks.isNotEmpty && _picks.first is Map
+                      ? _picks.first as Map
+                      : const {};
+                  context.push(
+                    AppRoutes.directionsExternalApp,
+                    extra: {
+                      'storeName': firstPick['storeName']?.toString() ?? '착한분식',
+                      'address': firstPick['address']?.toString() ?? '주소 정보 없음',
+                      'distanceLabel': _distanceText(
+                        firstPick['distanceMeters'],
+                      ),
+                    },
+                  );
+                },
+                child: Container(
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    '이 루트로 길찾기',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ),
@@ -574,57 +609,65 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     );
   }
 
-  Widget _buildRouteStep({
-    required String index,
-    required String storeName,
-    required String details,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: const BoxDecoration(
-              color: Color(0xFF2563EB),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              index,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
+  Widget _buildRouteLegend() {
+    return SizedBox(
+      height: 28,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Text(
+              '순서',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                storeName,
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+            const SizedBox(width: 10),
+            ..._routeMapPoints.map(
+              (point) => Padding(
+                padding: const EdgeInsets.only(right: 14),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2563EB),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${point.order}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: Text(
+                        point.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF334155),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                details,
-                style: const TextStyle(color: Color(0xFF64748B), fontSize: 12),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
