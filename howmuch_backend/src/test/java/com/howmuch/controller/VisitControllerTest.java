@@ -1,6 +1,7 @@
 package com.howmuch.controller;
 
 import com.howmuch.config.SessionAuthFilter;
+import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.dto.VisitRequest;
 import com.howmuch.service.FirebaseService;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,9 +15,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+
+import java.util.Optional;
 
 class VisitControllerTest {
 
@@ -40,20 +44,24 @@ class VisitControllerTest {
     }
 
     @Test
-    void rejectsVisitsWithoutVerifiedLocationEvidence() {
+    void rejectsVisitsWithoutVerifiedLocationEvidence() throws Exception {
         authenticate();
         VisitRequest requestBody = validRequest();
-        requestBody.setVerificationDistanceMeters(50.1);
+        when(firebaseService.findStoreCoordinates(any(), any()))
+                .thenReturn(Optional.of(new StoreCoordinates(37.5675, 126.9780)));
 
         ResponseEntity<?> response = controller.createVisit(requestBody, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        verifyNoInteractions(firebaseService);
+        verify(firebaseService).findStoreCoordinates(any(), any());
+        verify(firebaseService, never()).saveVisit(anyString(), any(), anyLong());
     }
 
     @Test
     void savesOnlyLocationVerifiedVisits() throws Exception {
         authenticate();
+        when(firebaseService.findStoreCoordinates(any(), any()))
+                .thenReturn(Optional.of(new StoreCoordinates(37.5665, 126.9780)));
         when(firebaseService.saveVisit(anyString(), any(), anyLong())).thenReturn("visit-1");
 
         ResponseEntity<?> response = controller.createVisit(validRequest(), request);
@@ -69,10 +77,14 @@ class VisitControllerTest {
     private VisitRequest validRequest() {
         return VisitRequest.builder()
                 .storeName("테스트 식당")
+                .storeId("store-test")
                 .menu("김치찌개")
                 .price(8_000L)
                 .verificationMethod("LOCATION")
                 .verificationDistanceMeters(25.0)
+                .latitude(37.5665)
+                .longitude(126.9780)
+                .locationAccuracyMeters(10.0)
                 .build();
     }
 }

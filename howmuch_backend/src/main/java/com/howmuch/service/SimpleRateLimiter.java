@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import org.springframework.stereotype.Component;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,5 +51,11 @@ public class SimpleRateLimiter {
     public void evictIdle(long idleMillis) {
         long now = System.currentTimeMillis();
         counters.entrySet().removeIf(e -> now - e.getValue().windowStartMillis > idleMillis);
+    }
+
+    /** 요청 키가 계속 늘어날 수 있는 공개 API의 카운터를 주기적으로 정리합니다. */
+    @Scheduled(fixedDelayString = "${rate-limit.eviction.delay-ms:3600000}")
+    public void evictExpiredCounters() {
+        evictIdle(7L * 24 * 60 * 60 * 1000);
     }
 }

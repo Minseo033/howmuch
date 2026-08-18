@@ -22,12 +22,15 @@ public class GeminiService {
     // 💡 보안: Gemini API 키는 환경변수(GEMINI_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String geminiApiKey;
     private final String geminiModel = "gemini-2.5-flash-lite"; // 사용자가 요청한 최신 2.5 Flash-Lite 모델
+    private final boolean routeAiEnabled;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
-                         @Value("${gemini.timeout-ms:10000}") int timeoutMs) {
+                         @Value("${gemini.timeout-ms:10000}") int timeoutMs,
+                         @Value("${gemini.route-enabled:false}") boolean routeAiEnabled) {
         this.geminiApiKey = geminiApiKey;
+        this.routeAiEnabled = routeAiEnabled;
         // 💡 외부 AI 호출 타임아웃 — 지연 시 요청 스레드 고갈 방지
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(timeoutMs);
@@ -78,12 +81,13 @@ public class GeminiService {
      * @return AI 추천 루트 텍스트
      */
     public String getRouteRecommendation(List<Map<String, Object>> picks) {
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            log.warn("GEMINI_API_KEY 미설정 — 루트 추천 불가");
-            return "AI 루트 추천이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
-        }
         if (picks == null || picks.isEmpty()) {
             return "추천할 매장이 없습니다.";
+        }
+        // 구형/미검증 키가 설정되어 있어도 기본값에서는 외부 호출을 하지 않습니다.
+        // 거리순 로컬 루트는 Gemini 없이도 지도와 함께 정상적으로 사용할 수 있습니다.
+        if (!routeAiEnabled || geminiApiKey == null || geminiApiKey.isBlank()) {
+            return buildLocalRouteRecommendation(picks);
         }
 
         StringBuilder sb = new StringBuilder();
@@ -105,5 +109,38 @@ public class GeminiService {
 
         return getAiResponse(sb.toString());
     }
-}
 
+    private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {
+        List<Map<String, Object>> sorted = picks.stream()
+                .sorted((a, b) -> Double.compare(distanceOf(a), distanceOf(b)))
+                .limit(3)
+                .toList();
+
+        StringBuilder result = new StringBuilder("현재는 거리순으로 추천 루트를 안내합니다.\n");
+        for (int i = 0; i < sorted.size(); i++) {
+            Map<String, Object> pick = sorted.get(i);
+            result.append(i + 1).append(". ")
+                    .append(pick.getOrDefault("storeName", "매장명 없음"))
+                    .append(" (")
+                    .append(pick.getOrDefault("menu1", "메뉴 정보 없음"))
+                    .append(", ")
+                    .append(pick.getOrDefault("price1", "가격 정보 없음"))
+                    .append("원)");
+            if (pick.get("distanceMeters") != null) {
+                result.append(" - 현재 위치에서 가까운 순서");
+            }
+            result.append("\n");
+        }
+        return result.toString().trim();
+    }
+
+    private double distanceOf(Map<String, Object> pick) {
+        Object value = pick.get("distanceMeters");
+        if (value instanceof Number number) return number.doubleValue();
+        try {
+            return Double.parseDouble(String.valueOf(value));
+        } catch (Exception e) {
+            return Double.MAX_VALUE;
+        }
+    }
+}

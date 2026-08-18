@@ -26,6 +26,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SavingsService {
 
+    private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
     private final FirebaseService firebaseService;
 
     /**
@@ -55,8 +56,7 @@ public class SavingsService {
 
         List<SavingsHistoryResponse> history = getSavingsHistory(firebaseUid);
 
-        ZoneId zoneId = ZoneId.of("Asia/Seoul");
-        LocalDate now = LocalDate.now(zoneId);
+        LocalDate now = LocalDate.now(KOREA_ZONE);
 
         if ("last_month".equals(targetPeriod)) {
             YearMonth lastMonth = YearMonth.from(now).minusMonths(1);
@@ -188,7 +188,9 @@ public class SavingsService {
         String s = dateStr.trim();
         try {
             if (s.contains("T")) {
-                return ZonedDateTime.parse(s).toLocalDate();
+                return ZonedDateTime.parse(s)
+                        .withZoneSameInstant(KOREA_ZONE)
+                        .toLocalDate();
             }
         } catch (Exception ignored) {}
         try {

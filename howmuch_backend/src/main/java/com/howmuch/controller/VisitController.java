@@ -3,6 +3,7 @@ package com.howmuch.controller;
 import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.VisitRequest;
 import com.howmuch.dto.VisitResponseDto;
+import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReferencePrices;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 방문 기록 API 컨트롤러.
@@ -113,14 +115,19 @@ public class VisitController {
                     "message", "현재 위치 인증이 필요합니다."
             ));
         }
-        Double distanceMeters = request.getVerificationDistanceMeters();
-        if (distanceMeters == null
-                || !Double.isFinite(distanceMeters)
-                || distanceMeters < 0
-                || distanceMeters > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
+        if (!isValidLatitude(request.getLatitude()) || !isValidLongitude(request.getLongitude())) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "매장 50m 이내에서 인증해주세요."
+                    "message", "현재 위치 좌표를 확인할 수 없습니다. 다시 시도해주세요."
+            ));
+        }
+        if (request.getLocationAccuracyMeters() == null
+                || !Double.isFinite(request.getLocationAccuracyMeters())
+                || request.getLocationAccuracyMeters() < 0
+                || request.getLocationAccuracyMeters() > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "현재 위치 정확도가 낮아요. 잠시 후 다시 시도해주세요."
             ));
         }
         // 💡 입력 상한 검증 (비정상 대형 값/문자열 악용 방지)
@@ -134,6 +141,27 @@ public class VisitController {
         }
 
         try {
+            Optional<StoreCoordinates> storeCoordinates = firebaseService.findStoreCoordinates(
+                    request.getStoreId(), request.getStoreName());
+            if (storeCoordinates.isEmpty()) {
+                return ResponseEntity.status(422).body(Map.of(
+                        "success", false,
+                        "message", "매장 위치 정보를 확인할 수 없어 인증할 수 없습니다."
+                ));
+            }
+
+            StoreCoordinates coordinates = storeCoordinates.get();
+            double distanceMeters = haversine(
+                    request.getLatitude(), request.getLongitude(),
+                    coordinates.latitude(), coordinates.longitude());
+            if (!Double.isFinite(distanceMeters)
+                    || distanceMeters > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "매장 50m 이내에서 인증해주세요."
+                ));
+            }
+
             String industry = request.getIndustry();
             if (industry == null || industry.isBlank()) {
                 industry = firebaseService.findIndustryByStoreName(request.getStoreName());
@@ -141,6 +169,8 @@ public class VisitController {
             // 💡 절약 금액 = 참가격(시장 평균가) − 결제가 (ReferencePrices, 메뉴 매칭 우선)
             long savedAmount = ReferencePrices.savedAmount(
                     request.getMenu(), industry, request.getPrice());
+            // 클라이언트가 보낸 거리는 신뢰하지 않고 서버 계산값만 저장합니다.
+            request.setVerificationDistanceMeters(distanceMeters);
             String visitId = firebaseService.saveVisit(firebaseUid, request, savedAmount);
             log.info("[VisitController] 방문 인증 완료 - id: {}, savedAmount: {}", visitId, savedAmount);
             return ResponseEntity.ok(Map.of(
@@ -148,7 +178,7 @@ public class VisitController {
                 "id", visitId,
                 "savedAmount", savedAmount,
                 "verificationMethod", LOCATION_VERIFICATION,
-                "verificationDistanceMeters", distanceMeters
+                "verificationDistanceMeters", Math.round(distanceMeters)
             ));
         } catch (Exception e) {
             log.error("[VisitController] 방문 인증 저장 중 오류 발생: ", e);
@@ -157,5 +187,23 @@ public class VisitController {
                     "message", "방문 인증 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    private boolean isValidLatitude(Double value) {
+        return value != null && Double.isFinite(value) && value >= -90 && value <= 90 && value != 0;
+    }
+
+    private boolean isValidLongitude(Double value) {
+        return value != null && Double.isFinite(value) && value >= -180 && value <= 180 && value != 0;
+    }
+
+    private double haversine(double lat1, double lng1, double lat2, double lng2) {
+        final double earthRadiusMeters = 6_371_000;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLng = Math.toRadians(lng2 - lng1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

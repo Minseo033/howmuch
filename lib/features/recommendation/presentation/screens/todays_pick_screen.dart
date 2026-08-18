@@ -16,6 +16,8 @@ class TodaysPickItem {
   final String price;
   final String tipText;
   final String distance;
+  final double? distanceMeters;
+  final int? priceValue;
   final String badgeText;
   final Color badgeColor;
   final Color badgeBg;
@@ -30,6 +32,8 @@ class TodaysPickItem {
     required this.price,
     required this.tipText,
     required this.distance,
+    this.distanceMeters,
+    this.priceValue,
     required this.badgeText,
     required this.badgeColor,
     required this.badgeBg,
@@ -143,10 +147,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         price: p['price1'] != null ? '${p['price1']}원' : '가격 정보 없음',
         tipText: tip,
         distance: distance,
+        distanceMeters: distanceNumber,
+        priceValue: _asDouble(p['price1'])?.round(),
         badgeText: '착한가격업소',
         badgeColor: const Color(0xFF2563EB),
         badgeBg: const Color(0xFFEFF4FF),
-        tags: ['날씨 기반', '가까운 거리', '저렴한 가격'],
+        tags: const ['날씨 기반'],
         theme: backendTheme,
         reason: backendReason,
       );
@@ -155,7 +161,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
   double? _asDouble(Object? value) {
     if (value is num) return value.toDouble();
-    return double.tryParse(value?.toString() ?? '');
+    return double.tryParse(value?.toString().replaceAll(',', '') ?? '');
   }
 
   @override
@@ -164,9 +170,20 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     final topOffset = safePadding.top;
 
     final items = _buildItems();
-    final filteredItems = items
-        .where((item) => item.tags.contains(_selectedFilter))
-        .toList();
+    final filteredItems = [...items];
+    if (_selectedFilter == '가까운 거리') {
+      filteredItems.sort(
+        (a, b) => (a.distanceMeters ?? double.infinity).compareTo(
+          b.distanceMeters ?? double.infinity,
+        ),
+      );
+    } else if (_selectedFilter == '저렴한 가격') {
+      filteredItems.sort(
+        (a, b) => (a.priceValue ?? double.maxFinite).compareTo(
+          b.priceValue ?? double.maxFinite,
+        ),
+      );
+    }
 
     final weather = _pickData?['weather'] ?? '알 수 없음';
     final temp = _pickData?['temp'];
@@ -387,17 +404,22 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               if (forecastTime.isNotEmpty) ...[
                                                 const SizedBox(width: 6),
                                                 Padding(
-                                                  padding: const EdgeInsets.only(
-                                                    bottom: 2,
-                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 2,
+                                                      ),
                                                   child: Text(
                                                     forecastTime,
                                                     style: TextStyle(
-                                                      fontFamily: 'Noto Sans KR',
+                                                      fontFamily:
+                                                          'Noto Sans KR',
                                                       color: Colors.white
-                                                          .withValues(alpha: 0.9),
+                                                          .withValues(
+                                                            alpha: 0.9,
+                                                          ),
                                                       fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
                                                   ),
                                                 ),

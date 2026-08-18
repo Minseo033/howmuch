@@ -194,14 +194,13 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('네트워크 오류가 발생했습니다.')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('네트워크 오류가 발생했습니다.')));
       return;
     }
 
     // 로컬 세션 종료
     await ApiClient.setSessionToken(null);
+    if (!mounted) return;
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
       provider: '이메일',

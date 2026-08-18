@@ -18,6 +18,7 @@ import com.google.firebase.messaging.MessagingErrorCode;
 import com.google.firebase.messaging.Notification;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
+import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
 import com.howmuch.dto.PriceAlertSubscriptionRequest;
@@ -1216,6 +1217,48 @@ public class FirebaseService {
                 .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * 방문 인증용 매장 좌표를 캐시에서 조회합니다.
+     * storeId가 있으면 식별자를 우선하고, 레거시 클라이언트는 매장명으로 보완합니다.
+     */
+    public java.util.Optional<StoreCoordinates> findStoreCoordinates(String storeId, String storeName) {
+        List<Map<String, Object>> stores = new ArrayList<>();
+        stores.addAll(cachedStores);
+        stores.addAll(cachedUserStores);
+
+        return stores.stream()
+                .map(this::withStableStoreId)
+                .filter(store -> matchesStore(store, storeId, storeName))
+                .map(this::toStoreCoordinates)
+                .filter(java.util.Objects::nonNull)
+                .findFirst();
+    }
+
+    private boolean matchesStore(Map<String, Object> store, String storeId, String storeName) {
+        String cachedId = strOrNull(store.get("storeId"));
+        String cachedName = strOrNull(store.get("storeName"));
+        if (storeId != null && !storeId.isBlank() && storeId.equals(cachedId)) return true;
+        return (storeId == null || storeId.isBlank())
+                && storeName != null
+                && !storeName.isBlank()
+                && storeName.equals(cachedName);
+    }
+
+    private StoreCoordinates toStoreCoordinates(Map<String, Object> store) {
+        try {
+            double latitude = Double.parseDouble(String.valueOf(store.get("latitude")));
+            double longitude = Double.parseDouble(String.valueOf(store.get("longitude")));
+            if (!Double.isFinite(latitude) || !Double.isFinite(longitude)
+                    || latitude == 0 || longitude == 0
+                    || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+                return null;
+            }
+            return new StoreCoordinates(latitude, longitude);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static String strOrNull(Object value) {

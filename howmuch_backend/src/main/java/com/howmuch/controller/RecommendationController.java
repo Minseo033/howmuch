@@ -1,10 +1,14 @@
 package com.howmuch.controller;
 
+import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.GeminiService;
+import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.WeatherService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,6 +33,11 @@ public class RecommendationController {
     private final WeatherService weatherService;
     private final FirebaseService firebaseService;
     private final GeminiService geminiService;
+    private final SimpleRateLimiter rateLimiter;
+
+    /** 로그인 여부와 무관하게 공개 화면에서 쓰이므로 IP/UID별 호출량을 제한합니다. */
+    @Value("${recommendation.route.max-per-hour:20}")
+    private int maxRouteRequestsPerHour;
 
     /** 오늘의 픽 (GET /api/recommendation/todays-pick) */
     @GetMapping("/todays-pick")
@@ -61,7 +70,18 @@ public class RecommendationController {
     /** AI 루트 추천 (GET /api/recommendation/route) */
     @GetMapping("/route")
     public ResponseEntity<?> getRoute(@RequestParam(required = false) Double lat,
-                                      @RequestParam(required = false) Double lng) {
+                                      @RequestParam(required = false) Double lng,
+                                      HttpServletRequest httpRequest) {
+        String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        String key = uid != null && !uid.isBlank()
+                ? "route:user:" + uid
+                : "route:ip:" + clientAddress(httpRequest);
+        if (!rateLimiter.tryAcquire(key, maxRouteRequestsPerHour, 3_600_000L)) {
+            return ResponseEntity.status(429).body(Map.of(
+                    "success", false,
+                    "message", "추천 루트 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
         try {
             Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
@@ -84,5 +104,13 @@ public class RecommendationController {
                     "message", "루트 추천 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    private String clientAddress(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr() != null ? request.getRemoteAddr() : "unknown";
     }
 }

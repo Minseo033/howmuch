@@ -50,6 +50,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           )
           .timeout(ApiClient.defaultTimeout);
 
+      if (!mounted) return;
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
         final parsed = data.map((item) {
@@ -118,7 +119,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   String _formatDate(String? rawDate) {
     if (rawDate == null || rawDate.isEmpty) return '최근 방문';
     try {
-      final dt = DateTime.parse(rawDate);
+      final dt = DateTime.parse(rawDate).toLocal();
       final y = dt.year.toString().padLeft(4, '0');
       final m = dt.month.toString().padLeft(2, '0');
       final d = dt.day.toString().padLeft(2, '0');

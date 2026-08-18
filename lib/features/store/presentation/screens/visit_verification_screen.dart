@@ -34,6 +34,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   bool _isSubmitting = false;
   bool _isCheckingLocation = false;
   double? _distanceMeters;
+  double? _currentLatitude;
+  double? _currentLongitude;
+  double? _locationAccuracyMeters;
   String? _locationError;
 
   Timer? _estimateDebounce;
@@ -196,6 +199,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       _isCheckingLocation = true;
       _locationError = null;
       _distanceMeters = null;
+      _currentLatitude = null;
+      _currentLongitude = null;
+      _locationAccuracyMeters = null;
     });
 
     try {
@@ -232,7 +238,12 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         store.longitude,
       );
       if (!mounted) return;
-      setState(() => _distanceMeters = distance);
+      setState(() {
+        _distanceMeters = distance;
+        _currentLatitude = position.latitude;
+        _currentLongitude = position.longitude;
+        _locationAccuracyMeters = position.accuracy;
+      });
     } on _LocationVerificationException catch (error) {
       if (mounted) setState(() => _locationError = error.message);
     } catch (_) {
@@ -508,6 +519,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
               'price': price,
               'verificationMethod': 'LOCATION',
               'verificationDistanceMeters': _distanceMeters!.round(),
+              'latitude': _currentLatitude,
+              'longitude': _currentLongitude,
+              'locationAccuracyMeters': _locationAccuracyMeters,
             }),
           )
           .timeout(ApiClient.defaultTimeout);
