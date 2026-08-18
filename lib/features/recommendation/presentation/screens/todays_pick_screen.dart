@@ -5,6 +5,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_weather.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -169,6 +170,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
     final weather = _pickData?['weather'] ?? '알 수 없음';
     final temp = _pickData?['temp'];
+    final forecastTime = formatForecastTime(_pickData?['fcstTime']);
     final now = DateTime.now();
     final dateStr =
         '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
@@ -368,15 +370,39 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               ),
                                             ],
                                           ),
-                                          Text(
-                                            temp != null ? '$temp°' : '-°',
-                                            style: const TextStyle(
-                                              fontFamily: 'Inter',
-                                              color: Colors.white,
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.w300,
-                                              height: 1.0,
-                                            ),
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                temp != null ? '$temp°' : '-°',
+                                                style: const TextStyle(
+                                                  fontFamily: 'Inter',
+                                                  color: Colors.white,
+                                                  fontSize: 32,
+                                                  fontWeight: FontWeight.w300,
+                                                  height: 1.0,
+                                                ),
+                                              ),
+                                              if (forecastTime.isNotEmpty) ...[
+                                                const SizedBox(width: 6),
+                                                Padding(
+                                                  padding: const EdgeInsets.only(
+                                                    bottom: 2,
+                                                  ),
+                                                  child: Text(
+                                                    forecastTime,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Noto Sans KR',
+                                                      color: Colors.white
+                                                          .withValues(alpha: 0.9),
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ],
                                       ),
