@@ -297,140 +297,143 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
     return FigmaMobileCanvas(
       child: PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        context.pop({'query': '', 'filter': _filter});
-      },
-      child: Scaffold(
-        backgroundColor: SearchResultScreen.surface,
-        bottomNavigationBar: _searched && (_query.isNotEmpty || _filter.activeLabels.isNotEmpty)
-            ? SafeArea(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                  decoration: BoxDecoration(
-                    color: SearchResultScreen.surface,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
-                    ],
-                  ),
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      context.pop({'query': _query, 'filter': _filter});
-                    },
-                    icon: const Icon(Icons.map_rounded, size: 20),
-                    label: const Text('지도에서 보기'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SearchResultScreen.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      textStyle: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: SearchResultScreen.fontFamily,
-                        fontFamilyFallback: SearchResultScreen.fontFallback,
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          context.pop({'query': '', 'filter': _filter});
+        },
+        child: Scaffold(
+          backgroundColor: SearchResultScreen.surface,
+          bottomNavigationBar:
+              _searched &&
+                  (_query.isNotEmpty || _filter.activeLabels.isNotEmpty)
+              ? SafeArea(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                    decoration: BoxDecoration(
+                      color: SearchResultScreen.surface,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, -5),
+                        ),
+                      ],
+                    ),
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        context.pop({'query': _query, 'filter': _filter});
+                      },
+                      icon: const Icon(Icons.map_rounded, size: 20),
+                      label: const Text('지도에서 보기'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SearchResultScreen.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: SearchResultScreen.fontFamily,
+                          fontFamilyFallback: SearchResultScreen.fontFallback,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-            : null,
-        body: Column(
-          children: [
-            // ──────────────────────────────────────────
-            //  상단 헤더 (검색바 + 필터칩)
-            // ──────────────────────────────────────────
-            _SearchHeader(
-              topOffset: topOffset,
-              controller: _ctrl,
-              focus: _focus,
-              activeFilters: activeFilters,
-              onBack: () => context.pop({'query': '', 'filter': _filter}),
-              onSearch: () {
-              _focus.unfocus();
-              _doSearch(_ctrl.text);
-            },
-            onChanged: (val) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () {
-                _doSearch(val);
-              });
-            },
-            onFilterTap: _openFilter,
-            onRemoveFilter: (label) {
-              setState(() => _filter = _filter.remove(label));
-              _doSearch(_query);
-            },
-          ),
+                )
+              : null,
+          body: Column(
+            children: [
+              // ──────────────────────────────────────────
+              //  상단 헤더 (검색바 + 필터칩)
+              // ──────────────────────────────────────────
+              _SearchHeader(
+                topOffset: topOffset,
+                controller: _ctrl,
+                focus: _focus,
+                activeFilters: activeFilters,
+                onBack: () => context.pop({'query': '', 'filter': _filter}),
+                onSearch: () {
+                  _focus.unfocus();
+                  _doSearch(_ctrl.text);
+                },
+                onChanged: (val) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 300), () {
+                    _doSearch(val);
+                  });
+                },
+                onFilterTap: _openFilter,
+                onRemoveFilter: (label) {
+                  setState(() => _filter = _filter.remove(label));
+                  _doSearch(_query);
+                },
+              ),
 
-          // ──────────────────────────────────────────
-          //  결과 카운트 바
-          // ──────────────────────────────────────────
-          if (_searched && !_loading && _query.isNotEmpty)
-            _ResultCountBar(query: _query, count: _results.length),
+              // ──────────────────────────────────────────
+              //  결과 카운트 바
+              // ──────────────────────────────────────────
+              if (_searched && !_loading && _query.isNotEmpty)
+                _ResultCountBar(query: _query, count: _results.length),
 
-          // ──────────────────────────────────────────
-          //  본문 (로딩 / 빈 결과 / 결과 리스트)
-          // ──────────────────────────────────────────
-          Expanded(
-            child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: SearchResultScreen.blue,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : _errorMessage != null
-                ? _SearchLoadError(
-                    message: _errorMessage!,
-                    onRetry: () => _doSearch(_query),
-                  )
-                : (_query.isEmpty && _filter.activeLabels.isEmpty) ||
-                      (_searched && _results.isEmpty)
-                ? _EmptyResult(
-                    onReset: () {
-                      setState(() => _filter = const SearchFilter());
-                      _doSearch(_query);
-                    },
-                    onSuggestionTap: (suggestion) {
-                      setState(() => _query = suggestion);
-                      _ctrl.text = suggestion;
-                      _doSearch(suggestion);
-                    },
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    itemCount: _results.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (ctx, i) {
-                      final s = _results[i];
-                      return _StoreCard(
-                        store: s,
-                        emoji: _emoji(s.industry),
-                        distance: _formatDistance(s),
-                        priceLabel: s.menu1.isNotEmpty
-                            ? '${s.menu1}  ${_fmt(s.price1)}'
-                            : s.industry,
-                        onTap: () =>
-                            context.push(AppRoutes.storeDetail, extra: s),
-                      );
-                    },
-                  ),
+              // ──────────────────────────────────────────
+              //  본문 (로딩 / 빈 결과 / 결과 리스트)
+              // ──────────────────────────────────────────
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: SearchResultScreen.blue,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : _errorMessage != null
+                    ? _SearchLoadError(
+                        message: _errorMessage!,
+                        onRetry: () => _doSearch(_query),
+                      )
+                    : (_query.isEmpty && _filter.activeLabels.isEmpty) ||
+                          (_searched && _results.isEmpty)
+                    ? _EmptyResult(
+                        onReset: () {
+                          setState(() => _filter = const SearchFilter());
+                          _doSearch(_query);
+                        },
+                        onSuggestionTap: (suggestion) {
+                          setState(() => _query = suggestion);
+                          _ctrl.text = suggestion;
+                          _doSearch(suggestion);
+                        },
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        itemCount: _results.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (ctx, i) {
+                          final s = _results[i];
+                          return _StoreCard(
+                            store: s,
+                            emoji: _emoji(s.industry),
+                            distance: _formatDistance(s),
+                            priceLabel: s.menu1.isNotEmpty
+                                ? '${s.menu1}  ${_fmt(s.price1)}'
+                                : s.industry,
+                            onTap: () =>
+                                context.push(AppRoutes.storeDetail, extra: s),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
-    )),
     );
   }
 }
@@ -522,7 +525,13 @@ class _SearchHeader extends StatelessWidget {
                             enableSuggestions: false,
                             keyboardType: TextInputType.text,
                             maxLength: 50,
-                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
+                            buildCounter:
+                                (
+                                  context, {
+                                  required currentLength,
+                                  required isFocused,
+                                  maxLength,
+                                }) => null,
                             onSubmitted: (_) {
                               onSearch();
                             },
@@ -952,78 +961,59 @@ class _EmptyResult extends StatelessWidget {
       child: SizedBox(
         width: double.infinity,
         height: 377.9261169433594,
-        child: Stack(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Positioned(
-              left: 151.73297119140625,
-              top: 0,
+            Container(
               width: 71.98863220214844,
               height: 71.98863220214844,
-              child: Container(
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: SearchResultScreen.border,
-                    width: .909,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.search_off_rounded,
-                  color: Color(0xFF5F708A),
-                  size: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: SearchResultScreen.border,
+                  width: .909,
                 ),
               ),
-            ),
-            const Positioned(
-              left: 113.75,
-              top: 91.98828125,
-              width: 147.9545440673828,
-              height: 25.49715805053711,
-              child: Text(
-                '검색 결과가 없어요',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: SearchResultScreen.ink,
-                  fontFamily: SearchResultScreen.fontFamily,
-                  fontFamilyFallback: SearchResultScreen.fontFallback,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  height: 1.5,
-                ),
+              child: const Icon(
+                Icons.search_off_rounded,
+                color: Color(0xFF5F708A),
+                size: 32,
               ),
             ),
-            const Positioned(
-              left: 75.44036865234375,
-              top: 123.48046875,
-              width: 224.5596466064453,
-              height: 44.1761360168457,
-              child: Text(
-                '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: SearchResultScreen.muted,
-                  fontFamily: SearchResultScreen.fontFamily,
-                  fontFamilyFallback: SearchResultScreen.fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  height: 1.7,
-                ),
+            const SizedBox(height: 20),
+            const Text(
+              '검색 결과가 없어요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: SearchResultScreen.ink,
+                fontFamily: SearchResultScreen.fontFamily,
+                fontFamilyFallback: SearchResultScreen.fontFallback,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
               ),
             ),
-            Positioned(
-              left: 46.1221923828125,
-              top: 191.6474609375,
-              width: 283.1960144042969,
-              height: 58.29545211791992,
-              child: _Suggestions(onSuggestionTap: onSuggestionTap),
+            const SizedBox(height: 6),
+            const Text(
+              '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: SearchResultScreen.muted,
+                fontFamily: SearchResultScreen.fontFamily,
+                fontFamilyFallback: SearchResultScreen.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.7,
+              ),
             ),
-            Positioned(
-              left: 31.9886474609375,
-              top: 273.9345703125,
+            const SizedBox(height: 28),
+            _Suggestions(onSuggestionTap: onSuggestionTap),
+            const SizedBox(height: 24),
+            SizedBox(
               width: 311.4772644042969,
-              height: 103.99147033691406,
               child: Column(
                 children: [
                   _ActionButton(
@@ -1081,7 +1071,10 @@ class _Suggestions extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        Row(
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 7.997158050537109,
+          runSpacing: 8,
           children: [
             for (var index = 0; index < suggestions.length; index++) ...[
               _SuggestionChip(
@@ -1089,8 +1082,6 @@ class _Suggestions extends StatelessWidget {
                 width: suggestions[index].$2,
                 onTap: () => onSuggestionTap(suggestions[index].$1),
               ),
-              if (index != suggestions.length - 1)
-                const SizedBox(width: 7.997158050537109),
             ],
           ],
         ),
@@ -1157,7 +1148,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 311.4772644042969,
+      width: double.infinity,
       height: 47.99715805053711,
       child: Material(
         color: primary ? SearchResultScreen.blue : Colors.white,
@@ -1309,7 +1300,9 @@ class SearchFilter {
       newIndustries.remove(label);
     }
     if (maxPrice != null) {
-      final priceLabel = maxPrice == 5000 ? '5천원 이하' : '${(maxPrice! ~/ 10000)}만원 이하';
+      final priceLabel = maxPrice == 5000
+          ? '5천원 이하'
+          : '${(maxPrice! ~/ 10000)}만원 이하';
       if (label == priceLabel) newMaxPrice = null;
     }
     if (label == distance) newDistance = null;

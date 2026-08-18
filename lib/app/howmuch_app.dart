@@ -63,8 +63,12 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp> {
       routerConfig: router,
       builder: (context, child) {
         if (!kIsWeb) return child ?? const SizedBox.shrink();
+        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
+        final isHome =
+            currentPath == AppRoutes.home || currentPath == AppRoutes.homeAiFab;
         return WebNotificationPrompt(
           onOpenNotifications: () => router.go(AppRoutes.notifications),
+          isHome: isHome,
           child: child ?? const SizedBox.shrink(),
         );
       },

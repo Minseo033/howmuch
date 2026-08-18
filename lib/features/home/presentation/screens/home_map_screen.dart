@@ -69,6 +69,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Store? _selectedStore;
   bool _isFetching = false;
   bool _isCenteringLocation = false;
+  _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
   final PageController _pageController = PageController(viewportFraction: 0.88);
 
@@ -284,7 +285,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           z-index: 1;
         }
       </style>
-      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=${_kakaoJsKey}&libraries=services,clusterer"></script>
+      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer"></script>
     </head>
     <body>
       <div id="kakao-map-container"></div>
@@ -511,7 +512,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
         }
       } catch (e) {
-        debugPrint('지도 초기화 에러: ${e}');
+        debugPrint('지도 초기화 에러: $e');
       }
     });
   }
@@ -526,9 +527,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('위치 서비스를 활성화해주세요.')));
+          _showLocationNotice(
+            const _LocationNoticeData(
+              title: '위치 서비스를 켜주세요',
+              message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
+            ),
+          );
         }
         return;
       }
@@ -538,9 +542,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           if (mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('위치 권한이 거부되었습니다.')));
+            _showLocationNotice(
+              const _LocationNoticeData(
+                title: '위치 권한이 필요해요',
+                message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
+              ),
+            );
           }
           return;
         }
@@ -548,8 +555,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('위치 권한이 영구적으로 거부되었습니다. 설정에서 허용해주세요.')),
+          _showLocationNotice(
+            _LocationNoticeData(
+              title: '위치 권한이 꺼져 있어요',
+              message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
+              primaryLabel: '설정 열기',
+              onPrimaryPressed: () async {
+                _hideLocationNotice();
+                await Geolocator.openAppSettings();
+              },
+            ),
           );
         }
         return;
@@ -577,8 +592,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       position = await _getFreshPosition();
       if (position == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('현재 위치를 가져오지 못했습니다. 잠시 후 다시 시도해주세요.')),
+          _showLocationNotice(
+            const _LocationNoticeData(
+              title: '현재 위치를 찾지 못했어요',
+              message: '잠시 후 다시 시도하거나\n네트워크 상태를 확인해주세요.',
+            ),
           );
         }
         return;
@@ -592,6 +610,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         setState(() => _isCenteringLocation = false);
       }
     }
+  }
+
+  void _showLocationNotice(_LocationNoticeData notice) {
+    if (!mounted) return;
+    setState(() => _locationNotice = notice);
+  }
+
+  void _hideLocationNotice() {
+    if (!mounted) return;
+    setState(() => _locationNotice = null);
   }
 
   Future<Position?> _getFreshPosition() async {
@@ -683,7 +711,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.updateUserLocationMarkerWeb(_viewId, lat, lng);
     } else {
-      _safeRunJavaScript('updateUserLocationMarker(${lat}, ${lng});');
+      _safeRunJavaScript('updateUserLocationMarker($lat, $lng);');
     }
   }
 
@@ -721,9 +749,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       try {
         final String? boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
-        if (boundsJson != null) _fetchAndAddMarkersWeb(boundsJson);
+        if (boundsJson != null) {
+          _fetchAndAddMarkersWeb(boundsJson);
+        }
       } catch (e) {
-        debugPrint('웹 범위 검색 에러: ${e}');
+        debugPrint('웹 범위 검색 에러: $e');
       }
     } else {
       _safeRunJavaScript('requestBounds();');
@@ -849,12 +879,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_searchFilter.distance != null && _lastKnownPosition != null) {
         double maxDist = 0;
-        if (_searchFilter.distance == '500m 이내')
+        if (_searchFilter.distance == '500m 이내') {
           maxDist = 500;
-        else if (_searchFilter.distance == '1km 이내')
+        } else if (_searchFilter.distance == '1km 이내') {
           maxDist = 1000;
-        else if (_searchFilter.distance == '3km 이내')
+        } else if (_searchFilter.distance == '3km 이내') {
           maxDist = 3000;
+        }
 
         if (maxDist > 0) {
           stores = stores.where((s) {
@@ -921,7 +952,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         };
       }).toList();
     } catch (e) {
-      debugPrint('필터링 에러: ${e}');
+      debugPrint('필터링 에러: $e');
       return [];
     }
   }
@@ -942,8 +973,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Widget _buildMobileMap() {
-    if (_webViewController == null)
+    if (_webViewController == null) {
       return const Center(child: Text('초기화 중...'));
+    }
     return WebViewWidget(
       key: const ValueKey('kakao-map-mobile'),
       controller: _webViewController!,
@@ -1120,7 +1152,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   itemCount: activeFilters.length,
-                  separatorBuilder: (_, __) =>
+                  separatorBuilder: (_, _) =>
                       const SizedBox(width: AppSizes.smallSpacing),
                   itemBuilder: (context, i) {
                     final label = activeFilters[i];
@@ -1273,8 +1305,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                     }
                   },
                   itemBuilder: (context, index) {
-                    if (index >= _currentStores.length)
+                    if (index >= _currentStores.length) {
                       return const SizedBox.shrink();
+                    }
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: GestureDetector(
@@ -1373,7 +1406,163 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
           ],
+          if (_locationNotice != null)
+            Positioned.fill(
+              child: _LocationPermissionModal(
+                notice: _locationNotice!,
+                onClose: _hideLocationNotice,
+              ),
+            ),
         ],
+      ),
+    );
+  }
+}
+
+class _LocationNoticeData {
+  const _LocationNoticeData({
+    required this.title,
+    required this.message,
+    this.primaryLabel = '확인',
+    this.onPrimaryPressed,
+  });
+
+  final String title;
+  final String message;
+  final String primaryLabel;
+  final Future<void> Function()? onPrimaryPressed;
+}
+
+class _LocationPermissionModal extends StatelessWidget {
+  const _LocationPermissionModal({required this.notice, required this.onClose});
+
+  final _LocationNoticeData notice;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = (FigmaMobileCanvas.logicalWidthOf(context) - 48).clamp(
+      280.0,
+      327.0,
+    );
+
+    return Material(
+      color: Colors.black.withValues(alpha: .35),
+      child: Center(
+        child: Container(
+          width: width,
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x30000000),
+                blurRadius: 40,
+                offset: Offset(0, 16),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: HomeMapScreen.blue.withValues(alpha: .10),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.location_off_rounded,
+                  color: HomeMapScreen.blue,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                notice.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: HomeMapScreen.ink,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                notice.message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: HomeMapScreen.muted,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: FilledButton(
+                  onPressed: () async {
+                    final action = notice.onPrimaryPressed;
+                    if (action == null) {
+                      onClose();
+                      return;
+                    }
+                    await action();
+                  },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HomeMapScreen.blue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: HomeMapScreen.fontFamily,
+                      fontFamilyFallback: HomeMapScreen.fontFallback,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      height: 1.5,
+                    ),
+                  ),
+                  child: Text(notice.primaryLabel),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 40,
+                child: TextButton(
+                  onPressed: onClose,
+                  style: TextButton.styleFrom(
+                    foregroundColor: HomeMapScreen.muted,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    textStyle: const TextStyle(
+                      fontFamily: HomeMapScreen.fontFamily,
+                      fontFamilyFallback: HomeMapScreen.fontFallback,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.5,
+                    ),
+                  ),
+                  child: Text(
+                    notice.onPrimaryPressed == null ? '닫기' : '나중에 할게요',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -12,10 +12,12 @@ class WebNotificationPrompt extends ConsumerStatefulWidget {
     super.key,
     required this.child,
     required this.onOpenNotifications,
+    required this.isHome,
   });
 
   final Widget child;
   final VoidCallback onOpenNotifications;
+  final bool isHome;
 
   @override
   ConsumerState<WebNotificationPrompt> createState() =>
@@ -37,7 +39,8 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
             .length ??
         0;
     final shouldShow = unreadCount > 0 && _dismissedUnreadCount != unreadCount;
-    final bannerTop = MediaQuery.sizeOf(context).height * .30;
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final bannerTop = safeTop + (widget.isHome ? 86 : 12);
 
     if (!shouldShow) return widget.child;
 
