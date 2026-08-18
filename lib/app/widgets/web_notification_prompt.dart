@@ -37,7 +37,9 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
             .length ??
         0;
     final shouldShow = unreadCount > 0 && _dismissedUnreadCount != unreadCount;
-    final bannerTop = MediaQuery.sizeOf(context).height * .30;
+    final routeName = ModalRoute.of(context)?.settings.name ?? '';
+    final safeTop = MediaQuery.paddingOf(context).top;
+    final bannerTop = safeTop + (routeName == '/home' ? 86 : 12);
 
     if (!shouldShow) return widget.child;
 

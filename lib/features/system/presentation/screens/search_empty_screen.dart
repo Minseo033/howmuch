@@ -277,62 +277,50 @@ class _EmptyResultBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const Positioned(
-          left: 151.73297119140625,
-          top: 0,
-          width: 71.98863220214844,
-          height: 71.98863220214844,
-          child: _EmptyIcon(),
-        ),
-        const Positioned(
-          left: 113.75,
-          top: 91.98828125,
-          width: 147.9545440673828,
-          height: 25.49715805053711,
-          child: Text(
-            '검색 결과가 없어요',
-            textAlign: TextAlign.center,
-            style: _emptyTitleText,
-          ),
-        ),
-        const Positioned(
-          left: 75.44036865234375,
-          top: 123.48046875,
-          width: 224.5596466064453,
-          height: 44.1761360168457,
-          child: Text(
-            '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
-            textAlign: TextAlign.center,
-            style: _emptyBodyText,
-          ),
-        ),
-        Positioned(
-          left: 46.1221923828125,
-          top: 191.6474609375,
-          width: 283.1960144042969,
-          height: 58.29545211791992,
-          child: _Suggestions(onSuggestionTap: onSuggestionTap),
-        ),
-        Positioned(
-          left: 31.9886474609375,
-          top: 273.9345703125,
-          width: 311.4772644042969,
-          height: 103.99147033691406,
-          child: Column(
-            children: [
-              _ActionButton(
-                label: '필터 초기화하기',
-                primary: true,
-                onTap: onResetTap,
+    return Center(
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 71.98863220214844,
+              height: 71.98863220214844,
+              child: _EmptyIcon(),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              '검색 결과가 없어요',
+              textAlign: TextAlign.center,
+              style: _emptyTitleText,
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
+              textAlign: TextAlign.center,
+              style: _emptyBodyText,
+            ),
+            const SizedBox(height: 28),
+            _Suggestions(onSuggestionTap: onSuggestionTap),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: 311.4772644042969,
+              child: Column(
+                children: [
+                  _ActionButton(
+                    label: '필터 초기화하기',
+                    primary: true,
+                    onTap: onResetTap,
+                  ),
+                  const SizedBox(height: 7.8),
+                  _ActionButton(label: '전체 매장 보기', onTap: onViewAllTap),
+                ],
               ),
-              const SizedBox(height: 7.8),
-              _ActionButton(label: '전체 매장 보기', onTap: onViewAllTap),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -379,7 +367,10 @@ class _Suggestions extends StatelessWidget {
           child: Center(child: Text('이런 건 어때요?', style: _suggestionTitle)),
         ),
         const SizedBox(height: 10),
-        Row(
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 7.997158050537109,
+          runSpacing: 8,
           children: [
             for (var index = 0; index < suggestions.length; index++) ...[
               _SuggestionChip(
@@ -387,8 +378,6 @@ class _Suggestions extends StatelessWidget {
                 width: suggestions[index].$2,
                 onTap: () => onSuggestionTap(suggestions[index].$1),
               ),
-              if (index != suggestions.length - 1)
-                const SizedBox(width: 7.997158050537109),
             ],
           ],
         ),
@@ -445,7 +434,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 311.4772644042969,
+      width: double.infinity,
       height: 47.99715805053711,
       child: Material(
         color: primary ? SearchEmptyScreen.blue : Colors.white,
