@@ -217,6 +217,13 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 15),
       );
+      if (!VisitVerificationPolicy.hasUsableLocationAccuracy(
+        position.accuracy,
+      )) {
+        throw const _LocationVerificationException(
+          '현재 위치 정확도가 낮아요. 잠시 후 다시 시도해주세요.',
+        );
+      }
       final store = widget.store!;
       final distance = Geolocator.distanceBetween(
         position.latitude,
@@ -484,11 +491,17 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
+      // 기록 직전에 위치를 다시 확인해, 인증 후 이동한 상태로 저장되지 않게 합니다.
+      await _checkLocation();
+      if (!mounted || !_isLocationVerified) {
+        return;
+      }
       final response = await http
           .post(
             ApiClient.uri('/api/visits'),
             headers: ApiClient.jsonHeaders(auth: true),
             body: jsonEncode({
+              'storeId': widget.store?.id,
               'storeName': _storeName,
               'industry': widget.store?.industry,
               'menu': _menuController.text.trim(),

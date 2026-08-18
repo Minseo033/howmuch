@@ -18,10 +18,17 @@ void main() {
     test('uses a 50 meter location verification radius', () {
       expect(VisitVerificationPolicy.isWithinVerificationRadius(0), isTrue);
       expect(VisitVerificationPolicy.isWithinVerificationRadius(50), isTrue);
+      expect(VisitVerificationPolicy.isWithinVerificationRadius(50.1), isFalse);
+    });
+
+    test('rejects inaccurate or invalid location readings', () {
+      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(50), isTrue);
+      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(50.1), isFalse);
       expect(
-        VisitVerificationPolicy.isWithinVerificationRadius(50.1),
+        VisitVerificationPolicy.hasUsableLocationAccuracy(double.nan),
         isFalse,
       );
+      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(-1), isFalse);
     });
   });
 }

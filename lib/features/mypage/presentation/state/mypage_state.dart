@@ -161,17 +161,20 @@ class NotificationSettings {
 
 class PriceAlertStore {
   const PriceAlertStore({
+    required this.storeId,
     required this.storeName,
     required this.menuName,
     required this.enabled,
   });
 
+  final String storeId;
   final String storeName;
   final String menuName;
   final bool enabled;
 
   PriceAlertStore copyWith({bool? enabled}) {
     return PriceAlertStore(
+      storeId: storeId,
       storeName: storeName,
       menuName: menuName,
       enabled: enabled ?? this.enabled,
@@ -695,31 +698,189 @@ final notificationSettingsProvider =
       ),
     );
 
-final priceAlertSettingsProvider = StateProvider<PriceAlertSettings>(
-  (ref) => const PriceAlertSettings(
-    all: true,
-    stores: [
-      PriceAlertStore(
-        storeName: '착한분식',
-        menuName: '김치찌개 5,500원',
-        enabled: true,
-      ),
-      PriceAlertStore(
-        storeName: '동네카페',
-        menuName: '아메리카노 2,000원',
-        enabled: true,
-      ),
-      PriceAlertStore(
-        storeName: '착한미용실',
-        menuName: '남성컷 8,000원',
-        enabled: false,
-      ),
-    ],
-    notifyOnDrop: true,
-    notifyOnRise: true,
-    notifyOnNewMenu: false,
-  ),
-);
+class PriceAlertApiException implements Exception {
+  const PriceAlertApiException(this.message, {this.statusCode});
+
+  final String message;
+  final int? statusCode;
+
+  @override
+  String toString() => message;
+}
+
+class PriceAlertApiService {
+  const PriceAlertApiService(this._client);
+
+  final http.Client _client;
+
+  Future<PriceAlertSettings> fetchSettings() async {
+    final response = await _client
+        .get(
+          ApiClient.uri('/api/notifications/price-alerts'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+
+    if (response.statusCode != 200) {
+      throw PriceAlertApiException(
+        response.statusCode == 401 || response.statusCode == 403
+            ? '가격 알림을 사용하려면 로그인이 필요합니다.'
+            : '가격 알림 매장 목록을 불러오지 못했습니다.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! List) {
+      throw const FormatException('가격 알림 응답 형식이 올바르지 않습니다.');
+    }
+
+    final items = decoded.whereType<Map>().toList(growable: false);
+    final stores = items
+        .map((item) {
+          final json = Map<String, dynamic>.from(item);
+          final price = json['price']?.toString().trim() ?? '';
+          final menu = json['menuName']?.toString().trim() ?? '';
+          final menuName = menu.isEmpty
+              ? '가격 변동 알림'
+              : price.isEmpty || price.endsWith('원')
+              ? menu
+              : '$menu ${price}원';
+          return PriceAlertStore(
+            storeId: json['storeId']?.toString() ?? '',
+            storeName: json['storeName']?.toString() ?? '매장명 없음',
+            menuName: menuName,
+            enabled: json['enabled'] is bool ? json['enabled'] as bool : true,
+          );
+        })
+        .where((store) => store.storeId.isNotEmpty)
+        .toList(growable: false);
+    final first = items.isEmpty ? null : items.first;
+    return PriceAlertSettings(
+      all: stores.isNotEmpty && stores.every((store) => store.enabled),
+      stores: stores,
+      notifyOnRise: first?['notifyOnRise'] is bool
+          ? first!['notifyOnRise'] as bool
+          : true,
+      notifyOnDrop: first?['notifyOnDrop'] is bool
+          ? first!['notifyOnDrop'] as bool
+          : true,
+      notifyOnNewMenu: first?['notifyOnNewMenu'] is bool
+          ? first!['notifyOnNewMenu'] as bool
+          : false,
+    );
+  }
+
+  Future<PriceAlertStore> saveSubscription({
+    required String storeId,
+    required bool enabled,
+    required bool notifyOnRise,
+    required bool notifyOnDrop,
+    required bool notifyOnNewMenu,
+  }) async {
+    final response = await _client
+        .put(
+          ApiClient.uri('/api/notifications/price-alerts'),
+          headers: ApiClient.jsonHeaders(auth: true),
+          body: jsonEncode({
+            'storeId': storeId,
+            'enabled': enabled,
+            'notifyOnRise': notifyOnRise,
+            'notifyOnDrop': notifyOnDrop,
+            'notifyOnNewMenu': notifyOnNewMenu,
+          }),
+        )
+        .timeout(ApiClient.defaultTimeout);
+
+    if (response.statusCode != 200) {
+      throw PriceAlertApiException(
+        response.statusCode == 401 || response.statusCode == 403
+            ? '가격 알림을 사용하려면 로그인이 필요합니다.'
+            : response.statusCode == 404
+            ? '찜한 매장을 찾을 수 없습니다.'
+            : '가격 알림 설정 저장에 실패했습니다.',
+        statusCode: response.statusCode,
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map) {
+      throw const FormatException('가격 알림 저장 응답 형식이 올바르지 않습니다.');
+    }
+    final json = Map<String, dynamic>.from(decoded);
+    return PriceAlertStore(
+      storeId: json['storeId']?.toString() ?? storeId,
+      storeName: json['storeName']?.toString() ?? '매장명 없음',
+      menuName: json['menuName']?.toString() ?? '가격 변동 알림',
+      enabled: json['enabled'] is bool ? json['enabled'] as bool : enabled,
+    );
+  }
+}
+
+final priceAlertApiServiceProvider = Provider<PriceAlertApiService>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return PriceAlertApiService(client);
+});
+
+class PriceAlertSettingsNotifier
+    extends StateNotifier<AsyncValue<PriceAlertSettings>> {
+  PriceAlertSettingsNotifier(this._api) : super(const AsyncValue.loading()) {
+    loadSettings();
+  }
+
+  final PriceAlertApiService _api;
+
+  Future<void> loadSettings() async {
+    state = const AsyncValue.loading();
+    try {
+      state = AsyncValue.data(await _api.fetchSettings());
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
+
+  void updateLocal(PriceAlertSettings settings) {
+    state = AsyncValue.data(settings);
+  }
+
+  Future<bool> saveSettings(PriceAlertSettings settings) async {
+    try {
+      final savedStores = <PriceAlertStore>[];
+      for (final store in settings.stores) {
+        savedStores.add(
+          await _api.saveSubscription(
+            storeId: store.storeId,
+            enabled: store.enabled,
+            notifyOnRise: settings.notifyOnRise,
+            notifyOnDrop: settings.notifyOnDrop,
+            notifyOnNewMenu: settings.notifyOnNewMenu,
+          ),
+        );
+      }
+      state = AsyncValue.data(
+        settings.copyWith(
+          stores: savedStores,
+          all:
+              savedStores.isNotEmpty &&
+              savedStores.every((store) => store.enabled),
+        ),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+}
+
+final priceAlertSettingsProvider =
+    StateNotifierProvider<
+      PriceAlertSettingsNotifier,
+      AsyncValue<PriceAlertSettings>
+    >((ref) {
+      return PriceAlertSettingsNotifier(
+        ref.watch(priceAlertApiServiceProvider),
+      );
+    });
 
 final favoriteApiServiceProvider = Provider((ref) => FavoriteApiService());
 

@@ -14,7 +14,8 @@ class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
 
   @override
-  ConsumerState<AiRecommendChatScreen> createState() => _AiRecommendChatScreenState();
+  ConsumerState<AiRecommendChatScreen> createState() =>
+      _AiRecommendChatScreenState();
 }
 
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
@@ -57,7 +58,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
   Future<void> _sendMessage() async {
     if (_isTyping) return;
-    
+
     final messageText = _controller.text.trim();
     if (messageText.isEmpty && _attachedPhoto == null) {
       return;
@@ -80,7 +81,9 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     _scrollToLatest();
 
     // 💡 Gemini API 호출
-    final botResponse = await ref.read(aiChatServiceProvider).getGeminiResponse(messageText);
+    final botResponse = await ref
+        .read(aiChatServiceProvider)
+        .getGeminiResponse(messageText);
 
     if (mounted) {
       setState(() {
@@ -130,17 +133,21 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
+    final rawKeyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final isKeyboardOpen = rawKeyboard > 0;
     final designScale = FigmaMobileCanvas.designScaleFor(context);
-    final keyboardOffset = designScale <= 0
-        ? 0.0
-        : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    const composerLift = 18.0;
+    final keyboardOffset = designScale <= 0 ? 0.0 : rawKeyboard / designScale;
+
+    // 키보드가 켜졌을 때는 홈 인디케이터 여백을 제외하고 10px로 밀착
+    final bottomOffset = isKeyboardOpen
+        ? 10.0
+        : (safePadding.bottom > 16 ? safePadding.bottom : 16.0);
+    final composerLift = isKeyboardOpen ? 0.0 : 12.0;
     final hasAttachment = _attachedPhoto != null;
-    final composerHeight = (hasAttachment ? 142 : 78) + bottomOffset;
+    final composerHeight = (hasAttachment ? 126.0 : 48.0) + 20.0 + bottomOffset;
     final contentTop = topOffset + 57;
     final contentBottomPadding =
-        composerHeight + keyboardOffset + composerLift + 24;
+        composerHeight + keyboardOffset + composerLift + 10;
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -171,7 +178,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 controller: _scrollController,
                 padding: EdgeInsets.fromLTRB(20, 25, 20, contentBottomPadding),
                 children: [
-                  const SizedBox(height: 156, child: _HeroCard()),
+                  const _HeroCard(),
                   const SizedBox(height: 24),
                   const Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -211,7 +218,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(width: 34, height: 34, child: _BotAvatar()),
+                          const SizedBox(
+                            width: 34,
+                            height: 34,
+                            child: _BotAvatar(),
+                          ),
                           const SizedBox(width: 10),
                           Expanded(child: _BotMessageBubble(message: message)),
                         ],
@@ -236,15 +247,15 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
               left: 0,
               bottom: keyboardOffset + composerLift,
               right: 0,
-              height: composerHeight,
               child: _Composer(
                 controller: _controller,
                 onSend: _sendMessage,
                 onAddPhoto: _pickPhoto,
                 onRemovePhoto: _removePhoto,
                 attachedPhoto: _attachedPhoto,
-                hasText: (_controller.text.trim().isNotEmpty || hasAttachment) && !_isTyping,
+                hasText: _controller.text.trim().isNotEmpty,
                 hasAttachment: hasAttachment,
+                bottomPadding: bottomOffset,
               ),
             ),
           ],
@@ -377,7 +388,11 @@ class _BotAvatar extends StatelessWidget {
         ),
         shape: BoxShape.circle,
       ),
-      child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 17),
+      child: const Icon(
+        Icons.auto_awesome_rounded,
+        color: Colors.white,
+        size: 17,
+      ),
     );
   }
 }
@@ -388,7 +403,7 @@ class _HeroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(23, 25, 23, 20),
+      padding: const EdgeInsets.fromLTRB(23, 21, 23, 14),
       decoration: BoxDecoration(
         color: const Color(0xFFF0EAFE),
         borderRadius: BorderRadius.circular(22),
@@ -418,7 +433,7 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 14),
+          SizedBox(height: 10),
           Text(
             '오늘은 뭘 드시고 싶으세요?',
             style: TextStyle(
@@ -430,7 +445,7 @@ class _HeroCard extends StatelessWidget {
               height: 1.25,
             ),
           ),
-          SizedBox(height: 12),
+          SizedBox(height: 8),
           Text(
             '예산·날씨·위치·취향을 종합해 가장 합리적인 한 끼를 추천해드려요.',
             style: TextStyle(
@@ -543,6 +558,7 @@ class _Composer extends StatelessWidget {
     required this.attachedPhoto,
     required this.hasText,
     required this.hasAttachment,
+    required this.bottomPadding,
   });
 
   final TextEditingController controller;
@@ -552,113 +568,117 @@ class _Composer extends StatelessWidget {
   final XFile? attachedPhoto;
   final bool hasText;
   final bool hasAttachment;
+  final double bottomPadding;
 
   @override
   Widget build(BuildContext context) {
-    final controlsTop = hasAttachment ? 79.0 : 15.0;
-
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Color(0xFFE1E6EF))),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 8,
+            offset: Offset(0, -2),
+          ),
+        ],
       ),
-      child: Stack(
+      padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPadding),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (attachedPhoto != null)
-            Positioned(
-              left: 16,
-              top: 12,
-              right: 16,
-              height: 52,
-              child: _AttachmentPreview(
-                photo: attachedPhoto!,
-                onRemove: onRemovePhoto,
-              ),
-            ),
-          Positioned(
-            left: 16,
-            top: controlsTop,
-            width: 48,
-            height: 48,
-            child: Material(
-              color: hasAttachment
-                  ? const Color(0xFFEFF6FF)
-                  : const Color(0xFFF1F5F9),
-              shape: const CircleBorder(),
-              child: InkWell(
-                onTap: onAddPhoto,
-                customBorder: const CircleBorder(),
-                child: Icon(
-                  Icons.add_rounded,
-                  color: hasAttachment ? const Color(0xFF2563EB) : _AiUi.ink,
-                  size: 25,
+          if (attachedPhoto != null) ...[
+            _AttachmentPreview(photo: attachedPhoto!, onRemove: onRemovePhoto),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: Material(
+                  color: hasAttachment
+                      ? const Color(0xFFEFF6FF)
+                      : const Color(0xFFF1F5F9),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    onTap: onAddPhoto,
+                    customBorder: const CircleBorder(),
+                    child: Icon(
+                      Icons.add_rounded,
+                      color: hasAttachment
+                          ? const Color(0xFF2563EB)
+                          : _AiUi.ink,
+                      size: 24,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            left: 72,
-            top: controlsTop,
-            width: 220,
-            height: 48,
-            child: TextField(
-              controller: controller,
-              cursorColor: const Color(0xFF2563EB),
-              decoration: InputDecoration(
-                hintText: '메시지를 입력하세요',
-                hintStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontFamily: _AiUi.fontFamily,
-                  fontFamilyFallback: _AiUi.fontFallback,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  cursorColor: const Color(0xFF2563EB),
+                  decoration: InputDecoration(
+                    hintText: '메시지를 입력하세요',
+                    hintStyle: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontFamily: _AiUi.fontFamily,
+                      fontFamilyFallback: _AiUi.fontFallback,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Color(0xFFE1E6EF)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(999),
+                      borderSide: const BorderSide(color: Color(0xFF2563EB)),
+                    ),
+                  ),
+                  style: const TextStyle(
+                    color: _AiUi.ink,
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              style: const TextStyle(
-                color: _AiUi.ink,
-                fontFamily: _AiUi.fontFamily,
-                fontFamilyFallback: _AiUi.fontFallback,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: 10),
+              SizedBox(
+                width: 44,
+                height: 44,
+                child: FilledButton(
+                  onPressed: hasText ? onSend : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: hasText
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFFCBD5E1),
+                    disabledBackgroundColor: const Color(0xFFCBD5E1),
+                    padding: EdgeInsets.zero,
+                    shape: const CircleBorder(),
+                  ),
+                  child: const Icon(
+                    Icons.send_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            top: controlsTop,
-            width: 48,
-            height: 48,
-            child: FilledButton(
-              onPressed: hasText ? onSend : null,
-              style: FilledButton.styleFrom(
-                backgroundColor: hasText
-                    ? const Color(0xFF2563EB)
-                    : const Color(0xFFCBD5E1),
-                disabledBackgroundColor: const Color(0xFFCBD5E1),
-                padding: EdgeInsets.zero,
-                shape: const CircleBorder(),
-              ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 21,
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -695,7 +715,10 @@ class _AttachmentPreview extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return const ColoredBox(
                           color: Color(0xFFEFF6FF),
-                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Color(0xFF6B7280),
+                          ),
                         );
                       },
                     )
@@ -705,7 +728,10 @@ class _AttachmentPreview extends StatelessWidget {
                       errorBuilder: (context, error, stackTrace) {
                         return const ColoredBox(
                           color: Color(0xFFEFF6FF),
-                          child: Icon(Icons.image_not_supported, color: Color(0xFF6B7280)),
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Color(0xFF6B7280),
+                          ),
                         );
                       },
                     ),
@@ -784,7 +810,12 @@ class _UserMessageBubble extends StatelessWidget {
                             errorBuilder: (context, error, stackTrace) {
                               return const ColoredBox(
                                 color: Color(0xFFEFF6FF),
-                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
                               );
                             },
                           )
@@ -794,7 +825,12 @@ class _UserMessageBubble extends StatelessWidget {
                             errorBuilder: (context, error, stackTrace) {
                               return const ColoredBox(
                                 color: Color(0xFFEFF6FF),
-                                child: Center(child: Icon(Icons.broken_image, color: Color(0xFF9CA3AF))),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.broken_image,
+                                    color: Color(0xFF9CA3AF),
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -889,11 +925,7 @@ class _TypingIndicator extends StatelessWidget {
 }
 
 class _ChatMessage {
-  const _ChatMessage({
-    required this.text,
-    this.photo,
-    required this.isBot,
-  });
+  const _ChatMessage({required this.text, this.photo, required this.isBot});
 
   final String text;
   final XFile? photo;

@@ -17,6 +17,7 @@ public class UserReportRequest {
     private String cityDistrict;
     private String industry;
     private String storeName;
+    private String storeId;
     private String phoneNumber;
     private String address;
     private String menu1;
@@ -35,6 +36,9 @@ public class UserReportRequest {
     private String reporterId;
     private boolean visitedRecently;
     private boolean checkedMenuPrice;
+
+    /** 가격 변동 제보 유형: rise, drop, new, delete (일반 매장 제보는 null) */
+    private String changeType;
 
     // 💡 제보 처리 상태 메타데이터
     private String status; // PENDING, APPROVED, REJECTED

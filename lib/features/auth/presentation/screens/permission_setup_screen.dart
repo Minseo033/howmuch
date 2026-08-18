@@ -75,103 +75,111 @@ class PermissionSetupScreen extends ConsumerWidget {
             ),
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Spacer(flex: 2),
-                  const SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: _PermissionHeroIcon(),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final verticalGap = constraints.maxHeight < 600 ? 20.0 : 32.0;
+                return SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    verticalGap,
+                    20,
+                    safeBottom > 0 ? safeBottom / 2 : 20,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    '더 정확한 추천을 위해\n권한이 필요해요',
-                    style: TextStyle(
-                      color: ink,
-                      fontFamily: fontFamily,
-                      fontFamilyFallback: fontFallback,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    '아래 권한을 허용하면 모든 기능을 사용할 수 있어요',
-                    style: TextStyle(
-                      color: muted,
-                      fontFamily: fontFamily,
-                      fontFamilyFallback: fontFallback,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                  ),
-                  const Spacer(flex: 3),
-                  const Column(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _PermissionCard(
-                        icon: Icons.location_on_outlined,
-                        iconColor: blue,
-                        iconBackground: Color(0xFFEFF4FF),
-                        title: '위치 권한 (필수)',
-                        description: '현재 위치 주변의 착한가격업소를 보여드려요.',
-                        status: '허용',
-                        allowed: true,
+                      const SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: _PermissionHeroIcon(),
                       ),
-                      SizedBox(height: 10),
-                      _PermissionCard(
-                        icon: Icons.notifications_none_rounded,
-                        iconColor: orange,
-                        iconBackground: Color(0xFFFFF3EA),
-                        title: '알림 권한',
-                        description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
-                        status: '허용',
-                        allowed: true,
+                      const SizedBox(height: 16),
+                      const Text(
+                        '더 정확한 추천을 위해\n권한이 필요해요',
+                        style: TextStyle(
+                          color: ink,
+                          fontFamily: fontFamily,
+                          fontFamilyFallback: fontFallback,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          height: 1.3,
+                        ),
                       ),
-                      SizedBox(height: 10),
-                      _PermissionCard(
-                        icon: Icons.photo_camera_outlined,
-                        iconColor: muted,
-                        iconBackground: Color(0xFFF1F5F9),
-                        title: '사진 접근',
-                        description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
-                        status: '나중에',
-                        allowed: false,
+                      const SizedBox(height: 8),
+                      const Text(
+                        '아래 권한을 허용하면 모든 기능을 사용할 수 있어요',
+                        style: TextStyle(
+                          color: muted,
+                          fontFamily: fontFamily,
+                          fontFamilyFallback: fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
+                        ),
+                      ),
+                      SizedBox(height: verticalGap),
+                      const Column(
+                        children: [
+                          _PermissionCard(
+                            icon: Icons.location_on_outlined,
+                            iconColor: blue,
+                            iconBackground: Color(0xFFEFF4FF),
+                            title: '위치 권한 (필수)',
+                            description: '현재 위치 주변의 착한가격업소를 보여드려요.',
+                            status: '허용',
+                            allowed: true,
+                          ),
+                          SizedBox(height: 10),
+                          _PermissionCard(
+                            icon: Icons.notifications_none_rounded,
+                            iconColor: orange,
+                            iconBackground: Color(0xFFFFF3EA),
+                            title: '알림 권한',
+                            description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
+                            status: '허용',
+                            allowed: true,
+                          ),
+                          SizedBox(height: 10),
+                          _PermissionCard(
+                            icon: Icons.photo_camera_outlined,
+                            iconColor: muted,
+                            iconBackground: Color(0xFFF1F5F9),
+                            title: '사진 접근',
+                            description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
+                            status: '나중에',
+                            allowed: false,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: verticalGap),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: _PrimaryButton(
+                          label: '앱 시작하기',
+                          onPressed: () => _startApp(context, ref),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const SizedBox(
+                        width: double.infinity,
+                        child: Text(
+                          '권한은 나중에 설정에서 변경할 수 있어요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: muted,
+                            fontFamily: fontFamily,
+                            fontFamilyFallback: fontFallback,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  const Spacer(flex: 4),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: _PrimaryButton(
-                      label: '앱 시작하기',
-                      onPressed: () => _startApp(context, ref),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      '권한은 나중에 설정에서 변경할 수 있어요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: muted,
-                        fontFamily: fontFamily,
-                        fontFamilyFallback: fontFallback,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: safeBottom > 0 ? safeBottom / 2 : 20),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
@@ -305,7 +313,7 @@ class _PermissionCard extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 1.989),
+                const SizedBox(height: 1),
                 Text(
                   description,
                   maxLines: 2,

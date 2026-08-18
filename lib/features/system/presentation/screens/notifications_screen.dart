@@ -377,13 +377,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Widget _buildNotificationItem(NotificationModel notif) {
     return GestureDetector(
-      onTap: () {
-        if (notif.isUnread) {
-          _runAction(
-            ref.read(notificationsProvider.notifier).markRead(notif.id),
-          );
-        }
-      },
+      onTap: () => _handleNotificationTap(notif),
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: const EdgeInsets.all(14),
@@ -487,6 +481,31 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _handleNotificationTap(NotificationModel notification) async {
+    if (notification.isUnread) {
+      try {
+        await ref
+            .read(notificationsProvider.notifier)
+            .markRead(notification.id);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            const SnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
+          );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
+    final route = notificationRouteForType(notification.type);
+    if (route != null) {
+      context.push(route);
+    }
   }
 
   Future<void> _runAction(Future<void> action) async {

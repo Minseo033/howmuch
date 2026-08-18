@@ -6,7 +6,16 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class DirectionsExternalAppScreen extends StatefulWidget {
-  const DirectionsExternalAppScreen({super.key});
+  const DirectionsExternalAppScreen({
+    super.key,
+    this.storeName = '착한분식',
+    this.address = '서울시 강남구 역삼동',
+    this.distanceLabel = '거리 정보 없음',
+  });
+
+  final String storeName;
+  final String address;
+  final String distanceLabel;
 
   @override
   State<DirectionsExternalAppScreen> createState() =>
@@ -25,7 +34,7 @@ class _DirectionsExternalAppScreenState
 
   Future<void> _launchKakaoMap() async {
     // 가게 이름과 주소를 함께 검색어로 사용하여 장소(Place) 정보가 나오도록 유도
-    final query = Uri.encodeComponent('착한분식 서울시 강남구 역삼동');
+    final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
     final url = Uri.parse('kakaomap://search?q=$query');
     final fallbackUrl = Uri.parse('https://map.kakao.com/link/search/$query');
 
@@ -41,9 +50,11 @@ class _DirectionsExternalAppScreenState
   }
 
   Future<void> _launchNaverMap() async {
-    final query = Uri.encodeComponent('착한분식 서울시 강남구 역삼동');
+    final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
     final url = Uri.parse('nmap://search?query=$query&appname=com.howmuch.app');
-    final fallbackUrl = Uri.parse('https://m.map.naver.com/search2/search.naver?query=$query');
+    final fallbackUrl = Uri.parse(
+      'https://m.map.naver.com/search2/search.naver?query=$query',
+    );
 
     try {
       if (await canLaunchUrl(url)) {
@@ -61,67 +72,62 @@ class _DirectionsExternalAppScreenState
     // TODO(박지환 BE): 실제 매장 위치 및 거리 연동
     return FigmaMobileCanvas(
       child: Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      appBar: const CustomAppBar(title: '길찾기'),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStoreCard(),
-              const SizedBox(height: 24),
-              const Text(
-                '이동 방식',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _buildTransportOptions(),
-              const SizedBox(height: 24),
-              const Text(
-                '외부 앱으로 열기',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              _buildAppButton(
-                badge: 'N',
-                color: AppColors.naverGreen,
-                label: '네이버지도에서 열기',
-                textColor: AppColors.white,
-                onTap: _launchNaverMap,
-              ),
-              const SizedBox(height: 10),
-              _buildAppButton(
-                badge: 'K',
-                color: AppColors.kakaoYellow,
-                label: '카카오맵에서 열기',
-                textColor: Colors.black87,
-                onTap: _launchKakaoMap,
-              ),
-              const SizedBox(height: 16),
-              Center(
-                child: Text(
-                  '외부 지도 앱으로 이동해 경로를 확인할 수 있어요.',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 13,
+        backgroundColor: AppColors.backgroundDark,
+        appBar: const CustomAppBar(title: '길찾기'),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStoreCard(),
+                const SizedBox(height: 24),
+                const Text(
+                  '이동 방식',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                _buildTransportOptions(),
+                const SizedBox(height: 24),
+                const Text(
+                  '외부 앱으로 열기',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                _buildAppButton(
+                  badge: 'N',
+                  color: AppColors.naverGreen,
+                  label: '네이버지도에서 열기',
+                  textColor: AppColors.white,
+                  onTap: _launchNaverMap,
+                ),
+                const SizedBox(height: 10),
+                _buildAppButton(
+                  badge: 'K',
+                  color: AppColors.kakaoYellow,
+                  label: '카카오맵에서 열기',
+                  textColor: Colors.black87,
+                  onTap: _launchKakaoMap,
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    '외부 지도 앱으로 이동해 경로를 확인할 수 있어요.',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-            ],
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
+        bottomNavigationBar: CustomBottomButton(
+          text: '길찾기 시작',
+          backgroundColor: AppColors.primary,
+          onPressed: () => _launchKakaoMap(),
+        ),
       ),
-      bottomNavigationBar: CustomBottomButton(
-        text: '길찾기 시작',
-        backgroundColor: AppColors.primary,
-        onPressed: () {
-          // TODO: 외부 지도 앱 실행 (url_launcher)
-        },
-      ),
-    ),
     );
   }
 
@@ -153,13 +159,13 @@ class _DirectionsExternalAppScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '착한분식',
+                Text(
+                  widget.storeName,
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '서울시 강남구 역삼동',
+                Text(
+                  widget.address,
                   style: TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
@@ -172,8 +178,8 @@ class _DirectionsExternalAppScreenState
                     color: AppColors.primarySubtle,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text(
-                    '320m',
+                  child: Text(
+                    widget.distanceLabel,
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,
@@ -206,9 +212,7 @@ class _DirectionsExternalAppScreenState
                 color: selected ? AppColors.primarySubtle : AppColors.white,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: selected
-                      ? AppColors.primary
-                      : Colors.grey.shade200,
+                  color: selected ? AppColors.primary : Colors.grey.shade200,
                   width: selected ? 2 : 1,
                 ),
               ),
@@ -216,9 +220,7 @@ class _DirectionsExternalAppScreenState
                 children: [
                   Icon(
                     _transports[i]['icon'] as IconData,
-                    color: selected
-                        ? AppColors.primary
-                        : Colors.grey.shade500,
+                    color: selected ? AppColors.primary : Colors.grey.shade500,
                     size: 28,
                   ),
                   const SizedBox(height: 6),

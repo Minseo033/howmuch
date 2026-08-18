@@ -5,6 +5,7 @@ import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.SetOptions;
 import com.google.cloud.firestore.WriteResult;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
@@ -18,6 +19,8 @@ import com.google.firebase.messaging.Notification;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.NotificationSettingsDto;
+import com.howmuch.dto.PriceAlertSubscriptionDto;
+import com.howmuch.dto.PriceAlertSubscriptionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
@@ -231,7 +234,7 @@ public class FirebaseService {
     }
 
     public List<Map<String, Object>> getAllStores() {
-        return cachedStores;
+        return cachedStores.stream().map(this::withStableStoreId).toList();
     }
 
     /** 자동화 작업이 classpath 스냅샷을 갱신할 수 있도록 안정된 순서의 캐시 복사본을 반환합니다. */
@@ -255,7 +258,7 @@ public class FirebaseService {
         List<Map<String, Object>> govStores = cachedStores.stream()
                 .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
                 .map(data -> {
-                    Map<String, Object> map = new HashMap<>(data);
+                    Map<String, Object> map = withStableStoreId(data);
                     map.put("source", "GOV");
                     return map;
                 })
@@ -269,7 +272,7 @@ public class FirebaseService {
                 .filter(this::isPubliclyVisible)
                 .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
                 .map(data -> {
-                    Map<String, Object> map = new HashMap<>(data);
+                    Map<String, Object> map = withStableStoreId(data);
                     map.put("source", "USER");
                     return map;
                 })
@@ -310,6 +313,10 @@ public class FirebaseService {
     public String saveUserReport(com.howmuch.dto.UserReportRequest report) throws Exception {
         report.setStatus("PENDING");
         report.setCreatedAt(java.time.Instant.now().toString());
+        if (report.getStoreId() == null || report.getStoreId().isBlank()) {
+            report.setStoreId(stableStoreId(
+                    report.getStoreName(), report.getAddress(), report.getPhoneNumber()));
+        }
         report.setImageUrls(normalizeReportImageUrls(
                 report.getReporterId(), report.getImageUrls(), Set.of()));
 
@@ -343,6 +350,10 @@ public class FirebaseService {
         List<String> existingImageUrls = stringList(existing.get("imageUrls"));
         report.setReporterId(reporterUid);
         report.setStatus("PENDING");
+        if (report.getStoreId() == null || report.getStoreId().isBlank()) {
+            report.setStoreId(stableStoreId(
+                    report.getStoreName(), report.getAddress(), report.getPhoneNumber()));
+        }
         report.setCreatedAt(stringOrDefault(
                 existing.getData(), "createdAt", java.time.Instant.now().toString()));
         report.setRejectReason(null);
@@ -596,7 +607,8 @@ public class FirebaseService {
 
     private void updateReportStatus(String reportId, String status, String rejectReason) throws Exception {
         DocumentReference docRef = db.collection("stores_user").document(reportId);
-        if (!docRef.get().get().exists()) {
+        DocumentSnapshot snapshot = docRef.get().get();
+        if (!snapshot.exists()) {
             throw new IllegalArgumentException("제보를 찾을 수 없습니다: " + reportId);
         }
 
@@ -606,6 +618,23 @@ public class FirebaseService {
             updates.put("rejectReason", rejectReason);
         }
         docRef.update(updates).get();
+
+        // 💡 가격 변동 제보 승인 시 찜한 사용자에게 알림 발송
+        if ("APPROVED".equals(status)) {
+            String storeName = snapshot.getString("storeName");
+            if (storeName != null && !storeName.isBlank()) {
+                try {
+                    notifyUsersOnPriceReportApproved(
+                            storeName,
+                            snapshot.getString("storeId"),
+                            reportId,
+                            snapshot.getString("changeType"));
+                } catch (Exception e) {
+                    // 승인 상태 변경은 완료됐으므로 부가 알림 실패가 관리자 승인 결과를 실패로 만들지 않게 합니다.
+                    log.warn("가격 변동 알림 발송 실패: reportId={}, storeName={}", reportId, storeName, e);
+                }
+            }
+        }
 
         // 인메모리 캐시에도 즉시 반영 (bounds 조회 캐시와 상태 일치)
         List<Map<String, Object>> updated = cachedUserStores.stream()
@@ -619,6 +648,82 @@ public class FirebaseService {
                 })
                 .toList();
         cachedUserStores = List.copyOf(updated);
+    }
+
+    // 💡 매장 가격 변동 제보 승인 시 알림 생성 및 발송
+    private void notifyUsersOnPriceReportApproved(
+            String storeName,
+            String storeId,
+            String reportId,
+            String changeType) throws Exception {
+        // 1. 해당 매장을 찜한 사용자 목록 조회 (favorites 컬렉션 활용)
+        var favoriteDocs = db.collection("favorites")
+                .whereEqualTo("storeName", storeName)
+                .get().get().getDocuments();
+
+        String createdAt = java.time.Instant.now().toString();
+
+        for (DocumentSnapshot favDoc : favoriteDocs) {
+            String userId = favDoc.getString("userId");
+            if (userId == null) continue;
+
+            if (storeId != null && !storeId.isBlank()) {
+                String favoriteStoreId = canonicalStoreIdForFavorite(favDoc.getData());
+                String favoriteStoreName = favDoc.getString("storeName");
+                if (!storeId.equals(favoriteStoreId)
+                        && !storeName.equals(favoriteStoreName)) {
+                    continue;
+                }
+            }
+
+            // 매장별 구독을 끈 사용자는 전체 가격 알림 설정이 켜져 있어도 제외합니다.
+            if (!booleanOrDefault(favDoc.getData(), "priceAlertEnabled", true)) {
+                continue;
+            }
+
+            // 2. 비활성화 사용자는 발송 대상에서 제외 (알림 설정 체크)
+            NotificationSettingsDto settings = getNotificationSettings(userId);
+            if (!Boolean.TRUE.equals(settings.getPrice())) {
+                continue;
+            }
+            if (!shouldNotifyPriceChange(settings, changeType)) {
+                continue;
+            }
+
+            // 3. 중복 알림 방지 (같은 제보로 이미 알림이 생성되었는지 확인)
+            String docId = "price_alert_" + reportId + "_" + userId;
+            DocumentReference notifRef = db.collection("notifications").document(docId);
+            if (notifRef.get().get().exists()) {
+                continue; // 이미 발송된 경우 스킵
+            }
+
+            // 4. 알림 생성 및 저장
+            Map<String, Object> data = new HashMap<>();
+            data.put("userId", userId);
+            data.put("title", "관심 매장 가격 변동");
+            data.put("body", "찜하신 '" + storeName + "' 매장의 가격 변동 제보가 승인되었습니다!");
+            data.put("type", "PRICE_ALERT");
+            data.put("isRead", false);
+            data.put("createdAt", createdAt);
+            data.put("relatedReportId", reportId);
+
+            notifRef.set(data).get();
+
+            // 5. 푸시 알림 발송 (기존 구조 재사용)
+            dispatchPushNotification(userId, docId, (String) data.get("title"), (String) data.get("body"), "PRICE_ALERT");
+        }
+    }
+
+    private boolean shouldNotifyPriceChange(NotificationSettingsDto settings, String changeType) {
+        if (changeType == null || changeType.isBlank()) {
+            return true;
+        }
+        return switch (changeType.toLowerCase()) {
+            case "rise" -> Boolean.TRUE.equals(settings.getNotifyOnRise());
+            case "drop" -> Boolean.TRUE.equals(settings.getNotifyOnDrop());
+            case "new", "new_menu" -> Boolean.TRUE.equals(settings.getNotifyOnNewMenu());
+            default -> true;
+        };
     }
 
     // 💡 [어드민] 컬렉션 문서 수 (count 집계 쿼리 — 최대 1000건당 읽기 1회라 쿼터 부담 적음)
@@ -1056,6 +1161,54 @@ public class FirebaseService {
         return storeId.replace("_", "__").replace("/", "_s");
     }
 
+    /**
+     * 매장명만으로는 동명이점이 충돌할 수 있으므로 주소·전화번호를 함께 해시한 식별자입니다.
+     * 기존 데이터의 storeId(매장명)는 호환을 위해 조회 시 계속 지원합니다.
+     */
+    private String stableStoreId(String storeName, String address, String phoneNumber) {
+        String canonical = String.join("|",
+                normalizeStoreIdentityPart(storeName),
+                normalizeStoreIdentityPart(address),
+                normalizeStoreIdentityPart(phoneNumber));
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(canonical.getBytes(StandardCharsets.UTF_8));
+            return "store_" + java.util.HexFormat.of().formatHex(hash, 0, 12);
+        } catch (Exception e) {
+            throw new IllegalStateException("매장 식별자를 만들지 못했습니다.", e);
+        }
+    }
+
+    private String normalizeStoreIdentityPart(String value) {
+        return value == null ? "" : value.trim().replaceAll("\\s+", " ").toLowerCase();
+    }
+
+    private String stableStoreIdForData(Map<String, Object> data) {
+        if (data == null) return stableStoreId("", "", "");
+        String storeName = strOrNull(data.get("storeName"));
+        String address = strOrNull(data.get("address"));
+        String phoneNumber = strOrNull(data.get("phoneNumber"));
+        if (address == null || address.isBlank()) {
+            Map<String, Object> govStore = findGovStoreByName(storeName);
+            if (govStore != null) {
+                address = strOrNull(govStore.get("address"));
+                phoneNumber = phoneNumber == null || phoneNumber.isBlank()
+                        ? strOrNull(govStore.get("phoneNumber"))
+                        : phoneNumber;
+            }
+        }
+        return stableStoreId(storeName, address, phoneNumber);
+    }
+
+    private Map<String, Object> withStableStoreId(Map<String, Object> data) {
+        Map<String, Object> copy = new HashMap<>(data);
+        Object existing = copy.get("storeId");
+        if (existing == null || existing.toString().isBlank()) {
+            copy.put("storeId", stableStoreIdForData(copy));
+        }
+        return copy;
+    }
+
     /** 공공데이터 인메모리 캐시에서 매장명으로 매장 정보 조회 (Firestore 읽기 0). 없으면 null */
     private Map<String, Object> findGovStoreByName(String storeName) {
         if (storeName == null || storeName.isBlank()) return null;
@@ -1071,14 +1224,22 @@ public class FirebaseService {
 
     // 💡 찜 추가 (멱등: 같은 매장 재추가 시 덮어쓰기, 중복 문서 생성 안 됨)
     public com.howmuch.dto.FavoriteResponse addFavorite(String firebaseUid, com.howmuch.dto.FavoriteRequest request) throws Exception {
-        String docId = favoriteDocId(firebaseUid, request.getStoreId());
-        String createdAt = java.time.Instant.now().toString();
+        DocumentSnapshot existing = findFavoriteDocument(firebaseUid, request.getStoreId());
+        String docId = existing != null
+                ? existing.getId()
+                : favoriteDocId(firebaseUid, request.getStoreId());
+        String createdAt = existing != null && existing.getString("createdAt") != null
+                ? existing.getString("createdAt")
+                : java.time.Instant.now().toString();
+        boolean priceAlertEnabled = existing == null
+                || booleanOrDefault(existing.getData(), "priceAlertEnabled", true);
 
         Map<String, Object> data = new HashMap<>();
         data.put("userId", firebaseUid);
         data.put("storeId", request.getStoreId());
         data.put("storeName", request.getStoreName());
         data.put("createdAt", createdAt);
+        data.put("priceAlertEnabled", priceAlertEnabled);
 
         db.collection("favorites").document(docId).set(data).get();
 
@@ -1098,12 +1259,9 @@ public class FirebaseService {
 
     // 💡 찜 해제 (존재하지 않아도 에러 없이 성공 처리 — 멱등)
     public void removeFavorite(String firebaseUid, String storeId) throws Exception {
-        String docId = favoriteDocId(firebaseUid, storeId);
-        db.collection("favorites").document(docId).delete().get();
-        // 8/7 docId 이스케이프 도입 전의 구 형식(원본 storeId 그대로) 문서도 함께 삭제 — 기존 찜 데이터 호환
-        String legacyDocId = firebaseUid + "_" + storeId;
-        if (!legacyDocId.equals(docId)) {
-            db.collection("favorites").document(legacyDocId).delete().get();
+        DocumentSnapshot favorite = findFavoriteDocument(firebaseUid, storeId);
+        if (favorite != null) {
+            favorite.getReference().delete().get();
         }
     }
 
@@ -1119,7 +1277,7 @@ public class FirebaseService {
                     Map<String, Object> store = findGovStoreByName(storeName);
                     return com.howmuch.dto.FavoriteResponse.builder()
                             .id(doc.getId())
-                            .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                            .storeId(canonicalStoreIdForFavorite(data))
                             .storeName(storeName)
                             .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : null)
                             .industry(store != null ? strOrNull(store.get("industry")) : null)
@@ -1136,6 +1294,128 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
         return favorites;
+    }
+
+    private String canonicalStoreIdForFavorite(Map<String, Object> data) {
+        String storedStoreId = strOrNull(data.get("storeId"));
+        if (storedStoreId != null && storedStoreId.startsWith("store_")) {
+            return storedStoreId;
+        }
+        return stableStoreIdForData(data);
+    }
+
+    /** 찜 문서의 기존 storeId 형식까지 포함해 매장을 찾습니다. */
+    private DocumentSnapshot findFavoriteDocument(String firebaseUid, String storeId) throws Exception {
+        if (storeId == null || storeId.isBlank()) return null;
+
+        DocumentSnapshot direct = db.collection("favorites")
+                .document(favoriteDocId(firebaseUid, storeId)).get().get();
+        if (direct.exists() && firebaseUid.equals(direct.getString("userId"))) {
+            return direct;
+        }
+
+        String legacyDocId = firebaseUid + "_" + storeId;
+        if (!legacyDocId.equals(direct.getId())) {
+            DocumentSnapshot legacy = db.collection("favorites").document(legacyDocId).get().get();
+            if (legacy.exists() && firebaseUid.equals(legacy.getString("userId"))) {
+                return legacy;
+            }
+        }
+
+        // 기존 찜 문서가 매장명 기반 ID인 경우, 응답에 새 stable storeId를 사용해도 찾을 수 있게 합니다.
+        for (DocumentSnapshot candidate : db.collection("favorites")
+            .whereEqualTo("userId", firebaseUid).get().get().getDocuments()) {
+            Map<String, Object> data = candidate.getData();
+            String storedStoreId = strOrNull(data.get("storeId"));
+            String storeName = strOrNull(data.get("storeName"));
+            if (storeId.equals(storedStoreId)
+                    || storeId.equals(storeName)
+                    || storeId.equals(canonicalStoreIdForFavorite(data))) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    /** 매장별 가격 알림 화면에 필요한 찜 매장 목록 */
+    public List<PriceAlertSubscriptionDto> getPriceAlertSubscriptions(String firebaseUid)
+            throws Exception {
+        List<PriceAlertSubscriptionDto> subscriptions = new ArrayList<>();
+        NotificationSettingsDto settings = getNotificationSettings(firebaseUid);
+        for (DocumentSnapshot favorite : db.collection("favorites")
+                .whereEqualTo("userId", firebaseUid).get().get().getDocuments()) {
+            Map<String, Object> data = favorite.getData();
+            String storeName = strOrNull(data.get("storeName"));
+            Map<String, Object> store = findGovStoreByName(storeName);
+            String menuName = store != null ? strOrNull(store.get("menu1")) : null;
+            String price = store != null ? strOrNull(store.get("price1")) : null;
+            subscriptions.add(PriceAlertSubscriptionDto.builder()
+                    .storeId(canonicalStoreIdForFavorite(data))
+                    .storeName(storeName != null && !storeName.isBlank() ? storeName : "매장명 없음")
+                    .menuName(menuName != null && !menuName.isBlank() ? menuName : "가격 변동 알림")
+                    .price(price)
+                    .enabled(booleanOrDefault(data, "priceAlertEnabled", true))
+                    .notifyOnRise(Boolean.TRUE.equals(settings.getNotifyOnRise()))
+                    .notifyOnDrop(Boolean.TRUE.equals(settings.getNotifyOnDrop()))
+                    .notifyOnNewMenu(Boolean.TRUE.equals(settings.getNotifyOnNewMenu()))
+                    .build());
+        }
+        subscriptions.sort(Comparator.comparing(
+                PriceAlertSubscriptionDto::getStoreName,
+                String.CASE_INSENSITIVE_ORDER));
+        return subscriptions;
+    }
+
+    /** 찜한 매장에 대해서만 가격 알림 구독 상태를 변경합니다. */
+    public PriceAlertSubscriptionDto savePriceAlertSubscription(
+            String firebaseUid,
+            PriceAlertSubscriptionRequest request) throws Exception {
+        if (request == null || request.getStoreId() == null || request.getStoreId().isBlank()) {
+            throw new IllegalArgumentException("storeId는 필수입니다.");
+        }
+        if (request.getEnabled() == null) {
+            throw new IllegalArgumentException("enabled는 필수입니다.");
+        }
+
+        DocumentSnapshot favorite = findFavoriteDocument(firebaseUid, request.getStoreId());
+        if (favorite == null) {
+            throw new NoSuchElementException("찜한 매장을 찾을 수 없습니다.");
+        }
+        favorite.getReference().update("priceAlertEnabled", request.getEnabled()).get();
+
+        if (request.getNotifyOnRise() != null
+                || request.getNotifyOnDrop() != null
+                || request.getNotifyOnNewMenu() != null) {
+            Map<String, Object> conditionUpdates = new HashMap<>();
+            if (request.getNotifyOnRise() != null) {
+                conditionUpdates.put("notifyOnRise", request.getNotifyOnRise());
+            }
+            if (request.getNotifyOnDrop() != null) {
+                conditionUpdates.put("notifyOnDrop", request.getNotifyOnDrop());
+            }
+            if (request.getNotifyOnNewMenu() != null) {
+                conditionUpdates.put("notifyOnNewMenu", request.getNotifyOnNewMenu());
+            }
+            db.collection("notification_settings").document(firebaseUid)
+                    .set(conditionUpdates, SetOptions.merge()).get();
+        }
+
+        Map<String, Object> data = new HashMap<>(favorite.getData());
+        data.put("priceAlertEnabled", request.getEnabled());
+        NotificationSettingsDto savedConditions = getNotificationSettings(firebaseUid);
+        String storeName = strOrNull(data.get("storeName"));
+        Map<String, Object> store = findGovStoreByName(storeName);
+        String menuName = store != null ? strOrNull(store.get("menu1")) : null;
+        return PriceAlertSubscriptionDto.builder()
+                .storeId(canonicalStoreIdForFavorite(data))
+                .storeName(storeName != null ? storeName : "매장명 없음")
+                .menuName(menuName != null && !menuName.isBlank() ? menuName : "가격 변동 알림")
+                .price(store != null ? strOrNull(store.get("price1")) : null)
+                .enabled(request.getEnabled())
+                .notifyOnRise(Boolean.TRUE.equals(savedConditions.getNotifyOnRise()))
+                .notifyOnDrop(Boolean.TRUE.equals(savedConditions.getNotifyOnDrop()))
+                .notifyOnNewMenu(Boolean.TRUE.equals(savedConditions.getNotifyOnNewMenu()))
+                .build();
     }
 
     // ==================== 절약 목표 (savings goal) ====================
@@ -1512,7 +1792,8 @@ public class FirebaseService {
         // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
         List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
 
-        // 가까운 순 상위 후보군 + 날짜 시드 셔플 (같은 날 안정적, 다음 날 순서 변경)
+        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
+        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
         List<Map<String, Object>> mainCandidates = nearestShuffled(mainPool, lat, lng, CANDIDATE_POOL_SIZE, dailySeed);
         List<Map<String, Object>> altCandidates = nearestShuffled(altMatched, lat, lng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
 
@@ -1523,6 +1804,11 @@ public class FirebaseService {
         addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
         if (chosen.size() < MAX_PICKS) {
             addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+        }
+
+        if (lat != null && lng != null) {
+            chosen.sort(java.util.Comparator.comparingDouble(
+                    store -> haversine(lat, lng, parseLat(store), parseLng(store))));
         }
 
         List<Map<String, Object>> picks = new ArrayList<>();
@@ -1645,7 +1931,7 @@ public class FirebaseService {
         return matched;
     }
 
-    /** 가까운 순 정렬 후 상위 limit개를 날짜 시드로 셔플 (위치 없으면 셔플만) */
+    /** 가까운 순 상위 limit개를 반환한다. 위치가 없을 때만 날짜 시드로 섞는다. */
     private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
                                                       Double lat, Double lng, int limit, long seed) {
         List<Map<String, Object>> scored = new ArrayList<>(pool);
@@ -1653,11 +1939,13 @@ public class FirebaseService {
             scored.sort((a, b) -> Double.compare(
                     haversine(lat, lng, parseLat(a), parseLng(a)),
                     haversine(lat, lng, parseLat(b), parseLng(b))));
-            if (scored.size() > limit) {
-                scored = new ArrayList<>(scored.subList(0, limit));
-            }
         }
-        Collections.shuffle(scored, new Random(seed));
+        if (scored.size() > limit) {
+            scored = new ArrayList<>(scored.subList(0, limit));
+        }
+        if (lat == null || lng == null) {
+            Collections.shuffle(scored, new Random(seed));
+        }
         return scored;
     }
 
@@ -2037,6 +2325,12 @@ public class FirebaseService {
                 .report(booleanOrDefault(data, "report", defaults.getReport()))
                 .price(booleanOrDefault(data, "price", defaults.getPrice()))
                 .todayPick(booleanOrDefault(data, "todayPick", defaults.getTodayPick()))
+                .notifyOnRise(booleanOrDefault(data, "notifyOnRise",
+                        Boolean.TRUE.equals(defaults.getNotifyOnRise())))
+                .notifyOnDrop(booleanOrDefault(data, "notifyOnDrop",
+                        Boolean.TRUE.equals(defaults.getNotifyOnDrop())))
+                .notifyOnNewMenu(booleanOrDefault(data, "notifyOnNewMenu",
+                        Boolean.TRUE.equals(defaults.getNotifyOnNewMenu())))
                 .quietHours(booleanOrDefault(data, "quietHours", defaults.getQuietHours()))
                 .quietStart(stringOrDefault(data, "quietStart", defaults.getQuietStart()))
                 .quietEnd(stringOrDefault(data, "quietEnd", defaults.getQuietEnd()))
@@ -2046,6 +2340,9 @@ public class FirebaseService {
     public NotificationSettingsDto saveNotificationSettings(
             String firebaseUid,
             NotificationSettingsDto requested) throws Exception {
+        DocumentSnapshot existing = db.collection("notification_settings")
+                .document(firebaseUid).get().get();
+        NotificationSettingsDto defaults = defaultNotificationSettings();
         boolean allEnabled = Boolean.TRUE.equals(requested.getReview())
                 && Boolean.TRUE.equals(requested.getReport())
                 && Boolean.TRUE.equals(requested.getPrice())
@@ -2056,6 +2353,18 @@ public class FirebaseService {
                 .report(requested.getReport())
                 .price(requested.getPrice())
                 .todayPick(requested.getTodayPick())
+                .notifyOnRise(requested.getNotifyOnRise() != null
+                        ? requested.getNotifyOnRise()
+                        : booleanOrDefault(existing.getData(), "notifyOnRise",
+                                Boolean.TRUE.equals(defaults.getNotifyOnRise())))
+                .notifyOnDrop(requested.getNotifyOnDrop() != null
+                        ? requested.getNotifyOnDrop()
+                        : booleanOrDefault(existing.getData(), "notifyOnDrop",
+                                Boolean.TRUE.equals(defaults.getNotifyOnDrop())))
+                .notifyOnNewMenu(requested.getNotifyOnNewMenu() != null
+                        ? requested.getNotifyOnNewMenu()
+                        : booleanOrDefault(existing.getData(), "notifyOnNewMenu",
+                                Boolean.TRUE.equals(defaults.getNotifyOnNewMenu())))
                 .quietHours(requested.getQuietHours())
                 .quietStart(requested.getQuietStart())
                 .quietEnd(requested.getQuietEnd())
@@ -2067,6 +2376,9 @@ public class FirebaseService {
         data.put("report", normalized.getReport());
         data.put("price", normalized.getPrice());
         data.put("todayPick", normalized.getTodayPick());
+        data.put("notifyOnRise", normalized.getNotifyOnRise());
+        data.put("notifyOnDrop", normalized.getNotifyOnDrop());
+        data.put("notifyOnNewMenu", normalized.getNotifyOnNewMenu());
         data.put("quietHours", normalized.getQuietHours());
         data.put("quietStart", normalized.getQuietStart());
         data.put("quietEnd", normalized.getQuietEnd());
@@ -2082,6 +2394,9 @@ public class FirebaseService {
                 .report(true)
                 .price(true)
                 .todayPick(true)
+                .notifyOnRise(true)
+                .notifyOnDrop(true)
+                .notifyOnNewMenu(false)
                 .quietHours(false)
                 .quietStart("22:00")
                 .quietEnd("08:00")

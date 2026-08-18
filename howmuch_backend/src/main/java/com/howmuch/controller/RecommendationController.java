@@ -45,6 +45,7 @@ public class RecommendationController {
             Map<String, Object> result = new HashMap<>();
             result.put("weather", weatherText);
             result.put("temp", temp);
+            result.put("fcstTime", weather.get("fcstTime"));
             result.put("weatherAvailable", weather.getOrDefault("available", false));
             result.put("picks", picks);
             return ResponseEntity.ok(result);
@@ -73,6 +74,7 @@ public class RecommendationController {
             result.put("route", routeText);
             result.put("weather", weatherText);
             result.put("temp", temp);
+            result.put("fcstTime", weather.get("fcstTime"));
             result.put("picks", picks);
             return ResponseEntity.ok(result);
         } catch (Exception e) {

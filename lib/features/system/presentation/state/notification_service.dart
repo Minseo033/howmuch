@@ -3,8 +3,44 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:http/http.dart' as http;
+
+String? notificationRouteForType(String type) {
+  final normalized = type.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+
+  switch (normalized) {
+    case '문의_답변':
+    case 'inquiry':
+    case 'inquiry_answer':
+      return AppRoutes.inquiryHistory;
+    case '가격_변동':
+    case 'price':
+    case 'price_change':
+    case 'price_alert':
+      return AppRoutes.priceAlertSubscription;
+    case '제보':
+    case '제보_승인':
+    case '제보_반려':
+    case 'report':
+    case 'report_approved':
+    case 'report_rejected':
+      return AppRoutes.myReportsV2;
+    case '새_댓글':
+    case 'feed_comment':
+    case '리뷰_반응':
+    case 'review_reaction':
+      return AppRoutes.communityFeed;
+    case '추천':
+    case '오늘의_픽':
+    case 'recommendation':
+    case 'today_pick':
+      return AppRoutes.todaysPick;
+    default:
+      return null;
+  }
+}
 
 @immutable
 class NotificationModel {
@@ -178,7 +214,10 @@ class NotificationApiService {
       );
     }
 
-    if (rawType == '가격 변동' || type == 'price' || type == 'price_change') {
+    if (rawType == '가격 변동' ||
+        type == 'price' ||
+        type == 'price_change' ||
+        type == 'price_alert') {
       return const _NotificationStyle(
         label: '가격 변동',
         tabCategory: '가격 변동',
@@ -188,6 +227,18 @@ class NotificationApiService {
         borderColor: Color.fromRGBO(249, 115, 22, 0.2),
         bgColor: Colors.white,
         categoryColor: Color(0xFFF97316),
+      );
+    }
+    if (type == 'feed_comment') {
+      return const _NotificationStyle(
+        label: '새 댓글',
+        tabCategory: '전체',
+        iconData: Icons.chat_bubble_outline_rounded,
+        iconColor: Color(0xFF2563EB),
+        iconBgColor: Color.fromRGBO(37, 99, 235, 0.09),
+        borderColor: Color(0xFFE5E7EB),
+        bgColor: Color(0xFFFAFBFC),
+        categoryColor: Color(0xFF2563EB),
       );
     }
     if (rawType == '제보 승인' ||

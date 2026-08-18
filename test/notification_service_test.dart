@@ -1,12 +1,43 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  group('notificationRouteForType', () {
+    test('maps backend and display notification types to destinations', () {
+      expect(
+        notificationRouteForType('INQUIRY_ANSWER'),
+        AppRoutes.inquiryHistory,
+      );
+      expect(
+        notificationRouteForType('가격 변동'),
+        AppRoutes.priceAlertSubscription,
+      );
+      expect(
+        notificationRouteForType('FEED_COMMENT'),
+        AppRoutes.communityFeed,
+      );
+      expect(
+        notificationRouteForType('RECOMMENDATION'),
+        AppRoutes.todaysPick,
+      );
+      expect(
+        notificationRouteForType('제보 반려'),
+        AppRoutes.myReportsV2,
+      );
+    });
+
+    test('leaves generic admin notifications without a destination', () {
+      expect(notificationRouteForType('admin'), isNull);
+      expect(notificationRouteForType('공지사항'), isNull);
+    });
+  });
+
   group('NotificationApiService', () {
     test(
       'API failure is exposed instead of returning sample notifications',
@@ -84,6 +115,44 @@ void main() {
       expect(notification.type, '문의 답변');
       expect(notification.tabCategory, '전체');
       expect(notification.isUnread, isTrue);
+    });
+
+    test('maps price alerts and feed comments from the backend contract', () async {
+      final service = NotificationApiService(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode([
+              {
+                'id': 'price-alert-1',
+                'title': '관심 매장 가격 변동',
+                'body': '찜하신 매장의 가격 변동 제보가 승인되었습니다!',
+                'type': 'PRICE_ALERT',
+                'isRead': false,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+              },
+              {
+                'id': 'feed-comment-1',
+                'title': '새로운 댓글',
+                'body': '회원님의 게시글에 새로운 댓글이 달렸습니다.',
+                'type': 'FEED_COMMENT',
+                'isRead': true,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+
+      final notifications = await service.fetchNotifications();
+
+      expect(notifications[0].type, '가격 변동');
+      expect(notifications[0].tabCategory, '가격 변동');
+      expect(notifications[0].isUnread, isTrue);
+      expect(notifications[1].type, '새 댓글');
+      expect(notifications[1].tabCategory, '전체');
+      expect(notifications[1].isUnread, isFalse);
     });
   });
 

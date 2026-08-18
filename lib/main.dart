@@ -1,3 +1,4 @@
+import 'package:mcp_toolkit/mcp_toolkit.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,7 +11,11 @@ import 'app/howmuch_app.dart';
 import 'core/network/api_client.dart';
 import 'features/system/presentation/state/push_notification_service.dart';
 
-void main() async {
+Future<void> main() async {
+  await MCPToolkitBinding.instance.bootstrapFlutter(runApp: _bootstrapApp);
+}
+
+Future<void> _bootstrapApp() async {
   // 💡 비동기 작업을 위해 초기화 보장
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -34,8 +39,12 @@ void main() async {
   await ApiClient.restoreSession();
 
   if (!kIsWeb) {
-    await Firebase.initializeApp();
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    try {
+      await Firebase.initializeApp();
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    } catch (e) {
+      debugPrint('Firebase 초기화 예외 처리 (앱 정상 계속 실행): $e');
+    }
   }
 
   usePathUrlStrategy();

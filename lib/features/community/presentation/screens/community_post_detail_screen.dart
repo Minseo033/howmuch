@@ -398,7 +398,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom / designScale;
     final composerBottomGap =
-        (keyboardInset > 0 ? keyboardInset : bottomOffset) + 34;
+        keyboardInset > 0 ? keyboardInset : (bottomOffset + 12);
     const composerTopPadding = 10.0;
     const composerHeight = 43.991;
     final replyTarget = _replyTarget;

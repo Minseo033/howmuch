@@ -324,6 +324,9 @@ Widget _appWithNotificationSettingsApi() {
       notificationSettingsApiServiceProvider.overrideWithValue(
         _FakeNotificationSettingsApiService(),
       ),
+      priceAlertApiServiceProvider.overrideWithValue(
+        _FakePriceAlertApiService(),
+      ),
     ],
     child: const HowmuchApp(),
   );
@@ -365,5 +368,46 @@ class _FakeNotificationSettingsApiService
   ) async {
     _settings = settings;
     return _settings;
+  }
+}
+
+class _FakePriceAlertApiService extends PriceAlertApiService {
+  _FakePriceAlertApiService()
+    : super(MockClient((_) async => http.Response('[]', 200)));
+
+  List<PriceAlertStore> _stores = const [
+    PriceAlertStore(
+      storeId: 'store-1',
+      storeName: '착한분식',
+      menuName: '김치찌개 5,500원',
+      enabled: true,
+    ),
+  ];
+
+  @override
+  Future<PriceAlertSettings> fetchSettings() async => PriceAlertSettings(
+    all: _stores.every((store) => store.enabled),
+    stores: _stores,
+    notifyOnDrop: true,
+    notifyOnRise: true,
+    notifyOnNewMenu: false,
+  );
+
+  @override
+  Future<PriceAlertStore> saveSubscription({
+    required String storeId,
+    required bool enabled,
+    required bool notifyOnRise,
+    required bool notifyOnDrop,
+    required bool notifyOnNewMenu,
+  }) async {
+    _stores = _stores
+        .map(
+          (store) => store.storeId == storeId
+              ? store.copyWith(enabled: enabled)
+              : store,
+        )
+        .toList(growable: false);
+    return _stores.single;
   }
 }
