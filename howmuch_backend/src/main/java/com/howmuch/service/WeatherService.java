@@ -15,6 +15,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +47,9 @@ public class WeatherService {
 
     /** 발표 후 API 제공까지의 지연 버퍼 (분) */
     private static final int PUBLISH_DELAY_MINUTES = 15;
+
+    /** 기상청 예보 시각과 사용자가 보는 한국 현지 시각을 맞춘다. */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     /** 기본 격자: 서울 (lat/lng 없거나 변환 실패 시) */
     private static final int DEFAULT_NX = 60;
@@ -80,7 +84,7 @@ public class WeatherService {
 
         try {
             // 발표 지연(+15분)을 반영해 "이미 제공 중인 가장 최근 발표분"을 고른다.
-            LocalDateTime effective = LocalDateTime.now().minusMinutes(PUBLISH_DELAY_MINUTES);
+            LocalDateTime effective = LocalDateTime.now(KST).minusMinutes(PUBLISH_DELAY_MINUTES);
             LocalDateTime base = latestBaseDateTime(effective);
             String baseDate = base.format(DATE_FMT);
             String baseTime = base.format(TIME_FMT);
@@ -124,7 +128,7 @@ public class WeatherService {
             }
 
             // 현재 시각과 가장 가까운 슬롯 선택 (현재~미래 우선, 없으면 가장 최근 과거)
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(KST);
             String bestKey = null;
             LocalDateTime bestTime = null;
             for (Map.Entry<String, Map<String, String>> e : slots.entrySet()) {

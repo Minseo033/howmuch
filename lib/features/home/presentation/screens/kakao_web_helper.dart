@@ -12,26 +12,41 @@ external JSString? _getKakaoMapBounds(JSString viewId);
 @JS('addMobileMarkers')
 external void _addMobileMarkers(JSString viewId, JSString jsonString);
 
-void registerWebCallbacks(void Function() onIdle, void Function(int) onClick) {
+void registerWebCallbacks(
+  void Function() onIdle,
+  void Function(int) onClick,
+  void Function() onMapReady,
+) {
   globalContext.setProperty('onKakaoMapIdle'.toJS, onIdle.toJS);
   globalContext.setProperty('onKakaoMarkerClick'.toJS, onClick.toJS);
+  globalContext.setProperty('onKakaoMapReady'.toJS, onMapReady.toJS);
 }
 
 @JS('setKakaoMapCenter')
 external void _setKakaoMapCenter(JSString viewId, JSNumber lat, JSNumber lng);
 
 @JS('setKakaoMapCenterFromSwipe')
-external void _setKakaoMapCenterFromSwipe(JSString viewId, JSNumber lat, JSNumber lng);
+external void _setKakaoMapCenterFromSwipe(
+  JSString viewId,
+  JSNumber lat,
+  JSNumber lng,
+);
 
 @JS('updateUserLocationMarker')
-external void _updateUserLocationMarker(JSString viewId, JSNumber lat, JSNumber lng);
+external void _updateUserLocationMarker(
+  JSString viewId,
+  JSNumber lat,
+  JSNumber lng,
+);
 
 @JS('eval')
 external void _eval(JSString code);
 
 void _injectJsBypass() {
-  _eval('''
+  _eval(
+    '''
     window.kakaoLoadWaitCount = 0;
+    window.kakaoMapObjects = window.kakaoMapObjects || {};
     window.initKakaoMap = function(containerId, lat, lng) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
         window.kakaoLoadWaitCount++;
@@ -76,6 +91,8 @@ void _injectJsBypass() {
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
           if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
         });
+
+        if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
       });
     };
 
@@ -175,7 +192,9 @@ void _injectJsBypass() {
         }
       });
     };
-  '''.toJS);
+  '''
+        .toJS,
+  );
 }
 
 void registerKakaoWebViewFactory(String viewId) {

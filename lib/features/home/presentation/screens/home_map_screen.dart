@@ -57,6 +57,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final String _kakaoJsKey = '949e657c37f55074dbb2a14ceb273e2b';
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
+  bool _isMapReady = false;
+  Position? _pendingMapPosition;
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
@@ -109,10 +111,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     super.initState();
     _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
-    WidgetsBinding.instance.addPostFrameCallback((_) => _moveToCurrentLocation());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _moveToCurrentLocation(),
+    );
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
-      web_helper.registerWebCallbacks(_searchInCurrentArea, _onMarkerClicked);
+      web_helper.registerWebCallbacks(
+        _searchInCurrentArea,
+        _onMarkerClicked,
+        _onMapReady,
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
     } else {
       _initMobileController();
@@ -155,13 +163,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
 
           if (kIsWeb) {
-            debugPrint('웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.');
+            debugPrint(
+              '웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.',
+            );
           } else {
             debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
           }
         }
       } else {
-        throw Exception('API responded with status code: ${response.statusCode}');
+        throw Exception(
+          'API responded with status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       debugPrint('전체 매장 로드 실패: $e');
@@ -204,7 +216,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         onMessageReceived: (JavaScriptMessage message) {
           debugPrint('WebView: ${message.message}');
           if (message.message == 'Map Initialized on Mobile') {
-            _moveToCurrentLocation();
+            _onMapReady();
+            unawaited(_moveToCurrentLocation());
           }
           if (message.message.startsWith('BOUNDS:')) {
             _boundsDebouncer?.cancel();
@@ -488,9 +501,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!mounted) return;
       try {
         web_helper.initKakaoWebMap(_viewId);
-        setState(() {
-          _isMapInitialized = true;
-        });
         _moveToCurrentLocation();
         // 💡 카카오맵 SDK 로드는 비동기라, 맵 객체 등록 전에 호출된
         // 중심 이동/위치 마커 갱신이 무시될 수 있습니다.
@@ -617,10 +627,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _storeUserPosition(Position position) {
     _lastKnownPosition = position;
     HomeMapScreen.globalUserPosition = position;
+    if (!_isMapReady) {
+      _pendingMapPosition = position;
+      return;
+    }
     _updateLocationMarker(position.latitude, position.longitude);
   }
 
+  void _onMapReady() {
+    if (!mounted) return;
+
+    _isMapReady = true;
+    if (kIsWeb && !_isMapInitialized) {
+      setState(() => _isMapInitialized = true);
+    }
+    _flushPendingMapPosition();
+  }
+
+  void _flushPendingMapPosition() {
+    if (!_isMapReady) return;
+
+    final position = _pendingMapPosition ?? _lastKnownPosition;
+    if (position == null) return;
+
+    _pendingMapPosition = null;
+    _updateLocationMarker(position.latitude, position.longitude);
+    _centerMapOnPosition(position);
+  }
+
   void _centerMapOnPosition(Position position) {
+    if (!_isMapReady) {
+      _pendingMapPosition = position;
+      return;
+    }
+
     if (kIsWeb) {
       web_helper.setKakaoMapCenterWeb(
         _viewId,
@@ -643,9 +683,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.updateUserLocationMarkerWeb(_viewId, lat, lng);
     } else {
-      _safeRunJavaScript(
-        'updateUserLocationMarker(${lat}, ${lng});',
-      );
+      _safeRunJavaScript('updateUserLocationMarker(${lat}, ${lng});');
     }
   }
 
@@ -701,9 +739,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_webViewController != null) {
         final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-        _safeRunJavaScript(
-          'addMobileMarkers($jsStringLiteral);',
-        );
+        _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
       }
 
       if (markerList.isEmpty && mounted) {
@@ -753,11 +789,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         'maxLng': '$maxLng',
       });
 
-      final response = await http.get(
-        url,
-        headers: {'Accept': 'application/json'},
-      ).timeout(const Duration(seconds: 5));
-      
+      final response = await http
+          .get(url, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 5));
+
       List<Store> fetchedStores = [];
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
@@ -836,8 +871,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_searchFilter.sortOrder == '저렴한순') {
         stores.sort((a, b) {
-          final pa = int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
-          final pb = int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ?? 999999;
+          final pa =
+              int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
+          final pb =
+              int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
+              999999;
           return pa.compareTo(pb);
         });
       } else {
@@ -891,7 +930,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return Stack(
       children: [
         Positioned.fill(
-          child: HtmlElementView(key: const ValueKey('kakao-map-web'), viewType: _viewId),
+          child: HtmlElementView(
+            key: const ValueKey('kakao-map-web'),
+            viewType: _viewId,
+          ),
         ),
         if (!_isMapInitialized)
           const Center(child: CircularProgressIndicator()),
@@ -1574,7 +1616,7 @@ class _TodayPickText extends StatelessWidget {
             ),
             const SizedBox(width: 5.994),
             Text(
-              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월','화','수','목','금','토','일'][DateTime.now().weekday - 1]}',
+              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
               style: TextStyle(
                 color: HomeMapScreen.muted,
                 fontFamily: HomeMapScreen.fontFamily,
