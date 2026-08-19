@@ -8,6 +8,7 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReferencePrices;
 import com.howmuch.service.ReceiptOcrService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -39,6 +40,7 @@ public class VisitController {
     private final FirebaseService firebaseService;
     private final ReceiptOcrService receiptOcrService;
 
+    @Autowired
     public VisitController(FirebaseService firebaseService, ReceiptOcrService receiptOcrService) {
         this.firebaseService = firebaseService;
         this.receiptOcrService = receiptOcrService;
