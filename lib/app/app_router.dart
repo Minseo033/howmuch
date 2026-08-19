@@ -103,19 +103,38 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: ReviewWriteScreen(store: state.extra as Store?),
         ),
       ),
-      _route(AppRoutes.priceHistory, const PriceHistoryScreen()),
+      GoRoute(
+        path: AppRoutes.priceHistory,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: PriceHistoryScreen(
+            store: state.extra is Store ? state.extra as Store : null,
+          ),
+        ),
+      ),
       GoRoute(
         path: AppRoutes.priceChangeReport,
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: PriceChangeReportScreen(
-            storeName: state.extra is String
+            store: state.extra is Store ? state.extra as Store : null,
+            storeName: state.extra is Store
+                ? (state.extra as Store).storeName
+                : state.extra is String
                 ? state.extra as String
                 : '매장 정보 없음',
           ),
         ),
       ),
-      _route(AppRoutes.storeInfoReport, const StoreInfoReportScreen()),
+      GoRoute(
+        path: AppRoutes.storeInfoReport,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: StoreInfoReportScreen(
+            store: state.extra is Store ? state.extra as Store : null,
+          ),
+        ),
+      ),
       GoRoute(
         path: AppRoutes.visitVerification,
         pageBuilder: (_, state) {
@@ -154,15 +173,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               storeName: extra['storeName']?.toString() ?? '착한분식',
               address: extra['address']?.toString() ?? '서울시 강남구 역삼동',
               distanceLabel: extra['distanceLabel']?.toString() ?? '거리 정보 없음',
+              latitude: (extra['latitude'] as num?)?.toDouble(),
+              longitude: (extra['longitude'] as num?)?.toDouble(),
+              startLatitude: (extra['startLatitude'] as num?)?.toDouble(),
+              startLongitude: (extra['startLongitude'] as num?)?.toDouble(),
             ),
           );
         },
       ),
       _route(AppRoutes.myReviews, const MyReviewsScreen()),
       _route(AppRoutes.visitHistory, const VisitHistoryScreen()),
-      _route(
-        AppRoutes.favoriteCancelConfirm,
-        const FavoriteCancelConfirmScreen(),
+      GoRoute(
+        path: AppRoutes.favoriteCancelConfirm,
+        pageBuilder: (_, state) {
+          final extra = state.extra is Map ? state.extra as Map : const {};
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: FavoriteCancelConfirmScreen(
+              storeId: extra['storeId']?.toString() ?? '',
+              storeName: extra['storeName']?.toString() ?? '찜한 매장',
+            ),
+          );
+        },
       ),
       GoRoute(path: AppRoutes.root, redirect: (_, _) => AppRoutes.splash),
       _route(AppRoutes.splash, const SplashScreen()),

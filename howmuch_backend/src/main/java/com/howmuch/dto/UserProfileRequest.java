@@ -16,4 +16,6 @@ public class UserProfileRequest {
     private String email;
     private String region;
     private List<String> favoriteCategories;
+    private Boolean nicknamePublic;
+    private Boolean activityPublic;
 }

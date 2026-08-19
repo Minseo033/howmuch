@@ -60,17 +60,11 @@ class NetworkErrorScreen extends StatelessWidget {
                       label: '다시 시도',
                       onPressed: () => context.go(AppRoutes.splash),
                     ),
-                    const SizedBox(height: 10),
-                    _SecondaryButton(
-                      label: '오프라인 저장 매장 보기',
-                      onPressed: () {
-                        // TODO(BE): 오프라인 저장 매장 API/로컬 캐시가 붙으면 해당 목록 화면으로 연결하세요.
-                        final messenger = ScaffoldMessenger.of(context);
-                        context.go(AppRoutes.home);
-                        messenger.showSnackBar(
-                          const SnackBar(content: Text('저장된 매장 목록으로 이동했어요.')),
-                        );
-                      },
+                    const SizedBox(height: 14),
+                    const Text(
+                      '오프라인 저장 기능은 아직 준비 중이에요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: muted, fontSize: 13),
                     ),
                   ],
                 ),
@@ -136,39 +130,6 @@ class _PrimaryButton extends StatelessWidget {
             fontFamilyFallback: NetworkErrorScreen.fontFallback,
             fontSize: 15,
             fontWeight: FontWeight.w700,
-            height: 1.5,
-          ),
-        ),
-        child: Text(label),
-      ),
-    );
-  }
-}
-
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({required this.label, required this.onPressed});
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          backgroundColor: NetworkErrorScreen.surface,
-          foregroundColor: NetworkErrorScreen.muted,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: const TextStyle(
-            fontFamily: NetworkErrorScreen.fontFamily,
-            fontFamilyFallback: NetworkErrorScreen.fontFallback,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
             height: 1.5,
           ),
         ),

@@ -19,6 +19,7 @@ import 'package:howmuch/features/search/presentation/screens/search_result_scree
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
@@ -65,6 +66,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Store> _allStores = [];
   bool _isAllStoresLoaded = false;
   bool _hasLoadError = false;
+  bool _usingCachedStores = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
@@ -131,6 +133,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<void> _fetchAllStores() async {
     // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
     final url = ApiClient.uri('/api/stores/all');
+    await _restoreCachedStores();
     try {
       final response = await http
           .get(url, headers: {'Accept': 'application/json'})
@@ -160,7 +163,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _allStores = parsedStores;
             HomeMapScreen.globalAllStores = _allStores;
             _isAllStoresLoaded = true;
+            _usingCachedStores = false;
+            _hasLoadError = false;
           });
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+            'howmuch.store_cache.v1',
+            jsonEncode(parsedStores.map((store) => store.toJson()).toList()),
+          );
           debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
 
           if (kIsWeb) {
@@ -180,9 +190,33 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       debugPrint('전체 매장 로드 실패: $e');
       if (mounted) {
         setState(() {
-          _hasLoadError = true;
+          _hasLoadError = !_isAllStoresLoaded;
         });
       }
+    }
+  }
+
+  Future<void> _restoreCachedStores() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('howmuch.store_cache.v1');
+      if (raw == null || raw.isEmpty) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return;
+      final cached = decoded
+          .whereType<Map>()
+          .map((item) => Store.fromJson(Map<String, dynamic>.from(item)))
+          .where((store) => store.latitude != 0 && store.longitude != 0)
+          .toList();
+      if (cached.isEmpty || !mounted) return;
+      setState(() {
+        _allStores = cached;
+        HomeMapScreen.globalAllStores = cached;
+        _isAllStoresLoaded = true;
+        _usingCachedStores = true;
+      });
+    } catch (error) {
+      debugPrint('저장된 매장 캐시 복원 실패: $error');
     }
   }
 
@@ -1080,6 +1114,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       Text(
                         _hasLoadError
                             ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.'
+                            : _usingCachedStores
+                            ? '저장된 매장 데이터로 먼저 보여드리고 있어요.'
                             : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
                         textAlign: TextAlign.center,
                         style: TextStyle(

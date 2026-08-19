@@ -70,6 +70,8 @@ class UserProfileApiService {
     required String email,
     required String region,
     required List<String> favoriteCategories,
+    bool? nicknamePublic,
+    bool? activityPublic,
   }) async {
     final url = ApiClient.uri('/api/user/profile');
     try {
@@ -82,6 +84,8 @@ class UserProfileApiService {
               'email': email,
               'region': region,
               'favoriteCategories': favoriteCategories,
+              if (nicknamePublic != null) 'nicknamePublic': nicknamePublic,
+              if (activityPublic != null) 'activityPublic': activityPublic,
             }),
           )
           .timeout(ApiClient.defaultTimeout);

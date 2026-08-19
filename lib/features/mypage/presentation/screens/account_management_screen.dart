@@ -5,6 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -109,7 +110,9 @@ class AccountManagementScreen extends ConsumerWidget {
                 height: 49.289772033691406,
                 child: _LogoutCard(
                   onTap: () async {
-                    // TODO(박지환 BE): 실제 로그아웃 API가 붙으면 서버 세션/refresh token을 먼저 폐기하세요.
+                    await ref
+                        .read(pushNotificationServiceProvider)
+                        .unregisterCurrentDevice();
                     await ApiClient.setSessionToken(null);
                     ref.read(authStateProvider.notifier).state = auth.copyWith(
                       isLoggedIn: false,

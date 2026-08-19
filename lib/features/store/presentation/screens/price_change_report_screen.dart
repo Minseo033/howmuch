@@ -3,28 +3,38 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/constants/feature_flags.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class PriceChangeReportScreen extends StatefulWidget {
+class PriceChangeReportScreen extends ConsumerStatefulWidget {
   final String storeName;
+  final Store? store;
 
   const PriceChangeReportScreen({
     super.key,
     this.storeName = '매장 정보 없음',
+    this.store,
   });
 
   @override
-  State<PriceChangeReportScreen> createState() =>
+  ConsumerState<PriceChangeReportScreen> createState() =>
       _PriceChangeReportScreenState();
 }
 
-class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
+class _PriceChangeReportScreenState
+    extends ConsumerState<PriceChangeReportScreen> {
   // 0: 가격 인상, 1: 가격 인하, 2: 메뉴 삭제, 3: 신규 메뉴
   int _selectedType = 0;
-  bool _isConfirmed = true;
+  bool _isConfirmed = false;
+  bool _isSubmitting = false;
 
   final _menuController = TextEditingController();
   final _priceController = TextEditingController();
@@ -39,6 +49,89 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
 
   final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
+
+  String get _changeType => _changeTypes[_selectedType]['value']!;
+
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
+    final menu = _menuController.text.trim();
+    final price = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final description = _descController.text.trim();
+    if (!ApiClient.isAuthenticated) {
+      _showMessage('가격 변동 제보는 로그인 후 이용할 수 있어요.');
+      return;
+    }
+    if (menu.isEmpty) {
+      _showMessage('변경된 메뉴를 입력해주세요.');
+      return;
+    }
+    if (_selectedType != 2 && (price.isEmpty || int.tryParse(price) == 0)) {
+      _showMessage('변경된 가격을 입력해주세요.');
+      return;
+    }
+    if (!_isConfirmed) {
+      _showMessage('메뉴판 가격을 직접 확인했다는 항목을 체크해주세요.');
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    var uploadedImageUrls = <String>[];
+    try {
+      final reportService = ref.read(reportServiceProvider);
+      if (FeatureFlags.reportImageUploadEnabled && _selectedImages.isNotEmpty) {
+        uploadedImageUrls = await reportService.uploadReportImages(
+          _selectedImages,
+        );
+      }
+      final store = widget.store;
+      final report = UserReport(
+        storeId: store?.id ?? '',
+        storeName: store?.storeName ?? widget.storeName,
+        industry: store?.industry ?? '',
+        address: store?.address ?? '',
+        phoneNumber: store?.phoneNumber ?? '',
+        menu1: menu,
+        price1: _selectedType == 2 ? '' : price,
+        imageUrls: uploadedImageUrls,
+        reporterId: '',
+        visitedRecently: true,
+        checkedMenuPrice: true,
+        changeType: _changeType,
+        description: description,
+        latitude: store?.latitude ?? 0,
+        longitude: store?.longitude ?? 0,
+      );
+      await reportService.submitReport(report);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+      );
+      context.pop();
+    } on ReportServiceException catch (error) {
+      if (uploadedImageUrls.isNotEmpty) {
+        await ref
+            .read(reportServiceProvider)
+            .cleanupReportImages(uploadedImageUrls);
+      }
+      if (mounted) _showMessage(error.message);
+    } catch (error) {
+      debugPrint('가격 변동 제보 오류: $error');
+      if (uploadedImageUrls.isNotEmpty) {
+        await ref
+            .read(reportServiceProvider)
+            .cleanupReportImages(uploadedImageUrls);
+      }
+      if (mounted) _showMessage('제보를 저장하지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   Future<void> _pickImages() async {
     if (_selectedImages.length >= 3) return;
@@ -64,90 +157,87 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 가격 변동 제보 API 연동
     return FigmaMobileCanvas(
       child: GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.white,
-        appBar: const CustomAppBar(title: '가격 변동 제보'),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 매장 카드
-                _buildStoreCard(),
-                const SizedBox(height: 24),
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          backgroundColor: AppColors.white,
+          appBar: const CustomAppBar(title: '가격 변동 제보'),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 매장 카드
+                  _buildStoreCard(),
+                  const SizedBox(height: 24),
 
-                // 변동 유형
-                const Text(
-                  '변동 유형',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 12),
-                _buildTypeGrid(),
-                const SizedBox(height: 24),
-
-                // 변경된 메뉴
-                const Text(
-                  '변경된 메뉴',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                _buildTextField(_menuController, '아메리카노'),
-                const SizedBox(height: 20),
-
-                // 변경된 가격 (삭제 유형 제외)
-                if (_selectedType != 2) ...[
+                  // 변동 유형
                   const Text(
-                    '변경된 가격',
+                    '변동 유형',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildTypeGrid(),
+                  const SizedBox(height: 24),
+
+                  // 변경된 메뉴
+                  const Text(
+                    '변경된 메뉴',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  _buildPriceField(),
+                  _buildTextField(_menuController, '아메리카노'),
+                  const SizedBox(height: 20),
+
+                  // 변경된 가격 (삭제 유형 제외)
+                  if (_selectedType != 2) ...[
+                    const Text(
+                      '변경된 가격',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildPriceField(),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // 메뉴판 사진
+                  const Text(
+                    '메뉴판 사진',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildPhotoButton(),
+                  const SizedBox(height: 20),
+
+                  // 설명
+                  const Text(
+                    '설명',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  _buildDescField(),
+                  const SizedBox(height: 16),
+
+                  // 확인 체크박스
+                  _buildCheckbox(),
                   const SizedBox(height: 20),
                 ],
-
-                // 메뉴판 사진
-                const Text(
-                  '메뉴판 사진',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                _buildPhotoButton(),
-                const SizedBox(height: 20),
-
-                // 설명
-                const Text(
-                  '설명',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                _buildDescField(),
-                const SizedBox(height: 16),
-
-                // 확인 체크박스
-                _buildCheckbox(),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: CustomBottomButton(
-          text: '가격 변동 제보하기',
-          backgroundColor: AppColors.orangeTheme,
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
-            );
-            context.pop();
-          },
+          bottomNavigationBar: CustomBottomButton(
+            text: _isSubmitting ? '제보 저장 중...' : '가격 변동 제보하기',
+            backgroundColor: AppColors.orangeTheme,
+            onPressed: _isSubmitting ? null : _submit,
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -167,8 +257,11 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.storeName,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  widget.store?.storeName ?? widget.storeName,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -203,32 +296,32 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
       children: List.generate(_changeTypes.length, (i) {
         final selected = _selectedType == i;
         return FigmaMobileCanvas(
-      child: GestureDetector(
-          onTap: () => setState(() => _selectedType = i),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? AppColors.orangeLight : AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: selected
-                    ? AppColors.orangeTheme
-                    : Colors.grey.shade300,
-                width: selected ? 2 : 1,
+          child: GestureDetector(
+            onTap: () => setState(() => _selectedType = i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.orangeLight : AppColors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: selected
+                      ? AppColors.orangeTheme
+                      : Colors.grey.shade300,
+                  width: selected ? 2 : 1,
+                ),
               ),
-            ),
-            child: Text(
-              _changeTypes[i]['label']!,
-              style: TextStyle(
-                color: selected ? AppColors.orangeTheme : Colors.black87,
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14,
+              child: Text(
+                _changeTypes[i]['label']!,
+                style: TextStyle(
+                  color: selected ? AppColors.orangeTheme : Colors.black87,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  fontSize: 14,
+                ),
               ),
             ),
           ),
-        ),
-    );
+        );
       }),
     );
   }
@@ -357,7 +450,11 @@ class _PriceChangeReportScreenState extends State<PriceChangeReportScreen> {
                         color: Colors.black54,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 14),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 14,
+                      ),
                     ),
                   ),
                 ),

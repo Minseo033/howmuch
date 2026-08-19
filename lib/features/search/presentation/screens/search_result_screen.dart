@@ -135,27 +135,34 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 거리 필터링
       if (_filter.distance != null && _filter.distance!.isNotEmpty) {
         final pos = howmuch_home.HomeMapScreen.globalUserPosition;
-        if (pos != null) {
-          double maxDist = 0;
-          if (_filter.distance == '500m 이내') {
-            maxDist = 500;
-          } else if (_filter.distance == '1km 이내') {
-            maxDist = 1000;
-          } else if (_filter.distance == '3km 이내') {
-            maxDist = 3000;
+        if (pos == null) {
+          if (mounted) {
+            setState(() {
+              _results = [];
+              _errorMessage = '거리 필터를 사용하려면 현재 위치 권한이 필요해요.';
+            });
           }
+          return;
+        }
+        double maxDist = 0;
+        if (_filter.distance == '500m 이내') {
+          maxDist = 500;
+        } else if (_filter.distance == '1km 이내') {
+          maxDist = 1000;
+        } else if (_filter.distance == '3km 이내') {
+          maxDist = 3000;
+        }
 
-          if (maxDist > 0) {
-            stores = stores.where((s) {
-              final d = Geolocator.distanceBetween(
-                pos.latitude,
-                pos.longitude,
-                s.latitude,
-                s.longitude,
-              );
-              return d <= maxDist;
-            }).toList();
-          }
+        if (maxDist > 0) {
+          stores = stores.where((s) {
+            final d = Geolocator.distanceBetween(
+              pos.latitude,
+              pos.longitude,
+              s.latitude,
+              s.longitude,
+            );
+            return d <= maxDist;
+          }).toList();
         }
       }
 

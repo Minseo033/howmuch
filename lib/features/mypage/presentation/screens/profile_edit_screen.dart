@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -34,6 +35,39 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   late bool _nicknamePublic;
   late bool _activityPublic;
   bool _loaded = false;
+  bool _isSaving = false;
+
+  Future<void> _saveProfile() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    final profile = ref.read(userProfileProvider);
+    final saved = await UserProfileApiService().saveProfile(
+      nickname: profile.nickname,
+      email: profile.email,
+      region: profile.region,
+      favoriteCategories: profile.favoriteCategories,
+      nicknamePublic: _nicknamePublic,
+      activityPublic: _activityPublic,
+    );
+    if (!mounted) return;
+    if (!saved) {
+      setState(() => _isSaving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프로필 저장에 실패했어요. 다시 시도해주세요.')),
+      );
+      return;
+    }
+    ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      nicknamePublic: _nicknamePublic,
+      activityPublic: _activityPublic,
+    );
+    setState(() => _isSaving = false);
+    if (!context.mounted) return;
+    context.go(AppRoutes.mypage);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('프로필을 저장했어요.')));
+  }
 
   @override
   void didChangeDependencies() {
@@ -155,20 +189,12 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             height: footerHeight,
             child: _StickyButton(
               safeBottom: bottomOffset,
-              label: '저장하기',
-              onPressed: () {
-                final messenger = ScaffoldMessenger.of(context);
-                // TODO(박지환 BE): 프로필 수정 API가 붙으면 공개 설정과 지역/닉네임 변경값을 서버에 저장하세요.
-                ref.read(userProfileProvider.notifier).state = profile.copyWith(
-                  nicknamePublic: _nicknamePublic,
-                  activityPublic: _activityPublic,
-                );
-                messenger.clearSnackBars();
-                context.go(AppRoutes.mypage);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('프로필을 저장했어요.')),
-                );
-              },
+              label: _isSaving ? '저장 중...' : '저장하기',
+              onPressed: _isSaving
+                  ? () {}
+                  : () {
+                      _saveProfile();
+                    },
             ),
           ),
         ],

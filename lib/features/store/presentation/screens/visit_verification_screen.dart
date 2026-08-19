@@ -8,6 +8,7 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -33,6 +34,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   final _menuController = TextEditingController();
   bool _isSubmitting = false;
   bool _isCheckingLocation = false;
+  bool _isSubmittingReceipt = false;
+  XFile? _receiptImage;
   double? _distanceMeters;
   double? _currentLatitude;
   double? _currentLongitude;
@@ -43,6 +46,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   int? _estimatedSaved;
   int? _referencePrice;
   bool _matchedByMenu = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   String get _storeName => widget.store?.storeName ?? widget.storeName;
 
@@ -343,34 +347,136 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
-      child: const Row(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.receipt_long_rounded, color: AppColors.muted, size: 24),
-          SizedBox(width: 14),
+          const Icon(
+            Icons.receipt_long_rounded,
+            color: AppColors.primary,
+            size: 24,
+          ),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   '영수증 인증',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
-                  '개인정보 보관 정책을 준비하고 있어요. 현재는 위치 인증만 제공됩니다.',
-                  style: TextStyle(
+                  _receiptImage == null
+                      ? '영수증 사진을 제출하면 관리자 확인 후 방문 기록으로 반영돼요.'
+                      : '영수증 사진이 선택되었습니다. 결제 금액을 입력한 뒤 제출하세요.',
+                  style: const TextStyle(
                     color: AppColors.muted,
                     fontSize: 12,
                     height: 1.4,
                   ),
                 ),
+                if (_receiptImage != null && !_isSubmittingReceipt) ...[
+                  const SizedBox(height: 6),
+                  TextButton.icon(
+                    onPressed: _submitReceipt,
+                    icon: const Icon(Icons.send_rounded, size: 15),
+                    label: const Text('영수증 제출'),
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: const Size(0, 30),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          Text('준비 중', style: TextStyle(color: AppColors.muted, fontSize: 12)),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: '영수증 사진 선택',
+            onPressed: _isSubmittingReceipt ? null : _pickReceiptImage,
+            icon: Icon(
+              _receiptImage == null
+                  ? Icons.add_a_photo_outlined
+                  : Icons.change_circle_outlined,
+              color: AppColors.primary,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _pickReceiptImage() async {
+    final image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+    );
+    if (!mounted || image == null) return;
+    setState(() => _receiptImage = image);
+    await _submitReceipt();
+  }
+
+  Future<void> _submitReceipt() async {
+    final image = _receiptImage;
+    final store = widget.store;
+    if (image == null || store == null || _isSubmittingReceipt) return;
+    if (!ApiClient.isAuthenticated) {
+      setState(() => _receiptImage = null);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')));
+      return;
+    }
+    final price = _priceValue;
+    if (price <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('영수증 인증 전에 결제 금액을 입력해주세요.')));
+      return;
+    }
+    setState(() => _isSubmittingReceipt = true);
+    try {
+      final request =
+          http.MultipartRequest('POST', ApiClient.uri('/api/visits/receipt'))
+            ..headers.addAll(ApiClient.jsonHeaders(auth: true))
+            ..fields['storeId'] = store.id
+            ..fields['storeName'] = store.storeName
+            ..fields['menu'] = _menuController.text.trim()
+            ..fields['price'] = price.toString();
+      final bytes = await image.readAsBytes();
+      request.files.add(
+        http.MultipartFile.fromBytes('images', bytes, filename: 'receipt.jpg'),
+      );
+      final response = await request.send().timeout(ApiClient.defaultTimeout);
+      final body = await response.stream.bytesToString();
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('영수증 제출 실패 ${response.statusCode} $body');
+      }
+      final responseData = jsonDecode(body) as Map<String, dynamic>;
+      final status = responseData['status']?.toString().toUpperCase();
+      if (!mounted) return;
+      setState(() => _receiptImage = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            status == 'APPROVED'
+                ? '영수증 인증이 완료되어 방문 기록에 반영됐어요.'
+                : '영수증 인증을 신청했어요. 관리자 확인 후 반영됩니다.',
+          ),
+        ),
+      );
+    } catch (error) {
+      debugPrint('영수증 인증 오류: $error');
+      if (mounted) {
+        setState(() => _receiptImage = null);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmittingReceipt = false);
+    }
   }
 
   /// 메뉴 · 결제 금액 입력 (방문 인증 시 절약 금액 계산에 사용)

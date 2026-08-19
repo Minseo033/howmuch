@@ -97,6 +97,67 @@ public class AdminController {
         }
     }
 
+    /** 영수증 인증 목록 조회 (GET /api/admin/receipts?status=PENDING) */
+    @GetMapping("/receipts")
+    public ResponseEntity<?> getReceiptVerifications(
+            @RequestParam(defaultValue = "PENDING") String status,
+            HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        try {
+            String filter = "ALL".equalsIgnoreCase(status) ? null : status.toUpperCase();
+            return ResponseEntity.ok(firebaseService.getReceiptVerifications(filter));
+        } catch (Exception e) {
+            log.error("[AdminController] 영수증 인증 목록 조회 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "영수증 인증 목록을 불러오지 못했습니다."));
+        }
+    }
+
+    /** 영수증 인증 승인 및 방문 기록 생성 */
+    @PostMapping("/receipts/{id}/approve")
+    public ResponseEntity<?> approveReceipt(
+            @PathVariable String id, HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        try {
+            return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 영수증 인증 승인 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "영수증 인증 승인에 실패했습니다."));
+        }
+    }
+
+    /** 영수증 인증 반려 */
+    @PostMapping("/receipts/{id}/reject")
+    public ResponseEntity<?> rejectReceipt(
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        String reason = body == null ? null : body.get("reason");
+        if (reason == null || reason.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "반려 사유(reason)는 필수입니다."));
+        }
+        try {
+            firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
+            return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 영수증 인증 반려 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "영수증 인증 반려에 실패했습니다."));
+        }
+    }
+
     /** 대시보드 개요 지표 (GET /api/admin/overview) */
     @GetMapping("/overview")
     public ResponseEntity<?> getOverview(HttpServletRequest httpRequest) {

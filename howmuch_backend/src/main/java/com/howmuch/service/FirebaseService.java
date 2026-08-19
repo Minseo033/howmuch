@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -287,6 +288,72 @@ public class FirebaseService {
         return combined;
     }
 
+    /** 매장 상세의 가격 이력 조회. 승인된 가격 변동 제보만 공개합니다. */
+    public Map<String, Object> getPriceHistory(String storeIdentity, String menuName) throws Exception {
+        Map<String, Object> store = Stream.concat(cachedStores.stream(), cachedUserStores.stream())
+                .map(this::withStableStoreId)
+                .filter(item -> storeIdentity.equals(String.valueOf(item.get("storeId")))
+                        || storeIdentity.equals(String.valueOf(item.get("storeName"))))
+                .findFirst()
+                .orElse(null);
+        if (store == null) {
+            throw new NoSuchElementException("매장을 찾을 수 없습니다.");
+        }
+
+        String resolvedMenu = menuName == null || menuName.isBlank()
+                ? firstMenu(store)
+                : menuName.trim();
+        String currentPrice = findMenuPrice(store, resolvedMenu);
+        List<Map<String, Object>> history = new ArrayList<>();
+
+        for (DocumentSnapshot document : db.collection("stores_user").get().get().getDocuments()) {
+            Map<String, Object> report = document.getData();
+            if (report == null || !isPubliclyVisible(report)) continue;
+            Map<String, Object> normalized = withStableStoreId(report);
+            if (!String.valueOf(store.get("storeId")).equals(String.valueOf(normalized.get("storeId")))) {
+                continue;
+            }
+            if (!resolvedMenu.equals(String.valueOf(report.getOrDefault("menu1", "")).trim())) {
+                continue;
+            }
+            String price = String.valueOf(report.getOrDefault("price1", "")).trim();
+            if (price.isBlank() && !"delete".equals(report.get("changeType"))) continue;
+            Map<String, Object> item = new HashMap<>();
+            item.put("price", price);
+            item.put("source", "USER");
+            item.put("description", stringOrDefault(report, "description", "사용자 제보 반영"));
+            item.put("date", stringOrDefault(report, "createdAt", ""));
+            item.put("changeType", stringOrDefault(report, "changeType", ""));
+            history.add(item);
+        }
+        history.sort((a, b) -> String.valueOf(b.get("date")).compareTo(String.valueOf(a.get("date"))));
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("storeId", store.get("storeId"));
+        result.put("storeName", store.getOrDefault("storeName", ""));
+        result.put("menuName", resolvedMenu);
+        result.put("currentPrice", currentPrice);
+        result.put("history", history);
+        return result;
+    }
+
+    private String firstMenu(Map<String, Object> store) {
+        for (int index = 1; index <= 4; index++) {
+            String menu = strOrNull(store.get("menu" + index));
+            if (menu != null && !menu.isBlank()) return menu;
+        }
+        return "대표 메뉴";
+    }
+
+    private String findMenuPrice(Map<String, Object> store, String menuName) {
+        for (int index = 1; index <= 4; index++) {
+            if (menuName.equals(String.valueOf(store.getOrDefault("menu" + index, "")).trim())) {
+                return String.valueOf(store.getOrDefault("price" + index, ""));
+            }
+        }
+        return "";
+    }
+
     /**
      * 사용자 제보 매장이 공개 지도에 노출 가능한지 판별.
      * APPROVED(어드민 승인) 또는 status 필드가 없는 레거시 제볼만 true.
@@ -485,6 +552,112 @@ public class FirebaseService {
             }
             throw e;
         }
+    }
+
+    /** 영수증 사진과 OCR 판독 결과를 저장합니다. 자동 승인 후보가 아니면 PENDING으로 남습니다. */
+    public String saveReceiptVerification(
+            String firebaseUid,
+            String storeId,
+            String storeName,
+            String menu,
+            long price,
+            List<String> imageUrls,
+            ReceiptOcrService.Result ocrResult) throws Exception {
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            throw new SecurityException("로그인이 필요합니다.");
+        }
+        if (imageUrls == null || imageUrls.isEmpty()) {
+            throw new IllegalArgumentException("영수증 사진이 필요합니다.");
+        }
+        Map<String, Object> data = new HashMap<>();
+        data.put("userId", firebaseUid);
+        data.put("storeId", storeId);
+        data.put("storeName", storeName);
+        data.put("menu", menu);
+        data.put("price", price);
+        data.put("imageUrls", imageUrls);
+        data.put("status", "PENDING");
+        data.put("createdAt", java.time.Instant.now().toString());
+        if (ocrResult != null) {
+            data.put("ocrProviderAvailable", ocrResult.providerAvailable());
+            data.put("ocrStatus", ocrResult.status());
+            data.put("ocrDetectedTextLength", ocrResult.detectedTextLength());
+            data.put("ocrDetectedPrice", ocrResult.detectedPrice());
+            data.put("ocrStoreMatch", ocrResult.storeMatch());
+            data.put("ocrPriceMatch", ocrResult.priceMatch());
+            data.put("ocrScore", ocrResult.score());
+        }
+        DocumentReference document = db.collection("receipt_verifications").document();
+        document.set(data).get();
+        return document.getId();
+    }
+
+    // [어드민] 영수증 인증 목록 조회. 소량 컬렉션이라 복합 인덱스 없이 필터링합니다.
+    public List<Map<String, Object>> getReceiptVerifications(String status) throws Exception {
+        return db.collection("receipt_verifications").get().get().getDocuments().stream()
+                .map(doc -> {
+                    Map<String, Object> data = new HashMap<>(doc.getData());
+                    data.put("id", doc.getId());
+                    return data;
+                })
+                .filter(data -> status == null || status.isBlank()
+                        || status.equalsIgnoreCase(String.valueOf(data.getOrDefault("status", "PENDING"))))
+                .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
+                        .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
+                .toList();
+    }
+
+    /** 영수증 인증 승인 시 위치 인증 없이 방문 기록을 생성합니다. */
+    public Map<String, Object> approveReceiptVerification(String receiptId, String approvedBy) throws Exception {
+        DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
+        DocumentSnapshot snapshot = docRef.get().get();
+        if (!snapshot.exists()) throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+        String status = snapshot.getString("status");
+        if (status != null && !"PENDING".equalsIgnoreCase(status)) {
+            throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
+        }
+
+        String userId = snapshot.getString("userId");
+        String storeName = snapshot.getString("storeName");
+        Long price = snapshot.getLong("price");
+        if (userId == null || userId.isBlank() || storeName == null || storeName.isBlank() || price == null) {
+            throw new IllegalArgumentException("영수증 인증 데이터가 올바르지 않습니다.");
+        }
+        String menu = snapshot.getString("menu");
+        String industry = findIndustryByStoreName(storeName);
+        long savedAmount = ReferencePrices.savedAmount(menu, industry, price);
+        com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
+                .storeId(snapshot.getString("storeId"))
+                .storeName(storeName)
+                .menu(menu)
+                .price(price)
+                .verificationMethod("RECEIPT_OCR")
+                .build();
+        String visitId = saveVisit(userId, visitRequest, savedAmount);
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", "APPROVED");
+        updates.put("approvedBy", approvedBy == null ? "AUTO_OCR" : approvedBy);
+        updates.put("approvedAt", java.time.Instant.now().toString());
+        updates.put("visitId", visitId);
+        docRef.update(updates).get();
+        return Map.of("success", true, "id", receiptId, "status", "APPROVED", "visitId", visitId);
+    }
+
+    public void rejectReceiptVerification(String receiptId, String reason, String rejectedBy) throws Exception {
+        DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
+        DocumentSnapshot snapshot = docRef.get().get();
+        if (!snapshot.exists()) throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+        String status = snapshot.getString("status");
+        if (status != null && !"PENDING".equalsIgnoreCase(status)) {
+            throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", "REJECTED");
+        updates.put("rejectReason", reason);
+        updates.put("rejectedBy", rejectedBy);
+        updates.put("rejectedAt", java.time.Instant.now().toString());
+        docRef.update(updates).get();
     }
 
     public int deleteReportImages(String reporterUid, List<String> imageUrls) throws Exception {
@@ -1100,15 +1273,39 @@ public class FirebaseService {
 
     // 💡 유저 프로필 저장
     public UserProfileResponse saveUserProfile(String firebaseUid, UserProfileRequest request) throws Exception {
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            throw new IllegalArgumentException("로그인이 필요합니다.");
+        }
+        DocumentReference document = db.collection("users").document(firebaseUid);
+        DocumentSnapshot existing = document.get().get();
+        Boolean existingNicknamePublic = existing.exists()
+                ? parseBooleanSafely(existing.get("nicknamePublic"))
+                : null;
+        Boolean existingActivityPublic = existing.exists()
+                ? parseBooleanSafely(existing.get("activityPublic"))
+                : null;
+        boolean nicknamePublic = request.getNicknamePublic() != null
+                ? request.getNicknamePublic()
+                : existingNicknamePublic == null || existingNicknamePublic;
+        boolean activityPublic = request.getActivityPublic() != null
+                ? request.getActivityPublic()
+                : existingActivityPublic != null && existingActivityPublic;
+
         Map<String, Object> data = new HashMap<>();
         data.put("firebaseUid", firebaseUid);
         data.put("nickname", request.getNickname());
         data.put("email", request.getEmail());
         data.put("region", request.getRegion());
         data.put("favoriteCategories", request.getFavoriteCategories());
-        data.put("createdAt", java.time.Instant.now().toString());
+        data.put("nicknamePublic", nicknamePublic);
+        data.put("activityPublic", activityPublic);
+        data.put("updatedAt", java.time.Instant.now().toString());
 
-        ApiFuture<WriteResult> future = db.collection("users").document(firebaseUid).set(data);
+        String createdAt = existing.exists() && existing.get("createdAt") != null
+                ? existing.get("createdAt").toString()
+                : java.time.Instant.now().toString();
+        data.put("createdAt", createdAt);
+        ApiFuture<WriteResult> future = document.set(data, SetOptions.merge());
         future.get();
 
         return UserProfileResponse.builder()
@@ -1117,7 +1314,9 @@ public class FirebaseService {
                 .email(request.getEmail())
                 .region(request.getRegion())
                 .favoriteCategories(request.getFavoriteCategories())
-                .createdAt((String) data.get("createdAt"))
+                .createdAt(createdAt)
+                .nicknamePublic((Boolean) data.get("nicknamePublic"))
+                .activityPublic((Boolean) data.get("activityPublic"))
                 .build();
     }
 
@@ -1143,6 +1342,8 @@ public class FirebaseService {
                 .region((String) data.get("region"))
                 .favoriteCategories(favoriteCategories)
                 .createdAt((String) data.get("createdAt"))
+                .nicknamePublic(data.get("nicknamePublic") == null || Boolean.parseBoolean(data.get("nicknamePublic").toString()))
+                .activityPublic(data.get("activityPublic") != null && Boolean.parseBoolean(data.get("activityPublic").toString()))
                 .build();
     }
 

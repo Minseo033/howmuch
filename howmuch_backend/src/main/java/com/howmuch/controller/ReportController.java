@@ -256,7 +256,39 @@ public class ReportController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "입력값이 허용 길이를 초과했습니다."));
         }
+        if (report.getChangeType() != null && !report.getChangeType().isBlank()) {
+            List<String> allowedTypes = reportTypeIsStoreInfo(report)
+                    ? List.of("closed", "price_mismatch", "location_wrong", "other")
+                    : List.of("rise", "drop", "new", "delete");
+            if (!allowedTypes.contains(report.getChangeType())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "올바르지 않은 가격 변동 유형입니다."));
+            }
+            if (!reportTypeIsStoreInfo(report)
+                    && (report.getMenu1() == null || report.getMenu1().isBlank())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "변경된 메뉴를 입력해주세요."));
+            }
+            if (!reportTypeIsStoreInfo(report)
+                    && !"delete".equals(report.getChangeType())
+                    && (report.getPrice1() == null || report.getPrice1().isBlank())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "변경된 가격을 입력해주세요."));
+            }
+            if (!reportTypeIsStoreInfo(report) && !report.isCheckedMenuPrice()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "메뉴판 가격 확인 여부를 체크해주세요."));
+            }
+            if (report.getDescription() != null && report.getDescription().length() > 1000) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "설명은 1,000자 이내로 입력해주세요."));
+            }
+        }
         return null;
+    }
+
+    private boolean reportTypeIsStoreInfo(UserReportRequest report) {
+        return "STORE_INFO".equalsIgnoreCase(report.getReportType());
     }
 
     private void applyCoordinates(UserReportRequest report) throws Exception {

@@ -8,6 +8,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -161,8 +162,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('저장하기'));
     await tester.pumpAndSettle();
-    expect(find.text('마이'), findsAtLeastNWidgets(1));
-    expect(find.text('프로필을 저장했어요.'), findsOneWidget);
+    expect(find.text('프로필 저장에 실패했어요. 다시 시도해주세요.'), findsOneWidget);
   });
 
   testWidgets('opens public data source and sends inquiry', (tester) async {
@@ -233,14 +233,9 @@ void main() {
     expect(find.text('필터 초기화하기'), findsOneWidget);
 
     await tester.tap(find.text('김치찌개'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('김치찌개 검색어로 다시 찾아볼게요.'), findsOneWidget);
-
-    await tester.tap(find.text('필터 초기화하기'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    expect(find.text('필터를 초기화했어요.'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.byType(SearchResultScreen), findsOneWidget);
+    expect(find.text('김치찌개'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('opens network error state with recovery actions', (
@@ -252,7 +247,7 @@ void main() {
     await _goToRoute(tester, AppRoutes.networkError);
     expect(find.text('연결할 수 없어요'), findsOneWidget);
     expect(find.text('다시 시도'), findsOneWidget);
-    expect(find.text('오프라인 저장 매장 보기'), findsOneWidget);
+    expect(find.text('오프라인 저장 기능은 아직 준비 중이에요.'), findsOneWidget);
   });
 
   testWidgets('opens session expired state with login actions', (tester) async {

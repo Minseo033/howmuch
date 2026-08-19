@@ -8,6 +8,8 @@ import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
+    as howmuch_home;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -53,19 +55,20 @@ class StoreDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _map(BuildContext ctx) async {
-    final query = Uri.encodeComponent('${store.storeName} ${store.address}');
-    final url = Uri.parse('kakaomap://search?q=$query');
-    final fallbackUrl = Uri.parse('https://map.kakao.com/link/search/$query');
-
-    try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
-      } else {
-        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
-      }
-    } catch (e) {
-      debugPrint('카카오맵 실행 오류: $e');
-    }
+    final position = howmuch_home.HomeMapScreen.globalUserPosition;
+    if (!ctx.mounted) return;
+    await ctx.push(
+      AppRoutes.directionsExternalApp,
+      extra: {
+        'storeName': store.storeName,
+        'address': store.address,
+        'distanceLabel': '거리 정보 확인 중',
+        'latitude': store.latitude,
+        'longitude': store.longitude,
+        'startLatitude': position?.latitude,
+        'startLongitude': position?.longitude,
+      },
+    );
   }
 
   void _snack(BuildContext ctx, String msg) =>
@@ -86,406 +89,415 @@ class StoreDetailScreen extends ConsumerWidget {
     final averageRating = reviews.isEmpty
         ? null
         : reviews.map((review) => review.stars).reduce((a, b) => a + b) /
-            reviews.length;
+              reviews.length;
 
     return FigmaMobileCanvas(
       child: Scaffold(
-      backgroundColor: _bg,
-      body: Stack(
-        children: [
-          CustomScrollView(
-            slivers: [
-              // ────────────────────────────────────────────────────
-              //  상단 앱바 - 흰 배경, 타이틀 없음, 뒤로가기·아이콘만
-              // ────────────────────────────────────────────────────
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: AppColors.white,
-                foregroundColor: _ink,
-                surfaceTintColor: AppColors.transparent,
-                shadowColor: Colors.black12,
-                elevation: 0.5,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                  onPressed: () => context.pop(),
-                ),
-                actions: [
-                  _FavoriteStoreButton(store: store),
-                  IconButton(
-                    icon: const Icon(Icons.share_rounded, size: 22),
-                    onPressed: () {},
-                  ),
-                ],
-              ),
-
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ─────────────────────────────────────────────
-                    //  가게 헤더 (흰 카드)
-                    // ─────────────────────────────────────────────
-                    _White(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 이모지 아이콘 박스
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: BoxDecoration(
-                              color: AppColors.primarySubtle,
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Center(
-                              child: Text(
-                                _emoji(),
-                                style: const TextStyle(fontSize: 28),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          // 이름 + 업종
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 2),
-                                Text(
-                                  store.storeName,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: _ink,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  store.industry,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: _sub,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                if (averageRating != null)
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star_rounded,
-                                        color: AppColors.starAlt,
-                                        size: 15,
-                                      ),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        averageRating.toStringAsFixed(1),
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700,
-                                          color: _ink,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '리뷰 ${reviews.length}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: _sub,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+        backgroundColor: _bg,
+        body: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // ────────────────────────────────────────────────────
+                //  상단 앱바 - 흰 배경, 타이틀 없음, 뒤로가기·아이콘만
+                // ────────────────────────────────────────────────────
+                SliverAppBar(
+                  pinned: true,
+                  backgroundColor: AppColors.white,
+                  foregroundColor: _ink,
+                  surfaceTintColor: AppColors.transparent,
+                  shadowColor: Colors.black12,
+                  elevation: 0.5,
+                  leading: IconButton(
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 20,
                     ),
+                    onPressed: () => context.pop(),
+                  ),
+                  actions: [
+                    _FavoriteStoreButton(store: store),
+                    IconButton(
+                      tooltip: '매장 정보 오류 신고',
+                      icon: const Icon(Icons.flag_outlined, size: 21),
+                      onPressed: () =>
+                          context.push(AppRoutes.storeInfoReport, extra: store),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share_rounded, size: 22),
+                      onPressed: () {},
+                    ),
+                  ],
+                ),
 
-                    const _Divider(),
-
-                    // ─────────────────────────────────────────────
-                    //  메뉴 목록 (공공데이터)
-                    // ─────────────────────────────────────────────
-                    if (menus.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ─────────────────────────────────────────────
+                      //  가게 헤더 (흰 카드)
+                      // ─────────────────────────────────────────────
                       _White(
-                        child: Column(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                const Text(
-                                  '메뉴',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: _ink,
-                                  ),
+                            // 이모지 아이콘 박스
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: AppColors.primarySubtle,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  _emoji(),
+                                  style: const TextStyle(fontSize: 28),
                                 ),
-                                const Spacer(),
-                                const Text(
-                                  '공공데이터 기준',
-                                  style: TextStyle(fontSize: 11, color: _sub),
-                                ),
-                              ],
+                              ),
                             ),
-                            const SizedBox(height: 4),
-                            ...menus.asMap().entries.map((e) {
-                              final isFirst = e.key == 0;
-                              return Column(
+                            const SizedBox(width: 14),
+                            // 이름 + 업종
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    store.storeName,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: _ink,
+                                      letterSpacing: -0.3,
                                     ),
-                                    child: Row(
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    store.industry,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: _sub,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (averageRating != null)
+                                    Row(
                                       children: [
-                                        Expanded(
-                                          child: Row(
-                                            children: [
-                                              Text(
-                                                e.value.name,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: isFirst
-                                                      ? FontWeight.w600
-                                                      : FontWeight.w400,
-                                                  color: _ink,
-                                                ),
-                                              ),
-                                              if (isFirst) ...[
-                                                const SizedBox(width: 6),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 6,
-                                                        vertical: 2,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        AppColors.primarySubtle,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          4,
-                                                        ),
-                                                  ),
-                                                  child: const Text(
-                                                    '대표',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: _blue,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ],
+                                        const Icon(
+                                          Icons.star_rounded,
+                                          color: AppColors.starAlt,
+                                          size: 15,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          averageRating.toStringAsFixed(1),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: _ink,
                                           ),
                                         ),
+                                        const SizedBox(width: 4),
                                         Text(
-                                          _fmt(e.value.price),
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: isFirst
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            color: isFirst ? _blue : _ink,
+                                          '리뷰 ${reviews.length}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: _sub,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  if (e.key < menus.length - 1)
-                                    const Divider(
-                                      height: 1,
-                                      color: AppColors.borderSubtle,
-                                    ),
                                 ],
-                              );
-                            }),
+                              ),
+                            ),
                           ],
                         ),
                       ),
 
-                    const _Divider(),
+                      const _Divider(),
 
-                    // ─────────────────────────────────────────────
-                    //  매장 정보
-                    // ─────────────────────────────────────────────
-                    _White(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            '매장 정보',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: _ink,
+                      // ─────────────────────────────────────────────
+                      //  메뉴 목록 (공공데이터)
+                      // ─────────────────────────────────────────────
+                      if (menus.isNotEmpty)
+                        _White(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    '메뉴',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: _ink,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Text(
+                                    '공공데이터 기준',
+                                    style: TextStyle(fontSize: 11, color: _sub),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              ...menus.asMap().entries.map((e) {
+                                final isFirst = e.key == 0;
+                                return Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Row(
+                                              children: [
+                                                Text(
+                                                  e.value.name,
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: isFirst
+                                                        ? FontWeight.w600
+                                                        : FontWeight.w400,
+                                                    color: _ink,
+                                                  ),
+                                                ),
+                                                if (isFirst) ...[
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6,
+                                                          vertical: 2,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors
+                                                          .primarySubtle,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            4,
+                                                          ),
+                                                    ),
+                                                    child: const Text(
+                                                      '대표',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: _blue,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          Text(
+                                            _fmt(e.value.price),
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: isFirst
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                              color: isFirst ? _blue : _ink,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (e.key < menus.length - 1)
+                                      const Divider(
+                                        height: 1,
+                                        color: AppColors.borderSubtle,
+                                      ),
+                                  ],
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+
+                      const _Divider(),
+
+                      // ─────────────────────────────────────────────
+                      //  매장 정보
+                      // ─────────────────────────────────────────────
+                      _White(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '매장 정보',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: _ink,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          _InfoRow(
-                            icon: Icons.access_time_outlined,
-                            label: '영업시간',
-                            value: '정보 없음',
-                          ),
-                          const Divider(
-                            height: 24,
-                            color: AppColors.borderSubtle,
-                          ),
-                          _InfoRow(
-                            icon: Icons.phone_outlined,
-                            label: '전화번호',
-                            value: hasPhone ? store.phoneNumber : '정보 없음',
-                            onTap: hasPhone
-                                ? () async {
-                                    await Clipboard.setData(
-                                      ClipboardData(text: store.phoneNumber),
-                                    );
-                                    if (context.mounted) {
-                                      _snack(context, '전화번호가 복사되었습니다.');
+                            const SizedBox(height: 8),
+                            _InfoRow(
+                              icon: Icons.access_time_outlined,
+                              label: '영업시간',
+                              value: '정보 없음',
+                            ),
+                            const Divider(
+                              height: 24,
+                              color: AppColors.borderSubtle,
+                            ),
+                            _InfoRow(
+                              icon: Icons.phone_outlined,
+                              label: '전화번호',
+                              value: hasPhone ? store.phoneNumber : '정보 없음',
+                              onTap: hasPhone
+                                  ? () async {
+                                      await Clipboard.setData(
+                                        ClipboardData(text: store.phoneNumber),
+                                      );
+                                      if (context.mounted) {
+                                        _snack(context, '전화번호가 복사되었습니다.');
+                                      }
                                     }
-                                  }
-                                : null,
-                          ),
-                          const Divider(
-                            height: 24,
-                            color: AppColors.borderSubtle,
-                          ),
-                          _InfoRow(
-                            icon: Icons.location_on_outlined,
-                            label: '주소',
-                            value: store.address,
-                            onTap: () async {
-                              await Clipboard.setData(
-                                ClipboardData(text: store.address),
-                              );
-                              if (context.mounted) {
-                                _snack(context, '주소가 복사되었습니다.');
-                              }
-                            },
-                          ),
-                        ],
+                                  : null,
+                            ),
+                            const Divider(
+                              height: 24,
+                              color: AppColors.borderSubtle,
+                            ),
+                            _InfoRow(
+                              icon: Icons.location_on_outlined,
+                              label: '주소',
+                              value: store.address,
+                              onTap: () async {
+                                await Clipboard.setData(
+                                  ClipboardData(text: store.address),
+                                );
+                                if (context.mounted) {
+                                  _snack(context, '주소가 복사되었습니다.');
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                       ),
+
+                      const _Divider(),
+
+                      // ─────────────────────────────────────────────
+                      //  리뷰 (실데이터 — /api/review 연동)
+                      // ─────────────────────────────────────────────
+                      _StoreReviewSection(store: store),
+
+                      // 하단 여백 (하단 바 높이만큼)
+                      const SizedBox(height: 100),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // ────────────────────────────────────────────────────
+            //  하단 고정 액션바
+            // ────────────────────────────────────────────────────
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  border: Border(top: BorderSide(color: _line)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.black.withValues(alpha: 0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, -4),
                     ),
-
-                    const _Divider(),
-
-                    // ─────────────────────────────────────────────
-                    //  리뷰 (실데이터 — /api/review 연동)
-                    // ─────────────────────────────────────────────
-                    _StoreReviewSection(store: store),
-
-                    // 하단 여백 (하단 바 높이만큼)
-                    const SizedBox(height: 100),
                   ],
                 ),
-              ),
-            ],
-          ),
-
-          // ────────────────────────────────────────────────────
-          //  하단 고정 액션바
-          // ────────────────────────────────────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                border: Border(top: BorderSide(color: _line)),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  child: Row(
-                    children: [
-                      // 전화 버튼
-                      _BottomIconBtn(
-                        icon: Icons.phone_rounded,
-                        label: '전화',
-                        onTap: () => _call(context),
-                      ),
-                      const SizedBox(width: 10),
-                      // 제보 버튼
-                      _BottomIconBtn(
-                        icon: Icons.campaign_rounded,
-                        label: '가격 제보',
-                        onTap: () => context.push(
-                          AppRoutes.priceChangeReport,
-                          extra: store,
+                child: SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        // 전화 버튼
+                        _BottomIconBtn(
+                          icon: Icons.phone_rounded,
+                          label: '전화',
+                          onTap: () => _call(context),
                         ),
-                        muted: false,
-                      ),
-                      const SizedBox(width: 10),
-                      // 방문 인증 버튼 (프리젠테이션 시연용)
-                      _BottomIconBtn(
-                        icon: Icons.verified_rounded,
-                        label: '방문 인증',
-                        onTap: () => context.push(
-                          AppRoutes.visitVerification,
-                          extra: store,
+                        const SizedBox(width: 10),
+                        // 제보 버튼
+                        _BottomIconBtn(
+                          icon: Icons.campaign_rounded,
+                          label: '가격 제보',
+                          onTap: () => context.push(
+                            AppRoutes.priceChangeReport,
+                            extra: store,
+                          ),
+                          muted: false,
                         ),
-                        muted: false,
-                      ),
-                      const SizedBox(width: 10),
-                      // 길찾기 버튼 (메인 CTA)
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => _map(context),
-                          child: Container(
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: _blue,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.navigation_rounded,
-                                  color: AppColors.white,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 6),
-                                Text(
-                                  '길찾기',
-                                  style: TextStyle(
+                        const SizedBox(width: 10),
+                        // 방문 인증 버튼 (프리젠테이션 시연용)
+                        _BottomIconBtn(
+                          icon: Icons.verified_rounded,
+                          label: '방문 인증',
+                          onTap: () => context.push(
+                            AppRoutes.visitVerification,
+                            extra: store,
+                          ),
+                          muted: false,
+                        ),
+                        const SizedBox(width: 10),
+                        // 길찾기 버튼 (메인 CTA)
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => _map(context),
+                            child: Container(
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: _blue,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.navigation_rounded,
                                     color: AppColors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
+                                    size: 18,
                                   ),
-                                ),
-                              ],
+                                  SizedBox(width: 6),
+                                  Text(
+                                    '길찾기',
+                                    style: TextStyle(
+                                      color: AppColors.white,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }
@@ -733,9 +745,8 @@ class _FavoriteStoreButton extends ConsumerStatefulWidget {
 class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
   bool _busy = false;
 
-  String get _storeId => widget.store.id.isNotEmpty
-      ? widget.store.id
-      : widget.store.storeName;
+  String get _storeId =>
+      widget.store.id.isNotEmpty ? widget.store.id : widget.store.storeName;
 
   @override
   void initState() {
@@ -750,9 +761,9 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
   Future<void> _toggleFavorite() async {
     if (_busy) return;
     if (!ApiClient.isAuthenticated) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인이 필요해요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요해요.')));
       return;
     }
     setState(() => _busy = true);
@@ -775,9 +786,9 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -877,8 +888,11 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
               ),
               if (reviews.isNotEmpty) ...[
                 const SizedBox(width: 6),
-                const Icon(Icons.star_rounded,
-                    color: AppColors.starAlt, size: 15),
+                const Icon(
+                  Icons.star_rounded,
+                  color: AppColors.starAlt,
+                  size: 15,
+                ),
                 const SizedBox(width: 2),
                 Text(
                   avg.toStringAsFixed(1),
@@ -915,22 +929,19 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
             )
           else
             ...shown.asMap().entries.expand(
-                  (e) => [
-                    if (e.key > 0)
-                      const Divider(
-                        height: 24,
-                        color: AppColors.borderSubtle,
-                      ),
-                    _Review(
-                      name: e.value.authorName.isNotEmpty
-                          ? e.value.authorName
-                          : '익명',
-                      text: e.value.content,
-                      stars: e.value.stars,
-                      ago: _ago(e.value.createdAt),
-                    ),
-                  ],
+              (e) => [
+                if (e.key > 0)
+                  const Divider(height: 24, color: AppColors.borderSubtle),
+                _Review(
+                  name: e.value.authorName.isNotEmpty
+                      ? e.value.authorName
+                      : '익명',
+                  text: e.value.content,
+                  stars: e.value.stars,
+                  ago: _ago(e.value.createdAt),
                 ),
+              ],
+            ),
         ],
       ),
     );

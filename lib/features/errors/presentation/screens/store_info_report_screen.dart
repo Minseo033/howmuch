@@ -1,29 +1,112 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class StoreInfoReportScreen extends StatefulWidget {
-  const StoreInfoReportScreen({super.key});
+class StoreInfoReportScreen extends ConsumerStatefulWidget {
+  const StoreInfoReportScreen({super.key, this.store});
+
+  final Store? store;
 
   @override
-  State<StoreInfoReportScreen> createState() => _StoreInfoReportScreenState();
+  ConsumerState<StoreInfoReportScreen> createState() =>
+      _StoreInfoReportScreenState();
 }
 
-class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
+class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   int _selectedTypeIndex = 1; // 기본: '가격이 달라요'
+  bool _isSubmitting = false;
 
-  final _priceController = TextEditingController(text: '6,000');
-  final _descController = TextEditingController(
-    text: '어제 방문했을 때 메뉴판에 6,000원으로 표기되어 있었어요.',
-  );
+  final _priceController = TextEditingController();
+  final _descController = TextEditingController();
 
   final List<Map<String, String>> _types = [
-    {'title': '폐업됐어요', 'desc': '매장이 문을 닫은 것 같아요'},
-    {'title': '가격이 달라요', 'desc': '등록된 가격과 실제 가격이 달라요'},
-    {'title': '위치 정보가 틀려요', 'desc': '지도 위치가 잘못 표시돼요'},
-    {'title': '기타', 'desc': '직접 내용을 작성할게요'},
+    {'title': '폐업됐어요', 'desc': '매장이 문을 닫은 것 같아요', 'value': 'closed'},
+    {
+      'title': '가격이 달라요',
+      'desc': '등록된 가격과 실제 가격이 달라요',
+      'value': 'price_mismatch',
+    },
+    {
+      'title': '위치 정보가 틀려요',
+      'desc': '지도 위치가 잘못 표시돼요',
+      'value': 'location_wrong',
+    },
+    {'title': '기타', 'desc': '직접 내용을 작성할게요', 'value': 'other'},
   ];
+
+  Future<void> _submit() async {
+    if (_isSubmitting) return;
+    if (!ApiClient.isAuthenticated) {
+      _showMessage('정보 신고는 로그인 후 이용할 수 있어요.');
+      return;
+    }
+    final description = _descController.text.trim();
+    final price = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (widget.store == null) {
+      _showMessage('매장 정보가 없어 신고할 수 없어요.');
+      return;
+    }
+    if (_selectedTypeIndex == 1 &&
+        (price.isEmpty || int.tryParse(price) == 0)) {
+      _showMessage('실제 가격을 입력해주세요.');
+      return;
+    }
+    if (description.isEmpty) {
+      _showMessage('신고 내용을 입력해주세요.');
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    try {
+      final store = widget.store!;
+      await ref
+          .read(reportServiceProvider)
+          .submitReport(
+            UserReport(
+              storeId: store.id,
+              storeName: store.storeName,
+              industry: store.industry,
+              address: store.address,
+              phoneNumber: store.phoneNumber,
+              menu1: store.menu1,
+              price1: _selectedTypeIndex == 1 ? price : store.price1,
+              latitude: store.latitude,
+              longitude: store.longitude,
+              imageUrls: const [],
+              reporterId: '',
+              visitedRecently: true,
+              checkedMenuPrice: _selectedTypeIndex == 1,
+              changeType: _types[_selectedTypeIndex]['value'],
+              reportType: 'STORE_INFO',
+              description: description,
+            ),
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('정보 신고가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+      );
+      context.pop();
+    } on ReportServiceException catch (error) {
+      if (mounted) _showMessage(error.message);
+    } catch (error) {
+      debugPrint('매장 정보 신고 오류: $error');
+      if (mounted) _showMessage('신고를 저장하지 못했어요. 잠시 후 다시 시도해주세요.');
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void dispose() {
@@ -34,56 +117,69 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 매장 정보 신고 등록 API 연동
     return FigmaMobileCanvas(
       child: GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: const CustomAppBar(
-          title: '정보 신고',
-          actions: [
-            Padding(
-              padding: EdgeInsets.only(right: 20),
-              child: Icon(Icons.flag_outlined, color: Colors.grey),
-            ),
-          ],
-        ),
-        body: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildStoreCard(),
-                const SizedBox(height: 24),
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          appBar: const CustomAppBar(
+            title: '정보 신고',
+            actions: [
+              Padding(
+                padding: EdgeInsets.only(right: 20),
+                child: Icon(Icons.flag_outlined, color: Colors.grey),
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStoreCard(),
+                  const SizedBox(height: 24),
 
-                // 신고 유형 선택
-                RichText(
-                  text: const TextSpan(
-                    text: '신고 유형 선택 ',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '*',
-                        style: TextStyle(color: Color(0xFFF27E22)),
+                  // 신고 유형 선택
+                  RichText(
+                    text: const TextSpan(
+                      text: '신고 유형 선택 ',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ],
+                      children: [
+                        TextSpan(
+                          text: '*',
+                          style: TextStyle(color: Color(0xFFF27E22)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _buildTypeList(),
-                const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+                  _buildTypeList(),
+                  const SizedBox(height: 24),
 
-                // 실제 가격 (가격이 달라요 선택 시)
-                if (_selectedTypeIndex == 1) ...[
+                  // 실제 가격 (가격이 달라요 선택 시)
+                  if (_selectedTypeIndex == 1) ...[
+                    const Text(
+                      '실제 가격 선택',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _buildPriceField(),
+                    const SizedBox(height: 20),
+                  ],
+
+                  // 추가 설명
                   const Text(
-                    '실제 가격 선택',
+                    '추가 설명 선택',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
@@ -91,38 +187,22 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _buildPriceField(),
+                  _buildDescField(),
+                  const SizedBox(height: 20),
+
+                  _buildWarningBox(),
                   const SizedBox(height: 20),
                 ],
-
-                // 추가 설명
-                const Text(
-                  '추가 설명 선택',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _buildDescField(),
-                const SizedBox(height: 20),
-
-                _buildWarningBox(),
-                const SizedBox(height: 20),
-              ],
+              ),
             ),
           ),
-        ),
-        bottomNavigationBar: CustomBottomButton(
-          text: '신고 접수하기',
-          backgroundColor: const Color(0xFFF27E22),
-          onPressed: () {
-            // TODO: 신고 접수 요청
-          },
+          bottomNavigationBar: CustomBottomButton(
+            text: _isSubmitting ? '접수 중...' : '신고 접수하기',
+            backgroundColor: const Color(0xFFF27E22),
+            onPressed: _isSubmitting ? null : _submit,
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -148,17 +228,17 @@ class _StoreInfoReportScreenState extends State<StoreInfoReportScreen> {
             ),
           ),
           const SizedBox(width: 14),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '착한분식',
+                  widget.store?.storeName ?? '매장 정보 없음',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '서울 강남구 역삼동 123-4 · 김치찌개 5,500원',
+                  widget.store?.address ?? '매장 주소 정보 없음',
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],

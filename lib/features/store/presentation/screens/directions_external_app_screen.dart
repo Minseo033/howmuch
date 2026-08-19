@@ -11,11 +11,19 @@ class DirectionsExternalAppScreen extends StatefulWidget {
     this.storeName = '착한분식',
     this.address = '서울시 강남구 역삼동',
     this.distanceLabel = '거리 정보 없음',
+    this.latitude,
+    this.longitude,
+    this.startLatitude,
+    this.startLongitude,
   });
 
   final String storeName;
   final String address;
   final String distanceLabel;
+  final double? latitude;
+  final double? longitude;
+  final double? startLatitude;
+  final double? startLongitude;
 
   @override
   State<DirectionsExternalAppScreen> createState() =>
@@ -27,22 +35,40 @@ class _DirectionsExternalAppScreenState
   int _selectedTransport = 0;
 
   final List<Map<String, dynamic>> _transports = [
-    {'icon': Icons.directions_walk, 'label': '도보', 'time': '6분'},
-    {'icon': Icons.directions_bus_rounded, 'label': '대중교통', 'time': '10분'},
-    {'icon': Icons.directions_car_rounded, 'label': '자동차', 'time': '4분'},
+    {'icon': Icons.directions_walk, 'label': '도보', 'mode': 'FOOT'},
+    {'icon': Icons.directions_bus_rounded, 'label': '대중교통', 'mode': 'PUBLIC'},
+    {'icon': Icons.directions_car_rounded, 'label': '자동차', 'mode': 'CAR'},
   ];
 
+  bool get _hasRouteCoordinates =>
+      widget.latitude != null &&
+      widget.longitude != null &&
+      widget.startLatitude != null &&
+      widget.startLongitude != null;
+
   Future<void> _launchKakaoMap() async {
-    // 가게 이름과 주소를 함께 검색어로 사용하여 장소(Place) 정보가 나오도록 유도
     final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
-    final url = Uri.parse('kakaomap://search?q=$query');
-    final fallbackUrl = Uri.parse('https://map.kakao.com/link/search/$query');
+    final mode = _transports[_selectedTransport]['mode'] as String;
+    final url = _hasRouteCoordinates
+        ? Uri.parse(
+            'kakaomap://route?sp=${widget.startLatitude},${widget.startLongitude}'
+            '&ep=${widget.latitude},${widget.longitude}&by=$mode',
+          )
+        : Uri.parse('kakaomap://search?q=$query');
+    final fallbackUrl = _hasRouteCoordinates
+        ? Uri.parse('https://map.kakao.com/link/search/$query')
+        : Uri.parse('https://map.kakao.com/link/search/$query');
 
     try {
       if (await canLaunchUrl(url)) {
         await launchUrl(url);
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
+      }
+      if (!_hasRouteCoordinates && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
+        );
       }
     } catch (e) {
       debugPrint('카카오맵 실행 오류: $e');
@@ -51,7 +77,19 @@ class _DirectionsExternalAppScreenState
 
   Future<void> _launchNaverMap() async {
     final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
-    final url = Uri.parse('nmap://search?query=$query&appname=com.howmuch.app');
+    final mode = switch (_selectedTransport) {
+      0 => 'walk',
+      1 => 'public',
+      _ => 'car',
+    };
+    final url = _hasRouteCoordinates
+        ? Uri.parse(
+            'nmap://route/$mode?slat=${widget.startLatitude}'
+            '&slng=${widget.startLongitude}&sname=현재 위치'
+            '&dlat=${widget.latitude}&dlng=${widget.longitude}'
+            '&dname=${Uri.encodeComponent(widget.storeName)}&appname=com.howmuch.app',
+          )
+        : Uri.parse('nmap://search?query=$query&appname=com.howmuch.app');
     final fallbackUrl = Uri.parse(
       'https://m.map.naver.com/search2/search.naver?query=$query',
     );
@@ -62,6 +100,11 @@ class _DirectionsExternalAppScreenState
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
       }
+      if (!_hasRouteCoordinates && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
+        );
+      }
     } catch (e) {
       debugPrint('네이버지도 실행 오류: $e');
     }
@@ -69,7 +112,6 @@ class _DirectionsExternalAppScreenState
 
   @override
   Widget build(BuildContext context) {
-    // TODO(박지환 BE): 실제 매장 위치 및 거리 연동
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
@@ -125,7 +167,7 @@ class _DirectionsExternalAppScreenState
         bottomNavigationBar: CustomBottomButton(
           text: '길찾기 시작',
           backgroundColor: AppColors.primary,
-          onPressed: () => _launchKakaoMap(),
+          onPressed: _launchKakaoMap,
         ),
       ),
     );
@@ -236,10 +278,10 @@ class _DirectionsExternalAppScreenState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    _transports[i]['time'] as String,
+                    '지도 앱에서 확인',
                     style: TextStyle(
                       color: selected ? AppColors.primary : AppColors.muted,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
                 ],

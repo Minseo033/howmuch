@@ -55,15 +55,10 @@ class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
             bottom: 0,
             child: _EmptyResultBody(
               onSuggestionTap: (suggestion) {
-                // TODO(박지환 BE): 검색 API가 붙으면 추천 검색어로 재조회하고 결과 화면으로 분기하세요.
-                setState(() {
-                  _query = suggestion;
-                });
-                ScaffoldMessenger.of(context)
-                  ..clearSnackBars()
-                  ..showSnackBar(
-                    SnackBar(content: Text('$suggestion 검색어로 다시 찾아볼게요.')),
-                  );
+                context.push(
+                  AppRoutes.searchResult,
+                  extra: {'query': suggestion},
+                );
               },
               onResetTap: () {
                 setState(() {
@@ -111,33 +106,34 @@ class _SearchHeader extends StatelessWidget {
             bottom: BorderSide(color: SearchEmptyScreen.border, width: .909),
           ),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 15.99432373046875,
-              top: topOffset + 11.9892578125,
-              width: 291.4772644042969,
-              height: 43.99147415161133,
-              child: _SearchInput(query: query),
-            ),
-            Positioned(
-              left: 315.46881103515625,
-              top: topOffset + 11.9892578125,
-              width: 43.99147415161133,
-              height: 43.99147415161133,
-              child: _CloseButton(onTap: onClose),
-            ),
-            Positioned(
-              left: 15.99432373046875,
-              top: topOffset + 65.98046875,
-              width: 343.4659118652344,
-              height: 26.292612075805664,
-              child: _FilterChips(
-                filters: filters,
-                onRemoveFilter: onRemoveFilter,
+        child: Padding(
+          padding: EdgeInsets.only(left: 16, right: 16, top: topOffset + 12),
+          child: Column(
+            children: [
+              SizedBox(
+                height: 44,
+                child: Row(
+                  children: [
+                    Expanded(child: _SearchInput(query: query)),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: _CloseButton(onTap: onClose),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 27,
+                child: _FilterChips(
+                  filters: filters,
+                  onRemoveFilter: onRemoveFilter,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

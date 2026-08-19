@@ -574,6 +574,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                   final firstPick = _picks.isNotEmpty && _picks.first is Map
                       ? _picks.first as Map
                       : const {};
+                  final firstCoordinates = _coordinates(firstPick);
                   context.push(
                     AppRoutes.directionsExternalApp,
                     extra: {
@@ -582,6 +583,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                       'distanceLabel': _distanceText(
                         firstPick['distanceMeters'],
                       ),
+                      'latitude': firstCoordinates?.lat,
+                      'longitude': firstCoordinates?.lng,
+                      'startLatitude': _userLatitude,
+                      'startLongitude': _userLongitude,
                     },
                   );
                 },

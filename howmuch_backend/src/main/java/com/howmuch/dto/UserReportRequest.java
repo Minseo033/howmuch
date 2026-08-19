@@ -39,6 +39,9 @@ public class UserReportRequest {
 
     /** 가격 변동 제보 유형: rise, drop, new, delete (일반 매장 제보는 null) */
     private String changeType;
+    private String description;
+    /** STORE_INFO for 폐업/가격/위치 정보 신고 */
+    private String reportType;
 
     // 💡 제보 처리 상태 메타데이터
     private String status; // PENDING, APPROVED, REJECTED

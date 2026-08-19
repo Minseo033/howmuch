@@ -6,16 +6,19 @@ import com.howmuch.dto.VisitResponseDto;
 import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReferencePrices;
+import com.howmuch.service.ReceiptOcrService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -36,6 +39,70 @@ public class VisitController {
     private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 50.0;
 
     private final FirebaseService firebaseService;
+    private final ReceiptOcrService receiptOcrService;
+
+    /** 기존 단위 테스트와 수동 생성 코드의 호환성을 유지합니다. */
+    public VisitController(FirebaseService firebaseService) {
+        this(firebaseService, new ReceiptOcrService());
+    }
+
+    @PostMapping(value = "/receipt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> submitReceiptVerification(
+            HttpServletRequest httpRequest,
+            @RequestParam String storeId,
+            @RequestParam String storeName,
+            @RequestParam(required = false, defaultValue = "") String menu,
+            @RequestParam long price,
+            @RequestParam("images") List<MultipartFile> images) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("success", false, "message", "로그인이 필요합니다."));
+        }
+        List<String> uploaded = List.of();
+        try {
+            if (storeId == null || storeId.isBlank() || storeName == null || storeName.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "매장 정보가 필요합니다."));
+            }
+            if (price < 0 || price > 10_000_000L) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "결제 금액을 확인해주세요."));
+            }
+            if (images == null || images.size() != 1) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "영수증 사진 1장을 첨부해주세요."));
+            }
+            ReceiptOcrService.Result ocrResult = receiptOcrService.analyze(
+                    images.get(0).getBytes(), storeName, price);
+            uploaded = firebaseService.uploadReportImages(firebaseUid, images);
+            String id = firebaseService.saveReceiptVerification(
+                    firebaseUid, storeId, storeName, menu, price, uploaded, ocrResult);
+            String status = "PENDING";
+            String visitId = null;
+            if (ocrResult.shouldAutoApprove()) {
+                try {
+                    Map<String, Object> approval = firebaseService.approveReceiptVerification(id, "AUTO_OCR");
+                    status = String.valueOf(approval.get("status"));
+                    visitId = String.valueOf(approval.get("visitId"));
+                } catch (Exception autoApprovalError) {
+                    log.warn("OCR 자동 승인 실패, 관리자 검토로 전환합니다. receiptId={}", id, autoApprovalError);
+                }
+            }
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("success", true);
+            response.put("id", id);
+            response.put("status", status);
+            response.put("ocrStatus", ocrResult.status());
+            response.put("ocrScore", ocrResult.score());
+            if (visitId != null) response.put("visitId", visitId);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            if (!uploaded.isEmpty()) {
+                try { firebaseService.deleteReportImages(firebaseUid, uploaded); } catch (Exception ignored) {}
+            }
+            log.error("영수증 인증 요청 저장 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", "영수증 인증 요청을 저장하지 못했습니다."));
+        }
+    }
 
     /**
      * 방문 기록 목록 조회 (GET /api/visits)

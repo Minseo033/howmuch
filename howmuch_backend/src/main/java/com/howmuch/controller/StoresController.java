@@ -2,9 +2,11 @@ package com.howmuch.controller;
 
 import com.howmuch.service.FirebaseService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
 
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +47,22 @@ public class StoresController {
         } catch (Exception e) {
             e.printStackTrace();
             return Collections.emptyList();
+        }
+    }
+
+    /** 매장의 승인된 가격 변동 이력 */
+    @GetMapping("/{storeId}/price-history")
+    public ResponseEntity<?> getPriceHistory(
+            @PathVariable String storeId,
+            @RequestParam(required = false) String menu) {
+        try {
+            return ResponseEntity.ok(firebaseService.getPriceHistory(storeId, menu));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", "매장 가격 이력을 찾을 수 없습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false, "message", "가격 이력을 불러오지 못했습니다."));
         }
     }
 }

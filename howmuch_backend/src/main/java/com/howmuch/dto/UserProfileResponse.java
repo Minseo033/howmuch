@@ -18,4 +18,6 @@ public class UserProfileResponse {
     private String region;
     private List<String> favoriteCategories;
     private String createdAt;
+    private Boolean nicknamePublic;
+    private Boolean activityPublic;
 }

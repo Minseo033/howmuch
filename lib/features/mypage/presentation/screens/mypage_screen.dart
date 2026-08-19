@@ -74,7 +74,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
         final categories = rawCategories is List
             ? rawCategories.map((e) => e.toString()).toList()
             : null;
-        ref.read(userProfileProvider.notifier).update(
+        ref
+            .read(userProfileProvider.notifier)
+            .update(
               (state) => state.copyWith(
                 nickname: profile['nickname']?.toString(),
                 email: profile['email']?.toString().isNotEmpty == true
@@ -82,6 +84,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
                     : auth.email,
                 region: profile['region']?.toString(),
                 favoriteCategories: categories,
+                nicknamePublic: profile['nicknamePublic'] is bool
+                    ? profile['nicknamePublic'] as bool
+                    : null,
+                activityPublic: profile['activityPublic'] is bool
+                    ? profile['activityPublic'] as bool
+                    : null,
               ),
             );
       } else if (mounted) {
@@ -106,7 +114,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen> {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
         final saved = (data['totalSavedAmount'] as num?)?.toInt() ?? 0;
         final visits = (data['totalVisits'] as num?)?.toInt() ?? 0;
-        ref.read(userProfileProvider.notifier).update(
+        ref
+            .read(userProfileProvider.notifier)
+            .update(
               (state) => state.copyWith(savedAmount: saved, visitCount: visits),
             );
       }

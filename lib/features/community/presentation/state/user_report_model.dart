@@ -1,4 +1,5 @@
 class UserReport {
+  final String storeId;
   final String cityProvince;
   final String cityDistrict;
   final String industry;
@@ -20,8 +21,11 @@ class UserReport {
   final bool visitedRecently;
   final bool checkedMenuPrice;
   final String? changeType;
+  final String description;
+  final String? reportType;
 
   UserReport({
+    this.storeId = '',
     this.cityProvince = '',
     this.cityDistrict = '',
     required this.industry,
@@ -43,12 +47,15 @@ class UserReport {
     required this.visitedRecently,
     required this.checkedMenuPrice,
     this.changeType,
+    this.description = '',
+    this.reportType,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'cityProvince': cityProvince,
       'cityDistrict': cityDistrict,
+      'storeId': storeId,
       'industry': industry,
       'storeName': storeName,
       'phoneNumber': phoneNumber,
@@ -68,6 +75,8 @@ class UserReport {
       'visitedRecently': visitedRecently,
       'checkedMenuPrice': checkedMenuPrice,
       if (changeType != null) 'changeType': changeType,
+      if (description.trim().isNotEmpty) 'description': description.trim(),
+      if (reportType != null) 'reportType': reportType,
     };
   }
 }

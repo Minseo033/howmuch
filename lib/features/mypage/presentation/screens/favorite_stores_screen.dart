@@ -5,6 +5,7 @@ import 'package:howmuch/core/theme/app_colors.dart';
 
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/app/app_routes.dart';
 
 class FavoriteStoresScreen extends ConsumerStatefulWidget {
   const FavoriteStoresScreen({super.key});
@@ -532,18 +533,13 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
             children: [
               GestureDetector(
                 onTap: () async {
-                  try {
-                    await ref
-                        .read(favoriteStoresProvider.notifier)
-                        .removeFavorite(store.id);
-                    if (!mounted) return;
+                  final removed = await context.push<bool>(
+                    AppRoutes.favoriteCancelConfirm,
+                    extra: {'storeId': store.id, 'storeName': store.storeName},
+                  );
+                  if (removed == true && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')),
-                    );
-                  } catch (_) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('찜 해제에 실패했어요. 다시 시도해 주세요.')),
                     );
                   }
                 },
