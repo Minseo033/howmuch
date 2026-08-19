@@ -8,7 +8,6 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReferencePrices;
 import com.howmuch.service.ReceiptOcrService;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -32,7 +31,6 @@ import java.util.Optional;
 @Slf4j
 @RestController
 @RequestMapping("/api/visits")
-@RequiredArgsConstructor
 public class VisitController {
 
     private static final String LOCATION_VERIFICATION = "LOCATION";
@@ -40,6 +38,11 @@ public class VisitController {
 
     private final FirebaseService firebaseService;
     private final ReceiptOcrService receiptOcrService;
+
+    public VisitController(FirebaseService firebaseService, ReceiptOcrService receiptOcrService) {
+        this.firebaseService = firebaseService;
+        this.receiptOcrService = receiptOcrService;
+    }
 
     /** 기존 단위 테스트와 수동 생성 코드의 호환성을 유지합니다. */
     public VisitController(FirebaseService firebaseService) {
