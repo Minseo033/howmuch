@@ -23,12 +23,14 @@ import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
 import com.howmuch.dto.PriceAlertSubscriptionRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import jakarta.annotation.PostConstruct;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -87,8 +89,9 @@ public class FirebaseService {
         this.reportImageStorage = reportImageStorage;
     }
 
-    @PostConstruct
-    public void initAllStores() {
+    @Async
+    @EventListener(ApplicationReadyEvent.class)
+    public void warmStoreCaches() {
         // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
         if (loadGovStoresFromDisk()) {
             log.info("디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
