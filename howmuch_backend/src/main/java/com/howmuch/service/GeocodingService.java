@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -17,6 +18,7 @@ public class GeocodingService {
     private final String kakaoApiKey;
     private final Duration timeout;
 
+    @Autowired
     public GeocodingService(WebClient.Builder webClientBuilder,
                             @Value("${kakao.rest-api-key:}") String kakaoApiKey,
                             @Value("${kakao.local.timeout-ms:5000}") long timeoutMillis) {
