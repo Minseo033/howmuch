@@ -1,7 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-19
-> GitHub `main` 기준 커밋: `c54b28a`. 8/19 전체 안정화 변경은 로컬 작업 트리에만 있으며 아직 commit/push/Render/Vercel 배포하지 않았다. 현재 운영 URL의 읽기 전용 상태 확인 결과는 5-32 참조
+> 새 세션/팀원이 이 파일 하나로 상황 파악. 최종 갱신: 2026-08-20
+> 운영 애플리케이션 기준 커밋: `bece515`. 8/19 전체 안정화 변경과 8/20 Render 기동 복구를 main에 push하고 Render/Vercel 운영 배포까지 완료했다. 상세는 5-32 참조
 > 8/13 **다나·태관 통합 보완 완료**: 팀원 브랜치를 통째로 머지하지 않고 과제 변경만 선별 이식·보완했다. 최초 Spark 릴리스에서는 이미지를 비활성화했으나, 후속으로 Cloudinary Free 저장소를 도입해 사진 첨부까지 배포했다.
 > 8/13 **빈 리뷰 생성 차단 배포·QA 완료**: 빈 폼은 필드 오류만 표시하고 리뷰 수를 늘리지 않음. 유효 리뷰의 `price`·`authorUid` 저장 후 QA 데이터 삭제·원복까지 확인했다.
 > 8/13 **제보 사진 실서비스 E2E 완료**: 사진 선택·미리보기 → 백엔드/Cloudinary 업로드 → 제보 저장·상세 재조회 → 사진 제거·원본 404 → QA 문서 삭제·목록 원복까지 확인했다.
@@ -41,7 +41,7 @@
 
 ## 4. 배포 방법
 - **백엔드**: `git push origin main` → Render 자동 배포 (자바 빌드 ~5-8분)
-- **웹**: `flutter build web --release` → `cd build/web && npx -y vercel@latest deploy --prod --yes` (minseo033 로그인 유지)
+- **웹**: `flutter build web --release --no-wasm-dry-run` → 저장소 루트에서 `npx -y vercel@latest deploy build/web --project howmuch --local-config vercel.json --prod --yes` (다른 Vercel 프로젝트로 잘못 연결되는 것을 막기 위해 프로젝트를 명시)
 - **검증 도구**: `/tmp/howmuch-qa/` Playwright 스크립트 (qa.js, qa2~4.js, probe_geo.js). `node qa.js` 전체 화면 QA, `node probe_geo.js` 지도 위치 검증
 
 ## 5. 3주차 완료 내역 (7/28~8/3) — 8/1~8/3 QA·버그픽스·추가 작업 포함
@@ -795,11 +795,13 @@
 - GitHub push로 Render 자동 배포가 반영됐으며, 운영 `/api/notifications`는 인증 보호에 따른 HTTP 401을 반환해 서버 기동을 확인했다.
 - 로그인 계정으로 알림함에서 문의 답변·가격 변동·제보·추천 알림을 각각 눌러 실제 화면 이동과 읽음 처리를 확인하는 실사용 QA는 후속으로 진행한다.
 
-## 5-32. 8/19 전체 안정화 감사 및 회귀 테스트 (로컬 완료, 배포 승인 대기)
+## 5-32. 8/19~8/20 전체 안정화 감사·회귀 테스트·운영 배포 완료
 
 **기준과 배포 상태**:
 - 기준 브랜치는 `main`, 시작 HEAD와 `origin/main`은 모두 `c54b28a`였다. 팀원 원격 브랜치도 비교했으며 태관의 최신 오류 수정은 이미 `b3b246e`에서 main에 반영돼 추가 이식할 커밋이 없었다. 오래된 팀원 브랜치는 공유 파일을 되돌릴 위험이 있어 병합하지 않았다.
-- 이번 절의 변경은 검증된 로컬 작업 트리다. 사용자 지시대로 commit, GitHub push, PR merge, Render/Vercel 배포는 별도 승인 전까지 수행하지 않았다. 운영 URL 검사는 기존 배포본에 대한 읽기 전용 확인이다.
+- 안정화 변경을 `67a6a8d`, Render 기동 복구를 `f6e201b`, 생성자 주입 복구를 `bece515`로 나눠 `origin/main`에 push했다. 운영 애플리케이션 코드와 Render 배포 기준은 `bece515`다.
+- Vercel production 배포 `dpl_5bxhJThff8ypQLzTdZ3hfzjh9PNK`가 `READY`로 완료됐고 운영 별칭 `https://howmuch-zeta.vercel.app`에 연결됐다.
+- Render 첫 배포는 매장 캐시 선로딩이 포트 기동을 막았고, 두 번째 배포는 테스트용 생성자가 추가된 `GeocodingService`의 운영 생성자 주입 지정 누락으로 실패했다. 캐시 워밍을 `ApplicationReadyEvent` 이후 비동기로 옮기고 운영 생성자에 `@Autowired`를 지정했다. 최종 `bece515` 배포 `dep-da3cjrjl550s738310eg`는 3분 2초 만에 성공했다.
 
 **주요 버그 수정**:
 - 인증·API: 만료·잘못된 세션은 일관된 JSON 401로 처리하고 CORS를 유지한다. 로그아웃 API 실패 시에도 로컬 토큰·푸시 토큰·프로필 상태를 정리하며 세션 만료 화면의 가짜 이메일을 제거했다. 커뮤니티·리뷰·AI·사용자 API의 null 본문, 잘못된 문서 ID, 길이 상한과 안전한 오류 응답을 보강했다.
@@ -832,20 +834,21 @@
 - 백엔드 Service: OCR 성공·실패·timeout·날짜·금액, 방문·영수증 멱등성, 문의 작성·답변 알림, Firebase 좌표, 공공데이터 저장 실패 집계, 카카오 지오코딩, 날씨, 절약 입력 검증.
 - Flutter: API 실패 시 목업 미표시, 알림 매핑·중복 갱신·360px 긴 문구·빈 상태, 문의 답변·사진 URL·긴 문구, 50m·GPS 정확도·위치 신선도, 홈 위치 캐시, 영수증 이미지 시그니처·timeout, 추천 거리·가격·좌표·루트·360px 레이아웃, 리뷰 중복 제출.
 
-**최종 자동 검증 (8/19)**:
-- `./gradlew clean test bootJar`: 성공, 백엔드 126 tests / failures 0 / errors 0 / skipped 0.
+**최종 자동 검증 (8/20)**:
+- `./gradlew clean test bootJar`: 성공, 백엔드 128 tests / failures 0 / errors 0 / skipped 0.
 - `flutter test --no-pub`: 성공, Flutter 82 tests.
 - `flutter analyze --no-pub`: `No issues found`.
 - `flutter build web --release --no-wasm-dry-run`: 성공, `build/web` 44MB.
 - `node scripts/check_admin_html.mjs`: 내부 스크립트 2개 파싱 성공.
 - `git diff --check`: 성공.
 - 생성 JAR 검사: Firebase credential 파일명과 `BEGIN PRIVATE KEY` 문구 없음.
+- Render와 같은 JAR을 로컬에서 실제 기동해 3.361초 만에 포트가 열린 뒤 매장 11,207개와 사용자 제보 매장 20개가 비동기로 적재되는 것을 확인했다. 잘못된 지도 범위 요청은 HTTP 400으로 응답했다.
 
-**운영 읽기 전용 QA (기존 배포본)**:
-- `https://howmuch-zeta.vercel.app`: HTTP 200. 360px에서 온보딩 3장, 로그인, 게스트 권한 안내가 겹침 없이 표시됐고 콘솔 error/warning이 없었다. 기존 배포본에는 네이버·Apple 버튼이 아직 보였으며, 미구현 버튼을 제거해 카카오만 남긴 로컬 수정은 배포 후 다시 확인해야 한다.
-- Render `/api/stores/bounds`: HTTP 200 JSON. Vercel Origin CORS 허용 헤더 확인.
-- Render `/api/notifications`, `/api/admin/overview`: 자격증명 없이 HTTP 401 JSON이며 Vercel Origin CORS 허용 헤더 확인.
-- `admin.html`: 430px에서 어드민 비밀번호 입력·로그인 UI가 정상 표시되고 콘솔 error/warning이 없었다.
+**운영 배포 QA (8/20 최신 배포본)**:
+- `https://howmuch-zeta.vercel.app`: 루트·`/login`·`/admin.html`·Flutter bootstrap·`main.dart.js` 모두 HTTP 200. SPA 딥링크와 보안 헤더(`nosniff`, frame deny, referrer/permissions policy)를 확인했다.
+- Render 정상 `/api/stores/bounds`는 실제 매장 JSON과 HTTP 200, 위도 범위가 20도인 비정상 요청은 새 검증 로직에 따라 HTTP 400을 반환했다.
+- Render `/api/notifications`, `/api/admin/overview`는 자격증명 없이 HTTP 401 JSON을 반환해 인증 보호와 최신 서버 기동을 확인했다.
+- 로그인 후 영수증·위치·알림·문의 쓰기 흐름은 아래 수동 검증 목록대로 실제 계정·기기 QA가 남아 있다.
 
 **아직 수동 검증이 필요한 항목**:
 - 실제 로그인 후 영수증 선택 → Cloudinary 업로드 → Vision OCR → 자동 승인 또는 관리자 검수 → 방문 내역 반영 전체 E2E. 테스트용 영수증과 운영 데이터 생성이 필요해 이번 읽기 전용 QA에서는 수행하지 않았다.
