@@ -517,7 +517,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
                 ),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     );

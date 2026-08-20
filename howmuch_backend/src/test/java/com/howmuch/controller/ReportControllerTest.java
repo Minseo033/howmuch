@@ -1,6 +1,7 @@
 package com.howmuch.controller;
 
 import com.howmuch.config.SessionAuthFilter;
+import com.howmuch.dto.UserReportRequest;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.KakaoLocalService;
 import com.howmuch.service.SimpleRateLimiter;
@@ -93,6 +94,73 @@ class ReportControllerTest {
         ResponseEntity<?> response = controller.deleteStoreReport("report-1", request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+    }
+
+    @Test
+    void rejectsANullReportWithoutCallingDependencies() {
+        authenticate("user-1");
+
+        ResponseEntity<?> response = controller.submitStoreReport(request, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rejectsInvalidDocumentIdsBeforeAccessingFirestore() {
+        authenticate("user-1");
+
+        ResponseEntity<?> update = controller.updateStoreReport(
+                "folder/report-1", request, validReport());
+        ResponseEntity<?> delete = controller.deleteStoreReport("folder/report-1", request);
+
+        assertThat(update.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(delete.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void trimsReportFieldsBeforeSaving() throws Exception {
+        authenticate("user-1");
+        UserReportRequest report = validReport();
+        report.setStoreName("  실제 매장  ");
+        report.setAddress("  서울시 중구  ");
+        when(firebaseService.saveUserReport(report)).thenReturn("report-1");
+
+        ResponseEntity<?> response = controller.submitStoreReport(request, report);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(report.getStoreName()).isEqualTo("실제 매장");
+        assertThat(report.getAddress()).isEqualTo("서울시 중구");
+        assertThat(report.getReporterId()).isEqualTo("user-1");
+        verify(firebaseService).saveUserReport(report);
+    }
+
+    @Test
+    void rejectsOversizedMenuTextBeforeSaving() {
+        authenticate("user-1");
+        UserReportRequest report = validReport();
+        report.setMenu1("가".repeat(101));
+
+        ResponseEntity<?> response = controller.submitStoreReport(request, report);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void requiresAuthenticationForMyReportsEvenWhenCalledWithoutTheFilter() {
+        ResponseEntity<?> response = controller.getMyReports(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(firebaseService);
+    }
+
+    private UserReportRequest validReport() {
+        return UserReportRequest.builder()
+                .storeName("실제 매장")
+                .address("서울시 중구")
+                .build();
     }
 
     private void authenticate(String uid) {

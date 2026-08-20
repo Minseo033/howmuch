@@ -36,7 +36,7 @@ class UserProfileApiService {
       if (response.statusCode == 200) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
-        debugPrint('프로필 조회 성공: $data');
+        debugPrint('프로필 조회 성공');
         return data;
       } else if (response.statusCode == 404) {
         debugPrint('프로필 없음 (신규 사용자)');
@@ -45,10 +45,9 @@ class UserProfileApiService {
         debugPrint('프로필 조회 인증 실패: ${response.statusCode}');
         throw UserProfileAuthException(response.statusCode);
       } else {
-        final body = ApiClient.bodyText(response);
-        debugPrint('프로필 조회 실패: ${response.statusCode} $body');
+        debugPrint('프로필 조회 실패: ${response.statusCode}');
         if (strict) {
-          throw UserProfileLoadException('${response.statusCode} $body');
+          throw UserProfileLoadException('프로필 조회 실패 (${response.statusCode})');
         }
         return null;
       }
@@ -56,9 +55,9 @@ class UserProfileApiService {
       if (e is UserProfileAuthException || e is UserProfileLoadException) {
         rethrow;
       }
-      debugPrint('프로필 조회 통신 에러: $e');
+      debugPrint('프로필 조회 통신 오류가 발생했습니다.');
       if (strict) {
-        throw UserProfileLoadException(e.toString());
+        throw const UserProfileLoadException('프로필 조회 통신 실패');
       }
       return null;
     }
@@ -75,18 +74,19 @@ class UserProfileApiService {
   }) async {
     final url = ApiClient.uri('/api/user/profile');
     try {
+      final body = <String, Object?>{
+        'nickname': nickname,
+        'email': email,
+        'region': region,
+        'favoriteCategories': favoriteCategories,
+      };
+      if (nicknamePublic != null) body['nicknamePublic'] = nicknamePublic;
+      if (activityPublic != null) body['activityPublic'] = activityPublic;
       final response = await http
           .post(
             url,
             headers: ApiClient.jsonHeaders(auth: true),
-            body: jsonEncode({
-              'nickname': nickname,
-              'email': email,
-              'region': region,
-              'favoriteCategories': favoriteCategories,
-              if (nicknamePublic != null) 'nicknamePublic': nicknamePublic,
-              if (activityPublic != null) 'activityPublic': activityPublic,
-            }),
+            body: jsonEncode(body),
           )
           .timeout(ApiClient.defaultTimeout);
 
@@ -94,13 +94,11 @@ class UserProfileApiService {
         debugPrint('프로필 저장 성공');
         return true;
       } else {
-        debugPrint(
-          '프로필 저장 실패: ${response.statusCode} ${ApiClient.bodyText(response)}',
-        );
+        debugPrint('프로필 저장 실패: ${response.statusCode}');
         return false;
       }
-    } catch (e) {
-      debugPrint('프로필 저장 통신 에러: $e');
+    } catch (_) {
+      debugPrint('프로필 저장 통신 오류가 발생했습니다.');
       return false;
     }
   }

@@ -25,7 +25,7 @@ class WebNotificationPrompt extends ConsumerStatefulWidget {
 }
 
 class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
-  int? _dismissedUnreadCount;
+  String? _dismissedUnreadSignature;
 
   @override
   Widget build(BuildContext context) {
@@ -33,12 +33,15 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     if (!isLoggedIn) return widget.child;
 
     final notifications = ref.watch(notificationsProvider);
-    final unreadCount =
+    final unreadNotifications =
         notifications.valueOrNull
             ?.where((notification) => notification.isUnread)
-            .length ??
-        0;
-    final shouldShow = unreadCount > 0 && _dismissedUnreadCount != unreadCount;
+            .toList(growable: false) ??
+        const [];
+    final unreadCount = unreadNotifications.length;
+    final unreadSignature = notificationSignature(unreadNotifications);
+    final shouldShow =
+        unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
     final safeTop = MediaQuery.paddingOf(context).top;
     final bannerTop = safeTop + (widget.isHome ? 86 : 12);
 
@@ -61,10 +64,11 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
                 ),
                 child: _UnreadNotificationBanner(
                   unreadCount: unreadCount,
-                  onDismiss: () =>
-                      setState(() => _dismissedUnreadCount = unreadCount),
+                  onDismiss: () => setState(
+                    () => _dismissedUnreadSignature = unreadSignature,
+                  ),
                   onOpen: () {
-                    setState(() => _dismissedUnreadCount = unreadCount);
+                    setState(() => _dismissedUnreadSignature = unreadSignature);
                     widget.onOpenNotifications();
                   },
                 ),
@@ -75,6 +79,18 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       ],
     );
   }
+}
+
+/// Produces a stable identity for the current unread set. Using only the count
+/// would miss a newly arrived notification that replaces one just read.
+String notificationSignature(Iterable<NotificationModel> notifications) {
+  final ids =
+      notifications
+          .map((notification) => notification.id)
+          .where((id) => id.isNotEmpty)
+          .toList(growable: false)
+        ..sort();
+  return ids.join('\u0000');
 }
 
 class _UnreadNotificationBanner extends StatelessWidget {

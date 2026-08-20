@@ -37,6 +37,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.LocalTime;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -49,6 +50,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -71,6 +73,7 @@ public class FirebaseService {
 
     private static final int REPORT_IMAGE_MAX_COUNT = 3;
     private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
+    private static final int MAX_NOTIFICATION_RESULTS = 100;
 
     /** 공공데이터 마지막 갱신 성공 시각 (24시간 가드: 1시간 주기 실행되지만 성공 후 24시간 내엔 Firestore 미호출) */
     private volatile long lastGovRefreshSuccessMillis = 0L;
@@ -88,10 +91,10 @@ public class FirebaseService {
     public void initAllStores() {
         // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
         if (loadGovStoresFromDisk()) {
-            System.out.println("[캐시] 디스크 스냅샷에서 매장 " + cachedStores.size() + "개 로드");
+            log.info("디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
         // 2순위: 리포지토리에 커밋된 classpath 스냅샷 (신규 인스턴스 콜드스타트 대비)
         } else if (loadGovStoresFromClasspath()) {
-            System.out.println("[캐시] classpath 스냅샷에서 매장 " + cachedStores.size() + "개 로드");
+            log.info("classpath 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
         // 3순위: Firestore 로드 후 디스크에 영속화 (하루 1회 갱신 주기 내 최초 1회)
         } else {
             refreshGovStores();
@@ -125,17 +128,18 @@ public class FirebaseService {
                 long last = Long.parseLong(meta.get("lastRefreshAt").toString());
                 if (System.currentTimeMillis() - last < 86_400_000L && !cachedStores.isEmpty()) {
                     lastGovRefreshSuccessMillis = last;
-                    System.out.println("[캐시] 메타 문서 기준 24시간 내 갱신 이력 있음 — 전량 갱신 건너뜀 (읽기 절약)");
+                    log.info("24시간 내 매장 갱신 이력이 있어 전량 갱신을 건너뜁니다.");
                     return;
                 }
             }
         } catch (Exception e) {
             // 메타 조회 실패(쿼터 초과 등) 시 전량 갱신 대신 이번 주기는 건너뜀 — 기존 캐시 유지
-            System.err.println("[캐시] 갱신 메타 조회 실패, 이번 주기 갱신 건너뜀: " + e.getMessage());
+            log.warn("매장 갱신 메타 조회 실패로 이번 주기를 건너뜁니다: {}",
+                    e.getClass().getSimpleName());
             return;
         }
         try {
-            System.out.println("[캐시] Firestore에서 공공데이터 매장 갱신 시도...");
+            log.info("Firestore 공공데이터 매장 갱신을 시작합니다.");
             List<Map<String, Object>> stores = db.collection("stores")
                     .get().get().getDocuments().stream()
                     .map(DocumentSnapshot::getData)
@@ -148,15 +152,16 @@ public class FirebaseService {
                     db.collection(GOV_META_COLLECTION).document(GOV_META_DOC)
                             .set(Map.of("lastRefreshAt", lastGovRefreshSuccessMillis)).get();
                 } catch (Exception metaEx) {
-                    System.err.println("[캐시] 갱신 메타 저장 실패(무시 가능): " + metaEx.getMessage());
+                    log.warn("매장 갱신 메타 저장 실패: {}", metaEx.getClass().getSimpleName());
                 }
-                System.out.println("[캐시] 공공데이터 매장 갱신 완료: " + stores.size() + "개");
+                log.info("공공데이터 매장 갱신 완료: {}개", stores.size());
             } else {
-                System.out.println("[캐시] Firestore 결과가 비어 있어 기존 캐시 유지");
+                log.warn("Firestore 매장 결과가 비어 있어 기존 캐시를 유지합니다.");
             }
         } catch (Exception e) {
             // 쿼터 초과 등 실패 시 기존 캐시 유지 (서비스 무중단)
-            System.err.println("[캐시] 공공데이터 매장 갱신 실패, 기존 캐시 유지: " + e.getMessage());
+            log.warn("공공데이터 매장 갱신 실패로 기존 캐시를 유지합니다: {}",
+                    e.getClass().getSimpleName());
         }
     }
 
@@ -178,9 +183,10 @@ public class FirebaseService {
                     })
                     .toList();
             cachedUserStores = List.copyOf(userStores);
-            System.out.println("[캐시] 사용자 제보 매장 로드 완료: " + userStores.size() + "개");
+            log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
         } catch (Exception e) {
-            System.err.println("[캐시] 사용자 제보 매장 로드 실패, 기존 캐시 유지: " + e.getMessage());
+            log.warn("사용자 제보 매장 로드 실패로 기존 캐시를 유지합니다: {}",
+                    e.getClass().getSimpleName());
         }
     }
 
@@ -193,7 +199,7 @@ public class FirebaseService {
             cachedStores = List.copyOf(stores);
             return true;
         } catch (Exception e) {
-            System.err.println("[캐시] 디스크 스냅샷 로드 실패: " + e.getMessage());
+            log.warn("디스크 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -207,7 +213,7 @@ public class FirebaseService {
             cachedStores = List.copyOf(stores);
             return true;
         } catch (Exception e) {
-            System.err.println("[캐시] classpath 스냅샷 로드 실패: " + e.getMessage());
+            log.warn("classpath 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
             return false;
         }
     }
@@ -229,9 +235,9 @@ public class FirebaseService {
             Path temp = path.resolveSibling(path.getFileName() + ".tmp");
             objectMapper.writeValue(temp.toFile(), stores);
             Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
-            System.out.println("[캐시] 스냅샷 저장 완료: " + path.toAbsolutePath());
+            log.info("매장 스냅샷 저장을 완료했습니다.");
         } catch (Exception e) {
-            System.err.println("[캐시] 스냅샷 저장 실패(읽기 전용 FS 등): " + e.getMessage());
+            log.warn("매장 스냅샷 저장 실패: {}", e.getClass().getSimpleName());
         }
     }
 
@@ -547,8 +553,7 @@ public class FirebaseService {
             try {
                 reportImageStorage.deleteOwned(reporterUid, imageUrls);
             } catch (Exception cleanupError) {
-                log.warn("부분 업로드된 제보 사진 정리에 실패했습니다. uid={}",
-                        reporterUid, cleanupError);
+                log.warn("부분 업로드된 제보 사진 정리에 실패했습니다.", cleanupError);
             }
             throw e;
         }
@@ -561,6 +566,7 @@ public class FirebaseService {
             String storeName,
             String menu,
             long price,
+            String receiptFingerprint,
             List<String> imageUrls,
             ReceiptOcrService.Result ocrResult) throws Exception {
         if (firebaseUid == null || firebaseUid.isBlank()) {
@@ -568,6 +574,9 @@ public class FirebaseService {
         }
         if (imageUrls == null || imageUrls.isEmpty()) {
             throw new IllegalArgumentException("영수증 사진이 필요합니다.");
+        }
+        if (receiptFingerprint == null || !receiptFingerprint.matches("[a-f0-9]{64}")) {
+            throw new IllegalArgumentException("영수증 이미지 식별값이 올바르지 않습니다.");
         }
         Map<String, Object> data = new HashMap<>();
         data.put("userId", firebaseUid);
@@ -583,13 +592,33 @@ public class FirebaseService {
             data.put("ocrStatus", ocrResult.status());
             data.put("ocrDetectedTextLength", ocrResult.detectedTextLength());
             data.put("ocrDetectedPrice", ocrResult.detectedPrice());
+            data.put("ocrLabeledPrice", ocrResult.labeledPrice());
             data.put("ocrStoreMatch", ocrResult.storeMatch());
             data.put("ocrPriceMatch", ocrResult.priceMatch());
+            data.put("ocrDetectedDate", ocrResult.detectedDate());
+            data.put("ocrReceiptDatePlausible", ocrResult.receiptDatePlausible());
             data.put("ocrScore", ocrResult.score());
         }
-        DocumentReference document = db.collection("receipt_verifications").document();
-        document.set(data).get();
+        DocumentReference document = db.collection("receipt_verifications")
+                .document("receipt_" + receiptFingerprint);
+        try {
+            document.create(data).get();
+        } catch (ExecutionException e) {
+            if (isAlreadyExists(e)) {
+                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+            }
+            throw e;
+        }
         return document.getId();
+    }
+
+    public boolean receiptVerificationExists(String receiptFingerprint) throws Exception {
+        if (receiptFingerprint == null || !receiptFingerprint.matches("[a-f0-9]{64}")) {
+            return false;
+        }
+        return db.collection("receipt_verifications")
+                .document("receipt_" + receiptFingerprint)
+                .get().get().exists();
     }
 
     // [어드민] 영수증 인증 목록 조회. 소량 컬렉션이라 복합 인덱스 없이 필터링합니다.
@@ -609,55 +638,123 @@ public class FirebaseService {
 
     /** 영수증 인증 승인 시 위치 인증 없이 방문 기록을 생성합니다. */
     public Map<String, Object> approveReceiptVerification(String receiptId, String approvedBy) throws Exception {
+        if (receiptId == null || receiptId.isBlank()) {
+            throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
+        }
         DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
-        DocumentSnapshot snapshot = docRef.get().get();
-        if (!snapshot.exists()) throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
-        String status = snapshot.getString("status");
-        if (status != null && !"PENDING".equalsIgnoreCase(status)) {
-            throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
-        }
+        DocumentReference visitRef = db.collection("visits").document();
+        try {
+            ReceiptApprovalResult committed = db.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                if (!snapshot.exists()) {
+                    throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+                }
+                String status = snapshot.getString("status");
+                if (status != null && !"PENDING".equalsIgnoreCase(status)) {
+                    throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
+                }
 
-        String userId = snapshot.getString("userId");
-        String storeName = snapshot.getString("storeName");
-        Long price = snapshot.getLong("price");
-        if (userId == null || userId.isBlank() || storeName == null || storeName.isBlank() || price == null) {
-            throw new IllegalArgumentException("영수증 인증 데이터가 올바르지 않습니다.");
-        }
-        String menu = snapshot.getString("menu");
-        String industry = findIndustryByStoreName(storeName);
-        long savedAmount = ReferencePrices.savedAmount(menu, industry, price);
-        com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
-                .storeId(snapshot.getString("storeId"))
-                .storeName(storeName)
-                .menu(menu)
-                .price(price)
-                .verificationMethod("RECEIPT_OCR")
-                .build();
-        String visitId = saveVisit(userId, visitRequest, savedAmount);
+                String userId = snapshot.getString("userId");
+                String storeName = snapshot.getString("storeName");
+                Long price = snapshot.getLong("price");
+                if (userId == null || userId.isBlank()
+                        || storeName == null || storeName.isBlank()
+                        || price == null || price <= 0) {
+                    throw new IllegalArgumentException("영수증 인증 데이터가 올바르지 않습니다.");
+                }
 
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("status", "APPROVED");
-        updates.put("approvedBy", approvedBy == null ? "AUTO_OCR" : approvedBy);
-        updates.put("approvedAt", java.time.Instant.now().toString());
-        updates.put("visitId", visitId);
-        docRef.update(updates).get();
-        return Map.of("success", true, "id", receiptId, "status", "APPROVED", "visitId", visitId);
+                String menu = snapshot.getString("menu");
+                long savedAmount = ReferencePrices.savedAmount(
+                        menu, findIndustryByStoreName(storeName), price);
+                com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
+                        .storeId(snapshot.getString("storeId"))
+                        .storeName(storeName)
+                        .menu(menu)
+                        .price(price)
+                        .verificationMethod("RECEIPT_OCR")
+                        .build();
+
+                String processedAt = java.time.Instant.now().toString();
+                transaction.set(visitRef, buildVisitData(userId, visitRequest, savedAmount, processedAt));
+                transaction.update(docRef, Map.of(
+                        "status", "APPROVED",
+                        "approvedBy", approvedBy == null ? "AUTO_OCR" : approvedBy,
+                        "approvedAt", processedAt,
+                        "visitId", visitRef.getId()
+                ));
+                return new ReceiptApprovalResult(
+                        userId, stringList(snapshot.get("imageUrls")), visitRef.getId());
+            }).get();
+            cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
+            return Map.of(
+                    "success", true,
+                    "id", receiptId,
+                    "status", "APPROVED",
+                    "visitId", committed.visitId());
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IllegalArgumentException invalidReceipt) {
+                throw invalidReceipt;
+            }
+            throw e;
+        }
     }
 
     public void rejectReceiptVerification(String receiptId, String reason, String rejectedBy) throws Exception {
-        DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
-        DocumentSnapshot snapshot = docRef.get().get();
-        if (!snapshot.exists()) throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
-        String status = snapshot.getString("status");
-        if (status != null && !"PENDING".equalsIgnoreCase(status)) {
-            throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
+        if (receiptId == null || receiptId.isBlank()) {
+            throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
         }
-        Map<String, Object> updates = new HashMap<>();
-        updates.put("status", "REJECTED");
-        updates.put("rejectReason", reason);
-        updates.put("rejectedBy", rejectedBy);
-        updates.put("rejectedAt", java.time.Instant.now().toString());
-        docRef.update(updates).get();
+        DocumentReference docRef = db.collection("receipt_verifications").document(receiptId);
+        try {
+            ReceiptRejectionResult committed = db.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                if (!snapshot.exists()) {
+                    throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+                }
+                String status = snapshot.getString("status");
+                if (status != null && !"PENDING".equalsIgnoreCase(status)) {
+                    throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
+                }
+                transaction.update(docRef, Map.of(
+                        "status", "REJECTED",
+                        "rejectReason", reason,
+                        "rejectedBy", rejectedBy,
+                        "rejectedAt", java.time.Instant.now().toString()));
+                return new ReceiptRejectionResult(
+                        snapshot.getString("userId"), stringList(snapshot.get("imageUrls")));
+            }).get();
+            cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IllegalArgumentException invalidReceipt) {
+                throw invalidReceipt;
+            }
+            throw e;
+        }
+    }
+
+    private record ReceiptApprovalResult(
+            String userId, List<String> imageUrls, String visitId) { }
+
+    private record ReceiptRejectionResult(String userId, List<String> imageUrls) { }
+
+    private void cleanupProcessedReceiptImages(
+            DocumentReference receiptRef, String ownerUid, List<String> imageUrls) {
+        if (ownerUid == null || ownerUid.isBlank() || imageUrls.isEmpty()) return;
+        try {
+            Set<String> uniqueUrls = new LinkedHashSet<>(imageUrls);
+            int deleted = reportImageStorage.deleteOwned(ownerUid, uniqueUrls);
+            if (deleted < uniqueUrls.size()) {
+                log.warn("처리된 영수증 이미지 일부를 정리하지 못했습니다. receiptId={}, deleted={}/{}",
+                        receiptRef.getId(), deleted, uniqueUrls.size());
+                return;
+            }
+            receiptRef.update(Map.of(
+                    "imageUrls", List.of(),
+                    "imageCleanupStatus", "DELETED",
+                    "imageDeletedAt", java.time.Instant.now().toString()
+            )).get();
+        } catch (Exception e) {
+            log.warn("처리된 영수증 이미지 정리에 실패했습니다. receiptId={}", receiptRef.getId(), e);
+        }
     }
 
     public int deleteReportImages(String reporterUid, List<String> imageUrls) throws Exception {
@@ -805,7 +902,7 @@ public class FirebaseService {
                             snapshot.getString("changeType"));
                 } catch (Exception e) {
                     // 승인 상태 변경은 완료됐으므로 부가 알림 실패가 관리자 승인 결과를 실패로 만들지 않게 합니다.
-                    log.warn("가격 변동 알림 발송 실패: reportId={}, storeName={}", reportId, storeName, e);
+                    log.warn("가격 변동 알림 발송 실패: reportId={}", reportId, e);
                 }
             }
         }
@@ -974,7 +1071,7 @@ public class FirebaseService {
         try {
             return reportImageStorage.deleteAllOwned(firebaseUid);
         } catch (Exception e) {
-            log.warn("회원 탈퇴 중 제보 이미지 정리에 실패했습니다. uid={}", firebaseUid, e);
+            log.warn("회원 탈퇴 중 제보 이미지 정리에 실패했습니다.", e);
             return 0;
         }
     }
@@ -1034,6 +1131,60 @@ public class FirebaseService {
 
     // 💡 방문 기록 저장 (절약 금액은 VisitController에서 서버 룰로 계산되어 주입됨)
     public String saveVisit(String firebaseUid, com.howmuch.dto.VisitRequest request, long savedAmount) throws Exception {
+        boolean locationVerification = "LOCATION".equalsIgnoreCase(request.getVerificationMethod());
+        DocumentReference docRef = locationVerification
+                ? db.collection("visits").document(locationVisitDocumentId(
+                        firebaseUid, request, LocalDate.now(ZoneId.of("Asia/Seoul"))))
+                : db.collection("visits").document();
+        Map<String, Object> data = buildVisitData(
+                firebaseUid, request, savedAmount, java.time.Instant.now().toString());
+        try {
+            if (locationVerification) {
+                docRef.create(data).get();
+            } else {
+                docRef.set(data).get();
+            }
+        } catch (ExecutionException e) {
+            if (locationVerification && isAlreadyExists(e)) {
+                throw new DuplicateVisitException("오늘 이미 이 매장의 방문 인증을 완료했습니다.");
+            }
+            throw e;
+        }
+        return docRef.getId();
+    }
+
+    String locationVisitDocumentId(
+            String firebaseUid, com.howmuch.dto.VisitRequest request, LocalDate date) {
+        String storeKey = request.getStoreId() != null && !request.getStoreId().isBlank()
+                ? request.getStoreId().trim()
+                : String.valueOf(request.getStoreName()).trim().toLowerCase(java.util.Locale.ROOT);
+        return "location_" + sha256Hex(firebaseUid + "|" + storeKey + "|" + date);
+    }
+
+    private String sha256Hex(String value) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            throw new IllegalStateException("식별자 해시를 생성하지 못했습니다.", e);
+        }
+    }
+
+    private boolean isAlreadyExists(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof com.google.api.gax.rpc.AlreadyExistsException) return true;
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private Map<String, Object> buildVisitData(
+            String firebaseUid,
+            com.howmuch.dto.VisitRequest request,
+            long savedAmount,
+            String visitedAt) {
         Map<String, Object> data = new HashMap<>();
         data.put("userId", firebaseUid);
         data.put("storeId", request.getStoreId());
@@ -1044,11 +1195,8 @@ public class FirebaseService {
         data.put("isGov", findIndustryByStoreName(request.getStoreName()) != null);
         data.put("verificationMethod", request.getVerificationMethod());
         data.put("verificationDistanceMeters", request.getVerificationDistanceMeters());
-        data.put("visitedAt", java.time.Instant.now().toString());
-
-        DocumentReference docRef = db.collection("visits").document();
-        docRef.set(data).get();
-        return docRef.getId();
+        data.put("visitedAt", visitedAt);
+        return data;
     }
 
     // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
@@ -1429,22 +1577,24 @@ public class FirebaseService {
         stores.addAll(cachedStores);
         stores.addAll(cachedUserStores);
 
-        return stores.stream()
-                .map(this::withStableStoreId)
-                .filter(store -> matchesStore(store, storeId, storeName))
-                .map(this::toStoreCoordinates)
-                .filter(java.util.Objects::nonNull)
-                .findFirst();
-    }
-
-    private boolean matchesStore(Map<String, Object> store, String storeId, String storeName) {
-        String cachedId = strOrNull(store.get("storeId"));
-        String cachedName = strOrNull(store.get("storeName"));
-        if (storeId != null && !storeId.isBlank() && storeId.equals(cachedId)) return true;
-        return (storeId == null || storeId.isBlank())
-                && storeName != null
-                && !storeName.isBlank()
-                && storeName.equals(cachedName);
+        StoreCoordinates nameFallback = null;
+        for (Map<String, Object> rawStore : stores) {
+            Map<String, Object> store = withStableStoreId(rawStore);
+            StoreCoordinates coordinates = toStoreCoordinates(store);
+            if (coordinates == null) continue;
+            String cachedId = strOrNull(store.get("storeId"));
+            String cachedName = strOrNull(store.get("storeName"));
+            if (storeId != null && !storeId.isBlank() && storeId.equals(cachedId)) {
+                return java.util.Optional.of(coordinates);
+            }
+            if (nameFallback == null
+                    && storeName != null
+                    && !storeName.isBlank()
+                    && storeName.equals(cachedName)) {
+                nameFallback = coordinates;
+            }
+        }
+        return java.util.Optional.ofNullable(nameFallback);
     }
 
     private StoreCoordinates toStoreCoordinates(Map<String, Object> store) {
@@ -1872,6 +2022,10 @@ public class FirebaseService {
      */
     public Map<String, Object> createInquiry(String firebaseUid, com.howmuch.dto.InquiryRequest request) throws Exception {
         String createdAt = java.time.Instant.now().toString();
+        List<String> imageUrls = normalizeReportImageUrls(
+                firebaseUid,
+                request.getImageUrls(),
+                Set.of());
         Map<String, Object> data = new HashMap<>();
         data.put("userId", firebaseUid);
         data.put("title", request.getTitle().trim());
@@ -1879,6 +2033,7 @@ public class FirebaseService {
         data.put("category", request.getCategory() != null ? request.getCategory().trim() : "일반");
         data.put("status", "PENDING");
         data.put("createdAt", createdAt);
+        data.put("imageUrls", imageUrls);
 
         DocumentReference docRef = db.collection("inquiries").document();
         docRef.set(data).get();
@@ -1906,6 +2061,7 @@ public class FirebaseService {
                     item.put("answer", data.get("answer"));
                     item.put("createdAt", data.get("createdAt"));
                     item.put("answeredAt", data.get("answeredAt"));
+                    item.put("imageUrls", stringList(data.get("imageUrls")));
                     return item;
                 })
                 .toList());
@@ -1933,6 +2089,7 @@ public class FirebaseService {
                     item.put("answer", data.get("answer"));
                     item.put("createdAt", data.get("createdAt"));
                     item.put("answeredAt", data.get("answeredAt"));
+                    item.put("imageUrls", stringList(data.get("imageUrls")));
                     return item;
                 })
                 .toList());
@@ -1946,41 +2103,69 @@ public class FirebaseService {
 
     /** 어드민 문의 답변 등록 및 사용자 알림 생성 */
     public Map<String, Object> answerInquiry(String inquiryId, String answer) throws Exception {
+        if (inquiryId == null || inquiryId.isBlank()) {
+            throw new IllegalArgumentException("문의 ID가 필요합니다.");
+        }
+        if (answer == null || answer.isBlank() || answer.trim().length() > 2000) {
+            throw new IllegalArgumentException("답변은 1자 이상 2000자 이내여야 합니다.");
+        }
         DocumentReference inquiryRef = db.collection("inquiries").document(inquiryId);
-        DocumentSnapshot inquiry = inquiryRef.get().get();
-        if (!inquiry.exists()) {
-            throw new IllegalArgumentException("문의를 찾을 수 없습니다.");
-        }
+        DocumentReference notificationRef = db.collection("notifications")
+                .document("inquiry_answer_" + sanitizeForDocId(inquiryId));
+        InquiryAnswerResult committed;
+        try {
+            committed = db.runTransaction(transaction -> {
+                DocumentSnapshot inquiry = transaction.get(inquiryRef).get();
+                if (!inquiry.exists()) {
+                    throw new IllegalArgumentException("문의를 찾을 수 없습니다.");
+                }
 
-        String userId = inquiry.getString("userId");
-        if (userId == null || userId.isBlank()) {
-            throw new IllegalArgumentException("문의 작성자 정보를 찾을 수 없습니다.");
-        }
+                String userId = inquiry.getString("userId");
+                if (userId == null || userId.isBlank()) {
+                    throw new IllegalArgumentException("문의 작성자 정보를 찾을 수 없습니다.");
+                }
 
-        String answeredAt = java.time.Instant.now().toString();
-        Map<String, Object> update = new HashMap<>();
-        update.put("answer", answer);
-        update.put("answeredAt", answeredAt);
-        update.put("status", "ANSWERED");
-        inquiryRef.update(update).get();
-
-        String inquiryTitle = inquiry.getString("title");
-        createNotificationForUser(
-                userId,
-                "문의 답변이 도착했어요",
-                (inquiryTitle == null || inquiryTitle.isBlank())
+                String answeredAt = java.time.Instant.now().toString();
+                String inquiryTitle = inquiry.getString("title");
+                String notificationBody = (inquiryTitle == null || inquiryTitle.isBlank())
                         ? "등록한 문의에 답변이 등록되었습니다."
-                        : "'" + inquiryTitle + "' 문의에 답변이 등록되었습니다.",
-                "INQUIRY_ANSWER",
-                answeredAt);
+                        : "'" + inquiryTitle + "' 문의에 답변이 등록되었습니다.";
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("success", true);
-        result.put("id", inquiryId);
-        result.put("status", "ANSWERED");
-        result.put("answeredAt", answeredAt);
-        return result;
+                transaction.update(inquiryRef, Map.of(
+                        "answer", answer.trim(),
+                        "answeredAt", answeredAt,
+                        "status", "ANSWERED"
+                ));
+                transaction.set(notificationRef, Map.of(
+                        "userId", userId,
+                        "title", "문의 답변이 도착했어요",
+                        "body", notificationBody,
+                        "type", "INQUIRY_ANSWER",
+                        "relatedInquiryId", inquiryId,
+                        "isRead", false,
+                        "createdAt", answeredAt
+                ));
+                return new InquiryAnswerResult(userId, answeredAt, notificationBody);
+            }).get();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof IllegalArgumentException invalidInquiry) {
+                throw invalidInquiry;
+            }
+            throw e;
+        }
+
+        dispatchPushNotification(
+                committed.userId(), notificationRef.getId(),
+                "문의 답변이 도착했어요", committed.notificationBody(), "INQUIRY_ANSWER");
+        return Map.of(
+                "success", true,
+                "id", inquiryId,
+                "status", "ANSWERED",
+                "answeredAt", committed.answeredAt());
     }
+
+    private record InquiryAnswerResult(
+            String userId, String answeredAt, String notificationBody) { }
 
     // ==================== 오늘의 픽 (todays pick) ====================
 
@@ -2005,6 +2190,9 @@ public class FirebaseService {
      * @return 추천 매장 리스트 (최대 4개)
      */
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
+        boolean locationAvailable = isValidCoordinate(lat, lng);
+        final Double effectiveLat = locationAvailable ? lat : null;
+        final Double effectiveLng = locationAvailable ? lng : null;
         List<PickTheme> themes = weatherThemes(weather, temp);
         PickTheme mainTheme = themes.get(0);
         PickTheme altTheme = themes.size() > 1 ? themes.get(1) : null;
@@ -2014,7 +2202,8 @@ public class FirebaseService {
         List<Map<String, Object>> foodStores = new ArrayList<>();
         for (Map<String, Object> store : cachedStores) {
             String industry = strOrNull(store.get("industry"));
-            if (industry != null && FOOD_INDUSTRIES.contains(industry)) {
+            if (industry != null && FOOD_INDUSTRIES.contains(industry)
+                    && (!locationAvailable || hasValidStoreCoordinate(store))) {
                 foodStores.add(store);
             }
         }
@@ -2038,8 +2227,10 @@ public class FirebaseService {
 
         // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
         // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
-        List<Map<String, Object>> mainCandidates = nearestShuffled(mainPool, lat, lng, CANDIDATE_POOL_SIZE, dailySeed);
-        List<Map<String, Object>> altCandidates = nearestShuffled(altMatched, lat, lng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
+        List<Map<String, Object>> mainCandidates = nearestShuffled(
+                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed);
+        List<Map<String, Object>> altCandidates = nearestShuffled(
+                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
 
         // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
         Set<String> seenNames = new HashSet<>();
@@ -2050,9 +2241,9 @@ public class FirebaseService {
             addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
         }
 
-        if (lat != null && lng != null) {
+        if (locationAvailable) {
             chosen.sort(java.util.Comparator.comparingDouble(
-                    store -> haversine(lat, lng, parseLat(store), parseLng(store))));
+                    store -> haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
         }
 
         List<Map<String, Object>> picks = new ArrayList<>();
@@ -2066,8 +2257,9 @@ public class FirebaseService {
             pick.put("address", strOrNull(store.get("address")));
             pick.put("latitude", store.get("latitude"));
             pick.put("longitude", store.get("longitude"));
-            if (lat != null && lng != null) {
-                pick.put("distanceMeters", (int) Math.round(haversine(lat, lng, parseLat(store), parseLng(store))));
+            if (locationAvailable) {
+                pick.put("distanceMeters", (int) Math.round(
+                        haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
             }
             // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장은 null → 프론트 기본 멘트)
             pick.put("matchedMenu", matchedMenuByStore.get(name));
@@ -2238,7 +2430,7 @@ public class FirebaseService {
         try {
             return Double.parseDouble(String.valueOf(store.get("latitude")));
         } catch (Exception e) {
-            return 0;
+            return Double.NaN;
         }
     }
 
@@ -2246,8 +2438,19 @@ public class FirebaseService {
         try {
             return Double.parseDouble(String.valueOf(store.get("longitude")));
         } catch (Exception e) {
-            return 0;
+            return Double.NaN;
         }
+    }
+
+    private boolean hasValidStoreCoordinate(Map<String, Object> store) {
+        return isValidCoordinate(parseLat(store), parseLng(store));
+    }
+
+    private boolean isValidCoordinate(Double lat, Double lng) {
+        return lat != null && lng != null
+                && Double.isFinite(lat) && Double.isFinite(lng)
+                && lat >= -90 && lat <= 90
+                && lng >= -180 && lng <= 180;
     }
 
     // ==================== 커뮤니티 댓글/좋아요/알림 (comments, feed_likes, feed_notifications) ====================
@@ -2282,15 +2485,15 @@ public class FirebaseService {
     private void syncFeedCounts(String postId) {
         try {
             long commentCount = db.collection("comments")
-                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+                    .whereEqualTo("postId", postId).count().get().get().getCount();
             long likeCount = db.collection("feed_likes")
-                    .whereEqualTo("postId", postId).get().get().getDocuments().size();
+                    .whereEqualTo("postId", postId).count().get().get().getCount();
             Map<String, Object> updates = new HashMap<>();
-            updates.put("comments", (int) commentCount);
-            updates.put("likes", (int) likeCount);
+            updates.put("comments", Math.toIntExact(commentCount));
+            updates.put("likes", Math.toIntExact(likeCount));
             db.collection("stores_user").document(postId).update(updates).get();
         } catch (Exception e) {
-            // 카운터 동기화 실패는 치명적이지 않으므로 로그만 (호출 흐름 유지)
+            log.warn("커뮤니티 카운터 동기화 실패: postId={}", postId, e);
         }
     }
 
@@ -2348,6 +2551,7 @@ public class FirebaseService {
         data.put("parentId", null);
         docRef.set(data).get();
         syncFeedCounts(postId);
+        notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, false);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
                 .author(resolveAuthor(requesterUid))
@@ -2371,12 +2575,25 @@ public class FirebaseService {
         return result;
     }
 
+    /** 답글 조회·작성 전에 부모 댓글과 공개 게시글의 연결을 확인합니다. */
+    public boolean commentBelongsToVisibleFeed(String commentId) throws Exception {
+        if (commentId == null || commentId.isBlank()) return false;
+        DocumentSnapshot comment = db.collection("comments").document(commentId).get().get();
+        if (!comment.exists()) return false;
+        Map<String, Object> data = comment.getData();
+        if (data == null || data.get("parentId") != null) return false;
+        Object postId = data.get("postId");
+        return postId != null && feedExists(postId.toString());
+    }
+
     // 💡 답글 작성 (부모 댓글 replyCount 증가 + 게시글 comments 갱신)
     public com.howmuch.dto.CommentResponse createReply(String commentId, String requesterUid, String content) throws Exception {
         DocumentSnapshot parent = db.collection("comments").document(commentId).get().get();
         if (!parent.exists()) return null;
         Map<String, Object> parentData = parent.getData();
+        if (parentData == null || parentData.get("parentId") != null) return null;
         String postId = parentData != null && parentData.get("postId") != null ? parentData.get("postId").toString() : null;
+        if (postId == null || !feedExists(postId)) return null;
 
         DocumentReference docRef = db.collection("comments").document();
         String createdAt = java.time.Instant.now().toString();
@@ -2398,6 +2615,7 @@ public class FirebaseService {
         db.collection("comments").document(commentId).update("replyCount", parentReplyCount + 1).get();
 
         if (postId != null) syncFeedCounts(postId);
+        notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, true);
 
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
@@ -2438,7 +2656,58 @@ public class FirebaseService {
     }
 
     private int getLikeCount(String postId) throws Exception {
-        return db.collection("feed_likes").whereEqualTo("postId", postId).get().get().getDocuments().size();
+        long count = db.collection("feed_likes").whereEqualTo("postId", postId)
+                .count().get().get().getCount();
+        return Math.toIntExact(count);
+    }
+
+    /** 게시글 작성자와 알림 구독자에게 새 댓글/답글 알림을 남깁니다. */
+    private void notifyFeedCommentSubscribers(
+            String postId,
+            String commentId,
+            String actorUid,
+            boolean reply) {
+        try {
+            DocumentSnapshot post = db.collection("stores_user").document(postId).get().get();
+            Map<String, Object> postData = post.getData();
+            if (!post.exists() || postData == null || !isFeedVisible(postData)) return;
+
+            Set<String> recipients = new LinkedHashSet<>();
+            String reporterId = post.getString("reporterId");
+            if (reporterId != null && !reporterId.isBlank()) recipients.add(reporterId);
+            for (DocumentSnapshot subscription : db.collection("feed_notifications")
+                    .whereEqualTo("postId", postId).get().get().getDocuments()) {
+                String userId = subscription.getString("userId");
+                if (userId != null && !userId.isBlank()) recipients.add(userId);
+            }
+            recipients.remove(actorUid);
+
+            String createdAt = java.time.Instant.now().toString();
+            String title = reply ? "새로운 답글" : "새로운 댓글";
+            String body = reply
+                    ? "알림 설정한 게시글에 새로운 답글이 달렸습니다."
+                    : "알림 설정한 게시글에 새로운 댓글이 달렸습니다.";
+            for (String userId : recipients) {
+                String notificationId = "feed_comment_"
+                        + sanitizeForDocId(commentId) + "_" + sanitizeForDocId(userId);
+                DocumentReference notification = db.collection("notifications").document(notificationId);
+                if (notification.get().get().exists()) continue;
+                Map<String, Object> data = new HashMap<>();
+                data.put("userId", userId);
+                data.put("title", title);
+                data.put("body", body);
+                data.put("type", "FEED_COMMENT");
+                data.put("isRead", false);
+                data.put("createdAt", createdAt);
+                data.put("relatedPostId", postId);
+                data.put("relatedCommentId", commentId);
+                notification.set(data).get();
+                dispatchPushNotification(userId, notificationId, title, body, "FEED_COMMENT");
+            }
+        } catch (Exception e) {
+            // 댓글 저장은 이미 완료됐으므로 알림 장애로 작성 요청을 실패시키지 않습니다.
+            log.warn("커뮤니티 댓글 알림 생성 실패: postId={}, commentId={}", postId, commentId, e);
+        }
     }
 
     private boolean isFeedLikedBy(String postId, String uid) throws Exception {
@@ -2506,11 +2775,20 @@ public class FirebaseService {
             String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";
             return bTime.compareTo(aTime);
         });
-        return notifications;
+        return notifications.size() <= MAX_NOTIFICATION_RESULTS
+                ? notifications
+                : List.copyOf(notifications.subList(0, MAX_NOTIFICATION_RESULTS));
     }
 
     // 💡 알림 읽음 처리 (본인 알림만 가능 — 다른 유저 알림이면 거부)
     public void markNotificationAsRead(String notificationId, String firebaseUid) throws Exception {
+        if (notificationId == null || notificationId.isBlank()
+                || notificationId.length() > 512 || notificationId.contains("/")) {
+            throw new IllegalArgumentException("알림 ID 형식이 올바르지 않습니다.");
+        }
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            throw new IllegalArgumentException("인증 정보가 유효하지 않습니다.");
+        }
         DocumentReference docRef = db.collection("notifications").document(notificationId);
         DocumentSnapshot document = docRef.get().get();
 
@@ -2823,11 +3101,11 @@ public class FirebaseService {
                             || e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT) {
                         device.getReference().delete();
                     }
-                    log.warn("FCM 발송 실패: uid={}, code={}", userId, e.getMessagingErrorCode());
+                    log.warn("FCM 발송 실패: code={}", e.getMessagingErrorCode());
                 }
             }
         } catch (Exception e) {
-            log.warn("FCM 기기 조회 또는 발송 실패: uid={}", userId, e);
+            log.warn("FCM 기기 조회 또는 발송 실패", e);
         }
     }
 
@@ -2846,6 +3124,9 @@ public class FirebaseService {
             return Boolean.TRUE.equals(settings.getReview());
         }
         if (normalizedType.contains("REPORT") || normalizedType.contains("INQUIRY")) {
+            return Boolean.TRUE.equals(settings.getReport());
+        }
+        if (normalizedType.contains("FEED") || normalizedType.contains("COMMENT")) {
             return Boolean.TRUE.equals(settings.getReport());
         }
         if (normalizedType.contains("PRICE")) {
@@ -2876,7 +3157,7 @@ public class FirebaseService {
                     ? !now.isBefore(start) && now.isBefore(end)
                     : !now.isBefore(start) || now.isBefore(end);
         } catch (Exception e) {
-            log.warn("방해 금지 시간 형식이 올바르지 않아 푸시를 계속 전송합니다. uid={}", userId);
+            log.warn("방해 금지 시간 형식이 올바르지 않아 푸시를 계속 전송합니다.");
             return false;
         }
     }

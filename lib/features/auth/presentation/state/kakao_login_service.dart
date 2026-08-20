@@ -29,12 +29,12 @@ class KakaoLoginService {
           token = await UserApi.instance.loginWithKakaoTalk();
           debugPrint('카카오톡으로 로그인 성공');
         } catch (error) {
-          debugPrint('카카오톡으로 로그인 실패 $error');
+          debugPrint('카카오톡으로 로그인하지 못했습니다.');
           _ref.read(appRouterProvider).go(AppRoutes.login);
           if (error is KakaoClientException && error.msg == 'Canceled') {
             return '사용자가 취소했습니다.';
           }
-          return '카카오톡 앱 로그인 실패: $error';
+          return '카카오톡 앱 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.';
         }
       } else {
         token = await UserApi.instance.loginWithKakaoAccount();
@@ -93,10 +93,10 @@ class KakaoLoginService {
         _ref.read(appRouterProvider).go(AppRoutes.login);
         return '백엔드 인증 실패';
       }
-    } catch (e) {
-      debugPrint('카카오톡 로그인 로직 에러: $e');
+    } catch (_) {
+      debugPrint('카카오 로그인 처리 중 오류가 발생했습니다.');
       _ref.read(appRouterProvider).go(AppRoutes.login);
-      return '통신 에러: $e';
+      return '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     }
   }
 
@@ -120,7 +120,7 @@ class KakaoLoginService {
         final sessionToken = data['sessionToken'] as String?;
 
         if (uid == null || sessionToken == null) {
-          debugPrint('백엔드 인증 응답 형식 오류: $data');
+          debugPrint('백엔드 인증 응답 형식이 올바르지 않습니다.');
           return null;
         }
 
@@ -129,14 +129,14 @@ class KakaoLoginService {
         // 💡 온보딩 완료 플래그 저장 (다음 실행부터 온보딩 건너뜀)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('onboarding_completed', true);
-        debugPrint('백엔드 인증 성공: uid=$uid');
+        debugPrint('백엔드 인증 성공');
         return (uid: uid, sessionToken: sessionToken);
       } else {
         debugPrint('백엔드 인증 실패: ${response.statusCode}');
         return null;
       }
-    } catch (e) {
-      debugPrint('백엔드 통신 에러: $e');
+    } catch (_) {
+      debugPrint('백엔드 통신 오류가 발생했습니다.');
       return null;
     }
   }
@@ -144,24 +144,28 @@ class KakaoLoginService {
   Future<void> logout() async {
     try {
       await UserApi.instance.logout();
+      debugPrint('카카오 로그아웃 성공');
+    } catch (_) {
+      debugPrint('카카오 로그아웃 요청에 실패해 로컬 세션만 정리합니다.');
+    } finally {
+      await clearLocalSession();
+    }
+  }
+
+  Future<void> clearLocalSession() async {
+    try {
       await _ref
           .read(pushNotificationServiceProvider)
           .unregisterCurrentDevice();
-      // 💡 세션 토큰도 함께 폐기 (서버 API 인증 불가 처리)
+    } finally {
       await ApiClient.setSessionToken(null);
-      _ref
-          .read(authStateProvider.notifier)
-          .update(
-            (state) => state.copyWith(
-              isLoggedIn: false,
-              email: '',
-              firebaseUid: '',
-              sessionToken: '',
-            ),
-          );
-      debugPrint('로그아웃 성공');
-    } catch (error) {
-      debugPrint('로그아웃 실패 $error');
+      _ref.read(authStateProvider.notifier).state = const AuthState(
+        isLoggedIn: false,
+        provider: '',
+        email: '',
+      );
+      _ref.read(userProfileProvider.notifier).state = UserProfile.guest;
+      _ref.read(userReportsProvider.notifier).setReports(const []);
     }
   }
 }

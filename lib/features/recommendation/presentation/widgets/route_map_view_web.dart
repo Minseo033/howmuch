@@ -87,6 +87,12 @@ class _RouteMapWebViewState extends State<_RouteMapWebView> {
   }
 
   @override
+  void didUpdateWidget(covariant _RouteMapWebView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initMap());
+  }
+
+  @override
   Widget build(BuildContext context) {
     return HtmlElementView(viewType: _viewId);
   }
@@ -98,10 +104,20 @@ void _injectRouteMapJs() {
   _eval(
     '''
     window.howMuchRouteMaps = window.howMuchRouteMaps || {};
-    window.initHowMuchRouteMap = function(viewId, pointsJson, userLat, userLng) {
+    window.initHowMuchRouteMap = function(viewId, pointsJson, userLat, userLng, attempt) {
+      attempt = attempt || 0;
+      function showMapError(message) {
+        var target = document.getElementById(viewId);
+        if (!target) return;
+        target.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:#475569;font:12px sans-serif;text-align:center;">' + message + '</div>';
+      }
       if (typeof kakao === 'undefined' || !kakao.maps) {
+        if (attempt >= 25) {
+          showMapError('지도를 불러오지 못했어요. 네트워크와 지도 설정을 확인해주세요.');
+          return;
+        }
         setTimeout(function() {
-          window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng);
+          window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng, attempt + 1);
         }, 200);
         return;
       }
@@ -109,12 +125,13 @@ void _injectRouteMapJs() {
       kakao.maps.load(function() {
         var container = document.getElementById(viewId);
         if (!container) {
+          if (attempt >= 25) return;
           setTimeout(function() {
-            window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng);
+            window.initHowMuchRouteMap(viewId, pointsJson, userLat, userLng, attempt + 1);
           }, 200);
           return;
         }
-
+        try {
         var points = JSON.parse(pointsJson);
         var first = points.length > 0 ? points[0] : {latitude: 37.5665, longitude: 126.9780};
         var map = new kakao.maps.Map(container, {
@@ -172,6 +189,9 @@ void _injectRouteMapJs() {
           map.setBounds(bounds, 28, 28, 28, 28);
         } else if (points.length === 1) {
           map.setCenter(new kakao.maps.LatLng(points[0].latitude, points[0].longitude));
+        }
+        } catch (error) {
+          showMapError('지도 데이터를 표시하지 못했어요. 잠시 후 다시 시도해주세요.');
         }
       });
     };

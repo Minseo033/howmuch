@@ -10,6 +10,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URI;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
+@Slf4j
 public class PublicDataService {
 
     private final WebClient webClient;
@@ -53,40 +55,45 @@ public class PublicDataService {
         AtomicInteger totalSaved = new AtomicInteger(0);
         int perPage = 100;
 
-        System.out.println(">>> [백그라운드] 전체 데이터 동기화 프로세스 시작...");
+        log.info("공공데이터 백그라운드 동기화를 시작합니다.");
 
         fetchPage(1, 1)
                 .flatMap(firstResponse -> {
                     int totalCount = firstResponse.getTotalCount();
                     int totalPages = (int) Math.ceil((double) totalCount / perPage);
                     
-                    System.out.println(">>> [백그라운드] 총 데이터: " + totalCount + ", 총 페이지: " + totalPages);
+                    log.info("공공데이터 동기화 대상: {}개, {}페이지", totalCount, totalPages);
 
                     return Flux.range(1, totalPages)
                             .concatMap(page -> {
-                                System.out.println(">>> [동기화 진행 중] 페이지 " + page + " / " + totalPages + " (현재까지 " + totalSaved.get() + "개 완료)");
+                                log.info("공공데이터 동기화 진행: {}/{}페이지, {}개 저장",
+                                        page, totalPages, totalSaved.get());
                                 return fetchPage(page, perPage)
                                         .flatMapMany(response -> Flux.fromIterable(response.getData()))
                                         .flatMap(item -> geocodingService.getCoordinates(item.getAddress())
                                                 .flatMap(coords -> {
-                                                    // 💡 좌표가 0.0이면 저장하지 않고 건너뜀 (비용 및 쓰레기 데이터 방지)
-                                                    if (coords.get("latitude") == 0.0 || coords.get("longitude") == 0.0) {
+                                                    Double latitude = coords.get("latitude");
+                                                    Double longitude = coords.get("longitude");
+                                                    if (latitude == null || longitude == null
+                                                            || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+                                                            || latitude < -90 || latitude > 90
+                                                            || longitude < -180 || longitude > 180) {
                                                         return Mono.empty();
                                                     }
                                                     return Mono.just(convertToStoreDto(item, coords));
                                                 })
                                                 .flatMap(this::saveToFirestore)
-                                                .doOnSuccess(v -> totalSaved.incrementAndGet())
+                                                .filter(Boolean.TRUE::equals)
+                                                .doOnNext(saved -> totalSaved.incrementAndGet())
                                                 .onErrorResume(e -> {
-                                                    System.err.println("항목 건너뜀 (에러): " + e.getMessage());
+                                                    log.warn("공공데이터 항목 저장을 건너뜁니다: {}",
+                                                            e.getClass().getSimpleName());
                                                     return Mono.empty();
                                                 }), 3) // 동시성을 3으로 낮춰 안정성 강화
                                         .then(Mono.empty());
                             })
                             .then(Mono.fromRunnable(() -> {
-                                System.out.println("=========================================");
-                                System.out.println(">>> [동기화 완료] 총 " + totalSaved.get() + "개의 데이터를 저장했습니다.");
-                                System.out.println("=========================================");
+                                log.info("공공데이터 동기화 완료: {}개 저장", totalSaved.get());
                             }));
                 })
                 .doFinally(signal -> syncRunning.set(false))
@@ -109,7 +116,8 @@ public class PublicDataService {
                 .bodyToMono(PublicStoreResponseDto.class)
                 .timeout(java.time.Duration.ofSeconds(10)) // API 호출 타임아웃 10초
                 .onErrorResume(e -> {
-                    System.err.println("페이지 호출 실패 (page=" + page + "): " + e.getMessage());
+                    log.warn("공공데이터 페이지 호출 실패: page={}, error={}",
+                            page, e.getClass().getSimpleName());
                     return Mono.empty();
                 });
     }
@@ -135,7 +143,7 @@ public class PublicDataService {
                 .build();
     }
 
-    private Mono<Void> saveToFirestore(StoreDto storeDto) {
+    Mono<Boolean> saveToFirestore(StoreDto storeDto) {
         // 💡 문서 ID를 "업소명_시도_시군구" 형태로 만들어 중복 덮어쓰기 방지
         String safeName = storeDto.getStoreName() != null ? storeDto.getStoreName().replace("/", "-").replace(".", "").trim() : "Unknown";
         String city = storeDto.getCityProvince() != null ? storeDto.getCityProvince().trim() : "";
@@ -145,13 +153,13 @@ public class PublicDataService {
         if (docId.startsWith("Unknown_")) docId = docId + "_" + System.currentTimeMillis();
 
         final String finalDocId = docId;
-        return Mono.<Void>fromCallable(() -> {
+        return Mono.fromCallable(() -> {
             try {
                 firestore.collection("stores").document(finalDocId).set(storeDto).get();
-                return null;
+                return true;
             } catch (Exception e) {
-                System.err.println("Firestore 저장 실패: " + finalDocId + " (" + e.getMessage() + ")");
-                return null; // 실패해도 프로세스는 계속 진행
+                log.warn("공공데이터 Firestore 저장 실패: {}", e.getClass().getSimpleName());
+                return false; // 한 항목 실패가 전체 동기화를 중단시키지는 않습니다.
             }
         }).subscribeOn(Schedulers.boundedElastic());
     }

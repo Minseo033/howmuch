@@ -46,8 +46,6 @@ public class NotificationController {
     @GetMapping
     public ResponseEntity<?> getUserNotifications(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[NotificationController] 내 알림 목록 조회 요청 - uid: {}", firebaseUid);
-
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
                 return ResponseEntity.status(401).body(Map.of(
@@ -150,12 +148,15 @@ public class NotificationController {
     public ResponseEntity<?> markAsRead(@PathVariable String id,
                                         HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[NotificationController] 알림 읽음 처리 요청 - uid: {}, notificationId: {}", firebaseUid, id);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
                 return ResponseEntity.status(401).body(Map.of(
                         "success", false, "message", "인증 정보가 유효하지 않습니다."));
+            }
+            if (!isValidDocumentId(id)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "알림 ID 형식이 올바르지 않습니다."));
             }
             firebaseService.markNotificationAsRead(id, firebaseUid);
             return ResponseEntity.ok(Map.of("success", true, "id", id));
@@ -213,5 +214,9 @@ public class NotificationController {
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "알림 기기를 해제하지 못했습니다."));
         }
+    }
+
+    private boolean isValidDocumentId(String id) {
+        return id != null && !id.isBlank() && id.length() <= 512 && !id.contains("/");
     }
 }

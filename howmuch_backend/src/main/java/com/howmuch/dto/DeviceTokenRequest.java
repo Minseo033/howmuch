@@ -1,6 +1,7 @@
 package com.howmuch.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -15,5 +16,6 @@ public class DeviceTokenRequest {
     private String token;
 
     @NotBlank
+    @Pattern(regexp = "android|ios")
     private String platform;
 }

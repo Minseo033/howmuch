@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Map;
 
 @Service
@@ -14,18 +15,27 @@ public class GeocodingService {
     private final WebClient webClient;
     // 💡 카카오 REST API 키는 환경변수(KAKAO_REST_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String kakaoApiKey;
+    private final Duration timeout;
 
     public GeocodingService(WebClient.Builder webClientBuilder,
-                            @Value("${kakao.rest-api-key:}") String kakaoApiKey) {
-        this.webClient = webClientBuilder.baseUrl("https://dapi.kakao.com").build();
+                            @Value("${kakao.rest-api-key:}") String kakaoApiKey,
+                            @Value("${kakao.local.timeout-ms:5000}") long timeoutMillis) {
+        this(webClientBuilder.baseUrl("https://dapi.kakao.com").build(),
+                kakaoApiKey,
+                Duration.ofMillis(Math.max(1_000L, timeoutMillis)));
+    }
+
+    GeocodingService(WebClient webClient, String kakaoApiKey, Duration timeout) {
+        this.webClient = webClient;
         this.kakaoApiKey = kakaoApiKey;
+        this.timeout = timeout;
     }
 
     /**
      * 주소를 기반으로 위도와 경도를 추출합니다.
      */
     public Mono<Map<String, Double>> getCoordinates(String address) {
-        if (address == null || address.isBlank()) {
+        if (address == null || address.isBlank() || address.trim().length() > 300) {
             return Mono.empty();
         }
 
@@ -37,21 +47,25 @@ public class GeocodingService {
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/local/search/address.json")
-                        .queryParam("query", address)
+                        .queryParam("query", address.trim())
                         .build())
                 .header("Authorization", "KakaoAK " + kakaoApiKey)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
-                .map(jsonNode -> {
+                .flatMap(jsonNode -> {
                     JsonNode documents = jsonNode.path("documents");
                     if (documents.isArray() && !documents.isEmpty()) {
                         JsonNode firstDoc = documents.get(0);
-                        double x = firstDoc.path("x").asDouble(); // longitude
-                        double y = firstDoc.path("y").asDouble(); // latitude
-                        return Map.of("latitude", y, "longitude", x);
+                        double x = firstDoc.path("x").asDouble(Double.NaN); // longitude
+                        double y = firstDoc.path("y").asDouble(Double.NaN); // latitude
+                        if (Double.isFinite(x) && Double.isFinite(y)
+                                && y >= -90 && y <= 90 && x >= -180 && x <= 180) {
+                            return Mono.just(Map.of("latitude", y, "longitude", x));
+                        }
                     }
-                    return Map.of("latitude", 0.0, "longitude", 0.0);
+                    return Mono.empty();
                 })
-                .onErrorReturn(Map.of("latitude", 0.0, "longitude", 0.0));
+                .timeout(timeout)
+                .onErrorResume(ignored -> Mono.empty());
     }
 }

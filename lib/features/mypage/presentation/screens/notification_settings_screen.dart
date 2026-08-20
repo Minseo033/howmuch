@@ -887,7 +887,7 @@ class _HowmuchToggle extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.black.withOpacity(0.2),
+                          color: AppColors.black.withValues(alpha: 0.2),
                           blurRadius: 3,
                           offset: Offset(0, 1),
                         ),

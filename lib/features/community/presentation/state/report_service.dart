@@ -51,7 +51,7 @@ class ReportService {
       'POST',
       ApiClient.uri('/api/report/images'),
     );
-    request.headers.addAll(_authHeaders());
+    request.headers.addAll(ApiClient.authHeaders(auth: true));
 
     for (var index = 0; index < images.length; index++) {
       final bytes = await images[index].readAsBytes();
@@ -242,11 +242,6 @@ class ReportService {
       debugPrint('내 제보 목록 조회 통신 에러: $error');
       return null;
     }
-  }
-
-  Map<String, String> _authHeaders() {
-    final token = ApiClient.sessionToken!;
-    return {'Accept': 'application/json', 'Authorization': 'Bearer $token'};
   }
 
   void _requireAuthentication() {

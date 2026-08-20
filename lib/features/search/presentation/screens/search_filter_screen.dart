@@ -175,8 +175,9 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                                 _industries.remove('전체');
                                 if (_industries.contains(ind)) {
                                   _industries.remove(ind);
-                                  if (_industries.isEmpty)
+                                  if (_industries.isEmpty) {
                                     _industries.add('전체');
+                                  }
                                 } else {
                                   _industries.add(ind);
                                 }
@@ -411,7 +412,7 @@ class _SwitchRow extends StatelessWidget {
         CupertinoSwitch(
           value: value,
           onChanged: onChanged,
-          activeColor: _SearchFilterSheetState.blue,
+          activeTrackColor: _SearchFilterSheetState.blue,
         ),
       ],
     );

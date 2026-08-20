@@ -8,7 +8,10 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:http/http.dart' as http;
 
 String? notificationRouteForType(String type) {
-  final normalized = type.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  final normalized = type.trim().toLowerCase().replaceAll(
+    RegExp(r'[\s-]+'),
+    '_',
+  );
 
   switch (normalized) {
     case '문의_답변':
@@ -357,13 +360,14 @@ class NotificationsNotifier
     extends StateNotifier<AsyncValue<List<NotificationModel>>> {
   NotificationsNotifier(this._api) : super(const AsyncValue.loading()) {
     _refreshTimer = Timer.periodic(
-      const Duration(seconds: 10),
+      const Duration(minutes: 1),
       (_) => loadNotifications(isRefresh: true),
     );
   }
 
   final NotificationApiService _api;
   Timer? _refreshTimer;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -372,6 +376,8 @@ class NotificationsNotifier
   }
 
   Future<void> loadNotifications({bool isRefresh = false}) async {
+    if (_isLoading) return;
+    _isLoading = true;
     final previousList = state.valueOrNull;
     if (!isRefresh) {
       state = const AsyncValue.loading();
@@ -384,6 +390,8 @@ class NotificationsNotifier
         return;
       }
       state = AsyncValue.error(error, stackTrace);
+    } finally {
+      _isLoading = false;
     }
   }
 
@@ -433,7 +441,7 @@ class NotificationsNotifier
 }
 
 final notificationsProvider =
-    StateNotifierProvider<
+    StateNotifierProvider.autoDispose<
       NotificationsNotifier,
       AsyncValue<List<NotificationModel>>
     >((ref) {

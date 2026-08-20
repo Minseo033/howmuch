@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 절약 정보 API 컨트롤러.
@@ -35,18 +36,20 @@ public class SavingsController {
     @GetMapping("/history")
     public ResponseEntity<?> getSavingsHistory(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[SavingsController] 절약 내역 목록 조회 요청 - uid: {}", firebaseUid);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
 
             List<SavingsHistoryResponse> history = savingsService.getSavingsHistory(firebaseUid);
             return ResponseEntity.ok(history);
         } catch (Exception e) {
             log.error("[SavingsController] 절약 내역 조회 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body("절약 내역 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "절약 내역 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
     }
 
@@ -59,18 +62,23 @@ public class SavingsController {
             @RequestParam(value = "period", defaultValue = "this_month") String period,
             HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[SavingsController] 절약 통계 조회 요청 - uid: {}, period: {}", firebaseUid, period);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
 
             SavingsStatsResponse stats = savingsService.getSavingsStats(firebaseUid, period);
             return ResponseEntity.ok(stats);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[SavingsController] 절약 통계 조회 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body("절약 통계 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "절약 통계 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
     }
 }

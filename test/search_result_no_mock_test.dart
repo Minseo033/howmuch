@@ -5,15 +5,15 @@ import 'package:howmuch/features/search/presentation/screens/search_result_scree
 import 'package:howmuch/features/store/store_model.dart';
 
 void main() {
-  testWidgets('shows a retry state instead of fabricated stores', (tester) async {
+  testWidgets('shows a retry state instead of fabricated stores', (
+    tester,
+  ) async {
     final previousStores = HomeMapScreen.globalAllStores;
     HomeMapScreen.globalAllStores = <Store>[];
     addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
 
     await tester.pumpWidget(
-      const MaterialApp(
-        home: SearchResultScreen(initialQuery: '김치찌개'),
-      ),
+      const MaterialApp(home: SearchResultScreen(initialQuery: '김치찌개')),
     );
     await tester.pump();
 

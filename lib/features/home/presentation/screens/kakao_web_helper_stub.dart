@@ -5,6 +5,7 @@ void registerWebCallbacks(
   void Function() onIdle,
   void Function(int) onClick,
   void Function() onMapReady,
+  void Function(String) onMapError,
 ) {}
 void addKakaoMarkersWeb(String viewId, String jsonString) {}
 void addMobileMarkersWeb(String viewId, String jsonString) {}

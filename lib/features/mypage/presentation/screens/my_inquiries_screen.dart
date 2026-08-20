@@ -402,6 +402,36 @@ class _InquiryCard extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          if (inquiry.imageUrls.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 76,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: inquiry.imageUrls.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) => ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    inquiry.imageUrls[index],
+                    width: 76,
+                    height: 76,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      width: 76,
+                      height: 76,
+                      color: AppColors.surface,
+                      alignment: Alignment.center,
+                      child: const Icon(
+                        Icons.broken_image_outlined,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           if (answered && answer != null && answer.isNotEmpty)
             _AnswerPanel(answer: answer, answeredAt: inquiry.answeredAt)

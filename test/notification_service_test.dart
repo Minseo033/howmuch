@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -18,18 +19,9 @@ void main() {
         notificationRouteForType('가격 변동'),
         AppRoutes.priceAlertSubscription,
       );
-      expect(
-        notificationRouteForType('FEED_COMMENT'),
-        AppRoutes.communityFeed,
-      );
-      expect(
-        notificationRouteForType('RECOMMENDATION'),
-        AppRoutes.todaysPick,
-      );
-      expect(
-        notificationRouteForType('제보 반려'),
-        AppRoutes.myReportsV2,
-      );
+      expect(notificationRouteForType('FEED_COMMENT'), AppRoutes.communityFeed);
+      expect(notificationRouteForType('RECOMMENDATION'), AppRoutes.todaysPick);
+      expect(notificationRouteForType('제보 반려'), AppRoutes.myReportsV2);
     });
 
     test('leaves generic admin notifications without a destination', () {
@@ -117,43 +109,60 @@ void main() {
       expect(notification.isUnread, isTrue);
     });
 
-    test('maps price alerts and feed comments from the backend contract', () async {
-      final service = NotificationApiService(
-        MockClient(
-          (_) async => http.Response(
-            jsonEncode([
-              {
-                'id': 'price-alert-1',
-                'title': '관심 매장 가격 변동',
-                'body': '찜하신 매장의 가격 변동 제보가 승인되었습니다!',
-                'type': 'PRICE_ALERT',
-                'isRead': false,
-                'createdAt': DateTime.now().toUtc().toIso8601String(),
-              },
-              {
-                'id': 'feed-comment-1',
-                'title': '새로운 댓글',
-                'body': '회원님의 게시글에 새로운 댓글이 달렸습니다.',
-                'type': 'FEED_COMMENT',
-                'isRead': true,
-                'createdAt': DateTime.now().toUtc().toIso8601String(),
-              },
-            ]),
-            200,
-            headers: {'content-type': 'application/json; charset=utf-8'},
+    test(
+      'maps price alerts and feed comments from the backend contract',
+      () async {
+        final service = NotificationApiService(
+          MockClient(
+            (_) async => http.Response(
+              jsonEncode([
+                {
+                  'id': 'price-alert-1',
+                  'title': '관심 매장 가격 변동',
+                  'body': '찜하신 매장의 가격 변동 제보가 승인되었습니다!',
+                  'type': 'PRICE_ALERT',
+                  'isRead': false,
+                  'createdAt': DateTime.now().toUtc().toIso8601String(),
+                },
+                {
+                  'id': 'feed-comment-1',
+                  'title': '새로운 댓글',
+                  'body': '회원님의 게시글에 새로운 댓글이 달렸습니다.',
+                  'type': 'FEED_COMMENT',
+                  'isRead': true,
+                  'createdAt': DateTime.now().toUtc().toIso8601String(),
+                },
+              ]),
+              200,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            ),
           ),
-        ),
-      );
+        );
 
-      final notifications = await service.fetchNotifications();
+        final notifications = await service.fetchNotifications();
 
-      expect(notifications[0].type, '가격 변동');
-      expect(notifications[0].tabCategory, '가격 변동');
-      expect(notifications[0].isUnread, isTrue);
-      expect(notifications[1].type, '새 댓글');
-      expect(notifications[1].tabCategory, '전체');
-      expect(notifications[1].isUnread, isFalse);
-    });
+        expect(notifications[0].type, '가격 변동');
+        expect(notifications[0].tabCategory, '가격 변동');
+        expect(notifications[0].isUnread, isTrue);
+        expect(notifications[1].type, '새 댓글');
+        expect(notifications[1].tabCategory, '전체');
+        expect(notifications[1].isUnread, isFalse);
+      },
+    );
+  });
+
+  test('notification refresh does not overlap an in-flight request', () async {
+    final service = _BlockingNotificationApiService();
+    final notifier = NotificationsNotifier(service);
+
+    final firstLoad = notifier.loadNotifications();
+    await Future<void>.delayed(Duration.zero);
+    await notifier.loadNotifications(isRefresh: true);
+
+    expect(service.fetchCount, 1);
+    service.complete(const []);
+    await firstLoad;
+    notifier.dispose();
   });
 
   group('NotificationSettingsApiService', () {
@@ -188,4 +197,22 @@ void main() {
       },
     );
   });
+}
+
+class _BlockingNotificationApiService extends NotificationApiService {
+  _BlockingNotificationApiService()
+    : super(MockClient((_) async => http.Response('[]', 200)));
+
+  final Completer<List<NotificationModel>> _completer = Completer();
+  int fetchCount = 0;
+
+  @override
+  Future<List<NotificationModel>> fetchNotifications() {
+    fetchCount++;
+    return _completer.future;
+  }
+
+  void complete(List<NotificationModel> notifications) {
+    _completer.complete(notifications);
+  }
 }

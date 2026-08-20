@@ -63,4 +63,16 @@ class SessionAuthFilterReviewTest {
         assertThat(response.getStatus()).isEqualTo(401);
         verifyNoInteractions(chain);
     }
+
+    @Test
+    void blocksUnauthenticatedAccountDeletionAtTheExactUserPath() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest("DELETE", "/api/user");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        verifyNoInteractions(chain);
+    }
 }

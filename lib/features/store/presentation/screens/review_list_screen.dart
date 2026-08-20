@@ -37,8 +37,8 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final reviews = ref.watch(storeReviewProvider)[_storeId] ??
-        const <Review>[];
+    final reviews =
+        ref.watch(storeReviewProvider)[_storeId] ?? const <Review>[];
     final reviewCount = reviews.length;
     final averageRating = reviewCount > 0
         ? reviews.map((r) => r.stars).reduce((a, b) => a + b) / reviewCount
@@ -46,38 +46,38 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
 
     return FigmaMobileCanvas(
       child: Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      appBar: const CustomAppBar(title: '리뷰와 댓글'),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStoreHeader(averageRating, reviewCount),
-            _buildFilterChips(),
-            Expanded(
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+        backgroundColor: AppColors.backgroundDark,
+        appBar: const CustomAppBar(title: '리뷰와 댓글'),
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildStoreHeader(averageRating, reviewCount),
+              _buildFilterChips(),
+              Expanded(
+                child: ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  itemCount: reviews.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) =>
+                      _buildReviewCard(reviews[index]),
                 ),
-                itemCount: reviews.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, index) =>
-                    _buildReviewCard(reviews[index]),
               ),
-            ),
-          ],
+            ],
+          ),
+        ),
+        bottomNavigationBar: CustomBottomButton(
+          text: '리뷰 작성하기',
+          backgroundColor: AppColors.orangeTheme,
+          onPressed: () {
+            context.push(AppRoutes.reviewWrite, extra: widget.store);
+          },
         ),
       ),
-      bottomNavigationBar: CustomBottomButton(
-        text: '리뷰 작성하기',
-        backgroundColor: AppColors.orangeTheme,
-        onPressed: () {
-          context.push(AppRoutes.reviewWrite, extra: widget.store);
-        },
-      ),
-    ),
     );
   }
 
@@ -91,7 +91,10 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
             children: [
               Text(
                 widget.store?.storeName ?? '매장 정보 없음',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const Spacer(),
               Container(
@@ -123,24 +126,24 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
           const SizedBox(height: 6),
           Row(
             children: [
-              ...List.generate(
-                5,
-                (i) {
-                  IconData icon;
-                  if (averageRating >= i + 1) {
-                    icon = Icons.star_rounded; // 꽉 찬 별
-                  } else if (averageRating > i && averageRating < i + 1) {
-                    icon = Icons.star_half_rounded; // 반 개 별
-                  } else {
-                    icon = Icons.star_border_rounded; // 빈 별
-                  }
-                  return Icon(icon, color: AppColors.star, size: 20);
-                },
-              ),
+              ...List.generate(5, (i) {
+                IconData icon;
+                if (averageRating >= i + 1) {
+                  icon = Icons.star_rounded; // 꽉 찬 별
+                } else if (averageRating > i && averageRating < i + 1) {
+                  icon = Icons.star_half_rounded; // 반 개 별
+                } else {
+                  icon = Icons.star_border_rounded; // 빈 별
+                }
+                return Icon(icon, color: AppColors.star, size: 20);
+              }),
               const SizedBox(width: 6),
               Text(
                 averageRating.toStringAsFixed(1),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
               Text(
                 ' · 리뷰 $reviewCount',
@@ -160,7 +163,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
         itemCount: _filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final selected = _selectedFilter == index;
           return GestureDetector(
@@ -173,9 +176,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                 color: selected ? AppColors.primary : AppColors.white,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: selected
-                      ? AppColors.primary
-                      : Colors.grey.shade300,
+                  color: selected ? AppColors.primary : Colors.grey.shade300,
                 ),
               ),
               child: Text(
@@ -341,7 +342,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                           fontSize: 13,
                         ),
                         children: [
-                           TextSpan(
+                          TextSpan(
                             text: review.ownerReply,
                             style: const TextStyle(
                               fontWeight: FontWeight.normal,

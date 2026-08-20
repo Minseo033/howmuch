@@ -16,10 +16,15 @@ void registerWebCallbacks(
   void Function() onIdle,
   void Function(int) onClick,
   void Function() onMapReady,
+  void Function(String) onMapError,
 ) {
   globalContext.setProperty('onKakaoMapIdle'.toJS, onIdle.toJS);
   globalContext.setProperty('onKakaoMarkerClick'.toJS, onClick.toJS);
   globalContext.setProperty('onKakaoMapReady'.toJS, onMapReady.toJS);
+  globalContext.setProperty(
+    'onKakaoMapError'.toJS,
+    ((JSString message) => onMapError(message.toDart)).toJS,
+  );
 }
 
 @JS('setKakaoMapCenter')
@@ -50,8 +55,8 @@ void _injectJsBypass() {
     window.initKakaoMap = function(containerId, lat, lng) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
         window.kakaoLoadWaitCount++;
-        if (window.kakaoLoadWaitCount > 10) {
-          alert("🚨 카카오맵 SDK 로드 지연! 네트워크 문제일 수 있습니다.");
+        if (window.kakaoLoadWaitCount > 25) {
+          if (window.onKakaoMapError) window.onKakaoMapError("카카오맵을 불러오지 못했어요.");
           return;
         }
         setTimeout(function() { window.initKakaoMap(containerId, lat, lng); }, 200);
@@ -59,22 +64,24 @@ void _injectJsBypass() {
       }
       
       var loadCheckTimer = setTimeout(function() {
-        alert("🚨 카카오맵 인증 실패! 카카오 디벨로퍼스에 등록되지 않은 포트(현재: " + location.port + ")를 사용 중입니다.\\n터미널에서 앱을 끄고 flutter run -d chrome --web-port 8080 명령어로 재실행해주세요!");
-      }, 3000);
+        if (window.onKakaoMapError) window.onKakaoMapError("지도 인증이 지연되고 있어요.");
+      }, 5000);
 
       kakao.maps.load(function() {
         clearTimeout(loadCheckTimer);
         var container = window[containerId];
         if (!container) {
-          alert("🚨 에러: 카카오맵을 담을 HTML 컨테이너(div)를 찾을 수 없습니다!");
+          if (window.onKakaoMapError) window.onKakaoMapError("지도 화면을 준비하지 못했어요.");
           return;
         }
         if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          alert("🚨 에러: 카카오맵 컨테이너의 가로/세로 크기가 0입니다!");
+          if (window.onKakaoMapError) window.onKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+          return;
         }
         var options = { center: new kakao.maps.LatLng(lat, lng), level: 3 };
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
+        window.kakaoLoadWaitCount = 0;
         window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
           map: map, averageCenter: true, minLevel: 6
         });
@@ -105,15 +112,26 @@ void _injectJsBypass() {
 
     window.addMobileMarkers = function(containerId, markerListJson) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
+        window.kakaoMarkerWaitCount = (window.kakaoMarkerWaitCount || 0) + 1;
+        if (window.kakaoMarkerWaitCount > 25) {
+          if (window.onKakaoMapError) window.onKakaoMapError("지도 마커를 불러오지 못했어요.");
+          return;
+        }
         setTimeout(function() { window.addMobileMarkers(containerId, markerListJson); }, 200);
         return;
       }
       kakao.maps.load(function() {
         var map = window.kakaoMapObjects[containerId];
         if (!map) {
+          window.kakaoMarkerWaitCount = (window.kakaoMarkerWaitCount || 0) + 1;
+          if (window.kakaoMarkerWaitCount > 25) {
+            if (window.onKakaoMapError) window.onKakaoMapError("지도 마커를 표시하지 못했어요.");
+            return;
+          }
           setTimeout(function() { window.addMobileMarkers(containerId, markerListJson); }, 200);
           return;
         }
+        window.kakaoMarkerWaitCount = 0;
         var markerData = JSON.parse(markerListJson);
         window.markerDataCache[containerId] = markerData;
         

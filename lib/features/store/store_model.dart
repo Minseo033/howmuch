@@ -16,6 +16,14 @@ class Store {
   final double longitude;
   final String source; // 💡 GOV 또는 USER
 
+  bool get hasValidCoordinates =>
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude != 0 &&
+      longitude != 0 &&
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180;
+
   Store({
     this.id = '',
     required this.storeName,
@@ -50,9 +58,9 @@ class Store {
       price3: json['price3']?.toString() ?? '',
       menu4: json['menu4']?.toString() ?? '',
       price4: json['price4']?.toString() ?? '',
-      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      source: json['source'] ?? 'GOV',
+      latitude: _coordinate(json['latitude']),
+      longitude: _coordinate(json['longitude']),
+      source: json['source']?.toString() ?? 'GOV',
     );
   }
 
@@ -75,5 +83,10 @@ class Store {
       'longitude': longitude,
       'source': source,
     };
+  }
+
+  static double _coordinate(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '') ?? 0;
   }
 }

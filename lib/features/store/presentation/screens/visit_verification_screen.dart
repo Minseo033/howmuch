@@ -14,6 +14,84 @@ import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
+const int maxReceiptImageBytes = 5 * 1024 * 1024;
+const Duration receiptSubmissionTimeout = Duration(seconds: 45);
+
+String? receiptImageExtension(List<int> bytes) {
+  if (bytes.length >= 3 &&
+      bytes[0] == 0xFF &&
+      bytes[1] == 0xD8 &&
+      bytes[2] == 0xFF) {
+    return 'jpg';
+  }
+  if (bytes.length >= 8 &&
+      bytes[0] == 0x89 &&
+      bytes[1] == 0x50 &&
+      bytes[2] == 0x4E &&
+      bytes[3] == 0x47 &&
+      bytes[4] == 0x0D &&
+      bytes[5] == 0x0A &&
+      bytes[6] == 0x1A &&
+      bytes[7] == 0x0A) {
+    return 'png';
+  }
+  if (bytes.length >= 12 &&
+      bytes[0] == 0x52 &&
+      bytes[1] == 0x49 &&
+      bytes[2] == 0x46 &&
+      bytes[3] == 0x46 &&
+      bytes[8] == 0x57 &&
+      bytes[9] == 0x45 &&
+      bytes[10] == 0x42 &&
+      bytes[11] == 0x50) {
+    return 'webp';
+  }
+  return null;
+}
+
+String receiptSubmissionErrorMessage(int statusCode, String responseBody) {
+  try {
+    final decoded = jsonDecode(responseBody);
+    if (decoded is Map && decoded['message'] is String) {
+      final message = (decoded['message'] as String).trim();
+      if (message.isNotEmpty) return message;
+    }
+  } catch (_) {
+    // JSON이 아닌 프록시/서버 오류 응답은 상태 코드별 안내로 처리합니다.
+  }
+  return switch (statusCode) {
+    401 || 403 => '영수증 인증은 로그인 후 이용할 수 있어요.',
+    413 => '영수증 사진은 5MB 이하로 선택해주세요.',
+    429 => '영수증 인증 요청이 많아요. 잠시 후 다시 시도해주세요.',
+    503 => '사진 저장소를 준비 중이에요. 잠시 후 다시 시도해주세요.',
+    _ => '영수증 인증 신청에 실패했어요. 다시 시도해주세요.',
+  };
+}
+
+String visitSubmissionErrorMessage(int statusCode, String responseBody) {
+  try {
+    final decoded = jsonDecode(responseBody);
+    if (decoded is Map && decoded['message'] is String) {
+      final message = (decoded['message'] as String).trim();
+      if (message.isNotEmpty) return message;
+    }
+  } catch (_) {
+    // JSON이 아닌 프록시 응답은 상태 코드별 안내로 처리합니다.
+  }
+  return switch (statusCode) {
+    401 || 403 => '방문 인증은 로그인 후 이용할 수 있어요.',
+    409 => '오늘 이미 이 매장의 방문 인증을 완료했어요.',
+    422 => '매장 위치 정보를 확인할 수 없어 인증할 수 없어요.',
+    _ => '방문 기록에 실패했습니다. 잠시 후 다시 시도해주세요.',
+  };
+}
+
+class _ReceiptSubmissionException implements Exception {
+  const _ReceiptSubmissionException(this.message);
+
+  final String message;
+}
+
 class VisitVerificationScreen extends StatefulWidget {
   final String storeName;
   final Store? store;
@@ -227,6 +305,14 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 15),
       );
+      if (!VisitVerificationPolicy.isFreshLocation(
+        position.timestamp,
+        DateTime.now(),
+      )) {
+        throw const _LocationVerificationException(
+          '위치 정보가 오래되었어요. 잠시 후 다시 시도해주세요.',
+        );
+      }
       if (!VisitVerificationPolicy.hasUsableLocationAccuracy(
         position.accuracy,
       )) {
@@ -367,7 +453,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 const SizedBox(height: 4),
                 Text(
                   _receiptImage == null
-                      ? '영수증 사진을 제출하면 관리자 확인 후 방문 기록으로 반영돼요.'
+                      ? '최근 7일 이내 영수증을 제출하면 OCR 또는 관리자 확인 후 반영돼요.'
                       : '영수증 사진이 선택되었습니다. 결제 금액을 입력한 뒤 제출하세요.',
                   style: const TextStyle(
                     color: AppColors.muted,
@@ -414,7 +500,6 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     );
     if (!mounted || image == null) return;
     setState(() => _receiptImage = image);
-    await _submitReceipt();
   }
 
   Future<void> _submitReceipt() async {
@@ -422,7 +507,6 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     final store = widget.store;
     if (image == null || store == null || _isSubmittingReceipt) return;
     if (!ApiClient.isAuthenticated) {
-      setState(() => _receiptImage = null);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')));
@@ -439,19 +523,37 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     try {
       final request =
           http.MultipartRequest('POST', ApiClient.uri('/api/visits/receipt'))
-            ..headers.addAll(ApiClient.jsonHeaders(auth: true))
+            ..headers.addAll(ApiClient.authHeaders(auth: true))
             ..fields['storeId'] = store.id
             ..fields['storeName'] = store.storeName
             ..fields['menu'] = _menuController.text.trim()
             ..fields['price'] = price.toString();
       final bytes = await image.readAsBytes();
+      if (bytes.isEmpty) {
+        throw const _ReceiptSubmissionException('비어 있는 사진은 첨부할 수 없어요.');
+      }
+      if (bytes.length > maxReceiptImageBytes) {
+        throw const _ReceiptSubmissionException('영수증 사진은 5MB 이하로 선택해주세요.');
+      }
+      final extension = receiptImageExtension(bytes);
+      if (extension == null) {
+        throw const _ReceiptSubmissionException(
+          'JPEG, PNG, WebP 형식의 영수증 사진만 선택해주세요.',
+        );
+      }
       request.files.add(
-        http.MultipartFile.fromBytes('images', bytes, filename: 'receipt.jpg'),
+        http.MultipartFile.fromBytes(
+          'images',
+          bytes,
+          filename: 'receipt.$extension',
+        ),
       );
-      final response = await request.send().timeout(ApiClient.defaultTimeout);
+      final response = await request.send().timeout(receiptSubmissionTimeout);
       final body = await response.stream.bytesToString();
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception('영수증 제출 실패 ${response.statusCode} $body');
+        throw _ReceiptSubmissionException(
+          receiptSubmissionErrorMessage(response.statusCode, body),
+        );
       }
       final responseData = jsonDecode(body) as Map<String, dynamic>;
       final status = responseData['status']?.toString().toUpperCase();
@@ -466,10 +568,16 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ),
         ),
       );
-    } catch (error) {
-      debugPrint('영수증 인증 오류: $error');
+    } on _ReceiptSubmissionException catch (error) {
+      debugPrint('영수증 인증 요청 거부: ${error.message}');
       if (mounted) {
-        setState(() => _receiptImage = null);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } catch (_) {
+      debugPrint('영수증 인증 통신 오류');
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
         );
@@ -645,13 +753,16 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             'price': price,
           },
         );
-      } else if (response.statusCode == 401) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('로그인이 필요한 기능입니다.')));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('방문 기록에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+          SnackBar(
+            content: Text(
+              visitSubmissionErrorMessage(
+                response.statusCode,
+                utf8.decode(response.bodyBytes),
+              ),
+            ),
+          ),
         );
       }
     } catch (e) {

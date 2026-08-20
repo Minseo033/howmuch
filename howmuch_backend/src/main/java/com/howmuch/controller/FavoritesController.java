@@ -37,11 +37,11 @@ public class FavoritesController {
     @GetMapping
     public ResponseEntity<?> getFavorites(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[FavoritesController] 찜 목록 조회 요청 - uid: {}", firebaseUid);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
             List<FavoriteResponse> favorites = firebaseService.getFavorites(firebaseUid);
             return ResponseEntity.ok(favorites);
@@ -59,13 +59,13 @@ public class FavoritesController {
     public ResponseEntity<?> addFavorite(@RequestBody FavoriteRequest request,
                                          HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[FavoritesController] 찜 추가 요청 - uid: {}, storeId: {}", firebaseUid, request.getStoreId());
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
-            if (request.getStoreId() == null || request.getStoreId().isBlank()) {
+            if (request == null || request.getStoreId() == null || request.getStoreId().isBlank()) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
                         "message", "storeId는 필수입니다."
@@ -78,6 +78,9 @@ public class FavoritesController {
                         "message", "입력값이 허용 길이를 초과했습니다."
                 ));
             }
+            request.setStoreId(request.getStoreId().trim());
+            request.setStoreName(request.getStoreName() == null
+                    ? null : request.getStoreName().trim());
             FavoriteResponse favorite = firebaseService.addFavorite(firebaseUid, request);
             return ResponseEntity.ok(favorite);
         } catch (Exception e) {
@@ -94,11 +97,15 @@ public class FavoritesController {
     public ResponseEntity<?> removeFavorite(@PathVariable String storeId,
                                             HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[FavoritesController] 찜 해제 요청 - uid: {}, storeId: {}", firebaseUid, storeId);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
+            }
+            if (storeId == null || storeId.isBlank() || storeId.length() > 200) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "storeId가 올바르지 않습니다."));
             }
             firebaseService.removeFavorite(firebaseUid, storeId);
             return ResponseEntity.ok(Map.of(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_weather.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -144,11 +145,11 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         menuName: backendMenu != null && backendMenu.isNotEmpty
             ? backendMenu
             : (p['menu1'] ?? '메뉴 정보 없음'),
-        price: p['price1'] != null ? '${p['price1']}원' : '가격 정보 없음',
+        price: formatRecommendationPrice(p['price1']),
         tipText: tip,
         distance: distance,
         distanceMeters: distanceNumber,
-        priceValue: _asDouble(p['price1'])?.round(),
+        priceValue: parseRecommendationPrice(p['price1']),
         badgeText: '착한가격업소',
         badgeColor: const Color(0xFF2563EB),
         badgeBg: const Color(0xFFEFF4FF),
@@ -347,47 +348,53 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                dateStr,
-                                                style: TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontFamilyFallback: const [
-                                                    'Noto Sans KR',
-                                                  ],
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.9),
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  dateStr,
+                                                  style: TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontFamilyFallback: const [
+                                                      'Noto Sans KR',
+                                                    ],
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.9),
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                weather == '비' ||
-                                                        weather == '비/눈' ||
-                                                        weather == '눈' ||
-                                                        weather == '소나기'
-                                                    ? '비가 오는 날이네요 ☔️'
-                                                    : (temp != null &&
-                                                              temp >= 28
-                                                          ? '더운 날이네요 🌡️'
-                                                          : '오늘의 날씨예요'),
-                                                style: const TextStyle(
-                                                  fontFamily: 'Inter',
-                                                  fontFamilyFallback: [
-                                                    'Noto Sans KR',
-                                                  ],
-                                                  color: Colors.white,
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  weather == '비' ||
+                                                          weather == '비/눈' ||
+                                                          weather == '눈' ||
+                                                          weather == '소나기'
+                                                      ? '비가 오는 날이네요 ☔️'
+                                                      : (temp != null &&
+                                                                temp >= 28
+                                                            ? '더운 날이네요 🌡️'
+                                                            : '오늘의 날씨예요'),
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Inter',
+                                                    fontFamilyFallback: [
+                                                      'Noto Sans KR',
+                                                    ],
+                                                    color: Colors.white,
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
-                                          Row(
+                                          const SizedBox(width: 8),
+                                          Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.end,
                                             children: [
@@ -402,25 +409,15 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 ),
                                               ),
                                               if (forecastTime.isNotEmpty) ...[
-                                                const SizedBox(width: 6),
-                                                Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        bottom: 2,
-                                                      ),
-                                                  child: Text(
-                                                    forecastTime,
-                                                    style: TextStyle(
-                                                      fontFamily:
-                                                          'Noto Sans KR',
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: 0.9,
-                                                          ),
-                                                      fontSize: 11,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  forecastTime,
+                                                  style: TextStyle(
+                                                    fontFamily: 'Noto Sans KR',
+                                                    color: Colors.white
+                                                        .withValues(alpha: 0.9),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ],
@@ -635,7 +632,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               BoxShadow(
                                                 color: const Color(
                                                   0xFF2563EB,
-                                                ).withOpacity(0.3),
+                                                ).withValues(alpha: 0.3),
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 6),
                                               ),
@@ -696,7 +693,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? baseColor.withOpacity(0.15) : Colors.white,
+          color: isSelected ? baseColor.withValues(alpha: 0.15) : Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: isSelected
               ? Border.all(color: baseColor)
@@ -793,69 +790,74 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: badgeBg,
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: badgeColor,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  badgeText,
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontFamilyFallback: const ['Noto Sans KR'],
-                                    color: badgeColor,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
-                          if (theme != null && theme.isNotEmpty) ...[
-                            const SizedBox(width: 6),
+                      Expanded(
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3EA),
+                                color: badgeBg,
                                 borderRadius: BorderRadius.circular(30),
                               ),
-                              child: Text(
-                                theme,
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontFamilyFallback: ['Noto Sans KR'],
-                                  color: Color(0xFFF97316),
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: BoxDecoration(
+                                      color: badgeColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    badgeText,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontFamilyFallback: const [
+                                        'Noto Sans KR',
+                                      ],
+                                      color: badgeColor,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                            // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
+                            if (theme != null && theme.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFF3EA),
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                                child: Text(
+                                  theme,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Color(0xFFF97316),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         distance,
                         style: const TextStyle(
@@ -870,6 +872,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                   const SizedBox(height: 8),
                   Text(
                     storeName,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontFamilyFallback: ['Noto Sans KR'],
@@ -880,17 +884,21 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                   ),
                   const SizedBox(height: 4),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        menuName,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 12,
+                      Expanded(
+                        child: Text(
+                          menuName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 12,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Text(
                         price,
                         style: const TextStyle(
@@ -918,6 +926,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                         Expanded(
                           child: Text(
                             tipText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: 'Inter',
                               fontFamilyFallback: ['Noto Sans KR'],

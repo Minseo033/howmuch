@@ -1,10 +1,17 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 
-final inquiryServiceProvider = Provider((ref) => InquiryService());
+final inquiryHttpClientProvider = Provider<http.Client>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
+});
+
+final inquiryServiceProvider = Provider(
+  (ref) => InquiryService(ref.watch(inquiryHttpClientProvider)),
+);
 
 class Inquiry {
   const Inquiry({
@@ -16,6 +23,7 @@ class Inquiry {
     required this.createdAt,
     this.answer,
     this.answeredAt,
+    this.imageUrls = const [],
   });
 
   final String id;
@@ -26,6 +34,7 @@ class Inquiry {
   final String createdAt;
   final String? answer;
   final String? answeredAt;
+  final List<String> imageUrls;
 
   bool get isAnswered =>
       status == 'ANSWERED' || (answer?.trim().isNotEmpty ?? false);
@@ -40,7 +49,17 @@ class Inquiry {
       createdAt: json['createdAt']?.toString() ?? '',
       answer: json['answer']?.toString(),
       answeredAt: json['answeredAt']?.toString(),
+      imageUrls: _stringList(json['imageUrls']),
     );
+  }
+
+  static List<String> _stringList(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.startsWith('https://'))
+        .take(3)
+        .toList(growable: false);
   }
 }
 
@@ -57,16 +76,21 @@ class InquiryApiException implements Exception {
 }
 
 class InquiryService {
+  InquiryService([http.Client? client]) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
   /// 문의 등록 (세션 인증 필요)
   Future<Map<String, dynamic>> createInquiry({
     required String title,
     required String content,
     String? category,
+    List<String> imageUrls = const [],
   }) async {
     final url = ApiClient.uri('/api/inquiry');
 
     try {
-      final response = await http
+      final response = await _client
           .post(
             url,
             headers: ApiClient.jsonHeaders(auth: true),
@@ -74,20 +98,34 @@ class InquiryService {
               'title': title,
               'content': content,
               'category': category,
+              'imageUrls': imageUrls,
             }),
           )
           .timeout(ApiClient.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is! Map) {
+          return const {'error': true, 'message': '문의 등록 응답을 확인하지 못했습니다.'};
+        }
+        return Map<String, dynamic>.from(decoded);
       } else if (response.statusCode == 401) {
-        return {'error': true, 'statusCode': 401, 'message': '로그인이 필요합니다.'};
+        return {
+          'error': true,
+          'statusCode': 401,
+          'cleanupUploadedImages': true,
+          'message': '로그인이 필요합니다.',
+        };
       }
-      debugPrint('문의 등록 API 에러: ${response.statusCode}');
-      return {'error': true, 'statusCode': response.statusCode};
-    } catch (e) {
-      debugPrint('문의 등록 통신 에러: $e');
-      return {'error': true, 'message': e.toString()};
+      return {
+        'error': true,
+        'statusCode': response.statusCode,
+        'cleanupUploadedImages':
+            response.statusCode >= 400 && response.statusCode < 500,
+        'message': '문의 등록에 실패했습니다. 잠시 후 다시 시도해주세요.',
+      };
+    } catch (_) {
+      return const {'error': true, 'message': '네트워크 연결을 확인하고 다시 시도해주세요.'};
     }
   }
 
@@ -96,7 +134,7 @@ class InquiryService {
     final url = ApiClient.uri('/api/inquiry/my');
 
     try {
-      final response = await http
+      final response = await _client
           .get(url, headers: ApiClient.jsonHeaders(auth: true))
           .timeout(ApiClient.defaultTimeout);
 
@@ -120,8 +158,7 @@ class InquiryService {
       );
     } on InquiryApiException {
       rethrow;
-    } catch (e) {
-      debugPrint('내 문의 목록 통신 에러: $e');
+    } catch (_) {
       throw const InquiryApiException('문의 내역을 불러오지 못했습니다.');
     }
   }

@@ -3,6 +3,7 @@ package com.howmuch.controller;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.PublicDataService;
 import com.howmuch.service.ReportImageStorage;
+import com.howmuch.service.SimpleRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -17,12 +18,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 
 class AdminControllerTest {
 
     private FirebaseService firebaseService;
     private ReportImageStorage reportImageStorage;
     private PublicDataService publicDataService;
+    private SimpleRateLimiter rateLimiter;
     private AdminController controller;
     private MockHttpServletRequest request;
 
@@ -31,10 +36,13 @@ class AdminControllerTest {
         firebaseService = mock(FirebaseService.class);
         reportImageStorage = mock(ReportImageStorage.class);
         publicDataService = mock(PublicDataService.class);
+        rateLimiter = mock(SimpleRateLimiter.class);
+        when(rateLimiter.tryAcquire(anyString(), anyInt(), anyLong())).thenReturn(true);
         controller = new AdminController(
                 firebaseService,
                 reportImageStorage,
-                publicDataService);
+                publicDataService,
+                rateLimiter);
         ReflectionTestUtils.setField(controller, "adminKey", "admin-secret");
         request = new MockHttpServletRequest();
         request.addHeader("X-Admin-Key", "admin-secret");
@@ -116,6 +124,63 @@ class AdminControllerTest {
         ResponseEntity<?> response = controller.getStoresSnapshot(request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rateLimitsRepeatedInvalidAdminKeysWithoutBlockingARequestThread() {
+        request.removeHeader("X-Admin-Key");
+        request.addHeader("X-Admin-Key", "wrong-key");
+        when(rateLimiter.tryAcquire(anyString(), anyInt(), anyLong())).thenReturn(false);
+
+        ResponseEntity<?> response = controller.getStoresSnapshot(request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rateLimitKeyUsesTheProxyAppendedAddressInsteadOfSpoofedForwardingInput() {
+        request.removeHeader("X-Admin-Key");
+        request.addHeader("X-Admin-Key", "wrong-key");
+        request.addHeader("X-Forwarded-For", "attacker-controlled, 198.51.100.7");
+
+        controller.getStoresSnapshot(request);
+
+        verify(rateLimiter).tryAcquire("admin-auth:198.51.100.7", 10, 5 * 60_000L);
+    }
+
+    @Test
+    void rejectsUnknownListStatusBeforeQueryingFirestore() {
+        ResponseEntity<?> reports = controller.getReports("BROKEN", request);
+        ResponseEntity<?> receipts = controller.getReceiptVerifications("BROKEN", request);
+
+        assertThat(reports.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(receipts.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rejectsInvalidInquiryIdsBeforeWritingAnAnswer() {
+        ResponseEntity<?> response = controller.answerInquiry(
+                "folder/inquiry-1",
+                Map.of("answer", "확인했습니다."),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rejectsInvalidNotificationTargetsBeforeBroadcasting() {
+        ResponseEntity<?> response = controller.sendNotification(
+                Map.of(
+                        "title", "알림",
+                        "body", "내용",
+                        "targetUid", "folder/user-1"),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
     }
 }

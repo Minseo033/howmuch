@@ -8,6 +8,7 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.cloud.FirestoreClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import lombok.extern.slf4j.Slf4j;
 
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
@@ -17,6 +18,7 @@ import java.io.InputStream;
 import java.util.Base64;
 
 @Configuration
+@Slf4j
 public class FirebaseConfig {
 
     @PostConstruct
@@ -29,7 +31,7 @@ public class FirebaseConfig {
             if (base64Credentials != null && !base64Credentials.isBlank()) {
                 byte[] decoded = Base64.getDecoder().decode(base64Credentials);
                 serviceAccount = new ByteArrayInputStream(decoded);
-                System.out.println("Firebase: Base64 환경변수에서 키 로드 (Render)");
+                log.info("Firebase 자격 증명을 환경변수에서 로드했습니다.");
             }
 
             // 2) 외부 파일 경로 (FIREBASE_CONFIG_PATH)
@@ -39,7 +41,7 @@ public class FirebaseConfig {
                     File file = new File(configPath);
                     if (file.exists()) {
                         serviceAccount = new FileInputStream(file);
-                        System.out.println("Firebase: 외부 파일에서 키 로드 → " + configPath);
+                        log.info("Firebase 자격 증명을 외부 파일에서 로드했습니다.");
                     }
                 }
             }
@@ -49,7 +51,7 @@ public class FirebaseConfig {
                 serviceAccount = getClass().getClassLoader()
                         .getResourceAsStream("firebase-service-account.json");
                 if (serviceAccount != null) {
-                    System.out.println("Firebase: classpath에서 키 로드");
+                    log.info("Firebase 자격 증명을 classpath에서 로드했습니다.");
                 }
             }
 
@@ -58,19 +60,20 @@ public class FirebaseConfig {
                         "FIREBASE_CREDENTIALS_BASE64 환경변수 또는 src/main/resources/firebase-service-account.json 경로를 확인하십시오.");
             }
 
-            FirebaseOptions options = FirebaseOptions.builder()
-                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                    .build();
+            FirebaseOptions options;
+            try (InputStream input = serviceAccount) {
+                options = FirebaseOptions.builder()
+                        .setCredentials(GoogleCredentials.fromStream(input))
+                        .build();
+            }
 
             if (FirebaseApp.getApps().isEmpty()) {
                 FirebaseApp.initializeApp(options);
-                System.out.println("=========================================");
-                System.out.println("=== Firebase Admin SDK 연동 환경 구축 성공 ===");
-                System.out.println("=========================================");
+                log.info("Firebase Admin SDK 초기화가 완료되었습니다.");
             }
         } catch (Exception e) {
-            System.err.println("Firebase 초기화 중 기술적 예외 발생");
-            e.printStackTrace();
+            log.error("Firebase 초기화에 실패했습니다: {}", e.getClass().getSimpleName());
+            throw new IllegalStateException("Firebase 초기화에 실패했습니다.");
         }
     }
 

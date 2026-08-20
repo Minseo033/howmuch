@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -76,26 +75,7 @@ class LoginScreen extends ConsumerWidget {
                         backgroundColor: const Color(0xFFFEE500),
                         foregroundColor: const Color(0xFF191600),
                         icon: Icons.chat_bubble_rounded,
-                        onPressed: () =>
-                            _loginWith(ref, context, provider: '카카오'),
-                      ),
-                      const SizedBox(height: 10),
-                      _SocialLoginButton(
-                        label: '네이버로 계속하기',
-                        backgroundColor: const Color(0xFF03C75A),
-                        foregroundColor: Colors.white,
-                        textIcon: 'N',
-                        onPressed: () =>
-                            _loginWith(ref, context, provider: '네이버'),
-                      ),
-                      const SizedBox(height: 10),
-                      _SocialLoginButton(
-                        label: 'Apple로 계속하기',
-                        backgroundColor: ink,
-                        foregroundColor: Colors.white,
-                        icon: Icons.apple_rounded,
-                        onPressed: () =>
-                            _loginWith(ref, context, provider: 'Apple'),
+                        onPressed: () => _loginWithKakao(ref, context),
                       ),
                     ],
                   ),
@@ -137,36 +117,16 @@ class LoginScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _loginWith(
-    WidgetRef ref,
-    BuildContext context, {
-    required String provider,
-  }) async {
+  Future<void> _loginWithKakao(WidgetRef ref, BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-
-    if (provider == '카카오') {
-      final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
-      if (errorMsg == null) {
-        if (context.mounted) {
-          messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
-        }
-      } else {
-        if (context.mounted) {
-          messenger.showSnackBar(SnackBar(content: Text('로그인 실패: $errorMsg')));
-        }
+    final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
+    if (errorMsg == null) {
+      if (context.mounted) {
+        messenger.showSnackBar(const SnackBar(content: Text('카카오로 로그인했어요.')));
       }
     } else {
-      // 💡 타 소셜 로그인은 현재 더미 로직 유지
-      ref.read(authStateProvider.notifier).state = AuthState(
-        isLoggedIn: true,
-        provider: provider,
-        email: 'user@example.com',
-      );
       if (context.mounted) {
-        context.go(AppRoutes.permissionSetup);
-        messenger.showSnackBar(
-          SnackBar(content: Text('$provider로 로그인했어요. (더미)')),
-        );
+        messenger.showSnackBar(SnackBar(content: Text('로그인 실패: $errorMsg')));
       }
     }
   }
@@ -212,7 +172,6 @@ class _SocialLoginButton extends StatelessWidget {
     required this.foregroundColor,
     required this.onPressed,
     this.icon,
-    this.textIcon,
   });
 
   final String label;
@@ -220,7 +179,6 @@ class _SocialLoginButton extends StatelessWidget {
   final Color foregroundColor;
   final VoidCallback onPressed;
   final IconData? icon;
-  final String? textIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -241,19 +199,7 @@ class _SocialLoginButton extends StatelessWidget {
                 width: 21.988636016845703,
                 height: 23.99147605895996,
                 child: Center(
-                  child: textIcon == null
-                      ? Icon(icon, color: foregroundColor, size: 18)
-                      : Text(
-                          textIcon!,
-                          style: TextStyle(
-                            color: foregroundColor,
-                            fontFamily: LoginScreen.fontFamily,
-                            fontFamilyFallback: LoginScreen.fontFallback,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w900,
-                            height: 1.5,
-                          ),
-                        ),
+                  child: Icon(icon, color: foregroundColor, size: 18),
                 ),
               ),
               Text(

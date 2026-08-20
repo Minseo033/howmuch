@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -40,6 +41,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   final _imagePicker = ImagePicker();
   final List<XFile> _attachments = [];
   int _selectedType = 0;
+  bool _isSubmitting = false;
 
   @override
   void initState() {
@@ -223,49 +225,8 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                 child: _StickyButton(
                   safeBottom: bottomOffset,
                   label: '문의 보내기',
-                  onPressed: () async {
-                    final messenger = ScaffoldMessenger.of(context);
-                    final title = _titleController.text.trim();
-                    final content = _bodyController.text.trim();
-                    final category = _types[_selectedType];
-
-                    if (title.isEmpty) {
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('제목을 입력해주세요.')),
-                      );
-                      return;
-                    }
-                    if (content.isEmpty) {
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('내용을 입력해주세요.')),
-                      );
-                      return;
-                    }
-
-                    final service = ref.read(inquiryServiceProvider);
-                    final result = await service.createInquiry(
-                      title: title,
-                      content: content,
-                      category: category,
-                    );
-
-                    if (!context.mounted) return;
-                    if (result['error'] == true) {
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text(result['message'] ?? '문의 등록에 실패했습니다.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    messenger.clearSnackBars();
-                    ref.invalidate(myInquiriesProvider);
-                    context.go(AppRoutes.mypage);
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('문의가 접수되었어요.')),
-                    );
-                  },
+                  isBusy: _isSubmitting,
+                  onPressed: _isSubmitting ? null : _submitInquiry,
                 ),
               ),
             ],
@@ -273,6 +234,74 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _submitInquiry() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final title = _titleController.text.trim();
+    final content = _bodyController.text.trim();
+    final category = _types[_selectedType];
+
+    if (title.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('제목을 입력해주세요.')));
+      return;
+    }
+    if (content.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('내용을 입력해주세요.')));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+    final reportService = ref.read(reportServiceProvider);
+    var uploadedUrls = const <String>[];
+    try {
+      if (_attachments.isNotEmpty) {
+        uploadedUrls = await reportService.uploadReportImages(_attachments);
+      }
+      final result = await ref
+          .read(inquiryServiceProvider)
+          .createInquiry(
+            title: title,
+            content: content,
+            category: category,
+            imageUrls: uploadedUrls,
+          );
+
+      if (result['error'] == true) {
+        if (result['cleanupUploadedImages'] == true) {
+          await reportService.cleanupReportImages(uploadedUrls);
+        }
+        if (!mounted) return;
+        messenger
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(result['message']?.toString() ?? '문의 등록에 실패했습니다.'),
+            ),
+          );
+        return;
+      }
+
+      if (!mounted) return;
+      messenger.clearSnackBars();
+      ref.invalidate(myInquiriesProvider);
+      context.go(AppRoutes.mypage);
+      messenger.showSnackBar(const SnackBar(content: Text('문의가 접수되었어요.')));
+    } on ReportServiceException catch (error) {
+      if (!mounted) return;
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(content: Text('문의 등록에 실패했습니다. 다시 시도해주세요.')),
+        );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 }
 
@@ -430,12 +459,15 @@ class _TitleField extends StatelessWidget {
             enableSuggestions: false,
             autocorrect: false,
             maxLines: 1,
+            maxLength: 100,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
             onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             style: _inputText,
             decoration: const InputDecoration(
               isCollapsed: true,
               filled: false,
               fillColor: AppColors.transparent,
+              counterText: '',
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -761,6 +793,7 @@ class _StickyButton extends StatelessWidget {
     required this.safeBottom,
     required this.label,
     required this.onPressed,
+    required this.isBusy,
   });
 
   static const buttonHeight = 51.9886360168457;
@@ -770,7 +803,8 @@ class _StickyButton extends StatelessWidget {
 
   final double safeBottom;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
+  final bool isBusy;
 
   static double effectiveSafeBottom(double safeBottom) {
     return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
@@ -815,7 +849,16 @@ class _StickyButton extends StatelessWidget {
                 ),
               ),
               onPressed: onPressed,
-              child: Text(label),
+              child: isBusy
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.white,
+                      ),
+                    )
+                  : Text(label),
             ),
           ),
         ],

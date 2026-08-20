@@ -342,6 +342,7 @@ class _FakeInquiryService extends InquiryService {
     required String title,
     required String content,
     String? category,
+    List<String> imageUrls = const [],
   }) async {
     return {'success': true, 'id': 'inquiry-1'};
   }

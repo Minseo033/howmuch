@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
+import 'package:howmuch/features/recommendation/presentation/state/route_geometry.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_map_point.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_map_view.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_step_card.dart';
@@ -93,11 +95,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   int get _totalCost {
     int sum = 0;
     for (var p in _picks) {
-      final price = p['price1'];
-      if (price != null) {
-        final parsed = int.tryParse(price.toString().replaceAll(',', ''));
-        if (parsed != null) sum += parsed;
-      }
+      final parsed = parseRecommendationPrice(p['price1']);
+      if (parsed != null) sum += parsed;
     }
     return sum;
   }
@@ -135,13 +134,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return double.tryParse(value?.toString() ?? '');
   }
 
-  ({double lat, double lng})? _coordinates(Object? raw) {
-    if (raw is! Map) return null;
-    final lat = _number(raw['latitude']);
-    final lng = _number(raw['longitude']);
-    if (lat == null || lng == null) return null;
-    return (lat: lat, lng: lng);
-  }
+  RouteCoordinate? _coordinates(Object? raw) => parseRouteCoordinate(raw);
 
   double? _legDistanceMeters(int index) {
     if (index < 0 || index >= _picks.length) return null;
@@ -160,18 +153,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       return index == 0 ? _number(_picks[index]['distanceMeters']) : null;
     }
 
-    const earthRadiusMeters = 6371000.0;
-    final latDelta = _radians(current.lat - previous.lat);
-    final lngDelta = _radians(current.lng - previous.lng);
-    final a =
-        math.pow(math.sin(latDelta / 2), 2) +
-        math.cos(_radians(previous.lat)) *
-            math.cos(_radians(current.lat)) *
-            math.pow(math.sin(lngDelta / 2), 2);
-    return earthRadiusMeters * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return routeDistanceMeters(previous, current);
   }
-
-  double _radians(double degrees) => degrees * math.pi / 180;
 
   String _distanceText(Object? value) {
     return formatRecommendationDistance(_number(value));
@@ -375,11 +358,13 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                       color: const Color(0xFFE5E7EB),
                                     ),
                                   ),
-                                  child: RouteMapView(
-                                    points: _routeMapPoints,
-                                    userLatitude: _userLatitude,
-                                    userLongitude: _userLongitude,
-                                  ),
+                                  child: _routeMapPoints.isEmpty
+                                      ? const _RouteMapUnavailable()
+                                      : RouteMapView(
+                                          points: _routeMapPoints,
+                                          userLatitude: _userLatitude,
+                                          userLongitude: _userLongitude,
+                                        ),
                                 ),
                               );
                             },
@@ -410,9 +395,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final p = entry.value;
                               final storeName = p['storeName'] ?? '알 수 없음';
                               final menu = p['menu1'] ?? '';
-                              final price = p['price1'] != null
-                                  ? '${p['price1']}원'
-                                  : '';
+                              final price = formatRecommendationPrice(
+                                p['price1'],
+                                unavailable: '',
+                              );
                               final distance = _distanceText(
                                 p['distanceMeters'],
                               );
@@ -456,7 +442,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '$_totalCost원',
+                                      formatRecommendationPrice(_totalCost),
                                       style: const TextStyle(
                                         color: Color(0xFF0F172A),
                                         fontSize: 16,
@@ -492,7 +478,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   height: 1,
                                   color: const Color(
                                     0xFF10B981,
-                                  ).withOpacity(0.2),
+                                  ).withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(height: 12),
                                 const Row(
@@ -554,61 +540,64 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                     ),
                   ),
           ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 12,
-                bottom: 16 + bottomOffset,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-              ),
-              child: GestureDetector(
-                onTap: () {
-                  final firstPick = _picks.isNotEmpty && _picks.first is Map
-                      ? _picks.first as Map
-                      : const {};
-                  final firstCoordinates = _coordinates(firstPick);
-                  context.push(
-                    AppRoutes.directionsExternalApp,
-                    extra: {
-                      'storeName': firstPick['storeName']?.toString() ?? '착한분식',
-                      'address': firstPick['address']?.toString() ?? '주소 정보 없음',
-                      'distanceLabel': _distanceText(
-                        firstPick['distanceMeters'],
+          if (!_isLoading && _errorMessage == null && _picks.isNotEmpty)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.only(
+                  left: 20,
+                  right: 20,
+                  top: 12,
+                  bottom: 16 + bottomOffset,
+                ),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                ),
+                child: GestureDetector(
+                  onTap: () {
+                    final firstPick = _picks.isNotEmpty && _picks.first is Map
+                        ? _picks.first as Map
+                        : const {};
+                    final firstCoordinates = _coordinates(firstPick);
+                    context.push(
+                      AppRoutes.directionsExternalApp,
+                      extra: {
+                        'storeName':
+                            firstPick['storeName']?.toString() ?? '선택한 매장',
+                        'address':
+                            firstPick['address']?.toString() ?? '주소 정보 없음',
+                        'distanceLabel': _distanceText(
+                          firstPick['distanceMeters'],
+                        ),
+                        'latitude': firstCoordinates?.lat,
+                        'longitude': firstCoordinates?.lng,
+                        'startLatitude': _userLatitude,
+                        'startLongitude': _userLongitude,
+                      },
+                    );
+                  },
+                  child: Container(
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    alignment: Alignment.center,
+                    child: const Text(
+                      '이 루트로 길찾기',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
                       ),
-                      'latitude': firstCoordinates?.lat,
-                      'longitude': firstCoordinates?.lng,
-                      'startLatitude': _userLatitude,
-                      'startLongitude': _userLongitude,
-                    },
-                  );
-                },
-                child: Container(
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    '이 루트로 길찾기',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -689,6 +678,31 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
             style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RouteMapUnavailable extends StatelessWidget {
+  const _RouteMapUnavailable();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.location_off_outlined, color: Color(0xFF64748B)),
+            SizedBox(height: 8),
+            Text(
+              '매장 좌표가 없어 지도를 표시할 수 없어요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF475569), fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }

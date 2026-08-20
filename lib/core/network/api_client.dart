@@ -53,10 +53,15 @@ class ApiClient {
 
   /// JSON 요청 공통 헤더. [auth]가 true면 세션 토큰을 첨부합니다.
   static Map<String, String> jsonHeaders({bool auth = false}) {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+    final headers = authHeaders(auth: auth);
+    headers['Content-Type'] = 'application/json';
+    return headers;
+  }
+
+  /// 인증만 필요한 multipart 요청용 헤더입니다. Content-Type과 boundary는
+  /// MultipartRequest가 직접 만들도록 비워둡니다.
+  static Map<String, String> authHeaders({bool auth = false}) {
+    final headers = <String, String>{'Accept': 'application/json'};
     if (auth && _sessionToken != null) {
       headers['Authorization'] = 'Bearer $_sessionToken';
     }

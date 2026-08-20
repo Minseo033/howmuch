@@ -40,6 +40,24 @@ class ReviewControllerTest {
     }
 
     @Test
+    void rejectsMyReviewsWhenAuthenticatedUidIsMissing() {
+        ResponseEntity<?> response = controller.getMyReviews(httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rejectsBlankOrOversizedStoreIdBeforeQueryingReviews() {
+        ResponseEntity<?> blank = controller.getReviews("   ");
+        ResponseEntity<?> oversized = controller.getReviews("s".repeat(201));
+
+        assertThat(blank.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(oversized.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void rejectsWhitespaceContentAndMenuWithoutCreatingDefaults() {
         authenticate();
         ReviewRequest request = validRequest();

@@ -31,6 +31,20 @@ class UserProfile {
   final bool nicknamePublic;
   final bool activityPublic;
 
+  static const guest = UserProfile(
+    nickname: '게스트',
+    email: '',
+    level: 'LV.1 새싹',
+    region: '',
+    favoriteCategories: [],
+    savedAmount: 0,
+    visitCount: 0,
+    reportCount: 0,
+    favoriteStoreCount: 0,
+    nicknamePublic: true,
+    activityPublic: false,
+  );
+
   String get savedAmountText {
     final text = savedAmount.toString();
     final buffer = StringBuffer();
@@ -568,22 +582,10 @@ class FavoriteStoreModel {
 //    기본값은 게스트 상태이며, 로그인 시 mypage_screen의 _loadProfileSummary가
 //    /api/user/profile + /api/savings/stats + /api/report/my + /api/favorites로 실데이터를 채웁니다.
 final userProfileProvider = StateProvider<UserProfile>(
-  (ref) => const UserProfile(
-    nickname: '게스트',
-    email: '',
-    level: 'LV.1 새싹',
-    region: '',
-    favoriteCategories: [],
-    savedAmount: 0,
-    visitCount: 0,
-    reportCount: 0,
-    favoriteStoreCount: 0,
-    nicknamePublic: true,
-    activityPublic: false,
-  ),
+  (ref) => UserProfile.guest,
 );
 
-// TODO(박지환 BE): 내 제보 목록/상태 API 응답으로 교체하세요.
+// 서버의 내 제보 목록을 화면 간 공유하고, 제출 직후에는 응답받은 ID로 즉시 반영합니다.
 final userReportsProvider =
     StateNotifierProvider<UserReportsNotifier, List<UserReportStatus>>(
       (ref) => UserReportsNotifier(const []),
@@ -745,7 +747,7 @@ class PriceAlertApiService {
               ? '가격 변동 알림'
               : price.isEmpty || price.endsWith('원')
               ? menu
-              : '$menu ${price}원';
+              : '$menu $price원';
           return PriceAlertStore(
             storeId: json['storeId']?.toString() ?? '',
             storeName: json['storeName']?.toString() ?? '매장명 없음',

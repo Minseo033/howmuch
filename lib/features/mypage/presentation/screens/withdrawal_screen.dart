@@ -340,11 +340,11 @@ class _DeletedDataCard extends StatelessWidget {
   const _DeletedDataCard();
 
   static const items = [
-    ('내 제보 내역', '2건', Icons.feed_outlined),
-    ('찜한 매장', '12곳', Icons.favorite_border_rounded),
-    ('방문 인증 · 절약 리포트', '24,500원 누적', Icons.trending_down_rounded),
-    ('작성한 리뷰 · 댓글', '7개', Icons.chat_bubble_outline_rounded),
-    ('가격 알림 구독', '5개 메뉴', Icons.notifications_none_rounded),
+    ('내 제보 내역', '전체 삭제', Icons.feed_outlined),
+    ('찜한 매장', '전체 삭제', Icons.favorite_border_rounded),
+    ('방문 인증 · 절약 리포트', '전체 삭제', Icons.trending_down_rounded),
+    ('작성한 리뷰 · 댓글', '전체 삭제', Icons.chat_bubble_outline_rounded),
+    ('가격 알림 구독', '전체 삭제', Icons.notifications_none_rounded),
   ];
 
   @override

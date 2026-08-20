@@ -21,6 +21,13 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
+
+bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
+  final age = now.toUtc().difference(timestamp.toUtc());
+  return !age.isNegative && age <= maxHomeLocationCacheAge;
+}
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
 
@@ -59,6 +66,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
   bool _isMapReady = false;
+  String? _mapErrorMessage;
   Position? _pendingMapPosition;
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
@@ -123,6 +131,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _searchInCurrentArea,
         _onMarkerClicked,
         _onMapReady,
+        _onMapError,
       );
       WidgetsBinding.instance.addPostFrameCallback((_) => _initWebMap());
     } else {
@@ -149,7 +158,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         for (var i = 0; i < data.length; i++) {
           try {
             final store = Store.fromJson(data[i]);
-            if (store.latitude != 0 && store.longitude != 0) {
+            if (store.hasValidCoordinates) {
               parsedStores.add(store);
             }
           } catch (e) {
@@ -206,7 +215,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final cached = decoded
           .whereType<Map>()
           .map((item) => Store.fromJson(Map<String, dynamic>.from(item)))
-          .where((store) => store.latitude != 0 && store.longitude != 0)
+          .where((store) => store.hasValidCoordinates)
           .toList();
       if (cached.isEmpty || !mounted) return;
       setState(() {
@@ -611,15 +620,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (position == null) {
         try {
           position = await Geolocator.getLastKnownPosition();
-        } catch (e) {
-          debugPrint('마지막 위치 조회 에러: $e');
+        } catch (_) {
+          debugPrint('마지막 위치 조회 실패');
         }
       }
 
-      if (position != null) {
+      if (position != null &&
+          isFreshHomeLocation(position.timestamp, DateTime.now())) {
         _storeUserPosition(position);
         _centerMapOnPosition(position);
-        _refreshCurrentPositionInBackground();
+        _refreshCurrentPositionInBackground(centerMap: true);
         return;
       }
 
@@ -637,8 +647,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       _storeUserPosition(position);
       _centerMapOnPosition(position);
-    } catch (e) {
-      debugPrint('위치 가져오기 에러: $e');
+    } catch (_) {
+      debugPrint('위치 가져오기 실패');
+      if (mounted) {
+        _showLocationNotice(
+          const _LocationNoticeData(
+            title: '현재 위치를 찾지 못했어요',
+            message: '잠시 후 다시 시도하거나\n위치 권한과 네트워크를 확인해주세요.',
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isCenteringLocation = false);
@@ -664,22 +682,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ? const Duration(seconds: 10)
             : const Duration(seconds: 5),
       );
-    } catch (e) {
-      debugPrint('현재 위치 조회 에러: $e');
+    } catch (_) {
+      debugPrint('현재 위치 조회 실패');
       return null;
     }
   }
 
-  void _refreshCurrentPositionInBackground() {
+  void _refreshCurrentPositionInBackground({bool centerMap = false}) {
     if (_freshLocationRequest != null) return;
-    _freshLocationRequest = _refreshCurrentPosition();
+    _freshLocationRequest = _refreshCurrentPosition(centerMap: centerMap);
   }
 
-  Future<void> _refreshCurrentPosition() async {
+  Future<void> _refreshCurrentPosition({required bool centerMap}) async {
     try {
       final position = await _getFreshPosition();
       if (position != null && mounted) {
         _storeUserPosition(position);
+        if (centerMap) _centerMapOnPosition(position);
       }
     } finally {
       _freshLocationRequest = null;
@@ -700,10 +719,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
 
     _isMapReady = true;
-    if (kIsWeb && !_isMapInitialized) {
-      setState(() => _isMapInitialized = true);
+    if (kIsWeb && (!_isMapInitialized || _mapErrorMessage != null)) {
+      setState(() {
+        _isMapInitialized = true;
+        _mapErrorMessage = null;
+      });
     }
     _flushPendingMapPosition();
+  }
+
+  void _onMapError(String message) {
+    if (!mounted) return;
+    setState(() {
+      _isMapReady = false;
+      _isMapInitialized = false;
+      _mapErrorMessage = message;
+    });
+  }
+
+  void _retryWebMap() {
+    setState(() => _mapErrorMessage = null);
+    _initWebMap();
   }
 
   void _flushPendingMapPosition() {
@@ -860,7 +896,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       List<Store> fetchedStores = [];
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        fetchedStores = data.map((json) => Store.fromJson(json)).toList();
+        fetchedStores = data
+            .map((json) => Store.fromJson(json))
+            .where((store) => store.hasValidCoordinates)
+            .toList();
       } else {
         // Fallback to local _allStores if backend fails
         fetchedStores = _allStores;
@@ -1074,7 +1113,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       backgroundColor: const Color(0xFFDDE6F0),
       child: Stack(
         children: [
-          // TODO(박지환 BE): 여기를 지우고 실제 지도 API 위젯으로 교체하세요.
           Positioned.fill(
             child: GestureDetector(
               onTap: _hideStore,
@@ -1082,6 +1120,44 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               child: kIsWeb ? _buildWebMap() : _buildMobileMap(),
             ),
           ),
+
+          if (_mapErrorMessage != null)
+            Positioned.fill(
+              child: ColoredBox(
+                color: const Color(0xFFF4F6FA),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 28),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.map_outlined,
+                          size: 44,
+                          color: HomeMapScreen.muted,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _mapErrorMessage!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: HomeMapScreen.ink,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton.icon(
+                          onPressed: _retryWebMap,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('다시 시도'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
 
           if (!_isAllStoresLoaded)
             Positioned.fill(

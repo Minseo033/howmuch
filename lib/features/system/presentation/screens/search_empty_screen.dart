@@ -26,7 +26,7 @@ class SearchEmptyScreen extends StatefulWidget {
 }
 
 class _SearchEmptyScreenState extends State<SearchEmptyScreen> {
-  String _query = '주차요금';
+  final String _query = '주차요금';
   List<String> _filters = const ['음식점', '1만원 이하', '500m 이내'];
 
   @override

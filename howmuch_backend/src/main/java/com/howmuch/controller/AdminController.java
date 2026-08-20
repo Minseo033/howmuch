@@ -3,6 +3,7 @@ package com.howmuch.controller;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.PublicDataService;
 import com.howmuch.service.ReportImageStorage;
+import com.howmuch.service.SimpleRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,9 +42,13 @@ public class AdminController {
     private final FirebaseService firebaseService;
     private final ReportImageStorage reportImageStorage;
     private final PublicDataService publicDataService;
+    private final SimpleRateLimiter rateLimiter;
 
     @Value("${admin.key:}")
     private String adminKey;
+
+    @Value("${admin.auth.max-failures-per-5-min:10}")
+    private int maxAdminAuthFailures = 10;
 
     /** 어드민 접근 제어 공통 처리. 통과 시 null, 아니면 그대로 반환할 에러 응답 */
     private ResponseEntity<?> guard(HttpServletRequest request) {
@@ -55,11 +60,14 @@ public class AdminController {
         }
         String provided = request.getHeader("X-Admin-Key");
         if (provided == null || !constantTimeEquals(provided, adminKey)) {
-            // 💡 브루트포스 완화: 실패 시 1초 지연 (무차별 대입 속도 제한)
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
+            String address = clientAddress(request);
+            if (!rateLimiter.tryAcquire(
+                    "admin-auth:" + address,
+                    maxAdminAuthFailures,
+                    5 * 60_000L)) {
+                return ResponseEntity.status(429).body(Map.of(
+                        "success", false,
+                        "message", "어드민 로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요."));
             }
             log.warn("[AdminController] 잘못된 어드민 키 접근 차단");
             return ResponseEntity.status(401).body(Map.of(
@@ -68,6 +76,23 @@ public class AdminController {
             ));
         }
         return null;
+    }
+
+    private String clientAddress(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            String[] addresses = forwarded.split(",");
+            for (int index = addresses.length - 1; index >= 0; index--) {
+                String address = addresses[index].trim();
+                if (!address.isBlank() && address.length() <= 64) {
+                    return address;
+                }
+            }
+        }
+        String remoteAddress = request.getRemoteAddr();
+        return remoteAddress != null && remoteAddress.length() <= 64
+                ? remoteAddress
+                : "unknown";
     }
 
     /** 타이밍 공격 방지용 상수 시간 비교 */
@@ -83,6 +108,8 @@ public class AdminController {
                                         HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidStatus = validateStatus(status);
+        if (invalidStatus != null) return invalidStatus;
 
         try {
             String filter = "ALL".equalsIgnoreCase(status) ? null : status.toUpperCase();
@@ -104,6 +131,8 @@ public class AdminController {
             HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidStatus = validateStatus(status);
+        if (invalidStatus != null) return invalidStatus;
         try {
             String filter = "ALL".equalsIgnoreCase(status) ? null : status.toUpperCase();
             return ResponseEntity.ok(firebaseService.getReceiptVerifications(filter));
@@ -120,6 +149,8 @@ public class AdminController {
             @PathVariable String id, HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
         try {
             return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
         } catch (IllegalArgumentException e) {
@@ -140,10 +171,16 @@ public class AdminController {
             HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
         String reason = body == null ? null : body.get("reason");
         if (reason == null || reason.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "반려 사유(reason)는 필수입니다."));
+        }
+        if (reason.trim().length() > 500) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "반려 사유는 500자 이내로 입력해주세요."));
         }
         try {
             firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
@@ -248,6 +285,8 @@ public class AdminController {
                                              HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(uid);
+        if (invalidId != null) return invalidId;
 
         try {
             return ResponseEntity.ok(firebaseService.getUserActivity(uid));
@@ -266,10 +305,12 @@ public class AdminController {
                                         HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(uid);
+        if (invalidId != null) return invalidId;
 
         try {
             Map<String, Object> result = firebaseService.deleteUser(uid);
-            log.warn("[AdminController] 회원 강제 탈퇴 - uid: {}, 삭제: {}", uid, result);
+            log.warn("[AdminController] 회원 강제 탈퇴 완료");
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("[AdminController] 회원 삭제 중 오류 발생: ", e);
@@ -303,6 +344,8 @@ public class AdminController {
                                           HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         try {
             firebaseService.deleteReview(id);
@@ -325,6 +368,8 @@ public class AdminController {
                                            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         try {
             firebaseService.approveReport(id);
@@ -348,6 +393,8 @@ public class AdminController {
                                           HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         String reason = body != null ? body.get("reason") : null;
         if (reason == null || reason.isBlank()) {
@@ -356,10 +403,14 @@ public class AdminController {
                     "message", "반려 사유(reason)는 필수입니다."
             ));
         }
+        if (reason.trim().length() > 500) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "반려 사유는 500자 이내로 입력해주세요."));
+        }
 
         try {
             firebaseService.rejectReport(id, reason.trim());
-            log.info("[AdminController] 제보 반려 - id: {}, reason: {}", id, reason.trim());
+            log.info("[AdminController] 제보 반려 - id: {}", id);
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
@@ -378,6 +429,8 @@ public class AdminController {
                                           HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         try {
             Map<String, Object> result = firebaseService.deleteReportAsAdmin(id);
@@ -424,6 +477,8 @@ public class AdminController {
                                            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         String answer = body != null ? body.get("answer") : null;
         if (answer == null || answer.isBlank()) {
@@ -480,6 +535,8 @@ public class AdminController {
                                            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
 
         try {
             firebaseService.deleteComment(id);
@@ -520,12 +577,19 @@ public class AdminController {
                     "message", "제목은 100자, 내용은 500자 이내로 입력해주세요."
             ));
         }
+        if (type != null && type.trim().length() > 50) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "알림 유형은 50자 이내로 입력해주세요."));
+        }
+        if (targetUid != null && !targetUid.isBlank() && !isValidDocumentId(targetUid.trim())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "대상 사용자 ID 형식이 올바르지 않습니다."));
+        }
 
         try {
             Map<String, Object> result = firebaseService.sendAdminNotification(
                     targetUid, title.trim(), content.trim(), type);
-            log.warn("[AdminController] 알림 발송 - 대상: {}, 발송 수: {}", 
-                    (targetUid != null && !targetUid.isBlank()) ? targetUid : "전체", result.get("sent"));
+            log.warn("[AdminController] 알림 발송 완료 - 발송 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("[AdminController] 알림 발송 중 오류 발생: ", e);
@@ -551,5 +615,26 @@ public class AdminController {
                     "message", "커뮤니티 지표 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    private ResponseEntity<?> validateStatus(String status) {
+        if (status != null && List.of("PENDING", "APPROVED", "REJECTED", "ALL")
+                .stream().noneMatch(value -> value.equalsIgnoreCase(status.trim()))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "상태 필터 형식이 올바르지 않습니다."));
+        }
+        return null;
+    }
+
+    private ResponseEntity<?> validateDocumentId(String id) {
+        if (!isValidDocumentId(id)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "대상 ID 형식이 올바르지 않습니다."));
+        }
+        return null;
+    }
+
+    private boolean isValidDocumentId(String id) {
+        return id != null && !id.isBlank() && id.length() <= 512 && !id.contains("/");
     }
 }

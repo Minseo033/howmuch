@@ -113,6 +113,32 @@ class NotificationControllerTest {
         verifyNoInteractions(service);
     }
 
+    @Test
+    void rejectsInvalidNotificationDocumentIdsBeforeCallingTheService() {
+        FirebaseService service = mock(FirebaseService.class);
+        NotificationController controller = new NotificationController(service);
+
+        ResponseEntity<?> response = controller.markAsRead(
+                "another-user/notification-1", authenticatedRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void returnsNotFoundWithoutLeakingNotificationOwnership() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        NotificationController controller = new NotificationController(service);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("not owned"))
+                .when(service).markNotificationAsRead("notification-1", "user-1");
+
+        ResponseEntity<?> response = controller.markAsRead(
+                "notification-1", authenticatedRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody().toString()).doesNotContain("not owned");
+    }
+
     private MockHttpServletRequest authenticatedRequest() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");

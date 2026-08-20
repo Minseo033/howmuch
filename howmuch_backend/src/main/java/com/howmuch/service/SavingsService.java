@@ -27,6 +27,8 @@ import java.util.Map;
 public class SavingsService {
 
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
+    private static final java.util.Set<String> SUPPORTED_PERIODS =
+            java.util.Set.of("this_month", "last_month", "this_year");
     private final FirebaseService firebaseService;
 
     /**
@@ -36,7 +38,6 @@ public class SavingsService {
      * @return 절약 내역 DTO 목록 (최신순)
      */
     public List<SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
-        log.info("[SavingsService] 절약 내역 목록 조회 - uid: {}", firebaseUid);
         if (firebaseUid == null || firebaseUid.isBlank()) {
             return List.of();
         }
@@ -51,8 +52,10 @@ public class SavingsService {
      * @return 절약 통계 DTO
      */
     public SavingsStatsResponse getSavingsStats(String firebaseUid, String period) throws Exception {
-        log.info("[SavingsService] 절약 통계 조회 - uid: {}, period: {}", firebaseUid, period);
         String targetPeriod = (period != null && !period.isBlank()) ? period.trim().toLowerCase() : "this_month";
+        if (!SUPPORTED_PERIODS.contains(targetPeriod)) {
+            throw new IllegalArgumentException("지원하지 않는 절약 통계 기간입니다.");
+        }
 
         List<SavingsHistoryResponse> history = getSavingsHistory(firebaseUid);
 

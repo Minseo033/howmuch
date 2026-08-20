@@ -82,9 +82,7 @@ class CommunityComment {
         .toList();
 
     return CommunityComment(
-      id:
-          _readString(json, const ['id', 'commentId', 'replyId']) ??
-          DateTime.now().microsecondsSinceEpoch.toString(),
+      id: _readString(json, const ['id', 'commentId', 'replyId']) ?? '',
       author:
           _readString(json, const [
             'author',
@@ -321,7 +319,7 @@ class CommunityService {
           (comment) =>
               CommunityComment.fromJson(Map<String, dynamic>.from(comment)),
         )
-        .where((comment) => comment.content.isNotEmpty)
+        .where((comment) => comment.id.isNotEmpty && comment.content.isNotEmpty)
         .toList();
   }
 }

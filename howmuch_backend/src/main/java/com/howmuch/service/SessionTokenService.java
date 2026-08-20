@@ -2,6 +2,7 @@ package com.howmuch.service;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -15,6 +16,7 @@ import java.util.Base64;
  * 형식: base64url(uid:만료시각) + "." + base64url(HMAC-SHA256 서명)
  */
 @Service
+@Slf4j
 public class SessionTokenService {
 
     private static final String DEV_FALLBACK_SECRET = "dev-only-howmuch-session-secret-change-me";
@@ -37,8 +39,7 @@ public class SessionTokenService {
                     "SESSION_SECRET에 dev 기본값이 사용되었습니다. 운영 환경에서는 반드시 새 랜덤 시크릿으로 교체하세요.");
         }
         if (DEV_FALLBACK_SECRET.equals(secret)) {
-            System.err.println("[보안 경고] SESSION_SECRET에 dev 기본값 사용 중 — 로컬 개발 전용. "
-                    + "운영 배포 시 SESSION_SECRET 환경변수와 session.allow-dev-secret=false를 설정하세요.");
+            log.warn("개발용 SESSION_SECRET을 사용 중입니다. 운영에서는 별도 시크릿을 설정해야 합니다.");
         }
         this.secret = secret;
         this.ttlMillis = ttlHours * 60L * 60L * 1000L;

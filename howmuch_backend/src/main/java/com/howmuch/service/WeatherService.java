@@ -11,7 +11,6 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -129,36 +128,7 @@ public class WeatherService {
 
             // 현재 시각과 가장 가까운 슬롯 선택 (현재~미래 우선, 없으면 가장 최근 과거)
             LocalDateTime now = LocalDateTime.now(KST);
-            String bestKey = null;
-            LocalDateTime bestTime = null;
-            for (Map.Entry<String, Map<String, String>> e : slots.entrySet()) {
-                String key = e.getKey();
-                LocalDateTime slotTime;
-                try {
-                    slotTime = LocalDateTime.of(
-                            LocalDate.parse(key.substring(0, 8), DATE_FMT),
-                            LocalTime.parse(key.substring(8), TIME_FMT));
-                } catch (Exception ex) {
-                    continue;
-                }
-                if (bestKey == null) {
-                    bestKey = key;
-                    bestTime = slotTime;
-                    continue;
-                }
-                long curDiff = Duration.between(now, slotTime).toMinutes();
-                long bestDiff = Duration.between(now, bestTime).toMinutes();
-                // 미래/현재 슬롯(>=0)을 우선하되, 둘 다 같은 부호면 절댓값이 작은 쪽
-                boolean curFuture = curDiff >= 0;
-                boolean bestFuture = bestDiff >= 0;
-                boolean better = (curFuture != bestFuture)
-                        ? curFuture
-                        : Math.abs(curDiff) < Math.abs(bestDiff);
-                if (better) {
-                    bestKey = key;
-                    bestTime = slotTime;
-                }
-            }
+            String bestKey = selectClosestForecastKey(slots, now);
 
             Map<String, String> chosen = bestKey != null ? slots.get(bestKey) : null;
             if (chosen == null || chosen.isEmpty()) {
@@ -182,7 +152,7 @@ public class WeatherService {
             result.put("updatedAt", java.time.Instant.now().toString());
             return result;
         } catch (Exception e) {
-            log.error("기상청 API 호출 중 오류 발생: ", e);
+            log.warn("기상청 API 호출 실패: {}", e.getClass().getSimpleName());
             result.put("weather", "알 수 없음");
             result.put("temp", null);
             result.put("available", false);
@@ -194,7 +164,7 @@ public class WeatherService {
      * 기준 시각 이하의 가장 최근 발표 시각 (02,05,08,11,14,17,20,23).
      * 자정~새벽 2시(발표 전)에는 전날 23시 발표분으로 역행한다.
      */
-    private LocalDateTime latestBaseDateTime(LocalDateTime effective) {
+    static LocalDateTime latestBaseDateTime(LocalDateTime effective) {
         LocalDate date = effective.toLocalDate();
         int hour = effective.getHour();
         int base = -1;
@@ -206,6 +176,37 @@ public class WeatherService {
             return LocalDateTime.of(date.minusDays(1), LocalTime.of(23, 0));
         }
         return LocalDateTime.of(date, LocalTime.of(base, 0));
+    }
+
+    static String selectClosestForecastKey(
+            Map<String, Map<String, String>> slots, LocalDateTime now) {
+        String bestFutureKey = null;
+        LocalDateTime bestFutureTime = null;
+        String bestPastKey = null;
+        LocalDateTime bestPastTime = null;
+
+        for (String key : slots.keySet()) {
+            LocalDateTime slotTime;
+            try {
+                if (key == null || key.length() != 12) continue;
+                slotTime = LocalDateTime.of(
+                        LocalDate.parse(key.substring(0, 8), DATE_FMT),
+                        LocalTime.parse(key.substring(8), TIME_FMT));
+            } catch (Exception ignored) {
+                continue;
+            }
+
+            if (!slotTime.isBefore(now)) {
+                if (bestFutureTime == null || slotTime.isBefore(bestFutureTime)) {
+                    bestFutureKey = key;
+                    bestFutureTime = slotTime;
+                }
+            } else if (bestPastTime == null || slotTime.isAfter(bestPastTime)) {
+                bestPastKey = key;
+                bestPastTime = slotTime;
+            }
+        }
+        return bestFutureKey != null ? bestFutureKey : bestPastKey;
     }
 
     /** 하늘상태(SKY) + 강수형태(PTY) → 한글 날씨 요약 */

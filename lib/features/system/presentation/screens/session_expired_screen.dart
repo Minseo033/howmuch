@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -38,12 +37,9 @@ class SessionExpiredScreen extends ConsumerWidget {
         : FigmaMobileCanvas.height;
     final actionTop = effectiveHeight - bottomOffset - 16 - 111.988;
 
-    void close() {
-      ref.read(authStateProvider.notifier).state = const AuthState(
-        isLoggedIn: false,
-        provider: '',
-        email: 'minseo@example.com',
-      );
+    Future<void> close() async {
+      await ref.read(kakaoLoginServiceProvider).clearLocalSession();
+      if (!context.mounted) return;
       context.go(AppRoutes.home);
     }
 
@@ -74,7 +70,7 @@ class SessionExpiredScreen extends ConsumerWidget {
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: close,
+                onTap: () => close(),
                 child: const Icon(
                   Icons.close_rounded,
                   color: Color(0xFF5F708A),
@@ -127,7 +123,7 @@ class SessionExpiredScreen extends ConsumerWidget {
               children: [
                 _KakaoButton(onPressed: loginAgain),
                 const SizedBox(height: 10),
-                _LaterButton(onPressed: close),
+                _LaterButton(onPressed: () => close()),
               ],
             ),
           ),

@@ -43,6 +43,8 @@ public class RecommendationController {
     @GetMapping("/todays-pick")
     public ResponseEntity<?> getTodaysPick(@RequestParam(required = false) Double lat,
                                            @RequestParam(required = false) Double lng) {
+        ResponseEntity<?> coordinateError = validateCoordinates(lat, lng);
+        if (coordinateError != null) return coordinateError;
         try {
             // 기상청 단기예보 (사용자 위치 → 격자 변환, 없으면 서울 기본)
             Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
@@ -72,6 +74,8 @@ public class RecommendationController {
     public ResponseEntity<?> getRoute(@RequestParam(required = false) Double lat,
                                       @RequestParam(required = false) Double lng,
                                       HttpServletRequest httpRequest) {
+        ResponseEntity<?> coordinateError = validateCoordinates(lat, lng);
+        if (coordinateError != null) return coordinateError;
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         String key = uid != null && !uid.isBlank()
                 ? "route:user:" + uid
@@ -112,5 +116,22 @@ public class RecommendationController {
             return forwarded.split(",")[0].trim();
         }
         return request.getRemoteAddr() != null ? request.getRemoteAddr() : "unknown";
+    }
+
+    private ResponseEntity<?> validateCoordinates(Double lat, Double lng) {
+        if ((lat == null) != (lng == null)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "위도와 경도를 함께 입력해주세요."
+            ));
+        }
+        if (lat != null && (!Double.isFinite(lat) || !Double.isFinite(lng)
+                || lat < -90 || lat > 90 || lng < -180 || lng > 180)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "올바른 위치 좌표를 입력해주세요."
+            ));
+        }
+        return null;
     }
 }

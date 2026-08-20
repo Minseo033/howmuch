@@ -170,8 +170,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CupertinoPage<void>(
             key: state.pageKey,
             child: DirectionsExternalAppScreen(
-              storeName: extra['storeName']?.toString() ?? '착한분식',
-              address: extra['address']?.toString() ?? '서울시 강남구 역삼동',
+              storeName: extra['storeName']?.toString() ?? '선택한 매장',
+              address: extra['address']?.toString() ?? '주소 정보 없음',
               distanceLabel: extra['distanceLabel']?.toString() ?? '거리 정보 없음',
               latitude: (extra['latitude'] as num?)?.toDouble(),
               longitude: (extra['longitude'] as num?)?.toDouble(),

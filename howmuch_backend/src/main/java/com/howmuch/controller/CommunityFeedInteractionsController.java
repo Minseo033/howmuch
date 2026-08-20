@@ -33,6 +33,8 @@ public class CommunityFeedInteractionsController {
     @PostMapping("/{postId}/like")
     public ResponseEntity<?> like(@PathVariable String postId,
                                   HttpServletRequest httpRequest) {
+        ResponseEntity<?> invalidId = validatePostId(postId);
+        if (invalidId != null) return invalidId;
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             if (uid == null || uid.isBlank()) {
@@ -55,6 +57,8 @@ public class CommunityFeedInteractionsController {
     @DeleteMapping("/{postId}/like")
     public ResponseEntity<?> unlike(@PathVariable String postId,
                                     HttpServletRequest httpRequest) {
+        ResponseEntity<?> invalidId = validatePostId(postId);
+        if (invalidId != null) return invalidId;
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             if (uid == null || uid.isBlank()) {
@@ -77,6 +81,8 @@ public class CommunityFeedInteractionsController {
     @PostMapping("/{postId}/notification")
     public ResponseEntity<?> subscribe(@PathVariable String postId,
                                        HttpServletRequest httpRequest) {
+        ResponseEntity<?> invalidId = validatePostId(postId);
+        if (invalidId != null) return invalidId;
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             if (uid == null || uid.isBlank()) {
@@ -99,6 +105,8 @@ public class CommunityFeedInteractionsController {
     @DeleteMapping("/{postId}/notification")
     public ResponseEntity<?> unsubscribe(@PathVariable String postId,
                                          HttpServletRequest httpRequest) {
+        ResponseEntity<?> invalidId = validatePostId(postId);
+        if (invalidId != null) return invalidId;
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
             if (uid == null || uid.isBlank()) {
@@ -115,5 +123,14 @@ public class CommunityFeedInteractionsController {
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "알림 해제 중 오류가 발생했습니다."));
         }
+    }
+
+    private ResponseEntity<?> validatePostId(String postId) {
+        if (postId == null || postId.isBlank()
+                || postId.length() > 512 || postId.contains("/")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "게시글 ID가 올바르지 않습니다."));
+        }
+        return null;
     }
 }

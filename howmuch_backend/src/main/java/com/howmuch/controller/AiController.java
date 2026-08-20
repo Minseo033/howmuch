@@ -33,27 +33,29 @@ public class AiController {
                                   HttpServletRequest httpRequest) {
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
 
-        // 💡 레이트리밋: 로그인 유저라도 무제한 호출은 AI API 비용 악용 위험
-        String key = uid != null ? uid : "anonymous";
-        if (!rateLimiter.tryAcquire(key, maxPerHour, 3_600_000L)) {
-            return ResponseEntity.status(429).body(Map.of(
-                    "success", false,
-                    "message", "AI 채팅은 시간당 " + maxPerHour + "회까지 이용할 수 있습니다. 잠시 후 다시 시도해주세요."
-            ));
+        if (uid == null || uid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
         }
-
-        String message = request.getMessage();
-        if (message == null || message.isBlank()) {
+        if (request == null || request.getMessage() == null || request.getMessage().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "message", "message는 필수입니다."
             ));
         }
-        // 💡 과도한 입력 길이 제한 (토큰 비용 방어)
+        String message = request.getMessage().trim();
         if (message.length() > 1000) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "message", "메시지는 1000자 이내로 입력해주세요."
+            ));
+        }
+
+        // 💡 레이트리밋: 로그인 유저라도 무제한 호출은 AI API 비용 악용 위험
+        if (!rateLimiter.tryAcquire("ai-chat:" + uid, maxPerHour, 3_600_000L)) {
+            return ResponseEntity.status(429).body(Map.of(
+                    "success", false,
+                    "message", "AI 채팅은 시간당 " + maxPerHour + "회까지 이용할 수 있습니다. 잠시 후 다시 시도해주세요."
             ));
         }
 

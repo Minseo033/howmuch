@@ -133,6 +133,10 @@ public class ReportController {
             return ResponseEntity.status(401).body(Map.of(
                     "success", false, "message", "로그인이 필요합니다."));
         }
+        if (report == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "제보 내용을 입력해주세요."));
+        }
         report.setReporterId(reporterUid);
         try {
             ResponseEntity<?> validationError = validateReport(report);
@@ -167,6 +171,13 @@ public class ReportController {
         if (reporterUid == null || reporterUid.isBlank()) {
             return ResponseEntity.status(401).body(Map.of(
                     "success", false, "message", "로그인이 필요합니다."));
+        }
+        if (!isValidDocumentId(id)) {
+            return invalidReportId();
+        }
+        if (report == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "제보 내용을 입력해주세요."));
         }
 
         try {
@@ -207,6 +218,9 @@ public class ReportController {
             return ResponseEntity.status(401).body(Map.of(
                     "success", false, "message", "로그인이 필요합니다."));
         }
+        if (!isValidDocumentId(id)) {
+            return invalidReportId();
+        }
 
         try {
             return ResponseEntity.ok(firebaseService.deleteUserReport(id, reporterUid));
@@ -233,8 +247,11 @@ public class ReportController {
     public ResponseEntity<?> getMyReports(jakarta.servlet.http.HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(
                 com.howmuch.config.SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
         try {
-            log.info("[ReportController] 내 제보 목록 조회 요청 - uid: {}", firebaseUid);
             java.util.List<Map<String, Object>> reports = firebaseService.getUserReports(firebaseUid);
             return ResponseEntity.ok(reports);
         } catch (Exception e) {
@@ -247,6 +264,7 @@ public class ReportController {
     }
 
     private ResponseEntity<?> validateReport(UserReportRequest report) {
+        normalizeReport(report);
         if (report.getStoreName() == null || report.getStoreName().isBlank()
                 || report.getAddress() == null || report.getAddress().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -255,6 +273,31 @@ public class ReportController {
         if (report.getStoreName().length() > 100 || report.getAddress().length() > 300) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "입력값이 허용 길이를 초과했습니다."));
+        }
+        if (tooLong(report.getStoreId(), 200)
+                || tooLong(report.getPhoneNumber(), 30)
+                || tooLong(report.getIndustry(), 100)
+                || tooLong(report.getCityProvince(), 100)
+                || tooLong(report.getCityDistrict(), 100)
+                || tooLong(report.getMenu1(), 100)
+                || tooLong(report.getMenu2(), 100)
+                || tooLong(report.getMenu3(), 100)
+                || tooLong(report.getMenu4(), 100)
+                || tooLong(report.getPrice1(), 30)
+                || tooLong(report.getPrice2(), 30)
+                || tooLong(report.getPrice3(), 30)
+                || tooLong(report.getPrice4(), 30)
+                || tooLong(report.getChangeType(), 30)
+                || tooLong(report.getReportType(), 30)
+                || tooLong(report.getDescription(), 1000)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "입력값이 허용 길이를 초과했습니다."));
+        }
+        if (report.getReportType() != null
+                && !report.getReportType().isBlank()
+                && !reportTypeIsStoreInfo(report)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "올바르지 않은 제보 유형입니다."));
         }
         if (report.getChangeType() != null && !report.getChangeType().isBlank()) {
             List<String> allowedTypes = reportTypeIsStoreInfo(report)
@@ -279,12 +322,48 @@ public class ReportController {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false, "message", "메뉴판 가격 확인 여부를 체크해주세요."));
             }
-            if (report.getDescription() != null && report.getDescription().length() > 1000) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false, "message", "설명은 1,000자 이내로 입력해주세요."));
-            }
         }
         return null;
+    }
+
+    private void normalizeReport(UserReportRequest report) {
+        report.setStoreName(trimToNull(report.getStoreName()));
+        report.setAddress(trimToNull(report.getAddress()));
+        report.setStoreId(trimToNull(report.getStoreId()));
+        report.setPhoneNumber(trimToNull(report.getPhoneNumber()));
+        report.setIndustry(trimToNull(report.getIndustry()));
+        report.setCityProvince(trimToNull(report.getCityProvince()));
+        report.setCityDistrict(trimToNull(report.getCityDistrict()));
+        report.setMenu1(trimToNull(report.getMenu1()));
+        report.setMenu2(trimToNull(report.getMenu2()));
+        report.setMenu3(trimToNull(report.getMenu3()));
+        report.setMenu4(trimToNull(report.getMenu4()));
+        report.setPrice1(trimToNull(report.getPrice1()));
+        report.setPrice2(trimToNull(report.getPrice2()));
+        report.setPrice3(trimToNull(report.getPrice3()));
+        report.setPrice4(trimToNull(report.getPrice4()));
+        report.setChangeType(trimToNull(report.getChangeType()));
+        report.setReportType(trimToNull(report.getReportType()));
+        report.setDescription(trimToNull(report.getDescription()));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private boolean tooLong(String value, int maxLength) {
+        return value != null && value.length() > maxLength;
+    }
+
+    private boolean isValidDocumentId(String id) {
+        return id != null && !id.isBlank() && id.length() <= 512 && !id.contains("/");
+    }
+
+    private ResponseEntity<?> invalidReportId() {
+        return ResponseEntity.badRequest().body(Map.of(
+                "success", false, "message", "제보 ID 형식이 올바르지 않습니다."));
     }
 
     private boolean reportTypeIsStoreInfo(UserReportRequest report) {
@@ -294,9 +373,30 @@ public class ReportController {
     private void applyCoordinates(UserReportRequest report) throws Exception {
         Map<String, Object> coords = kakaoLocalService.getCoordinatesFromAddress(report.getAddress());
         if (coords == null) return;
-        report.setLatitude((Double) coords.get("lat"));
-        report.setLongitude((Double) coords.get("lng"));
-        report.setCityProvince((String) coords.get("province"));
-        report.setCityDistrict((String) coords.get("district"));
+        Double latitude = finiteCoordinate(coords.get("lat"), 90);
+        Double longitude = finiteCoordinate(coords.get("lng"), 180);
+        if (latitude == null || longitude == null
+                || (latitude == 0 && longitude == 0)) {
+            return;
+        }
+        report.setLatitude(latitude);
+        report.setLongitude(longitude);
+        report.setCityProvince(trimToNull(stringValue(coords.get("province"))));
+        report.setCityDistrict(trimToNull(stringValue(coords.get("district"))));
+    }
+
+    private Double finiteCoordinate(Object value, double maximumAbsoluteValue) {
+        if (value == null) return null;
+        try {
+            double parsed = Double.parseDouble(value.toString());
+            return Double.isFinite(parsed) && Math.abs(parsed) <= maximumAbsoluteValue
+                    ? parsed : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? null : value.toString();
     }
 }

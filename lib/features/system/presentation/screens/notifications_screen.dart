@@ -269,12 +269,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               child: Stack(
                 children: [
                   Positioned(
-                    left: 20,
-                    top: 18.48,
-                    child: GestureDetector(
-                      onTap: () => context.pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
+                    left: 8,
+                    top: 4.9,
+                    child: IconButton(
+                      onPressed: () => context.pop(),
+                      tooltip: '뒤로가기',
+                      icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
                         color: Color(0xFF0A0A0A),
@@ -297,13 +297,17 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ),
                   ),
                   Positioned(
-                    right: 20,
-                    top: 20.49,
-                    child: GestureDetector(
-                      onTap: () => _runAction(
+                    right: 8,
+                    top: 6.9,
+                    child: TextButton(
+                      onPressed: () => _runAction(
                         ref.read(notificationsProvider.notifier).markAllRead(),
                       ),
-                      behavior: HitTestBehavior.opaque,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(72, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
                       child: const Text(
                         '모두 읽음',
                         style: TextStyle(
@@ -408,28 +412,35 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        notif.type,
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: const ['Noto Sans KR'],
-                          fontWeight: FontWeight.bold,
-                          color: notif.categoryColor,
-                          fontSize: 11,
-                          height: 16.5 / 11,
+                      Flexible(
+                        child: Text(
+                          notif.type,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: const ['Noto Sans KR'],
+                            fontWeight: FontWeight.bold,
+                            color: notif.categoryColor,
+                            fontSize: 11,
+                            height: 16.5 / 11,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        notif.timeText,
-                        style: const TextStyle(
-                          fontFamily: 'Inter',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 10,
-                          height: 15 / 10,
+                      if (notif.timeText.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          notif.timeText,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 10,
+                            height: 15 / 10,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 2.997),
@@ -437,6 +448,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       notif.title != notif.messageText) ...[
                     Text(
                       notif.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Inter',
                         fontFamilyFallback: ['Noto Sans KR'],
@@ -450,6 +463,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ],
                   Text(
                     notif.messageText,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontFamily: 'Inter',
                       fontFamilyFallback: ['Noto Sans KR'],

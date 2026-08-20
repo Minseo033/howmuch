@@ -44,11 +44,13 @@ public class GeminiService {
             return "AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
         }
         // 💡 2.5 모델을 지원하는 v1beta 엔드포인트를 사용합니다.
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":generateContent?key=" + geminiApiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
+                + geminiModel + ":generateContent";
 
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Goog-Api-Key", geminiApiKey);
 
             // Gemini API 요청 규격 구성
             Map<String, Object> requestBody = Map.of(
@@ -68,8 +70,7 @@ public class GeminiService {
                     .path("text").asText();
 
         } catch (Exception e) {
-            // 💡 날부 에러 상세(e.getMessage())는 로그에만 남기고, 클라이언트에는 일반 메시지만 반환
-            log.error("Gemini API 호출 중 오류 발생: ", e);
+            log.error("Gemini API 호출 중 오류 발생: {}", e.getClass().getSimpleName());
             return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
         }
     }
@@ -100,7 +101,7 @@ public class GeminiService {
             sb.append(i + 1).append(". ")
               .append(p.get("storeName")).append(" / ")
               .append(p.get("menu1")).append(" / ")
-              .append(p.get("price1")).append("원");
+              .append(priceLabel(p.get("price1")));
             if (p.get("distanceMeters") != null) {
                 sb.append(" / ").append(p.get("distanceMeters")).append("m");
             }
@@ -124,8 +125,8 @@ public class GeminiService {
                     .append(" (")
                     .append(pick.getOrDefault("menu1", "메뉴 정보 없음"))
                     .append(", ")
-                    .append(pick.getOrDefault("price1", "가격 정보 없음"))
-                    .append("원)");
+                    .append(priceLabel(pick.get("price1")))
+                    .append(")");
             if (pick.get("distanceMeters") != null) {
                 result.append(" - 현재 위치에서 가까운 순서");
             }
@@ -142,5 +143,11 @@ public class GeminiService {
         } catch (Exception e) {
             return Double.MAX_VALUE;
         }
+    }
+
+    private String priceLabel(Object value) {
+        if (value == null || value.toString().isBlank()) return "가격 정보 없음";
+        String label = value.toString().trim();
+        return label.endsWith("원") ? label : label + "원";
     }
 }

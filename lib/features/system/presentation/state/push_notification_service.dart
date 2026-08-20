@@ -68,9 +68,9 @@ class PushNotificationService {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) return;
       await _registerToken(token);
-    } catch (error) {
+    } catch (_) {
       // FCM 설정 파일이 아직 없거나 네트워크가 잠시 불안정해도 로그인은 유지합니다.
-      debugPrint('FCM 기기 등록 보류: $error');
+      debugPrint('FCM 기기 등록을 완료하지 못했습니다.');
     }
   }
 
@@ -125,8 +125,8 @@ class PushNotificationService {
         _openNotificationInbox();
       }
       return true;
-    } catch (error) {
-      debugPrint('FCM 초기화 보류: $error');
+    } catch (_) {
+      debugPrint('FCM 초기화를 완료하지 못했습니다.');
       return false;
     }
   }
@@ -195,8 +195,8 @@ class PushNotificationService {
       } else {
         debugPrint('FCM 토큰 등록 실패: ${response.statusCode}');
       }
-    } catch (error) {
-      debugPrint('FCM 토큰 등록 보류: $error');
+    } catch (_) {
+      debugPrint('FCM 토큰 등록을 완료하지 못했습니다.');
     }
   }
 

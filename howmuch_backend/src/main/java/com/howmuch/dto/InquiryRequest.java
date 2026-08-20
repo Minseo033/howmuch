@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * 문의 등록 요청 DTO.
  * 사용자가 앱에서 문의를 작성하면 제목/내용/카테고리를 받아 Firestore inquiries 컬렉션에 저장한다.
@@ -20,4 +22,6 @@ public class InquiryRequest {
     private String content;
     /** 문의 카테고리 (선택: 일반/제보/계정/기타 등) */
     private String category;
+    /** Cloudinary에 먼저 업로드된 첨부 이미지 URL (최대 3개) */
+    private List<String> imageUrls;
 }

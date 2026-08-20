@@ -1,0 +1,8 @@
+.gradle/
+build/
+.env
+.env.*
+src/main/resources/firebase-service-account.json
+**/*.p8
+**/*.jks
+**/*.keystore

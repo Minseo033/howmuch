@@ -1,12 +1,23 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 
-final todaysPickServiceProvider = Provider((ref) => TodaysPickService());
+final todaysPickHttpClientProvider = Provider<http.Client>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
+});
+
+final todaysPickServiceProvider = Provider(
+  (ref) => TodaysPickService(ref.watch(todaysPickHttpClientProvider)),
+);
 
 class TodaysPickService {
+  TodaysPickService([http.Client? client]) : _client = client ?? http.Client();
+
+  final http.Client _client;
+
   /// 오늘의 픽 조회 (세션 인증 불필요 — 공개 GET)
   Future<Map<String, dynamic>> getTodaysPick({double? lat, double? lng}) async {
     final query = <String, String>{};
@@ -15,18 +26,18 @@ class TodaysPickService {
     final url = ApiClient.uri('/api/recommendation/todays-pick', query);
 
     try {
-      final response = await http
+      final response = await _client
           .get(url, headers: ApiClient.jsonHeaders())
           .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes));
-        }
-      debugPrint('오늘의 픽 API 에러: ${response.statusCode}');
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return const {'error': true, 'message': '추천 응답 형식이 올바르지 않습니다.'};
+      }
       return {'error': true, 'statusCode': response.statusCode};
-    } catch (e) {
-      debugPrint('오늘의 픽 통신 에러: $e');
-      return {'error': true, 'message': e.toString()};
+    } catch (_) {
+      return const {'error': true, 'message': '추천 정보를 불러오지 못했습니다.'};
     }
   }
 
@@ -38,18 +49,18 @@ class TodaysPickService {
     final url = ApiClient.uri('/api/recommendation/route', query);
 
     try {
-      final response = await http
+      final response = await _client
           .get(url, headers: ApiClient.jsonHeaders())
           .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes));
+        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        return const {'error': true, 'message': '추천 루트 응답 형식이 올바르지 않습니다.'};
       }
-      debugPrint('AI 루트 API 에러: ${response.statusCode}');
       return {'error': true, 'statusCode': response.statusCode};
-    } catch (e) {
-      debugPrint('AI 루트 통신 에러: $e');
-      return {'error': true, 'message': e.toString()};
+    } catch (_) {
+      return const {'error': true, 'message': '추천 루트를 불러오지 못했습니다.'};
     }
   }
 }

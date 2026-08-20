@@ -545,17 +545,37 @@
   /* ── 유틸 ─────────────────────────── */
   const getKey = () => sessionStorage.getItem(KEY_STORAGE) || '';
 
-  // 💡 DOM 기반 이스케이프 (엔티티 리터럴 없이 안전하게 XSS 방지)
-  const esc = (s) => {
-    const d = document.createElement('div');
-    d.textContent = String(s ?? '');
-    return d.innerHTML;
+  // Text and quoted HTML attributes share this encoder. Quotes must also be
+  // escaped because several server values are rendered into data-* fields.
+  const esc = (value) => String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+
+  const safeImageUrl = (value) => {
+    try {
+      const url = new URL(String(value || ''));
+      return url.protocol === 'https:' ? url.href : '';
+    } catch (_) {
+      return '';
+    }
+  };
+
+  const wireImageLinks = (root = content) => {
+    root.querySelectorAll('[data-open-image]').forEach((image) => {
+      image.onclick = () => {
+        const url = safeImageUrl(image.dataset.openImage);
+        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      };
+    });
   };
 
   const fmtDate = (iso) => {
     if (!iso) return '-';
     const d = new Date(iso);
-    if (isNaN(d)) return String(iso);
+    if (isNaN(d)) return esc(iso);
     return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' }) + ' ' +
            d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   };
@@ -574,7 +594,7 @@
     return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   };
 
-  const shortUid = (uid) => uid ? esc(uid.slice(0, 8)) + '…' : '-';
+  const shortUid = (uid) => uid ? esc(String(uid).slice(0, 8)) + '…' : '-';
   const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' };
   const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
 
@@ -622,7 +642,7 @@
         <div class="state-box">
           <div class="spinner"></div>
           <h2 style="margin-top:18px">불러오는 중…</h2>
-          <p>서버가 슬립 상태(Render 물료 인스턴스)면 첫 요청에 30~60초 걸릴 수 있어요.</p>
+          <p>서버가 슬립 상태(Render 무료 인스턴스)면 첫 요청에 30~60초 걸릴 수 있어요.</p>
         </div>`,
       forbidden: `
         <div class="state-box">
@@ -636,7 +656,7 @@
           <div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
           <h2>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '') ? 'Firestore 일일 쿼터 초과' : '불러오기 실패'}</h2>
           <p>${/RESOURCE_EXHAUSTED|Quota exceeded/i.test(data.message || '')
-              ? '묣료 플랜 하루 읽기 한도(5만)를 다 썼어요.<br>매일 오후 4시에 리셋됩니다.'
+              ? '무료 플랜 하루 읽기 한도(5만)를 다 썼어요.<br>매일 오후 4시에 리셋됩니다.'
               : esc(data.message || '알 수 없는 오류')}</p>
           <div class="login-row" style="justify-content:center;margin-top:20px"><button class="btn btn-primary" id="retryBtn">다시 시도</button></div>
         </div>`,
@@ -727,9 +747,10 @@
     const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => r.status === currentTab);
     const listHtml = filtered.length
       ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
-      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인필보세요.</p></div>`;
+      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인해보세요.</p></div>`;
 
     content.innerHTML = tabsHtml + listHtml;
+    wireImageLinks();
 
     content.querySelectorAll('.tab').forEach((tab) => {
       tab.onclick = () => { currentTab = tab.dataset.status; renderReportsView(); };
@@ -757,7 +778,7 @@
   }
 
   function reportCard(r) {
-    const images = Array.isArray(r.imageUrls) ? r.imageUrls.filter(Boolean) : [];
+    const images = Array.isArray(r.imageUrls) ? r.imageUrls.map(safeImageUrl).filter(Boolean) : [];
     const flags = [
       r.visitedRecently ? '최근 방문 인증됨' : null,
       r.checkedMenuPrice ? '메뉴 가격 확인됨' : null,
@@ -792,7 +813,7 @@
         </div>
         ${menuRows(r)}
         ${flags ? `<div class="report-flags">${flags}</div>` : ''}
-        ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}')">`).join('')}</div>` : ''}
+        ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" loading="lazy" alt="제보 이미지">`).join('')}</div>` : ''}
         ${reasonBox}
         ${actions}
       </div>`;
@@ -805,11 +826,11 @@
   }
 
   function receiptCard(r) {
-    const images = Array.isArray(r.imageUrls) ? r.imageUrls.filter(Boolean) : [];
+    const images = Array.isArray(r.imageUrls) ? r.imageUrls.map(safeImageUrl).filter(Boolean) : [];
     const score = Number(r.ocrScore ?? 0);
     const ocrLabel = r.ocrStatus === 'OCR_NOT_CONFIGURED'
       ? 'OCR 키 미설정 · 관리자 확인 필요'
-      : `OCR 점수 ${score}/100 · ${r.ocrPriceMatch ? '금액 일치' : '금액 불일치'} · ${r.ocrStoreMatch ? '매장명 일치' : '매장명 확인 필요'}`;
+      : `OCR 점수 ${score}/100 · ${r.ocrPriceMatch ? '금액 일치' : '금액 불일치'} · ${r.ocrLabeledPrice ? '합계 항목 확인' : '합계 항목 확인 필요'} · ${r.ocrStoreMatch ? '매장명 일치' : '매장명 확인 필요'} · ${r.ocrReceiptDatePlausible ? `영수증 날짜 ${r.ocrDetectedDate}` : '영수증 날짜 확인 필요'}`;
     const actions = r.status === 'PENDING' ? `
       <button class="btn btn-approve" data-approve-receipt="${esc(r.id)}">승인 후 방문 기록 생성</button>
       <button class="btn btn-reject" data-reject-receipt="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
@@ -824,7 +845,7 @@
       </div>
       <div class="report-flags"><span class="flag">${esc(ocrLabel)}</span>
         ${r.visitId ? `<span class="flag">방문 기록 ${esc(r.visitId.slice(0, 8))}…</span>` : ''}</div>
-      ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" loading="lazy" onclick="window.open('${esc(u)}')">`).join('')}</div>` : ''}
+      ${images.length ? `<div class="report-images">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" loading="lazy" alt="영수증 이미지">`).join('')}</div>` : ''}
       ${r.rejectReason ? `<div class="reject-reason-box"><b>반려 사유:</b> ${esc(r.rejectReason)}</div>` : ''}
       <div class="report-actions">${actions}</div>
     </div>`;
@@ -845,6 +866,7 @@
     content.innerHTML = tabsHtml + (filtered.length
       ? `<div class="report-list">${filtered.map(receiptCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico">✓</div><h2>영수증 인증이 없습니다</h2><p>다른 상태 탭을 확인해보세요.</p></div>`);
+    wireImageLinks();
     content.querySelectorAll('[data-receipt-status]').forEach((tab) => {
       tab.onclick = () => { currentTab = tab.dataset.receiptStatus; renderReceiptsView(); };
     });
@@ -1010,13 +1032,14 @@
     const rows = (allInquiries || []).map((q) => {
       const contentText = String(q.content || '');
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
+      const images = Array.isArray(q.imageUrls) ? q.imageUrls.map(safeImageUrl).filter(Boolean) : [];
       const isAnswered = q.status === 'ANSWERED' || Boolean(q.answer);
       const statusBadge = !isAnswered
         ? '<span class="badge PENDING">대기</span>'
         : '<span class="badge ANSWERED">답변 완료</span>';
       return `<tr>
         <td><b>${esc(q.title) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(q.category) || '일반'}</div></td>
-        <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
+        <td style="max-width:320px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span>${images.length ? `<div class="report-images" style="margin-top:8px">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" loading="lazy" alt="문의 첨부 이미지">`).join('')}</div>` : ''}</td>
         <td class="uid-cell">${shortUid(q.userId)}</td>
         <td>${statusBadge}</td>
         <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
@@ -1032,6 +1055,8 @@
           <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
         </table>
       </div>`;
+
+    wireImageLinks();
 
     content.querySelectorAll('[data-answer-inquiry]').forEach((btn) => {
       btn.onclick = () => openAnswerInquiryModal(btn.dataset.answerInquiry);

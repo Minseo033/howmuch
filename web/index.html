@@ -18,18 +18,18 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="얼마고? 주변 착한가격업소와 절약 정보를 확인하세요.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="howmuch">
+  <meta name="apple-mobile-web-app-title" content="얼마고?">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>howmuch</title>
+  <title>얼마고?</title>
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,29 +68,42 @@
   <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8aa42a2f5dc0314f1fe917a90aa6c112&libraries=services,clusterer&autoload=false"></script>
   <script>
     window.kakaoMapObjects = {};
+    window.kakaoMapLoadAttempts = {};
+    window.userLocationMarkers = {};
+
+    function notifyKakaoMapError(message) {
+      if (window.onKakaoMapError) window.onKakaoMapError(message);
+      else console.error(message);
+    }
 
     function initKakaoMap(containerId, lat, lng) {
       if (typeof kakao === 'undefined' || !kakao.maps) {
+        var attempts = (window.kakaoMapLoadAttempts[containerId] || 0) + 1;
+        window.kakaoMapLoadAttempts[containerId] = attempts;
+        if (attempts > 25) {
+          notifyKakaoMapError("카카오맵을 불러오지 못했어요.");
+          return;
+        }
         setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 200);
         return;
       }
 
       var loadCheckTimer = setTimeout(function() {
-        alert("🚨 카카오맵 인증 실패! 카카오 디벨로퍼스에 등록되지 않은 포트(예: " + location.port + ")를 사용 중입니다.\n터미널에서 flutter run -d chrome --web-port 8080 명령어로 실행해주세요!");
-      }, 2500);
+        notifyKakaoMapError("지도 인증이 지연되고 있어요.");
+      }, 5000);
 
       kakao.maps.load(function() {
         clearTimeout(loadCheckTimer);
         var container = window[containerId] || document.getElementById(containerId);
         
         if (!container) {
-          alert("🚨 에러: 카카오맵을 담을 HTML 컨테이너(div)를 찾을 수 없습니다!");
-          setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 100);
+          notifyKakaoMapError("지도 화면을 준비하지 못했어요.");
           return;
         }
 
         if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          alert("🚨 에러: 카카오맵 컨테이너의 가로/세로 크기가 0입니다! (Positioned.fill 미적용 오류)");
+          notifyKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+          return;
         }
 
         var options = {
@@ -99,6 +112,7 @@
         };
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
+        window.kakaoMapLoadAttempts[containerId] = 0;
 
         // 💡 맵 이벤트 리스너 추가
         var boundsTimer = null;
@@ -113,7 +127,7 @@
           if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
         });
         
-        console.log("Kakao Map Initialized!");
+        if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
       });
     }
 
@@ -231,7 +245,8 @@
       var map = window.kakaoMapObjects[containerId];
       if (!map) return;
       var position = new kakao.maps.LatLng(lat, lng);
-      if (!window.userMarker) {
+      var marker = window.userLocationMarkers[containerId];
+      if (!marker) {
         var wrapper = document.createElement('div');
         wrapper.className = 'my-location-wrapper';
         
@@ -244,14 +259,16 @@
         wrapper.appendChild(direction);
         wrapper.appendChild(dot);
         
-        window.userMarker = new kakao.maps.CustomOverlay({
+        marker = new kakao.maps.CustomOverlay({
           position: position,
           content: wrapper,
           map: map,
           zIndex: 5
         });
+        window.userLocationMarkers[containerId] = marker;
       } else {
-        window.userMarker.setPosition(position);
+        marker.setMap(map);
+        marker.setPosition(position);
       }
     }
 

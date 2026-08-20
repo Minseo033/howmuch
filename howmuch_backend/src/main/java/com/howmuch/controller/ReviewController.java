@@ -28,6 +28,10 @@ public class ReviewController {
     @GetMapping("/me")
     public ResponseEntity<?> getMyReviews(HttpServletRequest httpRequest) {
         String authorUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (authorUid == null || authorUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
         try {
             List<Map<String, Object>> reviews = firebaseService.getMyReviews(authorUid);
             return ResponseEntity.ok(reviews);
@@ -43,8 +47,12 @@ public class ReviewController {
     /** 특정 매장의 리뷰 목록 조회 (최신순) */
     @GetMapping
     public ResponseEntity<?> getReviews(@RequestParam String storeId) {
+        if (storeId == null || storeId.isBlank() || storeId.trim().length() > 200) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "매장 ID가 올바르지 않습니다."));
+        }
         try {
-            List<Map<String, Object>> reviews = firebaseService.getReviews(storeId);
+            List<Map<String, Object>> reviews = firebaseService.getReviews(storeId.trim());
             return ResponseEntity.ok(reviews);
         } catch (Exception e) {
             log.error("[ReviewController] 리뷰 조회 중 오류 발생: ", e);

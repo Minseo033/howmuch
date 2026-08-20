@@ -31,6 +31,19 @@ public class InquiryController {
                                            HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
 
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false,
+                    "message", "로그인이 필요합니다."
+            ));
+        }
+        if (request == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "문의 내용을 입력해주세요."
+            ));
+        }
+
         if (request.getTitle() == null || request.getTitle().isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -55,9 +68,20 @@ public class InquiryController {
                     "message", "내용은 2000자 이내로 입력해주세요."
             ));
         }
+        if (request.getCategory() != null && request.getCategory().trim().length() > 50) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "문의 유형은 50자 이내로 입력해주세요."
+            ));
+        }
+        if (request.getImageUrls() != null && request.getImageUrls().size() > 3) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "사진은 최대 3장까지 첨부할 수 있습니다."
+            ));
+        }
 
         try {
-            log.info("[InquiryController] 문의 등록 - uid: {}", firebaseUid);
             Map<String, Object> result = firebaseService.createInquiry(firebaseUid, request);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -74,7 +98,6 @@ public class InquiryController {
     public ResponseEntity<?> getMyInquiries(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
-            log.info("[InquiryController] 내 문의 목록 조회 - uid: {}", firebaseUid);
             List<Map<String, Object>> inquiries = firebaseService.getMyInquiries(firebaseUid);
             return ResponseEntity.ok(inquiries);
         } catch (Exception e) {

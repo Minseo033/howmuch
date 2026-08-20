@@ -44,6 +44,12 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
       ..loadHtmlString(_html, baseUrl: 'http://localhost');
   }
 
+  @override
+  void didUpdateWidget(covariant _RouteMapMobileView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _controller.loadHtmlString(_html, baseUrl: 'http://localhost');
+  }
+
   String get _html {
     final pointsJson = jsonEncode(
       widget.points.map((point) => point.toJson()).toList(),
@@ -69,12 +75,21 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     var userLat = $userLat;
     var userLng = $userLng;
 
+    var initAttempts = 0;
+    function showMapError(message) {
+      document.getElementById('map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:#475569;font:12px sans-serif;text-align:center;">' + message + '</div>';
+    }
     function initRouteMap() {
       if (typeof kakao === 'undefined' || !kakao.maps) {
+        initAttempts += 1;
+        if (initAttempts >= 25) {
+          showMapError('지도를 불러오지 못했어요. 네트워크와 지도 설정을 확인해주세요.');
+          return;
+        }
         setTimeout(initRouteMap, 200);
         return;
       }
-
+      try {
       var first = routePoints.length > 0 ? routePoints[0] : {latitude: 37.5665, longitude: 126.9780};
       var map = new kakao.maps.Map(document.getElementById('map'), {
         center: new kakao.maps.LatLng(first.latitude, first.longitude),
@@ -114,6 +129,9 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
 
       if (routePoints.length > 1 || userLat !== 0 || userLng !== 0) {
         map.setBounds(bounds, 28, 28, 28, 28);
+      }
+      } catch (error) {
+        showMapError('지도 데이터를 표시하지 못했어요. 잠시 후 다시 시도해주세요.');
       }
     }
 

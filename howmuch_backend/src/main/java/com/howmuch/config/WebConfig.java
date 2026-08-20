@@ -4,6 +4,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
@@ -15,10 +16,16 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private final List<String> allowedOriginPatterns;
+
+    public WebConfig(@Value("${cors.allowed-origin-patterns}") String allowedOriginPatterns) {
+        this.allowedOriginPatterns = parseOriginPatterns(allowedOriginPatterns);
+    }
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("*") // 완벽한 CORS 허용
+                .allowedOriginPatterns(allowedOriginPatterns.toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*");
     }
@@ -33,7 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilterRegistration() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(allowedOriginPatterns);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
 
@@ -43,5 +50,17 @@ public class WebConfig implements WebMvcConfigurer {
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
+    }
+
+    static List<String> parseOriginPatterns(String rawPatterns) {
+        List<String> patterns = java.util.Arrays.stream(rawPatterns.split(","))
+                .map(String::trim)
+                .filter(pattern -> !pattern.isBlank())
+                .distinct()
+                .toList();
+        if (patterns.isEmpty()) {
+            throw new IllegalArgumentException("CORS 허용 출처가 하나 이상 필요합니다.");
+        }
+        return patterns;
     }
 }

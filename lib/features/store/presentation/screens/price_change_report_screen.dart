@@ -460,7 +460,7 @@ class _PriceChangeReportScreenState
                 ),
               ],
             );
-          }).toList(),
+          }),
         ],
       ),
     );

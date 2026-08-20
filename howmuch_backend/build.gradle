@@ -47,3 +47,8 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// Local credential files and their PEM-shaped template are never runtime resources.
+tasks.withType(Jar).configureEach {
+    exclude 'firebase-service-account*.json'
+}

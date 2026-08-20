@@ -25,6 +25,15 @@ class VisitVerificationPolicy {
         accuracyMeters <= maxLocationAccuracyMeters;
   }
 
+  static bool isFreshLocation(
+    DateTime timestamp,
+    DateTime now, {
+    Duration maxAge = const Duration(seconds: 30),
+  }) {
+    final age = now.toUtc().difference(timestamp.toUtc());
+    return !age.isNegative && age <= maxAge;
+  }
+
   static String formatDistance(double distanceMeters) {
     if (distanceMeters < 1000) return '${distanceMeters.round()}m';
     return '${(distanceMeters / 1000).toStringAsFixed(1)}km';

@@ -8,8 +8,8 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 class DirectionsExternalAppScreen extends StatefulWidget {
   const DirectionsExternalAppScreen({
     super.key,
-    this.storeName = '착한분식',
-    this.address = '서울시 강남구 역삼동',
+    this.storeName = '선택한 매장',
+    this.address = '주소 정보 없음',
     this.distanceLabel = '거리 정보 없음',
     this.latitude,
     this.longitude,
@@ -41,10 +41,18 @@ class _DirectionsExternalAppScreenState
   ];
 
   bool get _hasRouteCoordinates =>
-      widget.latitude != null &&
-      widget.longitude != null &&
-      widget.startLatitude != null &&
-      widget.startLongitude != null;
+      _isValidCoordinate(widget.latitude, widget.longitude) &&
+      _isValidCoordinate(widget.startLatitude, widget.startLongitude);
+
+  bool _isValidCoordinate(double? latitude, double? longitude) =>
+      latitude != null &&
+      longitude != null &&
+      latitude.isFinite &&
+      longitude.isFinite &&
+      latitude != 0 &&
+      longitude != 0 &&
+      latitude.abs() <= 90 &&
+      longitude.abs() <= 180;
 
   Future<void> _launchKakaoMap() async {
     final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');

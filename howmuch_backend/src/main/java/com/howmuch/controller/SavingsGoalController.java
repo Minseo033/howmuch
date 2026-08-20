@@ -35,11 +35,11 @@ public class SavingsGoalController {
     @GetMapping
     public ResponseEntity<?> getSavingsGoal(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[SavingsGoalController] 절약 목표 조회 요청 - uid: {}", firebaseUid);
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
             SavingsGoalResponse goal = firebaseService.getSavingsGoal(firebaseUid);
             return ResponseEntity.ok(goal);
@@ -57,18 +57,21 @@ public class SavingsGoalController {
     public ResponseEntity<?> saveSavingsGoal(@RequestBody SavingsGoalRequest request,
                                              HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-        log.info("[SavingsGoalController] 절약 목표 설정 요청 - uid: {}, goalAmount: {}", firebaseUid, request.getGoalAmount());
 
         try {
             if (firebaseUid == null || firebaseUid.isBlank()) {
-                return ResponseEntity.status(401).body("인증 정보가 유효하지 않습니다.");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
-            if (request.getGoalAmount() == null || request.getGoalAmount() < 0) {
+            if (request == null || request.getGoalAmount() == null
+                    || request.getGoalAmount() < 0
+                    || request.getGoalAmount() > 1_000_000_000L) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
-                        "message", "goalAmount는 0 이상의 필수 값입니다."
+                        "message", "절약 목표는 0원 이상 10억원 이하로 설정해주세요."
                 ));
             }
+            log.info("[SavingsGoalController] 절약 목표 설정 요청");
             SavingsGoalResponse saved = firebaseService.saveSavingsGoal(firebaseUid, request.getGoalAmount());
             return ResponseEntity.ok(saved);
         } catch (Exception e) {

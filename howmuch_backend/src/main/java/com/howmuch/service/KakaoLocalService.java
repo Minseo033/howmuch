@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -13,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Map;
 
 @Slf4j
@@ -21,36 +24,50 @@ public class KakaoLocalService {
 
     // 💡 카카오 REST API 키는 환경변수(KAKAO_REST_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String kakaoRestApiKey;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public KakaoLocalService(@Value("${kakao.rest-api-key:}") String kakaoRestApiKey) {
+    @Autowired
+    public KakaoLocalService(
+            @Value("${kakao.rest-api-key:}") String kakaoRestApiKey,
+            @Value("${kakao.local.timeout-ms:5000}") long timeoutMillis) {
+        this(kakaoRestApiKey, new RestTemplateBuilder()
+                .connectTimeout(Duration.ofMillis(Math.max(1_000L, timeoutMillis)))
+                .readTimeout(Duration.ofMillis(Math.max(1_000L, timeoutMillis)))
+                .build());
+    }
+
+    KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate) {
         this.kakaoRestApiKey = kakaoRestApiKey;
+        this.restTemplate = restTemplate;
     }
 
     public Map<String, Object> getCoordinatesFromAddress(String address) {
         if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()) {
-            log.warn("KAKAO_REST_API_KEY 미설정 — 주소 좌표 변환 건너뜀 (주소: {})", address);
+            log.warn("KAKAO_REST_API_KEY 미설정 - 주소 좌표 변환 건너뜀");
+            return null;
+        }
+        if (address == null || address.isBlank() || address.trim().length() > 300) {
             return null;
         }
         try {
             String url = "https://dapi.kakao.com/v2/local/search/address.json";
             
             URI uri = UriComponentsBuilder.fromHttpUrl(url)
-                    .queryParam("query", address)
+                    .queryParam("query", address.trim())
                     .build()
                     .encode()
                     .toUri();
 
             HttpHeaders headers = new HttpHeaders();
             headers.set("Authorization", "KakaoAK " + kakaoRestApiKey);
-            // 💡 최신 카카오 로컬 API 정책에 의해 KA 헤더 및 Origin 헤더가 필수적으로 요구될 수 있습니다.
-            headers.set("KA", "sdk/1.0 os/javascript origin/http://localhost:8081");
-            headers.set("Origin", "http://localhost:8081");
 
             HttpEntity<String> entity = new HttpEntity<>(headers);
             ResponseEntity<String> response = restTemplate.exchange(uri, HttpMethod.GET, entity, String.class);
 
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return null;
+            }
             JsonNode root = objectMapper.readTree(response.getBody());
             JsonNode documents = root.path("documents");
 
@@ -58,8 +75,12 @@ public class KakaoLocalService {
                 JsonNode firstDoc = documents.get(0);
                 JsonNode addrNode = firstDoc.path("address");
 
-                double lon = firstDoc.path("x").asDouble(); 
-                double lat = firstDoc.path("y").asDouble();
+                double lon = firstDoc.path("x").asDouble(Double.NaN);
+                double lat = firstDoc.path("y").asDouble(Double.NaN);
+                if (!Double.isFinite(lat) || !Double.isFinite(lon)
+                        || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    return null;
+                }
                 
                 String province = "";
                 String district = "";
@@ -83,7 +104,7 @@ public class KakaoLocalService {
                 );
             }
         } catch (Exception e) {
-            log.error("주소 변환 중 오류 발생 (주소: {}): ", address, e);
+            log.warn("주소 좌표 변환 요청에 실패했습니다: {}", e.getClass().getSimpleName());
         }
         return null;
     }

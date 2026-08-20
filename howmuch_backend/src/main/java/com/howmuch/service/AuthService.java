@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Map;
+import java.time.Duration;
 
 @Service
 public class AuthService {
@@ -27,6 +28,12 @@ public class AuthService {
      * 카카오 액세스 토큰을 검증하고 uid와 Firebase 커스텀 토큰을 생성합니다.
      */
     public KakaoAuthResult authenticateKakao(String kakaoAccessToken) throws Exception {
+        if (kakaoAccessToken == null || kakaoAccessToken.isBlank()) {
+            throw new IllegalArgumentException("카카오 액세스 토큰이 필요합니다.");
+        }
+        if (kakaoAccessToken.length() > 4096) {
+            throw new IllegalArgumentException("카카오 액세스 토큰이 너무 깁니다.");
+        }
         // 1. 카카오 사용자 정보 가져오기
         Map<String, Object> kakaoResponse = fetchKakaoUserInfo(kakaoAccessToken);
 
@@ -49,6 +56,6 @@ public class AuthService {
                 .header("Authorization", "Bearer " + accessToken)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {})
-                .block();
+                .block(Duration.ofSeconds(10));
     }
 }
