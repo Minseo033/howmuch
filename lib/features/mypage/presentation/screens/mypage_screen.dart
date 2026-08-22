@@ -15,6 +15,10 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
+bool shouldRefreshMypageOnRouteChange(String? previousPath, String? nextPath) {
+  return nextPath == AppRoutes.mypage && previousPath != AppRoutes.mypage;
+}
+
 class MypageScreen extends ConsumerStatefulWidget {
   const MypageScreen({super.key});
 
@@ -45,6 +49,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     with RouteAware, WidgetsBindingObserver {
   PageRoute<dynamic>? _route;
   RouteObserver<PageRoute<dynamic>>? _routeObserver;
+  GoRouter? _router;
+  String? _lastRoutePath;
 
   @override
   void initState() {
@@ -62,6 +68,13 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final observer = ref.read(appRouteObserverProvider);
+    final router = GoRouter.of(context);
+    if (router != _router) {
+      _router?.routerDelegate.removeListener(_handleRouterChange);
+      _router = router;
+      _lastRoutePath = router.routeInformationProvider.value.uri.path;
+      router.routerDelegate.addListener(_handleRouterChange);
+    }
     final route = ModalRoute.of(context);
     if (route is PageRoute<dynamic> &&
         (route != _route || observer != _routeObserver)) {
@@ -88,9 +101,20 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     _loadProfileSummary();
   }
 
+  void _handleRouterChange() {
+    final path = _router?.routeInformationProvider.value.uri.path;
+    final enteredMypage = shouldRefreshMypageOnRouteChange(
+      _lastRoutePath,
+      path,
+    );
+    _lastRoutePath = path;
+    if (enteredMypage) _refreshSummary();
+  }
+
   @override
   void dispose() {
     _routeObserver?.unsubscribe(this);
+    _router?.routerDelegate.removeListener(_handleRouterChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
