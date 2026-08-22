@@ -498,6 +498,18 @@
   </div>
 </div>
 
+<!-- 일반 작업 확인 모달: 브라우저 기본 confirm()을 사용하지 않아 자동 제어를 막지 않습니다. -->
+<div class="modal-backdrop" id="confirmActionModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmActionHeading">
+    <h3 id="confirmActionHeading">작업 확인</h3>
+    <p id="confirmActionMessage"></p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirmActionCancel">취소</button>
+      <button class="btn btn-primary" id="confirmActionAccept">확인</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -634,6 +646,23 @@
 
   const openModal = (id) => $(id).classList.add('show');
   const closeModal = (id) => $(id).classList.remove('show');
+  let confirmActionResolve = null;
+
+  function finishActionConfirmation(accepted) {
+    closeModal('confirmActionModal');
+    const resolve = confirmActionResolve;
+    confirmActionResolve = null;
+    if (resolve) resolve(accepted);
+  }
+
+  function confirmAction(message, heading = '작업 확인') {
+    if (confirmActionResolve) finishActionConfirmation(false);
+    $('confirmActionHeading').textContent = heading;
+    $('confirmActionMessage').textContent = message;
+    openModal('confirmActionModal');
+    setTimeout(() => $('confirmActionAccept').focus(), 50);
+    return new Promise((resolve) => { confirmActionResolve = resolve; });
+  }
 
   /* ── 상태 화면 ─────────────────────── */
   function renderState(type, data = {}) {
@@ -1109,7 +1138,7 @@
     const targetUid = $('notifTargetUid').style.display === 'none' ? '' : $('notifTargetUid').value.trim();
     if (!title || !body) { toast('제목과 내용을 입력해주세요'); return; }
     if ($('notifTargetUid').style.display !== 'none' && !targetUid) { toast('대상 회원 uid를 입력해주세요'); return; }
-    if (!confirm(targetUid ? `해당 회원에게 알림을 보낼까요?` : '전체 회원에게 알림을 보낼까요?')) return;
+    if (!await confirmAction(targetUid ? '해당 회원에게 알림을 보낼까요?' : '전체 회원에게 알림을 보낼까요?', '알림 발송 확인')) return;
     $('notifSend').disabled = true;
     try {
       const res = await api('/api/admin/notifications', {
@@ -1129,7 +1158,7 @@
 
   /* ── 액션 ─────────────────────────── */
   async function doApprove(id, btn) {
-    if (!confirm('이 제보를 승인할까요?')) return;
+    if (!await confirmAction('이 제보를 승인할까요?', '제보 승인')) return;
     btn.disabled = true;
     try {
       await api(`/api/admin/reports/${id}/approve`, { method: 'POST' });
@@ -1188,7 +1217,7 @@
   }
 
   async function doApproveReceipt(id, btn) {
-    if (!confirm('영수증을 승인하고 방문 기록을 생성할까요?')) return;
+    if (!await confirmAction('영수증을 승인하고 방문 기록을 생성할까요?', '영수증 승인')) return;
     btn.disabled = true;
     try {
       const result = await api(`/api/admin/receipts/${id}/approve`, { method: 'POST' });
@@ -1491,14 +1520,22 @@
   $('deleteReviewConfirm').onclick = doDeleteReview;
   $('deleteCommentConfirm').onclick = doDeleteComment;
   $('answerInquiryConfirm').onclick = doAnswerInquiry;
+  $('confirmActionCancel').onclick = () => finishActionConfirmation(false);
+  $('confirmActionAccept').onclick = () => finishActionConfirmation(true);
   document.querySelectorAll('[data-close]').forEach((btn) => {
     btn.onclick = () => closeModal(btn.dataset.close);
   });
   document.querySelectorAll('.modal-backdrop').forEach((m) => {
-    m.onclick = (e) => { if (e.target === m) m.classList.remove('show'); };
+    m.onclick = (e) => {
+      if (e.target !== m) return;
+      if (m.id === 'confirmActionModal') finishActionConfirmation(false);
+      else m.classList.remove('show');
+    };
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.show').forEach((m) => m.classList.remove('show'));
+    if (e.key !== 'Escape') return;
+    if ($('confirmActionModal').classList.contains('show')) finishActionConfirmation(false);
+    document.querySelectorAll('.modal-backdrop.show').forEach((m) => m.classList.remove('show'));
   });
 
   boot();

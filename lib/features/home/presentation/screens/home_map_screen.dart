@@ -235,6 +235,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _isFetching = false;
       _positionStream?.resume();
       _compassStream?.resume();
+      _relayoutMobileMap();
     } else if (state == AppLifecycleState.paused) {
       _positionStream?.pause();
       _compassStream?.pause();
@@ -261,6 +262,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           debugPrint('WebView: ${message.message}');
           if (message.message == 'Map Initialized on Mobile') {
             _onMapReady();
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _relayoutMobileMap();
+            });
             unawaited(_moveToCurrentLocation());
           }
           if (message.message.startsWith('BOUNDS:')) {
@@ -338,6 +342,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var boundsTimer = null;
         var ignoreBoundsUntil = 0;
 
+        function relayoutMap() {
+          if (!map) return;
+          var center = map.getCenter();
+          map.relayout();
+          map.setCenter(center);
+          setTimeout(requestBounds, 100);
+        }
+
         window.onload = function() {
           var container = document.getElementById('kakao-map-container');
           var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
@@ -358,7 +370,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
 
           Print.postMessage("Map Initialized on Mobile");
+          setTimeout(relayoutMap, 0);
+          setTimeout(relayoutMap, 250);
         };
+
+        window.addEventListener('resize', relayoutMap);
+        window.addEventListener('pageshow', relayoutMap);
 
         var customOverlays = [];
         var markerDataCache = [];
@@ -791,6 +808,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (e) {
       debugPrint('WebView JS 실행 에러 (무시됨): $e');
     }
+  }
+
+  void _relayoutMobileMap() {
+    if (kIsWeb || !_isMapReady) return;
+    _safeRunJavaScript('relayoutMap();');
+    Future<void>.delayed(const Duration(milliseconds: 250), () {
+      if (mounted && _isMapReady) _safeRunJavaScript('relayoutMap();');
+    });
   }
 
   void _startLocationTracking() {

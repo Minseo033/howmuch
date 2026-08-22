@@ -18,6 +18,14 @@ abstract class _Colors {
   static const white = Colors.white;
 }
 
+String? formatVisitVerification(String? method, double? distanceMeters) {
+  if (method == 'LOCATION' && distanceMeters != null) {
+    return '위치 인증 · ${distanceMeters.round()}m';
+  }
+  if (method == 'RECEIPT_OCR') return '영수증 OCR 인증';
+  return null;
+}
+
 class VisitHistoryScreen extends StatefulWidget {
   const VisitHistoryScreen({super.key});
 
@@ -72,10 +80,10 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             'savedAmount': savedAmt,
             'saving': '${_formatCurrency(savedAmt)}원 절약',
             'date': dateStr,
-            'verification':
-                verificationMethod == 'LOCATION' && verificationDistance != null
-                ? '위치 인증 · ${verificationDistance.round()}m'
-                : null,
+            'verification': formatVisitVerification(
+              verificationMethod,
+              verificationDistance,
+            ),
             'icon': isGov ? Icons.smart_toy_rounded : Icons.local_cafe_rounded,
           };
         }).toList();

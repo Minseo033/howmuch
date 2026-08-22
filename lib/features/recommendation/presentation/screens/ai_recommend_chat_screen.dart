@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -81,9 +82,19 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     _scrollToLatest();
 
     // 💡 Gemini API 호출
-    final botResponse = await ref
+    var botResponse = await ref
         .read(aiChatServiceProvider)
         .getGeminiResponse(messageText);
+    if (isAiUnavailableResponse(botResponse)) {
+      final position = HomeMapScreen.globalUserPosition;
+      botResponse =
+          buildLocalAiFallback(
+            stores: HomeMapScreen.globalAllStores,
+            lat: position?.latitude,
+            lng: position?.longitude,
+          ) ??
+          botResponse;
+    }
 
     if (mounted) {
       setState(() {

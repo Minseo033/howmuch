@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
@@ -61,6 +62,7 @@ import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  final routeObserver = ref.watch(appRouteObserverProvider);
   final platformUri = Uri.tryParse(
     WidgetsBinding.instance.platformDispatcher.defaultRouteName,
   );
@@ -68,6 +70,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
   return GoRouter(
     initialLocation: AppRoutes.splash,
+    observers: [routeObserver],
     // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
     // 카카오 OAuth 콜백은 SDK가 처리할 수 있도록 원래 경로를 보존합니다.
     overridePlatformDefaultLocation: !isOauthCallback,

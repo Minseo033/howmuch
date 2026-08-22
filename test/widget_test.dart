@@ -158,6 +158,17 @@ void main() {
     expect(find.text('저장하기'), findsOneWidget);
     expect(find.text('닉네임 공개'), findsOneWidget);
 
+    await tester.tap(find.byKey(const ValueKey('profile-nickname-edit')));
+    await tester.pumpAndSettle();
+    expect(find.text('닉네임 변경'), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-nickname-field')),
+      'QA 닉네임',
+    );
+    await tester.tap(find.text('변경'));
+    await tester.pumpAndSettle();
+    expect(find.text('QA 닉네임'), findsOneWidget);
+
     await tester.tap(find.text('활동 내역 공개'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('저장하기'));

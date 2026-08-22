@@ -34,6 +34,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   late bool _nicknamePublic;
   late bool _activityPublic;
+  late String _nickname;
   bool _loaded = false;
   bool _isSaving = false;
 
@@ -42,7 +43,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() => _isSaving = true);
     final profile = ref.read(userProfileProvider);
     final saved = await UserProfileApiService().saveProfile(
-      nickname: profile.nickname,
+      nickname: _nickname,
       email: profile.email,
       region: profile.region,
       favoriteCategories: profile.favoriteCategories,
@@ -58,6 +59,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       return;
     }
     ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      nickname: _nickname,
       nicknamePublic: _nicknamePublic,
       activityPublic: _activityPublic,
     );
@@ -79,6 +81,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final profile = ref.read(userProfileProvider);
     _nicknamePublic = profile.nicknamePublic;
     _activityPublic = profile.activityPublic;
+    _nickname = profile.nickname;
     _loaded = true;
   }
 
@@ -131,8 +134,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       top: 201.34912109375 + topOffset,
                       height: 144.65908813476562,
                       child: _BasicInfoCard(
-                        nickname: profile.nickname,
+                        nickname: _nickname,
                         email: profile.email,
+                        onNicknameTap: _editNickname,
                       ),
                     ),
                     Positioned(
@@ -199,6 +203,76 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _editNickname() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => _NicknameDialog(initialValue: _nickname),
+    );
+    if (!mounted || result == null || result == _nickname) return;
+    setState(() => _nickname = result);
+  }
+}
+
+class _NicknameDialog extends StatefulWidget {
+  const _NicknameDialog({required this.initialValue});
+
+  final String initialValue;
+
+  @override
+  State<_NicknameDialog> createState() => _NicknameDialogState();
+}
+
+class _NicknameDialogState extends State<_NicknameDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      setState(() => _errorText = '닉네임을 입력해주세요.');
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('닉네임 변경'),
+      content: TextField(
+        key: const ValueKey('profile-nickname-field'),
+        controller: _controller,
+        autofocus: true,
+        maxLength: 50,
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(
+          hintText: '닉네임을 입력하세요',
+          errorText: _errorText,
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('취소'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('변경')),
+      ],
     );
   }
 }
@@ -317,10 +391,15 @@ class _CameraBadge extends StatelessWidget {
 }
 
 class _BasicInfoCard extends StatelessWidget {
-  const _BasicInfoCard({required this.nickname, required this.email});
+  const _BasicInfoCard({
+    required this.nickname,
+    required this.email,
+    required this.onNicknameTap,
+  });
 
   final String nickname;
   final String email;
+  final VoidCallback onNicknameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -341,16 +420,28 @@ class _BasicInfoCard extends StatelessWidget {
                 children: [
                   const Text('닉네임', style: _captionText),
                   const SizedBox(height: 3.991),
-                  Row(
-                    children: [
-                      Text(nickname, style: _valueText),
-                      const Spacer(),
-                      const Icon(
-                        Icons.edit_outlined,
-                        size: 15,
-                        color: ProfileEditScreen.blue,
-                      ),
-                    ],
+                  InkWell(
+                    key: const ValueKey('profile-nickname-edit'),
+                    onTap: onNicknameTap,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            nickname,
+                            style: _valueText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 15,
+                          color: ProfileEditScreen.blue,
+                          semanticLabel: '닉네임 편집',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

@@ -3,6 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 
 final aiChatServiceProvider = Provider((ref) => AiChatService());
 
@@ -33,4 +36,45 @@ class AiChatService {
       return 'AI 연결에 실패했습니다. 네트워크를 확인해주세요.';
     }
   }
+}
+
+bool isAiUnavailableResponse(String response) {
+  final normalized = response.trim();
+  return normalized.contains('AI 응답을 가져오는 중 오류') ||
+      normalized.contains('AI 응답을 가져오지 못했습니다') ||
+      normalized.startsWith('AI 연결에 실패했습니다') ||
+      normalized.startsWith('서버 응답 에러:');
+}
+
+String? buildLocalAiFallback({
+  required List<Store> stores,
+  double? lat,
+  double? lng,
+}) {
+  final data = buildLocalTodaysPickData(
+    stores: stores,
+    lat: lat,
+    lng: lng,
+    limit: 3,
+  );
+  final picks = (data['picks'] as List).whereType<Map>().toList();
+  if (picks.isEmpty) return null;
+
+  final lines = <String>['AI 연결이 원활하지 않아 가까운 매장을 먼저 추천할게요.'];
+  for (var i = 0; i < picks.length; i++) {
+    final pick = picks[i];
+    final name = pick['storeName']?.toString() ?? '매장';
+    final menu = pick['menu1']?.toString() ?? '';
+    final price = pick['price1']?.toString() ?? '';
+    final distance = formatRecommendationDistance(
+      (pick['distanceMeters'] as num?)?.toDouble(),
+    );
+    final detail = [
+      menu,
+      price,
+      distance,
+    ].where((value) => value.isNotEmpty).join(' · ');
+    lines.add('${i + 1}. $name${detail.isEmpty ? '' : ' — $detail'}');
+  }
+  return lines.join('\n');
 }

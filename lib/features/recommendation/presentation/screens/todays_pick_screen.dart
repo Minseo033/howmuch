@@ -85,7 +85,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           final pos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.medium,
             timeLimit: const Duration(seconds: 3),
-          );
+          ).timeout(const Duration(seconds: 4));
           lat = pos.latitude;
           lng = pos.longitude;
         } catch (_) {
@@ -95,6 +95,18 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       final data = await service.getTodaysPick(lat: lat, lng: lng);
       if (!mounted) return;
       if (data['error'] == true) {
+        final fallback = buildLocalTodaysPickData(
+          stores: HomeMapScreen.globalAllStores,
+          lat: lat,
+          lng: lng,
+        );
+        if ((fallback['picks'] as List).isNotEmpty) {
+          setState(() {
+            _pickData = fallback;
+            _isLoading = false;
+          });
+          return;
+        }
         setState(() {
           _errorMessage = '오늘의 픽을 불러오지 못했어요.';
           _isLoading = false;

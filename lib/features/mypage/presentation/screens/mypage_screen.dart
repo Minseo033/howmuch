@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
@@ -40,16 +41,58 @@ class MypageScreen extends ConsumerStatefulWidget {
   ConsumerState<MypageScreen> createState() => _MypageScreenState();
 }
 
-class _MypageScreenState extends ConsumerState<MypageScreen> {
+class _MypageScreenState extends ConsumerState<MypageScreen>
+    with RouteAware, WidgetsBindingObserver {
+  PageRoute<dynamic>? _route;
+  RouteObserver<PageRoute<dynamic>>? _routeObserver;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 💡 내 제보를 서버에서 다시 불러옵니다.
     // (앱 재시작 후 로컬 상태가 비어 미리보기가 사라지는 문제 방지)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadMyReports();
       _loadProfileSummary();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final observer = ref.read(appRouteObserverProvider);
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> &&
+        (route != _route || observer != _routeObserver)) {
+      _routeObserver?.unsubscribe(this);
+      _route = route;
+      _routeObserver = observer;
+      observer.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() {
+    _refreshSummary();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshSummary();
+  }
+
+  void _refreshSummary() {
+    if (!mounted) return;
+    _loadMyReports();
+    _loadProfileSummary();
+  }
+
+  @override
+  void dispose() {
+    _routeObserver?.unsubscribe(this);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadMyReports() async {
