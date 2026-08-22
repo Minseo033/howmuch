@@ -80,9 +80,14 @@ void main() {
     await tester.enterText(fields.at(1), '8,000');
     await tester.enterText(fields.at(2), '  가격이 합리적이에요.  ');
     await tester.tap(find.byIcon(Icons.star_rounded).last);
-    tester.widget<Checkbox>(find.byType(Checkbox).at(0)).onChanged!(true);
+    await tester.scrollUntilVisible(
+      find.text('최근 1개월 이내 방문했어요'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('최근 1개월 이내 방문했어요'));
     await tester.pump();
-    tester.widget<Checkbox>(find.byType(Checkbox).at(1)).onChanged!(true);
+    await tester.tap(find.text('가격 정보를 직접 확인했어요'));
     await tester.pump();
 
     final submitButton = tester.widget<ElevatedButton>(

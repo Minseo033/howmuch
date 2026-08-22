@@ -577,29 +577,34 @@ class _SearchHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 // 필터 버튼
-                GestureDetector(
-                  onTap: onFilterTap,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: activeFilters.isNotEmpty
-                          ? SearchResultScreen.blue
-                          : Colors.white,
-                      border: Border.all(
+                Semantics(
+                  button: true,
+                  label: '검색 필터 열기',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onFilterTap,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
                         color: activeFilters.isNotEmpty
                             ? SearchResultScreen.blue
-                            : SearchResultScreen.border,
-                        width: 0.9,
+                            : Colors.white,
+                        border: Border.all(
+                          color: activeFilters.isNotEmpty
+                              ? SearchResultScreen.blue
+                              : SearchResultScreen.border,
+                          width: 0.9,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Icon(
-                      Icons.tune_rounded,
-                      size: 18,
-                      color: activeFilters.isNotEmpty
-                          ? Colors.white
-                          : SearchResultScreen.ink,
+                      child: Icon(
+                        Icons.tune_rounded,
+                        size: 18,
+                        color: activeFilters.isNotEmpty
+                            ? Colors.white
+                            : SearchResultScreen.ink,
+                      ),
                     ),
                   ),
                 ),

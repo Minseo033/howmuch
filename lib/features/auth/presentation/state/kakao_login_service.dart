@@ -44,7 +44,7 @@ class KakaoLoginService {
       final session = await _authenticateWithBackend(token.accessToken);
       if (session != null) {
         User user = await UserApi.instance.me();
-        final email = user.kakaoAccount?.email ?? 'unknown';
+        final email = user.kakaoAccount?.email?.trim() ?? '';
         // 백엔드가 발급한 공식 uid/세션 토큰을 사용합니다.
         final firebaseUid = session.uid;
 
@@ -76,7 +76,7 @@ class KakaoLoginService {
               .update(
                 (state) => state.copyWith(
                   nickname: profile['nickname'] as String? ?? state.nickname,
-                  email: profile['email'] as String? ?? email,
+                  email: _usableEmail(profile['email']) ?? email,
                   region: profile['region'] as String? ?? state.region,
                   favoriteCategories:
                       parsedCategories ?? state.favoriteCategories,
@@ -98,6 +98,12 @@ class KakaoLoginService {
       _ref.read(appRouterProvider).go(AppRoutes.login);
       return '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     }
+  }
+
+  String? _usableEmail(Object? value) {
+    final email = value?.toString().trim() ?? '';
+    if (email.isEmpty || email.toLowerCase() == 'unknown') return null;
+    return email;
   }
 
   Future<({String uid, String sessionToken})?> _authenticateWithBackend(

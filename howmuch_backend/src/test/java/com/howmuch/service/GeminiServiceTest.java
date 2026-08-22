@@ -28,4 +28,16 @@ class GeminiServiceTest {
         assertThat(route).contains("2,000원", "5000원");
         assertThat(route).doesNotContain("원원");
     }
+
+    @Test
+    void routeFallsBackWhenAiRouteIsEnabledWithoutAKey() {
+        GeminiService service = new GeminiService("", 1_000, true);
+
+        String route = service.getRouteRecommendation(List.of(
+                Map.of("storeName", "먼 매장", "menu1", "국수", "price1", "5,000", "distanceMeters", 500),
+                Map.of("storeName", "가까운 매장", "menu1", "김밥", "price1", "3,000", "distanceMeters", 100)));
+
+        assertThat(route).contains("가까운 매장", "거리순으로 추천 루트");
+        assertThat(route.indexOf("가까운 매장")).isLessThan(route.indexOf("먼 매장"));
+    }
 }

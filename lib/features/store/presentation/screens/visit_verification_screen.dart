@@ -301,10 +301,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         throw const _LocationVerificationException('설정에서 위치 권한을 허용해주세요.');
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
-      );
+      final position = await _getCurrentPositionWithTimeout();
       if (!VisitVerificationPolicy.isFreshLocation(
         position.timestamp,
         DateTime.now(),
@@ -342,6 +339,21 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       }
     } finally {
       if (mounted) setState(() => _isCheckingLocation = false);
+    }
+  }
+
+  Future<Position> _getCurrentPositionWithTimeout() async {
+    try {
+      // Some web geolocation implementations do not consistently honor
+      // Geolocator's native timeLimit, so keep an explicit outer timeout too.
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 8),
+      ).timeout(const Duration(seconds: 12));
+    } on TimeoutException {
+      throw const _LocationVerificationException(
+        '현재 위치 확인 시간이 초과됐어요. 위치 권한과 GPS를 확인한 뒤 다시 시도해주세요.',
+      );
     }
   }
 

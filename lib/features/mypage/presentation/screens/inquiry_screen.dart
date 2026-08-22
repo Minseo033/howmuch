@@ -747,6 +747,10 @@ class _EmailBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final displayEmail =
+        email.trim().isEmpty || email.trim().toLowerCase() == 'unknown'
+        ? '이메일 정보 없음'
+        : email.trim();
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
@@ -771,7 +775,7 @@ class _EmailBox extends StatelessWidget {
                   children: [
                     const TextSpan(text: '답변 받을 이메일 · '),
                     TextSpan(
-                      text: email,
+                      text: displayEmail,
                       style: const TextStyle(
                         color: InquiryScreen.blue,
                         fontWeight: FontWeight.w700,

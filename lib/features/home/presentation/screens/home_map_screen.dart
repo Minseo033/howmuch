@@ -841,15 +841,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         final jsStringLiteral = jsonEncode(jsonEncode(markerList));
         _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
       }
-
-      if (markerList.isEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('이 주변에는 조건에 맞는 업소가 없습니다.'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-      }
     } finally {
       _isFetching = false;
     }
@@ -860,12 +851,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final markerList = await _fetchStoresFromBackend(bounds);
 
     web_helper.addMobileMarkersWeb(_viewId, json.encode(markerList));
-
-    if (markerList.isEmpty && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('이 주변에는 조건에 맞는 업소가 없습니다.')));
-    }
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(

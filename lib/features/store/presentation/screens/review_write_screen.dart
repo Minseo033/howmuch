@@ -528,17 +528,26 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     bool value,
     ValueChanged<bool?> onChanged,
   ) {
-    return Row(
-      children: [
-        Checkbox(
-          value: value,
-          onChanged: onChanged,
-          activeColor: AppColors.primary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          side: BorderSide(color: Colors.grey.shade300),
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onChanged(!value),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: onChanged,
+              activeColor: AppColors.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              side: BorderSide(color: Colors.grey.shade300),
+            ),
+            Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
+          ],
         ),
-        Text(label, style: const TextStyle(fontSize: 14)),
-      ],
+      ),
     );
   }
 }

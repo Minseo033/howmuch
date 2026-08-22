@@ -108,7 +108,22 @@ public class GeminiService {
             sb.append("\n");
         }
 
-        return getAiResponse(sb.toString());
+        String aiResponse = getAiResponse(sb.toString());
+        // Gemini is optional for this feature. An invalid/expired key must not
+        // turn the whole route screen into an error state; keep the route usable
+        // with the deterministic local ordering when the AI call fails.
+        if (isAiFailureResponse(aiResponse)) {
+            return buildLocalRouteRecommendation(picks);
+        }
+        return aiResponse;
+    }
+
+    private boolean isAiFailureResponse(String response) {
+        if (response == null || response.isBlank()) return true;
+        return response.contains("AI 기능이 현재 설정되지 않았습니다")
+                || response.contains("AI 응답을 가져오지 못했습니다")
+                || response.contains("AI 응답을 가져오는 중 오류")
+                || response.contains("AI 연결에 실패했습니다");
     }
 
     private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {
