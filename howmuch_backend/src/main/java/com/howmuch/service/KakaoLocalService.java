@@ -16,6 +16,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -107,5 +110,81 @@ public class KakaoLocalService {
             log.warn("주소 좌표 변환 요청에 실패했습니다: {}", e.getClass().getSimpleName());
         }
         return null;
+    }
+
+    /** 클라이언트에 REST 키를 노출하지 않는 주소 자동완성 프록시. */
+    public List<String> searchAddressSuggestions(String query) {
+        if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()
+                || query == null || query.trim().length() < 2 || query.trim().length() > 100) {
+            return List.of();
+        }
+        try {
+            URI uri = UriComponentsBuilder
+                    .fromHttpUrl("https://dapi.kakao.com/v2/local/search/address.json")
+                    .queryParam("query", query.trim())
+                    .queryParam("size", 8)
+                    .build()
+                    .encode()
+                    .toUri();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + kakaoRestApiKey);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return List.of();
+            }
+            JsonNode documents = objectMapper.readTree(response.getBody()).path("documents");
+            if (!documents.isArray()) return List.of();
+            LinkedHashSet<String> addresses = new LinkedHashSet<>();
+            for (JsonNode document : documents) {
+                String address = document.path("address_name").asText("").trim();
+                if (!address.isBlank()) addresses.add(address);
+            }
+            return new ArrayList<>(addresses);
+        } catch (Exception e) {
+            log.warn("주소 자동완성 요청에 실패했습니다: {}", e.getClass().getSimpleName());
+            return List.of();
+        }
+    }
+
+    /** 좌표를 사용자가 읽을 수 있는 행정동 주소와 짧은 동네명으로 변환합니다. */
+    public Map<String, String> getRegionFromCoordinates(double latitude, double longitude) {
+        if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()
+                || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+                || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            return null;
+        }
+        try {
+            URI uri = UriComponentsBuilder
+                    .fromHttpUrl("https://dapi.kakao.com/v2/local/geo/coord2regioncode.json")
+                    .queryParam("x", longitude)
+                    .queryParam("y", latitude)
+                    .build()
+                    .encode()
+                    .toUri();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + kakaoRestApiKey);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    uri, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return null;
+            }
+            JsonNode documents = objectMapper.readTree(response.getBody()).path("documents");
+            if (!documents.isArray() || documents.isEmpty()) return null;
+            JsonNode chosen = documents.get(0);
+            for (JsonNode document : documents) {
+                if ("H".equals(document.path("region_type").asText())) {
+                    chosen = document;
+                    break;
+                }
+            }
+            String address = chosen.path("address_name").asText("").trim();
+            String label = chosen.path("region_3depth_name").asText("").trim();
+            if (address.isBlank()) return null;
+            return Map.of("address", address, "label", label.isBlank() ? address : label);
+        } catch (Exception e) {
+            log.warn("좌표 행정동 변환 요청에 실패했습니다: {}", e.getClass().getSimpleName());
+            return null;
+        }
     }
 }

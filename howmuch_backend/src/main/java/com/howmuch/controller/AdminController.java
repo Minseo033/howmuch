@@ -375,6 +375,8 @@ public class AdminController {
             firebaseService.approveReport(id);
             log.info("[AdminController] 제보 승인 - id: {}", id);
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "APPROVED"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of("success", false, "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
@@ -412,6 +414,8 @@ public class AdminController {
             firebaseService.rejectReport(id, reason.trim());
             log.info("[AdminController] 제보 반려 - id: {}", id);
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of("success", false, "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
@@ -553,7 +557,7 @@ public class AdminController {
         }
     }
 
-    /** 알림 발송 (POST /api/admin/notifications, body: {title, body, type?, targetUid?}) — targetUid 없으면 전체 발송 */
+    /** 알림 발송 (POST /api/admin/notifications, body: {audience: ALL|USER, title, body, type?, targetUid?}). */
     @PostMapping("/notifications")
     public ResponseEntity<?> sendNotification(@RequestBody Map<String, String> body,
                                               HttpServletRequest httpRequest) {
@@ -564,6 +568,7 @@ public class AdminController {
         String content = body != null ? body.get("body") : null;
         String type = body != null ? body.get("type") : null;
         String targetUid = body != null ? body.get("targetUid") : null;
+        String audience = body != null ? body.get("audience") : null;
 
         if (title == null || title.isBlank() || content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -581,16 +586,35 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "알림 유형은 50자 이내로 입력해주세요."));
         }
-        if (targetUid != null && !targetUid.isBlank() && !isValidDocumentId(targetUid.trim())) {
+        if (audience == null || !("ALL".equalsIgnoreCase(audience.trim())
+                || "USER".equalsIgnoreCase(audience.trim()))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "발송 대상(audience)은 ALL 또는 USER로 지정해주세요."));
+        }
+        boolean userAudience = "USER".equalsIgnoreCase(audience.trim());
+        boolean hasTarget = targetUid != null && !targetUid.isBlank();
+        if (userAudience && !hasTarget) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "특정 회원 발송에는 대상 사용자 ID가 필요합니다."));
+        }
+        if (!userAudience && hasTarget) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "전체 발송에는 대상 사용자 ID를 함께 보낼 수 없습니다."));
+        }
+        if (hasTarget && !isValidDocumentId(targetUid.trim())) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "대상 사용자 ID 형식이 올바르지 않습니다."));
         }
 
         try {
             Map<String, Object> result = firebaseService.sendAdminNotification(
-                    targetUid, title.trim(), content.trim(), type);
+                    userAudience ? targetUid.trim() : null,
+                    title.trim(), content.trim(), type == null ? null : type.trim());
             log.warn("[AdminController] 알림 발송 완료 - 발송 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 알림 발송 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

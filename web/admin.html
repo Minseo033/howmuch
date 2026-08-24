@@ -171,6 +171,46 @@
   }
   .search-row input:focus { outline: 2px solid var(--primary); border-color: transparent; }
 
+  .notification-target-picker { margin-top: 10px; }
+  .notification-target-picker[hidden],
+  .notification-target-results[hidden],
+  .notification-selected-target[hidden] { display: none; }
+  .notification-target-search { position: relative; }
+  .notification-target-search input {
+    width: 100%; padding: 11px 14px; font-size: 13px;
+    border: 1.5px solid var(--border); border-radius: 11px;
+    font-family: inherit; background: var(--card);
+  }
+  .notification-target-search input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  .notification-target-results {
+    position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
+    max-height: 276px; overflow-y: auto; padding: 6px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+  }
+  .notification-target-option {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    padding: 10px; border: 0; border-radius: 9px; background: transparent;
+    color: var(--text); text-align: left; cursor: pointer; font-family: inherit;
+  }
+  .notification-target-option:hover,
+  .notification-target-option:focus-visible { background: var(--primary-soft); outline: none; }
+  .notification-target-option .detail { min-width: 0; }
+  .notification-target-option .name { font-size: 13px; font-weight: 800; }
+  .notification-target-option .meta {
+    margin-top: 2px; color: var(--muted); font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .notification-target-empty { padding: 18px 12px; color: var(--muted); font-size: 12px; text-align: center; }
+  .notification-selected-target {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-top: 8px; padding: 10px 12px; border: 1px solid #BFDBFE;
+    border-radius: 11px; background: var(--primary-soft);
+  }
+  .notification-selected-target .name { font-size: 13px; font-weight: 800; }
+  .notification-selected-target .meta { margin-top: 2px; color: var(--muted); font-size: 11px; }
+  .notification-target-hint { margin-top: 7px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
   /* ── 배지/버튼 ─────────────────── */
   .badge {
     display: inline-block; flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 5px 12px; border-radius: 99px;
@@ -188,6 +228,9 @@
   }
   .btn:active { transform: scale(.97); }
   .btn:disabled { opacity: .5; cursor: default; }
+  .btn:focus-visible, .nav-item:focus-visible, .tab:focus-visible {
+    outline: 3px solid #93C5FD; outline-offset: 2px;
+  }
   .btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 8px; }
   .btn-approve { background: var(--green); color: #fff; }
   .btn-approve:hover:not(:disabled) { filter: brightness(1.08); }
@@ -498,7 +541,7 @@
   </div>
 </div>
 
-<!-- 일반 작업 확인 모달: 브라우저 기본 confirm()을 사용하지 않아 자동 제어를 막지 않습니다. -->
+<!-- 일반 작업 확인 모달: 브라우저 기본 확인창을 쓰지 않아 자동 제어를 막지 않습니다. -->
 <div class="modal-backdrop" id="confirmActionModal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmActionHeading">
     <h3 id="confirmActionHeading">작업 확인</h3>
@@ -510,7 +553,7 @@
   </div>
 </div>
 
-<div id="toast"></div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
@@ -542,6 +585,7 @@
   let deleteReviewId = null;
   let deleteCommentId = null;
   let answerInquiryId = null;
+  let selectedNotificationUid = '';
 
   const VIEW_META = {
     dashboard:     ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
@@ -606,7 +650,8 @@
     return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
   };
 
-  const shortUid = (uid) => uid ? esc(String(uid).slice(0, 8)) + '…' : '-';
+  const shortUidText = (uid) => uid ? String(uid).slice(0, 8) + '…' : '-';
+  const shortUid = (uid) => esc(shortUidText(uid));
   const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' };
   const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
 
@@ -975,7 +1020,7 @@
 
     content.innerHTML = `
       <div class="search-row">
-        <input id="userSearchInput" type="text" placeholder="닉네임·이메일·지역 검색…" value="${esc(userSearch)}" />
+        <input id="userSearchInput" type="text" aria-label="회원 검색" placeholder="닉네임·이메일·지역 검색…" value="${esc(userSearch)}" />
       </div>
       <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span></div>
       <div class="card table-wrap">
@@ -1093,6 +1138,81 @@
   }
 
   /* ══ 뷰 7: 알림 발송 ══ */
+  const notificationUserUid = (user) => String(user?.id || user?.firebaseUid || '').trim();
+
+  function notificationUserName(user) {
+    return String(user?.nickname || '').trim() || '(닉네임 없음)';
+  }
+
+  function notificationUserMeta(user) {
+    const email = String(user?.email || '').trim() || '이메일 없음';
+    return `${email} · ${shortUidText(notificationUserUid(user))}`;
+  }
+
+  function findNotificationUser(uid) {
+    return (users || []).find((user) => notificationUserUid(user) === uid) || null;
+  }
+
+  function clearNotificationTarget() {
+    selectedNotificationUid = '';
+    const selected = $('notifSelectedTarget');
+    if (selected) selected.hidden = true;
+  }
+
+  function selectNotificationTarget(uid) {
+    const user = findNotificationUser(uid);
+    if (!user) {
+      clearNotificationTarget();
+      toast('회원 정보를 다시 불러온 뒤 선택해주세요');
+      return;
+    }
+    selectedNotificationUid = uid;
+    $('notifTargetSearch').value = notificationUserName(user);
+    $('notifTargetResults').hidden = true;
+    $('notifTargetSearch').setAttribute('aria-expanded', 'false');
+    $('notifSelectedName').textContent = notificationUserName(user);
+    $('notifSelectedMeta').textContent = notificationUserMeta(user);
+    $('notifSelectedTarget').hidden = false;
+  }
+
+  function renderNotificationTargetResults() {
+    const input = $('notifTargetSearch');
+    const results = $('notifTargetResults');
+    if (!input || !results) return;
+    const query = input.value.trim().toLowerCase();
+    const candidates = (users || [])
+      .filter((user) => {
+        if (!notificationUserUid(user)) return false;
+        if (!query) return true;
+        return [user.nickname, user.email, notificationUserUid(user)]
+          .some((value) => String(value || '').toLowerCase().includes(query));
+      })
+      .sort((a, b) => {
+        const aName = notificationUserName(a).toLowerCase();
+        const bName = notificationUserName(b).toLowerCase();
+        const aRank = aName === query ? 0 : aName.startsWith(query) ? 1 : 2;
+        const bRank = bName === query ? 0 : bName.startsWith(query) ? 1 : 2;
+        return aRank - bRank || aName.localeCompare(bName, 'ko');
+      })
+      .slice(0, 10);
+
+    results.innerHTML = candidates.length
+      ? candidates.map((user) => {
+          const uid = notificationUserUid(user);
+          const name = notificationUserName(user);
+          return `<button class="notification-target-option" type="button" role="option" data-notif-user="${esc(uid)}">
+            <span class="avatar" style="background:${avatarColor(uid || name)}">${esc(name.charAt(0) || '?')}</span>
+            <span class="detail"><span class="name">${esc(name)}</span><span class="meta">${esc(notificationUserMeta(user))}</span></span>
+          </button>`;
+        }).join('')
+      : '<div class="notification-target-empty">일치하는 회원이 없습니다</div>';
+    results.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    results.querySelectorAll('[data-notif-user]').forEach((option) => {
+      option.onclick = () => selectNotificationTarget(option.dataset.notifUser);
+    });
+  }
+
   function renderNotificationsView() {
     const s = communityStats || {};
     content.innerHTML = `
@@ -1107,17 +1227,28 @@
           <div>
             <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">대상</label>
             <div class="tabs" style="margin-bottom:0">
-              <button class="tab active" id="notifAll" type="button">전체 회원</button>
-              <button class="tab" id="notifOne" type="button">특정 회원 (uid)</button>
+              <button class="tab active" id="notifAll" type="button" aria-selected="true">전체 회원</button>
+              <button class="tab" id="notifOne" type="button" aria-selected="false">특정 회원</button>
             </div>
-            <input id="notifTargetUid" type="text" placeholder="대상 회원 uid 입력" style="display:none;width:100%;margin-top:10px;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
+            <div class="notification-target-picker" id="notifTargetPicker" hidden>
+              <div class="notification-target-search">
+                <input id="notifTargetSearch" type="search" autocomplete="off" placeholder="회원 닉네임 또는 이메일 검색"
+                  role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="notifTargetResults" />
+                <div class="notification-target-results" id="notifTargetResults" role="listbox" hidden></div>
+              </div>
+              <div class="notification-selected-target" id="notifSelectedTarget" hidden>
+                <div><div class="name" id="notifSelectedName"></div><div class="meta" id="notifSelectedMeta"></div></div>
+                <button class="btn btn-ghost btn-sm" id="notifTargetClear" type="button">다시 선택</button>
+              </div>
+              <p class="notification-target-hint">동일한 닉네임은 이메일과 UID 일부를 확인해 구분하세요. 목록에서 선택한 회원에게만 발송됩니다.</p>
+            </div>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">제목</label>
+            <label for="notifTitle" style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">제목</label>
             <input id="notifTitle" type="text" maxlength="100" placeholder="알림 제목" style="width:100%;padding:10px 14px;font-size:13px;border:1.5px solid var(--border);border-radius:11px;font-family:inherit" />
           </div>
           <div>
-            <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">내용</label>
+            <label for="notifBody" style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px">내용</label>
             <textarea id="notifBody" maxlength="500" placeholder="알림 내용" style="width:100%;height:110px;padding:12px 14px;border:1.5px solid var(--border);border-radius:12px;resize:none;font-size:13px;font-family:inherit;line-height:1.5"></textarea>
           </div>
           <div style="display:flex;justify-content:flex-end">
@@ -1126,27 +1257,73 @@
         </div>
       </div>`;
 
-    const allTab = $('notifAll'), oneTab = $('notifOne'), uidInput = $('notifTargetUid');
-    allTab.onclick = () => { allTab.classList.add('active'); oneTab.classList.remove('active'); uidInput.style.display = 'none'; };
-    oneTab.onclick = () => { oneTab.classList.add('active'); allTab.classList.remove('active'); uidInput.style.display = 'block'; uidInput.focus(); };
+    selectedNotificationUid = '';
+    const allTab = $('notifAll'), oneTab = $('notifOne');
+    const picker = $('notifTargetPicker'), searchInput = $('notifTargetSearch');
+    allTab.onclick = () => {
+      allTab.classList.add('active');
+      oneTab.classList.remove('active');
+      allTab.setAttribute('aria-selected', 'true');
+      oneTab.setAttribute('aria-selected', 'false');
+      picker.hidden = true;
+      $('notifTargetResults').hidden = true;
+      searchInput.setAttribute('aria-expanded', 'false');
+    };
+    oneTab.onclick = () => {
+      oneTab.classList.add('active');
+      allTab.classList.remove('active');
+      oneTab.setAttribute('aria-selected', 'true');
+      allTab.setAttribute('aria-selected', 'false');
+      picker.hidden = false;
+      searchInput.focus();
+      renderNotificationTargetResults();
+    };
+    searchInput.onfocus = renderNotificationTargetResults;
+    searchInput.oninput = () => {
+      clearNotificationTarget();
+      renderNotificationTargetResults();
+    };
+    searchInput.onkeydown = (event) => {
+      if (event.key === 'Escape') {
+        $('notifTargetResults').hidden = true;
+        searchInput.setAttribute('aria-expanded', 'false');
+      }
+    };
+    $('notifTargetClear').onclick = () => {
+      clearNotificationTarget();
+      searchInput.value = '';
+      searchInput.focus();
+      renderNotificationTargetResults();
+    };
     $('notifSend').onclick = doSendNotification;
   }
 
   async function doSendNotification() {
     const title = $('notifTitle').value.trim();
     const body = $('notifBody').value.trim();
-    const targetUid = $('notifTargetUid').style.display === 'none' ? '' : $('notifTargetUid').value.trim();
+    const targeted = !$('notifTargetPicker').hidden;
+    const targetUid = targeted ? selectedNotificationUid : '';
     if (!title || !body) { toast('제목과 내용을 입력해주세요'); return; }
-    if ($('notifTargetUid').style.display !== 'none' && !targetUid) { toast('대상 회원 uid를 입력해주세요'); return; }
-    if (!await confirmAction(targetUid ? '해당 회원에게 알림을 보낼까요?' : '전체 회원에게 알림을 보낼까요?', '알림 발송 확인')) return;
+    if (targeted && !targetUid) { toast('검색 결과에서 대상 회원을 선택해주세요'); return; }
+    const targetUser = targetUid ? findNotificationUser(targetUid) : null;
+    const confirmation = targetUser
+      ? `${notificationUserName(targetUser)} (${notificationUserMeta(targetUser)}) 회원에게 알림을 보낼까요?`
+      : '전체 회원에게 알림을 보낼까요?';
+    if (!await confirmAction(confirmation, '알림 발송 확인')) return;
     $('notifSend').disabled = true;
     try {
       const res = await api('/api/admin/notifications', {
         method: 'POST',
-        body: JSON.stringify({ title, body, type: 'admin', targetUid: targetUid || undefined }),
+        body: JSON.stringify({
+          audience: targetUid ? 'USER' : 'ALL',
+          title,
+          body,
+          type: 'admin',
+          ...(targetUid ? { targetUid } : {}),
+        }),
       });
-      toast(`알림 발송 완료 — ${res.sent}명에게 전송됨`);
-      $('notifTitle').value = ''; $('notifBody').value = ''; $('notifTargetUid').value = '';
+      toast(`알림함 등록 완료 — ${res.sent}명에게 등록됨`);
+      $('notifTitle').value = ''; $('notifBody').value = ''; selectedNotificationUid = '';
       communityStats = await api('/api/admin/community/stats');
       renderNotificationsView();
     } catch (e) {
@@ -1350,8 +1527,12 @@
   /* ── 로드 / 뷰 전환 ───────────────── */
   async function switchView(view) {
     currentView = view;
-    document.querySelectorAll('.nav-item').forEach((t) =>
-      t.classList.toggle('active', t.dataset.view === view));
+    document.querySelectorAll('.nav-item').forEach((t) => {
+      const active = t.dataset.view === view;
+      t.classList.toggle('active', active);
+      if (active) t.setAttribute('aria-current', 'page');
+      else t.removeAttribute('aria-current');
+    });
     const [title, crumb] = VIEW_META[view] || ['', ''];
     $('viewTitle').textContent = title;
     $('viewCrumb').textContent = crumb;
@@ -1446,7 +1627,10 @@
   async function loadCommunityStats() {
     renderState('loading');
     try {
-      communityStats = await api('/api/admin/community/stats');
+      [communityStats, users] = await Promise.all([
+        api('/api/admin/community/stats'),
+        api('/api/admin/users'),
+      ]);
       renderNotificationsView();
     } catch (e) { handleLoadError(e); }
   }

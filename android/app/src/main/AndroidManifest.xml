@@ -12,8 +12,7 @@
     <application
         android:label="howmuch"
         android:name="${applicationName}"
-        android:icon="@mipmap/launcher_icon"
-        android:usesCleartextTraffic="true">
+        android:icon="@mipmap/launcher_icon">
         
         <activity
             android:name=".MainActivity"

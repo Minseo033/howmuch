@@ -455,10 +455,24 @@ class _Header extends StatelessWidget {
           Positioned(
             right: 20,
             top: 16.4775390625 + topOffset,
-            child: const Icon(
-              Icons.settings_outlined,
-              color: MypageScreen.ink,
-              size: 18,
+            child: Semantics(
+              button: true,
+              label: '계정 설정',
+              child: GestureDetector(
+                onTap: () => context.push(AppRoutes.accountManagement),
+                behavior: HitTestBehavior.opaque,
+                child: const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: Center(
+                    child: Icon(
+                      Icons.settings_outlined,
+                      color: MypageScreen.ink,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ],

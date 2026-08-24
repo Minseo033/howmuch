@@ -38,8 +38,6 @@ class FigmaMobileCanvas extends StatelessWidget {
   /// Returns true when running on the web platform.
   static bool get _isWeb => kIsWeb;
 
-
-
   /// Returns the effective logical width used by the canvas for a given context.
   /// On web, this matches the actual viewport width (capped at maxWebWidth).
   /// On native mobile, this is always the design width (375px).
@@ -59,15 +57,19 @@ class FigmaMobileCanvas extends StatelessWidget {
       return 1.0;
     }
 
-    final isMobile = (defaultTargetPlatform == TargetPlatform.iOS ||
-                      defaultTargetPlatform == TargetPlatform.android) &&
-                     size.width < 600;
+    final isMobile =
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android) &&
+        size.width < 600;
 
     if (isMobile) {
       return size.width / designWidth;
     }
 
-    final fitScale = math.min(size.width / designWidth, size.height / designHeight);
+    final fitScale = math.min(
+      size.width / designWidth,
+      size.height / designHeight,
+    );
     return fitScale;
   }
 
@@ -97,7 +99,9 @@ class FigmaMobileCanvas extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: outerBackgroundColor,
-      resizeToAvoidBottomInset: false,
+      // 입력 화면에서는 키보드가 콘텐츠를 가리지 않도록 실제 viewport 높이를
+      // 반영한다. 각 화면의 scroll view가 남은 영역에서 자연스럽게 스크롤된다.
+      resizeToAvoidBottomInset: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
           if (_isWeb) {
@@ -125,9 +129,7 @@ class FigmaMobileCanvas extends StatelessWidget {
         height: viewportHeight,
         child: ColoredBox(
           color: backgroundColor,
-          child: _WebSafeArea(
-            child: child,
-          ),
+          child: _WebSafeArea(child: child),
         ),
       ),
     );
@@ -140,16 +142,17 @@ class FigmaMobileCanvas extends StatelessWidget {
       constraints.maxHeight / designHeight,
     );
 
-    final isMobileDevice = defaultTargetPlatform == TargetPlatform.iOS ||
-                           defaultTargetPlatform == TargetPlatform.android;
+    final isMobileDevice =
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android;
     final isMobile = isMobileDevice && constraints.maxWidth < 600;
 
-    final scale = isMobile
-        ? constraints.maxWidth / designWidth
-        : fitScale;
+    final scale = isMobile ? constraints.maxWidth / designWidth : fitScale;
 
     final scaledWidth = isMobile ? constraints.maxWidth : designWidth * scale;
-    final scaledHeight = isMobile ? constraints.maxHeight : designHeight * scale;
+    final scaledHeight = isMobile
+        ? constraints.maxHeight
+        : designHeight * scale;
 
     final logicalWidth = designWidth;
     final logicalHeight = isMobile
@@ -187,10 +190,7 @@ class _WebSafeArea extends StatelessWidget {
     // This handles iOS Safari bottom bar, etc.
     final padding = MediaQuery.paddingOf(context);
     return Padding(
-      padding: EdgeInsets.only(
-        top: padding.top,
-        bottom: padding.bottom,
-      ),
+      padding: EdgeInsets.only(top: padding.top, bottom: padding.bottom),
       child: child,
     );
   }

@@ -41,8 +41,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     'sans-serif',
   ];
 
-  static const String _kakaoRestApiKey = 'a262460cc196a9dd283003c7d54743b3';
-
   final _nicknameController = TextEditingController();
   final _regionController = TextEditingController();
   final _goalController = TextEditingController();
@@ -113,25 +111,24 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   }
 
   Future<void> _fetchRegionSuggestions(String query) async {
-    if (query.trim().isEmpty) {
+    if (query.trim().length < 2) {
       if (mounted) setState(() => _regionSuggestions.clear());
       return;
     }
     try {
-      final url = Uri.parse(
-        'https://dapi.kakao.com/v2/local/search/address.json?query=${Uri.encodeComponent(query)}',
-      );
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
-      );
+      final response = await http
+          .get(
+            ApiClient.uri('/api/locations/addresses', {'q': query.trim()}),
+            headers: ApiClient.authHeaders(),
+          )
+          .timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final data = ApiClient.decodeJson(response);
-        final docs = data['documents'] as List;
+        final addresses = data['addresses'] as List? ?? const [];
         if (mounted) {
           setState(() {
-            _regionSuggestions = docs
-                .map((d) => d['address_name'].toString())
+            _regionSuggestions = addresses
+                .map((value) => value.toString())
                 .toList();
           });
         }
@@ -172,25 +169,24 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     try {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      );
+        timeLimit: const Duration(seconds: 8),
+      ).timeout(const Duration(seconds: 10));
 
-      final url = Uri.parse(
-        'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?x=${position.longitude}&y=${position.latitude}',
-      );
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
-      );
+      final response = await http
+          .get(
+            ApiClient.uri('/api/locations/region', {
+              'lat': position.latitude.toString(),
+              'lng': position.longitude.toString(),
+            }),
+            headers: ApiClient.authHeaders(),
+          )
+          .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = ApiClient.decodeJson(response);
-        if (data['documents'] != null && data['documents'].isNotEmpty) {
-          // 행정동 기준 주소 사용 (H)
-          final doc = (data['documents'] as List).firstWhere(
-            (d) => d['region_type'] == 'H',
-            orElse: () => data['documents'][0],
-          );
-          _regionController.text = doc['address_name'];
+        final address = data['address']?.toString().trim() ?? '';
+        if (address.isNotEmpty) {
+          _regionController.text = address;
           setState(() => _regionSuggestions.clear());
         }
       }

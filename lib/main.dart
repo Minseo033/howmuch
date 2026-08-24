@@ -1,4 +1,3 @@
-import 'package:mcp_toolkit/mcp_toolkit.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,10 +11,6 @@ import 'core/network/api_client.dart';
 import 'features/system/presentation/state/push_notification_service.dart';
 
 Future<void> main() async {
-  await MCPToolkitBinding.instance.bootstrapFlutter(runApp: _bootstrapApp);
-}
-
-Future<void> _bootstrapApp() async {
   // 💡 비동기 작업을 위해 초기화 보장
   WidgetsFlutterBinding.ensureInitialized();
 

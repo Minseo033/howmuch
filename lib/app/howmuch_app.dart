@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mcp_toolkit/mcp_toolkit.dart';
 
 import 'app_routes.dart';
 import 'app_router.dart';
@@ -52,9 +51,6 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp> {
   @override
   Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
-    MCPToolkitBinding.instance.navigatorKey =
-        router.routerDelegate.navigatorKey;
-
     return MaterialApp.router(
       title: '얼마고?',
       debugShowCheckedModeBanner: false,

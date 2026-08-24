@@ -881,28 +881,46 @@ public class FirebaseService {
 
     private void updateReportStatus(String reportId, String status, String rejectReason) throws Exception {
         DocumentReference docRef = db.collection("stores_user").document(reportId);
-        DocumentSnapshot snapshot = docRef.get().get();
-        if (!snapshot.exists()) {
-            throw new IllegalArgumentException("제보를 찾을 수 없습니다: " + reportId);
-        }
-
         Map<String, Object> updates = new HashMap<>();
         updates.put("status", status);
+        updates.put("processedAt", java.time.Instant.now().toString());
         if (rejectReason != null) {
             updates.put("rejectReason", rejectReason);
         }
-        docRef.update(updates).get();
+        ReportStatusUpdate committed;
+        try {
+            committed = db.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(docRef).get();
+                if (!snapshot.exists()) {
+                    throw new IllegalArgumentException("제보를 찾을 수 없습니다: " + reportId);
+                }
+                String currentStatus = snapshot.getString("status");
+                if (currentStatus != null && !"PENDING".equalsIgnoreCase(currentStatus)) {
+                    throw new IllegalStateException("이미 처리된 제보입니다.");
+                }
+                transaction.update(docRef, updates);
+                return new ReportStatusUpdate(
+                        snapshot.getString("storeName"),
+                        snapshot.getString("storeId"),
+                        snapshot.getString("changeType"));
+            }).get();
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RuntimeException reportFailure) {
+                throw reportFailure;
+            }
+            throw e;
+        }
 
         // 💡 가격 변동 제보 승인 시 찜한 사용자에게 알림 발송
         if ("APPROVED".equals(status)) {
-            String storeName = snapshot.getString("storeName");
+            String storeName = committed.storeName();
             if (storeName != null && !storeName.isBlank()) {
                 try {
                     notifyUsersOnPriceReportApproved(
                             storeName,
-                            snapshot.getString("storeId"),
+                            committed.storeId(),
                             reportId,
-                            snapshot.getString("changeType"));
+                            committed.changeType());
                 } catch (Exception e) {
                     // 승인 상태 변경은 완료됐으므로 부가 알림 실패가 관리자 승인 결과를 실패로 만들지 않게 합니다.
                     log.warn("가격 변동 알림 발송 실패: reportId={}", reportId, e);
@@ -923,6 +941,8 @@ public class FirebaseService {
                 .toList();
         cachedUserStores = List.copyOf(updated);
     }
+
+    private record ReportStatusUpdate(String storeName, String storeId, String changeType) { }
 
     // 💡 매장 가격 변동 제보 승인 시 알림 생성 및 발송
     private void notifyUsersOnPriceReportApproved(
@@ -1112,9 +1132,19 @@ public class FirebaseService {
         return db.collection("users")
                 .get().get().getDocuments().stream()
                 .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId());
-                    return data;
+                    Map<String, Object> source = doc.getData();
+                    Map<String, Object> user = new HashMap<>();
+                    user.put("id", doc.getId());
+                    // 관리자 UI에 필요한 필드만 명시적으로 노출한다. 이후 users 문서에
+                    // 민감한 내부 필드가 추가돼도 목록 API를 통해 자동 유출되지 않는다.
+                    for (String field : List.of(
+                            "nickname", "email", "region", "favoriteCategories",
+                            "savingsGoalAmount", "createdAt")) {
+                        if (source.containsKey(field)) {
+                            user.put(field, source.get(field));
+                        }
+                    }
+                    return user;
                 })
                 .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
                         .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
@@ -3016,7 +3046,14 @@ public class FirebaseService {
         int sent = 0;
         List<String> targetUids = new ArrayList<>();
         if (targetUid != null && !targetUid.isBlank()) {
-            targetUids.add(targetUid);
+            String normalizedTargetUid = targetUid.trim();
+            DocumentSnapshot targetUser = db.collection("users")
+                    .document(normalizedTargetUid)
+                    .get().get();
+            if (!targetUser.exists()) {
+                throw new IllegalArgumentException("대상 회원을 찾을 수 없습니다.");
+            }
+            targetUids.add(normalizedTargetUid);
         } else {
             // 전체 발송: users 전체
             for (DocumentSnapshot u : db.collection("users").get().get().getDocuments()) {

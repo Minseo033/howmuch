@@ -290,7 +290,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         },
       )
-      ..loadHtmlString(_getMobileMapHtml(), baseUrl: 'http://localhost');
+      ..loadHtmlString(_getMobileMapHtml(), baseUrl: 'https://howmuch.local');
   }
 
   String _getMobileMapHtml() {

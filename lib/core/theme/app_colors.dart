@@ -8,11 +8,12 @@ class AppColors {
   static const Color primaryAlpha = Color(0x212563EB);
   static const Color primarySubtle = Color(0xFFEEF2FF);
 
-  static const Color success = Color(0xFF10B981); // green
+  // Text-capable status tokens meet WCAG AA contrast on white backgrounds.
+  static const Color success = Color(0xFF047857); // green
   static const Color successLight = Color(0xFFE8F8F1);
   static const Color successSubtle = Color(0xFFE8F5E9);
 
-  static const Color warning = Color(0xFFF97316); // orange
+  static const Color warning = Color(0xFFC2410C); // orange
   static const Color warningLight = Color(0xFFFFF3EA);
   static const Color warningDark = Color(0xFF92400E);
   static const Color warningBorder = Color(0xFFFDE68A);
@@ -36,7 +37,7 @@ class AppColors {
   static const Color textDark = Color(0xFF111827);
   static const Color textBody = Color(0xFF374151);
   static const Color textMuted = Color(0xFF6B7280);
-  static const Color textLight = Color(0xFF9CA3AF);
+  static const Color textLight = Color(0xFF6B7280);
 
   static const Color black = Color(0xFF0A0A0A);
   static const Color muted = Color(0xFF64748B);

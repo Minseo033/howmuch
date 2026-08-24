@@ -41,13 +41,13 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
-      ..loadHtmlString(_html, baseUrl: 'http://localhost');
+      ..loadHtmlString(_html, baseUrl: 'https://howmuch.local');
   }
 
   @override
   void didUpdateWidget(covariant _RouteMapMobileView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _controller.loadHtmlString(_html, baseUrl: 'http://localhost');
+    _controller.loadHtmlString(_html, baseUrl: 'https://howmuch.local');
   }
 
   String get _html {

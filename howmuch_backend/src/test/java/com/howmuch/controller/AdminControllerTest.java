@@ -175,6 +175,7 @@ class AdminControllerTest {
     void rejectsInvalidNotificationTargetsBeforeBroadcasting() {
         ResponseEntity<?> response = controller.sendNotification(
                 Map.of(
+                        "audience", "USER",
                         "title", "알림",
                         "body", "내용",
                         "targetUid", "folder/user-1"),
@@ -182,5 +183,37 @@ class AdminControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void refusesAmbiguousNotificationAudienceInsteadOfBroadcasting() {
+        ResponseEntity<?> response = controller.sendNotification(
+                Map.of("title", "알림", "body", "내용"), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void returnsNotFoundWhenTheNotificationTargetDoesNotExist() throws Exception {
+        when(firebaseService.sendAdminNotification(
+                "missing-user", "알림", "내용", "admin"))
+                .thenThrow(new IllegalArgumentException("대상 회원을 찾을 수 없습니다."));
+
+        ResponseEntity<?> response = controller.sendNotification(
+                Map.of(
+                        "audience", "USER",
+                        "title", " 알림 ",
+                        "body", " 내용 ",
+                        "type", " admin ",
+                        "targetUid", "missing-user"),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).isEqualTo(Map.of(
+                "success", false,
+                "message", "대상 회원을 찾을 수 없습니다."));
+        verify(firebaseService).sendAdminNotification(
+                "missing-user", "알림", "내용", "admin");
     }
 }

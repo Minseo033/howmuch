@@ -21,6 +21,7 @@ out/
 # Environment
 .env
 .env.*
+.vercel/
 
 # Logs
 *.log

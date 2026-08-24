@@ -214,7 +214,9 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
               _Header(
                 topOffset: topOffset,
                 title: '문의하기',
-                onBack: () => context.go(AppRoutes.mypage),
+                onBack: () => context.canPop()
+                    ? context.pop()
+                    : context.go(AppRoutes.mypage),
                 onHistory: () => context.push(AppRoutes.inquiryHistory),
               ),
               Positioned(

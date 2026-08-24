@@ -46,22 +46,17 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   Timer? _feedRefreshTimer;
 
   // 8/7: 목업 지역('역삼동/합정동' 순환) 제거 → 현위치 행정동명 표시.
-  // 조회 완료 전에는 '내 동네'로 표시하고, 권한 거부/실패 시에는 '전체'로 표시.
-  String _locationLabel = '내 동네';
-
-  // 회원가입 화면(profile_setup_screen)과 동일한 카카오 REST 키.
-  // 클라이언트 번들 특성상 노출되며, 카카오 콘솔의 플랫폼(도메인/OS) 제한으로 보호됨.
-  static const String _kakaoRestApiKey = 'a262460cc196a9dd283003c7d54743b3';
+  // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
+  String _locationLabel = '전체';
 
   @override
   void initState() {
     super.initState();
     _fetchFeeds();
     _feedRefreshTimer = Timer.periodic(
-      const Duration(seconds: 8),
+      const Duration(minutes: 1),
       (_) => _fetchFeeds(silent: true),
     );
-    _loadCurrentLocationLabel();
   }
 
   @override
@@ -70,7 +65,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     super.dispose();
   }
 
-  /// 현위치 → 카카오 coord2regioncode 역지오코딩으로 행정동명 조회.
+  /// 현위치 → 서버 역지오코딩으로 행정동명 조회.
   /// 권한 거부·실패 시 조용히 '전체'로 폼백 (피드 목록은 항상 전체 표시라 UX 영향 없음).
   Future<void> _loadCurrentLocationLabel() async {
     try {
@@ -88,27 +83,21 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
 
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-      );
-      final url = Uri.parse(
-        'https://dapi.kakao.com/v2/local/geo/coord2regioncode.json'
-        '?x=${position.longitude}&y=${position.latitude}',
-      );
-      final response = await http.get(
-        url,
-        headers: {'Authorization': 'KakaoAK $_kakaoRestApiKey'},
-      );
+        timeLimit: const Duration(seconds: 8),
+      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .get(
+            ApiClient.uri('/api/locations/region', {
+              'lat': position.latitude.toString(),
+              'lng': position.longitude.toString(),
+            }),
+            headers: ApiClient.authHeaders(),
+          )
+          .timeout(ApiClient.defaultTimeout);
       if (response.statusCode != 200) return _setLocationFallback();
 
       final data = ApiClient.decodeJson(response);
-      final docs = data['documents'] as List?;
-      if (docs == null || docs.isEmpty) return _setLocationFallback();
-
-      // 행정동(H) 우선, 없으면 첫 문서
-      final doc = docs.firstWhere(
-        (d) => d['region_type'] == 'H',
-        orElse: () => docs.first,
-      );
-      final dong = doc['region_3depth_name']?.toString() ?? '';
+      final dong = data['label']?.toString().trim() ?? '';
       if (!mounted) return;
       setState(() {
         _locationLabel = dong.isNotEmpty ? dong : '전체';
@@ -352,7 +341,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             top: topOffset + 60.87,
             right: 20,
             height: 28,
-            child: _LocationRow(location: _locationLabel),
+            child: _LocationRow(
+              location: _locationLabel,
+              onTap: _loadCurrentLocationLabel,
+            ),
           ),
           Positioned(
             left: AppSizes.horizontalPadding,
@@ -415,15 +407,16 @@ class _Header extends StatelessWidget {
 }
 
 class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.location});
+  const _LocationRow({required this.location, required this.onTap});
 
   final String location;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _LocationChip(location: location),
+        _LocationChip(location: location, onTap: onTap),
         const SizedBox(width: AppSizes.smallSpacing),
         Text(
           '$location 기준',
@@ -442,40 +435,53 @@ class _LocationRow extends StatelessWidget {
 }
 
 class _LocationChip extends StatelessWidget {
-  const _LocationChip({required this.location});
+  const _LocationChip({required this.location, required this.onTap});
 
   final String location;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 28,
-      padding: const EdgeInsets.only(left: 10, right: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
+    return Semantics(
+      button: true,
+      label: '현재 위치로 동네 설정',
+      child: Material(
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(
-            Icons.location_on_outlined,
-            size: 12,
-            color: CommunityFeedScreen.blue,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            location,
-            style: const TextStyle(
-              color: CommunityFeedScreen.blue,
-              fontFamily: CommunityFeedScreen.fontFamily,
-              fontFamilyFallback: CommunityFeedScreen.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: onTap,
+          child: Container(
+            height: 28,
+            padding: const EdgeInsets.only(left: 10, right: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF4FF),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 12,
+                  color: CommunityFeedScreen.blue,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  location,
+                  style: const TextStyle(
+                    color: CommunityFeedScreen.blue,
+                    fontFamily: CommunityFeedScreen.fontFamily,
+                    fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }

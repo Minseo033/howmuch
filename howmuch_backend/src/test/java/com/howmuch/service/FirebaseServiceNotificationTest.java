@@ -2,6 +2,8 @@ package com.howmuch.service;
 
 import com.google.api.core.ApiFutures;
 import com.google.cloud.firestore.CollectionReference;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
@@ -13,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -48,5 +51,23 @@ class FirebaseServiceNotificationTest {
         assertThat(result).hasSize(100);
         assertThat(result.getFirst().getId()).isEqualTo("notification-104");
         assertThat(result.getLast().getId()).isEqualTo("notification-5");
+    }
+
+    @Test
+    void refusesToCreateAnAdminNotificationForANonexistentUser() {
+        Firestore db = mock(Firestore.class);
+        CollectionReference users = mock(CollectionReference.class);
+        DocumentReference userReference = mock(DocumentReference.class);
+        DocumentSnapshot userSnapshot = mock(DocumentSnapshot.class);
+        when(db.collection("users")).thenReturn(users);
+        when(users.document("missing-user")).thenReturn(userReference);
+        when(userReference.get()).thenReturn(ApiFutures.immediateFuture(userSnapshot));
+        when(userSnapshot.exists()).thenReturn(false);
+        FirebaseService service = new FirebaseService(db, mock(ReportImageStorage.class));
+
+        assertThatThrownBy(() -> service.sendAdminNotification(
+                " missing-user ", "알림", "내용", "admin"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("대상 회원을 찾을 수 없습니다.");
     }
 }

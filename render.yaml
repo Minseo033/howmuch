@@ -2,18 +2,31 @@ services:
   - type: web
     name: howmuch-backend
     runtime: java
-    buildCommand: cd howmuch_backend && ./gradlew clean build -x test
+    buildCommand: cd howmuch_backend && ./gradlew clean test bootJar
     startCommand: java -jar howmuch_backend/build/libs/*.jar
+    healthCheckPath: /healthz
     envVars:
       - key: FIREBASE_CONFIG_PATH
         value: /etc/secrets/firebase-service-account.json
       # 세션 토큰 HMAC 서명 키. Render가 안전한 랜덤 값을 자동 생성합니다 (대시보드 노출 최소화).
       - key: SESSION_SECRET
         generateValue: true
+      - key: SESSION_ALLOW_DEV_SECRET
+        value: "false"
+      - key: ADMIN_KEY
+        sync: false
       # Cloudinary 콘솔의 API Environment variable 전체 값을 Render에서 직접 입력합니다.
       - key: CLOUDINARY_URL
         sync: false
       - key: PUBLIC_DATA_API_KEY
+        sync: false
+      - key: KAKAO_REST_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: WEATHER_API_KEY
+        sync: false
+      - key: RECEIPT_OCR_API_KEY
         sync: false
     secretFiles:
       - name: firebase-service-account.json

@@ -124,8 +124,19 @@ class StoreDetailScreen extends ConsumerWidget {
                           context.push(AppRoutes.storeInfoReport, extra: store),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.share_rounded, size: 22),
-                      onPressed: () {},
+                      tooltip: '매장 정보 복사',
+                      icon: const Icon(Icons.content_copy_rounded, size: 21),
+                      onPressed: () async {
+                        final menu = store.menu1.isEmpty
+                            ? ''
+                            : '\n대표 메뉴: ${store.menu1} ${_fmt(store.price1)}';
+                        await Clipboard.setData(
+                          ClipboardData(
+                            text: '${store.storeName}\n${store.address}$menu',
+                          ),
+                        );
+                        if (context.mounted) _snack(context, '매장 정보를 복사했어요.');
+                      },
                     ),
                   ],
                 ),

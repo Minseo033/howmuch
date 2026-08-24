@@ -68,7 +68,8 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           final verificationMethod = item['verificationMethod']?.toString();
           final verificationDistance =
               (item['verificationDistanceMeters'] as num?)?.toDouble();
-          final dateStr = _formatDate(item['visitedAt']?.toString());
+          final visitedAt = item['visitedAt']?.toString();
+          final dateStr = _formatDate(visitedAt);
 
           return {
             'isGov': isGov,
@@ -80,6 +81,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             'savedAmount': savedAmt,
             'saving': '${_formatCurrency(savedAmt)}원 절약',
             'date': dateStr,
+            'visitedAt': visitedAt,
             'verification': formatVisitVerification(
               verificationMethod,
               verificationDistance,
@@ -138,10 +140,30 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   }
 
   int get _totalSavedAmount {
-    return _visits.fold(
+    return _thisMonthVisits.fold(
       0,
       (sum, item) => sum + ((item['savedAmount'] as int?) ?? 0),
     );
+  }
+
+  DateTime? _koreanVisitDate(Map<String, dynamic> visit) {
+    final raw = visit['visitedAt']?.toString();
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      return DateTime.parse(raw).toUtc().add(const Duration(hours: 9));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<Map<String, dynamic>> get _thisMonthVisits {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+    return _visits.where((visit) {
+      final visitedAt = _koreanVisitDate(visit);
+      return visitedAt != null &&
+          visitedAt.year == now.year &&
+          visitedAt.month == now.month;
+    }).toList();
   }
 
   @override
@@ -292,7 +314,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             child: Column(
               children: [
                 Text(
-                  '${_visits.length}',
+                  '${_thisMonthVisits.length}',
                   style: const TextStyle(
                     color: _Colors.success,
                     fontSize: 28,

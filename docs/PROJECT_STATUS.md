@@ -888,3 +888,24 @@
 - 코드 기반 QA 후속 수정과 자동 회귀 검증은 완료됐다.
 - 이번 변경은 아직 main push나 Render/Vercel 재배포를 수행하지 않았다.
 - 실제 운영 계정으로 영수증 OCR 전체 흐름, 실기기 GPS 방문 인증, Android 푸시 회귀, 관리자 승인 작업은 별도 수동 QA가 필요하다.
+
+## 5-34. 8/24 운영 안정성·관리자 대상 알림·보안 후속 보완
+
+**구현 완료(배포 전 검증 기준)**:
+- 관리자 특정 알림은 UID 자유입력 대신 회원 닉네임·이메일·UID 검색 결과에서 계정을 선택하게 바꿨다. 동명이인은 이메일과 UID 일부로 구분하고, 선택되지 않은 문자열은 발송할 수 없다. `audience: ALL|USER`을 서버에서 필수로 검증해 대상 누락이 전체 발송으로 바뀌는 fail-open 경로를 제거했다.
+- 특정 회원은 Firestore users 문서 존재를 확인한 뒤에만 알림함 기록을 만들며, 없는 회원은 404로 돌려준다. 관리자 회원 목록 응답도 화면에 필요한 필드만 whitelist로 반환한다.
+- 제보 승인·반려는 Firestore transaction으로 `PENDING` 상태에서 한 번만 처리한다. 동시 처리·새로고침 후 요청은 409로 막고, 성공 처리 시각을 남긴다.
+- 주소 자동완성·좌표 행정동 변환을 서버의 `/api/locations/**` 프록시로 옮겨 Flutter 웹/앱 번들에서 카카오 REST 키를 제거했다. 공개 helper는 IP 기준 요청 수를 제한한다.
+- Android cleartext 허용과 iOS 전역 ATS 해제를 제거하고 WebView 로컬 HTML 기준 URL을 HTTPS로 변경했다. 배포 빌드는 Gradle Wrapper로 test+bootJar를 반드시 실행하고 Render `/healthz` readiness probe를 추가했다.
+- `mcp_toolkit`을 제품 의존성·초기화에서 제거했다. 추천 지도, 매장 정보 복사, 마이 설정, 로그인 약관 링크, 방문 내역 KST 이번 달 통계, 키보드 회피 및 커뮤니티 위치·자동 새로고침 UX도 보완했다.
+
+**자동 검증(배포 직전)**:
+- 백엔드 `./gradlew clean test bootJar`: PASS.
+- Flutter `flutter analyze`: PASS, `flutter test`: 86 PASS.
+- 웹 release와 iOS Simulator debug 산출물 생성: PASS.
+- 관리자 HTML 스크립트 구문·대상 선택 필수 hook 검사 및 `git diff --check`: PASS.
+
+**운영 전제·잔여 리스크**:
+- Android는 아직 Firebase Console 앱 등록·고유 applicationId·release signing이 완결되지 않아 이번 iOS/web 운영 범위에 포함하지 않는다. 템플릿 Android 식별자로 배포하지 않도록 별도 출시 작업으로 관리한다.
+- 과거 Git 이력에 노출된 Firebase service-account private key는 코드 변경만으로 회수할 수 없다. Firebase Console에서 해당 키를 폐기·재발급하고, 공개 원격 이력 정리 및 기존 clone/CI secret 교체를 해야 한다.
+- 공유 ADMIN_KEY 방식은 개인별 역할·감사로그·MFA를 제공하지 않는다. 현재 기능은 rate limit과 명시적 대상 검증으로 위험을 줄였으나, 실서비스 확대 전 개인 관리자 인증과 감사 로그가 필요하다.

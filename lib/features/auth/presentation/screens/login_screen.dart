@@ -297,36 +297,40 @@ class _TermsText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text.rich(
-      TextSpan(
-        children: const [
-          TextSpan(text: '계속하면 '),
-          TextSpan(
-            text: '서비스 이용약관',
-            style: TextStyle(
-              color: LoginScreen.ink,
-              decoration: TextDecoration.underline,
-            ),
+    const textStyle = TextStyle(
+      color: LoginScreen.muted,
+      fontFamily: LoginScreen.fontFamily,
+      fontFamilyFallback: LoginScreen.fontFallback,
+      fontSize: 10,
+      fontWeight: FontWeight.w400,
+      height: 1.5,
+    );
+    final linkStyle = TextButton.styleFrom(
+      foregroundColor: LoginScreen.ink,
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      textStyle: textStyle.copyWith(decoration: TextDecoration.underline),
+    );
+    return Center(
+      child: Wrap(
+        alignment: WrapAlignment.center,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Text('계속하면 ', style: textStyle),
+          TextButton(
+            style: linkStyle,
+            onPressed: () => context.push(AppRoutes.termsOfService),
+            child: const Text('서비스 이용약관'),
           ),
-          TextSpan(text: ' 및\n'),
-          TextSpan(
-            text: '개인정보 처리방침',
-            style: TextStyle(
-              color: LoginScreen.ink,
-              decoration: TextDecoration.underline,
-            ),
+          const Text(' 및 ', style: textStyle),
+          TextButton(
+            style: linkStyle,
+            onPressed: () => context.push(AppRoutes.privacyPolicy),
+            child: const Text('개인정보 처리방침'),
           ),
-          TextSpan(text: '에 동의한 것으로 간주됩니다.'),
+          const Text('에 동의한 것으로 간주됩니다.', style: textStyle),
         ],
-      ),
-      textAlign: TextAlign.center,
-      style: const TextStyle(
-        color: LoginScreen.muted,
-        fontFamily: LoginScreen.fontFamily,
-        fontFamilyFallback: LoginScreen.fontFallback,
-        fontSize: 10,
-        fontWeight: FontWeight.w400,
-        height: 1.5,
       ),
     );
   }

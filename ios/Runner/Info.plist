@@ -45,11 +45,6 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<true/>
-	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>매장 제보 시 메뉴판 사진을 촬영하기 위해 카메라 권한이 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

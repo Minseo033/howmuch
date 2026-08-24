@@ -1,8 +1,8 @@
-# 1단계: Java 21로 빌드
-FROM gradle:8.5-jdk21 AS build
+# 1단계: Java 21 + 프로젝트 Gradle Wrapper로 빌드
+FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 COPY . .
-RUN gradle clean build -x test --no-daemon
+RUN chmod +x gradlew && ./gradlew clean test bootJar --no-daemon
 
 # 2단계: 실행 이미지 (가볍게)
 FROM eclipse-temurin:21-jre

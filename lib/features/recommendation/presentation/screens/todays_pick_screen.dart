@@ -602,41 +602,59 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: Container(
-                                        height: 48,
-                                        decoration: BoxDecoration(
+                                      child: Semantics(
+                                        button: true,
+                                        label: '지도에서 보기',
+                                        child: Material(
                                           color: Colors.white,
                                           borderRadius: BorderRadius.circular(
                                             16,
                                           ),
-                                          border: Border.all(
-                                            color: const Color(0xFFE5E7EB),
-                                          ),
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: const Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Icon(
-                                              Icons.map_outlined,
-                                              color: Color(0xFF0F172A),
-                                              size: 16,
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
                                             ),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              '지도에서 보기',
-                                              style: TextStyle(
-                                                fontFamily: 'Inter',
-                                                fontFamilyFallback: [
-                                                  'Noto Sans KR',
+                                            onTap: () =>
+                                                context.go(AppRoutes.home),
+                                            child: Container(
+                                              height: 48,
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(16),
+                                                border: Border.all(
+                                                  color: const Color(
+                                                    0xFFE5E7EB,
+                                                  ),
+                                                ),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: const Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.map_outlined,
+                                                    color: Color(0xFF0F172A),
+                                                    size: 16,
+                                                  ),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    '지도에서 보기',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Inter',
+                                                      fontFamilyFallback: [
+                                                        'Noto Sans KR',
+                                                      ],
+                                                      color: Color(0xFF0F172A),
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ],
-                                                color: Color(0xFF0F172A),
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
                                       ),
                                     ),

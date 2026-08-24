@@ -117,13 +117,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       child: const _Avatar(),
                     ),
                     Positioned(
-                      left: 201.71875,
-                      top: 124.8720703125 + topOffset,
-                      width: 27.99715805053711,
-                      height: 27.99715805053711,
-                      child: const _CameraBadge(),
-                    ),
-                    Positioned(
                       left: 20,
                       top: 176.86083984375 + topOffset,
                       child: const _SectionLabel('기본 정보'),
@@ -184,7 +177,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           _Header(
             topOffset: topOffset,
             title: '프로필 수정',
-            onBack: () => context.go(AppRoutes.mypage),
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go(AppRoutes.mypage),
           ),
           Positioned(
             left: 0,
@@ -365,27 +359,6 @@ class _Avatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: const Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
-    );
-  }
-}
-
-class _CameraBadge extends StatelessWidget {
-  const _CameraBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: ProfileEditScreen.blue,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.white, width: 1.818),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.photo_camera_rounded,
-        color: AppColors.white,
-        size: 13,
-      ),
     );
   }
 }
