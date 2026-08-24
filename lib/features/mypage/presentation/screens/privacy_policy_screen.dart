@@ -88,15 +88,12 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                             lines: [
                               _PolicyLine(
                                 strong: '필수',
-                                body: ' · 카카오/네이버/애플 로그인 식별자, 닉네임, 이메일',
+                                body: ' · 카카오 로그인 식별자, 이메일',
                               ),
-                              _PolicyLine(
-                                strong: '선택',
-                                body: ' · 위치 정보, 프로필 사진',
-                              ),
+                              _PolicyLine(strong: '선택', body: ' · 위치 정보'),
                               _PolicyLine(
                                 strong: '자동 수집',
-                                body: ' · 기기 정보, 접속 로그, 방문 기록',
+                                body: ' · 제보·리뷰·방문·찜·문의 기록',
                               ),
                             ],
                             height: 139,
@@ -122,8 +119,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                                 strong: '관계 법령',
                                 body: '에 따라 일부 정보는 보관됩니다.',
                               ),
-                              _PolicyLine(body: '· 계약·결제 기록: 5년 (전자상거래법)'),
-                              _PolicyLine(body: '· 접속 로그: 3개월 (통신비밀보호법)'),
+                              _PolicyLine(body: '· 회원 탈퇴 시 회원 정보와 이용 기록 삭제'),
+                              _PolicyLine(
+                                body: '· 법령상 보존 의무가 발생하는 정보는 해당 기간 동안 보관',
+                              ),
                             ],
                             height: 145,
                           ),
@@ -201,9 +200,9 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
 
   void _copyDocumentLink() {
     Clipboard.setData(
-      const ClipboardData(text: 'https://eolmago.kr/privacy/v2.4'),
+      const ClipboardData(text: '얼마에요 개인정보 처리방침 — 앱 내 마이페이지에서 확인'),
     );
-    _showSnackBar('개인정보 처리방침 링크를 복사했어요.');
+    _showSnackBar('개인정보 처리방침 안내를 복사했어요.');
   }
 
   void _scrollToPolicyChapter(int index) {
@@ -566,9 +565,9 @@ class _PrivacyManagerCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('김보호 · 정보보호팀장', style: _managerNameText),
+                      Text('개인정보 보호 문의 담당', style: _managerNameText),
                       SizedBox(height: .994),
-                      Text('privacy@eolmago.kr', style: _captionText),
+                      Text('앱 내 1:1 문의로 접수', style: _captionText),
                     ],
                   ),
                 ),

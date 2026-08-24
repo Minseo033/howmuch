@@ -100,7 +100,7 @@ class TermsOfServiceScreen extends StatelessWidget {
 
   void _copyDocumentLink(BuildContext context) {
     Clipboard.setData(
-      const ClipboardData(text: 'https://eolmago.kr/terms/v2.4'),
+      const ClipboardData(text: '얼마에요 서비스 이용약관 — 앱 내 마이페이지에서 확인'),
     );
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()

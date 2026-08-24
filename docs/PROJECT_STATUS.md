@@ -916,3 +916,27 @@
 - 홈 지도·추천 경로 지도를 운영 웹과 동일한 공개 JavaScript 키 및 등록된 `https://howmuch-zeta.vercel.app` origin으로 통일했다. SDK 오류는 Flutter에 전달해 빈 화면 대신 오류·재시도 화면을 표시한다.
 - 재빌드·설치 후 지도 타일, 현재 위치, 매장 마커를 첫 진입에서 확인했다. 캡처는 `docs/images/qa-2026-08-24/ios-home-map.png`에 보관한다.
 - GitHub Actions 품질 게이트를 추가했다. 백엔드 test+bootJar, Flutter analyze+test+web release+관리자 HTML 검사, iOS Simulator build를 main push와 PR에서 실행한다.
+
+## 5-36. 8/24 재부팅 후 운영 보완 재개
+
+재부팅으로 중단된 작업을 이어서 Firebase 키 처리를 제외한 안정성·접근성·출시 준비 보완을 반영했다.
+
+- 로그인 화면에서 약관·개인정보 처리방침 명시 동의 없이는 카카오 로그인을 시작하지 않도록 변경했다.
+- 앱 개인정보 처리방침·약관 화면의 존재하지 않는 로그인 수단, 연락처, 결제·접속 로그 보관 문구와 가짜 외부 링크를 제거했다. 사업자명·법정 책임자·국외 이전 고지는 실제 운영 주체 정보를 확인한 뒤 별도 기입한다.
+- iOS에서 사용하지 않는 마이크 권한 문구를 제거했다.
+- 관리자 키는 저장 시각을 함께 저장하고 30분 후 자동 만료한다. 관리자 모달의 Escape·Tab 포커스 트랩과 이미지 키보드 접근성을 보완했다.
+- 관리자·커뮤니티 Firestore 조회에 최대 500건 보호 상한을 추가하고 관리자 화면에 상한 안내를 표시했다. 대규모 운영에서는 커서 기반 페이지네이션으로 확장해야 한다.
+- 처리 완료 영수증의 Cloudinary 원본 정리를 멱등화하고, 일시 실패 건을 주기적으로 재시도해 Firestore 잔여 이미지 URL이 수렴하도록 했다.
+- Android는 기본 예제 applicationId와 디버그 서명으로 release가 생성되지 않도록 막고, 실제 applicationId·release keystore를 Gradle 속성/환경변수로 주입하는 구조로 정리했다. Firebase Console 등록과 키 파일은 외부 운영 절차에서 입력한다.
+
+### 재검증 결과
+
+- 백엔드 `test bootJar`: PASS
+- Flutter `analyze`: PASS (`No issues found`)
+- Flutter 테스트: PASS (86개, `All tests passed!`)
+- Web release 빌드: PASS
+- Android `assembleDebug`: PASS (`build/app/outputs/flutter-apk/app-debug.apk` 생성)
+- iOS Simulator debug: Xcode `Runner.app` 생성 확인. 재부팅 후 의존성 재구성 과정이 길어 최종 Flutter 종료 메시지는 수집하지 못했으며, 동일 소스의 설치·지도 캡처 결과는 5-35 회귀 기록을 따른다.
+- 관리자 HTML 스크립트 검사 및 `git diff --check`: PASS
+
+Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase 등록은 사용자 콘솔 작업 없이는 완료 처리하지 않는다.

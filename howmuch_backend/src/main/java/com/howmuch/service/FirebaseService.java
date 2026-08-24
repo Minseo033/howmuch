@@ -77,6 +77,12 @@ public class FirebaseService {
     private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
     private static final int MAX_NOTIFICATION_RESULTS = 100;
 
+    @Value("${admin.list.max-items:500}")
+    private int adminListMaxItems = 500;
+
+    @Value("${community.feed.max-items:500}")
+    private int communityFeedMaxItems = 500;
+
     /** 공공데이터 마지막 갱신 성공 시각 (24시간 가드: 1시간 주기 실행되지만 성공 후 24시간 내엔 Firestore 미호출) */
     private volatile long lastGovRefreshSuccessMillis = 0L;
 
@@ -626,14 +632,16 @@ public class FirebaseService {
 
     // [어드민] 영수증 인증 목록 조회. 소량 컬렉션이라 복합 인덱스 없이 필터링합니다.
     public List<Map<String, Object>> getReceiptVerifications(String status) throws Exception {
-        return db.collection("receipt_verifications").get().get().getDocuments().stream()
+        com.google.cloud.firestore.Query query = db.collection("receipt_verifications");
+        if (status != null && !status.isBlank()) {
+            query = query.whereEqualTo("status", status);
+        }
+        return query.limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
                     return data;
                 })
-                .filter(data -> status == null || status.isBlank()
-                        || status.equalsIgnoreCase(String.valueOf(data.getOrDefault("status", "PENDING"))))
                 .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
                         .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
                 .toList();
@@ -760,6 +768,37 @@ public class FirebaseService {
         }
     }
 
+    /**
+     * 승인·반려 직후 외부 저장소가 일시적으로 실패해 남은 영수증 원본을
+     * 다음 주기에 재시도한다. 이미 삭제된 Cloudinary 리소스도 완료로
+     * 취급하므로 Firestore의 imageUrls가 결국 비워진다.
+     */
+    @Scheduled(
+            initialDelayString = "${receipt.images.cleanup.initial-delay-ms:300000}",
+            fixedDelayString = "${receipt.images.cleanup.delay-ms:3600000}")
+    void retryProcessedReceiptImageCleanup() {
+        try {
+            var documents = db.collection("receipt_verifications")
+                    .whereIn("status", List.of("APPROVED", "REJECTED"))
+                    .limit(adminListLimit())
+                    .get().get().getDocuments();
+            for (DocumentSnapshot document : documents) {
+                List<String> imageUrls = stringList(document.get("imageUrls"));
+                if (imageUrls.isEmpty()) continue;
+                cleanupProcessedReceiptImages(
+                        document.getReference(), document.getString("userId"), imageUrls);
+            }
+        } catch (IllegalStateException e) {
+            log.debug("영수증 이미지 저장소가 설정되지 않아 정리 재시도를 건너뜁니다.");
+        } catch (Exception e) {
+            log.warn("처리된 영수증 이미지 정리 재시도 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    private int adminListLimit() {
+        return Math.max(1, Math.min(adminListMaxItems, 1000));
+    }
+
     public int deleteReportImages(String reporterUid, List<String> imageUrls) throws Exception {
         if (reporterUid == null || reporterUid.isBlank()) {
             throw new SecurityException("로그인이 필요합니다.");
@@ -858,7 +897,7 @@ public class FirebaseService {
         if (status != null && !status.isBlank()) {
             query = query.whereEqualTo("status", status);
         }
-        return query.get().get().getDocuments().stream()
+        return query.limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
@@ -1130,7 +1169,7 @@ public class FirebaseService {
     // 💡 [어드민] 회원 목록 조회 (가입 최신순, 소량 컬렉션)
     public List<Map<String, Object>> getAllUsers() throws Exception {
         return db.collection("users")
-                .get().get().getDocuments().stream()
+                .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> source = doc.getData();
                     Map<String, Object> user = new HashMap<>();
@@ -1341,7 +1380,7 @@ public class FirebaseService {
     // 💡 [어드민] 전체 리뷰 목록 (최신순, 매장명/작성자명 포함 — 소량 컬렉션)
     public List<Map<String, Object>> getAllReviews() throws Exception {
         List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
-                .get().get().getDocuments().stream()
+                .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
@@ -1907,6 +1946,7 @@ public class FirebaseService {
     //    제보 수 증가 시 인메모리 캐시 패턴 필요 (PROJECT_STATUS 5-2 참조).
     public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
         var documents = db.collection("stores_user")
+                .limit(Math.max(1, Math.min(communityFeedMaxItems, 1000)))
                 .get().get().getDocuments();
 
         List<com.howmuch.dto.FeedResponseDto> feeds = new ArrayList<>();
@@ -2109,7 +2149,7 @@ public class FirebaseService {
     /** 어드민: 전체 문의 목록 조회 (최신순) — /api/admin/inquiries */
     public List<Map<String, Object>> getAllInquiries() throws Exception {
         List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
-                .get().get().getDocuments().stream()
+                .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
                     Map<String, Object> item = new HashMap<>();
@@ -2981,7 +3021,7 @@ public class FirebaseService {
     // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
     public List<Map<String, Object>> getAllComments() throws Exception {
         List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
-                .get().get().getDocuments().stream()
+                .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
                     Map<String, Object> item = new HashMap<>();

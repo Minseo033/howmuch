@@ -89,7 +89,11 @@ public class CloudinaryReportImageStorage implements ReportImageStorage {
                     "resource_type", "image",
                     "type", "upload",
                     "invalidate", true));
-            if ("ok".equals(response.get("result"))) deleted++;
+            // Cleanup is idempotent: a URL already removed from Cloudinary is
+            // also considered complete so retry jobs can clear stale Firestore
+            // imageUrls instead of retrying the same orphan forever.
+            Object result = response.get("result");
+            if ("ok".equals(result) || "not found".equals(result)) deleted++;
         }
         return deleted;
     }

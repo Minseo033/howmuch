@@ -28,6 +28,14 @@ services:
         sync: false
       - key: RECEIPT_OCR_API_KEY
         sync: false
+      - key: ADMIN_LIST_MAX_ITEMS
+        value: "500"
+      - key: RECEIPT_IMAGE_CLEANUP_INITIAL_DELAY_MS
+        value: "300000"
+      - key: RECEIPT_IMAGE_CLEANUP_DELAY_MS
+        value: "3600000"
+      - key: COMMUNITY_FEED_MAX_ITEMS
+        value: "500"
     secretFiles:
       - name: firebase-service-account.json
         mountPath: /etc/secrets/firebase-service-account.json

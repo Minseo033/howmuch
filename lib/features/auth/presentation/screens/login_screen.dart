@@ -5,7 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   static const blue = Color(0xFF2563EB);
@@ -22,7 +22,14 @@ class LoginScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  bool _acceptedTerms = false;
+
+  @override
+  Widget build(BuildContext context) {
     final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
 
     return FigmaMobileCanvas(
@@ -46,9 +53,9 @@ class LoginScreen extends ConsumerWidget {
                     '얼마고?',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: ink,
-                      fontFamily: fontFamily,
-                      fontFamilyFallback: fontFallback,
+                      color: LoginScreen.ink,
+                      fontFamily: LoginScreen.fontFamily,
+                      fontFamilyFallback: LoginScreen.fontFallback,
                       fontSize: 30,
                       fontWeight: FontWeight.w800,
                       height: 1.5,
@@ -59,9 +66,9 @@ class LoginScreen extends ConsumerWidget {
                     '가까운 착한가격업소를 찾고\n절약을 기록해보세요.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: muted,
-                      fontFamily: fontFamily,
-                      fontFamilyFallback: fontFallback,
+                      color: LoginScreen.muted,
+                      fontFamily: LoginScreen.fontFamily,
+                      fontFamilyFallback: LoginScreen.fontFallback,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                       height: 1.5,
@@ -75,7 +82,7 @@ class LoginScreen extends ConsumerWidget {
                         backgroundColor: const Color(0xFFFEE500),
                         foregroundColor: const Color(0xFF191600),
                         icon: Icons.chat_bubble_rounded,
-                        onPressed: () => _loginWithKakao(ref, context),
+                        onPressed: () => _loginWithKakao(context),
                       ),
                     ],
                   ),
@@ -89,13 +96,13 @@ class LoginScreen extends ConsumerWidget {
                       onPressed: () => context.go(AppRoutes.permissionSetup),
                       style: TextButton.styleFrom(
                         backgroundColor: const Color(0xFFF1F5F9),
-                        foregroundColor: ink,
+                        foregroundColor: LoginScreen.ink,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                         textStyle: const TextStyle(
-                          fontFamily: fontFamily,
-                          fontFamilyFallback: fontFallback,
+                          fontFamily: LoginScreen.fontFamily,
+                          fontFamilyFallback: LoginScreen.fontFallback,
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           height: 1.5,
@@ -107,7 +114,11 @@ class LoginScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   const SizedBox(height: 56.96, child: _LoginNotice()),
                   const SizedBox(height: 16),
-                  const SizedBox(height: 30, child: _TermsText()),
+                  _TermsText(
+                    accepted: _acceptedTerms,
+                    onChanged: (value) =>
+                        setState(() => _acceptedTerms = value),
+                  ),
                 ],
               ),
             ),
@@ -117,7 +128,13 @@ class LoginScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _loginWithKakao(WidgetRef ref, BuildContext context) async {
+  Future<void> _loginWithKakao(BuildContext context) async {
+    if (!_acceptedTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('서비스 이용약관과 개인정보 처리방침에 동의해주세요.')),
+      );
+      return;
+    }
     final messenger = ScaffoldMessenger.of(context);
     final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
     if (errorMsg == null) {
@@ -293,7 +310,10 @@ class _LoginNotice extends StatelessWidget {
 }
 
 class _TermsText extends StatelessWidget {
-  const _TermsText();
+  const _TermsText({required this.accepted, required this.onChanged});
+
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -312,26 +332,37 @@ class _TermsText extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       textStyle: textStyle.copyWith(decoration: TextDecoration.underline),
     );
-    return Center(
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          const Text('계속하면 ', style: textStyle),
-          TextButton(
-            style: linkStyle,
-            onPressed: () => context.push(AppRoutes.termsOfService),
-            child: const Text('서비스 이용약관'),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Checkbox(
+          value: accepted,
+          onChanged: (value) => onChanged(value ?? false),
+          semanticLabel: '서비스 이용약관과 개인정보 처리방침 동의',
+          visualDensity: VisualDensity.compact,
+        ),
+        Expanded(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text('계속하면 ', style: textStyle),
+              TextButton(
+                style: linkStyle,
+                onPressed: () => context.push(AppRoutes.termsOfService),
+                child: const Text('서비스 이용약관'),
+              ),
+              const Text(' 및 ', style: textStyle),
+              TextButton(
+                style: linkStyle,
+                onPressed: () => context.push(AppRoutes.privacyPolicy),
+                child: const Text('개인정보 처리방침'),
+              ),
+              const Text('에 동의합니다.', style: textStyle),
+            ],
           ),
-          const Text(' 및 ', style: textStyle),
-          TextButton(
-            style: linkStyle,
-            onPressed: () => context.push(AppRoutes.privacyPolicy),
-            child: const Text('개인정보 처리방침'),
-          ),
-          const Text('에 동의한 것으로 간주됩니다.', style: textStyle),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

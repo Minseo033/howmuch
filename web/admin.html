@@ -93,6 +93,7 @@
     margin-left: auto; background: var(--amber); color: #0F172A;
     font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 99px;
   }
+  [data-open-image]:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
   .side-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(255,255,255,.08); }
 
   main { flex: 1; min-width: 0; padding: 26px 30px 90px; }
@@ -133,6 +134,7 @@
   }
   .section-title { font-size: 15px; font-weight: 800; margin: 26px 0 12px; letter-spacing: -.2px; display: flex; align-items: center; gap: 8px; }
   .section-title .chip { font-size: 11px; font-weight: 700; color: var(--primary); background: var(--primary-soft); padding: 3px 9px; border-radius: 99px; }
+  .cap-note { display: block; margin: 8px 0; font-size: 11px; font-weight: 600; color: var(--muted); }
 
   .table-wrap { overflow-x: auto; border-radius: 18px; }
   .data-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 720px; }
@@ -562,9 +564,20 @@
   const API_BASE = 'https://howmuch-backend-1xnu.onrender.com';
   // 어드민 전용 비밀번호 (백엔드 ADMIN_KEY 환경변수와 대조). 앱 카카오 로그인과 무관합니다.
   const KEY_STORAGE = 'hm_admin_key';
+  const KEY_TTL_MS = 30 * 60 * 1000;
 
   const $ = (id) => document.getElementById(id);
   const content = $('content');
+
+  document.querySelectorAll('.modal').forEach((modal) => {
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    const heading = modal.querySelector('h2, h3');
+    if (heading) {
+      if (!heading.id) heading.id = `${modal.parentElement?.id || 'modal'}Heading`;
+      modal.setAttribute('aria-labelledby', heading.id);
+    }
+  });
 
   let allReports = [];
   let allReceipts = [];
@@ -599,7 +612,21 @@
   };
 
   /* ── 유틸 ─────────────────────────── */
-  const getKey = () => sessionStorage.getItem(KEY_STORAGE) || '';
+  const getKey = () => {
+    const raw = sessionStorage.getItem(KEY_STORAGE);
+    if (!raw) return '';
+    try {
+      const saved = JSON.parse(raw);
+      if (!saved.key || Date.now() - Number(saved.savedAt) > KEY_TTL_MS) {
+        sessionStorage.removeItem(KEY_STORAGE);
+        return '';
+      }
+      return saved.key;
+    } catch (_) {
+      sessionStorage.removeItem(KEY_STORAGE);
+      return '';
+    }
+  };
 
   // Text and quoted HTML attributes share this encoder. Quotes must also be
   // escaped because several server values are rendered into data-* fields.
@@ -609,6 +636,8 @@
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+  const listCapNotice = (items) => items.length >= 500
+    ? '<span class="cap-note">최근 500건까지 표시</span>' : '';
 
   const safeImageUrl = (value) => {
     try {
@@ -621,10 +650,16 @@
 
   const wireImageLinks = (root = content) => {
     root.querySelectorAll('[data-open-image]').forEach((image) => {
-      image.onclick = () => {
+      const open = () => {
         const url = safeImageUrl(image.dataset.openImage);
         if (url) window.open(url, '_blank', 'noopener,noreferrer');
       };
+      image.onclick = open;
+      image.onkeydown = (event) => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); }
+      };
+      image.tabIndex = 0;
+      image.setAttribute('role', 'button');
     });
   };
 
@@ -691,6 +726,24 @@
 
   const openModal = (id) => $(id).classList.add('show');
   const closeModal = (id) => $(id).classList.remove('show');
+  document.addEventListener('keydown', (event) => {
+    const modal = [...document.querySelectorAll('.modal-backdrop.show .modal')].at(-1);
+    if (!modal) return;
+    if (event.key === 'Escape') {
+      const close = modal.querySelector('[data-close]');
+      if (close) close.click();
+      else if (modal.parentElement.id === 'confirmActionModal') finishActionConfirmation(false);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = [...modal.querySelectorAll('button, input, textarea, [href], [tabindex]:not([tabindex="-1"])')]
+      .filter((node) => !node.disabled && node.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
   let confirmActionResolve = null;
 
   function finishActionConfirmation(accepted) {
@@ -788,7 +841,7 @@
 
     content.innerHTML = `
       <div class="stats cols3">${cardsHtml}</div>
-      <div class="section-title">최근 제보 <span class="chip">${allReports.length}건</span></div>
+      <div class="section-title">최근 제보 <span class="chip">${allReports.length}건</span>${listCapNotice(allReports)}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>매장명</th><th>업종</th><th>상태</th><th>제보일</th></tr></thead>
@@ -937,7 +990,7 @@
       <button class="tab ${currentTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
     </div>`;
     const filtered = currentTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === currentTab);
-    content.innerHTML = tabsHtml + (filtered.length
+    content.innerHTML = listCapNotice(allReceipts) + tabsHtml + (filtered.length
       ? `<div class="report-list">${filtered.map(receiptCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico">✓</div><h2>영수증 인증이 없습니다</h2><p>다른 상태 탭을 확인해보세요.</p></div>`);
     wireImageLinks();
@@ -969,7 +1022,7 @@
     }).join('');
 
     content.innerHTML = `
-      <div class="section-title">전체 리뷰 <span class="chip">${allReviews.length}건</span></div>
+      <div class="section-title">전체 리뷰 <span class="chip">${allReviews.length}건</span>${listCapNotice(allReviews)}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>매장</th><th>작성자</th><th>별점</th><th>내용</th><th>작성일</th><th></th></tr></thead>
@@ -1022,7 +1075,7 @@
       <div class="search-row">
         <input id="userSearchInput" type="text" aria-label="회원 검색" placeholder="닉네임·이메일·지역 검색…" value="${esc(userSearch)}" />
       </div>
-      <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span></div>
+      <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span>${listCapNotice(allUsers)}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>회원</th><th>이메일</th><th>지역</th><th>관심 카테고리</th><th>절약 목표</th><th>가입일</th><th></th></tr></thead>
@@ -1084,7 +1137,7 @@
     }).join('');
 
     content.innerHTML = `
-      <div class="section-title">전체 댓글·답글 <span class="chip">${(allComments || []).length}건</span></div>
+      <div class="section-title">전체 댓글·답글 <span class="chip">${(allComments || []).length}건</span>${listCapNotice(allComments || [])}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>구분</th><th>내용</th><th>작성자</th><th>게시글</th><th>작성일</th><th></th></tr></thead>
@@ -1122,7 +1175,7 @@
     }).join('');
 
     content.innerHTML = `
-      <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span></div>
+      <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span>${listCapNotice(allInquiries || [])}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th><th></th></tr></thead>
@@ -1686,7 +1739,7 @@
   $('loginBtn').onclick = () => {
     const v = $('keyInput').value.trim();
     if (!v) return;
-    sessionStorage.setItem(KEY_STORAGE, v);
+    sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: v, savedAt: Date.now() }));
     boot();
   };
   $('keyInput').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
