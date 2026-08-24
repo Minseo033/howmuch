@@ -941,4 +941,4 @@
 
 Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase 등록은 사용자 콘솔 작업 없이는 완료 처리하지 않는다.
 
-배포 기준 커밋: `38fe126`. Vercel canonical 배포: `dpl_3qWrsW2tjnVf1WeTEdtYebFsrUYS` (`https://howmuch-zeta.vercel.app`), Render `/healthz`: HTTP 200.
+배포 기준 커밋: `d447a14`. Vercel canonical 배포: `dpl_7oZdiaKJoo5tGrYBcyxgN3Ze2CB5` (`https://howmuch-zeta.vercel.app`), Render `/healthz`: HTTP 200.
