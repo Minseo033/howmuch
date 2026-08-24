@@ -1075,7 +1075,7 @@
       <div class="search-row">
         <input id="userSearchInput" type="text" aria-label="회원 검색" placeholder="닉네임·이메일·지역 검색…" value="${esc(userSearch)}" />
       </div>
-      <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span>${listCapNotice(allUsers)}</div>
+      <div class="section-title">회원 목록 <span class="chip">${filtered.length}명</span>${listCapNotice(users || [])}</div>
       <div class="card table-wrap">
         <table class="data-table">
           <thead><tr><th>회원</th><th>이메일</th><th>지역</th><th>관심 카테고리</th><th>절약 목표</th><th>가입일</th><th></th></tr></thead>
