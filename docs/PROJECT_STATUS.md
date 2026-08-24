@@ -909,3 +909,10 @@
 - Android는 아직 Firebase Console 앱 등록·고유 applicationId·release signing이 완결되지 않아 이번 iOS/web 운영 범위에 포함하지 않는다. 템플릿 Android 식별자로 배포하지 않도록 별도 출시 작업으로 관리한다.
 - 과거 Git 이력에 노출된 Firebase service-account private key는 코드 변경만으로 회수할 수 없다. Firebase Console에서 해당 키를 폐기·재발급하고, 공개 원격 이력 정리 및 기존 clone/CI secret 교체를 해야 한다.
 - 공유 ADMIN_KEY 방식은 개인별 역할·감사로그·MFA를 제공하지 않는다. 현재 기능은 rate limit과 명시적 대상 검증으로 위험을 줄였으나, 실서비스 확대 전 개인 관리자 인증과 감사 로그가 필요하다.
+
+## 5-35. 8/24 iOS 지도 재발 확인·수정
+
+- iPhone 17 Pro Simulator에서 홈 지도가 빈 화면으로 다시 재현됐다. 원인은 모바일 지도 WebView만 과거 Kakao Maps JavaScript 키와 등록되지 않은 `howmuch.local` base URL을 사용해 운영 웹과 인증 origin이 달랐던 점이다.
+- 홈 지도·추천 경로 지도를 운영 웹과 동일한 공개 JavaScript 키 및 등록된 `https://howmuch-zeta.vercel.app` origin으로 통일했다. SDK 오류는 Flutter에 전달해 빈 화면 대신 오류·재시도 화면을 표시한다.
+- 재빌드·설치 후 지도 타일, 현재 위치, 매장 마커를 첫 진입에서 확인했다. 캡처는 `docs/images/qa-2026-08-24/ios-home-map.png`에 보관한다.
+- GitHub Actions 품질 게이트를 추가했다. 백엔드 test+bootJar, Flutter analyze+test+web release+관리자 HTML 검사, iOS Simulator build를 main push와 PR에서 실행한다.

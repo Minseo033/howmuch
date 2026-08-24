@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'route_map_point.dart';
 
 Widget buildRouteMapView({
@@ -41,13 +42,13 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
-      ..loadHtmlString(_html, baseUrl: 'https://howmuch.local');
+      ..loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
   }
 
   @override
   void didUpdateWidget(covariant _RouteMapMobileView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _controller.loadHtmlString(_html, baseUrl: 'https://howmuch.local');
+    _controller.loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
   }
 
   String get _html {
@@ -66,7 +67,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   <style>
     html, body, #map { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
   </style>
-  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=949e657c37f55074dbb2a14ceb273e2b&libraries=services"></script>
+  <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$kakaoMapJavaScriptKey&libraries=services"></script>
 </head>
 <body>
   <div id="map"></div>

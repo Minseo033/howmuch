@@ -19,6 +19,7 @@ import 'package:howmuch/features/search/presentation/screens/search_result_scree
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
@@ -62,7 +63,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   late bool _showAiSpotlight = widget.showAiSpotlight;
 
   final String _viewId = 'kakao-map-container';
-  final String _kakaoJsKey = '949e657c37f55074dbb2a14ceb273e2b';
+  final String _kakaoJsKey = kakaoMapJavaScriptKey;
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
   bool _isMapReady = false;
@@ -267,6 +268,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             });
             unawaited(_moveToCurrentLocation());
           }
+          if (message.message.startsWith('MAP_ERROR:')) {
+            _onMapError(message.message.substring('MAP_ERROR:'.length));
+          }
           if (message.message.startsWith('BOUNDS:')) {
             _boundsDebouncer?.cancel();
             _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
@@ -290,7 +294,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         },
       )
-      ..loadHtmlString(_getMobileMapHtml(), baseUrl: 'https://howmuch.local');
+      ..loadHtmlString(_getMobileMapHtml(), baseUrl: kakaoMapAuthorizedOrigin);
   }
 
   String _getMobileMapHtml() {
@@ -332,7 +336,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           z-index: 1;
         }
       </style>
-      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer"></script>
+      <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer" onerror="reportMapError('카카오맵 SDK를 불러오지 못했어요.')"></script>
     </head>
     <body>
       <div id="kakao-map-container"></div>
@@ -350,7 +354,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           setTimeout(requestBounds, 100);
         }
 
-        window.onload = function() {
+        var mapInitAttempts = 0;
+        function reportMapError(message) {
+          Print.postMessage('MAP_ERROR:' + message);
+        }
+
+        function initializeMap() {
+          if (typeof kakao === 'undefined' || !kakao.maps) {
+            mapInitAttempts += 1;
+            if (mapInitAttempts >= 25) {
+              reportMapError('지도를 불러오지 못했어요. 네트워크와 지도 설정을 확인해주세요.');
+              return;
+            }
+            setTimeout(initializeMap, 200);
+            return;
+          }
+          try {
           var container = document.getElementById('kakao-map-container');
           var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
           map = new kakao.maps.Map(container, options);
@@ -372,6 +391,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           Print.postMessage("Map Initialized on Mobile");
           setTimeout(relayoutMap, 0);
           setTimeout(relayoutMap, 250);
+          } catch (error) {
+            reportMapError('지도 화면을 준비하지 못했어요. 잠시 후 다시 시도해주세요.');
+          }
+        }
+
+        window.onload = function() {
+          initializeMap();
         };
 
         window.addEventListener('resize', relayoutMap);
@@ -754,9 +780,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
   }
 
-  void _retryWebMap() {
+  void _retryMap() {
     setState(() => _mapErrorMessage = null);
-    _initWebMap();
+    if (kIsWeb) {
+      _initWebMap();
+    } else {
+      _initMobileController();
+    }
   }
 
   void _flushPendingMapPosition() {
@@ -1158,7 +1188,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         ),
                         const SizedBox(height: 16),
                         FilledButton.icon(
-                          onPressed: _retryWebMap,
+                          onPressed: _retryMap,
                           icon: const Icon(Icons.refresh_rounded, size: 18),
                           label: const Text('다시 시도'),
                         ),
