@@ -29,6 +29,43 @@ bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
   return !age.isNegative && age <= maxHomeLocationCacheAge;
 }
 
+/// Kakao WebView bounds can briefly be null or out of range while the map is
+/// being relaid out. Ignore those transient messages instead of letting a
+/// dynamic JSON value crash the marker request with an unchecked cast.
+Map<String, double>? parseKakaoMapBounds(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+
+    double? readNumber(String key) {
+      final value = decoded[key];
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value);
+      return null;
+    }
+
+    final minLat = readNumber('minLat');
+    final maxLat = readNumber('maxLat');
+    final minLng = readNumber('minLng');
+    final maxLng = readNumber('maxLng');
+    final values = [minLat, maxLat, minLng, maxLng];
+    if (values.any((value) => value == null || !value.isFinite)) {
+      return null;
+    }
+    if (minLat! < -90 || maxLat! > 90 || minLat > maxLat) return null;
+    if (minLng! < -180 || maxLng! > 180 || minLng > maxLng) return null;
+
+    return {
+      'minLat': minLat,
+      'maxLat': maxLat,
+      'minLng': minLng,
+      'maxLng': maxLng,
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
 
@@ -571,9 +608,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var bounds = map.getBounds();
           var sw = bounds.getSouthWest();
           var ne = bounds.getNorthEast();
+          var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
+          if (!values.every(Number.isFinite) ||
+              values[0] < -90 || values[1] > 90 || values[0] > values[1] ||
+              values[2] < -180 || values[3] > 180 || values[2] > values[3]) {
+            return;
+          }
           var boundsData = JSON.stringify({
-            minLat: sw.getLat(), maxLat: ne.getLat(),
-            minLng: sw.getLng(), maxLng: ne.getLng()
+            minLat: values[0], maxLat: values[1],
+            minLng: values[2], maxLng: values[3]
           });
           Print.postMessage('BOUNDS:' + boundsData);
         }
@@ -889,7 +932,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (_isFetching) return; // 이미 요청 중이면 무시
     _isFetching = true;
     try {
-      final Map<String, dynamic> bounds = json.decode(boundsJson);
+      final bounds = parseKakaoMapBounds(boundsJson);
+      if (bounds == null) {
+        debugPrint('모바일 지도 bounds가 유효하지 않아 마커 요청을 건너뜁니다.');
+        return;
+      }
       final markerList = await _fetchStoresFromBackend(bounds);
 
       if (_webViewController != null) {
@@ -902,23 +949,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAndAddMarkersWeb(String boundsJson) async {
-    final Map<String, dynamic> bounds = json.decode(boundsJson);
+    final bounds = parseKakaoMapBounds(boundsJson);
+    if (bounds == null) {
+      debugPrint('웹 지도 bounds가 유효하지 않아 마커 요청을 건너뜁니다.');
+      return;
+    }
     final markerList = await _fetchStoresFromBackend(bounds);
 
     web_helper.addMobileMarkersWeb(_viewId, json.encode(markerList));
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
-    Map<String, dynamic> bounds,
+    Map<String, double> bounds,
   ) async {
     if (!_isAllStoresLoaded) {
       return []; // 전체 데이터가 로드될 때까지 빈 배열 반환
     }
 
-    final minLat = bounds['minLat'] as double;
-    final maxLat = bounds['maxLat'] as double;
-    final minLng = bounds['minLng'] as double;
-    final maxLng = bounds['maxLng'] as double;
+    final minLat = bounds['minLat']!;
+    final maxLat = bounds['maxLat']!;
+    final minLng = bounds['minLng']!;
+    final maxLng = bounds['maxLng']!;
 
     try {
       // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
