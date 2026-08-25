@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -43,6 +44,15 @@ String? notificationRouteForType(String type) {
     default:
       return null;
   }
+}
+
+const Duration webNotificationRefreshInterval = Duration(seconds: 10);
+const Duration nativeNotificationRefreshInterval = Duration(minutes: 1);
+
+Duration notificationRefreshInterval({required bool isWeb}) {
+  return isWeb
+      ? webNotificationRefreshInterval
+      : nativeNotificationRefreshInterval;
 }
 
 @immutable
@@ -358,9 +368,12 @@ final notificationApiServiceProvider = Provider<NotificationApiService>((ref) {
 
 class NotificationsNotifier
     extends StateNotifier<AsyncValue<List<NotificationModel>>> {
-  NotificationsNotifier(this._api) : super(const AsyncValue.loading()) {
+  NotificationsNotifier(
+    this._api, {
+    Duration refreshInterval = nativeNotificationRefreshInterval,
+  }) : super(const AsyncValue.loading()) {
     _refreshTimer = Timer.periodic(
-      const Duration(minutes: 1),
+      refreshInterval,
       (_) => loadNotifications(isRefresh: true),
     );
   }
@@ -445,6 +458,8 @@ final notificationsProvider =
       NotificationsNotifier,
       AsyncValue<List<NotificationModel>>
     >((ref) {
-      return NotificationsNotifier(ref.watch(notificationApiServiceProvider))
-        ..loadNotifications();
+      return NotificationsNotifier(
+        ref.watch(notificationApiServiceProvider),
+        refreshInterval: notificationRefreshInterval(isWeb: kIsWeb),
+      )..loadNotifications();
     });

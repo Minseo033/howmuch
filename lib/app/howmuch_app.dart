@@ -8,6 +8,7 @@ import 'app_router.dart';
 import 'app_theme.dart';
 import 'widgets/web_notification_prompt.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 
 class CustomWebScrollBehavior extends MaterialScrollBehavior {
@@ -26,12 +27,14 @@ class HowmuchApp extends ConsumerStatefulWidget {
   ConsumerState<HowmuchApp> createState() => _HowmuchAppState();
 }
 
-class _HowmuchAppState extends ConsumerState<HowmuchApp> {
+class _HowmuchAppState extends ConsumerState<HowmuchApp>
+    with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authListener;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _authListener = ref.listenManual<AuthState>(authStateProvider, (
       previous,
       next,
@@ -44,8 +47,16 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _authListener?.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (!ref.read(authStateProvider).isLoggedIn) return;
+    ref.read(notificationsProvider.notifier).loadNotifications(isRefresh: true);
   }
 
   @override

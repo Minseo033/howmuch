@@ -9,6 +9,17 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('web notification polling refreshes without a page reload', () {
+    expect(
+      notificationRefreshInterval(isWeb: true),
+      const Duration(seconds: 10),
+    );
+    expect(
+      notificationRefreshInterval(isWeb: false),
+      const Duration(minutes: 1),
+    );
+  });
+
   group('notificationRouteForType', () {
     test('maps backend and display notification types to destinations', () {
       expect(
