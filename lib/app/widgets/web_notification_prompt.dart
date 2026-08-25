@@ -42,8 +42,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     final unreadSignature = notificationSignature(unreadNotifications);
     final shouldShow =
         unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
-    final safeTop = MediaQuery.paddingOf(context).top;
-    final bannerTop = safeTop + (widget.isHome ? 86 : 12);
+    final bannerTop = notificationPromptTop(
+      isHome: widget.isHome,
+      safeTop: MediaQuery.paddingOf(context).top,
+    );
 
     if (!shouldShow) return widget.child;
 
@@ -52,17 +54,18 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         widget.child,
         Positioned(
           top: bannerTop,
-          left: 12,
-          right: 12,
-          child: SafeArea(
-            bottom: false,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: FigmaMobileCanvas.maxWebWidth,
-                ),
+          left: 0,
+          right: 0,
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: FigmaMobileCanvas.maxWebWidth,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: _UnreadNotificationBanner(
+                  key: const ValueKey('web-notification-banner'),
                   unreadCount: unreadCount,
                   onDismiss: () => setState(
                     () => _dismissedUnreadSignature = unreadSignature,
@@ -81,6 +84,13 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
   }
 }
 
+/// Keeps the prompt below the home search field or the standard page header.
+double notificationPromptTop({required bool isHome, required double safeTop}) {
+  return safeTop + (isHome ? 74 : 66);
+}
+
+String notificationCountLabel(int unreadCount) => '읽지 않은 알림 $unreadCount건';
+
 /// Produces a stable identity for the current unread set. Using only the count
 /// would miss a newly arrived notification that replaces one just read.
 String notificationSignature(Iterable<NotificationModel> notifications) {
@@ -95,6 +105,7 @@ String notificationSignature(Iterable<NotificationModel> notifications) {
 
 class _UnreadNotificationBanner extends StatelessWidget {
   const _UnreadNotificationBanner({
+    super.key,
     required this.unreadCount,
     required this.onDismiss,
     required this.onOpen,
@@ -106,9 +117,7 @@ class _UnreadNotificationBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final countText = unreadCount == 1
-        ? '새 알림이 있어요'
-        : '새 알림 $unreadCount개가 있어요';
+    final countText = notificationCountLabel(unreadCount);
 
     return Material(
       color: Colors.transparent,
@@ -144,6 +153,8 @@ class _UnreadNotificationBanner extends StatelessWidget {
                 children: [
                   Text(
                     countText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: AppColors.ink,
                       fontSize: 13,
