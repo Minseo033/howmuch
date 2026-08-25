@@ -6,10 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/network/backend_warmup_service.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
+import 'package:howmuch/features/system/presentation/screens/service_preparation_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -25,6 +27,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _fade;
   late final Animation<double> _scale;
   Timer? _timer;
+  _StartupView _startupView = _StartupView.brand;
 
   @override
   void initState() {
@@ -60,8 +63,25 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
 
     if (!ApiClient.isAuthenticated) {
+      unawaited(ref.read(backendWarmupServiceProvider).ensureReady());
       _markLoggedOut();
       context.go(AppRoutes.login);
+      return;
+    }
+
+    var readinessResolved = false;
+    final preparingTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted || readinessResolved) return;
+      setState(() => _startupView = _StartupView.preparing);
+    });
+    final backendReady = await ref
+        .read(backendWarmupServiceProvider)
+        .ensureReady();
+    readinessResolved = true;
+    preparingTimer.cancel();
+    if (!mounted) return;
+    if (!backendReady) {
+      setState(() => _startupView = _StartupView.delayed);
       return;
     }
 
@@ -112,8 +132,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     } catch (e) {
       debugPrint('자동 로그인 프로필 확인 실패: $e');
       if (!mounted) return;
-      context.go(AppRoutes.networkError);
+      setState(() => _startupView = _StartupView.delayed);
     }
+  }
+
+  void _retryConnection() {
+    setState(() => _startupView = _StartupView.preparing);
+    _routeAfterSplash();
   }
 
   Future<({String profileImageUrl, String email})> _loadKakaoIdentity(
@@ -205,6 +230,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_startupView == _StartupView.preparing) {
+      return const ServicePreparationScreen.preparing();
+    }
+    if (_startupView == _StartupView.delayed) {
+      return ServicePreparationScreen.delayed(onRetry: _retryConnection);
+    }
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.white, // 바뀐 로고 이미지 배경에 맞춤
@@ -279,3 +310,5 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
   }
 }
+
+enum _StartupView { brand, preparing, delayed }
