@@ -81,12 +81,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         label: '카카오로 계속하기',
                         backgroundColor: const Color(0xFFFEE500),
                         foregroundColor: const Color(0xFF191600),
-                        icon: Icons.chat_bubble_rounded,
+                        mark: const _KakaoMark(),
                         onPressed: () => _loginWithKakao(context),
+                      ),
+                      const SizedBox(height: 10),
+                      _SocialLoginButton(
+                        label: '네이버로 계속하기',
+                        backgroundColor: const Color(0xFF03C75A),
+                        foregroundColor: Colors.white,
+                        mark: const _NaverMark(),
+                        statusLabel: '준비 중',
+                        onPressed: () => _showComingSoon(context, '네이버'),
+                      ),
+                      const SizedBox(height: 10),
+                      _SocialLoginButton(
+                        label: 'Google로 계속하기',
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1F2937),
+                        borderColor: const Color(0xFFD1D5DB),
+                        mark: const _GoogleMark(),
+                        statusLabel: '준비 중',
+                        onPressed: () => _showComingSoon(context, 'Google'),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: isCompact ? 22 : 32),
                   const SizedBox(height: 16.5, child: _DividerLabel()),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -147,6 +166,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     }
   }
+
+  void _showComingSoon(BuildContext context, String provider) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text('$provider 로그인은 준비 중이에요.')));
+  }
 }
 
 class _LoginLogo extends StatelessWidget {
@@ -188,51 +213,213 @@ class _SocialLoginButton extends StatelessWidget {
     required this.backgroundColor,
     required this.foregroundColor,
     required this.onPressed,
-    this.icon,
+    required this.mark,
+    this.borderColor,
+    this.statusLabel,
   });
 
   final String label;
   final Color backgroundColor;
   final Color foregroundColor;
   final VoidCallback onPressed;
-  final IconData? icon;
+  final Widget mark;
+  final Color? borderColor;
+  final String? statusLabel;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 51.9886360168457,
-      child: Material(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onPressed,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, color: foregroundColor, size: 18),
-                const SizedBox(width: 10),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  color: foregroundColor,
-                  fontFamily: LoginScreen.fontFamily,
-                  fontFamilyFallback: LoginScreen.fontFallback,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
+    final semanticLabel = statusLabel == null ? label : '$label, $statusLabel';
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: Material(
+          color: backgroundColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: borderColor == null
+                ? BorderSide.none
+                : BorderSide(color: borderColor!),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onPressed,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Positioned(left: 18, child: mark),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: foregroundColor,
+                    fontFamily: LoginScreen.fontFamily,
+                    fontFamilyFallback: LoginScreen.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
-              ),
-            ],
+                if (statusLabel != null)
+                  Positioned(
+                    right: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: foregroundColor.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        statusLabel!,
+                        style: TextStyle(
+                          color: foregroundColor.withValues(alpha: 0.72),
+                          fontFamily: LoginScreen.fontFamily,
+                          fontFamilyFallback: LoginScreen.fontFallback,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+}
+
+class _KakaoMark extends StatelessWidget {
+  const _KakaoMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 22,
+      height: 22,
+      child: CustomPaint(painter: _KakaoMarkPainter()),
+    );
+  }
+}
+
+class _KakaoMarkPainter extends CustomPainter {
+  const _KakaoMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFF191919);
+    final bubble = Rect.fromLTWH(1, 2, size.width - 2, size.height * 0.70);
+    canvas.drawOval(bubble, paint);
+    final tail = Path()
+      ..moveTo(size.width * 0.29, size.height * 0.63)
+      ..lineTo(size.width * 0.22, size.height * 0.91)
+      ..lineTo(size.width * 0.48, size.height * 0.72)
+      ..close();
+    canvas.drawPath(tail, paint);
+  }
+
+  @override
+  bool shouldRepaint(_KakaoMarkPainter oldDelegate) => false;
+}
+
+class _NaverMark extends StatelessWidget {
+  const _NaverMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 20,
+      height: 20,
+      child: CustomPaint(painter: _NaverMarkPainter()),
+    );
+  }
+}
+
+class _NaverMarkPainter extends CustomPainter {
+  const _NaverMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = Colors.white;
+    final path = Path()
+      ..moveTo(2, 2)
+      ..lineTo(size.width * 0.39, 2)
+      ..lineTo(size.width - 2, size.height - 2)
+      ..lineTo(size.width * 0.61, size.height - 2)
+      ..lineTo(2, 2)
+      ..close();
+    canvas.drawPath(path, paint);
+    canvas.drawRect(
+      Rect.fromLTWH(2, 2, size.width * 0.29, size.height - 4),
+      paint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(size.width * 0.69, 2, size.width * 0.21, size.height - 4),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NaverMarkPainter oldDelegate) => false;
+}
+
+class _GoogleMark extends StatelessWidget {
+  const _GoogleMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 21,
+      height: 21,
+      child: CustomPaint(painter: _GoogleMarkPainter()),
+    );
+  }
+}
+
+class _GoogleMarkPainter extends CustomPainter {
+  const _GoogleMarkPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
+    final strokeWidth = size.width * 0.22;
+    void arc(Color color, double start, double sweep) {
+      canvas.drawArc(
+        rect,
+        start,
+        sweep,
+        false,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.butt
+          ..strokeWidth = strokeWidth,
+      );
+    }
+
+    arc(const Color(0xFF4285F4), -0.13, 1.72);
+    arc(const Color(0xFF34A853), 1.59, 1.12);
+    arc(const Color(0xFFFBBC05), 2.71, 0.86);
+    arc(const Color(0xFFEA4335), 3.57, 1.52);
+    canvas.drawRect(
+      Rect.fromLTWH(
+        size.width * 0.52,
+        size.height * 0.46,
+        size.width * 0.43,
+        strokeWidth,
+      ),
+      Paint()..color = const Color(0xFF4285F4),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GoogleMarkPainter oldDelegate) => false;
 }
 
 class _DividerLabel extends StatelessWidget {

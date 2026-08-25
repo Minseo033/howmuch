@@ -51,11 +51,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('얼마고?'), findsOneWidget);
     expect(find.text('카카오로 계속하기'), findsOneWidget);
+    expect(find.text('네이버로 계속하기'), findsOneWidget);
+    expect(find.text('Google로 계속하기'), findsOneWidget);
+    expect(find.text('준비 중'), findsNWidgets(2));
 
     await tester.tap(find.text('로그인 없이 둘러보기'));
     await tester.pumpAndSettle();
     expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
     expect(find.text('앱 시작하기'), findsOneWidget);
+  });
+
+  testWidgets('unavailable social login explains its status', (tester) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('시작하기'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('네이버로 계속하기'));
+    await tester.pump();
+    expect(find.text('네이버 로그인은 준비 중이에요.'), findsOneWidget);
+
+    await tester.tap(find.text('Google로 계속하기'));
+    await tester.pump();
+    expect(find.text('Google 로그인은 준비 중이에요.'), findsOneWidget);
   });
 
   testWidgets('opens mypage', (tester) async {
