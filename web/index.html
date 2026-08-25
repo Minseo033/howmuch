@@ -299,6 +299,26 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    (async function startFlutterAfterKoreanFont() {
+      if (document.fonts && document.fonts.load) {
+        const koreanFontLoads = [400, 500, 700, 800].map(function(weight) {
+          return document.fonts.load(weight + ' 16px "Noto Sans KR"', '가나다라마바사');
+        });
+        const fontTimeout = new Promise(function(resolve) {
+          setTimeout(resolve, 4000);
+        });
+        try {
+          await Promise.race([Promise.all(koreanFontLoads), fontTimeout]);
+        } catch (_) {
+          // 네트워크 폰트가 실패해도 시스템 한글 폰트로 앱을 시작합니다.
+        }
+      }
+
+      const bootstrap = document.createElement('script');
+      bootstrap.src = 'flutter_bootstrap.js';
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </body>
 </html>

@@ -21,6 +21,8 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart'
+    as permission_handler;
 
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
 
@@ -64,6 +66,34 @@ Map<String, double>? parseKakaoMapBounds(String raw) {
   } catch (_) {
     return null;
   }
+}
+
+typedef LocationSettingsLauncher = Future<bool> Function();
+
+Future<bool> openLocationSettingsForStatus({
+  required bool serviceDisabled,
+  LocationSettingsLauncher? openLocationServices,
+  LocationSettingsLauncher? openAppPermissions,
+  LocationSettingsLauncher? openFallbackAppSettings,
+}) async {
+  final locationServicesLauncher =
+      openLocationServices ?? Geolocator.openLocationSettings;
+  final appPermissionsLauncher =
+      openAppPermissions ?? Geolocator.openAppSettings;
+  final fallbackLauncher =
+      openFallbackAppSettings ?? permission_handler.openAppSettings;
+
+  Future<bool> tryOpen(LocationSettingsLauncher launcher) async {
+    try {
+      return await launcher();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  if (serviceDisabled && await tryOpen(locationServicesLauncher)) return true;
+  if (await tryOpen(appPermissionsLauncher)) return true;
+  return tryOpen(fallbackLauncher);
 }
 
 class HomeMapScreen extends StatefulWidget {
@@ -274,6 +304,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _positionStream?.resume();
       _compassStream?.resume();
       _relayoutMobileMap();
+      _moveToCurrentLocation();
     } else if (state == AppLifecycleState.paused) {
       _positionStream?.pause();
       _compassStream?.pause();
@@ -657,9 +688,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!serviceEnabled) {
         if (mounted) {
           _showLocationNotice(
-            const _LocationNoticeData(
+            _LocationNoticeData(
               title: '위치 서비스를 켜주세요',
               message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
+              primaryLabel: '설정 열기',
+              onPrimaryPressed: () =>
+                  _openLocationSettings(serviceDisabled: true),
             ),
           );
         }
@@ -689,10 +723,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               title: '위치 권한이 꺼져 있어요',
               message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
               primaryLabel: '설정 열기',
-              onPrimaryPressed: () async {
-                _hideLocationNotice();
-                await Geolocator.openAppSettings();
-              },
+              onPrimaryPressed: () =>
+                  _openLocationSettings(serviceDisabled: false),
             ),
           );
         }
@@ -758,6 +790,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _hideLocationNotice() {
     if (!mounted) return;
     setState(() => _locationNotice = null);
+  }
+
+  Future<void> _openLocationSettings({required bool serviceDisabled}) async {
+    _hideLocationNotice();
+    final opened = await openLocationSettingsForStatus(
+      serviceDisabled: serviceDisabled,
+    );
+    if (!opened && mounted) {
+      _showLocationNotice(
+        const _LocationNoticeData(
+          title: '설정을 열지 못했어요',
+          message: '기기 설정에서 얼마고의 위치 권한을\n직접 허용해주세요.',
+        ),
+      );
+    }
   }
 
   Future<Position?> _getFreshPosition() async {
@@ -2094,13 +2141,23 @@ class _StoreInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const Positioned(left: 0, top: 0, child: _GovernmentBadge()),
         Positioned(
-          left: 77.5,
-          top: 2.2442626953125,
-          child: Text(
-            '· ${store.address.split(' ').take(3).join(' ')}',
-            style: _muted11,
+          left: 0,
+          right: 8,
+          top: 0,
+          child: Row(
+            children: [
+              _SourceBadge(isUserReported: store.isUserReported),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '· ${store.address.split(' ').take(3).join(' ')}',
+                  style: _muted11,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
         Positioned(
@@ -2589,27 +2646,34 @@ class _RankDot extends StatelessWidget {
   }
 }
 
-class _GovernmentBadge extends StatelessWidget {
-  const _GovernmentBadge();
+class _SourceBadge extends StatelessWidget {
+  const _SourceBadge({required this.isUserReported});
+
+  final bool isUserReported;
 
   @override
   Widget build(BuildContext context) {
+    final color = isUserReported ? HomeMapScreen.orange : HomeMapScreen.blue;
+    final background = isUserReported
+        ? const Color(0xFFFFF1E8)
+        : const Color(0xFFEFF4FF);
+
     return Container(
       height: 20.99431800842285,
       padding: const EdgeInsets.symmetric(horizontal: 7.997161865234375),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF4FF),
+        color: background,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: const [
-          _Dot(color: HomeMapScreen.blue, size: 5.994318008422852),
-          SizedBox(width: 5.994),
+        children: [
+          _Dot(color: color, size: 5.994318008422852),
+          const SizedBox(width: 5.994),
           Text(
-            '정부 인증',
+            isUserReported ? '사용자 제보' : '정부 인증',
             style: TextStyle(
-              color: HomeMapScreen.blue,
+              color: color,
               fontFamily: HomeMapScreen.fontFamily,
               fontFamilyFallback: HomeMapScreen.fontFallback,
               fontSize: 10,

@@ -23,6 +23,17 @@ void main() {
     );
     expect(_store(latitude: 37, longitude: 127).hasValidCoordinates, isTrue);
   });
+
+  test('distinguishes user reports from government data', () {
+    final userStore = Store.fromJson({'source': ' user '});
+    final governmentStore = Store.fromJson({'source': 'GOV'});
+    final missingSourceStore = Store.fromJson({});
+
+    expect(userStore.source, 'USER');
+    expect(userStore.isUserReported, isTrue);
+    expect(governmentStore.isUserReported, isFalse);
+    expect(missingSourceStore.source, 'GOV');
+  });
 }
 
 Store _store({required double latitude, required double longitude}) {

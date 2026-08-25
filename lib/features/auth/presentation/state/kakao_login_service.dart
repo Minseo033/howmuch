@@ -44,9 +44,37 @@ class KakaoLoginService {
       final session = await _authenticateWithBackend(token.accessToken);
       if (session != null) {
         User user = await UserApi.instance.me();
-        final email = user.kakaoAccount?.email?.trim() ?? '';
+        var email = usableAccountEmail(user.kakaoAccount?.email) ?? '';
+        if (email.isEmpty && user.kakaoAccount?.emailNeedsAgreement == true) {
+          try {
+            await UserApi.instance.loginWithNewScopes(const ['account_email']);
+            user = await UserApi.instance.me();
+            email = usableAccountEmail(user.kakaoAccount?.email) ?? '';
+          } catch (error) {
+            debugPrint('카카오 이메일 추가 동의를 완료하지 못했습니다: $error');
+          }
+        }
+        final kakaoProfile = user.kakaoAccount?.profile;
+        final profileImageUrl =
+            (kakaoProfile?.profileImageUrl ?? kakaoProfile?.thumbnailImageUrl)
+                ?.toString()
+                .trim() ??
+            '';
         // 백엔드가 발급한 공식 uid/세션 토큰을 사용합니다.
         final firebaseUid = session.uid;
+
+        final prefs = await SharedPreferences.getInstance();
+        if (email.isNotEmpty) {
+          await prefs.setString(kakaoEmailPreferenceKey, email);
+        }
+        if (profileImageUrl.isNotEmpty) {
+          await prefs.setString(
+            kakaoProfileImagePreferenceKey,
+            profileImageUrl,
+          );
+        } else {
+          await prefs.remove(kakaoProfileImagePreferenceKey);
+        }
 
         // 💡 인증 상태 업데이트 (firebaseUid + 세션 토큰 포함)
         _ref
@@ -58,6 +86,7 @@ class KakaoLoginService {
                 email: email,
                 firebaseUid: firebaseUid,
                 sessionToken: session.sessionToken,
+                profileImageUrl: profileImageUrl,
               ),
             );
 
@@ -76,15 +105,24 @@ class KakaoLoginService {
               .update(
                 (state) => state.copyWith(
                   nickname: profile['nickname'] as String? ?? state.nickname,
-                  email: _usableEmail(profile['email']) ?? email,
+                  email: usableAccountEmail(profile['email']) ?? email,
                   region: profile['region'] as String? ?? state.region,
                   favoriteCategories:
                       parsedCategories ?? state.favoriteCategories,
+                  profileImageUrl: profileImageUrl,
                 ),
               );
           _ref.read(appRouterProvider).go(AppRoutes.home);
         } else {
           // 신규 사용자: 프로필 설정 화면으로 이동
+          _ref
+              .read(userProfileProvider.notifier)
+              .update(
+                (state) => state.copyWith(
+                  email: email,
+                  profileImageUrl: profileImageUrl,
+                ),
+              );
           _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
         }
 
@@ -100,10 +138,34 @@ class KakaoLoginService {
     }
   }
 
-  String? _usableEmail(Object? value) {
-    final email = value?.toString().trim() ?? '';
-    if (email.isEmpty || email.toLowerCase() == 'unknown') return null;
-    return email;
+  Future<String?> refreshKakaoEmail({bool requestConsent = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    var email = usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey));
+
+    try {
+      var user = await UserApi.instance.me();
+      email = usableAccountEmail(user.kakaoAccount?.email) ?? email;
+      if (email == null &&
+          requestConsent &&
+          user.kakaoAccount?.emailNeedsAgreement == true) {
+        await UserApi.instance.loginWithNewScopes(const ['account_email']);
+        user = await UserApi.instance.me();
+        email = usableAccountEmail(user.kakaoAccount?.email);
+      }
+    } catch (error) {
+      debugPrint('카카오 이메일 갱신 실패: $error');
+    }
+
+    if (email == null) return null;
+    final resolvedEmail = email;
+    await prefs.setString(kakaoEmailPreferenceKey, resolvedEmail);
+    _ref
+        .read(authStateProvider.notifier)
+        .update((state) => state.copyWith(email: resolvedEmail));
+    _ref
+        .read(userProfileProvider.notifier)
+        .update((state) => state.copyWith(email: resolvedEmail));
+    return resolvedEmail;
   }
 
   Future<({String uid, String sessionToken})?> _authenticateWithBackend(
@@ -165,6 +227,9 @@ class KakaoLoginService {
           .unregisterCurrentDevice();
     } finally {
       await ApiClient.setSessionToken(null);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(kakaoProfileImagePreferenceKey);
+      await prefs.remove(kakaoEmailPreferenceKey);
       _ref.read(authStateProvider.notifier).state = const AuthState(
         isLoggedIn: false,
         provider: '',

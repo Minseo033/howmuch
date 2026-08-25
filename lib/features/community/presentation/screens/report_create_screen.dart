@@ -12,6 +12,7 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
+import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({super.key, this.initialReport});
@@ -195,14 +196,21 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
-    if (!_basicInfoComplete || !_priceInfoComplete) {
-      _showSnack('필수 정보를 모두 입력해주세요.');
-      return;
-    }
 
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) {
-      _showSnack('제보하려면 로그인이 필요해요.');
+      final shouldLogin = await showLoginRequiredDialog(
+        context,
+        message: '제보하려면 카카오 로그인이 필요해요.',
+      );
+      if (shouldLogin && mounted) {
+        context.push(AppRoutes.login);
+      }
+      return;
+    }
+
+    if (!_basicInfoComplete || !_priceInfoComplete) {
+      _showSnack('필수 정보를 모두 입력해주세요.');
       return;
     }
 

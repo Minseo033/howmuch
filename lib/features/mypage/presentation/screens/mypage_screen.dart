@@ -146,9 +146,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
             .update(
               (state) => state.copyWith(
                 nickname: profile['nickname']?.toString(),
-                email: profile['email']?.toString().isNotEmpty == true
-                    ? profile['email'].toString()
-                    : auth.email,
+                email:
+                    usableAccountEmail(profile['email']) ??
+                    usableAccountEmail(auth.email) ??
+                    state.email,
                 region: profile['region']?.toString(),
                 favoriteCategories: categories,
                 nicknamePublic: profile['nicknamePublic'] is bool
@@ -233,6 +234,11 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
+    final auth = ref.watch(authStateProvider);
+    final displayEmail =
+        usableAccountEmail(profile.email) ??
+        usableAccountEmail(auth.email) ??
+        '이메일 정보 없음';
     final reports = ref.watch(userReportsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
@@ -270,6 +276,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                       height: 163.23863220214844,
                       child: _ProfileCard(
                         profile: profile,
+                        email: displayEmail,
                         onEdit: () => context.go(AppRoutes.profileEdit),
                       ),
                     ),
@@ -440,39 +447,50 @@ class _Header extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 48.991455078125,
-            top: 16.4775390625 + topOffset,
-            child: GestureDetector(
-              onTap: () => context.push(AppRoutes.notifications),
-              behavior: HitTestBehavior.opaque,
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: MypageScreen.ink,
-                size: 18,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 20,
-            top: 16.4775390625 + topOffset,
-            child: Semantics(
-              button: true,
-              label: '계정 설정',
-              child: GestureDetector(
-                onTap: () => context.push(AppRoutes.accountManagement),
-                behavior: HitTestBehavior.opaque,
-                child: const SizedBox(
-                  width: 32,
-                  height: 32,
-                  child: Center(
-                    child: Icon(
-                      Icons.settings_outlined,
-                      color: MypageScreen.ink,
-                      size: 18,
+            right: 12,
+            top: 9.4775390625 + topOffset,
+            height: 32,
+            child: Row(
+              children: [
+                Semantics(
+                  button: true,
+                  label: '알림',
+                  child: GestureDetector(
+                    onTap: () => context.push(AppRoutes.notifications),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Center(
+                        child: Icon(
+                          Icons.notifications_none_rounded,
+                          color: MypageScreen.ink,
+                          size: 18,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                Semantics(
+                  button: true,
+                  label: '계정 설정',
+                  child: GestureDetector(
+                    onTap: () => context.push(AppRoutes.accountManagement),
+                    behavior: HitTestBehavior.opaque,
+                    child: const SizedBox(
+                      width: 32,
+                      height: 32,
+                      child: Center(
+                        child: Icon(
+                          Icons.settings_outlined,
+                          color: MypageScreen.ink,
+                          size: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -482,9 +500,14 @@ class _Header extends StatelessWidget {
 }
 
 class _ProfileCard extends StatelessWidget {
-  const _ProfileCard({required this.profile, required this.onEdit});
+  const _ProfileCard({
+    required this.profile,
+    required this.email,
+    required this.onEdit,
+  });
 
   final UserProfile profile;
+  final String email;
   final VoidCallback onEdit;
 
   @override
@@ -522,11 +545,8 @@ class _ProfileCard extends StatelessWidget {
                   color: AppColors.white.withValues(alpha: .25),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: Text(
-                    '👑',
-                    style: TextStyle(fontSize: 24, height: 1.5),
-                  ),
+                child: ClipOval(
+                  child: _ProfileAvatarImage(imageUrl: profile.profileImageUrl),
                 ),
               ),
             ),
@@ -560,7 +580,7 @@ class _ProfileCard extends StatelessWidget {
               left: 87.98294067382812,
               top: 72.75537109375,
               child: Text(
-                profile.email,
+                email,
                 style: _white11.copyWith(
                   color: AppColors.white.withValues(alpha: .85),
                 ),
@@ -624,6 +644,28 @@ class _ProfileCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ProfileAvatarImage extends StatelessWidget {
+  const _ProfileAvatarImage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback() => const Center(
+      child: Text('👑', style: TextStyle(fontSize: 24, height: 1.5)),
+    );
+
+    if (imageUrl.isEmpty) return fallback();
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, _, _) => fallback(),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -34,6 +35,10 @@ class AccountManagementScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
     final auth = ref.watch(authStateProvider);
+    final email =
+        usableAccountEmail(profile.email) ??
+        usableAccountEmail(auth.email) ??
+        '이메일 정보 없음';
     final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
     final provider = auth.provider == '이메일' ? '카카오' : auth.provider;
     final scrollContentHeight = 672 + topOffset;
@@ -66,6 +71,7 @@ class AccountManagementScreen extends ConsumerWidget {
                 child: _ProfileAccountCard(
                   profile: profile,
                   provider: provider,
+                  email: email,
                   onEdit: () => context.go(AppRoutes.profileEdit),
                 ),
               ),
@@ -114,11 +120,15 @@ class AccountManagementScreen extends ConsumerWidget {
                         .read(pushNotificationServiceProvider)
                         .unregisterCurrentDevice();
                     await ApiClient.setSessionToken(null);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.remove(kakaoProfileImagePreferenceKey);
+                    await prefs.remove(kakaoEmailPreferenceKey);
                     ref.read(authStateProvider.notifier).state = auth.copyWith(
                       isLoggedIn: false,
                       email: '',
                       firebaseUid: '',
                       sessionToken: '',
+                      profileImageUrl: '',
                     );
                     ref
                         .read(userProfileProvider.notifier)
@@ -238,11 +248,13 @@ class _ProfileAccountCard extends StatelessWidget {
   const _ProfileAccountCard({
     required this.profile,
     required this.provider,
+    required this.email,
     required this.onEdit,
   });
 
   final UserProfile profile;
   final String provider;
+  final String email;
   final VoidCallback onEdit;
 
   @override
@@ -250,10 +262,10 @@ class _ProfileAccountCard extends StatelessWidget {
     return _RoundedPanel(
       child: Stack(
         children: [
-          const Positioned(
+          Positioned(
             left: 16.9034423828125,
             top: 16.9033203125,
-            child: _Avatar(),
+            child: _Avatar(imageUrl: profile.profileImageUrl),
           ),
           Positioned(
             left: 84.8863525390625,
@@ -272,7 +284,7 @@ class _ProfileAccountCard extends StatelessWidget {
                       const SizedBox(width: 3.992),
                       Expanded(
                         child: Text(
-                          '$provider · ${profile.email}',
+                          '$provider · $email',
                           style: _muted11,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -570,7 +582,9 @@ class _SmallPillButton extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar();
+  const _Avatar({required this.imageUrl});
+
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -581,8 +595,18 @@ class _Avatar extends StatelessWidget {
         color: AppColors.primaryLight,
         shape: BoxShape.circle,
       ),
+      clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
-      child: const Text('👑', style: TextStyle(fontSize: 24, height: 1.5)),
+      child: imageUrl.isEmpty
+          ? const Text('👑', style: TextStyle(fontSize: 24, height: 1.5))
+          : Image.network(
+              imageUrl,
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  const Text('👑', style: TextStyle(fontSize: 24, height: 1.5)),
+            ),
     );
   }
 }

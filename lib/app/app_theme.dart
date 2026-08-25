@@ -14,6 +14,14 @@ class AppTheme {
     return ThemeData(
       colorScheme: colorScheme,
       useMaterial3: true,
+      fontFamily: 'Noto Sans KR',
+      fontFamilyFallback: const [
+        'Apple SD Gothic Neo',
+        'AppleGothic',
+        'Malgun Gothic',
+        'Arial Unicode MS',
+        'sans-serif',
+      ],
       scaffoldBackgroundColor: AppColors.surface,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,

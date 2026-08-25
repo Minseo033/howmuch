@@ -80,16 +80,22 @@ class SessionExpiredScreen extends ConsumerWidget {
             ),
           ),
           Positioned(
-            left: 147.72726440429688,
+            left: 0,
+            right: 0,
             top: topOffset + 125.67,
-            width: 80,
             height: 80,
-            child: const _StateIcon(icon: Icons.lock_outline_rounded, size: 36),
+            child: const Center(
+              child: SizedBox(
+                width: 80,
+                height: 80,
+                child: _StateIcon(icon: Icons.lock_outline_rounded, size: 36),
+              ),
+            ),
           ),
           Positioned(
-            left: 80.69601440429688,
+            left: 24,
+            right: 24,
             top: topOffset + 229.66,
-            width: 214.0625,
             height: 30,
             child: const Text(
               '다시 로그인이 필요해요',
@@ -98,9 +104,9 @@ class SessionExpiredScreen extends ConsumerWidget {
             ),
           ),
           Positioned(
-            left: 88.44461059570312,
+            left: 24,
+            right: 24,
             top: topOffset + 267.66,
-            width: 198.56533813476562,
             height: 66.26420593261719,
             child: const Text(
               '보안을 위해 세션이 만료되었어요.\n찜 · 제보 · 절약 리포트는\n로그인 후 이용할 수 있어요.',
@@ -109,16 +115,16 @@ class SessionExpiredScreen extends ConsumerWidget {
             ),
           ),
           Positioned(
-            left: 31.9886474609375,
+            left: 32,
+            right: 32,
             top: topOffset + 357.91,
-            width: 311.4772644042969,
             height: 128.452,
             child: const _AvailableWithoutLoginPanel(),
           ),
           Positioned(
-            left: 27.9971923828125,
+            left: 28,
+            right: 28,
             top: actionTop,
-            width: 319.460205078125,
             child: Column(
               children: [
                 _KakaoButton(onPressed: loginAgain),
@@ -223,7 +229,7 @@ class _KakaoButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 319.460205078125,
+      width: double.infinity,
       height: 51.9886360168457,
       child: Material(
         color: SessionExpiredScreen.kakao,
@@ -231,17 +237,16 @@ class _KakaoButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onPressed,
-          child: const Stack(
-            alignment: Alignment.center,
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Positioned(
-                left: 15.9942626953125,
-                child: Icon(
-                  Icons.chat_bubble_rounded,
-                  color: SessionExpiredScreen.kakaoInk,
-                  size: 18,
-                ),
+              Icon(
+                Icons.chat_bubble_rounded,
+                color: SessionExpiredScreen.kakaoInk,
+                size: 18,
               ),
+              SizedBox(width: 10),
               Text('카카오로 다시 로그인', style: _kakaoButtonText),
             ],
           ),
@@ -259,7 +264,7 @@ class _LaterButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 319.460205078125,
+      width: double.infinity,
       height: 50,
       child: TextButton(
         onPressed: onPressed,

@@ -17,6 +17,7 @@ class UserProfile {
     required this.favoriteStoreCount,
     required this.nicknamePublic,
     required this.activityPublic,
+    this.profileImageUrl = '',
   });
 
   final String nickname;
@@ -30,6 +31,7 @@ class UserProfile {
   final int favoriteStoreCount;
   final bool nicknamePublic;
   final bool activityPublic;
+  final String profileImageUrl;
 
   static const guest = UserProfile(
     nickname: '게스트',
@@ -71,6 +73,7 @@ class UserProfile {
     int? favoriteStoreCount,
     bool? nicknamePublic,
     bool? activityPublic,
+    String? profileImageUrl,
   }) {
     return UserProfile(
       nickname: nickname ?? this.nickname,
@@ -84,6 +87,7 @@ class UserProfile {
       favoriteStoreCount: favoriteStoreCount ?? this.favoriteStoreCount,
       nicknamePublic: nicknamePublic ?? this.nicknamePublic,
       activityPublic: activityPublic ?? this.activityPublic,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
     );
   }
 }
