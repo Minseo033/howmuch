@@ -13,6 +13,9 @@
 build/
 .flutter_mcp/
 
+# Local Codex/UI skill working files
+.ui-craft/
+
 # Java / Spring
 .gradle/
 target/
