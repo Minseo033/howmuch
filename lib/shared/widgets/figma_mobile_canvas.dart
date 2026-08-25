@@ -31,6 +31,12 @@ class FigmaMobileCanvas extends StatelessWidget {
   /// Max width for desktop web centering
   static const double maxWebWidth = 430.0;
 
+  /// Keeps narrow or zoomed browser viewports inside their actual bounds.
+  static double webContentWidthFor(double viewportWidth) {
+    if (!viewportWidth.isFinite || viewportWidth <= 0) return 0;
+    return math.min(viewportWidth, maxWebWidth);
+  }
+
   final Widget child;
   final Color backgroundColor;
   final Color outerBackgroundColor;
@@ -44,7 +50,7 @@ class FigmaMobileCanvas extends StatelessWidget {
   static double logicalWidthOf(BuildContext context) {
     if (!_isWeb) return designWidth;
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    return viewportWidth.clamp(320.0, maxWebWidth);
+    return webContentWidthFor(viewportWidth);
   }
 
   /// Returns the scale factor applied to the canvas for a given context.
@@ -120,16 +126,38 @@ class FigmaMobileCanvas extends StatelessWidget {
     final viewportHeight = constraints.maxHeight;
 
     // On mobile web: fill 100% width
-    final contentWidth = viewportWidth.clamp(320.0, maxWebWidth);
+    final contentWidth = webContentWidthFor(viewportWidth);
+    final showDesktopFrame = viewportWidth > maxWebWidth;
 
     return Align(
       alignment: Alignment.topCenter,
-      child: SizedBox(
-        width: contentWidth,
-        height: viewportHeight,
-        child: ColoredBox(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           color: backgroundColor,
-          child: _WebSafeArea(child: child),
+          border: showDesktopFrame
+              ? const Border.symmetric(
+                  vertical: BorderSide(color: Color(0x1A94A3B8)),
+                )
+              : null,
+          boxShadow: showDesktopFrame
+              ? const [
+                  BoxShadow(
+                    color: Color(0x120F172A),
+                    blurRadius: 24,
+                    offset: Offset(0, 8),
+                  ),
+                ]
+              : null,
+        ),
+        child: SizedBox(
+          width: contentWidth,
+          height: viewportHeight,
+          child: ClipRect(
+            child: ColoredBox(
+              color: backgroundColor,
+              child: _WebSafeArea(child: SizedBox.expand(child: child)),
+            ),
+          ),
         ),
       ),
     );

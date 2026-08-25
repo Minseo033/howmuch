@@ -30,5 +30,12 @@ void main() {
 
     expect(reportIcon.color, HowmuchBottomNav.blue);
     expect(reportLabel.style?.color, HowmuchBottomNav.blue);
+    final reportSemantics = tester.widget<Semantics>(
+      find.byWidgetPredicate(
+        (widget) => widget is Semantics && widget.properties.label == '리포트 탭',
+      ),
+    );
+    expect(reportSemantics.properties.button, isTrue);
+    expect(reportSemantics.properties.selected, isTrue);
   });
 }

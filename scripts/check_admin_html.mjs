@@ -22,6 +22,23 @@ for (const file of files) {
     if (/\b(?:window\.)?confirm\s*\(/.test(html)) {
       throw new Error(`${file}에서 브라우저 기본 confirm()을 사용하면 안 됩니다.`);
     }
+
+    const accessibilityGuards = [
+      ['<dialog class="modal-backdrop" id="rejectModal"', '관리자 작업 확인창을 네이티브 dialog로 제공해야 합니다.'],
+      ['showModal()', '관리자 dialog는 showModal()로 열어 포커스를 가둬야 합니다.'],
+      ['modalTriggers', '관리자 dialog를 닫은 뒤 실행 버튼으로 포커스를 복원해야 합니다.'],
+      ['class="sr-only" for="keyInput"', '관리자 키 입력에는 접근 가능한 레이블이 필요합니다.'],
+      ['prefers-reduced-motion: reduce', '토스트 애니메이션은 모션 축소 설정을 존중해야 합니다.'],
+    ];
+    for (const [guard, message] of accessibilityGuards) {
+      if (!html.includes(guard)) throw new Error(`${file}: ${message}`);
+    }
+    if (/transition\s*:\s*all\b/i.test(html)) {
+      throw new Error(`${file}에서 transition: all을 사용하면 안 됩니다.`);
+    }
+    if (/<div[^>]+class="modal-backdrop"/i.test(html)) {
+      throw new Error(`${file}의 모달 배경은 div가 아닌 dialog여야 합니다.`);
+    }
   }
   const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map((match) => match[1])

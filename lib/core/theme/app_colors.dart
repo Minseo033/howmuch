@@ -55,4 +55,16 @@ class AppColors {
 
   static const Color white = Colors.white;
   static const Color transparent = Colors.transparent;
+
+  // Semantic surface and content roles. New shared components should prefer
+  // these names over feature-local raw colors.
+  static const Color surfaceCanvas = surface;
+  static const Color surfaceRaised = white;
+  static const Color surfaceOverlay = white;
+  static const Color surfaceSunken = background;
+  static const Color textPrimary = ink;
+  static const Color textSecondary = muted;
+  static const Color textDisabled = disabled;
+  static const Color accent = primary;
+  static const Color reportAccent = orangeTheme;
 }
