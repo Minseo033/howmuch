@@ -322,10 +322,14 @@ public class VisitController {
                 ));
             }
 
-            String industry = request.getIndustry();
-            if (industry == null || industry.isBlank()) {
-                industry = firebaseService.findIndustryByStoreName(request.getStoreName());
+            String industry = coordinates.industry();
+            if (coordinates.storeId() != null && !coordinates.storeId().isBlank()) {
+                request.setStoreId(coordinates.storeId());
             }
+            if (coordinates.storeName() != null && !coordinates.storeName().isBlank()) {
+                request.setStoreName(coordinates.storeName());
+            }
+            request.setIndustry(industry);
             // 💡 절약 금액 = 참가격(시장 평균가) − 결제가 (ReferencePrices, 메뉴 매칭 우선)
             long savedAmount = ReferencePrices.savedAmount(
                     request.getMenu(), industry, request.getPrice());

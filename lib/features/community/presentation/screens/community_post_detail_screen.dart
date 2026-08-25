@@ -51,6 +51,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   bool _isSubmitting = false;
   bool _likeInFlight = false;
   bool _notificationInFlight = false;
+  bool _liveRefreshInFlight = false;
   bool _likedByMe = false;
   bool _notificationEnabled = false;
   Map<String, dynamic>? _postData;
@@ -102,7 +103,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   }
 
   Future<void> _fetchComments() async {
-    if (widget.postId.isEmpty) return;
+    if (widget.postId.isEmpty || _commentsLoading || _liveRefreshInFlight) {
+      return;
+    }
     setState(() {
       _commentsLoading = true;
       _commentsUnavailable = false;
@@ -149,12 +152,15 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     if (!mounted ||
         widget.postId.isEmpty ||
         _isLoading ||
+        _commentsLoading ||
         _isSubmitting ||
         _likeInFlight ||
-        _notificationInFlight) {
+        _notificationInFlight ||
+        _liveRefreshInFlight) {
       return;
     }
 
+    _liveRefreshInFlight = true;
     try {
       final detailFuture = _service.fetchFeedDetail(widget.postId);
       final commentsFuture = _service.fetchComments(widget.postId);
@@ -188,6 +194,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
       });
     } catch (e) {
       debugPrint('게시글 실시간 갱신 오류: $e');
+    } finally {
+      _liveRefreshInFlight = false;
     }
   }
 
@@ -397,8 +405,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     final keyboardInset = designScale <= 0
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    final composerBottomGap =
-        keyboardInset > 0 ? keyboardInset : (bottomOffset + 12);
+    final composerBottomGap = keyboardInset > 0
+        ? keyboardInset
+        : (bottomOffset + 12);
     const composerTopPadding = 10.0;
     const composerHeight = 43.991;
     final replyTarget = _replyTarget;

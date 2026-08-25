@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 
 final inquiryHttpClientProvider = Provider<http.Client>((ref) {
-  final client = http.Client();
+  final client = ApiClient.createHttpClient();
   ref.onDispose(client.close);
   return client;
 });
@@ -76,7 +76,8 @@ class InquiryApiException implements Exception {
 }
 
 class InquiryService {
-  InquiryService([http.Client? client]) : _client = client ?? http.Client();
+  InquiryService([http.Client? client])
+    : _client = client ?? ApiClient.createHttpClient();
 
   final http.Client _client;
 

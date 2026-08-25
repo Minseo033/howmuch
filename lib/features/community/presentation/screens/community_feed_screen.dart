@@ -6,7 +6,6 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:geolocator/geolocator.dart';
@@ -85,7 +84,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 8),
       ).timeout(const Duration(seconds: 10));
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/locations/region', {
               'lat': position.latitude.toString(),
@@ -122,7 +121,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     }
 
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/community/feed'),
             headers: ApiClient.jsonHeaders(auth: true),

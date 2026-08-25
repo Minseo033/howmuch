@@ -29,6 +29,7 @@ class FirebaseServiceUserDeletionTest {
         stubEmptyQuery(firestore, "stores_user", "reporterId", uid);
         for (String collection : List.of(
                 "visits",
+                "receipt_verifications",
                 "favorites",
                 "inquiries",
                 "comments",
@@ -47,6 +48,7 @@ class FirebaseServiceUserDeletionTest {
 
         assertThat(result).containsEntry("uid", uid)
                 .containsEntry("inquiries", 0)
+                .containsEntry("receiptVerifications", 0)
                 .containsEntry("comments", 0)
                 .containsEntry("feedLikes", 0)
                 .containsEntry("feedSubscriptions", 0)

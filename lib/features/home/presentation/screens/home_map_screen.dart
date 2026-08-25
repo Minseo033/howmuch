@@ -16,6 +16,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
+import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
@@ -1067,8 +1068,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_searchFilter.maxPrice != null) {
         stores = stores.where((s) {
-          final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
-          return p == null || p <= _searchFilter.maxPrice!;
+          return SearchFilterPolicy.matchesMaxPrice(s, _searchFilter.maxPrice!);
         }).toList();
       }
 
@@ -1112,15 +1112,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
 
       if (_searchFilter.sortOrder == '저렴한순') {
-        stores.sort((a, b) {
-          final pa =
-              int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
-              999999;
-          final pb =
-              int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
-              999999;
-          return pa.compareTo(pb);
-        });
+        stores.sort(SearchFilterPolicy.compareByPrice);
       } else {
         if (_lastKnownPosition != null) {
           stores.sort((a, b) {

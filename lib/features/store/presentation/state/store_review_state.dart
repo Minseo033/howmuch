@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/review_model.dart';
@@ -22,7 +21,7 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
 
     final url = ApiClient.uri('/api/review', {'storeId': storeId});
     try {
-      final response = await http
+      final response = await ApiClient
           .get(url, headers: {'Accept': 'application/json'})
           .timeout(ApiClient.defaultTimeout);
 
@@ -48,7 +47,7 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
   Future<bool> addReview(Review review) async {
     final url = ApiClient.uri('/api/review');
     try {
-      final response = await http
+      final response = await ApiClient
           .post(
             url,
             headers: ApiClient.jsonHeaders(auth: true),
@@ -125,7 +124,7 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
 
     state = const AsyncValue.loading();
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/review/me'),
             headers: ApiClient.jsonHeaders(auth: true),

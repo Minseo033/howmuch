@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../../core/network/api_client.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
@@ -51,7 +50,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
     });
 
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/visits'),
             headers: ApiClient.jsonHeaders(auth: true),

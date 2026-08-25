@@ -26,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.Optional;
@@ -81,6 +82,26 @@ class VisitControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         verify(firebaseService).saveVisit(anyString(), any(), anyLong());
+    }
+
+    @Test
+    void savesCanonicalStoreMetadataInsteadOfClientSuppliedIndustry() throws Exception {
+        authenticate();
+        when(firebaseService.findStoreCoordinates(any(), any()))
+                .thenReturn(Optional.of(new StoreCoordinates(
+                        37.5665, 126.9780, "canonical-id", "정식 매장명", "한식")));
+        when(firebaseService.saveVisit(anyString(), any(), anyLong())).thenReturn("visit-1");
+        VisitRequest requestBody = validRequest();
+        requestBody.setIndustry("클라이언트 조작 업종");
+
+        ResponseEntity<?> response = controller.createVisit(requestBody, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        ArgumentCaptor<VisitRequest> captor = ArgumentCaptor.forClass(VisitRequest.class);
+        verify(firebaseService).saveVisit(anyString(), captor.capture(), anyLong());
+        assertThat(captor.getValue().getStoreId()).isEqualTo("canonical-id");
+        assertThat(captor.getValue().getStoreName()).isEqualTo("정식 매장명");
+        assertThat(captor.getValue().getIndustry()).isEqualTo("한식");
     }
 
     @Test

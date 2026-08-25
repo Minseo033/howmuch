@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
-import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -116,35 +114,7 @@ class AccountManagementScreen extends ConsumerWidget {
                 height: 49.289772033691406,
                 child: _LogoutCard(
                   onTap: () async {
-                    await ref
-                        .read(pushNotificationServiceProvider)
-                        .unregisterCurrentDevice();
-                    await ApiClient.setSessionToken(null);
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove(kakaoProfileImagePreferenceKey);
-                    await prefs.remove(kakaoEmailPreferenceKey);
-                    ref.read(authStateProvider.notifier).state = auth.copyWith(
-                      isLoggedIn: false,
-                      email: '',
-                      firebaseUid: '',
-                      sessionToken: '',
-                      profileImageUrl: '',
-                    );
-                    ref
-                        .read(userProfileProvider.notifier)
-                        .state = const UserProfile(
-                      nickname: '게스트',
-                      email: '',
-                      level: 'LV.1 새싹',
-                      region: '',
-                      favoriteCategories: [],
-                      savedAmount: 0,
-                      visitCount: 0,
-                      reportCount: 0,
-                      favoriteStoreCount: 0,
-                      nicknamePublic: true,
-                      activityPublic: false,
-                    );
+                    await ref.read(kakaoLoginServiceProvider).logout();
                     if (!context.mounted) return;
                     context.go(AppRoutes.login);
                   },

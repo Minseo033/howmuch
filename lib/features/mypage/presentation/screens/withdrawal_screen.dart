@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -181,7 +180,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     // 실제 회원 탈퇴 API 호출
     try {
       final url = ApiClient.uri('/api/user');
-      final response = await http
+      final response = await ApiClient
           .delete(url, headers: ApiClient.jsonHeaders(auth: true))
           .timeout(ApiClient.defaultTimeout);
 

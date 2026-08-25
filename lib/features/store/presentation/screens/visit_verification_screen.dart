@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/utils/latest_request_tracker.dart';
 import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
@@ -121,6 +122,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   String? _locationError;
 
   Timer? _estimateDebounce;
+  final LatestRequestTracker _estimateRequests = LatestRequestTracker();
   int? _estimatedSaved;
   int? _referencePrice;
   bool _matchedByMenu = false;
@@ -146,6 +148,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   @override
   void dispose() {
     _estimateDebounce?.cancel();
+    _estimateRequests.invalidate();
     _amountController.dispose();
     _menuController.dispose();
     super.dispose();
@@ -561,6 +564,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         ),
       );
       final response = await request.send().timeout(receiptSubmissionTimeout);
+      await ApiClient.handleResponseStatus(
+        response.statusCode,
+        requestHeaders: request.headers,
+      );
       final body = await response.stream.bytesToString();
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw _ReceiptSubmissionException(
@@ -660,16 +667,18 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
   void _onInputChanged() {
     _estimateDebounce?.cancel();
+    final requestId = _estimateRequests.next();
     _estimateDebounce = Timer(
       const Duration(milliseconds: 400),
-      _fetchEstimate,
+      () => _fetchEstimate(requestId),
     );
     setState(() {});
   }
 
-  Future<void> _fetchEstimate() async {
+  Future<void> _fetchEstimate(int requestId) async {
     final price = _priceValue;
     if (price <= 0) {
+      if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
       setState(() {
         _estimatedSaved = null;
         _referencePrice = null;
@@ -678,17 +687,17 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       return;
     }
     try {
-      final response = await http
-          .get(
-            ApiClient.uri('/api/visits/estimate', {
-              'storeName': _storeName,
-              'menu': _menuController.text.trim(),
-              'price': '$price',
-            }),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
-      if (response.statusCode == 200 && mounted) {
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/visits/estimate', {
+          'storeName': _storeName,
+          'menu': _menuController.text.trim(),
+          'price': '$price',
+        }),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+      if (response.statusCode == 200 &&
+          mounted &&
+          _estimateRequests.isCurrent(requestId)) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         setState(() {
@@ -733,24 +742,22 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (!mounted || !_isLocationVerified) {
         return;
       }
-      final response = await http
-          .post(
-            ApiClient.uri('/api/visits'),
-            headers: ApiClient.jsonHeaders(auth: true),
-            body: jsonEncode({
-              'storeId': widget.store?.id,
-              'storeName': _storeName,
-              'industry': widget.store?.industry,
-              'menu': _menuController.text.trim(),
-              'price': price,
-              'verificationMethod': 'LOCATION',
-              'verificationDistanceMeters': _distanceMeters!.round(),
-              'latitude': _currentLatitude,
-              'longitude': _currentLongitude,
-              'locationAccuracyMeters': _locationAccuracyMeters,
-            }),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.post(
+        ApiClient.uri('/api/visits'),
+        headers: ApiClient.jsonHeaders(auth: true),
+        body: jsonEncode({
+          'storeId': widget.store?.id,
+          'storeName': _storeName,
+          'industry': widget.store?.industry,
+          'menu': _menuController.text.trim(),
+          'price': price,
+          'verificationMethod': 'LOCATION',
+          'verificationDistanceMeters': _distanceMeters!.round(),
+          'latitude': _currentLatitude,
+          'longitude': _currentLongitude,
+          'locationAccuracyMeters': _locationAccuracyMeters,
+        }),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (!mounted) return;
       if (response.statusCode == 200) {

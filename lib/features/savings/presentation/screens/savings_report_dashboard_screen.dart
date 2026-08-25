@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 
@@ -91,7 +90,7 @@ class _SavingsReportDashboardScreenState
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
   Future<Map<String, dynamic>?> _fetchStats(String period) async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         ApiClient.uri('/api/savings/stats', {'period': period}),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
@@ -108,7 +107,7 @@ class _SavingsReportDashboardScreenState
   /// GET /api/savings/goal → goalAmount (미설정 시 0)
   Future<int> _fetchGoal() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         ApiClient.uri('/api/savings/goal'),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
@@ -126,7 +125,7 @@ class _SavingsReportDashboardScreenState
   /// GET /api/favorites → 찜한 매장 개수
   Future<int> _fetchFavoritesCount() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         ApiClient.uri('/api/favorites'),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
@@ -143,7 +142,7 @@ class _SavingsReportDashboardScreenState
   /// GET /api/report/my → 내 제보 개수
   Future<int> _fetchReportsCount() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         ApiClient.uri('/api/report/my'),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);

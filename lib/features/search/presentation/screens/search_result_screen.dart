@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
+import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
     as howmuch_home;
@@ -85,10 +86,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   //  API 검색
   // ────────────────────────────────────────────────
   Future<void> _doSearch(String q) async {
+    final query = q.trim();
     setState(() {
       _loading = true;
       _searched = true;
-      _query = q.trim();
+      _query = query;
       _errorMessage = null;
     });
 
@@ -104,7 +106,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         return;
       }
 
-      if (q.isEmpty && _filter.activeLabels.isEmpty) {
+      if (query.isEmpty && _filter.activeLabels.isEmpty) {
         setState(() => _results = []);
         return;
       }
@@ -112,14 +114,14 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       var stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
 
       // 검색어 필터링
-      if (q.isNotEmpty) {
+      if (query.isNotEmpty) {
         stores = stores
             .where(
               (s) =>
-                  s.storeName.contains(q) ||
-                  s.menu1.contains(q) ||
-                  s.industry.contains(q) ||
-                  s.address.contains(q),
+                  s.storeName.contains(query) ||
+                  s.menu1.contains(query) ||
+                  s.industry.contains(query) ||
+                  s.address.contains(query),
             )
             .toList();
       }
@@ -127,8 +129,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 가격 필터링
       if (_filter.maxPrice != null) {
         stores = stores.where((s) {
-          final p = int.tryParse(s.price1.replaceAll(RegExp(r'[^0-9]'), ''));
-          return p == null || p <= _filter.maxPrice!;
+          return SearchFilterPolicy.matchesMaxPrice(s, _filter.maxPrice!);
         }).toList();
       }
 
@@ -186,15 +187,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
-        stores.sort((a, b) {
-          final pa =
-              int.tryParse(a.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
-              999999;
-          final pb =
-              int.tryParse(b.price1.replaceAll(RegExp(r'[^0-9]'), '')) ??
-              999999;
-          return pa.compareTo(pb);
-        });
+        stores.sort(SearchFilterPolicy.compareByPrice);
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
         final pos = howmuch_home.HomeMapScreen.globalUserPosition;

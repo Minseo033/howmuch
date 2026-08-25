@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:howmuch/core/network/api_client.dart';
 
 class UserProfileAuthException implements Exception {
@@ -29,7 +28,7 @@ class UserProfileApiService {
   Future<Map<String, dynamic>?> fetchProfile({bool strict = false}) async {
     final url = ApiClient.uri('/api/user/profile');
     try {
-      final response = await http
+      final response = await ApiClient
           .get(url, headers: ApiClient.jsonHeaders(auth: true))
           .timeout(ApiClient.defaultTimeout);
 
@@ -82,7 +81,7 @@ class UserProfileApiService {
       };
       if (nicknamePublic != null) body['nicknamePublic'] = nicknamePublic;
       if (activityPublic != null) body['activityPublic'] = activityPublic;
-      final response = await http
+      final response = await ApiClient
           .post(
             url,
             headers: ApiClient.jsonHeaders(auth: true),

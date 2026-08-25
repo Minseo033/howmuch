@@ -44,7 +44,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
   static const _distances = ['500m 이내', '1km 이내', '3km 이내'];
 
   // ── 정렬 방식
-  static const _sortOrders = ['가까운순', '저렴한순', '리뷰 많은순', '절약금액순'];
+  static const _sortOrders = ['가까운순', '저렴한순'];
 
   late Set<String> _industries;
   late int? _maxPrice;

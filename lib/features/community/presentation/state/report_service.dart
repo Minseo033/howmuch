@@ -26,7 +26,7 @@ class ReportServiceException implements Exception {
 }
 
 final reportServiceProvider = Provider<ReportService>((ref) {
-  final client = http.Client();
+  final client = ApiClient.createHttpClient();
   ref.onDispose(client.close);
   return ReportService(client);
 });

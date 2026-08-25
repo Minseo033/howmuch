@@ -220,11 +220,13 @@ class KakaoLoginService {
     }
   }
 
-  Future<void> clearLocalSession() async {
+  Future<void> clearLocalSession({bool unregisterDevice = true}) async {
     try {
-      await _ref
-          .read(pushNotificationServiceProvider)
-          .unregisterCurrentDevice();
+      if (unregisterDevice) {
+        await _ref
+            .read(pushNotificationServiceProvider)
+            .unregisterCurrentDevice();
+      }
     } finally {
       await ApiClient.setSessionToken(null);
       final prefs = await SharedPreferences.getInstance();

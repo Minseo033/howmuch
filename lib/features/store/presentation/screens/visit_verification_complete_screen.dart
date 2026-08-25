@@ -6,7 +6,6 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:http/http.dart' as http;
 
 class VisitVerificationCompleteScreen extends StatefulWidget {
   final int savedAmount;
@@ -40,7 +39,7 @@ class _VisitVerificationCompleteScreenState
   /// 이번 달 누적 절약 금액 (GET /api/savings/stats?period=this_month)
   Future<void> _fetchMonthlyTotal() async {
     try {
-      final response = await http.get(
+      final response = await ApiClient.get(
         ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);

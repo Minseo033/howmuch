@@ -17,7 +17,7 @@ class FirebaseServiceStoreCoordinatesTest {
             mock(Firestore.class), mock(ReportImageStorage.class));
 
     @Test
-    void fallsBackToExactStoreNameWhenClientHasAStaleStoreId() {
+    void rejectsAStaleStoreIdEvenWhenTheStoreNameMatches() {
         ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
                 "storeId", "current-id",
                 "storeName", "테스트 식당",
@@ -25,7 +25,24 @@ class FirebaseServiceStoreCoordinatesTest {
                 "longitude", 126.9780)));
 
         assertThat(service.findStoreCoordinates("legacy-id", "테스트 식당"))
-                .contains(new StoreCoordinates(37.5665, 126.9780));
+                .isEmpty();
+    }
+
+    @Test
+    void fallsBackToAUniqueExactStoreNameOnlyWhenTheClientHasNoStoreId() {
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
+                "storeId", "current-id",
+                "storeName", "테스트 식당",
+                "industry", "한식",
+                "latitude", 37.5665,
+                "longitude", 126.9780)));
+
+        assertThat(service.findStoreCoordinates(null, " 테스트  식당 "))
+                .get()
+                .satisfies(store -> {
+                    assertThat(store.storeId()).isEqualTo("current-id");
+                    assertThat(store.industry()).isEqualTo("한식");
+                });
     }
 
     @Test
@@ -37,7 +54,23 @@ class FirebaseServiceStoreCoordinatesTest {
                         "latitude", 37.2, "longitude", 127.2)));
 
         assertThat(service.findStoreCoordinates("target-id", "동명 식당"))
-                .contains(new StoreCoordinates(37.2, 127.2));
+                .get()
+                .satisfies(store -> {
+                    assertThat(store.latitude()).isEqualTo(37.2);
+                    assertThat(store.longitude()).isEqualTo(127.2);
+                    assertThat(store.storeId()).isEqualTo("target-id");
+                });
+    }
+
+    @Test
+    void rejectsAmbiguousLegacyStoreNames() {
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(
+                Map.of("storeId", "first-id", "storeName", "동명 식당",
+                        "latitude", 37.1, "longitude", 127.1),
+                Map.of("storeId", "second-id", "storeName", "동명 식당",
+                        "latitude", 37.2, "longitude", 127.2)));
+
+        assertThat(service.findStoreCoordinates(null, "동명 식당")).isEmpty();
     }
 
     @Test

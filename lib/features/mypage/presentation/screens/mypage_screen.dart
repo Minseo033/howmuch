@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -172,7 +171,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 2) 이번 달 절약 금액
     try {
-      final res = await http
+      final res = await ApiClient
           .get(
             ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
             headers: ApiClient.jsonHeaders(auth: true),
@@ -194,7 +193,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 3) 찜한 매장 수
     try {
-      final res = await http
+      final res = await ApiClient
           .get(
             ApiClient.uri('/api/favorites'),
             headers: ApiClient.jsonHeaders(auth: true),
@@ -213,7 +212,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 4) 제보 수
     try {
-      final res = await http
+      final res = await ApiClient
           .get(
             ApiClient.uri('/api/report/my'),
             headers: ApiClient.jsonHeaders(auth: true),

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
@@ -15,7 +14,7 @@ class AiChatService {
     final url = ApiClient.uri('/api/ai/chat');
 
     try {
-      final response = await http
+      final response = await ApiClient
           .post(
             url,
             headers: ApiClient.jsonHeaders(auth: true),

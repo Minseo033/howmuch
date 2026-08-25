@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:http/http.dart' as http;
 
 class CommunityApiException implements Exception {
   const CommunityApiException(this.statusCode, [this.message]);
@@ -109,7 +108,7 @@ class CommunityService {
   const CommunityService();
 
   Future<Map<String, dynamic>> fetchFeedDetail(String postId) async {
-    final response = await http
+    final response = await ApiClient
         .get(
           ApiClient.uri('/api/community/feed/${Uri.encodeComponent(postId)}'),
           headers: ApiClient.jsonHeaders(auth: true),
@@ -129,7 +128,7 @@ class CommunityService {
   }
 
   Future<List<CommunityComment>> fetchComments(String postId) async {
-    final response = await http
+    final response = await ApiClient
         .get(
           ApiClient.uri(
             '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
@@ -149,7 +148,7 @@ class CommunityService {
   }
 
   Future<CommunityComment?> createComment(String postId, String content) async {
-    final response = await http
+    final response = await ApiClient
         .post(
           ApiClient.uri(
             '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
@@ -173,7 +172,7 @@ class CommunityService {
   }
 
   Future<List<CommunityComment>> fetchReplies(String commentId) async {
-    final response = await http
+    final response = await ApiClient
         .get(
           ApiClient.uri(
             '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
@@ -196,7 +195,7 @@ class CommunityService {
     String commentId,
     String content,
   ) async {
-    final response = await http
+    final response = await ApiClient
         .post(
           ApiClient.uri(
             '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
@@ -228,10 +227,10 @@ class CommunityService {
       '/api/community/feed/${Uri.encodeComponent(postId)}/like',
     );
     final response = liked
-        ? await http
+        ? await ApiClient
               .post(uri, headers: ApiClient.jsonHeaders(auth: true))
               .timeout(ApiClient.defaultTimeout)
-        : await http
+        : await ApiClient
               .delete(uri, headers: ApiClient.jsonHeaders(auth: true))
               .timeout(ApiClient.defaultTimeout);
 
@@ -271,10 +270,10 @@ class CommunityService {
       '/api/community/feed/${Uri.encodeComponent(postId)}/notification',
     );
     final response = enabled
-        ? await http
+        ? await ApiClient
               .post(uri, headers: ApiClient.jsonHeaders(auth: true))
               .timeout(ApiClient.defaultTimeout)
-        : await http
+        : await ApiClient
               .delete(uri, headers: ApiClient.jsonHeaders(auth: true))
               .timeout(ApiClient.defaultTimeout);
 

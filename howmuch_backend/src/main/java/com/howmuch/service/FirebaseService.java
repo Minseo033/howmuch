@@ -1098,6 +1098,8 @@ public class FirebaseService {
         result.put("reviews", deleteWhere("reviews", "authorUid", firebaseUid));
         result.put("reports", deleteReportsByUser(firebaseUid));
         result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        result.put("receiptVerifications",
+                deleteWhere("receipt_verifications", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
         result.put("inquiries", deleteWhere("inquiries", "userId", firebaseUid));
         result.put("comments", deleteWhere("comments", "userId", firebaseUid));
@@ -1642,7 +1644,8 @@ public class FirebaseService {
 
     /**
      * 방문 인증용 매장 좌표를 캐시에서 조회합니다.
-     * storeId가 있으면 식별자를 우선하고, 레거시 클라이언트는 매장명으로 보완합니다.
+     * storeId가 있으면 ID와 매장명이 모두 일치해야 합니다. ID가 없는 레거시
+     * 클라이언트만 고유한 매장명으로 보완합니다.
      */
     public java.util.Optional<StoreCoordinates> findStoreCoordinates(String storeId, String storeName) {
         List<Map<String, Object>> stores = new ArrayList<>();
@@ -1656,13 +1659,26 @@ public class FirebaseService {
             if (coordinates == null) continue;
             String cachedId = strOrNull(store.get("storeId"));
             String cachedName = strOrNull(store.get("storeName"));
-            if (storeId != null && !storeId.isBlank() && storeId.equals(cachedId)) {
-                return java.util.Optional.of(coordinates);
+            if (storeId != null && !storeId.isBlank()) {
+                if (storeId.equals(cachedId)) {
+                    boolean nameMatches = storeName != null
+                            && normalizeStoreIdentityPart(storeName)
+                            .equals(normalizeStoreIdentityPart(cachedName));
+                    return nameMatches
+                            ? java.util.Optional.of(coordinates)
+                            : java.util.Optional.empty();
+                }
+                continue;
             }
-            if (nameFallback == null
-                    && storeName != null
-                    && !storeName.isBlank()
-                    && storeName.equals(cachedName)) {
+            if (storeName != null && !storeName.isBlank()
+                    && normalizeStoreIdentityPart(storeName)
+                    .equals(normalizeStoreIdentityPart(cachedName))) {
+                if (nameFallback != null
+                        && (!java.util.Objects.equals(nameFallback.storeId(), coordinates.storeId())
+                        || nameFallback.latitude() != coordinates.latitude()
+                        || nameFallback.longitude() != coordinates.longitude())) {
+                    return java.util.Optional.empty();
+                }
                 nameFallback = coordinates;
             }
         }
@@ -1678,7 +1694,12 @@ public class FirebaseService {
                     || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
                 return null;
             }
-            return new StoreCoordinates(latitude, longitude);
+            return new StoreCoordinates(
+                    latitude,
+                    longitude,
+                    strOrNull(store.get("storeId")),
+                    strOrNull(store.get("storeName")),
+                    strOrNull(store.get("industry")));
         } catch (Exception ignored) {
             return null;
         }
@@ -1946,6 +1967,7 @@ public class FirebaseService {
     //    제보 수 증가 시 인메모리 캐시 패턴 필요 (PROJECT_STATUS 5-2 참조).
     public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
         var documents = db.collection("stores_user")
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(Math.max(1, Math.min(communityFeedMaxItems, 1000)))
                 .get().get().getDocuments();
 
@@ -2007,7 +2029,7 @@ public class FirebaseService {
             feeds.add(dto);
         }
 
-        // 최신순 정렬 (메모리 정렬 — Firestore 인덱스 불필요 + createdAt 없는 레거시 호환)
+        // 응답 순서를 방어적으로 한 번 더 보장합니다.
         feeds.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
         return feeds;
     }

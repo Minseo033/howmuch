@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
@@ -39,7 +38,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   /// GET /api/savings/goal — 저장된 목표 금액을 입력창에 반영
   Future<void> _loadGoal() async {
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/savings/goal'),
             headers: ApiClient.jsonHeaders(auth: true),
@@ -65,7 +64,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     _state.monthlyGoal.value = newGoal;
     // 서버에 목표 저장 (실패해도 화면은 유지)
     try {
-      await http
+      await ApiClient
           .post(
             ApiClient.uri('/api/savings/goal'),
             headers: ApiClient.jsonHeaders(auth: true),

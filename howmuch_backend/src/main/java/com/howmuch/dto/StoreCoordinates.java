@@ -1,5 +1,14 @@
 package com.howmuch.dto;
 
-/** 서버가 보유한 매장 좌표. 방문 인증 거리 계산에 사용합니다. */
-public record StoreCoordinates(double latitude, double longitude) {
+/** 서버가 보유한 방문 인증용 매장 정보. */
+public record StoreCoordinates(
+        double latitude,
+        double longitude,
+        String storeId,
+        String storeName,
+        String industry) {
+
+    public StoreCoordinates(double latitude, double longitude) {
+        this(latitude, longitude, null, null, null);
+    }
 }

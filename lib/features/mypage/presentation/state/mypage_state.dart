@@ -658,7 +658,7 @@ class NotificationSettingsApiService {
 
 final notificationSettingsApiServiceProvider =
     Provider<NotificationSettingsApiService>((ref) {
-      final client = http.Client();
+      final client = ApiClient.createHttpClient();
       ref.onDispose(client.close);
       return NotificationSettingsApiService(client);
     });
@@ -695,7 +695,7 @@ class NotificationSettingsNotifier
 }
 
 final notificationSettingsProvider =
-    StateNotifierProvider<
+    StateNotifierProvider.autoDispose<
       NotificationSettingsNotifier,
       AsyncValue<NotificationSettings>
     >(
@@ -823,7 +823,7 @@ class PriceAlertApiService {
 }
 
 final priceAlertApiServiceProvider = Provider<PriceAlertApiService>((ref) {
-  final client = http.Client();
+  final client = ApiClient.createHttpClient();
   ref.onDispose(client.close);
   return PriceAlertApiService(client);
 });
@@ -879,7 +879,7 @@ class PriceAlertSettingsNotifier
 }
 
 final priceAlertSettingsProvider =
-    StateNotifierProvider<
+    StateNotifierProvider.autoDispose<
       PriceAlertSettingsNotifier,
       AsyncValue<PriceAlertSettings>
     >((ref) {
@@ -891,7 +891,7 @@ final priceAlertSettingsProvider =
 final favoriteApiServiceProvider = Provider((ref) => FavoriteApiService());
 
 final favoriteStoresProvider =
-    StateNotifierProvider<
+    StateNotifierProvider.autoDispose<
       FavoriteStoresNotifier,
       AsyncValue<List<FavoriteStoreModel>>
     >(
@@ -903,12 +903,10 @@ final favoriteStoresProvider =
 
 class FavoriteApiService {
   Future<List<FavoriteStoreModel>> fetchFavorites() async {
-    final res = await http
-        .get(
-          ApiClient.uri('/api/favorites'),
-          headers: ApiClient.jsonHeaders(auth: true),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final res = await ApiClient.get(
+      ApiClient.uri('/api/favorites'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (res.statusCode != 200) {
       throw Exception('찜 목록을 불러오지 못했습니다. (${res.statusCode})');
@@ -930,13 +928,11 @@ class FavoriteApiService {
     required String storeId,
     required String storeName,
   }) async {
-    final res = await http
-        .post(
-          ApiClient.uri('/api/favorites'),
-          headers: ApiClient.jsonHeaders(auth: true),
-          body: jsonEncode({'storeId': storeId, 'storeName': storeName}),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final res = await ApiClient.post(
+      ApiClient.uri('/api/favorites'),
+      headers: ApiClient.jsonHeaders(auth: true),
+      body: jsonEncode({'storeId': storeId, 'storeName': storeName}),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (res.statusCode != 200) {
       throw Exception('찜 추가에 실패했습니다. (${res.statusCode})');
@@ -950,12 +946,10 @@ class FavoriteApiService {
   }
 
   Future<void> removeFavorite(String storeId) async {
-    final res = await http
-        .delete(
-          ApiClient.uri('/api/favorites/${Uri.encodeComponent(storeId)}'),
-          headers: ApiClient.jsonHeaders(auth: true),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final res = await ApiClient.delete(
+      ApiClient.uri('/api/favorites/${Uri.encodeComponent(storeId)}'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (res.statusCode != 200) {
       throw Exception('찜 해제에 실패했습니다. (${res.statusCode})');

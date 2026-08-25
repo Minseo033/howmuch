@@ -38,7 +38,7 @@ class PushNotificationService {
   PushNotificationService(this._ref);
 
   final Ref _ref;
-  final http.Client _client = http.Client();
+  final http.Client _client = ApiClient.createHttpClient();
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 

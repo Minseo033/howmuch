@@ -357,7 +357,7 @@ class _NotificationStyle {
 }
 
 final notificationHttpClientProvider = Provider<http.Client>((ref) {
-  final client = http.Client();
+  final client = ApiClient.createHttpClient();
   ref.onDispose(client.close);
   return client;
 });

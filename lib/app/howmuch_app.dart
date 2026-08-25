@@ -8,6 +8,8 @@ import 'app_router.dart';
 import 'app_theme.dart';
 import 'widgets/web_notification_prompt.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 
@@ -35,6 +37,12 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ApiClient.setSessionExpiredHandler(() async {
+      await ref
+          .read(kakaoLoginServiceProvider)
+          .clearLocalSession(unregisterDevice: false);
+      ref.read(appRouterProvider).go(AppRoutes.sessionExpired);
+    });
     _authListener = ref.listenManual<AuthState>(authStateProvider, (
       previous,
       next,
@@ -48,6 +56,7 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    ApiClient.setSessionExpiredHandler(null);
     _authListener?.close();
     super.dispose();
   }

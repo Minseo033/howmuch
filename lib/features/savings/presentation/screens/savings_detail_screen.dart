@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 
@@ -59,7 +58,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     });
 
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/savings/history'),
             headers: ApiClient.jsonHeaders(auth: true),

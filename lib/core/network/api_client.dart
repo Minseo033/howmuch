@@ -21,6 +21,9 @@ class ApiClient {
 
   static const String _sessionTokenKey = 'howmuch_session_token';
   static String? _sessionToken;
+  static Future<void> Function()? _sessionExpiredHandler;
+  static bool _sessionExpirationHandled = false;
+  static Future<void>? _sessionExpirationInFlight;
 
   static String? get sessionToken => _sessionToken;
   static bool get isAuthenticated =>
@@ -30,17 +33,132 @@ class ApiClient {
   static Future<void> restoreSession() async {
     final prefs = await SharedPreferences.getInstance();
     _sessionToken = prefs.getString(_sessionTokenKey);
+    _sessionExpirationHandled = false;
   }
 
   /// 세션 토큰을 저장/삭제합니다 (로그인 성공 시 저장, 로그아웃 시 null).
   static Future<void> setSessionToken(String? token) async {
     _sessionToken = token;
+    if (token != null && token.isNotEmpty) {
+      _sessionExpirationHandled = false;
+    }
     final prefs = await SharedPreferences.getInstance();
     if (token == null) {
       await prefs.remove(_sessionTokenKey);
     } else {
       await prefs.setString(_sessionTokenKey, token);
     }
+  }
+
+  static void setSessionExpiredHandler(Future<void> Function()? handler) {
+    _sessionExpiredHandler = handler;
+  }
+
+  /// 인증 헤더가 포함된 요청이 401을 받은 경우에만 세션 만료를 처리합니다.
+  /// 동시에 여러 요청이 실패해도 로그아웃과 화면 전환은 한 번만 실행됩니다.
+  static Future<void> handleResponseStatus(
+    int statusCode, {
+    Map<String, String>? requestHeaders,
+  }) async {
+    final hadAuthorization = requestHeaders?.keys.any(
+      (key) => key.toLowerCase() == 'authorization',
+    );
+    if (statusCode != 401 || hadAuthorization != true) return;
+    if (_sessionExpirationHandled) return;
+    if (_sessionExpirationInFlight != null) {
+      await _sessionExpirationInFlight;
+      return;
+    }
+
+    final future = _expireSession();
+    _sessionExpirationInFlight = future;
+    try {
+      await future;
+    } finally {
+      _sessionExpirationInFlight = null;
+    }
+  }
+
+  static Future<void> _expireSession() async {
+    if (_sessionExpirationHandled) return;
+    _sessionExpirationHandled = true;
+    await setSessionToken(null);
+    await _sessionExpiredHandler?.call();
+  }
+
+  static http.Client createHttpClient() => _SessionAwareHttpClient();
+
+  static Future<http.Response> get(
+    Uri url, {
+    Map<String, String>? headers,
+  }) async {
+    final response = await http.get(url, headers: headers);
+    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    return response;
+  }
+
+  static Future<http.Response> post(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    final response = await http.post(
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    return response;
+  }
+
+  static Future<http.Response> put(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    final response = await http.put(
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    return response;
+  }
+
+  static Future<http.Response> patch(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    final response = await http.patch(
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    return response;
+  }
+
+  static Future<http.Response> delete(
+    Uri url, {
+    Map<String, String>? headers,
+    Object? body,
+    Encoding? encoding,
+  }) async {
+    final response = await http.delete(
+      url,
+      headers: headers,
+      body: body,
+      encoding: encoding,
+    );
+    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    return response;
   }
 
   /// API URL 생성. [queryParameters]는 필요할 때만 전달합니다.
@@ -76,4 +194,23 @@ class ApiClient {
   static String bodyText(http.Response response) {
     return utf8.decode(response.bodyBytes);
   }
+}
+
+class _SessionAwareHttpClient extends http.BaseClient {
+  _SessionAwareHttpClient() : _inner = http.Client();
+
+  final http.Client _inner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    await ApiClient.handleResponseStatus(
+      response.statusCode,
+      requestHeaders: request.headers,
+    );
+    return response;
+  }
+
+  @override
+  void close() => _inner.close();
 }

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -116,7 +115,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
     try {
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/locations/addresses', {'q': query.trim()}),
             headers: ApiClient.authHeaders(),
@@ -172,7 +171,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         timeLimit: const Duration(seconds: 8),
       ).timeout(const Duration(seconds: 10));
 
-      final response = await http
+      final response = await ApiClient
           .get(
             ApiClient.uri('/api/locations/region', {
               'lat': position.latitude.toString(),
@@ -254,7 +253,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         final goalAmount = int.tryParse(goalDigits);
         if (goalAmount != null && goalAmount > 0) {
           try {
-            await http
+            await ApiClient
                 .post(
                   ApiClient.uri('/api/savings/goal'),
                   headers: ApiClient.jsonHeaders(auth: true),
