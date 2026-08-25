@@ -15,7 +15,8 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
     final profile = ref.watch(userProfileProvider);
     final isLoggedIn = auth.isLoggedIn;
     final provider = auth.provider == '이메일' ? '카카오' : auth.provider;
-    final email = profile.email.isNotEmpty ? profile.email : auth.email;
+    final email =
+        usableAccountEmail(profile.email) ?? usableAccountEmail(auth.email);
 
     return FigmaMobileCanvas(
       child: Scaffold(
@@ -67,7 +68,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                           const SizedBox(height: 4),
                           Text(
                             isLoggedIn
-                                ? (email.isNotEmpty ? email : '이메일 정보 없음')
+                                ? (email ?? '이메일 정보 없음')
                                 : '로그인 후 계정 정보를 확인할 수 있어요.',
                             style: const TextStyle(
                               color: AppColors.textMuted,

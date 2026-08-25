@@ -16,6 +16,8 @@ class Store {
   final double longitude;
   final String source; // 💡 GOV 또는 USER
 
+  bool get isUserReported => source.trim().toUpperCase() == 'USER';
+
   bool get hasValidCoordinates =>
       latitude.isFinite &&
       longitude.isFinite &&
@@ -60,7 +62,7 @@ class Store {
       price4: json['price4']?.toString() ?? '',
       latitude: _coordinate(json['latitude']),
       longitude: _coordinate(json['longitude']),
-      source: json['source']?.toString() ?? 'GOV',
+      source: _source(json['source']),
     );
   }
 
@@ -88,5 +90,10 @@ class Store {
   static double _coordinate(Object? value) {
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString().trim() ?? '') ?? 0;
+  }
+
+  static String _source(Object? value) {
+    final normalized = value?.toString().trim().toUpperCase() ?? '';
+    return normalized.isEmpty ? 'GOV' : normalized;
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -64,6 +65,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
+    final kakaoIdentity = await _loadKakaoIdentity(prefs);
+    final profileImageUrl = kakaoIdentity.profileImageUrl;
+    final kakaoEmail = kakaoIdentity.email;
+    if (!mounted) return;
+
     try {
       final profile = await UserProfileApiService().fetchProfile(strict: true);
       if (!mounted) return;
@@ -75,14 +81,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               (state) => state.copyWith(
                 isLoggedIn: true,
                 provider: '카카오',
+                email: kakaoEmail,
                 sessionToken: ApiClient.sessionToken ?? '',
+                profileImageUrl: profileImageUrl,
+              ),
+            );
+        ref
+            .read(userProfileProvider.notifier)
+            .update(
+              (state) => state.copyWith(
+                email: kakaoEmail,
+                profileImageUrl: profileImageUrl,
               ),
             );
         context.go(AppRoutes.profileSetup);
         return;
       }
 
-      _applyAuthenticatedProfile(profile);
+      _applyAuthenticatedProfile(
+        profile,
+        profileImageUrl: profileImageUrl,
+        kakaoEmail: kakaoEmail,
+      );
       context.go(AppRoutes.home);
     } on UserProfileAuthException {
       await ApiClient.setSessionToken(null);
@@ -96,12 +116,51 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
   }
 
-  void _applyAuthenticatedProfile(Map<String, dynamic> profile) {
+  Future<({String profileImageUrl, String email})> _loadKakaoIdentity(
+    SharedPreferences prefs,
+  ) async {
+    final cachedImageUrl =
+        prefs.getString(kakaoProfileImagePreferenceKey)?.trim() ?? '';
+    final cachedEmail =
+        usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey)) ?? '';
+    try {
+      final user = await UserApi.instance.me();
+      final kakaoProfile = user.kakaoAccount?.profile;
+      final currentImageUrl =
+          (kakaoProfile?.profileImageUrl ?? kakaoProfile?.thumbnailImageUrl)
+              ?.toString()
+              .trim() ??
+          '';
+      final currentEmail =
+          usableAccountEmail(user.kakaoAccount?.email) ?? cachedEmail;
+      if (currentImageUrl.isNotEmpty) {
+        await prefs.setString(kakaoProfileImagePreferenceKey, currentImageUrl);
+      }
+      if (currentEmail.isNotEmpty) {
+        await prefs.setString(kakaoEmailPreferenceKey, currentEmail);
+      }
+      return (
+        profileImageUrl: currentImageUrl.isNotEmpty
+            ? currentImageUrl
+            : cachedImageUrl,
+        email: currentEmail,
+      );
+    } catch (e) {
+      debugPrint('카카오 프로필 정보 갱신 실패: $e');
+    }
+    return (profileImageUrl: cachedImageUrl, email: cachedEmail);
+  }
+
+  void _applyAuthenticatedProfile(
+    Map<String, dynamic> profile, {
+    required String profileImageUrl,
+    required String kakaoEmail,
+  }) {
     final rawCategories = profile['favoriteCategories'];
     final categories = rawCategories is List
         ? rawCategories.map((category) => category.toString()).toList()
         : <String>[];
-    final email = profile['email']?.toString() ?? '';
+    final email = usableAccountEmail(profile['email']) ?? kakaoEmail;
     final firebaseUid = profile['firebaseUid']?.toString() ?? '';
 
     ref
@@ -113,6 +172,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             email: email,
             firebaseUid: firebaseUid,
             sessionToken: ApiClient.sessionToken ?? '',
+            profileImageUrl: profileImageUrl,
           ),
         );
     ref
@@ -123,6 +183,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             email: email.isNotEmpty ? email : state.email,
             region: profile['region']?.toString(),
             favoriteCategories: categories,
+            profileImageUrl: profileImageUrl,
           ),
         );
   }

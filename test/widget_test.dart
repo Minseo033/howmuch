@@ -158,6 +158,18 @@ void main() {
     expect(find.text('저장하기'), findsOneWidget);
     expect(find.text('닉네임 공개'), findsOneWidget);
 
+    final nicknameLabelLeft = tester.getTopLeft(find.text('닉네임')).dx;
+    final emailLabelLeft = tester.getTopLeft(find.text('이메일')).dx;
+    expect(emailLabelLeft, closeTo(nicknameLabelLeft, 0.1));
+
+    final nicknameRow = tester.getRect(
+      find.byKey(const ValueKey('nickname-public-row')),
+    );
+    final nicknameSwitch = tester.getRect(
+      find.byKey(const ValueKey('nickname-public-switch')),
+    );
+    expect(nicknameSwitch.center.dy, closeTo(nicknameRow.center.dy, 0.1));
+
     await tester.tap(find.byKey(const ValueKey('profile-nickname-edit')));
     await tester.pumpAndSettle();
     expect(find.text('닉네임 변경'), findsOneWidget);

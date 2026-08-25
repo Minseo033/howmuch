@@ -200,7 +200,7 @@ class _SocialLoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 319.460205078125,
+      width: double.infinity,
       height: 51.9886360168457,
       child: Material(
         color: backgroundColor,
@@ -208,17 +208,14 @@ class _SocialLoginButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onPressed,
-          child: Stack(
-            alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Positioned(
-                left: 15.9942626953125,
-                width: 21.988636016845703,
-                height: 23.99147605895996,
-                child: Center(
-                  child: Icon(icon, color: foregroundColor, size: 18),
-                ),
-              ),
+              if (icon != null) ...[
+                Icon(icon, color: foregroundColor, size: 18),
+                const SizedBox(width: 10),
+              ],
               Text(
                 label,
                 style: TextStyle(

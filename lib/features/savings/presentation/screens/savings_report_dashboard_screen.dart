@@ -415,7 +415,7 @@ class _SavingsReportDashboardScreenState
             bottom: 0,
             height: bottomNavHeight,
             child: HowmuchBottomNav(
-              activeTab: HowmuchBottomTab.report,
+              activeTab: HowmuchBottomTab.savings,
               safeBottom: bottomOffset,
             ),
           ),

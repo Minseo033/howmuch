@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -36,6 +38,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   late bool _activityPublic;
   late String _nickname;
   bool _loaded = false;
+  bool _emailRefreshStarted = false;
   bool _isSaving = false;
 
   Future<void> _saveProfile() async {
@@ -83,11 +86,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _activityPublic = profile.activityPublic;
     _nickname = profile.nickname;
     _loaded = true;
+    if (!_emailRefreshStarted) {
+      _emailRefreshStarted = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(kakaoLoginServiceProvider)
+            .refreshKakaoEmail(requestConsent: true);
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
+    final auth = ref.watch(authStateProvider);
+    final displayEmail =
+        usableAccountEmail(profile.email) ??
+        usableAccountEmail(auth.email) ??
+        '카카오 이메일을 확인할 수 없어요';
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -114,7 +130,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       top: 68.8779296875 + topOffset,
                       width: 83.9914779663086,
                       height: 83.9914779663086,
-                      child: const _Avatar(),
+                      child: _Avatar(imageUrl: profile.profileImageUrl),
                     ),
                     Positioned(
                       left: 20,
@@ -128,7 +144,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                       height: 144.65908813476562,
                       child: _BasicInfoCard(
                         nickname: _nickname,
-                        email: profile.email,
+                        email: displayEmail,
                         onNicknameTap: _editNickname,
                       ),
                     ),
@@ -348,7 +364,9 @@ class _Header extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar();
+  const _Avatar({required this.imageUrl});
+
+  final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -357,8 +375,20 @@ class _Avatar extends StatelessWidget {
         color: AppColors.primaryLight,
         shape: BoxShape.circle,
       ),
-      alignment: Alignment.center,
-      child: const Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
+      clipBehavior: Clip.antiAlias,
+      child: imageUrl.isEmpty
+          ? const Center(
+              child: Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
+            )
+          : Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
+              errorBuilder: (_, _, _) => const Center(
+                child: Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
+              ),
+            ),
     );
   }
 }
@@ -378,6 +408,7 @@ class _BasicInfoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
             height: 70.3835220336914,
@@ -389,7 +420,7 @@ class _BasicInfoCard extends StatelessWidget {
                 0,
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   const Text('닉네임', style: _captionText),
                   const SizedBox(height: 3.991),
@@ -435,7 +466,13 @@ class _BasicInfoCard extends StatelessWidget {
                 children: [
                   const Text('이메일', style: _captionText),
                   const SizedBox(height: 4.719),
-                  Text(email, style: _normalValueText),
+                  Text(
+                    email,
+                    textAlign: TextAlign.left,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _normalValueText,
+                  ),
                 ],
               ),
             ),
@@ -501,11 +538,14 @@ class _PrivacyCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PrivacyRow(
             title: '닉네임 공개',
             subtitle: '제보와 리뷰에 닉네임이 표시돼요',
             value: nicknamePublic,
+            switchKey: const ValueKey('nickname-public-switch'),
+            rowKey: const ValueKey('nickname-public-row'),
             onTap: onNicknameTap,
           ),
           const _Divider(),
@@ -513,6 +553,8 @@ class _PrivacyCard extends StatelessWidget {
             title: '활동 내역 공개',
             subtitle: '방문·제보 횟수를 다른 사용자에게 공개해요',
             value: activityPublic,
+            switchKey: const ValueKey('activity-public-switch'),
+            rowKey: const ValueKey('activity-public-row'),
             onTap: onActivityTap,
           ),
         ],
@@ -526,12 +568,16 @@ class _PrivacyRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.value,
+    required this.switchKey,
+    required this.rowKey,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
   final bool value;
+  final Key switchKey;
+  final Key rowKey;
   final VoidCallback onTap;
 
   @override
@@ -540,31 +586,31 @@ class _PrivacyRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
+        key: rowKey,
         height: 64.84375,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 16.9033203125,
-              top: 13.9912109375,
-              child: SizedBox(
-                width: 220,
-                height: 38,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.9033203125),
+          child: Row(
+            children: [
+              Expanded(
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: _privacyTitleText),
                     const SizedBox(height: 1.989),
-                    Text(subtitle, style: _privacyCaptionText, maxLines: 1),
+                    Text(
+                      subtitle,
+                      style: _privacyCaptionText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-            ),
-            Positioned(
-              right: 16.9033203125,
-              top: 13.9912109375,
-              child: _Toggle(value: value, onTap: onTap),
-            ),
-          ],
+              _Toggle(value: value, switchKey: switchKey, onTap: onTap),
+            ],
+          ),
         ),
       ),
     );
@@ -572,9 +618,14 @@ class _PrivacyRow extends StatelessWidget {
 }
 
 class _Toggle extends StatelessWidget {
-  const _Toggle({required this.value, required this.onTap});
+  const _Toggle({
+    required this.value,
+    required this.switchKey,
+    required this.onTap,
+  });
 
   final bool value;
+  final Key switchKey;
   final VoidCallback onTap;
 
   @override
@@ -586,8 +637,9 @@ class _Toggle extends StatelessWidget {
         width: 52,
         height: 36,
         child: Align(
-          alignment: Alignment.topRight,
+          alignment: Alignment.centerRight,
           child: AnimatedContainer(
+            key: switchKey,
             duration: const Duration(milliseconds: 160),
             width: 40,
             height: 23.99147605895996,
