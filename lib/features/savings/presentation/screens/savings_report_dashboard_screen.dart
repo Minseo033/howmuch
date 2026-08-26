@@ -7,6 +7,18 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 
+@visibleForTesting
+List<Map<String, dynamic>> parseSavingsChartItems(List<dynamic> chartItems) {
+  return chartItems.map<Map<String, dynamic>>((item) {
+    final map = item as Map<String, dynamic>;
+    return <String, dynamic>{
+      'label': map['label']?.toString() ?? '',
+      'amount': (map['amount'] as num?)?.toInt() ?? 0,
+      'isMax': map['isMax'] == true,
+    };
+  }).toList();
+}
+
 class SavingsReportDashboardScreen extends StatefulWidget {
   const SavingsReportDashboardScreen({super.key});
 
@@ -166,14 +178,7 @@ class _SavingsReportDashboardScreenState
     DateTime now,
   ) {
     final chartItems = (stats?['chartItems'] as List?) ?? const [];
-    final savings = chartItems.map((item) {
-      final map = item as Map<String, dynamic>;
-      return {
-        'label': map['label']?.toString() ?? '',
-        'amount': (map['amount'] as num?)?.toInt() ?? 0,
-        'isMax': map['isMax'] == true,
-      };
-    }).toList();
+    final savings = parseSavingsChartItems(chartItems);
 
     String chartDate;
     if (tab == '이번 달') {

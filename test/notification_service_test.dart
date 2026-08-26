@@ -176,6 +176,18 @@ void main() {
     notifier.dispose();
   });
 
+  test('notification refresh completion is ignored after dispose', () async {
+    final service = _BlockingNotificationApiService();
+    final notifier = NotificationsNotifier(service);
+
+    final load = notifier.loadNotifications();
+    await Future<void>.delayed(Duration.zero);
+    notifier.dispose();
+    service.complete(const []);
+
+    await expectLater(load, completes);
+  });
+
   group('NotificationSettingsApiService', () {
     test(
       'saves settings with PUT and parses the normalized response',

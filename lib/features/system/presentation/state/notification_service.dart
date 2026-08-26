@@ -381,23 +381,28 @@ class NotificationsNotifier
   final NotificationApiService _api;
   Timer? _refreshTimer;
   bool _isLoading = false;
+  bool _disposed = false;
 
   @override
   void dispose() {
+    _disposed = true;
     _refreshTimer?.cancel();
     super.dispose();
   }
 
   Future<void> loadNotifications({bool isRefresh = false}) async {
-    if (_isLoading) return;
+    if (_isLoading || _disposed) return;
     _isLoading = true;
     final previousList = state.valueOrNull;
-    if (!isRefresh) {
+    if (!isRefresh && !_disposed) {
       state = const AsyncValue.loading();
     }
     try {
-      state = AsyncValue.data(await _api.fetchNotifications());
+      final notifications = await _api.fetchNotifications();
+      if (_disposed) return;
+      state = AsyncValue.data(notifications);
     } catch (error, stackTrace) {
+      if (_disposed) return;
       if (isRefresh && previousList != null) {
         state = AsyncValue.data(previousList);
         return;
@@ -454,7 +459,7 @@ class NotificationsNotifier
 }
 
 final notificationsProvider =
-    StateNotifierProvider.autoDispose<
+    StateNotifierProvider<
       NotificationsNotifier,
       AsyncValue<List<NotificationModel>>
     >((ref) {

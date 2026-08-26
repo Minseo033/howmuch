@@ -997,84 +997,86 @@ class _EmptyResult extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: SizedBox(
-        width: double.infinity,
-        height: 377.9261169433594,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Container(
-              width: 71.98863220214844,
-              height: 71.98863220214844,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: SearchResultScreen.border,
-                  width: .909,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 71.98863220214844,
+                height: 71.98863220214844,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: SearchResultScreen.border,
+                    width: .909,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.search_off_rounded,
+                  color: Color(0xFF5F708A),
+                  size: 32,
                 ),
               ),
-              child: const Icon(
-                Icons.search_off_rounded,
-                color: Color(0xFF5F708A),
-                size: 32,
+              const SizedBox(height: 20),
+              const Text(
+                '검색 결과가 없어요',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SearchResultScreen.ink,
+                  fontFamily: SearchResultScreen.fontFamily,
+                  fontFamilyFallback: SearchResultScreen.fontFallback,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  height: 1.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              '검색 결과가 없어요',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: SearchResultScreen.ink,
-                fontFamily: SearchResultScreen.fontFamily,
-                fontFamilyFallback: SearchResultScreen.fontFallback,
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
+              const SizedBox(height: 6),
+              const Text(
+                '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SearchResultScreen.muted,
+                  fontFamily: SearchResultScreen.fontFamily,
+                  fontFamilyFallback: SearchResultScreen.fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.7,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: SearchResultScreen.muted,
-                fontFamily: SearchResultScreen.fontFamily,
-                fontFamilyFallback: SearchResultScreen.fontFallback,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.7,
+              const SizedBox(height: 28),
+              if (suggestions.isNotEmpty)
+                _Suggestions(
+                  suggestions: suggestions,
+                  onSuggestionTap: onSuggestionTap,
+                ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: 311.4772644042969,
+                child: Column(
+                  children: [
+                    _ActionButton(
+                      label: '필터 초기화하기',
+                      primary: true,
+                      onTap: onReset,
+                    ),
+                    const SizedBox(height: 7.8),
+                    _ActionButton(
+                      label: '전체 매장 보기',
+                      onTap: () {
+                        context.pop();
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 28),
-            if (suggestions.isNotEmpty)
-              _Suggestions(
-                suggestions: suggestions,
-                onSuggestionTap: onSuggestionTap,
-              ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: 311.4772644042969,
-              child: Column(
-                children: [
-                  _ActionButton(
-                    label: '필터 초기화하기',
-                    primary: true,
-                    onTap: onReset,
-                  ),
-                  const SizedBox(height: 7.8),
-                  _ActionButton(
-                    label: '전체 매장 보기',
-                    onTap: () {
-                      context.pop();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
