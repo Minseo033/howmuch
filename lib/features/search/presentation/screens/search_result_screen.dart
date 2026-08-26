@@ -59,6 +59,34 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   // 디바운스
   Timer? _debounce;
 
+  List<String> get _realSuggestions {
+    final stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
+    final position = howmuch_home.HomeMapScreen.globalUserPosition;
+    if (position != null) {
+      stores.sort((a, b) {
+        final aDistance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          a.latitude,
+          a.longitude,
+        );
+        final bDistance = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          b.latitude,
+          b.longitude,
+        );
+        return aDistance.compareTo(bDistance);
+      });
+    }
+    final seen = <String>{};
+    return stores
+        .map((store) => store.menu1.trim())
+        .where((menu) => menu.isNotEmpty && seen.add(menu))
+        .take(4)
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -397,6 +425,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     : (_query.isEmpty && _filter.activeLabels.isEmpty) ||
                           (_searched && _results.isEmpty)
                     ? _EmptyResult(
+                        suggestions: _realSuggestions,
                         onReset: () {
                           setState(() => _filter = const SearchFilter());
                           _doSearch(_query);
@@ -955,8 +984,13 @@ class _SearchLoadError extends StatelessWidget {
 //  빈 결과
 // ──────────────────────────────────────────────────────────────
 class _EmptyResult extends StatelessWidget {
-  const _EmptyResult({required this.onReset, required this.onSuggestionTap});
+  const _EmptyResult({
+    required this.suggestions,
+    required this.onReset,
+    required this.onSuggestionTap,
+  });
 
+  final List<String> suggestions;
   final VoidCallback onReset;
   final ValueChanged<String> onSuggestionTap;
 
@@ -1015,7 +1049,11 @@ class _EmptyResult extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            _Suggestions(onSuggestionTap: onSuggestionTap),
+            if (suggestions.isNotEmpty)
+              _Suggestions(
+                suggestions: suggestions,
+                onSuggestionTap: onSuggestionTap,
+              ),
             const SizedBox(height: 24),
             SizedBox(
               width: 311.4772644042969,
@@ -1044,19 +1082,16 @@ class _EmptyResult extends StatelessWidget {
 }
 
 class _Suggestions extends StatelessWidget {
-  const _Suggestions({required this.onSuggestionTap});
+  const _Suggestions({
+    required this.suggestions,
+    required this.onSuggestionTap,
+  });
 
+  final List<String> suggestions;
   final ValueChanged<String> onSuggestionTap;
 
   @override
   Widget build(BuildContext context) {
-    const suggestions = <(String, double)>[
-      ('김치찌개', 73.80681610107422),
-      ('아메리카노', 85.79544830322266),
-      ('커트', 49.8011360168457),
-      ('백반', 49.8011360168457),
-    ];
-
     return Column(
       children: [
         const SizedBox(
@@ -1083,9 +1118,8 @@ class _Suggestions extends StatelessWidget {
           children: [
             for (var index = 0; index < suggestions.length; index++) ...[
               _SuggestionChip(
-                label: suggestions[index].$1,
-                width: suggestions[index].$2,
-                onTap: () => onSuggestionTap(suggestions[index].$1),
+                label: suggestions[index],
+                onTap: () => onSuggestionTap(suggestions[index]),
               ),
             ],
           ],
@@ -1096,14 +1130,9 @@ class _Suggestions extends StatelessWidget {
 }
 
 class _SuggestionChip extends StatelessWidget {
-  const _SuggestionChip({
-    required this.label,
-    required this.width,
-    required this.onTap,
-  });
+  const _SuggestionChip({required this.label, required this.onTap});
 
   final String label;
-  final double width;
   final VoidCallback onTap;
 
   @override
@@ -1115,7 +1144,7 @@ class _SuggestionChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         onTap: onTap,
         child: Container(
-          width: width,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
           height: 31.80397605895996,
           alignment: Alignment.center,
           decoration: BoxDecoration(

@@ -91,7 +91,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
         return;
       }
       try {
-      var first = routePoints.length > 0 ? routePoints[0] : {latitude: 37.5665, longitude: 126.9780};
+      var first = routePoints.length > 0 ? routePoints[0] : {latitude: userLat, longitude: userLng};
       var map = new kakao.maps.Map(document.getElementById('map'), {
         center: new kakao.maps.LatLng(first.latitude, first.longitude),
         level: 5

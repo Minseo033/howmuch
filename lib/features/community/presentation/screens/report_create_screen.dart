@@ -38,8 +38,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   late final TextEditingController _storeController;
   late final TextEditingController _categoryController;
   late final TextEditingController _addressController;
-  bool _visitedRecently = true;
-  bool _checkedMenuPrice = true;
+  bool _visitedRecently = false;
+  bool _checkedMenuPrice = false;
   int _activeStep = 1;
   bool _isSubmitting = false;
   final List<XFile> _photos = [];
@@ -56,8 +56,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     _addressController = TextEditingController(
       text: initialReport?.address ?? '',
     );
-    _visitedRecently = initialReport?.visitedRecently ?? true;
-    _checkedMenuPrice = initialReport?.checkedMenuPrice ?? true;
+    _visitedRecently = initialReport?.visitedRecently ?? false;
+    _checkedMenuPrice = initialReport?.checkedMenuPrice ?? false;
     _photos.addAll(
       (initialReport?.imageUrls ?? const []).map((path) => XFile(path)),
     );

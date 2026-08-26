@@ -46,7 +46,7 @@ public class RecommendationController {
         ResponseEntity<?> coordinateError = validateCoordinates(lat, lng);
         if (coordinateError != null) return coordinateError;
         try {
-            // 기상청 단기예보 (사용자 위치 → 격자 변환, 없으면 서울 기본)
+            // 사용자 위치를 기상청 격자로 변환해 현재 지역의 예보를 조회합니다.
             Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
@@ -119,14 +119,15 @@ public class RecommendationController {
     }
 
     private ResponseEntity<?> validateCoordinates(Double lat, Double lng) {
-        if ((lat == null) != (lng == null)) {
+        if (lat == null || lng == null) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "위도와 경도를 함께 입력해주세요."
+                    "message", "주변 추천을 위해 현재 위치가 필요합니다."
             ));
         }
-        if (lat != null && (!Double.isFinite(lat) || !Double.isFinite(lng)
-                || lat < -90 || lat > 90 || lng < -180 || lng > 180)) {
+        if (!Double.isFinite(lat) || !Double.isFinite(lng)
+                || lat < -90 || lat > 90 || lng < -180 || lng > 180
+                || lat == 0 || lng == 0) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
                     "message", "올바른 위치 좌표를 입력해주세요."

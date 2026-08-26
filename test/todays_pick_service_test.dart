@@ -66,6 +66,18 @@ void main() {
     expect((picks.first as Map)['storeName'], '가까운 매장');
   });
 
+  test(
+    'local fallback never substitutes a default city for missing location',
+    () {
+      final data = buildLocalTodaysPickData(
+        stores: [_store('테스트 식당', 37.5666, 126.9781)],
+      );
+
+      expect(data['weather'], '위치 확인 필요');
+      expect(data['picks'], isEmpty);
+    },
+  );
+
   test('AI error response becomes a readable nearby-store fallback', () {
     const error = '죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다.';
     expect(isAiUnavailableResponse(error), isTrue);

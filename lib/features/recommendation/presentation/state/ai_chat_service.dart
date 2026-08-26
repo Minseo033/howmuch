@@ -14,13 +14,11 @@ class AiChatService {
     final url = ApiClient.uri('/api/ai/chat');
 
     try {
-      final response = await ApiClient
-          .post(
-            url,
-            headers: ApiClient.jsonHeaders(auth: true),
-            body: jsonEncode({'message': message}),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.post(
+        url,
+        headers: ApiClient.jsonHeaders(auth: true),
+        body: jsonEncode({'message': message}),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));

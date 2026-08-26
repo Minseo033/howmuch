@@ -50,12 +50,10 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
     });
 
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/visits'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/visits'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (!mounted) return;
       if (response.statusCode == 200) {

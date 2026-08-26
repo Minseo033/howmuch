@@ -180,9 +180,10 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     // 실제 회원 탈퇴 API 호출
     try {
       final url = ApiClient.uri('/api/user');
-      final response = await ApiClient
-          .delete(url, headers: ApiClient.jsonHeaders(auth: true))
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.delete(
+        url,
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (!mounted) return;
       if (response.statusCode != 200) {
@@ -202,7 +203,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     if (!mounted) return;
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
-      provider: '이메일',
+      provider: '',
       email: '',
     );
 

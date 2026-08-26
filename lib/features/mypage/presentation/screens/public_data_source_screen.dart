@@ -74,10 +74,10 @@ class PublicDataSourceScreen extends StatelessWidget {
                           ),
                           SizedBox(height: 7.997),
                           _SourceCard(
-                            icon: Icons.storage_rounded,
+                            icon: Icons.price_check_rounded,
                             color: PublicDataSourceScreen.green,
-                            title: '공공데이터포털',
-                            subtitle: 'data.go.kr',
+                            title: '한국소비자원 참가격',
+                            subtitle: '지역별 외식비 · 개인서비스요금',
                           ),
                           SizedBox(height: 7.997),
                           _SourceCard(

@@ -89,8 +89,16 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           lat = pos.latitude;
           lng = pos.longitude;
         } catch (_) {
-          // 위치 조회 실패 시 null로 두고 서버에서 서울 기본 격자 사용
+          // 위치가 없으면 임의 지역을 대신 사용하지 않습니다.
         }
+      }
+      if (lat == null || lng == null) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = '주변 추천을 보려면 위치 권한을 허용해주세요.';
+          _isLoading = false;
+        });
+        return;
       }
       final data = await service.getTodaysPick(lat: lat, lng: lng);
       if (!mounted) return;

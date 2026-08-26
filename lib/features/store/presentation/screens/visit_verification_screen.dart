@@ -125,7 +125,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   final LatestRequestTracker _estimateRequests = LatestRequestTracker();
   int? _estimatedSaved;
   int? _referencePrice;
-  bool _matchedByMenu = false;
+  bool? _referencePriceAvailable;
+  String? _referenceSourceLabel;
+  String? _referenceBasisDate;
+  int _referenceSampleSize = 0;
   final ImagePicker _imagePicker = ImagePicker();
 
   String get _storeName => widget.store?.storeName ?? widget.storeName;
@@ -682,7 +685,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       setState(() {
         _estimatedSaved = null;
         _referencePrice = null;
-        _matchedByMenu = false;
+        _referencePriceAvailable = null;
+        _referenceSourceLabel = null;
+        _referenceBasisDate = null;
+        _referenceSampleSize = 0;
       });
       return;
     }
@@ -703,7 +709,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         setState(() {
           _estimatedSaved = (data['savedAmount'] as num?)?.toInt();
           _referencePrice = (data['referencePrice'] as num?)?.toInt();
-          _matchedByMenu = data['matchedByMenu'] == true;
+          _referencePriceAvailable = data['referencePriceAvailable'] == true;
+          _referenceSourceLabel = data['sourceLabel'] as String?;
+          _referenceBasisDate = data['basisDate'] as String?;
+          _referenceSampleSize = (data['sampleSize'] as num?)?.toInt() ?? 0;
         });
       }
     } catch (e) {
@@ -796,6 +805,12 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   Widget _buildSavingsCard() {
     final estimated = _estimatedSaved;
+    final referenceAvailable = _referencePriceAvailable == true;
+    final sourceDetails = <String>[
+      if ((_referenceSourceLabel ?? '').isNotEmpty) _referenceSourceLabel!,
+      if ((_referenceBasisDate ?? '').isNotEmpty) '$_referenceBasisDate 기준',
+      if (_referenceSampleSize > 1) '표본 $_referenceSampleSize건',
+    ].join(' · ');
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -822,7 +837,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            estimated == null
+            _referencePriceAvailable == false
+                ? '비교 기준을 찾지 못했어요'
+                : estimated == null
                 ? '금액 입력 시 자동 계산'
                 : '약 ${_formatWon(estimated)}원 절약 예상',
             style: const TextStyle(
@@ -833,11 +850,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            _referencePrice == null
-                ? '한국소비자원 참가격 기준으로 자동 계산돼요'
-                : (_matchedByMenu
-                      ? '참가격 기준가 ${_formatWon(_referencePrice!)}원 기준'
-                      : '카테고리 평균가 ${_formatWon(_referencePrice!)}원 기준 (참가격 기반)'),
+            referenceAvailable && _referencePrice != null
+                ? '${_formatWon(_referencePrice!)}원 · $sourceDetails'
+                : _referencePriceAvailable == false
+                ? '메뉴명을 더 구체적으로 입력하면 비교 범위가 넓어져요.'
+                : '참가격과 착한가격업소 공공데이터로 계산해요.',
             style: const TextStyle(color: Colors.black45, fontSize: 12),
           ),
         ],

@@ -80,7 +80,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
               longitude: store.longitude,
               imageUrls: const [],
               reporterId: '',
-              visitedRecently: true,
+              visitedRecently: false,
               checkedMenuPrice: _selectedTypeIndex == 1,
               changeType: _types[_selectedTypeIndex]['value'],
               reportType: 'STORE_INFO',

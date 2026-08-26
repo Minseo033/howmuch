@@ -559,7 +559,7 @@ class _SavingsArtwork extends StatelessWidget {
                   left: 20,
                   top: 44.49,
                   child: Text(
-                    '24,500',
+                    '기록 후 표시',
                     style: TextStyle(
                       color: Colors.white,
                       fontFamily: OnboardingPage.fontFamily,
@@ -597,7 +597,7 @@ class _SavingsArtwork extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: const Text(
-                      '↘  평균 외식비 대비 18% 절약',
+                      '방문 인증 내역을 기준으로 계산',
                       style: TextStyle(
                         color: Colors.white,
                         fontFamily: OnboardingPage.fontFamily,
@@ -698,7 +698,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   right: 15,
                   top: 16,
                   child: Text(
-                    '방금 등록',
+                    '접수 후 검토',
                     style: TextStyle(
                       color: OnboardingPage.muted,
                       fontFamily: OnboardingPage.fontFamily,
@@ -713,7 +713,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   left: 14,
                   top: 38.98,
                   child: Text(
-                    '골목밥상',
+                    '제보 매장',
                     style: TextStyle(
                       color: Color(0xFF0A0A0A),
                       fontFamily: OnboardingPage.fontFamily,
@@ -728,7 +728,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   left: 14,
                   top: 63.47,
                   child: Text(
-                    '제육덮밥',
+                    '메뉴·가격 정보',
                     style: TextStyle(
                       color: OnboardingPage.muted,
                       fontFamily: OnboardingPage.fontFamily,
@@ -743,7 +743,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   right: 14,
                   top: 61.97,
                   child: Text(
-                    '6,000원',
+                    '직접 확인한 정보',
                     style: TextStyle(
                       color: OnboardingPage.orange,
                       fontFamily: OnboardingPage.fontFamily,
@@ -841,7 +841,7 @@ class _PriceBubble extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: const Text(
-            '●  5,500원',
+            '●  등록 가격',
             style: TextStyle(
               color: Colors.white,
               fontFamily: OnboardingPage.fontFamily,

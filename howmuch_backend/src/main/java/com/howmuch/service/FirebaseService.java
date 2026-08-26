@@ -30,6 +30,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
@@ -62,6 +63,7 @@ public class FirebaseService {
     private final Firestore db;
     private final ReportImageStorage reportImageStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private TruePriceService truePriceService;
 
     /**
      * 착한가격업소(공공데이터) 인메모리 캐시.
@@ -93,6 +95,11 @@ public class FirebaseService {
     public FirebaseService(Firestore db, ReportImageStorage reportImageStorage) {
         this.db = db;
         this.reportImageStorage = reportImageStorage;
+    }
+
+    @Autowired
+    public void setTruePriceService(TruePriceService truePriceService) {
+        this.truePriceService = truePriceService;
     }
 
     @Async
@@ -252,6 +259,17 @@ public class FirebaseService {
 
     public List<Map<String, Object>> getAllStores() {
         return cachedStores.stream().map(this::withStableStoreId).toList();
+    }
+
+    /** 참가격을 우선하고, 미지원 품목은 실제 착한가격업소 가격 표본으로 보완합니다. */
+    public java.util.Optional<ReferencePrices.Estimate> estimateReferencePrice(
+            String menu, String industry, String address) {
+        if (truePriceService != null) {
+            java.util.Optional<ReferencePrices.Estimate> official =
+                    truePriceService.estimate(menu, industry, address);
+            if (official.isPresent()) return official;
+        }
+        return ReferencePrices.estimateFromPublicStores(cachedStores, menu, industry);
     }
 
     /** 자동화 작업이 classpath 스냅샷을 갱신할 수 있도록 안정된 순서의 캐시 복사본을 반환합니다. */
@@ -675,8 +693,9 @@ public class FirebaseService {
                 }
 
                 String menu = snapshot.getString("menu");
+                String industry = findIndustryByStoreName(storeName);
                 long savedAmount = ReferencePrices.savedAmount(
-                        menu, findIndustryByStoreName(storeName), price);
+                        estimateReferencePrice(menu, industry, findAddressByStoreName(storeName)), price);
                 com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
                         .storeId(snapshot.getString("storeId"))
                         .storeName(storeName)
@@ -1198,6 +1217,16 @@ public class FirebaseService {
         return cachedStores.stream()
                 .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
                 .map(s -> s.get("industry") != null ? s.get("industry").toString() : null)
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public String findAddressByStoreName(String storeName) {
+        if (storeName == null || storeName.isBlank()) return null;
+        return cachedStores.stream()
+                .filter(store -> storeName.equals(String.valueOf(store.get("storeName"))))
+                .map(store -> store.get("address") == null ? null : String.valueOf(store.get("address")))
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElse(null);

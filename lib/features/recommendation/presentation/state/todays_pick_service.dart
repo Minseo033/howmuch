@@ -26,9 +26,13 @@ class TodaysPickService {
 
   /// 오늘의 픽 조회 (세션 인증 불필요 — 공개 GET)
   Future<Map<String, dynamic>> getTodaysPick({double? lat, double? lng}) async {
-    final query = <String, String>{};
-    if (lat != null) query['lat'] = lat.toString();
-    if (lng != null) query['lng'] = lng.toString();
+    if (lat == null || lng == null) {
+      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
+    }
+    final query = <String, String>{
+      'lat': lat.toString(),
+      'lng': lng.toString(),
+    };
     final url = ApiClient.uri('/api/recommendation/todays-pick', query);
 
     try {
@@ -49,9 +53,13 @@ class TodaysPickService {
 
   /// AI 루트 추천 조회 (세션 인증 불필요 — 공개 GET)
   Future<Map<String, dynamic>> getRoute({double? lat, double? lng}) async {
-    final query = <String, String>{};
-    if (lat != null) query['lat'] = lat.toString();
-    if (lng != null) query['lng'] = lng.toString();
+    if (lat == null || lng == null) {
+      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
+    }
+    final query = <String, String>{
+      'lat': lat.toString(),
+      'lng': lng.toString(),
+    };
     final url = ApiClient.uri('/api/recommendation/route', query);
 
     try {
@@ -77,8 +85,15 @@ Map<String, dynamic> buildLocalTodaysPickData({
   double? lng,
   int limit = 5,
 }) {
-  final originLat = lat ?? 37.5665;
-  final originLng = lng ?? 126.9780;
+  if (lat == null || lng == null) {
+    return const {
+      'weather': '위치 확인 필요',
+      'fallback': true,
+      'picks': <Map<String, dynamic>>[],
+    };
+  }
+  final originLat = lat;
+  final originLng = lng;
   final ranked =
       stores
           .where((store) => store.hasValidCoordinates)

@@ -45,7 +45,7 @@ const _slides = [
     eyebrowBackgroundColor: Color(0xFFE8F8F1),
     artwork: OnboardingArtwork.savings,
     title: '오늘 아낀 금액이 쌓여요',
-    description: '평균 가격과 비교해 얼마나 절약했는지 월별 리포트로 확인할 수 있어요.',
+    description: '공공 가격 데이터와 비교해 얼마나 절약했는지 월별 리포트로 확인할 수 있어요.',
     primaryLabel: '다음',
   ),
   OnboardingSlideData(

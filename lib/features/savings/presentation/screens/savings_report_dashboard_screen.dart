@@ -112,8 +112,8 @@ class _SavingsReportDashboardScreenState
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes))
-            as Map<String, dynamic>;
+        final data =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         return (data['goalAmount'] as num?)?.toInt() ?? 0;
       }
     } catch (e) {
@@ -191,17 +191,23 @@ class _SavingsReportDashboardScreenState
       'visits': (stats?['totalVisits'] as num?)?.toInt() ?? 0,
       'favorites': favoritesCount,
       'reports': reportsCount,
-      'recommendation': _recommendationFor(tab),
+      'recommendation': _summaryFor(savings),
       'chartTitle': stats?['chartTitle'] ?? '절약 금액',
       'chartDate': chartDate,
       'savings': savings,
     };
   }
 
-  String _recommendationFor(String tab) {
-    if (tab == '이번 달') return '한식 매장에서 더 아낄 수 있어요';
-    if (tab == '지난 달') return '주말 카페 지출을 줄여보세요';
-    return '가장 많이 절약한 달을 확인해보세요';
+  String _summaryFor(List<Map<String, dynamic>> savings) {
+    if (savings.isEmpty) return '아직 이 기간의 절약 기록이 없어요';
+    final maxItem = savings.reduce((a, b) {
+      final aAmount = (a['amount'] as num?)?.toInt() ?? 0;
+      final bAmount = (b['amount'] as num?)?.toInt() ?? 0;
+      return aAmount >= bAmount ? a : b;
+    });
+    final amount = (maxItem['amount'] as num?)?.toInt() ?? 0;
+    if (amount <= 0) return '아직 이 기간의 절약 기록이 없어요';
+    return '${maxItem['label']}에 ${_formatCurrency(amount)}원을 가장 많이 절약했어요';
   }
 
   /// 로드 실패 시 표시할 에러/재시도 UI
@@ -212,8 +218,11 @@ class _SavingsReportDashboardScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_rounded,
-                color: Color(0xFF64748B), size: 40),
+            const Icon(
+              Icons.cloud_off_rounded,
+              color: Color(0xFF64748B),
+              size: 40,
+            ),
             const SizedBox(height: 12),
             const Text(
               '절약 데이터를 불러오지 못했어요',
@@ -240,7 +249,9 @@ class _SavingsReportDashboardScreenState
               onTap: _fetchAll,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 20, vertical: 10),
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF2563EB),
                   borderRadius: BorderRadius.circular(99),
@@ -383,7 +394,7 @@ class _SavingsReportDashboardScreenState
                   ),
                 ),
 
-                 // Scrollable Content
+                // Scrollable Content
                 Expanded(
                   child: _isLoading
                       ? const Center(
@@ -392,16 +403,18 @@ class _SavingsReportDashboardScreenState
                           ),
                         )
                       : _loadFailed
-                          ? SingleChildScrollView(
-                              padding: EdgeInsets.only(
-                                  bottom: bottomNavHeight + 20),
-                              child: _buildErrorState(),
-                            )
-                          : SingleChildScrollView(
-                              padding: EdgeInsets.only(
-                                  bottom: bottomNavHeight + 20),
-                              child: _buildDynamicContent(),
-                            ),
+                      ? SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom: bottomNavHeight + 20,
+                          ),
+                          child: _buildErrorState(),
+                        )
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom: bottomNavHeight + 20,
+                          ),
+                          child: _buildDynamicContent(),
+                        ),
                 ),
               ],
             ),
@@ -453,10 +466,10 @@ class _SavingsReportDashboardScreenState
         final String amountStr = amountVal is num && amountVal >= 10000
             ? '${(amountVal / 10000).toStringAsFixed(1).replaceAll('.0', '')}만'
             : amountVal is num
-                ? '${_formatCurrency(amountVal.toInt())}원'
-                : s['amount']?.toString() ?? '';
+            ? '${_formatCurrency(amountVal.toInt())}원'
+            : s['amount']?.toString() ?? '';
         final isMax = s['isMax'] == true;
-        
+
         final double rawAmt = amountVal is num ? amountVal.toDouble() : 0.0;
         double height = 40.0;
         if (savings.isNotEmpty) {
@@ -493,7 +506,7 @@ class _SavingsReportDashboardScreenState
       (Match m) => '${m[1]},',
     );
 
-    // 목표 달성률 (이번 달만 목표 대비, 그 외 기간은 평균 대비 문구)
+    // 목표 달성률은 목표가 적용되는 이번 달에만 표시합니다.
     int percentage = 0;
     if (_selectedTab == '이번 달' && goalAmount > 0) {
       percentage = ((displayedSaved / goalAmount) * 100).toInt();
@@ -583,8 +596,10 @@ class _SavingsReportDashboardScreenState
                         ),
                         child: Text(
                           _selectedTab == '이번 달'
-                              ? '목표 대비 $percentage% 달성'
-                              : '평균 대비 $percentage% 절약',
+                              ? goalAmount > 0
+                                    ? '목표 대비 $percentage% 달성'
+                                    : '이번 달 목표가 아직 없어요'
+                              : '$visits회 방문 기록 기준',
                           style: const TextStyle(
                             fontFamily: 'Inter',
                             fontFamilyFallback: ['Noto Sans KR'],
@@ -605,13 +620,19 @@ class _SavingsReportDashboardScreenState
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Text('🍗', style: TextStyle(fontSize: 16)),
-                            SizedBox(width: AppSizes.smallSpacing),
+                            const Icon(
+                              Icons.verified_outlined,
+                              color: Color(0xFF059669),
+                              size: 18,
+                            ),
+                            const SizedBox(width: AppSizes.smallSpacing),
                             Text(
-                              '치킨 한 마리 값에 가까워요',
-                              style: TextStyle(
+                              visits > 0
+                                  ? '$visits번의 방문 인증으로 계산했어요'
+                                  : '방문 인증을 완료하면 절약액이 기록돼요',
+                              style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 color: Color(0xFF0F172A),
@@ -692,62 +713,58 @@ class _SavingsReportDashboardScreenState
               ),
               const SizedBox(height: AppSizes.itemSpacing),
 
-              // Recommendation Banner
-              GestureDetector(
-                onTap: () => context.push(AppRoutes.todaysPick),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSizes.horizontalPadding),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFFFEDD5)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.restaurant,
-                          color: Color(0xFFF97316),
-                          size: 16,
-                        ),
+              // 실제 절약 기록 요약
+              Container(
+                padding: const EdgeInsets.all(AppSizes.horizontalPadding),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '이번 주 추천',
-                              style: TextStyle(
-                                fontFamily: 'Inter',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF92400E),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              recommendationSub,
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF0F172A),
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                      child: const Icon(
+                        Icons.restaurant,
+                        color: Color(0xFFF97316),
+                        size: 16,
                       ),
-                      const Icon(Icons.chevron_right, color: Color(0xFF92400E)),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '기록 요약',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF92400E),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            recommendationSub,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF0F172A),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

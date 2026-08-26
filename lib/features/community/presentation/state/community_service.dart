@@ -108,12 +108,10 @@ class CommunityService {
   const CommunityService();
 
   Future<Map<String, dynamic>> fetchFeedDetail(String postId) async {
-    final response = await ApiClient
-        .get(
-          ApiClient.uri('/api/community/feed/${Uri.encodeComponent(postId)}'),
-          headers: ApiClient.jsonHeaders(auth: true),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final response = await ApiClient.get(
+      ApiClient.uri('/api/community/feed/${Uri.encodeComponent(postId)}'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
       throw CommunityApiException(
@@ -128,14 +126,12 @@ class CommunityService {
   }
 
   Future<List<CommunityComment>> fetchComments(String postId) async {
-    final response = await ApiClient
-        .get(
-          ApiClient.uri(
-            '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
-          ),
-          headers: ApiClient.jsonHeaders(auth: true),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final response = await ApiClient.get(
+      ApiClient.uri(
+        '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
+      ),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
       throw CommunityApiException(
@@ -148,15 +144,13 @@ class CommunityService {
   }
 
   Future<CommunityComment?> createComment(String postId, String content) async {
-    final response = await ApiClient
-        .post(
-          ApiClient.uri(
-            '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
-          ),
-          headers: ApiClient.jsonHeaders(auth: true),
-          body: jsonEncode({'content': content}),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final response = await ApiClient.post(
+      ApiClient.uri(
+        '/api/community/feed/${Uri.encodeComponent(postId)}/comments',
+      ),
+      headers: ApiClient.jsonHeaders(auth: true),
+      body: jsonEncode({'content': content}),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw CommunityApiException(
@@ -172,14 +166,12 @@ class CommunityService {
   }
 
   Future<List<CommunityComment>> fetchReplies(String commentId) async {
-    final response = await ApiClient
-        .get(
-          ApiClient.uri(
-            '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
-          ),
-          headers: ApiClient.jsonHeaders(auth: true),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final response = await ApiClient.get(
+      ApiClient.uri(
+        '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
+      ),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200) {
       throw CommunityApiException(
@@ -195,15 +187,13 @@ class CommunityService {
     String commentId,
     String content,
   ) async {
-    final response = await ApiClient
-        .post(
-          ApiClient.uri(
-            '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
-          ),
-          headers: ApiClient.jsonHeaders(auth: true),
-          body: jsonEncode({'content': content}),
-        )
-        .timeout(ApiClient.defaultTimeout);
+    final response = await ApiClient.post(
+      ApiClient.uri(
+        '/api/community/comments/${Uri.encodeComponent(commentId)}/replies',
+      ),
+      headers: ApiClient.jsonHeaders(auth: true),
+      body: jsonEncode({'content': content}),
+    ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw CommunityApiException(
@@ -227,12 +217,14 @@ class CommunityService {
       '/api/community/feed/${Uri.encodeComponent(postId)}/like',
     );
     final response = liked
-        ? await ApiClient
-              .post(uri, headers: ApiClient.jsonHeaders(auth: true))
-              .timeout(ApiClient.defaultTimeout)
-        : await ApiClient
-              .delete(uri, headers: ApiClient.jsonHeaders(auth: true))
-              .timeout(ApiClient.defaultTimeout);
+        ? await ApiClient.post(
+            uri,
+            headers: ApiClient.jsonHeaders(auth: true),
+          ).timeout(ApiClient.defaultTimeout)
+        : await ApiClient.delete(
+            uri,
+            headers: ApiClient.jsonHeaders(auth: true),
+          ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 &&
         response.statusCode != 201 &&
@@ -270,12 +262,14 @@ class CommunityService {
       '/api/community/feed/${Uri.encodeComponent(postId)}/notification',
     );
     final response = enabled
-        ? await ApiClient
-              .post(uri, headers: ApiClient.jsonHeaders(auth: true))
-              .timeout(ApiClient.defaultTimeout)
-        : await ApiClient
-              .delete(uri, headers: ApiClient.jsonHeaders(auth: true))
-              .timeout(ApiClient.defaultTimeout);
+        ? await ApiClient.post(
+            uri,
+            headers: ApiClient.jsonHeaders(auth: true),
+          ).timeout(ApiClient.defaultTimeout)
+        : await ApiClient.delete(
+            uri,
+            headers: ApiClient.jsonHeaders(auth: true),
+          ).timeout(ApiClient.defaultTimeout);
 
     if (response.statusCode != 200 &&
         response.statusCode != 201 &&

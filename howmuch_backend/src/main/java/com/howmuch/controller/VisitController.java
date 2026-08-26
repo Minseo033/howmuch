@@ -231,12 +231,30 @@ public class VisitController {
         }
 
         String industry = firebaseService.findIndustryByStoreName(storeName);
-        long referencePrice = ReferencePrices.referencePrice(menu, industry);
-        long savedAmount = Math.max(0L, referencePrice - price);
+        Optional<ReferencePrices.Estimate> estimate = firebaseService.estimateReferencePrice(
+                menu, industry, firebaseService.findAddressByStoreName(storeName));
+        if (estimate.isEmpty()) {
+            return ResponseEntity.ok(Map.of(
+                    "referencePriceAvailable", false,
+                    "referencePrice", 0,
+                    "savedAmount", 0,
+                    "matchedByMenu", false,
+                    "source", "UNAVAILABLE",
+                    "sourceLabel", "비교 가능한 공공 가격 데이터 없음",
+                    "basisDate", "",
+                    "sampleSize", 0
+            ));
+        }
+        ReferencePrices.Estimate value = estimate.get();
         return ResponseEntity.ok(Map.of(
-                "referencePrice", referencePrice,
-                "savedAmount", savedAmount,
-                "matchedByMenu", ReferencePrices.matchMenuPrice(menu) != null
+                "referencePriceAvailable", true,
+                "referencePrice", value.referencePrice(),
+                "savedAmount", ReferencePrices.savedAmount(estimate, price),
+                "matchedByMenu", value.isMenuLevel(),
+                "source", value.source(),
+                "sourceLabel", value.label(),
+                "basisDate", value.basisDate(),
+                "sampleSize", value.sampleSize()
         ));
     }
 
@@ -330,9 +348,11 @@ public class VisitController {
                 request.setStoreName(coordinates.storeName());
             }
             request.setIndustry(industry);
-            // 💡 절약 금액 = 참가격(시장 평균가) − 결제가 (ReferencePrices, 메뉴 매칭 우선)
             long savedAmount = ReferencePrices.savedAmount(
-                    request.getMenu(), industry, request.getPrice());
+                    firebaseService.estimateReferencePrice(
+                            request.getMenu(), industry,
+                            firebaseService.findAddressByStoreName(request.getStoreName())),
+                    request.getPrice());
             // 클라이언트가 보낸 거리는 신뢰하지 않고 서버 계산값만 저장합니다.
             request.setVerificationDistanceMeters(distanceMeters);
             String visitId = firebaseService.saveVisit(firebaseUid, request, savedAmount);

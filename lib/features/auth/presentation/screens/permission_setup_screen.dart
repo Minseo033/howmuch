@@ -7,6 +7,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:geolocator/geolocator.dart';
 
 class PermissionSetupScreen extends ConsumerWidget {
   const PermissionSetupScreen({super.key});
@@ -126,8 +127,8 @@ class PermissionSetupScreen extends ConsumerWidget {
                             iconBackground: Color(0xFFEFF4FF),
                             title: '위치 권한 (필수)',
                             description: '현재 위치 주변의 착한가격업소를 보여드려요.',
-                            status: '허용',
-                            allowed: true,
+                            status: '앱 시작 시 요청',
+                            allowed: false,
                           ),
                           SizedBox(height: 10),
                           _PermissionCard(
@@ -136,8 +137,8 @@ class PermissionSetupScreen extends ConsumerWidget {
                             iconBackground: Color(0xFFFFF3EA),
                             title: '알림 권한',
                             description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
-                            status: '허용',
-                            allowed: true,
+                            status: '앱 시작 시 요청',
+                            allowed: false,
                           ),
                           SizedBox(height: 10),
                           _PermissionCard(
@@ -204,7 +205,23 @@ class PermissionSetupScreen extends ConsumerWidget {
 
   Future<_StartupPermissionResult> _requestStartupPermissions() async {
     if (kIsWeb) {
-      return const _StartupPermissionResult(location: true, notification: true);
+      try {
+        var location = await Geolocator.checkPermission();
+        if (location == LocationPermission.denied) {
+          location = await Geolocator.requestPermission();
+        }
+        return _StartupPermissionResult(
+          location:
+              location == LocationPermission.always ||
+              location == LocationPermission.whileInUse,
+          notification: false,
+        );
+      } catch (_) {
+        return const _StartupPermissionResult(
+          location: false,
+          notification: false,
+        );
+      }
     }
 
     try {
@@ -216,7 +233,10 @@ class PermissionSetupScreen extends ConsumerWidget {
         notification: notification.isGranted || notification.isLimited,
       );
     } on MissingPluginException {
-      return const _StartupPermissionResult(location: true, notification: true);
+      return const _StartupPermissionResult(
+        location: false,
+        notification: false,
+      );
     }
   }
 }
@@ -332,7 +352,7 @@ class _PermissionCard extends StatelessWidget {
           ),
           const SizedBox(width: 11.988636016845703),
           Container(
-            width: allowed ? 60.96590805053711 : 56.9886360168457,
+            width: allowed ? 60.96590805053711 : 106,
             height: 30.468748092651367,
             decoration: BoxDecoration(
               color: allowed

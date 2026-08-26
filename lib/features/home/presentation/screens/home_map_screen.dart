@@ -1987,7 +1987,7 @@ class _TodayPickCard extends StatelessWidget {
                       size: 20,
                     ),
                     const SizedBox(height: 1.989),
-                    // 날씨 API 연동 전이라 기온은 목업이 아니라 "알 수 없음"으로 표시
+                    // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
                     Text(
                       '오늘',
                       style: TextStyle(
@@ -2060,8 +2060,8 @@ class _TodayPickText extends StatelessWidget {
           ],
         ),
         const SizedBox(height: .994),
-        Text(
-          '날씨 기반 추천 4곳',
+        const Text(
+          '날씨와 거리로 매장 추천',
           style: TextStyle(
             color: HomeMapScreen.ink,
             fontFamily: HomeMapScreen.fontFamily,
@@ -2111,12 +2111,9 @@ class _StoreSummaryCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 11.5),
-            Row(
-              children: [
-                const _SavingBadge(),
-                const Spacer(),
-                _DetailButton(store: store),
-              ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: _DetailButton(store: store),
             ),
           ],
         ),
@@ -2174,26 +2171,6 @@ class _StoreInfo extends StatelessWidget {
           top: 58.4801025390625,
           child: Text(store.industry, style: _muted12),
         ),
-        const Positioned(
-          left: 67.05963134765625,
-          top: 61.974365234375,
-          child: Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 11),
-        ),
-        const Positioned(
-          left: 86.05111694335938,
-          top: 58.4801025390625,
-          child: Text(
-            '4.6',
-            style: TextStyle(
-              color: HomeMapScreen.ink,
-              fontFamily: HomeMapScreen.fontFamily,
-              fontFamilyFallback: HomeMapScreen.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -2243,34 +2220,6 @@ class _StorePrice extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SavingBadge extends StatelessWidget {
-  const _SavingBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 24.474430084228516,
-      padding: const EdgeInsets.symmetric(horizontal: 7.997161865234375),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F8F1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      alignment: Alignment.center,
-      child: const Text(
-        '평균 대비 2,000원 절약',
-        style: TextStyle(
-          color: HomeMapScreen.green,
-          fontFamily: HomeMapScreen.fontFamily,
-          fontFamilyFallback: HomeMapScreen.fontFallback,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          height: 1.5,
-        ),
       ),
     );
   }
@@ -2749,7 +2698,7 @@ class _FloatingSearchSummary extends StatelessWidget {
           const Icon(Icons.location_on, color: Color(0xFFEF4444), size: 14),
           const SizedBox(width: 6),
           const Text(
-            '주변 1km 안에 ',
+            '현재 검색 결과 ',
             style: TextStyle(
               color: HomeMapScreen.ink,
               fontFamily: HomeMapScreen.fontFamily,

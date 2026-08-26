@@ -41,6 +41,14 @@ class RecommendationControllerTest {
     }
 
     @Test
+    void rejectsMissingCoordinatesInsteadOfUsingASeoulDefault() {
+        ResponseEntity<?> response = controller.getTodaysPick(null, null);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(weatherService, firebaseService, geminiService, rateLimiter);
+    }
+
+    @Test
     void rejectsOutOfRangeRouteCoordinatesBeforeConsumingRateLimit() {
         ResponseEntity<?> response = controller.getRoute(
                 91.0, 127.0, new MockHttpServletRequest());

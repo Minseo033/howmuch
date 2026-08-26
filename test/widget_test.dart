@@ -218,7 +218,7 @@ void main() {
     await _goToRoute(tester, AppRoutes.publicDataSource);
     expect(find.text('공공데이터 출처'), findsAtLeastNWidgets(1));
     expect(find.text('행정안전부 착한가격업소'), findsOneWidget);
-    expect(find.text('data.go.kr'), findsOneWidget);
+    expect(find.text('한국소비자원 참가격'), findsOneWidget);
 
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
@@ -266,22 +266,16 @@ void main() {
     expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('opens empty search result and handles local actions', (
+  testWidgets('opens the real search screen without a fabricated query', (
     tester,
   ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.searchEmpty);
+    await _goToRoute(tester, AppRoutes.searchResult);
 
-    expect(find.text('주차요금'), findsOneWidget);
-    expect(find.text('검색 결과가 없어요'), findsOneWidget);
-    expect(find.text('필터 초기화하기'), findsOneWidget);
-
-    await tester.tap(find.text('김치찌개'));
-    await tester.pumpAndSettle();
     expect(find.byType(SearchResultScreen), findsOneWidget);
-    expect(find.text('김치찌개'), findsAtLeastNWidgets(1));
+    expect(find.text('주차요금'), findsNothing);
   });
 
   testWidgets('opens network error state with recovery actions', (

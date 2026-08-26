@@ -212,11 +212,27 @@ class _SubmittedReportCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final reports = ref.watch(userReportsProvider);
     final report = reports.isNotEmpty ? reports.first : null;
+    if (report == null) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          color: ReportCompleteScreen.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ReportCompleteScreen.border, width: .909),
+        ),
+        child: const Center(
+          child: Text(
+            '제출한 제보 정보를 확인할 수 없어요.\n내 제보 내역에서 다시 확인해주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: ReportCompleteScreen.muted, height: 1.5),
+          ),
+        ),
+      );
+    }
 
-    final storeName = report?.store ?? '로딩 중...';
+    final storeName = report.store.isEmpty ? '매장명 정보 없음' : report.store;
 
     // 메뉴와 가격 분리 로직 (예: "제육덮밥 6,000원")
-    final fullMenuText = report?.menu ?? '메뉴 로딩 중...';
+    final fullMenuText = report.menu.isEmpty ? '메뉴 정보 없음' : report.menu;
     String menuName = fullMenuText;
     String menuPrice = '';
 
@@ -226,10 +242,10 @@ class _SubmittedReportCard extends ConsumerWidget {
       menuPrice = fullMenuText.substring(lastSpaceIndex + 1);
     }
 
-    // 오늘 날짜 포맷 (예: 2026.06.14)
-    final now = DateTime.now();
-    final todayStr =
-        '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final createdAt = DateTime.tryParse(report.createdAt)?.toLocal();
+    final createdAtText = createdAt == null
+        ? '제보일 정보 없음'
+        : '${createdAt.year}.${createdAt.month.toString().padLeft(2, '0')}.${createdAt.day.toString().padLeft(2, '0')}';
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -242,7 +258,7 @@ class _SubmittedReportCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _PillBadge(
@@ -251,7 +267,7 @@ class _SubmittedReportCard extends ConsumerWidget {
                   color: ReportCompleteScreen.orange,
                   width: 79.503,
                 ),
-                _StatusBadge(),
+                _StatusBadge(status: report.status),
               ],
             ),
             const SizedBox(height: 11.99),
@@ -293,9 +309,12 @@ class _SubmittedReportCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 5.994),
-            const _InfoRow(label: '위치', text: '현재 위치 근처'),
+            _InfoRow(
+              label: '위치',
+              text: report.address.isEmpty ? '주소 정보 없음' : report.address,
+            ),
             const SizedBox(height: 5.994),
-            _InfoRow(label: '제보일', text: todayStr),
+            _InfoRow(label: '제보일', text: createdAtText),
           ],
         ),
       ),
@@ -352,7 +371,9 @@ class _PillBadge extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge();
+  const _StatusBadge({required this.status});
+
+  final String status;
 
   @override
   Widget build(BuildContext context) {
@@ -364,9 +385,9 @@ class _StatusBadge extends StatelessWidget {
         color: const Color(0xFFFEF3C7),
         borderRadius: BorderRadius.circular(999),
       ),
-      child: const Text(
-        '● 검토 중',
-        style: TextStyle(
+      child: Text(
+        '● $status',
+        style: const TextStyle(
           color: Color(0xFF92400E),
           fontFamily: ReportCompleteScreen.fontFamily,
           fontFamilyFallback: ReportCompleteScreen.fontFallback,

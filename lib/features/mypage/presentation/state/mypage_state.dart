@@ -8,7 +8,6 @@ class UserProfile {
   const UserProfile({
     required this.nickname,
     required this.email,
-    required this.level,
     required this.region,
     required this.favoriteCategories,
     required this.savedAmount,
@@ -22,7 +21,6 @@ class UserProfile {
 
   final String nickname;
   final String email;
-  final String level;
   final String region;
   final List<String> favoriteCategories;
   final int savedAmount;
@@ -36,7 +34,6 @@ class UserProfile {
   static const guest = UserProfile(
     nickname: '게스트',
     email: '',
-    level: 'LV.1 새싹',
     region: '',
     favoriteCategories: [],
     savedAmount: 0,
@@ -64,7 +61,6 @@ class UserProfile {
   UserProfile copyWith({
     String? nickname,
     String? email,
-    String? level,
     String? region,
     List<String>? favoriteCategories,
     int? savedAmount,
@@ -78,7 +74,6 @@ class UserProfile {
     return UserProfile(
       nickname: nickname ?? this.nickname,
       email: email ?? this.email,
-      level: level ?? this.level,
       region: region ?? this.region,
       favoriteCategories: favoriteCategories ?? this.favoriteCategories,
       savedAmount: savedAmount ?? this.savedAmount,
@@ -228,8 +223,8 @@ class UserReportStatus {
     this.address = '',
     this.menuPrices = const [],
     this.imageUrls = const [],
-    this.visitedRecently = true,
-    this.checkedMenuPrice = true,
+    this.visitedRecently = false,
+    this.checkedMenuPrice = false,
     this.createdAt = '',
     this.rejectReason = '',
   });
@@ -270,10 +265,10 @@ class UserReportStatus {
       imageUrls: _stringList(json['imageUrls']),
       visitedRecently: json['visitedRecently'] is bool
           ? json['visitedRecently'] as bool
-          : true,
+          : false,
       checkedMenuPrice: json['checkedMenuPrice'] is bool
           ? json['checkedMenuPrice'] as bool
-          : true,
+          : false,
       createdAt: json['createdAt']?.toString() ?? '',
       rejectReason: json['rejectReason']?.toString() ?? '',
     );
@@ -582,8 +577,7 @@ class FavoriteStoreModel {
   }
 }
 
-// 💡 감사 이슈(#4): 하드코딩 목업('절약왕 민서', 24,500원 등) 제거.
-//    기본값은 게스트 상태이며, 로그인 시 mypage_screen의 _loadProfileSummary가
+// 기본값은 게스트 상태이며, 로그인 시 mypage_screen의 _loadProfileSummary가
 //    /api/user/profile + /api/savings/stats + /api/report/my + /api/favorites로 실데이터를 채웁니다.
 final userProfileProvider = StateProvider<UserProfile>(
   (ref) => UserProfile.guest,

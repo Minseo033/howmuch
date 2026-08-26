@@ -50,10 +50,6 @@ public class WeatherService {
     /** 기상청 예보 시각과 사용자가 보는 한국 현지 시각을 맞춘다. */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
-    /** 기본 격자: 서울 (lat/lng 없거나 변환 실패 시) */
-    private static final int DEFAULT_NX = 60;
-    private static final int DEFAULT_NY = 127;
-
     public WeatherService(@Value("${weather.api-key:}") String weatherApiKey,
                           @Value("${weather.timeout-ms:10000}") int timeoutMs) {
         this.weatherApiKey = weatherApiKey;
@@ -65,8 +61,8 @@ public class WeatherService {
 
     /**
      * 현재 날씨 요약 조회 (기상청 단기예보 getVilageFcst).
-     * @param lat 사용자 위도 (null 허용 — null이면 서울 기준)
-     * @param lng 사용자 경도 (null 허용)
+     * @param lat 사용자 위도
+     * @param lng 사용자 경도
      * @return weather(한글 요약), temp(기온), available(조회 성공 여부), fcstTime(사용된 예보 시각)
      */
     public Map<String, Object> getCurrentWeather(Double lat, Double lng) {
@@ -79,7 +75,19 @@ public class WeatherService {
             return result;
         }
 
-        int[] grid = (lat != null && lng != null) ? toGrid(lat, lng) : new int[]{DEFAULT_NX, DEFAULT_NY};
+        if (lat == null || lng == null) {
+            result.put("weather", "알 수 없음");
+            result.put("temp", null);
+            result.put("available", false);
+            return result;
+        }
+        int[] grid = toGrid(lat, lng);
+        if (grid == null) {
+            result.put("weather", "알 수 없음");
+            result.put("temp", null);
+            result.put("available", false);
+            return result;
+        }
 
         try {
             // 발표 지연(+15분)을 반영해 "이미 제공 중인 가장 최근 발표분"을 고른다.
@@ -244,7 +252,7 @@ public class WeatherService {
     /**
      * 위경도 → 기상청 단기예보 격자(nx, ny) 변환.
      * 기상청 공개 알고리즘 (Lambert Conformal Conic 투영, 5km 격자).
-     * 변환 실패/범위 밖이면 서울 기본값 반환.
+     * 변환 실패/범위 밖이면 null을 반환합니다.
      */
     private int[] toGrid(double lat, double lng) {
         try {
@@ -283,11 +291,11 @@ public class WeatherService {
 
             // 한국 영토 대략 범위 밖이면 기본값
             if (nx < 1 || nx > 200 || ny < 1 || ny > 250) {
-                return new int[]{DEFAULT_NX, DEFAULT_NY};
+                return null;
             }
             return new int[]{nx, ny};
         } catch (Exception e) {
-            return new int[]{DEFAULT_NX, DEFAULT_NY};
+            return null;
         }
     }
 }

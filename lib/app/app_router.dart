@@ -32,7 +32,6 @@ import 'package:howmuch/features/onboarding/presentation/screens/onboarding_stor
 import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/network_error_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/report_delete_confirm_screen.dart';
-import 'package:howmuch/features/system/presentation/screens/search_empty_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/session_expired_screen.dart';
 import 'package:howmuch/features/store/presentation/screens/store_detail_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
@@ -273,7 +272,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.privacyPolicy, const PrivacyPolicyScreen()),
       _route(AppRoutes.termsOfService, const TermsOfServiceScreen()),
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
-      _route(AppRoutes.searchEmpty, const SearchEmptyScreen()),
       GoRoute(
         path: AppRoutes.reportDeleteConfirm,
         pageBuilder: (_, state) => CupertinoPage<void>(

@@ -21,9 +21,10 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
 
     final url = ApiClient.uri('/api/review', {'storeId': storeId});
     try {
-      final response = await ApiClient
-          .get(url, headers: {'Accept': 'application/json'})
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode != 200) {
         debugPrint('리뷰 조회 실패: ${response.statusCode}');
@@ -47,13 +48,11 @@ class StoreReviewNotifier extends StateNotifier<Map<String, List<Review>>> {
   Future<bool> addReview(Review review) async {
     final url = ApiClient.uri('/api/review');
     try {
-      final response = await ApiClient
-          .post(
-            url,
-            headers: ApiClient.jsonHeaders(auth: true),
-            body: jsonEncode(review.toCreateJson()),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.post(
+        url,
+        headers: ApiClient.jsonHeaders(auth: true),
+        body: jsonEncode(review.toCreateJson()),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 401) {
         throw const MyReviewsAuthRequiredException();
@@ -124,12 +123,10 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
 
     state = const AsyncValue.loading();
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/review/me'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/review/me'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode != 200) {
         throw Exception('내 리뷰 조회 실패: ${response.statusCode}');

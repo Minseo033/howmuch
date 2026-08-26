@@ -58,12 +58,10 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     });
 
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/savings/history'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/savings/history'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (!mounted) return;
       if (response.statusCode == 200) {
@@ -97,7 +95,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
             storeName: item['storeName']?.toString() ?? '미등록 매장',
             menuName: item['menu']?.toString() ?? '기타',
             price: '${_formatCurrency(priceVal)}원',
-            savingAmount: '평균가 대비 ${_formatCurrency(savedVal)}원 절약',
+            savingAmount: '공공 기준가 대비 ${_formatCurrency(savedVal)}원 절약',
           );
         }).toList();
 
@@ -175,7 +173,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   /// 업종 필터용 카테고리 — API에 category 필드가 없어 빈 값으로 두고, 이 경우 모든 필터에 노출됩니다.
   String _categoryFromDate(String raw) => '';
 
-  /// "평균가 대비 2,000원 절약" → 2000
+  /// "공공 기준가 대비 2,000원 절약" → 2000
   int _parseAmount(String saving) {
     final match = RegExp(r'([\d,]+)').firstMatch(saving);
     if (match == null) return 0;
@@ -457,7 +455,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                 SizedBox(width: AppSizes.smallSpacing),
                                 Expanded(
                                   child: Text(
-                                    '절약 금액은 주변 평균 가격과 등록된 메뉴 가격을 기준으로 계산돼요.',
+                                    '절약 금액은 참가격과 착한가격업소의 실제 등록 가격을 기준으로 계산돼요.',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
                                       fontFamilyFallback: ['Noto Sans KR'],

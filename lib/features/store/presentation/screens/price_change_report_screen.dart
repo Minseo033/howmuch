@@ -94,7 +94,7 @@ class _PriceChangeReportScreenState
         price1: _selectedType == 2 ? '' : price,
         imageUrls: uploadedImageUrls,
         reporterId: '',
-        visitedRecently: true,
+        visitedRecently: false,
         checkedMenuPrice: true,
         changeType: _changeType,
         description: description,

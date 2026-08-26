@@ -216,7 +216,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void _markLoggedOut() {
     ref.read(authStateProvider.notifier).state = const AuthState(
       isLoggedIn: false,
-      provider: '이메일',
+      provider: '',
       email: '',
     );
   }

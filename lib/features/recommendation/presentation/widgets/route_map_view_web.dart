@@ -133,7 +133,7 @@ void _injectRouteMapJs() {
         }
         try {
         var points = JSON.parse(pointsJson);
-        var first = points.length > 0 ? points[0] : {latitude: 37.5665, longitude: 126.9780};
+        var first = points.length > 0 ? points[0] : {latitude: userLat, longitude: userLng};
         var map = new kakao.maps.Map(container, {
           center: new kakao.maps.LatLng(first.latitude, first.longitude),
           level: 5

@@ -44,7 +44,6 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   List<dynamic> _rawFeeds = [];
   Timer? _feedRefreshTimer;
 
-  // 8/7: 목업 지역('역삼동/합정동' 순환) 제거 → 현위치 행정동명 표시.
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
 
@@ -84,15 +83,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: const Duration(seconds: 8),
       ).timeout(const Duration(seconds: 10));
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/locations/region', {
-              'lat': position.latitude.toString(),
-              'lng': position.longitude.toString(),
-            }),
-            headers: ApiClient.authHeaders(),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/locations/region', {
+          'lat': position.latitude.toString(),
+          'lng': position.longitude.toString(),
+        }),
+        headers: ApiClient.authHeaders(),
+      ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode != 200) return _setLocationFallback();
 
       final data = ApiClient.decodeJson(response);
@@ -121,12 +118,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
     }
 
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/community/feed'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/community/feed'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -332,7 +327,10 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
             height: HowmuchTopBar.height,
             child: _Header(
               onBack: () => context.go(AppRoutes.home),
-              onSearch: () => context.push(AppRoutes.searchEmpty),
+              onSearch: () => context.push(
+                AppRoutes.searchResult,
+                extra: const {'query': ''},
+              ),
             ),
           ),
           Positioned(

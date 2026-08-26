@@ -115,12 +115,10 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/locations/addresses', {'q': query.trim()}),
-            headers: ApiClient.authHeaders(),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/locations/addresses', {'q': query.trim()}),
+        headers: ApiClient.authHeaders(),
+      ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
         final data = ApiClient.decodeJson(response);
         final addresses = data['addresses'] as List? ?? const [];
@@ -171,15 +169,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         timeLimit: const Duration(seconds: 8),
       ).timeout(const Duration(seconds: 10));
 
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/locations/region', {
-              'lat': position.latitude.toString(),
-              'lng': position.longitude.toString(),
-            }),
-            headers: ApiClient.authHeaders(),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/locations/region', {
+          'lat': position.latitude.toString(),
+          'lng': position.longitude.toString(),
+        }),
+        headers: ApiClient.authHeaders(),
+      ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
         final data = ApiClient.decodeJson(response);
@@ -253,13 +249,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         final goalAmount = int.tryParse(goalDigits);
         if (goalAmount != null && goalAmount > 0) {
           try {
-            await ApiClient
-                .post(
-                  ApiClient.uri('/api/savings/goal'),
-                  headers: ApiClient.jsonHeaders(auth: true),
-                  body: jsonEncode({'goalAmount': goalAmount}),
-                )
-                .timeout(ApiClient.defaultTimeout);
+            await ApiClient.post(
+              ApiClient.uri('/api/savings/goal'),
+              headers: ApiClient.jsonHeaders(auth: true),
+              body: jsonEncode({'goalAmount': goalAmount}),
+            ).timeout(ApiClient.defaultTimeout);
           } catch (e) {
             debugPrint('절약 목표 저장 실패(무시하고 진행): $e');
           }
@@ -717,7 +711,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
         const SizedBox(height: 6),
         const Text(
-          '이 지역의 가격 변동과 새 매장을 우선 추천해드려요.',
+          '선택한 지역은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,
@@ -838,7 +832,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          '선택한 업종 위주로 오늘의 픽과 절약 리포트가 정리돼요.',
+          '관심 업종은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,

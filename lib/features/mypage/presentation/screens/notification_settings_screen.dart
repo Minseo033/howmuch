@@ -573,13 +573,25 @@ class _NotificationRow extends StatelessWidget {
   }
 }
 
-class _PriceAlertEntryCard extends StatelessWidget {
+class _PriceAlertEntryCard extends ConsumerWidget {
   const _PriceAlertEntryCard({required this.onTap});
 
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(priceAlertSettingsProvider);
+    final subtitle = settings.when(
+      data: (value) {
+        final enabled = value.stores.where((store) => store.enabled).toList();
+        final menuCount = enabled
+            .where((store) => store.menuName.trim().isNotEmpty)
+            .length;
+        return '매장 ${enabled.length}곳 · 메뉴 $menuCount개 관리';
+      },
+      loading: () => '가격 알림 정보를 불러오는 중',
+      error: (_, _) => '가격 알림에서 구독 현황 확인',
+    );
     return _RoundedPanel(
       child: Material(
         color: AppColors.transparent,
@@ -587,8 +599,8 @@ class _PriceAlertEntryCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
           child: Stack(
-            children: const [
-              Positioned(
+            children: [
+              const Positioned(
                 left: 16,
                 top: 15.88037109375,
                 child: _CircleIcon(
@@ -602,11 +614,11 @@ class _PriceAlertEntryCard extends StatelessWidget {
                 top: 14.900390625,
                 child: _TitleSubtitle(
                   title: '구독 중인 가격 알림',
-                  subtitle: '매장 3곳 · 메뉴 5개 관리',
+                  subtitle: subtitle,
                   compact: true,
                 ),
               ),
-              Positioned(
+              const Positioned(
                 right: 16.903411865234375,
                 top: 25.88037109375,
                 child: Icon(

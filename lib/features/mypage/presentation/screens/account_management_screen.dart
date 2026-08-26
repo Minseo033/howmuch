@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
+import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -33,12 +34,13 @@ class AccountManagementScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
     final auth = ref.watch(authStateProvider);
+    final permissions = ref.watch(permissionSettingsProvider);
     final email =
         usableAccountEmail(profile.email) ??
         usableAccountEmail(auth.email) ??
         '이메일 정보 없음';
     final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
-    final provider = auth.provider == '이메일' ? '카카오' : auth.provider;
+    final provider = auth.provider.trim().isEmpty ? '로그인 정보 없음' : auth.provider;
     final scrollContentHeight = 672 + topOffset;
 
     void goBack() {
@@ -86,6 +88,7 @@ class AccountManagementScreen extends ConsumerWidget {
                 child: _AccountInfoCard(
                   profile: profile,
                   provider: provider,
+                  locationAllowed: permissions.location,
                   onSocialAccounts: () =>
                       context.go(AppRoutes.connectedSocialAccounts),
                 ),
@@ -280,11 +283,13 @@ class _AccountInfoCard extends StatelessWidget {
   const _AccountInfoCard({
     required this.profile,
     required this.provider,
+    required this.locationAllowed,
     required this.onSocialAccounts,
   });
 
   final UserProfile profile;
   final String provider;
+  final bool locationAllowed;
   final VoidCallback onSocialAccounts;
 
   @override
@@ -300,10 +305,12 @@ class _AccountInfoCard extends StatelessWidget {
             onTap: onSocialAccounts,
           ),
           const _CardDivider(),
-          const _AccountRow(
+          _AccountRow(
             title: '위치 정보 사용 관리',
-            value: '허용',
-            valueColor: AccountManagementScreen.green,
+            value: locationAllowed ? '허용' : '허용 안 됨',
+            valueColor: locationAllowed
+                ? AccountManagementScreen.green
+                : AccountManagementScreen.muted,
             boldValue: true,
           ),
         ],

@@ -18,13 +18,14 @@ class SavingsGoalSettingScreen extends StatefulWidget {
 class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   late TextEditingController _goalController;
   final SavingsGlobalState _state = SavingsGlobalState();
+  bool _isLoading = true;
+  bool _isSaving = false;
+  String? _loadError;
 
   @override
   void initState() {
     super.initState();
-    _goalController = TextEditingController(
-      text: _state.monthlyGoal.value.toString(),
-    );
+    _goalController = TextEditingController();
     // 저장된 목표를 서버에서 불러와 초기값으로 반영
     _loadGoal();
   }
@@ -38,43 +39,78 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   /// GET /api/savings/goal — 저장된 목표 금액을 입력창에 반영
   Future<void> _loadGoal() async {
     try {
-      final response = await ApiClient
-          .get(
-            ApiClient.uri('/api/savings/goal'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes))
-            as Map<String, dynamic>;
-        final goal = (data['goalAmount'] as num?)?.toInt();
-        if (goal != null && goal > 0 && mounted) {
-          _goalController.text = goal.toString();
-          _state.monthlyGoal.value = goal;
-        }
+      final responses = await Future.wait([
+        ApiClient.get(
+          ApiClient.uri('/api/savings/goal'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        ).timeout(ApiClient.defaultTimeout),
+        ApiClient.get(
+          ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+          headers: ApiClient.jsonHeaders(auth: true),
+        ).timeout(ApiClient.defaultTimeout),
+      ]);
+      if (responses[0].statusCode != 200 || responses[1].statusCode != 200) {
+        throw StateError('절약 정보를 불러오지 못했습니다.');
       }
+      final goalData =
+          jsonDecode(utf8.decode(responses[0].bodyBytes))
+              as Map<String, dynamic>;
+      final statsData =
+          jsonDecode(utf8.decode(responses[1].bodyBytes))
+              as Map<String, dynamic>;
+      final goal = (goalData['goalAmount'] as num?)?.toInt() ?? 0;
+      final saved = (statsData['totalSavedAmount'] as num?)?.toInt() ?? 0;
+      final visits = (statsData['totalVisits'] as num?)?.toInt() ?? 0;
+      if (!mounted) return;
+      _goalController.text = goal > 0 ? goal.toString() : '';
+      _state.monthlyGoal.value = goal;
+      _state.currentSaved.value = saved;
+      _state.visitCount.value = visits;
+      setState(() {
+        _isLoading = false;
+        _loadError = null;
+      });
     } catch (e) {
       debugPrint('절약 목표 조회 실패: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = '절약 정보를 불러오지 못했어요.';
+        });
+      }
     }
   }
 
   Future<void> _saveGoal() async {
-    final int newGoal =
-        int.tryParse(_goalController.text.replaceAll(',', '')) ?? 30000;
-    _state.monthlyGoal.value = newGoal;
-    // 서버에 목표 저장 (실패해도 화면은 유지)
+    final newGoal = int.tryParse(_goalController.text.replaceAll(',', ''));
+    if (newGoal == null || newGoal <= 0) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('목표 금액을 입력해주세요.')));
+      return;
+    }
+    setState(() => _isSaving = true);
     try {
-      await ApiClient
-          .post(
-            ApiClient.uri('/api/savings/goal'),
-            headers: ApiClient.jsonHeaders(auth: true),
-            body: jsonEncode({'goalAmount': newGoal}),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.post(
+        ApiClient.uri('/api/savings/goal'),
+        headers: ApiClient.jsonHeaders(auth: true),
+        body: jsonEncode({'goalAmount': newGoal}),
+      ).timeout(ApiClient.defaultTimeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('목표 저장 실패');
+      }
+      _state.monthlyGoal.value = newGoal;
+      if (mounted) context.pop();
     } catch (e) {
       debugPrint('절약 목표 저장 실패: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('목표를 저장하지 못했어요. 다시 시도해주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
-    if (mounted) context.pop();
   }
 
   @override
@@ -152,9 +188,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                     Expanded(
                                       child: TextField(
                                         controller: _goalController,
-                                        cursorColor: const Color(
-                                          0xFF2563EB,
-                                        ),
+                                        cursorColor: const Color(0xFF2563EB),
                                         keyboardType: TextInputType.number,
                                         inputFormatters: [
                                           FilteringTextInputFormatter
@@ -195,61 +229,11 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSizes.largeSpacing),
-                  // Category Goals
-                  const Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppSizes.horizontalPadding,
-                    ),
-                    child: Text(
-                      '카테고리별 목표',
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: ['Noto Sans KR'],
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
-                        fontSize: 11,
-                        height: 16.5 / 11,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSizes.smallSpacing),
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSizes.horizontalPadding,
                     ),
-                    child: Column(
-                      children: [
-                        _buildCategoryGoal(
-                          iconEmoji: '🍚',
-                          category: '음식점',
-                          current: '14,500원',
-                          total: ' / 20,000원',
-                          currentColor: const Color(0xFF2563EB),
-                          barColor: const Color(0xFF2563EB),
-                          percentage: 72.5,
-                        ),
-                        const SizedBox(height: 10),
-                        _buildCategoryGoal(
-                          iconEmoji: '☕',
-                          category: '카페',
-                          current: '6,500원',
-                          total: ' / 8,000원',
-                          currentColor: const Color(0xFFF97316),
-                          barColor: const Color(0xFFF97316),
-                          percentage: 81.25,
-                        ),
-                        const SizedBox(height: 10),
-                        _buildCategoryGoal(
-                          iconEmoji: '✂️',
-                          category: '생활서비스',
-                          current: '3,500원',
-                          total: ' / 5,000원',
-                          currentColor: const Color(0xFF10B981),
-                          barColor: const Color(0xFF10B981),
-                          percentage: 70.0,
-                        ),
-                      ],
-                    ),
+                    child: _buildCurrentProgress(),
                   ),
                   const SizedBox(height: AppSizes.largeSpacing),
                   // Info Box
@@ -266,14 +250,14 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                         color: const Color(0xFFE8F8F1),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Row(
+                      child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text('💡', style: TextStyle(fontSize: 14)),
                           SizedBox(width: AppSizes.smallSpacing),
                           Expanded(
                             child: Text(
-                              '목표를 설정하면 달성률을 확인하고\n오늘의 픽 추천에도 반영돼요.',
+                              '목표를 설정하면 절약 리포트에서\n이번 달 달성률을 확인할 수 있어요.',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontFamilyFallback: ['Noto Sans KR'],
@@ -374,7 +358,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     bottom: 12,
                   ),
                   child: GestureDetector(
-                    onTap: _saveGoal,
+                    onTap: _isSaving || _isLoading ? null : _saveGoal,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       height: 48,
@@ -389,12 +373,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            '목표 저장하기',
-                            style: TextStyle(
+                            _isSaving ? '저장 중…' : '목표 저장하기',
+                            style: const TextStyle(
                               fontFamily: 'Inter',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
@@ -416,15 +400,20 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     );
   }
 
-  Widget _buildCategoryGoal({
-    required String iconEmoji,
-    required String category,
-    required String current,
-    required String total,
-    required Color currentColor,
-    required Color barColor,
-    required double percentage,
-  }) {
+  Widget _buildCurrentProgress() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_loadError != null) {
+      return OutlinedButton.icon(
+        onPressed: _loadGoal,
+        icon: const Icon(Icons.refresh_rounded),
+        label: Text(_loadError!),
+      );
+    }
+    final saved = _state.currentSaved.value;
+    final goal = _state.monthlyGoal.value;
+    final progress = goal > 0 ? (saved / goal).clamp(0.0, 1.0) : 0.0;
     return Container(
       padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
@@ -437,13 +426,13 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
+              const Row(
                 children: [
-                  Text(iconEmoji, style: const TextStyle(fontSize: 18)),
-                  const SizedBox(width: AppSizes.smallSpacing),
+                  Icon(Icons.savings_outlined, size: 18),
+                  SizedBox(width: AppSizes.smallSpacing),
                   Text(
-                    category,
-                    style: const TextStyle(
+                    '이번 달 실제 기록',
+                    style: TextStyle(
                       fontFamily: 'Inter',
                       fontFamilyFallback: ['Noto Sans KR'],
                       fontWeight: FontWeight.bold,
@@ -454,27 +443,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                   ),
                 ],
               ),
-              RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontFamilyFallback: ['Noto Sans KR'],
-                    fontSize: 12,
-                    height: 18 / 12,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: current,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: currentColor,
-                      ),
-                    ),
-                    TextSpan(
-                      text: total,
-                      style: const TextStyle(color: Color(0xFF64748B)),
-                    ),
-                  ],
+              Text(
+                '${_formatWon(saved)}원 · ${_state.visitCount.value}회 방문',
+                style: const TextStyle(
+                  color: Color(0xFF10B981),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ],
@@ -486,26 +460,24 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               color: const Color(0xFFE2E8F0),
               borderRadius: BorderRadius.circular(99),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: (percentage * 10).toInt(),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: barColor,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
+            alignment: Alignment.centerLeft,
+            child: FractionallySizedBox(
+              widthFactor: progress,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981),
+                  borderRadius: BorderRadius.circular(99),
                 ),
-                Expanded(
-                  flex: 1000 - (percentage * 10).toInt(),
-                  child: const SizedBox(),
-                ),
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
+
+  String _formatWon(int value) => value.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (match) => '${match[1]},',
+  );
 }

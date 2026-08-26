@@ -26,8 +26,8 @@ class PermissionSettings {
 
 final permissionSettingsProvider = StateProvider<PermissionSettings>(
   (ref) => const PermissionSettings(
-    location: true,
-    notification: true,
+    location: false,
+    notification: false,
     marketing: false,
   ),
 );

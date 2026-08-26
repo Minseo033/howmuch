@@ -125,7 +125,6 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     }
   }
 
-  /// 💡 감사 이슈(#4): 마이페이지 목업 대신 실데이터 로드.
   /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
   /// 제보 수(/api/report/my) + 찜 수(/api/favorites)를 채웁니다.
   Future<void> _loadProfileSummary() async {
@@ -171,12 +170,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 2) 이번 달 절약 금액
     try {
-      final res = await ApiClient
-          .get(
-            ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final res = await ApiClient.get(
+        ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
       if (res.statusCode == 200 && mounted) {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
         final saved = (data['totalSavedAmount'] as num?)?.toInt() ?? 0;
@@ -193,12 +190,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 3) 찜한 매장 수
     try {
-      final res = await ApiClient
-          .get(
-            ApiClient.uri('/api/favorites'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final res = await ApiClient.get(
+        ApiClient.uri('/api/favorites'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
       if (res.statusCode == 200 && mounted) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
         final count = decoded is List ? decoded.length : 0;
@@ -212,12 +207,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
     // 4) 제보 수
     try {
-      final res = await ApiClient
-          .get(
-            ApiClient.uri('/api/report/my'),
-            headers: ApiClient.jsonHeaders(auth: true),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final res = await ApiClient.get(
+        ApiClient.uri('/api/report/my'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
       if (res.statusCode == 200 && mounted) {
         final decoded = jsonDecode(utf8.decode(res.bodyBytes));
         final count = decoded is List ? decoded.length : 0;
@@ -551,25 +544,7 @@ class _ProfileCard extends StatelessWidget {
             ),
             Positioned(
               left: 87.98294067382812,
-              top: 25.2841796875,
-              width: 68.0539779663086,
-              height: 18.977272033691406,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: .2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Center(
-                  child: Text(
-                    profile.level,
-                    style: _white10.copyWith(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 87.98294067382812,
-              top: 47.25830078125,
+              top: 34.25830078125,
               child: Text(
                 profile.nickname,
                 style: _white17.copyWith(fontWeight: FontWeight.w800),
@@ -577,7 +552,7 @@ class _ProfileCard extends StatelessWidget {
             ),
             Positioned(
               left: 87.98294067382812,
-              top: 72.75537109375,
+              top: 62.75537109375,
               child: Text(
                 email,
                 style: _white11.copyWith(

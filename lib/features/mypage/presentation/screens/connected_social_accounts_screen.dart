@@ -14,7 +14,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
     final auth = ref.watch(authStateProvider);
     final profile = ref.watch(userProfileProvider);
     final isLoggedIn = auth.isLoggedIn;
-    final provider = auth.provider == '이메일' ? '카카오' : auth.provider;
+    final provider = auth.provider.trim().isEmpty ? '로그인 정보 없음' : auth.provider;
     final email =
         usableAccountEmail(profile.email) ?? usableAccountEmail(auth.email);
 

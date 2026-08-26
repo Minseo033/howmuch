@@ -44,8 +44,16 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     try {
       final service = ref.read(todaysPickServiceProvider);
       final position = await _resolveCurrentPosition();
-      _userLatitude = position?.latitude;
-      _userLongitude = position?.longitude;
+      if (position == null) {
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = '추천 루트를 만들려면 위치 권한을 허용해주세요.';
+          _isLoading = false;
+        });
+        return;
+      }
+      _userLatitude = position.latitude;
+      _userLongitude = position.longitude;
       final data = await service.getRoute(
         lat: _userLatitude,
         lng: _userLongitude,
