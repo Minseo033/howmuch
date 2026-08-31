@@ -676,12 +676,15 @@ public class FirebaseService {
             ReceiptApprovalResult committed = db.runTransaction(transaction -> {
                 DocumentSnapshot snapshot = transaction.get(docRef).get();
                 if (!snapshot.exists()) {
-                    throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+                    throw new ReceiptVerificationNotFoundException(
+                            "영수증 인증을 찾을 수 없습니다: " + receiptId);
                 }
                 String status = snapshot.getString("status");
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
+
+                requireUsableReceiptOcrEvidence(snapshot);
 
                 String userId = snapshot.getString("userId");
                 String storeName = snapshot.getString("storeName");
@@ -738,7 +741,8 @@ public class FirebaseService {
             ReceiptRejectionResult committed = db.runTransaction(transaction -> {
                 DocumentSnapshot snapshot = transaction.get(docRef).get();
                 if (!snapshot.exists()) {
-                    throw new IllegalArgumentException("영수증 인증을 찾을 수 없습니다: " + receiptId);
+                    throw new ReceiptVerificationNotFoundException(
+                            "영수증 인증을 찾을 수 없습니다: " + receiptId);
                 }
                 String status = snapshot.getString("status");
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
@@ -758,6 +762,20 @@ public class FirebaseService {
                 throw invalidReceipt;
             }
             throw e;
+        }
+    }
+
+    private void requireUsableReceiptOcrEvidence(DocumentSnapshot snapshot) {
+        Boolean providerAvailable = snapshot.getBoolean("ocrProviderAvailable");
+        Long detectedTextLength = snapshot.getLong("ocrDetectedTextLength");
+        Long detectedPrice = snapshot.getLong("ocrDetectedPrice");
+        String detectedDate = snapshot.getString("ocrDetectedDate");
+        if (!Boolean.TRUE.equals(providerAvailable)
+                || detectedTextLength == null || detectedTextLength <= 0
+                || detectedPrice == null || detectedPrice <= 0
+                || detectedDate == null || detectedDate.isBlank()) {
+            throw new ReceiptOcrEvidenceException(
+                    "OCR 판독이 완료되지 않은 영수증은 승인할 수 없습니다. 공급자 설정을 확인한 뒤 다시 제출해주세요.");
         }
     }
 

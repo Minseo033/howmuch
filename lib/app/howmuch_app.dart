@@ -83,7 +83,9 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
         final isHome =
             currentPath == AppRoutes.home || currentPath == AppRoutes.homeAiFab;
         return WebNotificationPrompt(
-          onOpenNotifications: () => router.go(AppRoutes.notifications),
+          // Keep the current page in the navigation stack so the inbox back
+          // button returns to where the user opened the notification prompt.
+          onOpenNotifications: () => router.push(AppRoutes.notifications),
           isHome: isHome,
           child: child ?? const SizedBox.shrink(),
         );

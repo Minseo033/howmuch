@@ -42,7 +42,12 @@ class TodaysPickService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        if (decoded is Map) {
+          return normalizeRecommendationResponse(
+            Map<String, dynamic>.from(decoded),
+            invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
+          );
+        }
         return const {'error': true, 'message': '추천 응답 형식이 올바르지 않습니다.'};
       }
       return {'error': true, 'statusCode': response.statusCode};
@@ -69,7 +74,12 @@ class TodaysPickService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map) return Map<String, dynamic>.from(decoded);
+        if (decoded is Map) {
+          return normalizeRecommendationResponse(
+            Map<String, dynamic>.from(decoded),
+            invalidMessage: '추천 루트 응답 형식이 올바르지 않습니다.',
+          );
+        }
         return const {'error': true, 'message': '추천 루트 응답 형식이 올바르지 않습니다.'};
       }
       return {'error': true, 'statusCode': response.statusCode};
@@ -77,6 +87,27 @@ class TodaysPickService {
       return const {'error': true, 'message': '추천 루트를 불러오지 못했습니다.'};
     }
   }
+}
+
+Map<String, dynamic> normalizeRecommendationResponse(
+  Map<String, dynamic> response, {
+  required String invalidMessage,
+}) {
+  final rawPicks = response['picks'];
+  if (rawPicks is! List) {
+    return {'error': true, 'message': invalidMessage};
+  }
+
+  final picks = rawPicks
+      .whereType<Map>()
+      .map((pick) => Map<String, dynamic>.from(pick))
+      .where((pick) => pick['storeName']?.toString().trim().isNotEmpty == true)
+      .toList(growable: false);
+
+  if (rawPicks.isNotEmpty && picks.isEmpty) {
+    return {'error': true, 'message': invalidMessage};
+  }
+  return {...response, 'picks': picks};
 }
 
 Map<String, dynamic> buildLocalTodaysPickData({

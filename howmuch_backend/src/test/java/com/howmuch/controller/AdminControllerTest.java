@@ -3,6 +3,8 @@ package com.howmuch.controller;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.PublicDataService;
 import com.howmuch.service.ReportImageStorage;
+import com.howmuch.service.ReceiptOcrEvidenceException;
+import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -183,6 +185,27 @@ class AdminControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void returnsUnprocessableEntityWhenReceiptOcrEvidenceIsUnavailable() throws Exception {
+        when(firebaseService.approveReceiptVerification("receipt-1", "ADMIN"))
+                .thenThrow(new ReceiptOcrEvidenceException("OCR 판독이 완료되지 않았습니다."));
+
+        ResponseEntity<?> response = controller.approveReceipt("receipt-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+        verify(firebaseService).approveReceiptVerification("receipt-1", "ADMIN");
+    }
+
+    @Test
+    void returnsNotFoundWhenReceiptVerificationDoesNotExist() throws Exception {
+        when(firebaseService.approveReceiptVerification("receipt-missing", "ADMIN"))
+                .thenThrow(new ReceiptVerificationNotFoundException("영수증 인증을 찾을 수 없습니다."));
+
+        ResponseEntity<?> response = controller.approveReceipt("receipt-missing", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
     @Test

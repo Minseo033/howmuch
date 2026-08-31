@@ -78,6 +78,7 @@ class FirebaseServiceReceiptApprovalTest {
         when(receipt.getString("storeName")).thenReturn("테스트 식당");
         when(receipt.getString("menu")).thenReturn("국밥");
         when(receipt.getLong("price")).thenReturn(6000L);
+        mockUsableOcrEvidence();
         when(receipt.get("imageUrls")).thenReturn(java.util.List.of("owned-receipt-url"));
         when(imageStorage.deleteOwned(eq("user-1"), anyCollection()))
                 .thenReturn(1);
@@ -111,6 +112,41 @@ class FirebaseServiceReceiptApprovalTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("이미 처리된");
         verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void refusesReceiptApprovalWhenTheOcrProviderWasUnavailable() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getBoolean("ocrProviderAvailable")).thenReturn(false);
+        when(receipt.getString("ocrStatus")).thenReturn("OCR_NOT_CONFIGURED");
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(ReceiptOcrEvidenceException.class)
+                .hasMessageContaining("OCR 판독이 완료되지 않은");
+        verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void refusesReceiptApprovalWhenRequiredOcrEvidenceIsMissing() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getBoolean("ocrProviderAvailable")).thenReturn(true);
+        when(receipt.getLong("ocrDetectedTextLength")).thenReturn(24L);
+        when(receipt.getLong("ocrDetectedPrice")).thenReturn(7000L);
+        when(receipt.getString("ocrDetectedDate")).thenReturn(null);
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(ReceiptOcrEvidenceException.class);
+        verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+    }
+
+    private void mockUsableOcrEvidence() {
+        when(receipt.getBoolean("ocrProviderAvailable")).thenReturn(true);
+        when(receipt.getLong("ocrDetectedTextLength")).thenReturn(42L);
+        when(receipt.getLong("ocrDetectedPrice")).thenReturn(6000L);
+        when(receipt.getString("ocrDetectedDate")).thenReturn("2026-08-29");
     }
 
     @Test

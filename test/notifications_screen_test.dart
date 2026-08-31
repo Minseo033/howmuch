@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/system/presentation/screens/notifications_screen.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:http/testing.dart';
@@ -56,6 +58,114 @@ void main() {
     await tester.pump();
 
     expect(find.text('받은 알림이 없어요'), findsOneWidget);
+  });
+
+  testWidgets('back button returns home when inbox has no previous route', (
+    tester,
+  ) async {
+    final notifier = _SeededNotificationsNotifier(const []);
+    final router = GoRouter(
+      initialLocation: AppRoutes.notifications,
+      routes: [
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (_, _) => const Scaffold(body: Text('홈 화면')),
+        ),
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, _) => const NotificationsScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('뒤로가기'));
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, AppRoutes.home);
+    expect(find.text('홈 화면'), findsOneWidget);
+  });
+
+  testWidgets('system back returns home after direct notification entry', (
+    tester,
+  ) async {
+    final notifier = _SeededNotificationsNotifier(const []);
+    final router = GoRouter(
+      initialLocation: AppRoutes.notifications,
+      routes: [
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (_, _) => const Scaffold(body: Text('홈 화면')),
+        ),
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, _) => const NotificationsScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, AppRoutes.home);
+    expect(find.text('홈 화면'), findsOneWidget);
+  });
+
+  testWidgets('back button pops to the page that opened the inbox', (
+    tester,
+  ) async {
+    final notifier = _SeededNotificationsNotifier(const []);
+    final router = GoRouter(
+      initialLocation: AppRoutes.home,
+      routes: [
+        GoRoute(
+          path: AppRoutes.home,
+          builder: (context, state) => Scaffold(
+            body: TextButton(
+              onPressed: () => context.push(AppRoutes.notifications),
+              child: const Text('알림함 열기'),
+            ),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, _) => const NotificationsScreen(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    await tester.tap(find.text('알림함 열기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('뒤로가기'));
+    await tester.pumpAndSettle();
+
+    expect(router.routeInformationProvider.value.uri.path, AppRoutes.home);
+    expect(find.text('알림함 열기'), findsOneWidget);
   });
 }
 

@@ -39,6 +39,16 @@ for (const file of files) {
     if (/<div[^>]+class="modal-backdrop"/i.test(html)) {
       throw new Error(`${file}의 모달 배경은 div가 아닌 dialog여야 합니다.`);
     }
+
+    const sessionSafetyGuards = [
+      ['scheduleKeyExpiry', '관리자 키 만료 타이머가 필요합니다.'],
+      ['clearAdminData', '세션 만료 시 민감한 관리자 데이터를 비워야 합니다.'],
+      ['inFlightControllers.forEach((controller) => controller.abort())', '세션 만료 시 진행 중인 요청을 취소해야 합니다.'],
+      ['API_TIMEOUT_MS', '관리자 API 요청에는 제한 시간이 필요합니다.'],
+    ];
+    for (const [guard, message] of sessionSafetyGuards) {
+      if (!html.includes(guard)) throw new Error(`${file}: ${message}`);
+    }
   }
   const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map((match) => match[1])

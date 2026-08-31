@@ -664,23 +664,37 @@ class NotificationSettingsNotifier
   }
 
   final NotificationSettingsApiService _api;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   Future<void> loadSettings() async {
+    if (_disposed) return;
     state = const AsyncValue.loading();
     try {
-      state = AsyncValue.data(await _api.fetchSettings());
+      final settings = await _api.fetchSettings();
+      if (_disposed) return;
+      state = AsyncValue.data(settings);
     } catch (error, stackTrace) {
+      if (_disposed) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
   void updateSettings(NotificationSettings settings) {
+    if (_disposed) return;
     state = AsyncValue.data(settings);
   }
 
   Future<bool> saveSettings(NotificationSettings settings) async {
     try {
-      state = AsyncValue.data(await _api.saveSettings(settings));
+      final saved = await _api.saveSettings(settings);
+      if (_disposed) return false;
+      state = AsyncValue.data(saved);
       return true;
     } catch (_) {
       return false;
@@ -829,17 +843,29 @@ class PriceAlertSettingsNotifier
   }
 
   final PriceAlertApiService _api;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   Future<void> loadSettings() async {
+    if (_disposed) return;
     state = const AsyncValue.loading();
     try {
-      state = AsyncValue.data(await _api.fetchSettings());
+      final settings = await _api.fetchSettings();
+      if (_disposed) return;
+      state = AsyncValue.data(settings);
     } catch (error, stackTrace) {
+      if (_disposed) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
   void updateLocal(PriceAlertSettings settings) {
+    if (_disposed) return;
     state = AsyncValue.data(settings);
   }
 
@@ -856,7 +882,9 @@ class PriceAlertSettingsNotifier
             notifyOnNewMenu: settings.notifyOnNewMenu,
           ),
         );
+        if (_disposed) return false;
       }
+      if (_disposed) return false;
       state = AsyncValue.data(
         settings.copyWith(
           stores: savedStores,
@@ -959,21 +987,31 @@ class FavoriteStoresNotifier
   final FavoriteApiService _api;
   final StateController<UserProfile> _profileNotifier;
   bool _loaded = false;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   Future<void> loadFavorites({bool force = false}) async {
-    if (_loaded && !force) return;
+    if (_disposed || (_loaded && !force)) return;
     _loaded = true;
     state = const AsyncValue.loading();
     try {
       final favorites = await _api.fetchFavorites();
+      if (_disposed) return;
       state = AsyncValue.data(favorites);
       _syncCount(favorites.length);
     } catch (error, stackTrace) {
+      if (_disposed) return;
       state = AsyncValue.error(error, stackTrace);
     }
   }
 
   bool isFavorite(String storeId) {
+    if (_disposed) return false;
     return state.valueOrNull?.any((store) => store.id == storeId) ?? false;
   }
 
@@ -997,11 +1035,13 @@ class FavoriteStoresNotifier
         storeId: storeId,
         storeName: storeName,
       );
+      if (_disposed) return;
       state = AsyncValue.data([
         saved,
         ...previous.where((store) => store.id != storeId),
       ]);
     } catch (error) {
+      if (_disposed) return;
       state = AsyncValue.data(previous);
       _syncCount(previous.length);
       rethrow;
@@ -1017,6 +1057,7 @@ class FavoriteStoresNotifier
     try {
       await _api.removeFavorite(storeId);
     } catch (error) {
+      if (_disposed) return;
       state = AsyncValue.data(previous);
       _syncCount(previous.length);
       rethrow;
@@ -1024,6 +1065,7 @@ class FavoriteStoresNotifier
   }
 
   void _syncCount(int count) {
+    if (_disposed) return;
     _profileNotifier.update(
       (profile) => profile.copyWith(favoriteStoreCount: count),
     );

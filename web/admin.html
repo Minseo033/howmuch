@@ -597,6 +597,7 @@
   // 어드민 전용 비밀번호 (백엔드 ADMIN_KEY 환경변수와 대조). 앱 카카오 로그인과 무관합니다.
   const KEY_STORAGE = 'hm_admin_key';
   const KEY_TTL_MS = 30 * 60 * 1000;
+  const API_TIMEOUT_MS = 45 * 1000;
 
   const $ = (id) => document.getElementById(id);
   const content = $('content');
@@ -631,6 +632,9 @@
   let deleteCommentId = null;
   let answerInquiryId = null;
   let selectedNotificationUid = '';
+  let keyExpiryTimer = null;
+  let adminSessionGeneration = 0;
+  const inFlightControllers = new Set();
 
   const VIEW_META = {
     dashboard:     ['대시보드', '서비스 전체 현황을 한눈에 봅니다'],
@@ -644,6 +648,45 @@
   };
 
   /* ── 유틸 ─────────────────────────── */
+  const clearAdminData = () => {
+    allReports = [];
+    allReceipts = [];
+    allReviews = [];
+    overview = null;
+    users = null;
+    allComments = null;
+    allInquiries = null;
+    communityStats = null;
+    storageUsage = null;
+    selectedNotificationUid = '';
+    content.replaceChildren();
+    document.querySelectorAll('.modal-backdrop[open]').forEach((dialog) => dialog.close());
+  };
+
+  const invalidateAdminSession = (message = '') => {
+    adminSessionGeneration += 1;
+    if (keyExpiryTimer) clearTimeout(keyExpiryTimer);
+    keyExpiryTimer = null;
+    inFlightControllers.forEach((controller) => controller.abort());
+    inFlightControllers.clear();
+    sessionStorage.removeItem(KEY_STORAGE);
+    clearAdminData();
+    showLogin(Boolean(message), message);
+  };
+
+  const scheduleKeyExpiry = (savedAt) => {
+    if (keyExpiryTimer) clearTimeout(keyExpiryTimer);
+    const remaining = KEY_TTL_MS - (Date.now() - Number(savedAt));
+    if (!Number.isFinite(remaining) || remaining <= 0) {
+      invalidateAdminSession('관리자 세션이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
+    keyExpiryTimer = setTimeout(
+      () => invalidateAdminSession('관리자 세션이 만료되었습니다. 다시 로그인해주세요.'),
+      remaining,
+    );
+  };
+
   const getKey = () => {
     const raw = sessionStorage.getItem(KEY_STORAGE);
     if (!raw) return '';
@@ -747,15 +790,45 @@
   };
 
   async function api(path, options = {}) {
-    // ui-craft-detect-ignore-next-line -- 화면별 호출부에서 로딩·빈 상태·오류 상태를 렌더링한다.
-    const res = await fetch(API_BASE + path, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Key': getKey(),
-        ...(options.headers || {}),
-      },
-    });
+    const key = getKey();
+    if (!key) throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
+    const requestGeneration = adminSessionGeneration;
+    const controller = new AbortController();
+    inFlightControllers.add(controller);
+    const forwardAbort = () => controller.abort();
+    options.signal?.addEventListener('abort', forwardAbort, { once: true });
+    const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    let res;
+    try {
+      // ui-craft-detect-ignore-next-line -- 화면별 호출부에서 로딩·빈 상태·오류 상태를 렌더링한다.
+      res = await fetch(API_BASE + path, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': key,
+          ...(options.headers || {}),
+        },
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        if (requestGeneration !== adminSessionGeneration || !getKey()) {
+          throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
+        }
+        throw Object.assign(
+          new Error('응답이 지연되고 있어요. 잠시 후 다시 시도해주세요.'),
+          { code: 408 },
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+      inFlightControllers.delete(controller);
+      options.signal?.removeEventListener('abort', forwardAbort);
+    }
+    if (requestGeneration !== adminSessionGeneration || !getKey()) {
+      throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
+    }
     if (res.status === 401) throw Object.assign(new Error('비밀번호 불일치'), { code: 401 });
     if (res.status === 403) throw Object.assign(new Error('서버 키 미설정'), { code: 403 });
     if (!res.ok) {
@@ -827,7 +900,7 @@
         <div class="state-box">
           <div class="spinner"></div>
           <h2 style="margin-top:18px">불러오는 중…</h2>
-          <p>서버가 슬립 상태(Render 무료 인스턴스)면 첫 요청에 30~60초 걸릴 수 있어요.</p>
+          <p>서비스 정보를 안전하게 불러오고 있어요.</p>
         </div>`,
       forbidden: `
         <div class="state-box">
@@ -1628,7 +1701,7 @@
   }
 
   function handleError(e) {
-    if (e.code === 401) { showLogin(true); return; }
+    if (e.code === 401) { invalidateAdminSession('관리자 인증을 다시 확인해주세요.'); return; }
     if (e.code === 403) { renderState('forbidden'); return; }
     toast(e.message || '오류가 발생했습니다');
   }
@@ -1745,7 +1818,7 @@
   }
 
   function handleLoadError(e) {
-    if (e.code === 401) showLogin(true);
+    if (e.code === 401) invalidateAdminSession('관리자 인증을 다시 확인해주세요.');
     else if (e.code === 403) renderState('forbidden');
     else renderState('error', { message: e.message });
   }
@@ -1765,9 +1838,10 @@
   }
 
   /* ── 로그인 / 로그아웃 ────────────── */
-  function showLogin(hasError) {
+  function showLogin(hasError, message = '비밀번호가 올바르지 않습니다.') {
     $('app').classList.remove('on');
     $('loginOverlay').classList.remove('hidden');
+    $('loginError').textContent = message;
     $('loginError').hidden = !hasError;
     setTimeout(() => $('keyInput').focus(), 50);
   }
@@ -1779,13 +1853,20 @@
 
   async function boot() {
     if (!getKey()) { showLogin(false); return; }
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(KEY_STORAGE));
+      scheduleKeyExpiry(saved.savedAt);
+    } catch (_) {
+      invalidateAdminSession();
+      return;
+    }
     showApp();
     renderState('loading');
     try {
       await api('/api/admin/overview'); // 키 유효성 가볍게 확인
       switchView('dashboard');
     } catch (e) {
-      if (e.code === 401) showLogin(true);
+      if (e.code === 401) invalidateAdminSession('관리자 인증을 다시 확인해주세요.');
       else if (e.code === 403) renderState('forbidden');
       else renderState('error', { message: e.message });
     }
@@ -1795,13 +1876,15 @@
   $('loginBtn').onclick = () => {
     const v = $('keyInput').value.trim();
     if (!v) return;
-    sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: v, savedAt: Date.now() }));
+    adminSessionGeneration += 1;
+    const savedAt = Date.now();
+    sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: v, savedAt }));
+    scheduleKeyExpiry(savedAt);
     boot();
   };
   $('keyInput').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
   $('logoutBtn').onclick = () => {
-    sessionStorage.removeItem(KEY_STORAGE);
-    location.reload();
+    invalidateAdminSession();
   };
   $('refreshBtn').onclick = refresh;
   document.querySelectorAll('.nav-item').forEach((tab) => {

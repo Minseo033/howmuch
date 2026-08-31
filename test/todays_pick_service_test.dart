@@ -51,6 +51,56 @@ void main() {
     expect(result['message'], isNot(contains('secret-internal-url')));
   });
 
+  test('filters malformed pick items while preserving valid stores', () async {
+    final service = TodaysPickService(
+      MockClient(
+        (_) async => http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'weather': '맑음',
+              'picks': [
+                null,
+                'invalid',
+                <String, Object?>{},
+                {'storeName': '정상 매장', 'price1': '7000'},
+              ],
+            }),
+          ),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      ),
+    );
+
+    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+    final picks = result['picks'] as List;
+
+    expect(result['error'], isNull);
+    expect(picks, hasLength(1));
+    expect((picks.single as Map)['storeName'], '정상 매장');
+  });
+
+  test(
+    'rejects a recommendation payload containing only malformed picks',
+    () async {
+      final service = TodaysPickService(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'picks': [null, 'invalid', <String, Object?>{}],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      final result = await service.getRoute(lat: 37.5, lng: 127.0);
+
+      expect(result['error'], isTrue);
+      expect(result['message'], '추천 루트 응답 형식이 올바르지 않습니다.');
+    },
+  );
+
   test('local fallback ranks stores by distance', () {
     final data = buildLocalTodaysPickData(
       stores: [

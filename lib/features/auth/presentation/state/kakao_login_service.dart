@@ -20,6 +20,7 @@ class KakaoLoginService {
   KakaoLoginService(this._ref);
 
   Future<String?> login() async {
+    var backendSessionEstablished = false;
     try {
       bool isInstalled = await isKakaoTalkInstalled();
 
@@ -43,6 +44,7 @@ class KakaoLoginService {
 
       final session = await _authenticateWithBackend(token.accessToken);
       if (session != null) {
+        backendSessionEstablished = true;
         User user = await UserApi.instance.me();
         var email = usableAccountEmail(user.kakaoAccount?.email) ?? '';
         if (email.isEmpty && user.kakaoAccount?.emailNeedsAgreement == true) {
@@ -92,7 +94,9 @@ class KakaoLoginService {
 
         // 💡 프로필 존재 여부에 따라 라우팅 분기
         final profileService = UserProfileApiService();
-        final profile = await profileService.fetchProfile();
+        // Only a 404 means that profile setup is required. A temporary server
+        // or network failure must never be mistaken for a new account.
+        final profile = await profileService.fetchProfile(strict: true);
 
         if (profile != null) {
           // 기존 사용자: 프로필 데이터로 상태 업데이트 후 홈으로 이동
@@ -133,6 +137,9 @@ class KakaoLoginService {
       }
     } catch (_) {
       debugPrint('카카오 로그인 처리 중 오류가 발생했습니다.');
+      if (backendSessionEstablished) {
+        await clearLocalSession(unregisterDevice: false);
+      }
       _ref.read(appRouterProvider).go(AppRoutes.login);
       return '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
     }

@@ -135,24 +135,26 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   }
 
   List<TodaysPickItem> _buildItems() {
-    if (_pickData == null || _pickData!['picks'] == null) return [];
-    final List<dynamic> picks = _pickData!['picks'];
+    final rawPicks = _pickData?['picks'];
+    if (rawPicks is! List) return [];
+    final picks = rawPicks
+        .whereType<Map>()
+        .map((pick) => Map<String, dynamic>.from(pick))
+        .toList(growable: false);
     final weather = _pickData!['weather'] ?? '알 수 없음';
     final temp = _pickData!['temp'];
 
     return picks.asMap().entries.map((entry) {
       final idx = entry.key;
       final p = entry.value;
-      final store = p is Map
-          ? Store.fromJson(Map<String, dynamic>.from(p))
-          : null;
+      final store = Store.fromJson(p);
       final distanceValue = p['distanceMeters'];
       final distanceNumber = _asDouble(distanceValue);
       final distance = formatRecommendationDistance(distanceNumber);
       // 백엔드가 낸 reason(이유 멘트)이 있으면 그걸 우선 사용, 없으면 기존 날씨 문구 폼백
-      final backendReason = p['reason'] as String?;
-      final backendTheme = p['theme'] as String?;
-      final backendMenu = p['matchedMenu'] as String?;
+      final backendReason = p['reason']?.toString();
+      final backendTheme = p['theme']?.toString();
+      final backendMenu = p['matchedMenu']?.toString();
       final temperature = _asDouble(temp);
       final tip = backendReason != null && backendReason.isNotEmpty
           ? backendReason
@@ -167,10 +169,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
       return TodaysPickItem(
         id: '${idx + 1}',
-        storeName: p['storeName'] ?? '알 수 없음',
+        storeName: p['storeName']?.toString() ?? '알 수 없음',
         menuName: backendMenu != null && backendMenu.isNotEmpty
             ? backendMenu
-            : (p['menu1'] ?? '메뉴 정보 없음'),
+            : (p['menu1']?.toString() ?? '메뉴 정보 없음'),
         price: formatRecommendationPrice(p['price1']),
         tipText: tip,
         distance: distance,

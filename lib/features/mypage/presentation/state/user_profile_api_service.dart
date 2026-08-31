@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:http/http.dart' as http;
 
 class UserProfileAuthException implements Exception {
   const UserProfileAuthException(this.statusCode);
@@ -23,15 +24,26 @@ class UserProfileLoadException implements Exception {
 /// 사용자 프로필 API 서비스.
 /// 세션 토큰(Authorization: Bearer)으로 인증하며, uid는 서버가 세션에서 식별합니다.
 class UserProfileApiService {
+  UserProfileApiService({http.Client? client}) : _client = client;
+
+  final http.Client? _client;
+
   /// 사용자 프로필 조회
   /// 성공 시 Map 반환, 404(신규 사용자)면 null 반환
-  Future<Map<String, dynamic>?> fetchProfile({bool strict = false}) async {
+  Future<Map<String, dynamic>?> fetchProfile({bool strict = true}) async {
     final url = ApiClient.uri('/api/user/profile');
     try {
-      final response = await ApiClient.get(
-        url,
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
+      final headers = ApiClient.jsonHeaders(auth: true);
+      final response =
+          await (_client?.get(url, headers: headers) ??
+                  ApiClient.get(url, headers: headers))
+              .timeout(ApiClient.defaultTimeout);
+      if (_client != null) {
+        await ApiClient.handleResponseStatus(
+          response.statusCode,
+          requestHeaders: headers,
+        );
+      }
 
       if (response.statusCode == 200) {
         final data =

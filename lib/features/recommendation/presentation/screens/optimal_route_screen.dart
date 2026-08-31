@@ -79,13 +79,19 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     }
   }
 
-  List<dynamic> get _picks => _routeData?['picks'] ?? [];
+  List<Map<String, dynamic>> get _picks {
+    final rawPicks = _routeData?['picks'];
+    if (rawPicks is! List) return const [];
+    return rawPicks
+        .whereType<Map>()
+        .map((pick) => Map<String, dynamic>.from(pick))
+        .toList(growable: false);
+  }
 
   List<RouteMapPoint> get _routeMapPoints {
     final points = <RouteMapPoint>[];
     for (var index = 0; index < _picks.length; index++) {
       final pick = _picks[index];
-      if (pick is! Map) continue;
       final coordinates = _coordinates(pick);
       if (coordinates == null) continue;
       points.add(
@@ -566,9 +572,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                 ),
                 child: GestureDetector(
                   onTap: () {
-                    final firstPick = _picks.isNotEmpty && _picks.first is Map
-                        ? _picks.first as Map
-                        : const {};
+                    final firstPick = _picks.isNotEmpty
+                        ? _picks.first
+                        : const <String, dynamic>{};
                     final firstCoordinates = _coordinates(firstPick);
                     context.push(
                       AppRoutes.directionsExternalApp,

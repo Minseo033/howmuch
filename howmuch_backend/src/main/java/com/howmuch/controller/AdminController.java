@@ -3,6 +3,8 @@ package com.howmuch.controller;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.PublicDataService;
 import com.howmuch.service.ReportImageStorage;
+import com.howmuch.service.ReceiptOcrEvidenceException;
+import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -153,6 +155,12 @@ public class AdminController {
         if (invalidId != null) return invalidId;
         try {
             return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+        } catch (ReceiptVerificationNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (ReceiptOcrEvidenceException e) {
+            return ResponseEntity.unprocessableEntity().body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
@@ -185,6 +193,9 @@ public class AdminController {
         try {
             firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
+        } catch (ReceiptVerificationNotFoundException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
