@@ -2,7 +2,7 @@ class VisitVerificationPolicy {
   const VisitVerificationPolicy._();
 
   static const maxDistanceMeters = 100.0;
-  static const maxLocationAccuracyMeters = 50.0;
+  static const maxLocationAccuracyMeters = 100.0;
 
   static bool hasValidStoreCoordinates(double latitude, double longitude) {
     return latitude.isFinite &&

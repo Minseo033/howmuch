@@ -41,7 +41,7 @@ public class VisitController {
 
     private static final String LOCATION_VERIFICATION = "LOCATION";
     private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 100.0;
-    private static final double MAX_LOCATION_ACCURACY_METERS = 50.0;
+    private static final double MAX_LOCATION_ACCURACY_METERS = 100.0;
 
     private final FirebaseService firebaseService;
     private final ReceiptOcrService receiptOcrService;

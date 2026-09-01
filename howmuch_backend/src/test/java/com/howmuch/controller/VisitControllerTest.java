@@ -98,6 +98,33 @@ class VisitControllerTest {
     }
 
     @Test
+    void acceptsLocationAccuracyUpToOneHundredMeters() throws Exception {
+        authenticate();
+        when(firebaseService.findStoreCoordinates(any(), any()))
+                .thenReturn(Optional.of(new StoreCoordinates(37.5665, 126.9780)));
+        when(firebaseService.saveVisit(anyString(), any(), anyLong())).thenReturn("visit-1");
+        VisitRequest requestBody = validRequest();
+        requestBody.setLocationAccuracyMeters(100.0);
+
+        ResponseEntity<?> response = controller.createVisit(requestBody, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(firebaseService).saveVisit(anyString(), any(), anyLong());
+    }
+
+    @Test
+    void rejectsLocationAccuracyOverOneHundredMeters() throws Exception {
+        authenticate();
+        VisitRequest requestBody = validRequest();
+        requestBody.setLocationAccuracyMeters(100.1);
+
+        ResponseEntity<?> response = controller.createVisit(requestBody, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void savesCanonicalStoreMetadataInsteadOfClientSuppliedIndustry() throws Exception {
         authenticate();
         when(firebaseService.findStoreCoordinates(any(), any()))

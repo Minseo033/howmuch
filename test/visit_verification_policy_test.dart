@@ -24,8 +24,8 @@ void main() {
     });
 
     test('rejects inaccurate or invalid location readings', () {
-      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(50), isTrue);
-      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(50.1), isFalse);
+      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(100), isTrue);
+      expect(VisitVerificationPolicy.hasUsableLocationAccuracy(100.1), isFalse);
       expect(
         VisitVerificationPolicy.hasUsableLocationAccuracy(double.nan),
         isFalse,
