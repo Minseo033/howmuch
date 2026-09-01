@@ -272,9 +272,9 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       return '매장까지 ${VisitVerificationPolicy.formatDistance(_distanceMeters!)} · 위치 인증 가능';
     }
     if (_distanceMeters != null) {
-      return '매장까지 ${VisitVerificationPolicy.formatDistance(_distanceMeters!)} · 50m 이내에서 인증할 수 있어요.';
+      return '매장까지 ${VisitVerificationPolicy.formatDistance(_distanceMeters!)} · 100m 이내에서 인증할 수 있어요.';
     }
-    return _locationError ?? '현재 위치를 확인하면 50m 이내에서 인증할 수 있어요.';
+    return _locationError ?? '현재 위치를 확인하면 100m 이내에서 인증할 수 있어요.';
   }
 
   Future<void> _checkLocation() async {
@@ -731,7 +731,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   Future<void> _submit() async {
     if (!_isLocationVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('매장 50m 이내에서 현재 위치를 확인해주세요.')),
+        const SnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
       );
       return;
     }
