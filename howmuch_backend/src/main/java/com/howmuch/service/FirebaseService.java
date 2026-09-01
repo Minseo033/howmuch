@@ -1310,6 +1310,11 @@ public class FirebaseService {
         data.put("userId", firebaseUid);
         data.put("storeId", request.getStoreId());
         data.put("storeName", request.getStoreName());
+        String industry = request.getIndustry();
+        if (industry == null || industry.isBlank()) {
+            industry = findIndustryByStoreName(request.getStoreName());
+        }
+        data.put("industry", industry);
         data.put("menu", request.getMenu());
         data.put("price", request.getPrice());
         data.put("savedAmount", savedAmount);
@@ -1487,11 +1492,17 @@ public class FirebaseService {
 
             String visitedAtStr = data.get("visitedAt") != null ? data.get("visitedAt").toString() : null;
             String dateStr = data.get("date") != null ? data.get("date").toString() : visitedAtStr;
+            String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
+            String industry = data.get("industry") != null ? data.get("industry").toString() : null;
+            if (industry == null || industry.isBlank()) {
+                industry = findIndustryByStoreName(storeName);
+            }
 
             com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
                     .id(doc.getId())
                     .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
-                    .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
+                    .storeName(storeName)
+                    .category(industry)
                     .visitedAt(visitedAtStr)
                     .date(dateStr)
                     .menu(data.get("menu") != null ? data.get("menu").toString() : null)

@@ -236,7 +236,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    const settingsCardHeight = 358.0 + 89.0;
+    const settingsCardHeight = 358.0;
     final scrollContentHeight =
         659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
 
@@ -379,16 +379,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                       height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
-                            context.go(AppRoutes.notificationSettings),
+                            context.push(AppRoutes.notificationSettings),
                         onAccountTap: () =>
-                            context.go(AppRoutes.accountManagement),
+                            context.push(AppRoutes.accountManagement),
                         onPublicDataTap: () =>
-                            context.go(AppRoutes.publicDataSource),
-                        onInquiryTap: () => context.go(AppRoutes.inquiry),
-                        onNetworkErrorTap: () =>
-                            context.push(AppRoutes.networkError),
-                        onSessionExpiredTap: () =>
-                            context.push(AppRoutes.sessionExpired),
+                            context.push(AppRoutes.publicDataSource),
+                        onInquiryTap: () => context.push(AppRoutes.inquiry),
                       ),
                     ),
                   ],
@@ -514,108 +510,106 @@ class _ProfileCard extends StatelessWidget {
             colors: [MypageScreen.blue, AppColors.primary],
           ),
         ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 215.45452880859375,
-              top: -20,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: .08),
-                  shape: BoxShape.circle,
-                ),
-                child: const SizedBox(width: 130, height: 130),
-              ),
-            ),
-            Positioned(
-              left: 20,
-              top: 26.619140625,
-              width: 55.99431610107422,
-              height: 55.99431610107422,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.white.withValues(alpha: .25),
-                  shape: BoxShape.circle,
-                ),
-                child: ClipOval(
-                  child: _ProfileAvatarImage(imageUrl: profile.profileImageUrl),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 87.98294067382812,
-              top: 34.25830078125,
-              child: Text(
-                profile.nickname,
-                style: _white17.copyWith(fontWeight: FontWeight.w800),
-              ),
-            ),
-            Positioned(
-              left: 87.98294067382812,
-              top: 62.75537109375,
-              child: Text(
-                email,
-                style: _white11.copyWith(
-                  color: AppColors.white.withValues(alpha: .85),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 220.5965576171875,
-              top: 40.38330078125,
-              width: 94.85794830322266,
-              height: 28.480112075805664,
-              child: Material(
-                color: AppColors.white.withValues(alpha: .22),
-                borderRadius: BorderRadius.circular(999),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(999),
-                  onTap: onEdit,
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('프로필 수정', style: _profileEditText),
-                      SizedBox(width: 5.5),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.white,
-                        size: 12,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.white.withValues(alpha: .25),
+                      shape: BoxShape.circle,
+                    ),
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: ClipOval(
+                        child: _ProfileAvatarImage(
+                          imageUrl: profile.profileImageUrl,
+                        ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          profile.nickname,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _white17.copyWith(fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _white11.copyWith(
+                            color: AppColors.white.withValues(alpha: .85),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Material(
+                    color: AppColors.white.withValues(alpha: .22),
+                    borderRadius: BorderRadius.circular(999),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(999),
+                      onTap: onEdit,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('프로필 수정', style: _profileEditText),
+                            SizedBox(width: 2),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppColors.white,
+                              size: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Positioned(
-              left: 20,
-              top: 105.2412109375,
-              width: 93.15340423583984,
-              child: _ProfileMetric(
-                value: '${profile.savedAmountText}원',
-                label: '이번 달 절약',
+              const Spacer(),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ProfileMetric(
+                      value: '${profile.savedAmountText}원',
+                      label: '이번 달 절약',
+                    ),
+                  ),
+                  Expanded(
+                    child: _ProfileMetric(
+                      value: '${profile.reportCount}곳',
+                      label: '제보 매장',
+                      bordered: true,
+                    ),
+                  ),
+                  Expanded(
+                    child: _ProfileMetric(
+                      value: '${profile.favoriteStoreCount}곳',
+                      label: '찜한 매장',
+                      bordered: true,
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Positioned(
-              left: 121.15057373046875,
-              top: 105.2412109375,
-              width: 93.15340423583984,
-              child: _ProfileMetric(
-                value: '${profile.reportCount}곳',
-                label: '제보 매장',
-                bordered: true,
-              ),
-            ),
-            Positioned(
-              left: 222.3011474609375,
-              top: 105.2412109375,
-              width: 93.15340423583984,
-              child: _ProfileMetric(
-                value: '${profile.favoriteStoreCount}곳',
-                label: '찜한 매장',
-                bordered: true,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -917,16 +911,12 @@ class _SettingsCard extends StatefulWidget {
     required this.onAccountTap,
     required this.onPublicDataTap,
     required this.onInquiryTap,
-    required this.onNetworkErrorTap,
-    required this.onSessionExpiredTap,
   });
 
   final VoidCallback onNotificationTap;
   final VoidCallback onAccountTap;
   final VoidCallback onPublicDataTap;
   final VoidCallback onInquiryTap;
-  final VoidCallback onNetworkErrorTap;
-  final VoidCallback onSessionExpiredTap;
 
   @override
   State<_SettingsCard> createState() => _SettingsCardState();
@@ -1016,18 +1006,6 @@ class _SettingsCardState extends State<_SettingsCard> {
             icon: Icons.support_agent_outlined,
             title: '문의하기',
             onTap: widget.onInquiryTap,
-          ),
-          _DividerLine(),
-          _SettingRow(
-            icon: Icons.wifi_off_rounded,
-            title: '네트워크 오류 화면',
-            onTap: widget.onNetworkErrorTap,
-          ),
-          _DividerLine(),
-          _SettingRow(
-            icon: Icons.lock_outline_rounded,
-            title: '세션 만료 · 재로그인',
-            onTap: widget.onSessionExpiredTap,
           ),
         ],
       ),

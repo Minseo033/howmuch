@@ -18,6 +18,7 @@ class FavoriteStoresScreen extends ConsumerStatefulWidget {
 class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  FavoriteStoreSort _sort = FavoriteStoreSort.recent;
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
               query.isEmpty || store.storeName.toLowerCase().contains(query),
         )
         .toList();
+    sortFavoriteStores(filteredStores, _sort);
 
     return FigmaMobileCanvas(
       backgroundColor: AppColors.surface,
@@ -68,47 +70,62 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                   // Search Box
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      height: 44,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.border,
-                          width: 0.909,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
+                    child: SizedBox(
+                      height: 48,
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
+                        textAlignVertical: TextAlignVertical.center,
+                        decoration: InputDecoration(
+                          hintText: '찜한 매장 검색',
+                          prefixIcon: const Icon(
                             Icons.search_rounded,
                             color: AppColors.textLight,
-                            size: 16,
+                            size: 19,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _searchController,
-                              onChanged: (value) {
-                                setState(() => _searchQuery = value);
-                              },
-                              decoration: const InputDecoration(
-                                hintText: '찜한 매장 검색',
-                                border: InputBorder.none,
-                                isDense: true,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: AppColors.ink,
-                                fontSize: 13,
-                                height: 19.5 / 13,
-                              ),
+                          suffixIcon: _searchQuery.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: '검색어 지우기',
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _searchQuery = '');
+                                  },
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
+                                  ),
+                                ),
+                          filled: true,
+                          fillColor: AppColors.white,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: AppColors.border,
+                              width: 0.909,
                             ),
                           ),
-                        ],
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 1.2,
+                            ),
+                          ),
+                        ),
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: AppColors.ink,
+                          fontSize: 13,
+                          height: 19.5 / 13,
+                        ),
                       ),
                     ),
                   ),
@@ -146,15 +163,47 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                             ],
                           ),
                         ),
-                        const Text(
-                          '최근 추가순 ▾',
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                            fontSize: 11,
-                            height: 16.5 / 11,
+                        PopupMenuButton<FavoriteStoreSort>(
+                          tooltip: '정렬 방식 선택',
+                          initialValue: _sort,
+                          onSelected: (value) => setState(() => _sort = value),
+                          itemBuilder: (_) => const [
+                            PopupMenuItem(
+                              value: FavoriteStoreSort.recent,
+                              child: Text('최근 추가순'),
+                            ),
+                            PopupMenuItem(
+                              value: FavoriteStoreSort.name,
+                              child: Text('매장 이름순'),
+                            ),
+                          ],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _sort.label,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                    fontSize: 11,
+                                    height: 16.5 / 11,
+                                  ),
+                                ),
+                                const SizedBox(width: 2),
+                                const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 16,
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -528,62 +577,69 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  final removed = await context.push<bool>(
-                    AppRoutes.favoriteCancelConfirm,
-                    extra: {'storeId': store.id, 'storeName': store.storeName},
-                  );
-                  if (removed == true && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')),
-                    );
-                  }
-                },
-                child: Icon(
-                  store.isFavorite
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
-                  color: store.isFavorite
-                      ? AppColors.error
-                      : AppColors.textLight,
-                  size: 20,
-                ),
+          TextButton.icon(
+            onPressed: () => _confirmFavoriteRemoval(store),
+            style: TextButton.styleFrom(
+              foregroundColor: Color(store.buttonTextColor),
+              backgroundColor: Color(store.buttonColor),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              minimumSize: const Size(0, 36),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 18),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Color(store.buttonColor),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      store.buttonText,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: const ['Noto Sans KR'],
-                        fontWeight: FontWeight.bold,
-                        color: Color(store.buttonTextColor),
-                        fontSize: 11,
-                        height: 16.5 / 11,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            icon: const Icon(Icons.favorite_rounded, size: 15),
+            label: Text(
+              store.buttonText,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontFamilyFallback: ['Noto Sans KR'],
+                fontWeight: FontWeight.bold,
+                fontSize: 11,
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmFavoriteRemoval(FavoriteStoreModel store) async {
+    final removed = await context.push<bool>(
+      AppRoutes.favoriteCancelConfirm,
+      extra: {'storeId': store.id, 'storeName': store.storeName},
+    );
+    if (removed == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')));
+    }
+  }
+}
+
+enum FavoriteStoreSort { recent, name }
+
+extension on FavoriteStoreSort {
+  String get label => switch (this) {
+    FavoriteStoreSort.recent => '최근 추가순',
+    FavoriteStoreSort.name => '매장 이름순',
+  };
+}
+
+@visibleForTesting
+void sortFavoriteStores(
+  List<FavoriteStoreModel> stores,
+  FavoriteStoreSort sort,
+) {
+  switch (sort) {
+    case FavoriteStoreSort.recent:
+      stores.sort((a, b) {
+        final aTime = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return bTime.compareTo(aTime);
+      });
+    case FavoriteStoreSort.name:
+      stores.sort((a, b) => a.storeName.compareTo(b.storeName));
   }
 }

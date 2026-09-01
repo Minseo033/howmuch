@@ -299,9 +299,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
                   imageUrl: item.imageUrl,
                   dotColor: item.dotColor,
                   compactStatus: item.compactStatus,
-                  onTap: () => context.push(
-                    '${AppRoutes.communityPostDetail}?id=${item.id}',
-                  ),
+                  onTap: () async {
+                    await context.push(
+                      '${AppRoutes.communityPostDetail}?id=${item.id}',
+                    );
+                    if (mounted) await _fetchFeeds(silent: true);
+                  },
                 ),
               ),
             )

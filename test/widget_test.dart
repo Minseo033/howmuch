@@ -89,6 +89,8 @@ void main() {
     expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('게스트'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
+    expect(find.text('네트워크 오류 화면'), findsNothing);
+    expect(find.text('세션 만료 · 재로그인'), findsNothing);
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
@@ -109,6 +111,49 @@ void main() {
     expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
     expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('회원 탈퇴'), findsOneWidget);
+  });
+
+  testWidgets('mypage child screens return with their header back buttons', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    for (final label in ['계정 관리', '공공데이터 출처 안내', '문의하기']) {
+      await _goToRoute(tester, AppRoutes.mypage);
+      final target = find.text(label).last;
+      await tester.ensureVisible(target);
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(label == '공공데이터 출처 안내' ? '공공데이터 출처' : label),
+        findsAtLeastNWidgets(1),
+      );
+
+      await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text('마이'), findsAtLeastNWidgets(1));
+    }
+  });
+
+  testWidgets('direct mypage child routes handle the system back action', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    for (final route in [
+      AppRoutes.accountManagement,
+      AppRoutes.publicDataSource,
+      AppRoutes.inquiry,
+    ]) {
+      await _goToRoute(tester, route);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('마이'), findsAtLeastNWidgets(1));
+    }
   });
 
   testWidgets('shows login account without fabricated social accounts', (

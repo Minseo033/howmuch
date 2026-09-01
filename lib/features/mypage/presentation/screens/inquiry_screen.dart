@@ -109,129 +109,142 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
     final scrollContentHeight = 592.8974609375 + topOffset + footerHeight + 24;
+    final canPop = Navigator.of(context).canPop();
 
-    return FigmaMobileCanvas(
-      backgroundColor: InquiryScreen.surface,
-      child: TextSelectionTheme(
-        data: TextSelectionThemeData(
-          cursorColor: InquiryScreen.blue,
-          selectionColor: InquiryScreen.blue.withValues(alpha: .18),
-          selectionHandleColor: InquiryScreen.blue,
-        ),
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(
-                    parent: BouncingScrollPhysics(),
-                  ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: scrollContentHeight,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: 20,
-                          top: 64.8720703125 + topOffset,
-                          child: const Text('문의 유형', style: _labelText),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 90.8662109375 + topOffset,
-                          child: _InquiryChip(
-                            text: _types[0],
-                            selected: _selectedType == 0,
-                            onTap: () => setState(() => _selectedType = 0),
+    void goBack() {
+      if (canPop) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.mypage);
+      }
+    }
+
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(AppRoutes.mypage);
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: InquiryScreen.surface,
+        child: TextSelectionTheme(
+          data: TextSelectionThemeData(
+            cursorColor: InquiryScreen.blue,
+            selectionColor: InquiryScreen.blue.withValues(alpha: .18),
+            selectionHandleColor: InquiryScreen.blue,
+          ),
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: scrollContentHeight,
+                      child: Stack(
+                        children: [
+                          Positioned(
+                            left: 20,
+                            top: 64.8720703125 + topOffset,
+                            child: const Text('문의 유형', style: _labelText),
                           ),
-                        ),
-                        Positioned(
-                          left: 191.71875,
-                          top: 90.8662109375 + topOffset,
-                          child: _InquiryChip(
-                            text: _types[1],
-                            selected: _selectedType == 1,
-                            onTap: () => setState(() => _selectedType = 1),
+                          Positioned(
+                            left: 20,
+                            top: 90.8662109375 + topOffset,
+                            child: _InquiryChip(
+                              text: _types[0],
+                              selected: _selectedType == 0,
+                              onTap: () => setState(() => _selectedType = 0),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 140.66748046875 + topOffset,
-                          child: _InquiryChip(
-                            text: _types[2],
-                            selected: _selectedType == 2,
-                            onTap: () => setState(() => _selectedType = 2),
+                          Positioned(
+                            left: 191.71875,
+                            top: 90.8662109375 + topOffset,
+                            child: _InquiryChip(
+                              text: _types[1],
+                              selected: _selectedType == 1,
+                              onTap: () => setState(() => _selectedType = 1),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          left: 191.71875,
-                          top: 140.66748046875 + topOffset,
-                          child: _InquiryChip(
-                            text: _types[3],
-                            selected: _selectedType == 3,
-                            onTap: () => setState(() => _selectedType = 3),
+                          Positioned(
+                            left: 20,
+                            top: 140.66748046875 + topOffset,
+                            child: _InquiryChip(
+                              text: _types[2],
+                              selected: _selectedType == 2,
+                              onTap: () => setState(() => _selectedType = 2),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 202.4716796875 + topOffset,
-                          right: 20,
-                          height: 72.4,
-                          child: _TitleField(controller: _titleController),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 290.45458984375 + topOffset,
-                          right: 20,
-                          height: 136.4,
-                          child: _BodyField(controller: _bodyController),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 442.44287109375 + topOffset,
-                          right: 20,
-                          height: 90.4,
-                          child: _PhotoAttachBox(
-                            attachments: _attachments,
-                            onAdd: _pickPhotos,
-                            onRemove: _removePhoto,
+                          Positioned(
+                            left: 191.71875,
+                            top: 140.66748046875 + topOffset,
+                            child: _InquiryChip(
+                              text: _types[3],
+                              selected: _selectedType == 3,
+                              onTap: () => setState(() => _selectedType = 3),
+                            ),
                           ),
-                        ),
-                        Positioned(
-                          left: 20,
-                          top: 552.4287109375 + topOffset,
-                          right: 20,
-                          height: 40.46875,
-                          child: _EmailBox(email: email),
-                        ),
-                      ],
+                          Positioned(
+                            left: 20,
+                            top: 202.4716796875 + topOffset,
+                            right: 20,
+                            height: 72.4,
+                            child: _TitleField(controller: _titleController),
+                          ),
+                          Positioned(
+                            left: 20,
+                            top: 290.45458984375 + topOffset,
+                            right: 20,
+                            height: 136.4,
+                            child: _BodyField(controller: _bodyController),
+                          ),
+                          Positioned(
+                            left: 20,
+                            top: 442.44287109375 + topOffset,
+                            right: 20,
+                            height: 90.4,
+                            child: _PhotoAttachBox(
+                              attachments: _attachments,
+                              onAdd: _pickPhotos,
+                              onRemove: _removePhoto,
+                            ),
+                          ),
+                          Positioned(
+                            left: 20,
+                            top: 552.4287109375 + topOffset,
+                            right: 20,
+                            height: 40.46875,
+                            child: _EmailBox(email: email),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _Header(
-                topOffset: topOffset,
-                title: '문의하기',
-                onBack: () => context.canPop()
-                    ? context.pop()
-                    : context.go(AppRoutes.mypage),
-                onHistory: () => context.push(AppRoutes.inquiryHistory),
-              ),
-              Positioned(
-                left: 0,
-                bottom: 0,
-                right: 0,
-                height: footerHeight,
-                child: _StickyButton(
-                  safeBottom: bottomOffset,
-                  label: '문의 보내기',
-                  isBusy: _isSubmitting,
-                  onPressed: _isSubmitting ? null : _submitInquiry,
+                _Header(
+                  topOffset: topOffset,
+                  title: '문의하기',
+                  onBack: goBack,
+                  onHistory: () => context.push(AppRoutes.inquiryHistory),
                 ),
-              ),
-            ],
+                Positioned(
+                  left: 0,
+                  bottom: 0,
+                  right: 0,
+                  height: footerHeight,
+                  child: _StickyButton(
+                    safeBottom: bottomOffset,
+                    label: '문의 보내기',
+                    isBusy: _isSubmitting,
+                    onPressed: _isSubmitting ? null : _submitInquiry,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -17,6 +17,7 @@ public class SavingsHistoryResponse {
     private String id;          // 방문/절약 기록 ID
     private String storeId;     // 매장 ID
     private String storeName;   // 매장명
+    private String category;    // 매장 업종(필터용)
     private String visitedAt;   // 방문 일시 (ISO 8601 String)
     private String date;        // 날짜 표현 (visitedAt 동일 또는 포맷팅용)
     private String menu;        // 메뉴명

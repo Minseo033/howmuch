@@ -32,118 +32,129 @@ class PublicDataSourceScreen extends StatelessWidget {
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
     final scrollContentHeight = 627.51416015625 + topOffset + footerHeight + 24;
+    final canPop = Navigator.of(context).canPop();
 
-    return FigmaMobileCanvas(
-      backgroundColor: surface,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      right: 20,
-                      height: 89.58806610107422,
-                      child: const _IntroCard(),
-                    ),
-                    Positioned(
-                      left: 23.991455078125,
-                      top: 170.45458984375 + topOffset,
-                      child: const _SectionLabel('데이터 출처'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 194.94287109375 + topOffset,
-                      right: 20,
-                      height: 311.1505432128906,
-                      child: const Column(
-                        children: [
-                          _SourceCard(
-                            icon: Icons.verified_user_outlined,
-                            color: PublicDataSourceScreen.blue,
-                            title: '행정안전부 착한가격업소',
-                            subtitle: '인증 매장 · 가격 정보',
-                          ),
-                          SizedBox(height: 7.997),
-                          _SourceCard(
-                            icon: Icons.price_check_rounded,
-                            color: PublicDataSourceScreen.green,
-                            title: '한국소비자원 참가격',
-                            subtitle: '지역별 외식비 · 개인서비스요금',
-                          ),
-                          SizedBox(height: 7.997),
-                          _SourceCard(
-                            icon: Icons.auto_awesome_rounded,
-                            color: PublicDataSourceScreen.orange,
-                            title: '기상청 날씨 API',
-                            subtitle: '오늘의 픽 추천에 활용',
-                          ),
-                          SizedBox(height: 7.997),
-                          _SourceCard(
-                            icon: Icons.place_outlined,
-                            color: PublicDataSourceScreen.muted,
-                            title: '지도 API',
-                            subtitle: '위치 표시 및 길찾기',
-                          ),
-                        ],
+    void goBack() {
+      if (canPop) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.mypage);
+      }
+    }
+
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(AppRoutes.mypage);
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: surface,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: scrollContentHeight,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 20,
+                        top: 64.8720703125 + topOffset,
+                        right: 20,
+                        height: 89.58806610107422,
+                        child: const _IntroCard(),
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 522.087890625 + topOffset,
-                      right: 20,
-                      height: 56.96022415161133,
-                      child: const _NoticeBox(
-                        color: AppColors.warningLight,
-                        iconColor: AppColors.warningDark,
-                        icon: Icons.warning_amber_rounded,
-                        text: '공공데이터는 주기적으로 동기화되며,\n실제 매장 정보와 차이가 있을 수 있어요.',
+                      Positioned(
+                        left: 23.991455078125,
+                        top: 170.45458984375 + topOffset,
+                        child: const _SectionLabel('데이터 출처'),
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 587.04541015625 + topOffset,
-                      right: 20,
-                      height: 40.46875,
-                      child: const _NoticeBox(
-                        color: AppColors.warningLight,
-                        iconColor: AppColors.warningDark,
-                        icon: Icons.check_rounded,
-                        text: '사용자 제보 정보는 검토 후 지도에 반영됩니다.',
-                        singleLine: true,
+                      Positioned(
+                        left: 20,
+                        top: 194.94287109375 + topOffset,
+                        right: 20,
+                        height: 311.1505432128906,
+                        child: const Column(
+                          children: [
+                            _SourceCard(
+                              icon: Icons.verified_user_outlined,
+                              color: PublicDataSourceScreen.blue,
+                              title: '행정안전부 착한가격업소',
+                              subtitle: '인증 매장 · 가격 정보',
+                            ),
+                            SizedBox(height: 7.997),
+                            _SourceCard(
+                              icon: Icons.price_check_rounded,
+                              color: PublicDataSourceScreen.green,
+                              title: '한국소비자원 참가격',
+                              subtitle: '지역별 외식비 · 개인서비스요금',
+                            ),
+                            SizedBox(height: 7.997),
+                            _SourceCard(
+                              icon: Icons.auto_awesome_rounded,
+                              color: PublicDataSourceScreen.orange,
+                              title: '기상청 날씨 API',
+                              subtitle: '오늘의 픽 추천에 활용',
+                            ),
+                            SizedBox(height: 7.997),
+                            _SourceCard(
+                              icon: Icons.place_outlined,
+                              color: PublicDataSourceScreen.muted,
+                              title: '지도 API',
+                              subtitle: '위치 표시 및 길찾기',
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        left: 20,
+                        top: 522.087890625 + topOffset,
+                        right: 20,
+                        height: 56.96022415161133,
+                        child: const _NoticeBox(
+                          color: AppColors.warningLight,
+                          iconColor: AppColors.warningDark,
+                          icon: Icons.warning_amber_rounded,
+                          text: '공공데이터는 주기적으로 동기화되며,\n실제 매장 정보와 차이가 있을 수 있어요.',
+                        ),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 587.04541015625 + topOffset,
+                        right: 20,
+                        height: 40.46875,
+                        child: const _NoticeBox(
+                          color: AppColors.warningLight,
+                          iconColor: AppColors.warningDark,
+                          icon: Icons.check_rounded,
+                          text: '사용자 제보 정보는 검토 후 지도에 반영됩니다.',
+                          singleLine: true,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          _Header(
-            topOffset: topOffset,
-            title: '공공데이터 출처',
-            onBack: () => context.go(AppRoutes.mypage),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            right: 0,
-            height: footerHeight,
-            child: _StickyButton(
-              safeBottom: bottomOffset,
-              label: '문의하기',
-              icon: Icons.chat_bubble_outline_rounded,
-              onPressed: () => context.go(AppRoutes.inquiry),
+            _Header(topOffset: topOffset, title: '공공데이터 출처', onBack: goBack),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              height: footerHeight,
+              child: _StickyButton(
+                safeBottom: bottomOffset,
+                label: '문의하기',
+                icon: Icons.chat_bubble_outline_rounded,
+                onPressed: () => context.push(AppRoutes.inquiry),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

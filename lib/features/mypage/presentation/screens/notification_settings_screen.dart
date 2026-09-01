@@ -441,26 +441,24 @@ class _AllNotificationCard extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: _RoundedPanel(
-        child: Stack(
-          children: [
-            const Positioned(
-              left: 16.903411865234375,
-              top: 15.994140625,
-              child: _TitleSubtitle(
-                title: '전체 알림',
-                subtitle: '모든 알림을 켜고 끌 수 있어요',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Expanded(
+                child: _TitleSubtitle(
+                  title: '전체 알림',
+                  subtitle: '모든 알림을 켜고 끌 수 있어요',
+                ),
               ),
-            ),
-            Positioned(
-              right: 16.903411865234375,
-              top: 17.73583984375,
-              child: _HowmuchToggle(
+              const SizedBox(width: 12),
+              _HowmuchToggle(
                 value: value,
                 activeColor: NotificationSettingsScreen.blue,
                 onTap: onTap,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -546,27 +544,25 @@ class _NotificationRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         height: 66.9602279663086,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 16.903411865234375,
-              top: 13.9912109375,
-              child: _TitleSubtitle(
-                title: title,
-                subtitle: subtitle,
-                compact: true,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16, right: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: _TitleSubtitle(
+                  title: title,
+                  subtitle: subtitle,
+                  compact: true,
+                ),
               ),
-            ),
-            Positioned(
-              right: 16.903411865234375,
-              top: 7.9912109375,
-              child: _HowmuchToggle(
+              const SizedBox(width: 8),
+              _HowmuchToggle(
                 value: value,
                 activeColor: activeColor,
                 onTap: onTap,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

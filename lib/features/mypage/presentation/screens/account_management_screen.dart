@@ -42,97 +42,104 @@ class AccountManagementScreen extends ConsumerWidget {
     final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
     final provider = auth.provider.trim().isEmpty ? '로그인 정보 없음' : auth.provider;
     final scrollContentHeight = 672 + topOffset;
+    final canPop = Navigator.of(context).canPop();
 
     void goBack() {
-      if (context.canPop()) {
+      if (canPop) {
         context.pop();
       } else {
         context.go(AppRoutes.mypage);
       }
     }
 
-    return FigmaMobileCanvas(
-      backgroundColor: surface,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        child: SizedBox(
-          width: double.infinity,
-          height: scrollContentHeight,
-          child: Stack(
-            children: [
-              _Header(topOffset: topOffset, title: '계정 관리', onBack: goBack),
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 64.8720703125 + topOffset,
-                height: 89.80113220214844,
-                child: _ProfileAccountCard(
-                  profile: profile,
-                  provider: provider,
-                  email: email,
-                  onEdit: () => context.go(AppRoutes.profileEdit),
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(AppRoutes.mypage);
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: surface,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
+          ),
+          child: SizedBox(
+            width: double.infinity,
+            height: scrollContentHeight,
+            child: Stack(
+              children: [
+                _Header(topOffset: topOffset, title: '계정 관리', onBack: goBack),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  top: 64.8720703125 + topOffset,
+                  height: 89.80113220214844,
+                  child: _ProfileAccountCard(
+                    profile: profile,
+                    provider: provider,
+                    email: email,
+                    onEdit: () => context.go(AppRoutes.profileEdit),
+                  ),
                 ),
-              ),
-              Positioned(
-                left: 23.9915771484375,
-                top: 170.66748046875 + topOffset,
-                child: const _SectionLabel('계정'),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 195.15625 + topOffset,
-                height: 146.22158813476562,
-                child: _AccountInfoCard(
-                  profile: profile,
-                  provider: provider,
-                  locationAllowed: permissions.location,
-                  onSocialAccounts: () =>
-                      context.go(AppRoutes.connectedSocialAccounts),
+                Positioned(
+                  left: 23.9915771484375,
+                  top: 170.66748046875 + topOffset,
+                  child: const _SectionLabel('계정'),
                 ),
-              ),
-              Positioned(
-                left: 23.9915771484375,
-                top: 357.3720703125 + topOffset,
-                child: const _SectionLabel('약관 및 정책'),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 381.86083984375 + topOffset,
-                height: 97.75567626953125,
-                child: const _PolicyCard(),
-              ),
-              Positioned(
-                left: 23.9915771484375,
-                top: 495.61083984375 + topOffset,
-                child: const _SectionLabel('계정 관리'),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 520.09912109375 + topOffset,
-                height: 49.289772033691406,
-                child: _LogoutCard(
-                  onTap: () async {
-                    await ref.read(kakaoLoginServiceProvider).logout();
-                    if (!context.mounted) return;
-                    context.go(AppRoutes.login);
-                  },
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  top: 195.15625 + topOffset,
+                  height: 146.22158813476562,
+                  child: _AccountInfoCard(
+                    profile: profile,
+                    provider: provider,
+                    locationAllowed: permissions.location,
+                    onSocialAccounts: () =>
+                        context.go(AppRoutes.connectedSocialAccounts),
+                  ),
                 ),
-              ),
-              Positioned(
-                left: 20,
-                right: 20,
-                top: 585.38330078125 + topOffset,
-                height: 66.0227279663086,
-                child: _WithdrawalCard(
-                  onTap: () => context.go(AppRoutes.withdrawal),
+                Positioned(
+                  left: 23.9915771484375,
+                  top: 357.3720703125 + topOffset,
+                  child: const _SectionLabel('약관 및 정책'),
                 ),
-              ),
-            ],
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  top: 381.86083984375 + topOffset,
+                  height: 97.75567626953125,
+                  child: const _PolicyCard(),
+                ),
+                Positioned(
+                  left: 23.9915771484375,
+                  top: 495.61083984375 + topOffset,
+                  child: const _SectionLabel('계정 관리'),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  top: 520.09912109375 + topOffset,
+                  height: 49.289772033691406,
+                  child: _LogoutCard(
+                    onTap: () async {
+                      await ref.read(kakaoLoginServiceProvider).logout();
+                      if (!context.mounted) return;
+                      context.go(AppRoutes.login);
+                    },
+                  ),
+                ),
+                Positioned(
+                  left: 20,
+                  right: 20,
+                  top: 585.38330078125 + topOffset,
+                  height: 66.0227279663086,
+                  child: _WithdrawalCard(
+                    onTap: () => context.go(AppRoutes.withdrawal),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

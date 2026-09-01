@@ -5,6 +5,27 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 
+@visibleForTesting
+String normalizeSavingsCategory(Object? rawValue) {
+  final value = rawValue?.toString().trim() ?? '';
+  if (value.isEmpty) return '기타';
+  if (value.contains('카페') || value.contains('커피') || value.contains('다방')) {
+    return '카페';
+  }
+  if (value.contains('미용') || value.contains('이용') || value.contains('헤어')) {
+    return '미용';
+  }
+  if (value.contains('음식') ||
+      value.contains('식당') ||
+      value.contains('분식') ||
+      value.contains('한식') ||
+      value.contains('중식') ||
+      value.contains('양식')) {
+    return '음식점';
+  }
+  return '기타';
+}
+
 class SavingsDetailItem {
   final String category; // '음식점', '카페', '미용'
   final String badgeText;
@@ -45,6 +66,12 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   int _visitCount = 0;
   int _averageSaved = 0;
 
+  List<String> get _availableCategories {
+    const preferredOrder = ['음식점', '카페', '미용', '기타'];
+    final present = _allItems.map((item) => item.category).toSet();
+    return ['전체', ...preferredOrder.where(present.contains)];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -84,7 +111,9 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
           final String dateRaw =
               item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
-          final String category = _categoryFromDate(dateRaw);
+          final String category = normalizeSavingsCategory(
+            item['category'] ?? item['industry'],
+          );
 
           return SavingsDetailItem(
             category: category,
@@ -170,9 +199,6 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
   }
 
-  /// 업종 필터용 카테고리 — API에 category 필드가 없어 빈 값으로 두고, 이 경우 모든 필터에 노출됩니다.
-  String _categoryFromDate(String raw) => '';
-
   /// "공공 기준가 대비 2,000원 절약" → 2000
   int _parseAmount(String saving) {
     final match = RegExp(r'([\d,]+)').firstMatch(saving);
@@ -194,8 +220,6 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
     final filteredItems = _allItems.where((item) {
       if (_selectedFilter == '전체') return true;
-      // 카테고리 정보가 없는 항목(API 미제공)은 모든 필터에 표시
-      if (item.category.isEmpty) return true;
       return item.category == _selectedFilter;
     }).toList();
 
@@ -356,15 +380,18 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
                             child: Row(
-                              children: [
-                                _buildChip('전체'),
-                                const SizedBox(width: AppSizes.smallSpacing),
-                                _buildChip('음식점'),
-                                const SizedBox(width: AppSizes.smallSpacing),
-                                _buildChip('카페'),
-                                const SizedBox(width: AppSizes.smallSpacing),
-                                _buildChip('미용'),
-                              ],
+                              children:
+                                  _availableCategories
+                                      .expand(
+                                        (category) => [
+                                          _buildChip(category),
+                                          const SizedBox(
+                                            width: AppSizes.smallSpacing,
+                                          ),
+                                        ],
+                                      )
+                                      .toList()
+                                    ..removeLast(),
                             ),
                           ),
                           const SizedBox(height: AppSizes.itemSpacing),

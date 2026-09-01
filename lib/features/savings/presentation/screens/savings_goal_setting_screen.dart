@@ -170,56 +170,61 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              Container(
-                                height: 52,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF4F6FA),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: const Color(0xFF2563EB),
-                                    width: 0.909,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _goalController,
-                                        cursorColor: const Color(0xFF2563EB),
-                                        keyboardType: TextInputType.number,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter
-                                              .digitsOnly,
-                                        ],
-                                        style: const TextStyle(
-                                          fontFamily: 'Inter',
-                                          fontFamilyFallback: ['Noto Sans KR'],
-                                          fontWeight: FontWeight.w800,
-                                          color: Color(0xFF0F172A),
-                                          fontSize: 24,
-                                          height: 36 / 24,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          border: InputBorder.none,
-                                          contentPadding: EdgeInsets.zero,
-                                          isDense: true,
-                                        ),
-                                      ),
-                                    ),
-                                    const Text(
-                                      '원',
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF64748B),
-                                        fontSize: 13,
-                                        height: 19.5 / 13,
-                                      ),
-                                    ),
+                              SizedBox(
+                                height: 56,
+                                child: TextField(
+                                  controller: _goalController,
+                                  cursorColor: const Color(0xFF2563EB),
+                                  keyboardType: TextInputType.number,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
                                   ],
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 22,
+                                    height: 1.2,
+                                  ),
+                                  decoration: InputDecoration(
+                                    hintText: '예: 50000',
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    suffixText: '원',
+                                    suffixStyle: const TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      color: Color(0xFF64748B),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF4F6FA),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 14,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFCBD5E1),
+                                        width: 0.909,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF2563EB),
+                                        width: 1.4,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
