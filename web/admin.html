@@ -615,6 +615,9 @@
   let allReports = [];
   let allReceipts = [];
   let allReviews = [];
+  let reportsLoaded = false;
+  let receiptsLoaded = false;
+  let reviewsLoaded = false;
   let overview = null;
   let users = null;
   let allComments = null;
@@ -652,6 +655,9 @@
     allReports = [];
     allReceipts = [];
     allReviews = [];
+    reportsLoaded = false;
+    receiptsLoaded = false;
+    reviewsLoaded = false;
     overview = null;
     users = null;
     allComments = null;
@@ -1526,6 +1532,7 @@
       await api(`/api/admin/reports/${id}/approve`, { method: 'POST' });
       const r = allReports.find((x) => x.id === id);
       if (r) r.status = 'APPROVED';
+      overview = null;
       renderReportsView();
       toast('승인 완료');
     } catch (e) {
@@ -1565,6 +1572,7 @@
       const collection = rejectTargetType === 'receipt' ? allReceipts : allReports;
       const r = collection.find((x) => x.id === rejectTargetId);
       if (r) { r.status = 'REJECTED'; r.rejectReason = reason; }
+      if (rejectTargetType === 'report') overview = null;
       closeModal('rejectModal');
       if (rejectTargetType === 'receipt') renderReceiptsView();
       else renderReportsView();
@@ -1583,6 +1591,7 @@
       const result = await api(`/api/admin/receipts/${id}/approve`, { method: 'POST' });
       const receipt = allReceipts.find((x) => x.id === id);
       if (receipt) { receipt.status = 'APPROVED'; receipt.visitId = result.visitId; }
+      overview = null;
       renderReceiptsView();
       toast('영수증 승인 및 방문 기록 생성 완료');
     } catch (e) {
@@ -1660,6 +1669,8 @@
     try {
       const res = await api(`/api/admin/users/${encodeURIComponent(deleteTargetUid)}`, { method: 'DELETE' });
       users = users.filter((u) => (u.id || u.firebaseUid) !== deleteTargetUid);
+      overview = null;
+      communityStats = null;
       closeModal('deleteUserModal');
       renderUsersView();
       toast(`탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
@@ -1675,6 +1686,7 @@
     try {
       await api(`/api/admin/reviews/${encodeURIComponent(deleteReviewId)}`, { method: 'DELETE' });
       allReviews = allReviews.filter((r) => r.id !== deleteReviewId);
+      overview = null;
       closeModal('deleteReviewModal');
       renderReviewsView();
       toast('리뷰 삭제 완료');
@@ -1690,6 +1702,7 @@
     try {
       await api(`/api/admin/comments/${encodeURIComponent(deleteCommentId)}`, { method: 'DELETE' });
       allComments = (allComments || []).filter((c) => c.id !== deleteCommentId);
+      communityStats = null;
       closeModal('deleteCommentModal');
       renderCommentsView();
       toast('댓글 삭제 완료');
@@ -1720,16 +1733,16 @@
     $('viewCrumb').textContent = crumb;
 
     if (view === 'dashboard') {
-      if (overview && allReports.length) renderDashboard();
+      if (overview && reportsLoaded) renderDashboard();
       else await loadDashboard();
     } else if (view === 'reports') {
-      if (allReports.length) renderReportsView();
+      if (reportsLoaded) renderReportsView();
       else await loadReports();
     } else if (view === 'receipts') {
-      if (allReceipts.length) renderReceiptsView();
+      if (receiptsLoaded) renderReceiptsView();
       else await loadReceipts();
     } else if (view === 'reviews') {
-      if (allReviews.length) renderReviewsView();
+      if (reviewsLoaded) renderReviewsView();
       else await loadReviews();
     } else if (view === 'comments') {
       if (allComments) renderCommentsView();
@@ -1749,11 +1762,16 @@
   async function loadDashboard() {
     renderState('loading');
     try {
+      const overviewRequest = overview ?? api('/api/admin/overview');
+      const reportsRequest = reportsLoaded
+        ? Promise.resolve(allReports)
+        : api('/api/admin/reports?status=ALL');
       [overview, allReports, storageUsage] = await Promise.all([
-        api('/api/admin/overview'),
-        api('/api/admin/reports?status=ALL'),
+        overviewRequest,
+        reportsRequest,
         api('/api/admin/storage/report-images/usage').catch(() => null),
       ]);
+      reportsLoaded = true;
       renderDashboard();
     } catch (e) { handleLoadError(e); }
   }
@@ -1762,6 +1780,7 @@
     renderState('loading');
     try {
       allReports = await api('/api/admin/reports?status=ALL');
+      reportsLoaded = true;
       renderReportsView();
     } catch (e) { handleLoadError(e); }
   }
@@ -1770,6 +1789,7 @@
     renderState('loading');
     try {
       allReceipts = await api('/api/admin/receipts?status=ALL');
+      receiptsLoaded = true;
       renderReceiptsView();
     } catch (e) { handleLoadError(e); }
   }
@@ -1778,6 +1798,7 @@
     renderState('loading');
     try {
       allReviews = await api('/api/admin/reviews');
+      reviewsLoaded = true;
       renderReviewsView();
     } catch (e) { handleLoadError(e); }
   }
@@ -1824,13 +1845,15 @@
   }
 
   async function refresh() {
-    overview = null;
-    storageUsage = null;
-    try { allReports = await api('/api/admin/reports?status=ALL'); } catch (_) {}
-    if (currentView === 'dashboard') { overview = null; await loadDashboard(); }
-    else if (currentView === 'reports') await loadReports();
-    else if (currentView === 'receipts') await loadReceipts();
-    else if (currentView === 'reviews') await loadReviews();
+    if (currentView === 'dashboard') {
+      overview = null;
+      storageUsage = null;
+      reportsLoaded = false;
+      await loadDashboard();
+    }
+    else if (currentView === 'reports') { reportsLoaded = false; await loadReports(); }
+    else if (currentView === 'receipts') { receiptsLoaded = false; await loadReceipts(); }
+    else if (currentView === 'reviews') { reviewsLoaded = false; await loadReviews(); }
     else if (currentView === 'comments') await loadComments();
     else if (currentView === 'inquiries') await loadInquiries();
     else if (currentView === 'notifications') await loadCommunityStats();
@@ -1863,8 +1886,8 @@
     showApp();
     renderState('loading');
     try {
-      await api('/api/admin/overview'); // 키 유효성 가볍게 확인
-      switchView('dashboard');
+      overview = await api('/api/admin/overview');
+      await switchView('dashboard');
     } catch (e) {
       if (e.code === 401) invalidateAdminSession('관리자 인증을 다시 확인해주세요.');
       else if (e.code === 403) renderState('forbidden');

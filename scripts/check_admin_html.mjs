@@ -49,6 +49,18 @@ for (const file of files) {
     for (const [guard, message] of sessionSafetyGuards) {
       if (!html.includes(guard)) throw new Error(`${file}: ${message}`);
     }
+
+    const readEfficiencyGuards = [
+      ['reportsLoaded', '빈 제보 목록도 조회 완료 상태로 기억해야 합니다.'],
+      ['const overviewRequest = overview ?? api(\'/api/admin/overview\')', '로그인 검증에서 받은 대시보드 응답을 재사용해야 합니다.'],
+      ['reportsLoaded = false;\n      await loadDashboard()', '대시보드 수동 새로고침은 제보 목록을 한 번만 요청해야 합니다.'],
+    ];
+    for (const [guard, message] of readEfficiencyGuards) {
+      if (!html.includes(guard)) throw new Error(`${file}: ${message}`);
+    }
+    if (/async function refresh\(\)[\s\S]*?try\s*\{\s*allReports\s*=\s*await api/.test(html)) {
+      throw new Error(`${file}: 새로고침 전에 제보 목록을 선조회하면 현재 화면 로드와 중복됩니다.`);
+    }
   }
   const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)]
     .map((match) => match[1])
