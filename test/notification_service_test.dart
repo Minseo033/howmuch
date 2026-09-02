@@ -9,16 +9,40 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
-  test('web notification polling refreshes without a page reload', () {
+  test('notification polling uses the same low-frequency interval', () {
     expect(
-      notificationRefreshInterval(isWeb: true),
-      const Duration(seconds: 10),
+      notificationPollingInterval(isWeb: true),
+      const Duration(minutes: 1),
     );
     expect(
-      notificationRefreshInterval(isWeb: false),
+      notificationPollingInterval(isWeb: false),
       const Duration(minutes: 1),
     );
   });
+
+  test(
+    'notification polling starts only while auto refresh is enabled',
+    () async {
+      final service = _CountingNotificationApiService();
+      final notifier = NotificationsNotifier(
+        service,
+        refreshInterval: const Duration(milliseconds: 5),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+      expect(service.fetchCount, 0);
+
+      notifier.setAutoRefreshEnabled(true);
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+      expect(service.fetchCount, greaterThanOrEqualTo(2));
+
+      notifier.setAutoRefreshEnabled(false);
+      final countAfterPause = service.fetchCount;
+      await Future<void>.delayed(const Duration(milliseconds: 12));
+      expect(service.fetchCount, countAfterPause);
+      notifier.dispose();
+    },
+  );
 
   group('notificationRouteForType', () {
     test('maps backend and display notification types to destinations', () {
@@ -237,5 +261,18 @@ class _BlockingNotificationApiService extends NotificationApiService {
 
   void complete(List<NotificationModel> notifications) {
     _completer.complete(notifications);
+  }
+}
+
+class _CountingNotificationApiService extends NotificationApiService {
+  _CountingNotificationApiService()
+    : super(MockClient((_) async => http.Response('[]', 200)));
+
+  int fetchCount = 0;
+
+  @override
+  Future<List<NotificationModel>> fetchNotifications() async {
+    fetchCount++;
+    return const [];
   }
 }

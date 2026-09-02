@@ -17,6 +17,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class FirebaseServiceNotificationTest {
@@ -26,10 +27,14 @@ class FirebaseServiceNotificationTest {
         Firestore db = mock(Firestore.class);
         CollectionReference notifications = mock(CollectionReference.class);
         Query userQuery = mock(Query.class);
+        Query orderedQuery = mock(Query.class);
+        Query limitedQuery = mock(Query.class);
         QuerySnapshot snapshot = mock(QuerySnapshot.class);
         when(db.collection("notifications")).thenReturn(notifications);
         when(notifications.whereEqualTo("userId", "user-1")).thenReturn(userQuery);
-        when(userQuery.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        when(userQuery.orderBy("createdAt", Query.Direction.DESCENDING)).thenReturn(orderedQuery);
+        when(orderedQuery.limit(100)).thenReturn(limitedQuery);
+        when(limitedQuery.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
 
         List<QueryDocumentSnapshot> documents = new ArrayList<>();
         for (int index = 0; index < 105; index++) {
@@ -51,6 +56,7 @@ class FirebaseServiceNotificationTest {
         assertThat(result).hasSize(100);
         assertThat(result.getFirst().getId()).isEqualTo("notification-104");
         assertThat(result.getLast().getId()).isEqualTo("notification-5");
+        verify(orderedQuery).limit(100);
     }
 
     @Test

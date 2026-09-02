@@ -78,6 +78,8 @@ public class FirebaseService {
     private static final int REPORT_IMAGE_MAX_COUNT = 3;
     private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
     private static final int MAX_NOTIFICATION_RESULTS = 100;
+    private static final int MAX_COMMUNITY_COMMENTS = 200;
+    private static final int MAX_COMMUNITY_REPLIES = 100;
 
     @Value("${admin.list.max-items:500}")
     private int adminListMaxItems = 500;
@@ -2651,7 +2653,10 @@ public class FirebaseService {
     }
 
     /** 문서 스냅샷 → CommentResponse 변환 */
-    private com.howmuch.dto.CommentResponse toCommentResponse(DocumentSnapshot doc, String requesterUid) {
+    private com.howmuch.dto.CommentResponse toCommentResponse(
+            DocumentSnapshot doc,
+            String requesterUid,
+            Map<String, String> authorCache) {
         Map<String, Object> data = doc.getData();
         if (data == null) data = new HashMap<>();
         String uid = data.get("userId") != null ? data.get("userId").toString() : null;
@@ -2663,9 +2668,12 @@ public class FirebaseService {
         if (rc != null) {
             try { replyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
         }
+        String author = uid == null
+                ? "알 수 없음"
+                : authorCache.computeIfAbsent(uid, this::resolveAuthor);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(doc.getId())
-                .author(resolveAuthor(uid))
+                .author(author)
                 .content(content)
                 .createdAt(createdAt)
                 .isMine(isMine)
@@ -2677,17 +2685,15 @@ public class FirebaseService {
     public List<com.howmuch.dto.CommentResponse> getComments(String postId, String requesterUid) throws Exception {
         List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
                 .whereEqualTo("postId", postId)
+                .whereEqualTo("parentId", null)
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.ASCENDING)
+                .limit(MAX_COMMUNITY_COMMENTS)
                 .get().get().getDocuments());
         List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        Map<String, String> authorCache = new HashMap<>();
         for (DocumentSnapshot doc : docs) {
-            Map<String, Object> data = doc.getData();
-            Object parentId = data != null ? data.get("parentId") : null;
-            if (parentId == null) { // 최상위 댓글만
-                result.add(toCommentResponse(doc, requesterUid));
-            }
+            result.add(toCommentResponse(doc, requesterUid, authorCache));
         }
-        // 복합 인덱스 없이 메모리 정렬 (오래된순)
-        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
         return result;
     }
 
@@ -2719,12 +2725,14 @@ public class FirebaseService {
     public List<com.howmuch.dto.CommentResponse> getReplies(String commentId, String requesterUid) throws Exception {
         List<DocumentSnapshot> docs = new ArrayList<>(db.collection("comments")
                 .whereEqualTo("parentId", commentId)
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.ASCENDING)
+                .limit(MAX_COMMUNITY_REPLIES)
                 .get().get().getDocuments());
         List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
+        Map<String, String> authorCache = new HashMap<>();
         for (DocumentSnapshot doc : docs) {
-            result.add(toCommentResponse(doc, requesterUid));
+            result.add(toCommentResponse(doc, requesterUid, authorCache));
         }
-        result.sort(java.util.Comparator.comparing(com.howmuch.dto.CommentResponse::getCreatedAt));
         return result;
     }
 
@@ -2903,6 +2911,8 @@ public class FirebaseService {
     public List<com.howmuch.dto.NotificationResponseDto> getNotifications(String firebaseUid) throws Exception {
         var documents = db.collection("notifications")
                 .whereEqualTo("userId", firebaseUid)
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
+                .limit(MAX_NOTIFICATION_RESULTS)
                 .get().get().getDocuments();
 
         List<com.howmuch.dto.NotificationResponseDto> notifications = new ArrayList<>();
@@ -2922,7 +2932,7 @@ public class FirebaseService {
                     .build());
         }
 
-        // 복합 인덱스 없이 메모리에서 최신순 정렬
+        // 방어적으로 정렬·상한을 한 번 더 적용해 emulator/mock 결과도 동일하게 유지합니다.
         notifications.sort((a, b) -> {
             String aTime = a.getCreatedAt() != null ? a.getCreatedAt() : "";
             String bTime = b.getCreatedAt() != null ? b.getCreatedAt() : "";

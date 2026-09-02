@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -39,10 +38,10 @@ class CommunityPostDetailScreen extends StatefulWidget {
       _CommunityPostDetailScreenState();
 }
 
-class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
+class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
+    with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final CommunityService _service = const CommunityService();
-  Timer? _liveRefreshTimer;
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -57,15 +56,21 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   Map<String, dynamic>? _postData;
   List<CommunityComment> _comments = const [];
   CommunityComment? _replyTarget;
+  final Set<String> _expandedReplyIds = <String>{};
+  final Set<String> _replyLoadingIds = <String>{};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchDetail();
-    _liveRefreshTimer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _refreshLiveData(),
-    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshLiveData();
+    }
   }
 
   Future<void> _fetchDetail() async {
@@ -113,21 +118,15 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
 
     try {
       final comments = await _service.fetchComments(widget.postId);
-      final commentsWithReplies = await Future.wait(
-        comments.map((comment) async {
-          if (comment.replyCount <= 0) return comment;
-          try {
-            final replies = await _service.fetchReplies(comment.id);
-            return comment.copyWith(replies: replies);
-          } catch (e) {
-            debugPrint('답글 목록 조회 오류: $e');
-            return comment;
-          }
-        }),
-      );
+      final previousById = {for (final item in _comments) item.id: item};
+      final commentsWithLoadedReplies = comments.map((comment) {
+        final previous = previousById[comment.id];
+        if (previous == null || previous.replies.isEmpty) return comment;
+        return comment.copyWith(replies: previous.replies);
+      }).toList();
       if (!mounted) return;
       setState(() {
-        _comments = commentsWithReplies;
+        _comments = commentsWithLoadedReplies;
         _commentsLoading = false;
       });
     } catch (e) {
@@ -143,7 +142,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
 
   @override
   void dispose() {
-    _liveRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
   }
@@ -166,17 +165,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
       final commentsFuture = _service.fetchComments(widget.postId);
       final decoded = await detailFuture;
       final comments = await commentsFuture;
-      final commentsWithReplies = await Future.wait(
-        comments.map((comment) async {
-          if (comment.replyCount <= 0) return comment;
-          try {
-            final replies = await _service.fetchReplies(comment.id);
-            return comment.copyWith(replies: replies);
-          } catch (_) {
-            return comment;
-          }
-        }),
-      );
+      final previousById = {for (final item in _comments) item.id: item};
+      final commentsWithLoadedReplies = comments.map((comment) {
+        final previous = previousById[comment.id];
+        if (previous == null || previous.replies.isEmpty) return comment;
+        return comment.copyWith(replies: previous.replies);
+      }).toList();
       if (!mounted) return;
       setState(() {
         _postData = decoded;
@@ -189,11 +183,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               'notified',
             ]) ??
             _notificationEnabled;
-        _comments = commentsWithReplies;
+        _comments = commentsWithLoadedReplies;
         _commentsUnavailable = false;
       });
     } catch (e) {
-      debugPrint('게시글 실시간 갱신 오류: $e');
+      debugPrint('게시글 갱신 오류: $e');
     } finally {
       _liveRefreshInFlight = false;
     }
@@ -236,6 +230,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                 replies: [...comment.replies, created],
               );
             }).toList();
+            _expandedReplyIds.add(replyTarget.id);
           }
           _bumpCommentCount();
           _isSubmitting = false;
@@ -260,6 +255,36 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     if (data == null) return loadedCount;
     final serverCount = (data['comments'] as num?)?.toInt() ?? 0;
     return serverCount > loadedCount ? serverCount : loadedCount;
+  }
+
+  Future<void> _toggleReplies(CommunityComment comment) async {
+    if (_expandedReplyIds.contains(comment.id)) {
+      setState(() => _expandedReplyIds.remove(comment.id));
+      return;
+    }
+    if (comment.replies.isNotEmpty) {
+      setState(() => _expandedReplyIds.add(comment.id));
+      return;
+    }
+    if (_replyLoadingIds.contains(comment.id)) return;
+
+    setState(() => _replyLoadingIds.add(comment.id));
+    try {
+      final replies = await _service.fetchReplies(comment.id);
+      if (!mounted) return;
+      setState(() {
+        _comments = _comments.map((item) {
+          return item.id == comment.id ? item.copyWith(replies: replies) : item;
+        }).toList();
+        _replyLoadingIds.remove(comment.id);
+        _expandedReplyIds.add(comment.id);
+      });
+    } catch (e) {
+      debugPrint('답글 목록 조회 오류: $e');
+      if (!mounted) return;
+      setState(() => _replyLoadingIds.remove(comment.id));
+      _showSnackBar('답글을 불러오지 못했어요. 다시 시도해주세요.');
+    }
   }
 
   Widget _buildCommentSection() {
@@ -301,6 +326,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
               child: _CommentCard(
                 comment: comment,
                 onReply: () => setState(() => _replyTarget = comment),
+                repliesExpanded: _expandedReplyIds.contains(comment.id),
+                repliesLoading: _replyLoadingIds.contains(comment.id),
+                onToggleReplies: () => _toggleReplies(comment),
               ),
             ),
           ),
@@ -497,26 +525,30 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     )
                   : _postData == null
                   ? const Center(child: Text('게시글을 찾을 수 없습니다.'))
-                  : ListView(
-                      padding: EdgeInsets.fromLTRB(
-                        CommunityPostDetailScreen.contentLeft,
-                        15.99,
-                        CommunityPostDetailScreen.contentRight,
-                        bottomBarHeight + 24,
-                      ),
-                      children: [
-                        _PostCard(
-                          postData: _postData,
-                          likedByMe: _likedByMe,
-                          notificationEnabled: _notificationEnabled,
-                          likeInFlight: _likeInFlight,
-                          notificationInFlight: _notificationInFlight,
-                          onLikeTap: _toggleLike,
-                          onNotifyTap: _toggleNotification,
+                  : RefreshIndicator(
+                      onRefresh: _refreshLiveData,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          CommunityPostDetailScreen.contentLeft,
+                          15.99,
+                          CommunityPostDetailScreen.contentRight,
+                          bottomBarHeight + 24,
                         ),
-                        const SizedBox(height: 14.66),
-                        _buildCommentSection(),
-                      ],
+                        children: [
+                          _PostCard(
+                            postData: _postData,
+                            likedByMe: _likedByMe,
+                            notificationEnabled: _notificationEnabled,
+                            likeInFlight: _likeInFlight,
+                            notificationInFlight: _notificationInFlight,
+                            onLikeTap: _toggleLike,
+                            onNotifyTap: _toggleNotification,
+                          ),
+                          const SizedBox(height: 14.66),
+                          _buildCommentSection(),
+                        ],
+                      ),
                     ),
             ),
             Positioned(
@@ -1245,10 +1277,19 @@ class _PostMetric extends StatelessWidget {
 }
 
 class _CommentCard extends StatelessWidget {
-  const _CommentCard({required this.comment, required this.onReply});
+  const _CommentCard({
+    required this.comment,
+    required this.onReply,
+    required this.repliesExpanded,
+    required this.repliesLoading,
+    required this.onToggleReplies,
+  });
 
   final CommunityComment comment;
   final VoidCallback onReply;
+  final bool repliesExpanded;
+  final bool repliesLoading;
+  final VoidCallback onToggleReplies;
 
   @override
   Widget build(BuildContext context) {
@@ -1343,7 +1384,7 @@ class _CommentCard extends StatelessWidget {
               ),
             ],
           ),
-          if (comment.replies.isNotEmpty) ...[
+          if (repliesExpanded && comment.replies.isNotEmpty) ...[
             const SizedBox(height: 10),
             ...comment.replies.map(
               (reply) => Padding(
@@ -1351,16 +1392,44 @@ class _CommentCard extends StatelessWidget {
                 child: _ReplyCard(reply: reply),
               ),
             ),
-          ] else if (comment.replyCount > 0) ...[
+          ],
+          if (comment.replyCount > 0) ...[
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.only(left: 36),
-              child: Text(
-                '답글 ${comment.replyCount}개',
-                style: const TextStyle(
-                  color: CommunityPostDetailScreen.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              child: Semantics(
+                button: true,
+                label: repliesExpanded
+                    ? '답글 ${comment.replyCount}개 접기'
+                    : '답글 ${comment.replyCount}개 보기',
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: repliesLoading ? null : onToggleReplies,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 6,
+                        horizontal: 2,
+                      ),
+                      child: repliesLoading
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              repliesExpanded
+                                  ? '답글 접기'
+                                  : '답글 ${comment.replyCount}개 보기',
+                              style: const TextStyle(
+                                color: CommunityPostDetailScreen.blue,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                    ),
+                  ),
                 ),
               ),
             ),

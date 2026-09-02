@@ -32,6 +32,7 @@ class HowmuchApp extends ConsumerStatefulWidget {
 class _HowmuchAppState extends ConsumerState<HowmuchApp>
     with WidgetsBindingObserver {
   ProviderSubscription<AuthState>? _authListener;
+  bool _isAppActive = true;
 
   @override
   void initState() {
@@ -47,6 +48,9 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
       previous,
       next,
     ) {
+      ref
+          .read(notificationsProvider.notifier)
+          .setAutoRefreshEnabled(next.isLoggedIn && _isAppActive);
       if (next.isLoggedIn) {
         ref.read(pushNotificationServiceProvider).registerForCurrentSession();
       }
@@ -63,9 +67,12 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) return;
-    if (!ref.read(authStateProvider).isLoggedIn) return;
-    ref.read(notificationsProvider.notifier).loadNotifications(isRefresh: true);
+    _isAppActive = state == AppLifecycleState.resumed;
+    ref
+        .read(notificationsProvider.notifier)
+        .setAutoRefreshEnabled(
+          _isAppActive && ref.read(authStateProvider).isLoggedIn,
+        );
   }
 
   @override

@@ -46,13 +46,10 @@ String? notificationRouteForType(String type) {
   }
 }
 
-const Duration webNotificationRefreshInterval = Duration(seconds: 10);
-const Duration nativeNotificationRefreshInterval = Duration(minutes: 1);
+const Duration notificationRefreshInterval = Duration(minutes: 1);
 
-Duration notificationRefreshInterval({required bool isWeb}) {
-  return isWeb
-      ? webNotificationRefreshInterval
-      : nativeNotificationRefreshInterval;
+Duration notificationPollingInterval({required bool isWeb}) {
+  return notificationRefreshInterval;
 }
 
 @immutable
@@ -370,18 +367,30 @@ class NotificationsNotifier
     extends StateNotifier<AsyncValue<List<NotificationModel>>> {
   NotificationsNotifier(
     this._api, {
-    Duration refreshInterval = nativeNotificationRefreshInterval,
-  }) : super(const AsyncValue.loading()) {
-    _refreshTimer = Timer.periodic(
-      refreshInterval,
-      (_) => loadNotifications(isRefresh: true),
-    );
-  }
+    Duration refreshInterval = notificationRefreshInterval,
+  }) : _refreshInterval = refreshInterval,
+       super(const AsyncValue.loading());
 
   final NotificationApiService _api;
+  final Duration _refreshInterval;
   Timer? _refreshTimer;
   bool _isLoading = false;
   bool _disposed = false;
+  bool _autoRefreshEnabled = false;
+
+  void setAutoRefreshEnabled(bool enabled) {
+    if (_disposed || _autoRefreshEnabled == enabled) return;
+    _autoRefreshEnabled = enabled;
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+
+    if (!enabled) return;
+    loadNotifications(isRefresh: state.valueOrNull != null);
+    _refreshTimer = Timer.periodic(
+      _refreshInterval,
+      (_) => loadNotifications(isRefresh: true),
+    );
+  }
 
   @override
   void dispose() {
@@ -465,6 +474,6 @@ final notificationsProvider =
     >((ref) {
       return NotificationsNotifier(
         ref.watch(notificationApiServiceProvider),
-        refreshInterval: notificationRefreshInterval(isWeb: kIsWeb),
-      )..loadNotifications();
+        refreshInterval: notificationPollingInterval(isWeb: kIsWeb),
+      );
     });

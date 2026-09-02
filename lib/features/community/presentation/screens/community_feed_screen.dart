@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:async';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -37,12 +36,12 @@ class CommunityFeedScreen extends StatefulWidget {
   State<CommunityFeedScreen> createState() => _CommunityFeedScreenState();
 }
 
-class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
+class _CommunityFeedScreenState extends State<CommunityFeedScreen>
+    with WidgetsBindingObserver {
   int _selectedFilterIndex = 0;
   bool _isLoading = false;
   bool _hasError = false;
   List<dynamic> _rawFeeds = [];
-  Timer? _feedRefreshTimer;
 
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
@@ -50,17 +49,21 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchFeeds();
-    _feedRefreshTimer = Timer.periodic(
-      const Duration(minutes: 1),
-      (_) => _fetchFeeds(silent: true),
-    );
   }
 
   @override
   void dispose() {
-    _feedRefreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _fetchFeeds(silent: true);
+    }
   }
 
   /// 현위치 → 서버 역지오코딩으로 행정동명 조회.
@@ -282,33 +285,37 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen> {
         ),
       );
     }
-    return SingleChildScrollView(
-      child: Column(
-        children: items
-            .map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 11.989),
-                child: _FeedCard(
-                  title: item.title,
-                  author: item.author,
-                  likes: item.likes,
-                  comments: item.comments,
-                  status: item.status,
-                  statusColor: item.statusColor,
-                  statusBackground: item.statusBackground,
-                  imageUrl: item.imageUrl,
-                  dotColor: item.dotColor,
-                  compactStatus: item.compactStatus,
-                  onTap: () async {
-                    await context.push(
-                      '${AppRoutes.communityPostDetail}?id=${item.id}',
-                    );
-                    if (mounted) await _fetchFeeds(silent: true);
-                  },
+    return RefreshIndicator(
+      onRefresh: _fetchFeeds,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          children: items
+              .map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 11.989),
+                  child: _FeedCard(
+                    title: item.title,
+                    author: item.author,
+                    likes: item.likes,
+                    comments: item.comments,
+                    status: item.status,
+                    statusColor: item.statusColor,
+                    statusBackground: item.statusBackground,
+                    imageUrl: item.imageUrl,
+                    dotColor: item.dotColor,
+                    compactStatus: item.compactStatus,
+                    onTap: () async {
+                      await context.push(
+                        '${AppRoutes.communityPostDetail}?id=${item.id}',
+                      );
+                      if (mounted) await _fetchFeeds(silent: true);
+                    },
+                  ),
                 ),
-              ),
-            )
-            .toList(),
+              )
+              .toList(),
+        ),
       ),
     );
   }
