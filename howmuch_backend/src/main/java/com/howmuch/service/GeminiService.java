@@ -38,11 +38,14 @@ public class GeminiService {
     }
 
     private static final List<String> CANDIDATE_URLS = List.of(
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
         "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     );
     private volatile String workingUrl = null;
 
@@ -91,6 +94,19 @@ public class GeminiService {
         }
 
         log.error("모든 Gemini 엔드포인트 호출 실패: {}", lastException != null ? lastException.getMessage() : "unknown");
+        try {
+            HttpHeaders probeHeaders = new HttpHeaders();
+            probeHeaders.set("X-Goog-Api-Key", geminiApiKey);
+            ResponseEntity<String> modelsRes = restTemplate.exchange(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                org.springframework.http.HttpMethod.GET,
+                new HttpEntity<>(probeHeaders),
+                String.class
+            );
+            log.info("[GeminiService] 사용 가능한 구글 모델 목록: {}", modelsRes.getBody());
+        } catch (Exception ex) {
+            log.warn("[GeminiService] ListModels 조회 실패: {}", ex.getMessage());
+        }
         return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }
 
