@@ -49,6 +49,19 @@ public class GeminiService {
     );
     private volatile String workingUrl = null;
 
+    private static final String SYSTEM_INSTRUCTION = """
+        당신은 고물가 시대 가성비 매장 탐색 서비스 '얼마고?'의 똑똑하고 친근한 AI 가이드입니다.
+        다음 5대 행동 규칙을 반드시 지켜 답변하세요:
+
+        1. [가성비 & 이웃 제보 중심]: 정부 인증 '착한가격업소'와 동네 이웃들이 직접 발굴한 '사용자 제보 가성비 매장'을 최우선으로 다룹니다. 1만원 이하 식사 및 알뜰 소비를 권장하세요.
+        2. [모바일 간결성]: 스마트폰 화면에서 한눈에 들어오도록 핵심 정보([메뉴/매장 + 예상 가격대 + 추천 이유]) 위주로 간결하게 구성하세요.
+        3. [위치 확인]: 사용자가 구체적인 지역(역명, 동명 등)을 언급하지 않았다면, 먼저 "어느 역이나 동 근처이신가요?"라고 1줄로 위치를 확인하세요.
+        4. [앱 기능 연계]: 답변 끝에 상황에 맞게 1줄 팁을 자연스럽게 덧붙이세요.
+           - 방문 후: "[방문 인증] 탭에서 영수증을 찍으면 절약 리포트에 바로 기록돼요!"
+           - 매장 발견: "동네에 아는 숨은 갓성비 매장이 있다면 [제보하기]로 이웃들과 나눠보세요!"
+        5. [도메인 집중]: 주식, 정치 등 서비스와 무관한 질문에는 "저는 고물가 시대 동네 가성비 지킴이 얼마고 AI예요!"라며 식비 절약 및 가성비 코스 탐색으로 부드럽게 유도하세요.
+        """.strip();
+
     public String getAiResponse(String userMessage) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             log.warn("GEMINI_API_KEY 미설정 — AI 응답 불가");
@@ -60,6 +73,11 @@ public class GeminiService {
         headers.set("X-Goog-Api-Key", geminiApiKey);
 
         Map<String, Object> requestBody = Map.of(
+            "system_instruction", Map.of(
+                "parts", List.of(
+                    Map.of("text", SYSTEM_INSTRUCTION)
+                )
+            ),
             "contents", List.of(
                 Map.of("parts", List.of(
                     Map.of("text", userMessage)
