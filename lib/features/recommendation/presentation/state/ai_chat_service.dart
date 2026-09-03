@@ -13,7 +13,9 @@ class AiChatService {
   Future<String> getGeminiResponse(
     String message, {
     List<Map<String, String>>? history,
-    List<Map<String, Object?>>? nearbyStores,
+    List<String>? nearbyStoreIds,
+    double? latitude,
+    double? longitude,
   }) async {
     final url = ApiClient.uri('/api/ai/chat');
 
@@ -21,8 +23,12 @@ class AiChatService {
       final payload = <String, dynamic>{
         'message': message,
         if (history != null && history.isNotEmpty) 'history': history,
-        if (nearbyStores != null && nearbyStores.isNotEmpty)
-          'nearbyStores': nearbyStores,
+        if (nearbyStoreIds != null && nearbyStoreIds.isNotEmpty)
+          'nearbyStoreIds': nearbyStoreIds,
+        if (latitude != null && longitude != null) ...{
+          'latitude': latitude,
+          'longitude': longitude,
+        },
       };
 
       final response = await ApiClient.post(
@@ -46,7 +52,7 @@ class AiChatService {
   }
 }
 
-List<Map<String, Object?>> buildNearbyStoreContext({
+List<String> buildNearbyStoreIds({
   required List<Store> stores,
   double? lat,
   double? lng,
@@ -59,21 +65,19 @@ List<Map<String, Object?>> buildNearbyStoreContext({
     limit: limit,
   );
   final picks = (data['picks'] as List).whereType<Map>().toList();
-  return picks.map((p) {
-    return <String, Object?>{
-      'storeName': p['storeName'] ?? p['name'],
-      'menu1': p['menu1'],
-      'price1': p['price1'],
-      'distanceMeters': p['distanceMeters'],
-      'source': (p['isUserReported'] == true) ? '사용자 제보' : '착한가격업소',
-    };
-  }).toList();
+  return picks
+      .map((pick) => pick['storeId']?.toString().trim() ?? '')
+      .where((storeId) => storeId.isNotEmpty)
+      .toSet()
+      .take(limit)
+      .toList();
 }
 
 bool isAiUnavailableResponse(String response) {
   final normalized = response.trim();
   return normalized.contains('AI 응답을 가져오는 중 오류') ||
       normalized.contains('AI 응답을 가져오지 못했습니다') ||
+      normalized.contains('AI 기능이 현재 설정되지 않았습니다') ||
       normalized.startsWith('AI 연결에 실패했습니다') ||
       normalized.startsWith('서버 응답 에러:');
 }

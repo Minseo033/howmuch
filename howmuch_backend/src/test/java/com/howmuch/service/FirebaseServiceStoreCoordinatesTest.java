@@ -92,4 +92,30 @@ class FirebaseServiceStoreCoordinatesTest {
                 .containsExactly("정상 국밥집");
         assertThat(picks.getFirst().get("distanceMeters")).isInstanceOf(Integer.class);
     }
+
+    @Test
+    void buildsAiContextOnlyFromServerCachedAndApprovedStores() {
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
+                "storeId", "gov-1", "storeName", "정부 매장",
+                "menu1", "국밥", "price1", "6000",
+                "latitude", 37.5666, "longitude", 126.9781)));
+        ReflectionTestUtils.setField(service, "cachedUserStores", List.of(
+                Map.of("storeId", "user-1", "storeName", "승인 매장",
+                        "menu1", "백반", "price1", "6500", "status", "APPROVED",
+                        "latitude", 37.5667, "longitude", 126.9782),
+                Map.of("storeId", "pending-1", "storeName", "검토 중 매장",
+                        "status", "PENDING", "latitude", 37.5668, "longitude", 126.9783)));
+
+        List<Map<String, Object>> context = service.getAiStoreContext(
+                List.of("user-1", "gov-1", "pending-1", "fabricated-id"),
+                37.5665,
+                126.9780);
+
+        assertThat(context).extracting(item -> item.get("storeName"))
+                .containsExactly("승인 매장", "정부 매장");
+        assertThat(context).extracting(item -> item.get("source"))
+                .containsExactly("사용자 제보", "착한가격업소");
+        assertThat(context).allSatisfy(item ->
+                assertThat(item.get("distanceMeters")).isInstanceOf(Integer.class));
+    }
 }

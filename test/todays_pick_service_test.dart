@@ -141,6 +141,24 @@ void main() {
     expect(message, contains('테스트 식당'));
     expect(message, contains('비빔밥'));
   });
+
+  test('missing AI configuration also activates the local fallback', () {
+    const error = 'AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.';
+    expect(isAiUnavailableResponse(error), isTrue);
+  });
+
+  test('AI request context contains only nearby server store IDs', () {
+    final ids = buildNearbyStoreIds(
+      stores: [
+        _store('먼 매장', 37.58, 127.02),
+        _store('가까운 매장', 37.5666, 126.9781),
+      ],
+      lat: 37.5665,
+      lng: 126.978,
+    );
+
+    expect(ids, ['가까운 매장', '먼 매장']);
+  });
 }
 
 Store _store(String name, double lat, double lng) => Store(

@@ -15,5 +15,7 @@ import java.util.Map;
 public class ChatRequest {
     private String message;
     private List<Map<String, String>> history;
-    private List<Map<String, Object>> nearbyStores;
+    private List<String> nearbyStoreIds;
+    private Double latitude;
+    private Double longitude;
 }

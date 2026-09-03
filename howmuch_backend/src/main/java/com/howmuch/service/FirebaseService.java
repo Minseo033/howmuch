@@ -263,6 +263,54 @@ public class FirebaseService {
         return cachedStores.stream().map(this::withStableStoreId).toList();
     }
 
+    /**
+     * AI 추천에 사용할 매장을 서버 캐시에서 다시 확인합니다.
+     * 클라이언트가 보낸 매장명·가격·출처는 신뢰하지 않습니다.
+     */
+    public List<Map<String, Object>> getAiStoreContext(
+            List<String> storeIds, Double latitude, Double longitude) {
+        if (storeIds == null || storeIds.isEmpty()) return List.of();
+
+        Set<String> requestedIds = new LinkedHashSet<>(storeIds);
+        Map<String, Map<String, Object>> storesById = new HashMap<>();
+        addAiStores(storesById, requestedIds, cachedStores,
+                "착한가격업소", latitude, longitude);
+        addAiStores(storesById, requestedIds, cachedUserStores.stream()
+                .filter(this::isPubliclyVisible)
+                .toList(), "사용자 제보", latitude, longitude);
+
+        return requestedIds.stream()
+                .map(storesById::get)
+                .filter(java.util.Objects::nonNull)
+                .limit(10)
+                .toList();
+    }
+
+    private void addAiStores(Map<String, Map<String, Object>> target,
+                             Set<String> requestedIds,
+                             List<Map<String, Object>> stores,
+                             String source,
+                             Double latitude,
+                             Double longitude) {
+        for (Map<String, Object> rawStore : stores) {
+            Map<String, Object> store = withStableStoreId(rawStore);
+            String storeId = strOrNull(store.get("storeId"));
+            if (storeId == null || !requestedIds.contains(storeId) || target.containsKey(storeId)) continue;
+
+            Map<String, Object> context = new HashMap<>();
+            context.put("storeId", storeId);
+            context.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
+            context.put("menu1", String.valueOf(store.getOrDefault("menu1", "정보 없음")));
+            context.put("price1", String.valueOf(store.getOrDefault("price1", "")));
+            context.put("source", source);
+            if (isValidCoordinate(latitude, longitude) && hasValidStoreCoordinate(store)) {
+                context.put("distanceMeters", (int) Math.round(haversine(
+                        latitude, longitude, parseLat(store), parseLng(store))));
+            }
+            target.put(storeId, context);
+        }
+    }
+
     /** 참가격을 우선하고, 미지원 품목은 실제 착한가격업소 가격 표본으로 보완합니다. */
     public java.util.Optional<ReferencePrices.Estimate> estimateReferencePrice(
             String menu, String industry, String address) {
