@@ -12,6 +12,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -49,20 +50,30 @@ public class GeminiService {
     );
     private volatile String workingUrl = null;
 
-    private static final String SYSTEM_INSTRUCTION = """
-        당신은 고물가 시대 가성비 매장 탐색 서비스 '얼마고?'의 똑똑하고 친근한 AI 가이드입니다.
-        다음 5대 행동 규칙을 반드시 지켜 답변하세요:
+    private static final String GOMI_SYSTEM_INSTRUCTION = """
+        당신의 이름은 '고미'입니다.
+        고미는 '얼마고?' 서비스의 현실적이고 솔직한 동네 절약 가이드입니다.
 
-        1. [가성비 & 이웃 제보 중심]: 정부 인증 '착한가격업소'와 동네 이웃들이 직접 발굴한 '사용자 제보 가성비 매장'을 최우선으로 다룹니다. 1만원 이하 식사 및 알뜰 소비를 권장하세요.
-        2. [모바일 간결성]: 스마트폰 화면에서 한눈에 들어오도록 핵심 정보([메뉴/매장 + 예상 가격대 + 추천 이유]) 위주로 간결하게 구성하세요.
-        3. [위치 확인]: 사용자가 구체적인 지역(역명, 동명 등)을 언급하지 않았다면, 먼저 "어느 역이나 동 근처이신가요?"라고 1줄로 위치를 확인하세요.
-        4. [앱 기능 연계]: 답변 끝에 상황에 맞게 1줄 팁을 자연스럽게 덧붙이세요.
-           - 방문 후: "[방문 인증] 탭에서 영수증을 찍으면 절약 리포트에 바로 기록돼요!"
-           - 매장 발견: "동네에 아는 숨은 갓성비 매장이 있다면 [제보하기]로 이웃들과 나눠보세요!"
-        5. [도메인 집중]: 주식, 정치 등 서비스와 무관한 질문에는 "저는 고물가 시대 동네 가성비 지킴이 얼마고 AI예요!"라며 식비 절약 및 가성비 코스 탐색으로 부드럽게 유도하세요.
+        [행동 및 응답 규칙]
+        1. [말투]: 친근하고 자연스러운 존댓말을 사용하세요. 모바일에서 읽기 편하게 최대 5문장 이내로 답하세요. '고객님', '갓성비', 과도한 이모지는 쓰지 마세요.
+        2. [실제 데이터 기준 엄격 추천 - 가짜 매장 생성 절대 금지]:
+           - 반드시 제공된 [현재 위치 주변 매장 데이터] 안에서만 매장을 추천하세요.
+           - 데이터에 없는 가상의 매장명, 메뉴, 가격, 거리를 절대로 지어내거나 추측하지 마세요.
+           - 주변 매장 데이터가 없거나 조건에 맞는 매장이 없으면, 거짓 정보를 꾸며내지 말고 솔직하게 "현재 위치 주변에 확인된 착한가격 매장 정보가 없어요"라고 답하세요.
+        3. [출처 및 가격 표기]:
+           - 매장을 추천할 때는 출처(정부 인증 '착한가격업소' 또는 '사용자 제보')를 꼭 밝혀주세요.
+           - 가격 정보가 불확실하면 '가격 확인 필요'라고 명시하세요.
+        4. [추천 우선순위]: 거리(가까운 순) → 가격(저렴한 순) → 데이터 신뢰도 순으로 고려하세요.
+        5. [위치 확인]: 사용자의 질문에 지역/위치가 없고 주변 매장 데이터도 없다면, "어느 지역이나 지하철역 근처이신가요?"라고 한 번에 하나의 질문만 하세요.
+        6. [도메인 집중]: 주식, 코인, 정치 등 서비스와 무관한 질문은 1문장으로 짧게 답한 뒤 동네 가성비 탐색으로 자연스럽게 돌아오세요.
+        7. [앱 기능 연계]: 필요한 경우에만 답변 마지막에 영수증 방문 인증, 찜, 제보 기능을 한 줄로 담백하게 안내하세요.
         """.strip();
 
     public String getAiResponse(String userMessage) {
+        return getAiResponse(userMessage, null, null);
+    }
+
+    public String getAiResponse(String userMessage, List<Map<String, String>> history, List<Map<String, Object>> nearbyStores) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             log.warn("GEMINI_API_KEY 미설정 — AI 응답 불가");
             return "AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
@@ -72,17 +83,66 @@ public class GeminiService {
         headers.setContentType(MediaType.APPLICATION_JSON);
         headers.set("X-Goog-Api-Key", geminiApiKey);
 
+        // 1. 주변 매장 데이터를 프롬프트 컨텍스트로 구성
+        StringBuilder promptBuilder = new StringBuilder();
+        if (nearbyStores != null && !nearbyStores.isEmpty()) {
+            promptBuilder.append("[현재 위치 주변 매장 데이터]\n");
+            int count = Math.min(nearbyStores.size(), 10);
+            for (int i = 0; i < count; i++) {
+                Map<String, Object> s = nearbyStores.get(i);
+                promptBuilder.append("- ")
+                        .append(s.getOrDefault("storeName", "매장명 없음"))
+                        .append(" | 메뉴: ").append(s.getOrDefault("menu1", "정보 없음"))
+                        .append(" | 가격: ").append(priceLabel(s.get("price1")));
+                if (s.get("distanceMeters") != null) {
+                    promptBuilder.append(" | 거리: ").append(s.get("distanceMeters")).append("m");
+                }
+                String source = (String) s.getOrDefault("source", "착한가격업소");
+                promptBuilder.append(" | 출처: ").append(source).append("\n");
+            }
+            promptBuilder.append("\n[사용자 질문]\n");
+        }
+        promptBuilder.append(userMessage);
+
+        // 2. 대화 히스토리 (최근 최대 6개 턴) 반영
+        List<Map<String, Object>> contents = new ArrayList<>();
+        if (history != null && !history.isEmpty()) {
+            int startIdx = Math.max(0, history.size() - 6);
+            for (int i = startIdx; i < history.size(); i++) {
+                Map<String, String> turn = history.get(i);
+                String role = turn.get("role");
+                String text = turn.get("text");
+                if (role != null && text != null && !text.isBlank()) {
+                    String geminiRole = "model".equalsIgnoreCase(role) || "assistant".equalsIgnoreCase(role) ? "model" : "user";
+                    // 첫 번째 턴은 반드시 "user"여야 함
+                    if (contents.isEmpty() && !"user".equals(geminiRole)) {
+                        continue;
+                    }
+                    // 연속된 동일 롤 방지
+                    if (!contents.isEmpty() && contents.get(contents.size() - 1).get("role").equals(geminiRole)) {
+                        continue;
+                    }
+                    contents.add(Map.of(
+                        "role", geminiRole,
+                        "parts", List.of(Map.of("text", text))
+                    ));
+                }
+            }
+        }
+
+        // 마지막 턴은 항상 현재 사용자 질문
+        contents.add(Map.of(
+            "role", "user",
+            "parts", List.of(Map.of("text", promptBuilder.toString()))
+        ));
+
         Map<String, Object> requestBody = Map.of(
             "system_instruction", Map.of(
                 "parts", List.of(
-                    Map.of("text", SYSTEM_INSTRUCTION)
+                    Map.of("text", GOMI_SYSTEM_INSTRUCTION)
                 )
             ),
-            "contents", List.of(
-                Map.of("parts", List.of(
-                    Map.of("text", userMessage)
-                ))
-            )
+            "contents", contents
         );
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 

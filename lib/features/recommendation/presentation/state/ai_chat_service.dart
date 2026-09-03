@@ -10,14 +10,25 @@ final aiChatServiceProvider = Provider((ref) => AiChatService());
 
 class AiChatService {
   /// Gemini AI 챗봇 응답 요청 (세션 인증 필요)
-  Future<String> getGeminiResponse(String message) async {
+  Future<String> getGeminiResponse(
+    String message, {
+    List<Map<String, String>>? history,
+    List<Map<String, Object?>>? nearbyStores,
+  }) async {
     final url = ApiClient.uri('/api/ai/chat');
 
     try {
+      final payload = <String, dynamic>{
+        'message': message,
+        if (history != null && history.isNotEmpty) 'history': history,
+        if (nearbyStores != null && nearbyStores.isNotEmpty)
+          'nearbyStores': nearbyStores,
+      };
+
       final response = await ApiClient.post(
         url,
         headers: ApiClient.jsonHeaders(auth: true),
-        body: jsonEncode({'message': message}),
+        body: jsonEncode(payload),
       ).timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200) {
@@ -33,6 +44,30 @@ class AiChatService {
       return 'AI 연결에 실패했습니다. 네트워크를 확인해주세요.';
     }
   }
+}
+
+List<Map<String, Object?>> buildNearbyStoreContext({
+  required List<Store> stores,
+  double? lat,
+  double? lng,
+  int limit = 10,
+}) {
+  final data = buildLocalTodaysPickData(
+    stores: stores,
+    lat: lat,
+    lng: lng,
+    limit: limit,
+  );
+  final picks = (data['picks'] as List).whereType<Map>().toList();
+  return picks.map((p) {
+    return <String, Object?>{
+      'storeName': p['storeName'] ?? p['name'],
+      'menu1': p['menu1'],
+      'price1': p['price1'],
+      'distanceMeters': p['distanceMeters'],
+      'source': (p['isUserReported'] == true) ? '사용자 제보' : '착한가격업소',
+    };
+  }).toList();
 }
 
 bool isAiUnavailableResponse(String response) {

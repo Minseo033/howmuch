@@ -81,10 +81,32 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
     _scrollToLatest();
 
+    // 💡 최근 대화 내역 추출 (최대 6개, 방금 추가한 본인 메시지 제외)
+    final history = _messages
+        .take(_messages.length - 1)
+        .map((m) => {
+              'role': m.isBot ? 'model' : 'user',
+              'text': m.text,
+            })
+        .toList();
+
+    // 💡 현재 위치 기반 주변 매장 데이터 추출 (최대 10개)
+    final position = HomeMapScreen.globalUserPosition;
+    final nearbyStores = buildNearbyStoreContext(
+      stores: HomeMapScreen.globalAllStores,
+      lat: position?.latitude,
+      lng: position?.longitude,
+      limit: 10,
+    );
+
     // 💡 Gemini API 호출
     var botResponse = await ref
         .read(aiChatServiceProvider)
-        .getGeminiResponse(messageText);
+        .getGeminiResponse(
+          messageText,
+          history: history,
+          nearbyStores: nearbyStores,
+        );
     if (isAiUnavailableResponse(botResponse)) {
       final position = HomeMapScreen.globalUserPosition;
       botResponse =

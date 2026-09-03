@@ -49,4 +49,30 @@ class AiControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(rateLimiter, geminiService);
     }
+
+    @Test
+    void forwardsHistoryAndNearbyStoresToGeminiService() {
+        request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+        org.mockito.Mockito.when(rateLimiter.tryAcquire(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(true);
+        org.mockito.Mockito.when(geminiService.getAiResponse(
+                org.mockito.ArgumentMatchers.eq("짜장면"),
+                org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn("추천 결과입니다");
+
+        ChatRequest chatReq = ChatRequest.builder()
+                .message("짜장면")
+                .history(java.util.List.of(java.util.Map.of("role", "user", "text", "안녕")))
+                .nearbyStores(java.util.List.of(java.util.Map.of("storeName", "구구반점", "menu1", "짜장면", "price1", "5000")))
+                .build();
+
+        ResponseEntity<?> response = controller.chat(chatReq, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        org.mockito.Mockito.verify(geminiService).getAiResponse(
+                org.mockito.ArgumentMatchers.eq("짜장면"),
+                org.mockito.ArgumentMatchers.eq(chatReq.getHistory()),
+                org.mockito.ArgumentMatchers.eq(chatReq.getNearbyStores()));
+    }
 }

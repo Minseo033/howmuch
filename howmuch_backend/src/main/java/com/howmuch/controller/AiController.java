@@ -59,7 +59,7 @@ public class AiController {
             ));
         }
 
-        String aiResponse = geminiService.getAiResponse(message);
+        String aiResponse = geminiService.getAiResponse(message, request.getHistory(), request.getNearbyStores());
         return ResponseEntity.ok(new ChatResponse(aiResponse));
     }
 }
