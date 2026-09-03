@@ -21,7 +21,6 @@ public class GeminiService {
 
     // 💡 보안: Gemini API 키는 환경변수(GEMINI_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String geminiApiKey;
-    private final String geminiModel = "gemini-1.5-flash";
     private final boolean routeAiEnabled;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -38,41 +37,69 @@ public class GeminiService {
         this.restTemplate = new RestTemplate(factory);
     }
 
+    private static final List<String> CANDIDATE_URLS = List.of(
+        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent"
+    );
+    private volatile String workingUrl = null;
+
     public String getAiResponse(String userMessage) {
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             log.warn("GEMINI_API_KEY 미설정 — AI 응답 불가");
             return "AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
         }
-        // 💡 2.5 모델을 지원하는 v1beta 엔드포인트를 사용합니다.
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                + geminiModel + ":generateContent";
 
-        try {
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("X-Goog-Api-Key", geminiApiKey);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("X-Goog-Api-Key", geminiApiKey);
 
-            // Gemini API 요청 규격 구성
-            Map<String, Object> requestBody = Map.of(
-                "contents", List.of(
-                    Map.of("parts", List.of(
-                        Map.of("text", userMessage)
-                    ))
-                )
-            );
+        Map<String, Object> requestBody = Map.of(
+            "contents", List.of(
+                Map.of("parts", List.of(
+                    Map.of("text", userMessage)
+                ))
+            )
+        );
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-
-            JsonNode root = objectMapper.readTree(response.getBody());
-            return root.path("candidates").get(0)
-                    .path("content").path("parts").get(0)
-                    .path("text").asText();
-
-        } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류 발생: {}", e.getMessage());
-            return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+        // 이미 확인된 정상 동작 엔드포인트가 있으면 우선 호출
+        String cachedUrl = this.workingUrl;
+        if (cachedUrl != null) {
+            try {
+                return callGemini(cachedUrl, entity);
+            } catch (Exception e) {
+                log.warn("캐시된 Gemini 엔드포인트({}) 호출 실패, 후보군 재탐색: {}", cachedUrl, e.getMessage());
+                this.workingUrl = null;
+            }
         }
+
+        // 후보군 순회하며 작동하는 엔드포인트 자동 탐색
+        Exception lastException = null;
+        for (String url : CANDIDATE_URLS) {
+            try {
+                String result = callGemini(url, entity);
+                this.workingUrl = url;
+                log.info("Gemini 유효 엔드포인트 확인 및 저장: {}", url);
+                return result;
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Gemini 엔드포인트({}) 시도 실패: {}", url, e.getMessage());
+            }
+        }
+
+        log.error("모든 Gemini 엔드포인트 호출 실패: {}", lastException != null ? lastException.getMessage() : "unknown");
+        return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    }
+
+    private String callGemini(String url, HttpEntity<Map<String, Object>> entity) throws Exception {
+        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+        JsonNode root = objectMapper.readTree(response.getBody());
+        return root.path("candidates").get(0)
+                .path("content").path("parts").get(0)
+                .path("text").asText();
     }
 
     /**
