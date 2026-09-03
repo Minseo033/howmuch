@@ -21,7 +21,7 @@ public class GeminiService {
 
     // 💡 보안: Gemini API 키는 환경변수(GEMINI_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String geminiApiKey;
-    private final String geminiModel = "gemini-2.5-flash-lite"; // 사용자가 요청한 최신 2.5 Flash-Lite 모델
+    private final String geminiModel = "gemini-1.5-flash";
     private final boolean routeAiEnabled;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -70,7 +70,7 @@ public class GeminiService {
                     .path("text").asText();
 
         } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류 발생: {}", e.getClass().getSimpleName());
+            log.error("Gemini API 호출 중 오류 발생: {}", e.getMessage());
             return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
         }
     }
