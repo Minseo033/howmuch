@@ -43,6 +43,8 @@
 ## 4. 배포 방법
 - **백엔드**: `git push origin main` → Render 자동 배포 (자바 빌드 ~5-8분)
 - **웹**: `flutter build web --release --no-wasm-dry-run` → 저장소 루트에서 `npx -y vercel@latest deploy build/web --project howmuch --local-config vercel.json --prod --yes` (다른 Vercel 프로젝트로 잘못 연결되는 것을 막기 위해 프로젝트를 명시)
+- **운영 주소 연결**: 배포 출력의 실제 URL을 사용해 `npx -y vercel@latest alias set <배포-URL> howmuch-zeta.vercel.app --local-config vercel.json`을 실행한다. `--prod`만으로 기존 대표 주소가 갱신된다고 가정하지 않는다. 롤백도 직전 검증된 배포 URL로 같은 별칭을 연결한다.
+- **배포 완료 기준**: `node scripts/verify_web_deployment.mjs`가 모두 PASS해야 한다. 로컬 `build/web`와 운영 파일 8개의 SHA-256 및 `/`, `/home`, `/login` 진입 HTML을 비교한다. READY나 HTTP 200만으로 최신 버전 반영을 확정하지 않는다. 커스텀 검증은 `node scripts/verify_web_deployment.mjs <공개-URL> <빌드-디렉터리>`를 사용한다.
 - **검증 도구**: `/tmp/howmuch-qa/` Playwright 스크립트 (qa.js, qa2~4.js, probe_geo.js). `node qa.js` 전체 화면 QA, `node probe_geo.js` 지도 위치 검증
 
 ## 5. 3주차 완료 내역 (7/28~8/3) — 8/1~8/3 QA·버그픽스·추가 작업 포함
@@ -1119,3 +1121,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - `build/qa/profile-polished.png`, `build/qa/nickname-polished.png`로 Flutter 렌더를 직접 확인했다. 테스트 전용 macOS 한글 폰트를 사용한 미리보기이며 운영 계정 데이터는 사용하지 않았다.
 - 커밋 `cb5fb4f`를 GitHub `main`에 푸시했고, Vercel production 배포 `dpl_FHy5Pf2hs63mBWeRJj7DewCAr8Mx`를 완료했다. 기존 운영 주소 `https://howmuch-zeta.vercel.app`는 HTTP 200을 반환한다.
 - `main` push로 Render 자동 배포가 진행됐으며 운영 `/healthz`는 HTTP 200(`status: ok`)을 반환한다.
+
+## 5-46. 9/8 운영 주소의 구버전 연결 수정 및 배포 검증 보완
+
+- 앞선 배포 완료 보고의 웹 버전 확인을 정정한다. 새 production 배포는 READY였지만 `howmuch-zeta.vercel.app`은 `howmuch-lmzu56r9w-minseo033s-projects.vercel.app`에 남아 있었다. HTTP 200은 확인했으나 최신 앱 파일 반영까지 확인한 것은 아니었다.
+- 변경 전 운영 검증에서 `main.dart.js`, `flutter_bootstrap.js` 2개가 로컬 release와 SHA-256 불일치로 실패했다. Vercel 별칭 목록과 최신 배포 inspect 결과로 원인을 확인했다.
+- 운영 별칭을 이미 생성된 최신 배포 `dpl_cpkRLLxin1zo6RkxRFsz75jBzLhm` (`howmuch-5np7xq90b-minseo033s-projects.vercel.app`)에 명시적으로 연결했다. 앱 코드 기준은 `cb5fb4f`, 당시 문서 포함 Git 기준은 `9ce1d48`이다.
+- 연결 후 공개 운영 주소의 파일 8개와 진입 경로 3개, 총 11개 검사 모두 PASS했다. 비교 대상은 index, 앱 JS, bootstrap, Flutter loader/service worker, 관리자 HTML, version, manifest다. 로그인 보호 리다이렉트와 200으로 반환되는 잘못된 HTML도 성공으로 인정하지 않는다.
+- 재사용 검증 도구 `scripts/verify_web_deployment.mjs`와 회귀 테스트 4개를 추가하고 GitHub Actions에 테스트를 연결했다. 테스트는 정상 배포, 오래된 앱/누락 스크립트의 SPA 폴백/잘못된 하위 경로, 인증 리다이렉트/시간 초과, 로컬 빌드 누락을 검증한다.
+- 이번 검증은 공개 웹 배포 파일과 주소 연결에 한정된다. 로그인·GPS·OCR 등 전체 운영 기능의 재검수나 Render 실행 커밋 확인을 대신하지 않는다. 앱 코드·백엔드·Firestore 데이터는 변경하지 않았다.

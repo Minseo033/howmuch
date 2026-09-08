@@ -44,6 +44,8 @@ jobs:
         run: flutter build web --release --no-wasm-dry-run
       - name: Check administrator page scripts
         run: node scripts/check_admin_html.mjs
+      - name: Test deployment verification guards
+        run: node --test scripts/verify_web_deployment.test.mjs
 
   ios-simulator:
     name: iOS Simulator build
