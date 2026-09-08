@@ -17,6 +17,24 @@ class FirebaseServiceStoreCoordinatesTest {
             mock(Firestore.class), mock(ReportImageStorage.class));
 
     @Test
+    void preservesSecondaryMenuPricesAndStoreIdentityInRecommendations() {
+        var store = new java.util.HashMap<String, Object>();
+        store.putAll(Map.of("storeId", "gov-test", "storeName", "여름 식당",
+                "industry", "한식", "menu1", "백반", "price1", "6500",
+                "menu2", "냉면", "price2", "8000", "source", "GOV",
+                "latitude", 37.5666, "longitude", 126.9781));
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(store));
+
+        var pick = service.getTodaysPicks("맑음", 32, 37.5665, 126.9780).getFirst();
+
+        assertThat(pick.get("matchedMenu")).isEqualTo("냉면");
+        assertThat(pick.get("menu2")).isEqualTo("냉면");
+        assertThat(pick.get("price2")).isEqualTo("8000");
+        assertThat(pick.get("storeId")).isEqualTo("gov-test");
+        assertThat(pick.get("source")).isEqualTo("GOV");
+    }
+
+    @Test
     void rejectsAStaleStoreIdEvenWhenTheStoreNameMatches() {
         ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
                 "storeId", "current-id",

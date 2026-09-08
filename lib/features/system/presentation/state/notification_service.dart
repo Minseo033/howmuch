@@ -377,6 +377,7 @@ class NotificationsNotifier
   bool _isLoading = false;
   bool _disposed = false;
   bool _autoRefreshEnabled = false;
+  final Set<String> _locallyReadIds = {};
 
   void setAutoRefreshEnabled(bool enabled) {
     if (_disposed || _autoRefreshEnabled == enabled) return;
@@ -409,11 +410,17 @@ class NotificationsNotifier
     try {
       final notifications = await _api.fetchNotifications();
       if (_disposed) return;
-      state = AsyncValue.data(notifications);
+      state = AsyncValue.data([
+        for (final notification in notifications)
+          _locallyReadIds.contains(notification.id)
+              ? notification.copyWith(isUnread: false)
+              : notification,
+      ]);
     } catch (error, stackTrace) {
       if (_disposed) return;
       if (isRefresh && previousList != null) {
-        state = AsyncValue.data(previousList);
+        // A read action may have updated the list while this request waited.
+        state = AsyncValue.data(state.valueOrNull ?? previousList);
         return;
       }
       state = AsyncValue.error(error, stackTrace);
@@ -423,9 +430,11 @@ class NotificationsNotifier
   }
 
   Future<void> markRead(String id) async {
+    if (_disposed) return;
     final currentList = state.valueOrNull ?? const [];
     final target = currentList.where((item) => item.id == id).firstOrNull;
     if (target == null || !target.isUnread) return;
+    _locallyReadIds.add(id);
 
     state = AsyncValue.data([
       for (final notification in currentList)
@@ -437,12 +446,20 @@ class NotificationsNotifier
     try {
       await _api.markAsRead(id);
     } catch (_) {
-      state = AsyncValue.data(currentList);
+      if (_disposed) return;
+      _locallyReadIds.remove(id);
+      state = AsyncValue.data([
+        for (final notification in state.valueOrNull ?? currentList)
+          notification.id == id
+              ? notification.copyWith(isUnread: true)
+              : notification,
+      ]);
       rethrow;
     }
   }
 
   Future<void> markAllRead() async {
+    if (_disposed) return;
     final currentList = state.valueOrNull ?? const [];
     final unreadIds = currentList
         .where((notification) => notification.isUnread)
@@ -451,18 +468,9 @@ class NotificationsNotifier
         .toList();
     if (unreadIds.isEmpty) return;
 
-    state = AsyncValue.data([
-      for (final notification in currentList)
-        notification.copyWith(isUnread: false),
-    ]);
-
-    try {
-      for (final id in unreadIds) {
-        await _api.markAsRead(id);
-      }
-    } catch (_) {
-      await loadNotifications(isRefresh: true);
-      rethrow;
+    for (final id in unreadIds) {
+      if (_disposed) return;
+      await markRead(id);
     }
   }
 }

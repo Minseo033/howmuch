@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'kakao_web_helper_stub.dart'
@@ -147,6 +146,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
+  String? _pendingBoundsJson;
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -161,12 +161,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       extra: {'query': _searchQuery, 'openFilter': openFilter},
     );
 
-    if (result != null) {
+    if (mounted && result != null) {
       setState(() {
         _searchQuery = result['query'] as String? ?? _searchQuery;
         _searchFilter = result['filter'] as SearchFilter? ?? _searchFilter;
       });
-      _isFetching = false; // 필터 변경 후 마커 재조회를 위해 플래그 리셋
       _searchInCurrentArea();
     }
   }
@@ -213,9 +212,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final url = ApiClient.uri('/api/stores/all');
     await _restoreCachedStores();
     try {
-      final response = await http
-          .get(url, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 45));
+      final response = await ApiClient.get(
+        url,
+        headers: ApiClient.jsonHeaders(),
+      ).timeout(const Duration(seconds: 45));
 
       if (response.statusCode == 200) {
         debugPrint('JSON decode 시작');
@@ -301,7 +301,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _isFetching = false;
       _positionStream?.resume();
       _compassStream?.resume();
       _relayoutMobileMap();
@@ -977,34 +976,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAndAddMarkersForMobile(String boundsJson) async {
-    if (_isFetching) return; // 이미 요청 중이면 무시
+    await _fetchAndAddLatestMarkers(boundsJson);
+  }
+
+  Future<void> _fetchAndAddMarkersWeb(String boundsJson) async {
+    await _fetchAndAddLatestMarkers(boundsJson);
+  }
+
+  Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
+    if (!mounted || parseKakaoMapBounds(boundsJson) == null) return;
+    _pendingBoundsJson = boundsJson;
+    if (_isFetching) return;
     _isFetching = true;
     try {
-      final bounds = parseKakaoMapBounds(boundsJson);
-      if (bounds == null) {
-        debugPrint('모바일 지도 bounds가 유효하지 않아 마커 요청을 건너뜁니다.');
-        return;
-      }
-      final markerList = await _fetchStoresFromBackend(bounds);
-
-      if (_webViewController != null) {
-        final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-        _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
+      while (mounted && _pendingBoundsJson != null) {
+        final bounds = parseKakaoMapBounds(_pendingBoundsJson!)!;
+        _pendingBoundsJson = null;
+        final markerList = await _fetchStoresFromBackend(bounds);
+        if (!mounted) return;
+        if (kIsWeb) {
+          web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
+        } else if (_webViewController != null) {
+          final jsStringLiteral = jsonEncode(jsonEncode(markerList));
+          _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
+        }
       }
     } finally {
       _isFetching = false;
     }
-  }
-
-  Future<void> _fetchAndAddMarkersWeb(String boundsJson) async {
-    final bounds = parseKakaoMapBounds(boundsJson);
-    if (bounds == null) {
-      debugPrint('웹 지도 bounds가 유효하지 않아 마커 요청을 건너뜁니다.');
-      return;
-    }
-    final markerList = await _fetchStoresFromBackend(bounds);
-
-    web_helper.addMobileMarkersWeb(_viewId, json.encode(markerList));
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
@@ -1028,9 +1027,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         'maxLng': '$maxLng',
       });
 
-      final response = await http
-          .get(url, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 5));
+      final response = await ApiClient.get(
+        url,
+        headers: ApiClient.jsonHeaders(),
+      ).timeout(const Duration(seconds: 5));
 
       List<Store> fetchedStores = [];
       if (response.statusCode == 200) {

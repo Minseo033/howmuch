@@ -1,3 +1,14 @@
+Object? recommendationMenuPrice(Map<String, dynamic> pick) {
+  final matchedMenu = pick['matchedMenu']?.toString().trim() ?? '';
+  if (matchedMenu.isEmpty) return pick['price1'];
+  for (var index = 1; index <= 4; index++) {
+    if (pick['menu$index']?.toString().trim() == matchedMenu) {
+      return pick['price$index'];
+    }
+  }
+  return null;
+}
+
 int? parseRecommendationPrice(Object? value) {
   if (value is num) {
     final rounded = value.round();

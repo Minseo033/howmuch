@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
@@ -9,6 +10,90 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test(
+    'failed read preserves other successful reads and new notifications',
+    () async {
+      final failedRead = Completer<http.Response>();
+      var ids = ['a', 'b'];
+      final service = NotificationApiService(
+        MockClient((request) async {
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode([
+                for (final id in ids) {'id': id, 'isRead': false},
+              ]),
+              200,
+            );
+          }
+          if (request.url.path.contains('/a/')) return failedRead.future;
+          return http.Response('{}', 200);
+        }),
+      );
+      final notifier = NotificationsNotifier(service);
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      final readA = notifier.markRead('a');
+      final failure = expectLater(
+        readA,
+        throwsA(isA<NotificationApiException>()),
+      );
+      await notifier.markRead('b');
+      ids = ['a', 'b', 'c'];
+      await notifier.loadNotifications(isRefresh: true);
+      failedRead.complete(http.Response('failed', 500));
+      await failure;
+      final state = notifier.state.requireValue;
+      expect(state.map((item) => item.id), ['a', 'b', 'c']);
+      expect(state.map((item) => item.isUnread), [true, false, true]);
+    },
+  );
+
+  test('a stale refresh cannot undo a successful read', () async {
+    final refresh = Completer<http.Response>();
+    var fetchCount = 0;
+    final payload = jsonEncode([
+      {'id': 'a', 'isRead': false},
+    ]);
+    final service = NotificationApiService(
+      MockClient((request) async {
+        if (request.method != 'GET') return http.Response('{}', 200);
+        if (++fetchCount == 1) return http.Response(payload, 200);
+        return refresh.future;
+      }),
+    );
+    final notifier = NotificationsNotifier(service);
+    addTearDown(notifier.dispose);
+    await notifier.loadNotifications();
+    final loading = notifier.loadNotifications(isRefresh: true);
+    await notifier.markRead('a');
+    refresh.complete(http.Response(payload, 200));
+    await loading;
+    expect(notifier.state.requireValue.single.isUnread, isFalse);
+  });
+
+  test('failed read after disposal does not write disposed state', () async {
+    final readResponse = Completer<http.Response>();
+    final service = NotificationApiService(
+      MockClient((request) async {
+        if (request.method == 'GET') {
+          return http.Response(
+            jsonEncode([
+              {'id': 'a', 'isRead': false},
+            ]),
+            200,
+          );
+        }
+        return readResponse.future;
+      }),
+    );
+    final notifier = NotificationsNotifier(service);
+    await notifier.loadNotifications();
+    final reading = notifier.markRead('a');
+    notifier.dispose();
+    readResponse.complete(http.Response('failed', 500));
+    await expectLater(reading, completes);
+  });
+
   test('notification polling uses the same low-frequency interval', () {
     expect(
       notificationPollingInterval(isWeb: true),

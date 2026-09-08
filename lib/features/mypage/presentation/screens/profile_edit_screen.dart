@@ -8,6 +8,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 class ProfileEditScreen extends ConsumerStatefulWidget {
   const ProfileEditScreen({super.key});
@@ -108,8 +109,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight =
-        633.6647644042969 + topOffset + footerHeight + 24;
 
     return FigmaMobileCanvas(
       backgroundColor: ProfileEditScreen.surface,
@@ -120,73 +119,52 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 145.724365234375,
-                      top: 68.8779296875 + topOffset,
-                      width: 83.9914779663086,
-                      height: 83.9914779663086,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                topOffset + 76,
+                20,
+                footerHeight + 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: SizedBox(
+                      width: 80,
+                      height: 80,
                       child: _Avatar(imageUrl: profile.profileImageUrl),
                     ),
-                    Positioned(
-                      left: 20,
-                      top: 176.86083984375 + topOffset,
-                      child: const _SectionLabel('기본 정보'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 201.34912109375 + topOffset,
-                      height: 144.65908813476562,
-                      child: _BasicInfoCard(
-                        nickname: _nickname,
-                        email: displayEmail,
-                        onNicknameTap: _editNickname,
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 362.0029296875 + topOffset,
-                      child: const _SectionLabel('지역 설정'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 386.4912109375 + topOffset,
-                      height: 74.27556610107422,
-                      child: _RegionCard(region: profile.region),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 476.76123046875 + topOffset,
-                      child: const _SectionLabel('공개 설정'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 501.25 + topOffset,
-                      height: 132.41476440429688,
-                      child: _PrivacyCard(
-                        nicknamePublic: _nicknamePublic,
-                        activityPublic: _activityPublic,
-                        onNicknameTap: () {
-                          setState(() {
-                            _nicknamePublic = !_nicknamePublic;
-                          });
-                        },
-                        onActivityTap: () {
-                          setState(() {
-                            _activityPublic = !_activityPublic;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 28),
+                  const _SectionLabel('기본 정보'),
+                  const SizedBox(height: 10),
+                  _BasicInfoCard(
+                    nickname: _nickname,
+                    email: displayEmail,
+                    onNicknameTap: _editNickname,
+                  ),
+                  const SizedBox(height: 24),
+                  const _SectionLabel('지역 정보'),
+                  const SizedBox(height: 10),
+                  _RegionCard(region: profile.region),
+                  const SizedBox(height: 24),
+                  const _SectionLabel('공개 설정'),
+                  const SizedBox(height: 10),
+                  _PrivacyCard(
+                    nicknamePublic: _nicknamePublic,
+                    activityPublic: _activityPublic,
+                    onNicknameTap: () {
+                      setState(() {
+                        _nicknamePublic = !_nicknamePublic;
+                      });
+                    },
+                    onActivityTap: () {
+                      setState(() {
+                        _activityPublic = !_activityPublic;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -205,7 +183,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
               safeBottom: bottomOffset,
               label: _isSaving ? '저장 중...' : '저장하기',
               onPressed: _isSaving
-                  ? () {}
+                  ? null
                   : () {
                       _saveProfile();
                     },
@@ -262,27 +240,51 @@ class _NicknameDialogState extends State<_NicknameDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('닉네임 변경'),
-      content: TextField(
+    return HowmuchDialog(
+      title: '닉네임 변경',
+      description: '얼마고?에서 사용할 이름을 정해주세요.\n프로필 화면에서 저장하면 반영돼요.',
+      confirmLabel: '변경',
+      onConfirm: _submit,
+      child: TextField(
         key: const ValueKey('profile-nickname-field'),
         controller: _controller,
         autofocus: true,
+        cursorColor: AppColors.primary,
         maxLength: 50,
         textInputAction: TextInputAction.done,
-        decoration: InputDecoration(
-          hintText: '닉네임을 입력하세요',
-          errorText: _errorText,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: AppColors.ink,
         ),
+        decoration: InputDecoration(
+          labelText: '닉네임',
+          floatingLabelStyle: const TextStyle(color: AppColors.primary),
+          hintText: '어떤 이름으로 불러드릴까요?',
+          helperText: '최대 50자까지 입력할 수 있어요.',
+          helperMaxLines: 2,
+          errorText: _errorText,
+          filled: true,
+          fillColor: AppColors.bgLight,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 18,
+          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          ),
+        ),
+        onChanged: (_) {
+          if (_errorText != null) setState(() => _errorText = null);
+        },
         onSubmitted: (_) => _submit(),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('취소'),
-        ),
-        FilledButton(onPressed: _submit, child: const Text('변경')),
-      ],
     );
   }
 }
@@ -378,7 +380,11 @@ class _Avatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: imageUrl.isEmpty
           ? const Center(
-              child: Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
+              child: Icon(
+                Icons.person_outline_rounded,
+                size: 40,
+                color: AppColors.primary,
+              ),
             )
           : Image.network(
               imageUrl,
@@ -386,7 +392,11 @@ class _Avatar extends StatelessWidget {
               width: double.infinity,
               height: double.infinity,
               errorBuilder: (_, _, _) => const Center(
-                child: Text('👑', style: TextStyle(fontSize: 36, height: 1.5)),
+                child: Icon(
+                  Icons.person_outline_rounded,
+                  size: 40,
+                  color: AppColors.primary,
+                ),
               ),
             ),
     );
@@ -411,7 +421,7 @@ class _BasicInfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 70.3835220336914,
+            height: 92,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 16.9033203125,
@@ -428,23 +438,26 @@ class _BasicInfoCard extends StatelessWidget {
                     key: const ValueKey('profile-nickname-edit'),
                     onTap: onNicknameTap,
                     borderRadius: BorderRadius.circular(8),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            nickname,
-                            style: _valueText,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              nickname,
+                              style: _valueText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        const Icon(
-                          Icons.edit_outlined,
-                          size: 15,
-                          color: ProfileEditScreen.blue,
-                          semanticLabel: '닉네임 편집',
-                        ),
-                      ],
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 15,
+                            color: ProfileEditScreen.blue,
+                            semanticLabel: '닉네임 편집',
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -453,7 +466,7 @@ class _BasicInfoCard extends StatelessWidget {
           ),
           const _Divider(),
           SizedBox(
-            height: 72.45738220214844,
+            height: 76,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(
                 16.9033203125,
@@ -492,27 +505,28 @@ class _RegionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedCard(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          16.9033203125,
-          14.90087890625,
-          16.9033203125,
-          0,
-        ),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('현재 동네', style: _captionText),
-                const SizedBox(height: 4.719),
-                Text(region, style: _valueText),
-              ],
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('현재 동네', style: _captionText),
+                  const SizedBox(height: 4.719),
+                  Text(
+                    region.trim().isEmpty ? '등록된 지역이 없어요' : region,
+                    style: _valueText,
+                  ),
+                ],
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 16),
             const Icon(
-              Icons.chevron_right_rounded,
-              color: ProfileEditScreen.ink,
-              size: 16,
+              Icons.location_on_outlined,
+              color: ProfileEditScreen.muted,
+              size: 22,
             ),
           ],
         ),
@@ -690,12 +704,12 @@ class _StickyButton extends StatelessWidget {
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const bottomGap = 8.0;
+  static const minimumSafeBottom = 12.0;
 
   final double safeBottom;
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   static double effectiveSafeBottom(double safeBottom) {
     return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
@@ -795,7 +809,7 @@ const _sectionText = TextStyle(
   color: ProfileEditScreen.muted,
   fontFamily: ProfileEditScreen.fontFamily,
   fontFamilyFallback: ProfileEditScreen.fontFallback,
-  fontSize: 11,
+  fontSize: 13,
   fontWeight: FontWeight.w700,
   height: 1.5,
 );

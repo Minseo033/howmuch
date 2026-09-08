@@ -27,6 +27,30 @@ void main() {
     HomeMapScreen.globalUserPosition = null;
   });
 
+  testWidgets('user reports are not labelled government certified', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      todaysPick: {
+        'picks': [
+          {
+            'storeName': '동네 제보 식당',
+            'menu1': '백반',
+            'price1': '6500',
+            'source': 'USER',
+            'distanceMeters': 120,
+          },
+        ],
+      },
+    );
+    await tester.pumpWidget(_app(service, const TodaysPickScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('사용자 제보'), findsOneWidget);
+    expect(find.text('착한가격업소'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
+
   testWidgets('today pick handles decorated prices and long names at 360px', (
     tester,
   ) async {

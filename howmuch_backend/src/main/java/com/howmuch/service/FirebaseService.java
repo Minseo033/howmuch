@@ -2457,6 +2457,13 @@ public class FirebaseService {
             pick.put("industry", strOrNull(store.get("industry")));
             pick.put("menu1", strOrNull(store.get("menu1")));
             pick.put("price1", strOrNull(store.get("price1")));
+            for (int menuIndex = 2; menuIndex <= 4; menuIndex++) {
+                pick.put("menu" + menuIndex, strOrNull(store.get("menu" + menuIndex)));
+                pick.put("price" + menuIndex, strOrNull(store.get("price" + menuIndex)));
+            }
+            pick.put("source", store.get("source"));
+            pick.put("storeId", store.get("storeId"));
+            pick.put("phoneNumber", store.get("phoneNumber"));
             pick.put("address", strOrNull(store.get("address")));
             pick.put("latitude", store.get("latitude"));
             pick.put("longitude", store.get("longitude"));

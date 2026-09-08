@@ -231,7 +231,22 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: Color(0xFF2563EB)),
+            SizedBox(height: 12),
+            Text(
+              '주변 제보를 불러오고 있어요',
+              style: TextStyle(
+                color: CommunityFeedScreen.muted,
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       );
     }
     if (_hasError) {

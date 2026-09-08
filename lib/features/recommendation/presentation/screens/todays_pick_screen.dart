@@ -173,12 +173,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         menuName: backendMenu != null && backendMenu.isNotEmpty
             ? backendMenu
             : (p['menu1']?.toString() ?? '메뉴 정보 없음'),
-        price: formatRecommendationPrice(p['price1']),
+        price: formatRecommendationPrice(recommendationMenuPrice(p)),
         tipText: tip,
         distance: distance,
         distanceMeters: distanceNumber,
-        priceValue: parseRecommendationPrice(p['price1']),
-        badgeText: '착한가격업소',
+        priceValue: parseRecommendationPrice(recommendationMenuPrice(p)),
+        badgeText: store.isUserReported ? '사용자 제보' : '착한가격업소',
         badgeColor: const Color(0xFF2563EB),
         badgeBg: const Color(0xFFEFF4FF),
         tags: const ['날씨 기반'],
@@ -269,8 +269,23 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                 Expanded(
                   child: _isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF2563EB),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircularProgressIndicator(
+                                color: Color(0xFF2563EB),
+                              ),
+                              SizedBox(height: 12),
+                              Text(
+                                '현재 위치를 기준으로 추천을 찾고 있어요',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       : _errorMessage != null

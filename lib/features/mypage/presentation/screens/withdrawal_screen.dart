@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -154,21 +155,13 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     final shouldWithdraw = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('회원 탈퇴'),
-          content: Text(
-            '선택한 사유: ${_reasons[_selectedReason]}\n탈퇴하면 앱 데이터가 삭제돼요.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('탈퇴하기'),
-            ),
-          ],
+        return HowmuchDialog(
+          title: '회원 탈퇴',
+          description: '탈퇴하면 앱 데이터가 삭제돼요.\n계속하려면 아래 버튼을 눌러주세요.',
+          destructive: true,
+          confirmLabel: '탈퇴하기',
+          onConfirm: () => Navigator.of(dialogContext).pop(true),
+          child: Text('선택한 사유: ${_reasons[_selectedReason]}'),
         );
       },
     );
