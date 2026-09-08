@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'kakao_web_helper_stub.dart'
     if (dart.library.js) 'kakao_web_helper.dart'
     as web_helper;
@@ -1019,30 +1020,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final maxLng = bounds['maxLng']!;
 
     try {
-      // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
-      final url = ApiClient.uri('/api/stores/bounds', {
-        'minLat': '$minLat',
-        'maxLat': '$maxLat',
-        'minLng': '$minLng',
-        'maxLng': '$maxLng',
-      });
-
-      final response = await ApiClient.get(
-        url,
-        headers: ApiClient.jsonHeaders(),
-      ).timeout(const Duration(seconds: 5));
-
-      List<Store> fetchedStores = [];
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
-        fetchedStores = data
-            .map((json) => Store.fromJson(json))
-            .where((store) => store.hasValidCoordinates)
-            .toList();
-      } else {
-        // Fallback to local _allStores if backend fails
-        fetchedStores = _allStores;
-      }
+      final fetchedStores = await loadHomeMapStores(
+        bounds: bounds,
+        cachedStores: _allStores,
+      );
 
       var stores = fetchedStores
           .where(
