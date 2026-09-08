@@ -82,6 +82,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
   }
 
   Future<void> _saveGoal() async {
+    if (_isSaving || _isLoading || _loadError != null) return;
     final newGoal = int.tryParse(_goalController.text.replaceAll(',', ''));
     if (newGoal == null || newGoal <= 0) {
       ScaffoldMessenger.of(
@@ -165,8 +166,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   fontFamilyFallback: ['Noto Sans KR'],
                                   fontWeight: FontWeight.w600,
                                   color: Color(0xFF64748B),
-                                  fontSize: 11,
-                                  height: 16.5 / 11,
+                                  fontSize: 14,
+                                  height: 1.5,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -174,6 +175,13 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                 height: 56,
                                 child: TextField(
                                   controller: _goalController,
+                                  enabled:
+                                      !_isLoading &&
+                                      !_isSaving &&
+                                      _loadError == null,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) =>
+                                      FocusScope.of(context).unfocus(),
                                   cursorColor: const Color(0xFF2563EB),
                                   keyboardType: TextInputType.number,
                                   textAlignVertical: TextAlignVertical.center,
@@ -258,17 +266,21 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('💡', style: TextStyle(fontSize: 14)),
+                          const Icon(
+                            Icons.info_outline_rounded,
+                            size: 18,
+                            color: Color(0xFF065F46),
+                          ),
                           SizedBox(width: AppSizes.smallSpacing),
                           Expanded(
                             child: Text(
-                              '목표를 설정하면 절약 리포트에서\n이번 달 달성률을 확인할 수 있어요.',
+                              '목표를 저장하면 절약 리포트에서 이번 달 달성률을 확인할 수 있어요.',
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 color: Color(0xFF065F46),
-                                fontSize: 11,
-                                height: 16.5 / 11,
+                                fontSize: 13,
+                                height: 1.5,
                               ),
                             ),
                           ),
@@ -297,12 +309,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               child: Stack(
                 children: [
                   Positioned(
-                    left: AppSizes.horizontalPadding,
-                    top: 13.98,
-                    child: GestureDetector(
-                      onTap: () => context.pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
+                    left: 8,
+                    top: 0,
+                    child: IconButton(
+                      tooltip: '뒤로가기',
+                      onPressed: () => context.pop(),
+                      icon: const Icon(
                         Icons.arrow_back_ios_new_rounded,
                         size: 20,
                         color: Color(0xFF0A0A0A),
@@ -321,19 +333,6 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           fontSize: 16,
                           height: 24 / 16,
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    right: AppSizes.horizontalPadding,
-                    top: 15.48,
-                    child: GestureDetector(
-                      onTap: () => context.pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
-                        Icons.more_horiz_rounded,
-                        size: 24,
-                        color: Color(0xFF0A0A0A),
                       ),
                     ),
                   ),
@@ -362,38 +361,37 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     top: 13,
                     bottom: 12,
                   ),
-                  child: GestureDetector(
-                    onTap: _isSaving || _isLoading ? null : _saveGoal,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
+                  child: FilledButton(
+                    onPressed: _isSaving || _isLoading || _loadError != null
+                        ? null
+                        : _saveGoal,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      backgroundColor: const Color(0xFF047857),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color.fromRGBO(16, 185, 129, 0.3),
-                            blurRadius: 8,
-                            offset: Offset(0, 6),
-                          ),
-                        ],
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _isSaving ? '저장 중…' : '목표 저장하기',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              fontSize: 15,
-                              height: 22.5 / 15,
-                            ),
-                          ),
-                        ],
+                      textStyle: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontFamilyFallback: ['Noto Sans KR'],
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_isSaving) ...[
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        Text(_isSaving ? '저장 중…' : '목표 저장하기'),
+                      ],
                     ),
                   ),
                 ),
@@ -427,34 +425,47 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
         border: Border.all(color: const Color(0xFFE5E7EB), width: 0.909),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const Row(
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.savings_outlined, size: 18),
-                  SizedBox(width: AppSizes.smallSpacing),
-                  Text(
-                    '이번 달 실제 기록',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontFamilyFallback: ['Noto Sans KR'],
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                      fontSize: 13,
-                      height: 19.5 / 13,
-                    ),
+              Icon(Icons.savings_outlined, size: 18, color: Color(0xFF047857)),
+              SizedBox(width: AppSizes.smallSpacing),
+              Expanded(
+                child: Text(
+                  '이번 달 실제 기록',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0F172A),
+                    fontSize: 13,
+                    height: 19.5 / 13,
                   ),
-                ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '${_formatWon(saved)}원',
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  color: Color(0xFF0F172A),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
               ),
               Text(
-                '${_formatWon(saved)}원 · ${_state.visitCount.value}회 방문',
-                style: const TextStyle(
-                  color: Color(0xFF10B981),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+                '${_state.visitCount.value}회 방문',
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
               ),
             ],
           ),
@@ -475,6 +486,13 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            goal > 0
+                ? '현재 목표 ${_formatWon(goal)}원 기준'
+                : '목표를 저장하면 달성률을 확인할 수 있어요.',
+            style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
         ],
       ),
