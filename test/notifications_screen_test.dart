@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +11,52 @@ import 'package:howmuch/features/system/presentation/state/notification_service.
 import 'package:http/testing.dart';
 
 void main() {
+  testWidgets(
+    'bulk button disables while pending and shows partial failure count',
+    (tester) async {
+      final pending = Completer<http.Response>();
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  {'id': 'a', 'isRead': false},
+                  {'id': 'b', 'isRead': false},
+                ]),
+                200,
+              );
+            }
+            if (request.url.path.contains('/a/')) return pending.future;
+            return http.Response('{}', 200);
+          }),
+        ),
+      );
+      await notifier.loadNotifications();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+          child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+        ),
+      );
+      await tester.tap(find.text('모두 읽음'));
+      await tester.pump();
+      final pendingButton = find.widgetWithText(TextButton, '처리 중…');
+      expect(tester.widget<TextButton>(pendingButton).onPressed, isNull);
+      pending.complete(http.Response('{}', 500));
+      await tester.pumpAndSettle();
+      expect(find.text('1개 알림을 읽음으로 바꾸지 못했어요. 다시 시도해 주세요.'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextButton>(find.widgetWithText(TextButton, '모두 읽음'))
+            .onPressed,
+        isNotNull,
+      );
+      expect(notifier.state.requireValue.map((n) => n.isUnread), [true, false]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('renders long notification content at 360px without overflow', (
     tester,
   ) async {
@@ -58,6 +107,12 @@ void main() {
     await tester.pump();
 
     expect(find.text('받은 알림이 없어요'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, '모두 읽음'))
+          .onPressed,
+      isNull,
+    );
   });
 
   testWidgets('back button returns home when inbox has no previous route', (

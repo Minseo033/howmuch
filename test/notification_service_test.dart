@@ -11,6 +11,123 @@ import 'package:http/testing.dart';
 
 void main() {
   test(
+    'bulk read continues after a failed item and retries only unread items',
+    () async {
+      final requests = <String>[];
+      var failB = true;
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  for (final id in ['a', 'b', 'c']) {'id': id, 'isRead': false},
+                ]),
+                200,
+              );
+            }
+            final id = request.url.pathSegments[2];
+            requests.add(id);
+            return http.Response('{}', id == 'b' && failB ? 500 : 200);
+          }),
+        ),
+      );
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      await expectLater(
+        notifier.markAllRead(),
+        throwsA(
+          isA<NotificationBatchReadException>().having(
+            (e) => e.failedCount,
+            'failed count',
+            1,
+          ),
+        ),
+      );
+      expect(requests, ['a', 'b', 'c']);
+      expect(notifier.state.requireValue.map((n) => n.isUnread), [
+        false,
+        true,
+        false,
+      ]);
+      failB = false;
+      await notifier.markAllRead();
+      expect(requests, ['a', 'b', 'c', 'b']);
+      expect(notifier.state.requireValue.every((n) => !n.isUnread), isTrue);
+    },
+  );
+
+  test(
+    'bulk read stops on authorization failure and permits a later retry',
+    () async {
+      final requests = <String>[];
+      var authorized = false;
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  for (final id in ['a', 'b']) {'id': id, 'isRead': false},
+                ]),
+                200,
+              );
+            }
+            requests.add(request.url.pathSegments[2]);
+            return http.Response('{}', authorized ? 200 : 401);
+          }),
+        ),
+      );
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      await expectLater(
+        notifier.markAllRead(),
+        throwsA(isA<NotificationApiException>()),
+      );
+      expect(requests, ['a']);
+      authorized = true;
+      await notifier.markAllRead();
+      expect(requests, ['a', 'a', 'b']);
+    },
+  );
+
+  test(
+    'duplicate bulk actions do not start another request sequence',
+    () async {
+      final pending = Completer<http.Response>();
+      final started = Completer<void>();
+      final requests = <String>[];
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode([
+                  for (final id in ['a', 'b']) {'id': id, 'isRead': false},
+                ]),
+                200,
+              );
+            }
+            final id = request.url.pathSegments[2];
+            requests.add(id);
+            if (id == 'a') started.complete();
+            return id == 'a' ? pending.future : http.Response('{}', 200);
+          }),
+        ),
+      );
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      final first = notifier.markAllRead();
+      await started.future;
+      await notifier.markAllRead();
+      expect(requests, ['a']);
+      pending.complete(http.Response('{}', 200));
+      await first;
+      expect(requests, ['a', 'b']);
+    },
+  );
+
+  test(
     'failed read preserves other successful reads and new notifications',
     () async {
       final failedRead = Completer<http.Response>();

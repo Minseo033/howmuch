@@ -15,6 +15,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _selectedTab = '전체';
+  bool _markingAllRead = false;
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +23,11 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final notificationsAsync = ref.watch(notificationsProvider);
+    final hasUnread =
+        notificationsAsync.valueOrNull?.any(
+          (notification) => notification.isUnread && notification.id.isNotEmpty,
+        ) ??
+        false;
 
     final canPop = Navigator.of(context).canPop();
 
@@ -308,23 +314,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       right: 8,
                       top: 6.9,
                       child: TextButton(
-                        onPressed: () => _runAction(
-                          ref
-                              .read(notificationsProvider.notifier)
-                              .markAllRead(),
-                        ),
+                        onPressed: _markingAllRead || !hasUnread
+                            ? null
+                            : _markAllRead,
                         style: TextButton.styleFrom(
                           minimumSize: const Size(72, 44),
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
-                        child: const Text(
-                          '모두 읽음',
+                        child: Text(
+                          _markingAllRead ? '처리 중…' : '모두 읽음',
                           style: TextStyle(
                             fontFamily: 'Inter',
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF2563EB),
+                            color: _markingAllRead || !hasUnread
+                                ? const Color(0xFF94A3B8)
+                                : const Color(0xFF2563EB),
                             fontSize: 11,
                             height: 16.5 / 11,
                           ),
@@ -542,16 +548,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
-  Future<void> _runAction(Future<void> action) async {
+  Future<void> _markAllRead() async {
+    if (_markingAllRead) return;
+    setState(() => _markingAllRead = true);
     try {
-      await action;
-    } catch (_) {
+      await ref.read(notificationsProvider.notifier).markAllRead();
+    } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
+          SnackBar(
+            content: Text(
+              error is NotificationBatchReadException
+                  ? error.toString()
+                  : error is NotificationApiException && error.isUnauthorized
+                  ? '로그인한 뒤 다시 시도해 주세요.'
+                  : '알림 상태를 변경하지 못했어요. 다시 시도해 주세요.',
+            ),
+          ),
         );
+    } finally {
+      if (mounted) setState(() => _markingAllRead = false);
     }
   }
 }

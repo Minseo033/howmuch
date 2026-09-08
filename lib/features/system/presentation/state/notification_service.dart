@@ -118,6 +118,15 @@ class NotificationApiException implements Exception {
   String toString() => message;
 }
 
+class NotificationBatchReadException implements Exception {
+  const NotificationBatchReadException(this.failedCount);
+
+  final int failedCount;
+
+  @override
+  String toString() => '$failedCount개 알림을 읽음으로 바꾸지 못했어요. 다시 시도해 주세요.';
+}
+
 class NotificationApiService {
   NotificationApiService(this._client);
 
@@ -377,6 +386,7 @@ class NotificationsNotifier
   bool _isLoading = false;
   bool _disposed = false;
   bool _autoRefreshEnabled = false;
+  bool _isMarkingAllRead = false;
   final Set<String> _locallyReadIds = {};
 
   void setAutoRefreshEnabled(bool enabled) {
@@ -459,7 +469,7 @@ class NotificationsNotifier
   }
 
   Future<void> markAllRead() async {
-    if (_disposed) return;
+    if (_disposed || _isMarkingAllRead) return;
     final currentList = state.valueOrNull ?? const [];
     final unreadIds = currentList
         .where((notification) => notification.isUnread)
@@ -468,9 +478,26 @@ class NotificationsNotifier
         .toList();
     if (unreadIds.isEmpty) return;
 
-    for (final id in unreadIds) {
-      if (_disposed) return;
-      await markRead(id);
+    _isMarkingAllRead = true;
+    var failedCount = 0;
+    try {
+      for (final id in unreadIds) {
+        if (_disposed) return;
+        try {
+          await markRead(id);
+        } catch (error) {
+          // An expired session cannot authorize the remaining requests.
+          if (error is NotificationApiException && error.isUnauthorized) {
+            rethrow;
+          }
+          failedCount++;
+        }
+      }
+      if (!_disposed && failedCount > 0) {
+        throw NotificationBatchReadException(failedCount);
+      }
+    } finally {
+      _isMarkingAllRead = false;
     }
   }
 }
