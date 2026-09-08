@@ -1117,4 +1117,5 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 지역 정보는 동작하지 않는 화살표를 제거하고 위치 아이콘과 빈 지역 안내를 표시한다. 닉네임 편집 터치 영역을 늘리고 저장 중 버튼을 실제 비활성화한다.
 - 관련 widget 테스트 18개 PASS: 기존 프로필 저장/취소/뒤로가기와 로그인·탈퇴 확인, 새 닉네임 입력 검증 및 키보드 300px 상황을 포함한다. 정적 분석 및 웹 release 빌드 검증을 수행했다.
 - `build/qa/profile-polished.png`, `build/qa/nickname-polished.png`로 Flutter 렌더를 직접 확인했다. 테스트 전용 macOS 한글 폰트를 사용한 미리보기이며 운영 계정 데이터는 사용하지 않았다.
-- 아직 로컬 수정 상태이며 커밋·배포는 수행하지 않았다.
+- 커밋 `cb5fb4f`를 GitHub `main`에 푸시했고, Vercel production 배포 `dpl_FHy5Pf2hs63mBWeRJj7DewCAr8Mx`를 완료했다. 기존 운영 주소 `https://howmuch-zeta.vercel.app`는 HTTP 200을 반환한다.
+- `main` push로 Render 자동 배포가 진행됐으며 운영 `/healthz`는 HTTP 200(`status: ok`)을 반환한다.
