@@ -75,6 +75,11 @@ public class FirebaseService {
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
 
+    /** 커뮤니티 피드 인메모리 캐시 (60초 TTL, N+1 Firestore 읽기 및 쿼터 보호) */
+    private volatile List<com.howmuch.dto.FeedResponseDto> cachedFeeds = null;
+    private volatile long lastFeedsCacheTime = 0L;
+    private static final long FEEDS_CACHE_TTL_MS = 60_000L;
+
     private static final int REPORT_IMAGE_MAX_COUNT = 3;
     private static final long REPORT_IMAGE_MAX_BYTES = 5L * 1024L * 1024L;
     private static final int MAX_NOTIFICATION_RESULTS = 100;
@@ -201,6 +206,7 @@ public class FirebaseService {
                     })
                     .toList();
             cachedUserStores = List.copyOf(userStores);
+            cachedFeeds = null;
             log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
         } catch (Exception e) {
             log.warn("사용자 제보 매장 로드 실패로 기존 캐시를 유지합니다: {}",
@@ -481,6 +487,7 @@ public class FirebaseService {
         List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
         updated.add(data);
         cachedUserStores = List.copyOf(updated);
+        cachedFeeds = null;
 
         return docRef.getId();
     }
@@ -523,6 +530,7 @@ public class FirebaseService {
         cachedUserStores = cachedUserStores.stream()
                 .map(item -> reportId.equals(item.get("id")) ? mergedData : item)
                 .toList();
+        cachedFeeds = null;
 
         List<String> removedImages = existingImageUrls.stream()
                 .filter(url -> !report.getImageUrls().contains(url))
@@ -582,6 +590,7 @@ public class FirebaseService {
         cachedUserStores = cachedUserStores.stream()
                 .filter(item -> !reportId.equals(item.get("id")))
                 .toList();
+        cachedFeeds = null;
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -1066,6 +1075,7 @@ public class FirebaseService {
                 })
                 .toList();
         cachedUserStores = List.copyOf(updated);
+        cachedFeeds = null;
     }
 
     private record ReportStatusUpdate(String storeName, String storeId, String changeType) { }
@@ -2074,6 +2084,12 @@ public class FirebaseService {
     // ⚠️ 쿼터: 호출마다 stores_user 전체 읽기 + 작성자당 users 1회 읽기.
     //    제보 수 증가 시 인메모리 캐시 패턴 필요 (PROJECT_STATUS 5-2 참조).
     public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
+        long now = System.currentTimeMillis();
+        List<com.howmuch.dto.FeedResponseDto> cached = cachedFeeds;
+        if (cached != null && (now - lastFeedsCacheTime < FEEDS_CACHE_TTL_MS)) {
+            return cached;
+        }
+
         var documents = db.collection("stores_user")
                 .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(Math.max(1, Math.min(communityFeedMaxItems, 1000)))
@@ -2139,6 +2155,8 @@ public class FirebaseService {
 
         // 응답 순서를 방어적으로 한 번 더 보장합니다.
         feeds.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        cachedFeeds = List.copyOf(feeds);
+        lastFeedsCacheTime = now;
         return feeds;
     }
 

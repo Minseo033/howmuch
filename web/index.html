@@ -322,16 +322,14 @@
   <script>
     (async function startFlutterAfterKoreanFont() {
       if (document.fonts && document.fonts.load) {
-        const koreanFontLoads = [400, 500, 700, 800].map(function(weight) {
-          return document.fonts.load(weight + ' 16px "Noto Sans KR"', '가나다라마바사');
-        });
+        const fontPromise = document.fonts.load('400 16px "Noto Sans KR"', '가나다라마바사');
         const fontTimeout = new Promise(function(resolve) {
-          setTimeout(resolve, 4000);
+          setTimeout(resolve, 600);
         });
         try {
-          await Promise.race([Promise.all(koreanFontLoads), fontTimeout]);
+          await Promise.race([fontPromise, fontTimeout]);
         } catch (_) {
-          // 네트워크 폰트가 실패해도 시스템 한글 폰트로 앱을 시작합니다.
+          // 네트워크 폰트가 지연되거나 실패해도 시스템 한글 폰트로 앱을 즉시 시작합니다.
         }
       }
 

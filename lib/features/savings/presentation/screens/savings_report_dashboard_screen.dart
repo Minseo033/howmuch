@@ -55,15 +55,22 @@ class _SavingsReportDashboardScreenState
     });
 
     try {
-      final goal = await _fetchGoal();
-      final favoritesCount = await _fetchFavoritesCount();
-      final reportsCount = await _fetchReportsCount();
       final now = DateTime.now();
+      final goalFuture = _fetchGoal();
+      final favoritesFuture = _fetchFavoritesCount();
+      final reportsFuture = _fetchReportsCount();
+      final statsFutures = _tabToPeriod.values.map(_fetchStats).toList();
+
+      final goal = await goalFuture;
+      final favoritesCount = await favoritesFuture;
+      final reportsCount = await reportsFuture;
+      final statsList = await Future.wait(statsFutures);
 
       final results = <String, dynamic>{};
       bool anyStatsLoaded = false;
+      int idx = 0;
       for (final entry in _tabToPeriod.entries) {
-        final stats = await _fetchStats(entry.value);
+        final stats = statsList[idx++];
         if (stats != null) anyStatsLoaded = true;
         results[entry.key] = _buildTabData(
           entry.key,
