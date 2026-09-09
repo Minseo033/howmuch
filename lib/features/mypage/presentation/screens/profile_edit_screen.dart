@@ -396,6 +396,7 @@ class _Avatar extends StatelessWidget {
             )
           : Image.network(
               imageUrl,
+              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
               fit: BoxFit.cover,
               width: double.infinity,
               height: double.infinity,

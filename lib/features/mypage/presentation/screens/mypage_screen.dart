@@ -643,6 +643,7 @@ class _ProfileAvatarImage extends StatelessWidget {
     if (imageUrl.isEmpty) return fallback();
     return Image.network(
       imageUrl,
+      webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
       fit: BoxFit.cover,
       width: double.infinity,
       height: double.infinity,

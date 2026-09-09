@@ -94,6 +94,7 @@ class _ConnectedSocialAccountsScreenState
                             )
                           : Image.network(
                               profile.profileImageUrl,
+                              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,

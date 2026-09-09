@@ -585,6 +585,7 @@ class _Avatar extends StatelessWidget {
           ? const Text('👑', style: TextStyle(fontSize: 24, height: 1.5))
           : Image.network(
               imageUrl,
+              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
               width: double.infinity,
               height: double.infinity,
               fit: BoxFit.cover,
