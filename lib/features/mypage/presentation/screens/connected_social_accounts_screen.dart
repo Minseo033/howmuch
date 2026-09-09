@@ -17,6 +17,8 @@ class ConnectedSocialAccountsScreen extends ConsumerStatefulWidget {
 
 class _ConnectedSocialAccountsScreenState
     extends ConsumerState<ConnectedSocialAccountsScreen> {
+  bool _isRefreshing = false;
+
   @override
   void initState() {
     super.initState();
@@ -24,6 +26,25 @@ class _ConnectedSocialAccountsScreenState
       if (!mounted || !ref.read(authStateProvider).isLoggedIn) return;
       ref.read(kakaoLoginServiceProvider).refreshKakaoIdentity();
     });
+  }
+
+  Future<void> _requestAccountInfo() async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
+    final identity = await ref
+        .read(kakaoLoginServiceProvider)
+        .refreshKakaoIdentity(requestConsent: true);
+    if (!mounted) return;
+    setState(() => _isRefreshing = false);
+
+    final missingEmail = usableAccountEmail(identity.email) == null;
+    final missingImage = identity.profileImageUrl.isEmpty;
+    final message = missingEmail || missingImage
+        ? '카카오에서 제공하지 않은 정보는 표시할 수 없어요. 카카오 앱의 동의 항목 설정을 확인해주세요.'
+        : '카카오 계정 정보를 불러왔어요.';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -34,6 +55,7 @@ class _ConnectedSocialAccountsScreenState
     final provider = auth.provider.trim().isEmpty ? '로그인 정보 없음' : auth.provider;
     final email =
         usableAccountEmail(profile.email) ?? usableAccountEmail(auth.email);
+    final accountInfoMissing = email == null || profile.profileImageUrl.isEmpty;
 
     return FigmaMobileCanvas(
       child: Scaffold(
@@ -118,6 +140,23 @@ class _ConnectedSocialAccountsScreenState
                   ],
                 ),
               ),
+              if (isLoggedIn && accountInfoMissing) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    onPressed: _isRefreshing ? null : _requestAccountInfo,
+                    icon: _isRefreshing
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync_rounded, size: 18),
+                    label: Text(_isRefreshing ? '불러오는 중...' : '카카오 계정 정보 불러오기'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(16),

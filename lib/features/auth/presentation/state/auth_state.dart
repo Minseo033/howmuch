@@ -24,10 +24,14 @@ List<String> missingKakaoIdentityScopes({
   required bool emailNeedsAgreement,
   required bool profileImageMissing,
   required bool profileImageNeedsAgreement,
+  required bool legacyProfileNeedsAgreement,
 }) {
   return [
     if (emailMissing && emailNeedsAgreement) 'account_email',
-    if (profileImageMissing && profileImageNeedsAgreement) 'profile_image',
+    if (profileImageMissing && legacyProfileNeedsAgreement)
+      'profile'
+    else if (profileImageMissing && profileImageNeedsAgreement)
+      'profile_image',
   ];
 }
 

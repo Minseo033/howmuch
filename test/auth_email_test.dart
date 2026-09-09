@@ -29,8 +29,22 @@ void main() {
         emailNeedsAgreement: true,
         profileImageMissing: true,
         profileImageNeedsAgreement: true,
+        legacyProfileNeedsAgreement: false,
       ),
       ['account_email', 'profile_image'],
+    );
+  });
+
+  test('supports legacy Kakao profile consent scope', () {
+    expect(
+      missingKakaoIdentityScopes(
+        emailMissing: false,
+        emailNeedsAgreement: false,
+        profileImageMissing: true,
+        profileImageNeedsAgreement: false,
+        legacyProfileNeedsAgreement: true,
+      ),
+      ['profile'],
     );
   });
 }

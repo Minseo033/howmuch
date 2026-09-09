@@ -173,6 +173,7 @@ class KakaoLoginService {
           ).isEmpty,
           profileImageNeedsAgreement:
               account?.profileImageNeedsAgreement == true,
+          legacyProfileNeedsAgreement: account?.profileNeedsAgreement == true,
         );
         if (scopes.isNotEmpty) {
           try {
