@@ -1208,3 +1208,4 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 원인: 백엔드는 로그인 검증 과정에서 카카오 `/v2/user/me` 응답을 받으면서도 UID만 반환하고 이메일·프로필 사진은 버렸다. 프론트가 로그인 직후 카카오 SDK로 같은 정보를 다시 읽는 단일 경로에 의존해, 웹 팝업·추가 동의 또는 SDK 세션 조회가 실패하면 로그인 성공 후에도 두 정보가 비어 있었다.
 - 수정: 기존 카카오 인증 응답에 검증된 이메일·프로필 사진 URL을 포함했다. 프론트는 SDK 조회값을 우선하되 비어 있으면 백엔드 값을 사용하고, 자동 로그인에서도 복원되도록 기존 로컬 캐시에 저장한다. 전체 이미지가 없으면 카카오 썸네일을 사용한다.
 - 검증: 백엔드 전체 테스트와 `bootJar`, Flutter 전체 테스트 160개, `flutter analyze`, 웹 release 빌드, `git diff --check`를 통과했다. 카카오에서 해당 항목 제공 동의를 허용하지 않은 계정에는 값을 임의 생성하지 않는다.
+- 운영 반영: 수정 커밋 `0c790d4`를 GitHub `main`에 푸시해 Render 자동 배포를 시작했다. Vercel 배포 `dpl_4Y9QABG7sWYusfk8pN8C5LYzHuuW`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했고, 공개 파일 8개와 주요 진입 경로 3개가 로컬 release 빌드와 모두 일치했다. Render `/healthz`는 자동 배포 예상 구간의 반복 확인에서 HTTP 200을 반환했다.
