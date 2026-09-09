@@ -1230,3 +1230,4 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 주소 칸 또는 검색 아이콘을 누르면 전용 검색 시트가 열리고, 도로명·지번을 두 글자 이상 입력하면 300ms 디바운스 후 최대 8개 후보를 조회한다. 선택한 정규화 주소는 제보 폼에 자동 입력된다.
 - 검색 전 안내, 로딩, 결과 없음, 통신 오류와 다시 시도 상태를 제공한다. 주소 입력은 읽기 전용으로 두고 검색 결과 선택을 거치게 해 오탈자와 좌표 변환 실패 가능성을 줄였다.
 - 운영 API에서 `테헤란로 123` 검색 결과로 `서울 강남구 테헤란로 123` 반환을 확인했다. `flutter analyze`, 전체 Flutter 테스트 161개, 웹 release 빌드를 통과했다.
+- 기능 커밋 `c1be835`를 GitHub `main`에 푸시했다. Vercel 배포 `dpl_9nyAG7T3sRSi5hwGmLBSg6r5oHns`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했고, 공개 파일 8개와 주요 진입 경로 3개가 로컬 release 빌드와 모두 일치했다.
