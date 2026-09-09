@@ -1169,4 +1169,8 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - 백엔드 전체 테스트: 158개 ALL PASS (Gradle rerun-tasks).
   - Flutter 전체 테스트: 155개 ALL PASS (`flutter test`).
   - 정적 분석: `flutter analyze lib` 이슈 0건.
+- **운영 배포 및 라이브 검증**:
+  - Vercel 프로덕션 배포 `dpl_BPHdXA9tXHzcWQYp49Xpe7WdfqEB` 완료 및 별칭 `https://howmuch-zeta.vercel.app` 연결.
+  - `node scripts/verify_web_deployment.mjs`: 파일 8개 및 주요 경로 3개 SHA-256 검사 11/11 ALL PASS.
+  - Render 백엔드 `/healthz` HTTP 200 (status: ok) 확인.
 
