@@ -46,8 +46,11 @@ class KakaoLoginService {
       if (session != null) {
         backendSessionEstablished = true;
         final identity = await _loadKakaoIdentity(requestConsent: true);
-        final email = identity.email;
-        final profileImageUrl = identity.profileImageUrl;
+        final email = usableAccountEmail(identity.email) ?? session.email;
+        final profileImageUrl = identity.profileImageUrl.isNotEmpty
+            ? identity.profileImageUrl
+            : session.profileImageUrl;
+        await _cacheKakaoIdentity(email, profileImageUrl);
         // 백엔드가 발급한 공식 uid/세션 토큰을 사용합니다.
         final firebaseUid = session.uid;
 
@@ -207,7 +210,25 @@ class KakaoLoginService {
     return (email: email, profileImageUrl: profileImageUrl);
   }
 
-  Future<({String uid, String sessionToken})?> _authenticateWithBackend(
+  Future<void> _cacheKakaoIdentity(
+    String email,
+    String profileImageUrl,
+  ) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (email.isNotEmpty) {
+      await prefs.setString(kakaoEmailPreferenceKey, email);
+    }
+    if (profileImageUrl.isNotEmpty) {
+      await prefs.setString(kakaoProfileImagePreferenceKey, profileImageUrl);
+    }
+  }
+
+  Future<({
+    String uid,
+    String sessionToken,
+    String email,
+    String profileImageUrl,
+  })?> _authenticateWithBackend(
     String accessToken,
   ) async {
     final url = ApiClient.uri('/api/auth/kakao');
@@ -237,7 +258,12 @@ class KakaoLoginService {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('onboarding_completed', true);
         debugPrint('백엔드 인증 성공');
-        return (uid: uid, sessionToken: sessionToken);
+        return (
+          uid: uid,
+          sessionToken: sessionToken,
+          email: usableAccountEmail(data['email']) ?? '',
+          profileImageUrl: usableProfileImageUrl(data['profileImageUrl']),
+        );
       } else {
         debugPrint('백엔드 인증 실패: ${response.statusCode}');
         return null;

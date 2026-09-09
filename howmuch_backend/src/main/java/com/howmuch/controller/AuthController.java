@@ -57,7 +57,9 @@ public class AuthController {
             return ResponseEntity.ok(new FirebaseTokenResponse(
                     result.firebaseCustomToken(),
                     result.firebaseUid(),
-                    sessionToken
+                    sessionToken,
+                    result.email(),
+                    result.profileImageUrl()
             ));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(

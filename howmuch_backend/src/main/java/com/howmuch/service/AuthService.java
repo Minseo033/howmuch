@@ -22,7 +22,11 @@ public class AuthService {
     /**
      * 카카오 로그인 결과 (uid + Firebase 커스텀 토큰)
      */
-    public record KakaoAuthResult(String firebaseUid, String firebaseCustomToken) {}
+    public record KakaoAuthResult(
+            String firebaseUid,
+            String firebaseCustomToken,
+            String email,
+            String profileImageUrl) {}
 
     /**
      * 카카오 액세스 토큰을 검증하고 uid와 Firebase 커스텀 토큰을 생성합니다.
@@ -47,7 +51,32 @@ public class AuthService {
 
         // 2. Firebase 커스텀 토큰 발행
         String customToken = firebaseAuth.createCustomToken(firebaseUid);
-        return new KakaoAuthResult(firebaseUid, customToken);
+        return new KakaoAuthResult(
+                firebaseUid,
+                customToken,
+                kakaoEmail(kakaoResponse),
+                kakaoProfileImageUrl(kakaoResponse));
+    }
+
+    static String kakaoEmail(Map<String, Object> response) {
+        return nestedString(response, "kakao_account", "email");
+    }
+
+    static String kakaoProfileImageUrl(Map<String, Object> response) {
+        String image = nestedString(response, "kakao_account", "profile", "profile_image_url");
+        return image.isBlank()
+                ? nestedString(response, "kakao_account", "profile", "thumbnail_image_url")
+                : image;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String nestedString(Map<String, Object> source, String... path) {
+        Object value = source;
+        for (String key : path) {
+            if (!(value instanceof Map<?, ?> map)) return "";
+            value = map.get(key);
+        }
+        return value instanceof String text ? text.trim() : "";
     }
 
     private Map<String, Object> fetchKakaoUserInfo(String accessToken) {
