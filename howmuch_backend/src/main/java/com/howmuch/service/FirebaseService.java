@@ -76,6 +76,7 @@ public class FirebaseService {
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
 
     /** 커뮤니티 피드 인메모리 캐시 (60초 TTL, N+1 Firestore 읽기 및 쿼터 보호) */
+    private final Object feedsCacheLock = new Object();
     private volatile List<com.howmuch.dto.FeedResponseDto> cachedFeeds = null;
     private volatile long lastFeedsCacheTime = 0L;
     private static final long FEEDS_CACHE_TTL_MS = 60_000L;
@@ -206,7 +207,7 @@ public class FirebaseService {
                     })
                     .toList();
             cachedUserStores = List.copyOf(userStores);
-            cachedFeeds = null;
+            invalidateCommunityFeedCache();
             log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
         } catch (Exception e) {
             log.warn("사용자 제보 매장 로드 실패로 기존 캐시를 유지합니다: {}",
@@ -486,7 +487,7 @@ public class FirebaseService {
         List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
         updated.add(data);
         cachedUserStores = List.copyOf(updated);
-        cachedFeeds = null;
+        invalidateCommunityFeedCache();
 
         return docRef.getId();
     }
@@ -529,7 +530,7 @@ public class FirebaseService {
         cachedUserStores = cachedUserStores.stream()
                 .map(item -> reportId.equals(item.get("id")) ? mergedData : item)
                 .toList();
-        cachedFeeds = null;
+        invalidateCommunityFeedCache();
 
         List<String> removedImages = existingImageUrls.stream()
                 .filter(url -> !report.getImageUrls().contains(url))
@@ -589,7 +590,7 @@ public class FirebaseService {
         cachedUserStores = cachedUserStores.stream()
                 .filter(item -> !reportId.equals(item.get("id")))
                 .toList();
-        cachedFeeds = null;
+        invalidateCommunityFeedCache();
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -1074,7 +1075,7 @@ public class FirebaseService {
                 })
                 .toList();
         cachedUserStores = List.copyOf(updated);
-        cachedFeeds = null;
+        invalidateCommunityFeedCache();
     }
 
     private record ReportStatusUpdate(String storeName, String storeId, String changeType) { }
@@ -1209,6 +1210,7 @@ public class FirebaseService {
                 .filter(item -> !firebaseUid.equals(item.get("reporterId")))
                 .toList();
         db.collection("users").document(firebaseUid).delete().get();
+        invalidateCommunityFeedCache();
         result.put("uid", firebaseUid);
         return result;
     }
@@ -1629,11 +1631,13 @@ public class FirebaseService {
         boolean activityPublic = request.getActivityPublic() != null
                 ? request.getActivityPublic()
                 : existingActivityPublic != null && existingActivityPublic;
+        String resolvedEmail = resolveProfileEmail(
+                request.getEmail(), existing.exists() ? existing.get("email") : null);
 
         Map<String, Object> data = new HashMap<>();
         data.put("firebaseUid", firebaseUid);
         data.put("nickname", request.getNickname());
-        data.put("email", request.getEmail());
+        data.put("email", resolvedEmail);
         data.put("region", request.getRegion());
         data.put("favoriteCategories", request.getFavoriteCategories());
         data.put("nicknamePublic", nicknamePublic);
@@ -1646,17 +1650,24 @@ public class FirebaseService {
         data.put("createdAt", createdAt);
         ApiFuture<WriteResult> future = document.set(data, SetOptions.merge());
         future.get();
+        invalidateCommunityFeedCache();
 
         return UserProfileResponse.builder()
                 .firebaseUid(firebaseUid)
                 .nickname(request.getNickname())
-                .email(request.getEmail())
+                .email(resolvedEmail)
                 .region(request.getRegion())
                 .favoriteCategories(request.getFavoriteCategories())
                 .createdAt(createdAt)
                 .nicknamePublic((Boolean) data.get("nicknamePublic"))
                 .activityPublic((Boolean) data.get("activityPublic"))
                 .build();
+    }
+
+    static String resolveProfileEmail(String requestedEmail, Object existingEmailValue) {
+        String requested = requestedEmail == null ? "" : requestedEmail.trim();
+        String existing = existingEmailValue == null ? "" : existingEmailValue.toString().trim();
+        return requested.isBlank() && !existing.isBlank() ? existing : requested;
     }
 
     // 💡 유저 프로필 조회
@@ -2079,9 +2090,15 @@ public class FirebaseService {
         return !"REJECTED".equalsIgnoreCase(status.toString());
     }
 
+    private void invalidateCommunityFeedCache() {
+        synchronized (feedsCacheLock) {
+            cachedFeeds = null;
+            lastFeedsCacheTime = 0L;
+        }
+    }
+
     // 💡 커뮤니티 피드 목록 조회 (최신순, REJECTED 제외)
-    // ⚠️ 쿼터: 호출마다 stores_user 전체 읽기 + 작성자당 users 1회 읽기.
-    //    제보 수 증가 시 인메모리 캐시 패턴 필요 (PROJECT_STATUS 5-2 참조).
+    // 60초 캐시와 단일 갱신 잠금으로 동시 만료 요청의 Firestore 중복 조회를 방지합니다.
     public List<com.howmuch.dto.FeedResponseDto> getCommunityFeeds() throws Exception {
         long now = System.currentTimeMillis();
         List<com.howmuch.dto.FeedResponseDto> cached = cachedFeeds;
@@ -2089,74 +2106,82 @@ public class FirebaseService {
             return cached;
         }
 
-        var documents = db.collection("stores_user")
-                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
-                .limit(Math.max(1, Math.min(communityFeedMaxItems, 1000)))
-                .get().get().getDocuments();
-
-        List<com.howmuch.dto.FeedResponseDto> feeds = new ArrayList<>();
-        Map<String, String> authorCache = new HashMap<>();
-
-        for (DocumentSnapshot doc : documents) {
-            Map<String, Object> data = doc.getData();
-            if (data == null) continue;
-            if (!isFeedVisible(data)) continue; // REJECTED 제외
-
-            String reporterId = (String) data.get("reporterId");
-            String author = "알 수 없음";
-            if (reporterId != null) {
-                if (authorCache.containsKey(reporterId)) {
-                    author = authorCache.get(reporterId);
-                } else {
-                    try {
-                        com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
-                        if (user != null && user.getNickname() != null) {
-                            author = user.getNickname();
-                        }
-                    } catch (Exception e) {
-                        // Ignore
-                    }
-                    authorCache.put(reporterId, author);
-                }
+        synchronized (feedsCacheLock) {
+            now = System.currentTimeMillis();
+            cached = cachedFeeds;
+            if (cached != null && (now - lastFeedsCacheTime < FEEDS_CACHE_TTL_MS)) {
+                return cached;
             }
 
-            String storeName = (String) data.get("storeName");
-            String menu1 = (String) data.get("menu1");
-            String price1 = (String) data.get("price1");
-            String title = (storeName != null ? storeName : "") + " " + (menu1 != null ? menu1 : "") + " " + (price1 != null ? price1 : "");
+            var documents = db.collection("stores_user")
+                    .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
+                    .limit(Math.max(1, Math.min(communityFeedMaxItems, 1000)))
+                    .get().get().getDocuments();
 
-            String cityDistrict = (String) data.get("cityDistrict");
-            String location = cityDistrict != null ? cityDistrict : "알 수 없음";
+            List<com.howmuch.dto.FeedResponseDto> feeds = new ArrayList<>();
+            Map<String, String> authorCache = new HashMap<>();
 
-            String status = (String) data.get("status");
-            if (status == null) status = "PENDING";
+            for (DocumentSnapshot doc : documents) {
+                Map<String, Object> data = doc.getData();
+                if (data == null) continue;
+                if (!isFeedVisible(data)) continue; // REJECTED 제외
 
-            String createdAt = (String) data.get("createdAt");
-            if (createdAt == null) createdAt = "";
+                String reporterId = (String) data.get("reporterId");
+                String author = "알 수 없음";
+                if (reporterId != null) {
+                    if (authorCache.containsKey(reporterId)) {
+                        author = authorCache.get(reporterId);
+                    } else {
+                        try {
+                            com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
+                            if (user != null && user.getNickname() != null) {
+                                author = user.getNickname();
+                            }
+                        } catch (Exception e) {
+                            // Ignore
+                        }
+                        authorCache.put(reporterId, author);
+                    }
+                }
 
-            @SuppressWarnings("unchecked")
-            List<String> imageUrls = (List<String>) data.get("imageUrls");
-            if (imageUrls == null) imageUrls = new ArrayList<>();
+                String storeName = (String) data.get("storeName");
+                String menu1 = (String) data.get("menu1");
+                String price1 = (String) data.get("price1");
+                String title = (storeName != null ? storeName : "") + " " + (menu1 != null ? menu1 : "") + " " + (price1 != null ? price1 : "");
 
-            com.howmuch.dto.FeedResponseDto dto = com.howmuch.dto.FeedResponseDto.builder()
-                    .id(doc.getId())
-                    .location(location)
-                    .title(title.trim())
-                    .author(author)
-                    .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
-                    .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
-                    .status(status)
-                    .imageUrls(imageUrls)
-                    .createdAt(createdAt)
-                    .build();
-            feeds.add(dto);
+                String cityDistrict = (String) data.get("cityDistrict");
+                String location = cityDistrict != null ? cityDistrict : "알 수 없음";
+
+                String status = (String) data.get("status");
+                if (status == null) status = "PENDING";
+
+                String createdAt = (String) data.get("createdAt");
+                if (createdAt == null) createdAt = "";
+
+                @SuppressWarnings("unchecked")
+                List<String> imageUrls = (List<String>) data.get("imageUrls");
+                if (imageUrls == null) imageUrls = new ArrayList<>();
+
+                com.howmuch.dto.FeedResponseDto dto = com.howmuch.dto.FeedResponseDto.builder()
+                        .id(doc.getId())
+                        .location(location)
+                        .title(title.trim())
+                        .author(author)
+                        .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
+                        .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
+                        .status(status)
+                        .imageUrls(imageUrls)
+                        .createdAt(createdAt)
+                        .build();
+                feeds.add(dto);
+            }
+
+            // 응답 순서를 방어적으로 한 번 더 보장합니다.
+            feeds.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+            cachedFeeds = List.copyOf(feeds);
+            lastFeedsCacheTime = System.currentTimeMillis();
+            return cachedFeeds;
         }
-
-        // 응답 순서를 방어적으로 한 번 더 보장합니다.
-        feeds.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
-        cachedFeeds = List.copyOf(feeds);
-        lastFeedsCacheTime = now;
-        return feeds;
     }
 
     // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
@@ -2721,6 +2746,8 @@ public class FirebaseService {
             db.collection("stores_user").document(postId).update(updates).get();
         } catch (Exception e) {
             log.warn("커뮤니티 카운터 동기화 실패: postId={}", postId, e);
+        } finally {
+            invalidateCommunityFeedCache();
         }
     }
 

@@ -39,16 +39,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   late bool _activityPublic;
   late String _nickname;
   bool _loaded = false;
-  bool _emailRefreshStarted = false;
+  bool _identityRefreshStarted = false;
   bool _isSaving = false;
+  Future<({String email, String profileImageUrl})>? _identityRefresh;
 
   Future<void> _saveProfile() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
+    await (_identityRefresh ??= ref
+        .read(kakaoLoginServiceProvider)
+        .refreshKakaoIdentity(requestConsent: true));
     final profile = ref.read(userProfileProvider);
+    final auth = ref.read(authStateProvider);
     final saved = await UserProfileApiService().saveProfile(
       nickname: _nickname,
-      email: profile.email,
+      email:
+          usableAccountEmail(profile.email) ??
+          usableAccountEmail(auth.email) ??
+          '',
       region: profile.region,
       favoriteCategories: profile.favoriteCategories,
       nicknamePublic: _nicknamePublic,
@@ -87,12 +95,12 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _activityPublic = profile.activityPublic;
     _nickname = profile.nickname;
     _loaded = true;
-    if (!_emailRefreshStarted) {
-      _emailRefreshStarted = true;
+    if (!_identityRefreshStarted) {
+      _identityRefreshStarted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref
+        _identityRefresh = ref
             .read(kakaoLoginServiceProvider)
-            .refreshKakaoEmail(requestConsent: true);
+            .refreshKakaoIdentity(requestConsent: true);
       });
     }
   }

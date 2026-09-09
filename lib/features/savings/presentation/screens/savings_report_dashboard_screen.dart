@@ -49,6 +49,7 @@ class _SavingsReportDashboardScreenState
 
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
   Future<void> _fetchAll() async {
+    if (_isLoading) return;
     setState(() {
       _isLoading = true;
       _loadFailed = false;
@@ -124,7 +125,7 @@ class _SavingsReportDashboardScreenState
   }
 
   /// GET /api/savings/goal → goalAmount (미설정 시 0)
-  Future<int> _fetchGoal() async {
+  Future<int?> _fetchGoal() async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/savings/goal'),
@@ -138,11 +139,11 @@ class _SavingsReportDashboardScreenState
     } catch (e) {
       debugPrint('절약 목표 조회 오류: $e');
     }
-    return 0;
+    return null;
   }
 
   /// GET /api/favorites → 찜한 매장 개수
-  Future<int> _fetchFavoritesCount() async {
+  Future<int?> _fetchFavoritesCount() async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/favorites'),
@@ -155,11 +156,11 @@ class _SavingsReportDashboardScreenState
     } catch (e) {
       debugPrint('찜 목록 조회 오류: $e');
     }
-    return 0;
+    return null;
   }
 
   /// GET /api/report/my → 내 제보 개수
-  Future<int> _fetchReportsCount() async {
+  Future<int?> _fetchReportsCount() async {
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/report/my'),
@@ -172,16 +173,16 @@ class _SavingsReportDashboardScreenState
     } catch (e) {
       debugPrint('내 제보 조회 오류: $e');
     }
-    return 0;
+    return null;
   }
 
   /// SavingsStatsResponse → 화면용 탭 데이터 구조로 변환
   Map<String, dynamic> _buildTabData(
     String tab,
     Map<String, dynamic>? stats,
-    int goal,
-    int favoritesCount,
-    int reportsCount,
+    int? goal,
+    int? favoritesCount,
+    int? reportsCount,
     DateTime now,
   ) {
     final chartItems = (stats?['chartItems'] as List?) ?? const [];
@@ -198,6 +199,7 @@ class _SavingsReportDashboardScreenState
     }
 
     return {
+      'loaded': stats != null,
       'savedAmount': (stats?['totalSavedAmount'] as num?)?.toInt() ?? 0,
       'goalAmount': goal,
       'visits': (stats?['totalVisits'] as num?)?.toInt() ?? 0,
@@ -451,24 +453,29 @@ class _SavingsReportDashboardScreenState
   Widget _buildDynamicContent() {
     String titlePrefix = '';
     int displayedSaved = 0;
-    int goalAmount = 0;
+    int? goalAmount;
     String chartTitle = '';
     String chartDate = '';
     List<Widget> chartBars = [];
-    int visits = 0, favorites = 0, reports = 0;
+    int visits = 0;
+    int? favorites, reports;
     String recommendationSub = '';
 
     final tabData = _statsData?[_selectedTab];
 
+    if (tabData == null || tabData['loaded'] != true) {
+      return _buildErrorState();
+    }
+
     if (tabData != null) {
       titlePrefix = _selectedTab;
       displayedSaved = (tabData['savedAmount'] as num?)?.toInt() ?? 0;
-      goalAmount = (tabData['goalAmount'] as num?)?.toInt() ?? 0;
+      goalAmount = (tabData['goalAmount'] as num?)?.toInt();
       chartTitle = tabData['chartTitle'] ?? '절약 금액';
       chartDate = tabData['chartDate'] ?? '';
       visits = (tabData['visits'] as num?)?.toInt() ?? 0;
-      favorites = (tabData['favorites'] as num?)?.toInt() ?? 0;
-      reports = (tabData['reports'] as num?)?.toInt() ?? 0;
+      favorites = (tabData['favorites'] as num?)?.toInt();
+      reports = (tabData['reports'] as num?)?.toInt();
       recommendationSub = tabData['recommendation'] ?? '';
 
       final List<dynamic> savings = tabData['savings'] ?? [];
@@ -507,8 +514,8 @@ class _SavingsReportDashboardScreenState
       chartDate = '';
       chartBars = [];
       visits = 0;
-      favorites = 0;
-      reports = 0;
+      favorites = null;
+      reports = null;
       recommendationSub = '데이터를 불러올 수 없습니다';
     }
 
@@ -520,7 +527,7 @@ class _SavingsReportDashboardScreenState
 
     // 목표 달성률은 목표가 적용되는 이번 달에만 표시합니다.
     int percentage = 0;
-    if (_selectedTab == '이번 달' && goalAmount > 0) {
+    if (_selectedTab == '이번 달' && goalAmount != null && goalAmount > 0) {
       percentage = ((displayedSaved / goalAmount) * 100).toInt();
     }
 
@@ -608,7 +615,9 @@ class _SavingsReportDashboardScreenState
                         ),
                         child: Text(
                           _selectedTab == '이번 달'
-                              ? goalAmount > 0
+                              ? goalAmount == null
+                                    ? '목표 정보를 불러오지 못했어요'
+                                    : goalAmount > 0
                                     ? '목표 대비 $percentage% 달성'
                                     : '이번 달 목표가 아직 없어요'
                               : '$visits회 방문 기록 기준',
@@ -716,11 +725,15 @@ class _SavingsReportDashboardScreenState
                 children: [
                   _buildStatCard('$visits', '방문 매장', const Color(0xFF2563EB)),
                   _buildStatCard(
-                    '$favorites',
+                    favorites?.toString() ?? '—',
                     '찜한 매장',
                     const Color(0xFFF97316),
                   ),
-                  _buildStatCard('$reports', '제보 매장', const Color(0xFF10B981)),
+                  _buildStatCard(
+                    reports?.toString() ?? '—',
+                    '제보 매장',
+                    const Color(0xFF10B981),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSizes.itemSpacing),

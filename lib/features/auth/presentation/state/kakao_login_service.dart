@@ -45,38 +45,11 @@ class KakaoLoginService {
       final session = await _authenticateWithBackend(token.accessToken);
       if (session != null) {
         backendSessionEstablished = true;
-        User user = await UserApi.instance.me();
-        var email = usableAccountEmail(user.kakaoAccount?.email) ?? '';
-        if (email.isEmpty && user.kakaoAccount?.emailNeedsAgreement == true) {
-          try {
-            await UserApi.instance.loginWithNewScopes(const ['account_email']);
-            user = await UserApi.instance.me();
-            email = usableAccountEmail(user.kakaoAccount?.email) ?? '';
-          } catch (error) {
-            debugPrint('카카오 이메일 추가 동의를 완료하지 못했습니다: $error');
-          }
-        }
-        final kakaoProfile = user.kakaoAccount?.profile;
-        final profileImageUrl =
-            (kakaoProfile?.profileImageUrl ?? kakaoProfile?.thumbnailImageUrl)
-                ?.toString()
-                .trim() ??
-            '';
+        final identity = await _loadKakaoIdentity(requestConsent: true);
+        final email = identity.email;
+        final profileImageUrl = identity.profileImageUrl;
         // 백엔드가 발급한 공식 uid/세션 토큰을 사용합니다.
         final firebaseUid = session.uid;
-
-        final prefs = await SharedPreferences.getInstance();
-        if (email.isNotEmpty) {
-          await prefs.setString(kakaoEmailPreferenceKey, email);
-        }
-        if (profileImageUrl.isNotEmpty) {
-          await prefs.setString(
-            kakaoProfileImagePreferenceKey,
-            profileImageUrl,
-          );
-        } else {
-          await prefs.remove(kakaoProfileImagePreferenceKey);
-        }
 
         // 💡 인증 상태 업데이트 (firebaseUid + 세션 토큰 포함)
         _ref
@@ -146,33 +119,91 @@ class KakaoLoginService {
   }
 
   Future<String?> refreshKakaoEmail({bool requestConsent = false}) async {
+    final identity = await refreshKakaoIdentity(requestConsent: requestConsent);
+    return usableAccountEmail(identity.email);
+  }
+
+  Future<({String email, String profileImageUrl})> refreshKakaoIdentity({
+    bool requestConsent = false,
+  }) async {
+    final identity = await _loadKakaoIdentity(requestConsent: requestConsent);
+    _ref
+        .read(authStateProvider.notifier)
+        .update(
+          (state) => state.copyWith(
+            email: identity.email.isNotEmpty ? identity.email : state.email,
+            profileImageUrl: identity.profileImageUrl.isNotEmpty
+                ? identity.profileImageUrl
+                : state.profileImageUrl,
+          ),
+        );
+    _ref
+        .read(userProfileProvider.notifier)
+        .update(
+          (state) => state.copyWith(
+            email: identity.email.isNotEmpty ? identity.email : state.email,
+            profileImageUrl: identity.profileImageUrl.isNotEmpty
+                ? identity.profileImageUrl
+                : state.profileImageUrl,
+          ),
+        );
+    return identity;
+  }
+
+  Future<({String email, String profileImageUrl})> _loadKakaoIdentity({
+    required bool requestConsent,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    var email = usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey));
+    var email =
+        usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey)) ?? '';
+    var profileImageUrl = usableProfileImageUrl(
+      prefs.getString(kakaoProfileImagePreferenceKey),
+    );
 
     try {
       var user = await UserApi.instance.me();
-      email = usableAccountEmail(user.kakaoAccount?.email) ?? email;
-      if (email == null &&
-          requestConsent &&
-          user.kakaoAccount?.emailNeedsAgreement == true) {
-        await UserApi.instance.loginWithNewScopes(const ['account_email']);
-        user = await UserApi.instance.me();
-        email = usableAccountEmail(user.kakaoAccount?.email);
+      var account = user.kakaoAccount;
+      var profile = account?.profile;
+      if (requestConsent) {
+        final scopes = missingKakaoIdentityScopes(
+          emailMissing: usableAccountEmail(account?.email) == null,
+          emailNeedsAgreement: account?.emailNeedsAgreement == true,
+          profileImageMissing: usableProfileImageUrl(
+            profile?.profileImageUrl ?? profile?.thumbnailImageUrl,
+          ).isEmpty,
+          profileImageNeedsAgreement:
+              account?.profileImageNeedsAgreement == true,
+        );
+        if (scopes.isNotEmpty) {
+          try {
+            await UserApi.instance.loginWithNewScopes(scopes);
+            user = await UserApi.instance.me();
+            account = user.kakaoAccount;
+            profile = account?.profile;
+          } catch (error) {
+            debugPrint('카카오 계정 정보 추가 동의를 완료하지 못했습니다: $error');
+          }
+        }
+      }
+
+      email = usableAccountEmail(account?.email) ?? email;
+      final latestProfileImageUrl = usableProfileImageUrl(
+        profile?.profileImageUrl ?? profile?.thumbnailImageUrl,
+      );
+      if (latestProfileImageUrl.isNotEmpty) {
+        profileImageUrl = latestProfileImageUrl;
       }
     } catch (error) {
-      debugPrint('카카오 이메일 갱신 실패: $error');
+      debugPrint('카카오 계정 정보 갱신 실패: $error');
     }
 
-    if (email == null) return null;
-    final resolvedEmail = email;
-    await prefs.setString(kakaoEmailPreferenceKey, resolvedEmail);
-    _ref
-        .read(authStateProvider.notifier)
-        .update((state) => state.copyWith(email: resolvedEmail));
-    _ref
-        .read(userProfileProvider.notifier)
-        .update((state) => state.copyWith(email: resolvedEmail));
-    return resolvedEmail;
+    if (email.isNotEmpty) {
+      await prefs.setString(kakaoEmailPreferenceKey, email);
+    }
+    if (profileImageUrl.isNotEmpty) {
+      await prefs.setString(kakaoProfileImagePreferenceKey, profileImageUrl);
+    }
+    return (email: email, profileImageUrl: profileImageUrl);
   }
 
   Future<({String uid, String sessionToken})?> _authenticateWithBackend(

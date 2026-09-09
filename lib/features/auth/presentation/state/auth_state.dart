@@ -9,6 +9,28 @@ String? usableAccountEmail(Object? value) {
   return email;
 }
 
+String usableProfileImageUrl(Object? value) {
+  final raw = value?.toString().trim() ?? '';
+  if (raw.isEmpty) return '';
+  final uri = Uri.tryParse(raw);
+  if (uri == null || !uri.hasAuthority) return '';
+  if (uri.scheme == 'https') return raw;
+  if (uri.scheme == 'http') return uri.replace(scheme: 'https').toString();
+  return '';
+}
+
+List<String> missingKakaoIdentityScopes({
+  required bool emailMissing,
+  required bool emailNeedsAgreement,
+  required bool profileImageMissing,
+  required bool profileImageNeedsAgreement,
+}) {
+  return [
+    if (emailMissing && emailNeedsAgreement) 'account_email',
+    if (profileImageMissing && profileImageNeedsAgreement) 'profile_image',
+  ];
+}
+
 class AuthState {
   const AuthState({
     required this.isLoggedIn,

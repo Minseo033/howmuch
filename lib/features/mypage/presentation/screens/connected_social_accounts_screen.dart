@@ -2,15 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/custom_app_bar.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class ConnectedSocialAccountsScreen extends ConsumerWidget {
+class ConnectedSocialAccountsScreen extends ConsumerStatefulWidget {
   const ConnectedSocialAccountsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConnectedSocialAccountsScreen> createState() =>
+      _ConnectedSocialAccountsScreenState();
+}
+
+class _ConnectedSocialAccountsScreenState
+    extends ConsumerState<ConnectedSocialAccountsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !ref.read(authStateProvider).isLoggedIn) return;
+      ref.read(kakaoLoginServiceProvider).refreshKakaoIdentity();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authStateProvider);
     final profile = ref.watch(userProfileProvider);
     final isLoggedIn = auth.isLoggedIn;
@@ -38,19 +55,37 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                     Container(
                       width: 48,
                       height: 48,
+                      clipBehavior: Clip.antiAlias,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.kakaoYellow,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Text(
-                        'K',
-                        style: TextStyle(
-                          color: AppColors.kakaoBrown,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      child: profile.profileImageUrl.isEmpty
+                          ? const Text(
+                              'K',
+                              style: TextStyle(
+                                color: AppColors.kakaoBrown,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : Image.network(
+                              profile.profileImageUrl,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => const Center(
+                                child: Text(
+                                  'K',
+                                  style: TextStyle(
+                                    color: AppColors.kakaoBrown,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -58,7 +93,9 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            isLoggedIn ? '$provider 로그인' : '로그인 정보 없음',
+                            isLoggedIn && profile.nickname != '게스트'
+                                ? profile.nickname
+                                : (isLoggedIn ? '$provider 로그인' : '로그인 정보 없음'),
                             style: const TextStyle(
                               color: AppColors.textDark,
                               fontSize: 16,
@@ -68,7 +105,7 @@ class ConnectedSocialAccountsScreen extends ConsumerWidget {
                           const SizedBox(height: 4),
                           Text(
                             isLoggedIn
-                                ? (email ?? '이메일 정보 없음')
+                                ? '$provider · ${email ?? '이메일 정보 없음'}'
                                 : '로그인 후 계정 정보를 확인할 수 있어요.',
                             style: const TextStyle(
                               color: AppColors.textMuted,

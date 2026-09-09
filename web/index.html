@@ -33,7 +33,9 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet"></noscript>
   <style>
     html, body {
       width: 100%;
@@ -319,24 +321,6 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script>
-    (async function startFlutterAfterKoreanFont() {
-      if (document.fonts && document.fonts.load) {
-        const fontPromise = document.fonts.load('400 16px "Noto Sans KR"', '가나다라마바사');
-        const fontTimeout = new Promise(function(resolve) {
-          setTimeout(resolve, 600);
-        });
-        try {
-          await Promise.race([fontPromise, fontTimeout]);
-        } catch (_) {
-          // 네트워크 폰트가 지연되거나 실패해도 시스템 한글 폰트로 앱을 즉시 시작합니다.
-        }
-      }
-
-      const bootstrap = document.createElement('script');
-      bootstrap.src = 'flutter_bootstrap.js';
-      document.body.appendChild(bootstrap);
-    })();
-  </script>
+  <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
