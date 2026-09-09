@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -14,10 +17,13 @@ import 'package:howmuch/features/community/presentation/state/user_report_model.
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
+typedef AddressSearch = Future<List<String>> Function(String query);
+
 class ReportCreateScreen extends ConsumerStatefulWidget {
-  const ReportCreateScreen({super.key, this.initialReport});
+  const ReportCreateScreen({super.key, this.initialReport, this.addressSearch});
 
   final UserReportStatus? initialReport;
+  final AddressSearch? addressSearch;
 
   @override
   ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -362,6 +368,43 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
+  Future<List<String>> _searchAddresses(String query) async {
+    final injectedSearch = widget.addressSearch;
+    if (injectedSearch != null) return injectedSearch(query);
+
+    final response = await ApiClient.get(
+      ApiClient.uri('/api/locations/addresses', {'q': query}),
+      headers: ApiClient.authHeaders(),
+    ).timeout(ApiClient.defaultTimeout);
+    if (response.statusCode != 200) {
+      throw const FormatException('주소 검색에 실패했습니다.');
+    }
+
+    final data = ApiClient.decodeJson(response);
+    final addresses = data['addresses'] as List? ?? const [];
+    return addresses
+        .map((value) => value.toString().trim())
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<void> _pickAddress() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => _AddressSearchSheet(search: _searchAddresses),
+    );
+    if (selected != null && mounted) {
+      _addressController.text = selected;
+    }
+  }
+
   Future<String?> _showOptionPicker({
     required String title,
     required List<String> options,
@@ -530,6 +573,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                     categoryController: _categoryController,
                     addressController: _addressController,
                     onCategoryTap: _pickCategory,
+                    onAddressTap: _pickAddress,
                   ),
                   const SizedBox(height: 15.994),
                   const _SectionLabel(title: '가격 정보', required: true),
@@ -900,12 +944,14 @@ class _BasicInfoCard extends StatelessWidget {
     required this.categoryController,
     required this.addressController,
     required this.onCategoryTap,
+    required this.onAddressTap,
   });
 
   final TextEditingController storeController;
   final TextEditingController categoryController;
   final TextEditingController addressController;
   final VoidCallback onCategoryTap;
+  final VoidCallback onAddressTap;
 
   @override
   Widget build(BuildContext context) {
@@ -924,11 +970,313 @@ class _BasicInfoCard extends StatelessWidget {
             onTap: onCategoryTap,
             trailing: _SuffixAction(
               icon: Icons.keyboard_arrow_down_rounded,
+              semanticLabel: '업종 선택',
               onTap: onCategoryTap,
             ),
           ),
           const SizedBox(height: 10),
-          _EditableFormRow(label: '주소 *', controller: addressController),
+          _EditableFormRow(
+            label: '주소 *',
+            controller: addressController,
+            hintText: '도로명 또는 지번 주소 검색',
+            readOnly: true,
+            onTap: onAddressTap,
+            trailing: _SuffixAction(
+              icon: Icons.search_rounded,
+              semanticLabel: '주소 검색',
+              onTap: onAddressTap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddressSearchSheet extends StatefulWidget {
+  const _AddressSearchSheet({required this.search});
+
+  final AddressSearch search;
+
+  @override
+  State<_AddressSearchSheet> createState() => _AddressSearchSheetState();
+}
+
+class _AddressSearchSheetState extends State<_AddressSearchSheet> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+  List<String> _results = const [];
+  bool _isLoading = false;
+  bool _hasSearched = false;
+  bool _hasError = false;
+  int _requestId = 0;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onQueryChanged(String value) {
+    _debounce?.cancel();
+    final query = value.trim();
+    if (query.length < 2) {
+      _requestId++;
+      setState(() {
+        _results = const [];
+        _isLoading = false;
+        _hasSearched = false;
+        _hasError = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _hasError = false;
+    });
+    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+  }
+
+  Future<void> _search(String query) async {
+    final requestId = ++_requestId;
+    try {
+      final results = await widget.search(query);
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _results = results;
+        _isLoading = false;
+        _hasSearched = true;
+        _hasError = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _results = const [];
+        _isLoading = false;
+        _hasSearched = true;
+        _hasError = true;
+      });
+    }
+  }
+
+  void _retry() {
+    final query = _controller.text.trim();
+    if (query.length >= 2) {
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
+      _search(query);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 180),
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: FractionallySizedBox(
+        heightFactor: .78,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ReportCreateStyle.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                '주소 검색',
+                style: TextStyle(
+                  color: ReportCreateStyle.ink,
+                  fontFamily: ReportCreateStyle.fontFamily,
+                  fontFamilyFallback: ReportCreateStyle.fontFallback,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                '도로명이나 지번을 입력하고 정확한 주소를 선택해주세요.',
+                style: TextStyle(
+                  color: ReportCreateStyle.muted,
+                  fontFamily: ReportCreateStyle.fontFamily,
+                  fontFamilyFallback: ReportCreateStyle.fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                key: const ValueKey('report-address-search-input'),
+                controller: _controller,
+                autofocus: true,
+                textInputAction: TextInputAction.search,
+                onChanged: _onQueryChanged,
+                onSubmitted: (value) {
+                  _debounce?.cancel();
+                  if (value.trim().length >= 2) _search(value.trim());
+                },
+                style: const TextStyle(
+                  color: ReportCreateStyle.ink,
+                  fontFamily: ReportCreateStyle.fontFamily,
+                  fontFamilyFallback: ReportCreateStyle.fontFallback,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+                decoration: InputDecoration(
+                  hintText: '예: 테헤란로 123, 서교동 456',
+                  prefixIcon: const Icon(Icons.search_rounded, size: 21),
+                  suffixIcon: _controller.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: '검색어 지우기',
+                          onPressed: () {
+                            _controller.clear();
+                            _onQueryChanged('');
+                          },
+                          icon: const Icon(Icons.close_rounded, size: 19),
+                        ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: ReportCreateStyle.border,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: ReportCreateStyle.border,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: ReportCreateStyle.blue,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Expanded(child: _buildResults()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResults() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    if (_hasError) {
+      return _AddressSearchMessage(
+        icon: Icons.wifi_off_rounded,
+        message: '주소를 불러오지 못했어요.',
+        actionLabel: '다시 시도',
+        onAction: _retry,
+      );
+    }
+    if (!_hasSearched) {
+      return const _AddressSearchMessage(
+        icon: Icons.location_on_outlined,
+        message: '두 글자 이상 입력하면 주소를 찾아드려요.',
+      );
+    }
+    if (_results.isEmpty) {
+      return const _AddressSearchMessage(
+        icon: Icons.search_off_rounded,
+        message: '검색 결과가 없어요. 도로명이나 지번을 확인해주세요.',
+      );
+    }
+
+    return ListView.separated(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: _results.length,
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, color: ReportCreateStyle.border),
+      itemBuilder: (context, index) {
+        final address = _results[index];
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 2),
+          minVerticalPadding: 12,
+          leading: const Icon(
+            Icons.location_on_outlined,
+            color: ReportCreateStyle.blue,
+            size: 22,
+          ),
+          title: Text(
+            address,
+            style: const TextStyle(
+              color: ReportCreateStyle.ink,
+              fontFamily: ReportCreateStyle.fontFamily,
+              fontFamilyFallback: ReportCreateStyle.fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.45,
+            ),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => Navigator.of(context).pop(address),
+        );
+      },
+    );
+  }
+}
+
+class _AddressSearchMessage extends StatelessWidget {
+  const _AddressSearchMessage({
+    required this.icon,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 30, color: ReportCreateStyle.muted),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ReportCreateStyle.muted,
+              fontFamily: ReportCreateStyle.fontFamily,
+              fontFamilyFallback: ReportCreateStyle.fontFallback,
+              fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 8),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
+          ],
         ],
       ),
     );
@@ -1082,6 +1430,7 @@ class _EditableFormRow extends StatelessWidget {
     this.inputFormatters,
     this.readOnly = false,
     this.onTap,
+    this.hintText,
   });
 
   final String label;
@@ -1091,6 +1440,7 @@ class _EditableFormRow extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final bool readOnly;
   final VoidCallback? onTap;
+  final String? hintText;
 
   @override
   Widget build(BuildContext context) {
@@ -1145,11 +1495,19 @@ class _EditableFormRow extends StatelessWidget {
                       fontWeight: FontWeight.w500,
                       height: 1.5,
                     ),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       isCollapsed: true,
                       contentPadding: EdgeInsets.zero,
                       filled: true,
                       fillColor: Colors.white,
+                      hintText: hintText,
+                      hintStyle: const TextStyle(
+                        color: ReportCreateStyle.muted,
+                        fontFamily: ReportCreateStyle.fontFamily,
+                        fontFamilyFallback: ReportCreateStyle.fontFallback,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
                       border: InputBorder.none,
                       enabledBorder: InputBorder.none,
                       focusedBorder: InputBorder.none,
@@ -1170,20 +1528,24 @@ class _EditableFormRow extends StatelessWidget {
 }
 
 class _SuffixAction extends StatelessWidget {
-  const _SuffixAction({required this.icon, required this.onTap});
+  const _SuffixAction({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
 
   final IconData icon;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 8),
-        child: Icon(icon, size: 18, color: ReportCreateStyle.muted),
-      ),
+    return IconButton(
+      tooltip: semanticLabel,
+      onPressed: onTap,
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      padding: const EdgeInsets.only(left: 8),
+      icon: Icon(icon, size: 18, color: ReportCreateStyle.muted),
     );
   }
 }
