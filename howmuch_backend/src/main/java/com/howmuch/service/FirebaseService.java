@@ -395,8 +395,7 @@ public class FirebaseService {
         String currentPrice = findMenuPrice(store, resolvedMenu);
         List<Map<String, Object>> history = new ArrayList<>();
 
-        for (DocumentSnapshot document : db.collection("stores_user").get().get().getDocuments()) {
-            Map<String, Object> report = document.getData();
+        for (Map<String, Object> report : cachedUserStores) {
             if (report == null || !isPubliclyVisible(report)) continue;
             Map<String, Object> normalized = withStableStoreId(report);
             if (!String.valueOf(store.get("storeId")).equals(String.valueOf(normalized.get("storeId")))) {

@@ -131,96 +131,109 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) return;
 
-    // 1) 프로필 (닉네임/이메일/지역/관심 카테고리)
-    try {
-      final profile = await UserProfileApiService().fetchProfile();
-      if (profile != null && mounted) {
+    // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
+    final profileFuture = UserProfileApiService().fetchProfile().catchError((e) {
+      debugPrint('마이페이지 프로필 로드 오류: $e');
+      return null;
+    });
+
+    final savingsFuture = ApiClient.get(
+      ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout).then<Map<String, dynamic>?>((res) {
+      if (res.statusCode == 200) {
+        return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+      }
+      return null;
+    }).catchError((e) {
+      debugPrint('마이페이지 절약 통계 로드 오류: $e');
+      return null;
+    });
+
+    final favoritesFuture = ApiClient.get(
+      ApiClient.uri('/api/favorites'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+        return decoded is List ? decoded.length : 0;
+      }
+      return null;
+    }).catchError((e) {
+      debugPrint('마이페이지 찜 수 로드 오류: $e');
+      return null;
+    });
+
+    final reportsFuture = ApiClient.get(
+      ApiClient.uri('/api/report/my'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
+      if (res.statusCode == 200) {
+        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+        return decoded is List ? decoded.length : 0;
+      }
+      return null;
+    }).catchError((e) {
+      debugPrint('마이페이지 제보 수 로드 오류: $e');
+      return null;
+    });
+
+    final results = await Future.wait([
+      profileFuture,
+      savingsFuture,
+      favoritesFuture,
+      reportsFuture,
+    ]);
+
+    if (!mounted) return;
+
+    final profile = results[0] as Map<String, dynamic>?;
+    final savingsData = results[1] as Map<String, dynamic>?;
+    final favoriteCount = results[2] as int?;
+    final reportCount = results[3] as int?;
+
+    ref.read(userProfileProvider.notifier).update((state) {
+      var next = state;
+      if (profile != null) {
         final rawCategories = profile['favoriteCategories'];
         final categories = rawCategories is List
             ? rawCategories.map((e) => e.toString()).toList()
             : null;
-        ref
-            .read(userProfileProvider.notifier)
-            .update(
-              (state) => state.copyWith(
-                nickname: profile['nickname']?.toString(),
-                email:
-                    usableAccountEmail(profile['email']) ??
-                    usableAccountEmail(auth.email) ??
-                    state.email,
-                region: profile['region']?.toString(),
-                favoriteCategories: categories,
-                nicknamePublic: profile['nicknamePublic'] is bool
-                    ? profile['nicknamePublic'] as bool
-                    : null,
-                activityPublic: profile['activityPublic'] is bool
-                    ? profile['activityPublic'] as bool
-                    : null,
-              ),
-            );
-      } else if (mounted) {
+        next = next.copyWith(
+          nickname: profile['nickname']?.toString(),
+          email: usableAccountEmail(profile['email']) ??
+              usableAccountEmail(auth.email) ??
+              state.email,
+          region: profile['region']?.toString(),
+          favoriteCategories: categories,
+          nicknamePublic: profile['nicknamePublic'] is bool
+              ? profile['nicknamePublic'] as bool
+              : null,
+          activityPublic: profile['activityPublic'] is bool
+              ? profile['activityPublic'] as bool
+              : null,
+        );
+      } else {
         // 프로필 미등록 사용자라도 로그인 이메일은 표시
-        ref
-            .read(userProfileProvider.notifier)
-            .update((state) => state.copyWith(email: auth.email));
+        next = next.copyWith(email: auth.email);
       }
-    } catch (e) {
-      debugPrint('마이페이지 프로필 로드 오류: $e');
-    }
 
-    // 2) 이번 달 절약 금액
-    try {
-      final res = await ApiClient.get(
-        ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
-      if (res.statusCode == 200 && mounted) {
-        final data = jsonDecode(utf8.decode(res.bodyBytes));
-        final saved = (data['totalSavedAmount'] as num?)?.toInt() ?? 0;
-        final visits = (data['totalVisits'] as num?)?.toInt() ?? 0;
-        ref
-            .read(userProfileProvider.notifier)
-            .update(
-              (state) => state.copyWith(savedAmount: saved, visitCount: visits),
-            );
+      if (savingsData != null) {
+        final saved = (savingsData['totalSavedAmount'] as num?)?.toInt() ?? 0;
+        final visits = (savingsData['totalVisits'] as num?)?.toInt() ?? 0;
+        next = next.copyWith(savedAmount: saved, visitCount: visits);
       }
-    } catch (e) {
-      debugPrint('마이페이지 절약 통계 로드 오류: $e');
-    }
 
-    // 3) 찜한 매장 수
-    try {
-      final res = await ApiClient.get(
-        ApiClient.uri('/api/favorites'),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
-      if (res.statusCode == 200 && mounted) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        final count = decoded is List ? decoded.length : 0;
-        ref
-            .read(userProfileProvider.notifier)
-            .update((state) => state.copyWith(favoriteStoreCount: count));
+      if (favoriteCount != null) {
+        next = next.copyWith(favoriteStoreCount: favoriteCount);
       }
-    } catch (e) {
-      debugPrint('마이페이지 찜 수 로드 오류: $e');
-    }
 
-    // 4) 제보 수
-    try {
-      final res = await ApiClient.get(
-        ApiClient.uri('/api/report/my'),
-        headers: ApiClient.jsonHeaders(auth: true),
-      ).timeout(ApiClient.defaultTimeout);
-      if (res.statusCode == 200 && mounted) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        final count = decoded is List ? decoded.length : 0;
-        ref
-            .read(userProfileProvider.notifier)
-            .update((state) => state.copyWith(reportCount: count));
+      if (reportCount != null) {
+        next = next.copyWith(reportCount: reportCount);
       }
-    } catch (e) {
-      debugPrint('마이페이지 제보 수 로드 오류: $e');
-    }
+
+      return next;
+    });
   }
 
   @override

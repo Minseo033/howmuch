@@ -47,7 +47,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     _ctrl.forward();
 
-    _timer = Timer(const Duration(milliseconds: 2500), _routeAfterSplash);
+    _timer = Timer(const Duration(milliseconds: 1200), _routeAfterSplash);
   }
 
   Future<void> _routeAfterSplash() async {

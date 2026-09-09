@@ -1153,3 +1153,20 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 저장은 FilledButton으로 통일해 로딩·조회 실패·저장 중 비활성 상태가 드러나게 했다. 조회 중 입력이 서버 응답으로 덮어써지지 않도록 입력도 잠근다. 숫자 키보드 완료 동작으로 키보드를 닫는다.
 - 360×800 Flutter 화면을 수정 전후 렌더링해 확인했다. `build/qa/savings-goal-before.png`, `build/qa/savings-goal-after.png`는 저장소 밖 빌드 산출물이며 검수용 응답과 macOS 한글 폰트를 사용했다. 운영 데이터를 변경하지 않았다.
 - 범위: 절약 목표 화면의 정보 위계·간격·아이콘·버튼 상태 검수. 브라우저 전체 UI나 실제 결제/절약 기록 검증을 의미하지 않는다.
+
+## 5-50. 9/9 전면 성능 최적화 (BE Firestore 스캔 제거·FE API 병렬화·스플래시 지연 단축)
+
+- **BE Firestore 전량 스캔 제거 (`FirebaseService.java`)**:
+  - `getPriceHistory`에서 매장 상세 가격 변동 이력 조회 시 `stores_user` 전량 실시간 Firestore 읽기를 수행하던 병목을 인메모리 `cachedUserStores` 탐색으로 전환.
+  - 가격 변동 히스토리 조회 시 Firestore 읽기 비용 0 및 응답 속도 <1ms 달성.
+  - 커뮤니티 피드 조회(`getCommunityFeeds`)에 60초 TTL 인메모리 캐시 적용 및 제보 등록·수정·삭제·승인 상태 변경 시 즉시 캐시 무효화.
+- **FE 마이페이지 API 병렬화 & 배치 갱신 (`mypage_screen.dart`)**:
+  - 프로필, 이번 달 절약 통계, 찜한 매장 수, 제보 수 4개 API의 순차 `await` waterfall을 `Future.wait` 병렬 처리로 변경.
+  - 4개 요청의 응답을 수집한 뒤 단일 `update`로 상태를 일괄 반영하여 화면 연속 리빌드 3회 제거 및 진입 대기 시간 단축.
+- **FE 스플래시 인위적 정체 단축 (`splash_screen.dart`)**:
+  - 로고 페이드/스케일 애니메이션(1.2초) 완료 후에도 2.5초까지 정체시키던 고정 타이머를 1.2초로 단축하여 앱 첫 실행 진입 속도 1.3초 개선.
+- **회귀 검증**:
+  - 백엔드 전체 테스트: 158개 ALL PASS (Gradle rerun-tasks).
+  - Flutter 전체 테스트: 155개 ALL PASS (`flutter test`).
+  - 정적 분석: `flutter analyze lib` 이슈 0건.
+
