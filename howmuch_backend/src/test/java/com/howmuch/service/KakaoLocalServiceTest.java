@@ -7,6 +7,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.ExpectedCount.once;
@@ -61,6 +62,35 @@ class KakaoLocalServiceTest {
         KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
 
         assertThat(service.getCoordinatesFromAddress("좌표 없는 주소")).isNull();
+        server.verify();
+    }
+
+    @Test
+    void searchesPlacesByDistanceAndUsesRoadAddress() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EB%A1%AF%EB%8D%B0%EB%A6%AC%EC%95%84"))
+                .andExpect(queryParam("x", "127.0"))
+                .andExpect(queryParam("y", "37.5"))
+                .andExpect(queryParam("sort", "distance"))
+                .andExpect(header(HttpHeaders.AUTHORIZATION, "KakaoAK test-key"))
+                .andRespond(withSuccess("""
+                        {"documents":[{
+                          "place_name":"롯데리아 역삼점",
+                          "road_address_name":"서울 강남구 테헤란로 123",
+                          "address_name":"서울 강남구 역삼동 123",
+                          "distance":"418"
+                        }]}
+                        """, MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
+
+        List<Map<String, Object>> places = service.searchPlaceSuggestions(
+                "롯데리아", 37.5, 127.0);
+
+        assertThat(places).containsExactly(Map.of(
+                "name", "롯데리아 역삼점",
+                "address", "서울 강남구 테헤란로 123",
+                "distanceMeters", 418));
         server.verify();
     }
 }

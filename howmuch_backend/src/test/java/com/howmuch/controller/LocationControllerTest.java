@@ -18,6 +18,8 @@ class LocationControllerTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
 
         assertThat(controller.searchAddresses("a", request).getStatusCode().value()).isEqualTo(400);
+        assertThat(controller.searchPlaces("롯데리아", 37.5, null, request).getStatusCode().value())
+                .isEqualTo(400);
         assertThat(controller.reverseGeocode(Double.NaN, 127.0, request).getStatusCode().value()).isEqualTo(400);
         verifyNoInteractions(kakao);
     }

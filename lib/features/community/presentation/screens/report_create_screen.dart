@@ -6,6 +6,7 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,13 +18,38 @@ import 'package:howmuch/features/community/presentation/state/user_report_model.
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
-typedef AddressSearch = Future<List<String>> Function(String query);
+class ReportPlaceSuggestion {
+  const ReportPlaceSuggestion({
+    required this.name,
+    required this.address,
+    this.distanceMeters = -1,
+  });
+
+  final String name;
+  final String address;
+  final int distanceMeters;
+}
+
+typedef PlaceSearch =
+    Future<List<ReportPlaceSuggestion>> Function(
+      String query,
+      double? latitude,
+      double? longitude,
+    );
+typedef LocationLookup =
+    Future<({double latitude, double longitude})?> Function();
 
 class ReportCreateScreen extends ConsumerStatefulWidget {
-  const ReportCreateScreen({super.key, this.initialReport, this.addressSearch});
+  const ReportCreateScreen({
+    super.key,
+    this.initialReport,
+    this.placeSearch,
+    this.locationLookup,
+  });
 
   final UserReportStatus? initialReport;
-  final AddressSearch? addressSearch;
+  final PlaceSearch? placeSearch;
+  final LocationLookup? locationLookup;
 
   @override
   ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -368,29 +394,93 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  Future<List<String>> _searchAddresses(String query) async {
-    final injectedSearch = widget.addressSearch;
-    if (injectedSearch != null) return injectedSearch(query);
+  Future<List<ReportPlaceSuggestion>> _searchPlaces(
+    String query,
+    double? latitude,
+    double? longitude,
+  ) async {
+    final injectedSearch = widget.placeSearch;
+    if (injectedSearch != null) {
+      return injectedSearch(query, latitude, longitude);
+    }
+
+    final queryParameters = <String, String>{'q': query};
+    if (latitude != null && longitude != null) {
+      queryParameters
+        ..['lat'] = latitude.toString()
+        ..['lng'] = longitude.toString();
+    }
 
     final response = await ApiClient.get(
-      ApiClient.uri('/api/locations/addresses', {'q': query}),
+      ApiClient.uri('/api/locations/places', queryParameters),
       headers: ApiClient.authHeaders(),
     ).timeout(ApiClient.defaultTimeout);
     if (response.statusCode != 200) {
-      throw const FormatException('주소 검색에 실패했습니다.');
+      throw const FormatException('매장 검색에 실패했습니다.');
     }
 
     final data = ApiClient.decodeJson(response);
-    final addresses = data['addresses'] as List? ?? const [];
-    return addresses
-        .map((value) => value.toString().trim())
-        .where((value) => value.isNotEmpty)
+    final places = data['places'] as List? ?? const [];
+    final results = places
+        .whereType<Map>()
+        .map((place) {
+          final distance = place['distanceMeters'];
+          return ReportPlaceSuggestion(
+            name: place['name']?.toString().trim() ?? '',
+            address: place['address']?.toString().trim() ?? '',
+            distanceMeters: distance is num
+                ? distance.toInt()
+                : int.tryParse(distance?.toString() ?? '') ?? -1,
+          );
+        })
+        .where((place) => place.name.isNotEmpty && place.address.isNotEmpty)
         .toList(growable: false);
+    if (results.isNotEmpty) return results;
+
+    final addressResponse = await ApiClient.get(
+      ApiClient.uri('/api/locations/addresses', {'q': query}),
+      headers: ApiClient.authHeaders(),
+    ).timeout(ApiClient.defaultTimeout);
+    if (addressResponse.statusCode != 200) return const [];
+    final addressData = ApiClient.decodeJson(addressResponse);
+    final addresses = addressData['addresses'] as List? ?? const [];
+    return addresses
+        .map(
+          (value) =>
+              ReportPlaceSuggestion(name: '', address: value.toString().trim()),
+        )
+        .where((place) => place.address.isNotEmpty)
+        .toList(growable: false);
+  }
+
+  Future<({double latitude, double longitude})?> _lookupLocation() async {
+    final injectedLookup = widget.locationLookup;
+    if (injectedLookup != null) return injectedLookup();
+    if (widget.placeSearch != null) return null;
+
+    try {
+      if (!await Geolocator.isLocationServiceEnabled()) return null;
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 8),
+      ).timeout(const Duration(seconds: 10));
+      return (latitude: position.latitude, longitude: position.longitude);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _pickAddress() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final selected = await showModalBottomSheet<String>(
+    final selected = await showModalBottomSheet<ReportPlaceSuggestion>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -398,10 +488,12 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => _AddressSearchSheet(search: _searchAddresses),
+      builder: (context) =>
+          _AddressSearchSheet(search: _searchPlaces, locate: _lookupLocation),
     );
     if (selected != null && mounted) {
-      _addressController.text = selected;
+      _addressController.text = selected.address;
+      if (selected.name.isNotEmpty) _storeController.text = selected.name;
     }
   }
 
@@ -994,9 +1086,10 @@ class _BasicInfoCard extends StatelessWidget {
 }
 
 class _AddressSearchSheet extends StatefulWidget {
-  const _AddressSearchSheet({required this.search});
+  const _AddressSearchSheet({required this.search, required this.locate});
 
-  final AddressSearch search;
+  final PlaceSearch search;
+  final LocationLookup locate;
 
   @override
   State<_AddressSearchSheet> createState() => _AddressSearchSheetState();
@@ -1005,11 +1098,34 @@ class _AddressSearchSheet extends StatefulWidget {
 class _AddressSearchSheetState extends State<_AddressSearchSheet> {
   final _controller = TextEditingController();
   Timer? _debounce;
-  List<String> _results = const [];
+  List<ReportPlaceSuggestion> _results = const [];
   bool _isLoading = false;
+  bool _isLocating = true;
   bool _hasSearched = false;
   bool _hasError = false;
   int _requestId = 0;
+  ({double latitude, double longitude})? _location;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLocation();
+  }
+
+  Future<void> _loadLocation() async {
+    final location = await widget.locate();
+    if (!mounted) return;
+    setState(() {
+      _location = location;
+      _isLocating = false;
+    });
+    final query = _controller.text.trim();
+    if (location != null && query.length >= 2) {
+      _debounce?.cancel();
+      setState(() => _isLoading = true);
+      _search(query);
+    }
+  }
 
   @override
   void dispose() {
@@ -1042,7 +1158,12 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
   Future<void> _search(String query) async {
     final requestId = ++_requestId;
     try {
-      final results = await widget.search(query);
+      final location = _location;
+      final results = await widget.search(
+        query,
+        location?.latitude,
+        location?.longitude,
+      );
       if (!mounted || requestId != _requestId) return;
       setState(() {
         _results = results;
@@ -1096,7 +1217,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
               ),
               const SizedBox(height: 18),
               const Text(
-                '주소 검색',
+                '매장 또는 주소 검색',
                 style: TextStyle(
                   color: ReportCreateStyle.ink,
                   fontFamily: ReportCreateStyle.fontFamily,
@@ -1108,7 +1229,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
               ),
               const SizedBox(height: 4),
               const Text(
-                '도로명이나 지번을 입력하고 정확한 주소를 선택해주세요.',
+                '매장명, 도로명 또는 지번으로 찾아보세요.',
                 style: TextStyle(
                   color: ReportCreateStyle.muted,
                   fontFamily: ReportCreateStyle.fontFamily,
@@ -1117,6 +1238,37 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   fontWeight: FontWeight.w400,
                   height: 1.45,
                 ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    _location != null
+                        ? Icons.my_location_rounded
+                        : Icons.location_off_outlined,
+                    size: 15,
+                    color: _location != null
+                        ? ReportCreateStyle.blue
+                        : ReportCreateStyle.muted,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      _isLocating
+                          ? '현재 위치 확인 중…'
+                          : _location != null
+                          ? '현재 위치에서 가까운 순으로 보여드려요.'
+                          : '위치 권한이 없어 검색 관련도순으로 보여드려요.',
+                      style: const TextStyle(
+                        color: ReportCreateStyle.muted,
+                        fontFamily: ReportCreateStyle.fontFamily,
+                        fontFamilyFallback: ReportCreateStyle.fontFallback,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
               TextField(
@@ -1137,7 +1289,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   fontWeight: FontWeight.w500,
                 ),
                 decoration: InputDecoration(
-                  hintText: '예: 테헤란로 123, 서교동 456',
+                  hintText: '예: 롯데리아, 테헤란로 123',
                   prefixIcon: const Icon(Icons.search_rounded, size: 21),
                   suffixIcon: _controller.text.isEmpty
                       ? null
@@ -1196,14 +1348,14 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
     }
     if (!_hasSearched) {
       return const _AddressSearchMessage(
-        icon: Icons.location_on_outlined,
-        message: '두 글자 이상 입력하면 주소를 찾아드려요.',
+        icon: Icons.storefront_outlined,
+        message: '두 글자 이상 입력하면 매장과 주소를 찾아드려요.',
       );
     }
     if (_results.isEmpty) {
       return const _AddressSearchMessage(
         icon: Icons.search_off_rounded,
-        message: '검색 결과가 없어요. 도로명이나 지번을 확인해주세요.',
+        message: '검색 결과가 없어요. 매장명이나 주소를 확인해주세요.',
       );
     }
 
@@ -1213,17 +1365,20 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
       separatorBuilder: (_, _) =>
           const Divider(height: 1, color: ReportCreateStyle.border),
       itemBuilder: (context, index) {
-        final address = _results[index];
+        final place = _results[index];
+        final hasPlaceName = place.name.isNotEmpty;
         return ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 2),
           minVerticalPadding: 12,
-          leading: const Icon(
-            Icons.location_on_outlined,
+          leading: Icon(
+            hasPlaceName
+                ? Icons.storefront_outlined
+                : Icons.location_on_outlined,
             color: ReportCreateStyle.blue,
             size: 22,
           ),
           title: Text(
-            address,
+            hasPlaceName ? place.name : place.address,
             style: const TextStyle(
               color: ReportCreateStyle.ink,
               fontFamily: ReportCreateStyle.fontFamily,
@@ -1233,11 +1388,44 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
               height: 1.45,
             ),
           ),
-          trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-          onTap: () => Navigator.of(context).pop(address),
+          subtitle: hasPlaceName
+              ? Text(
+                  place.address,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: ReportCreateStyle.muted,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                )
+              : null,
+          trailing: place.distanceMeters >= 0
+              ? Text(
+                  _formatDistance(place.distanceMeters),
+                  style: const TextStyle(
+                    color: ReportCreateStyle.blue,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                )
+              : const Icon(Icons.chevron_right_rounded, size: 20),
+          onTap: () => Navigator.of(context).pop(place),
         );
       },
     );
+  }
+
+  String _formatDistance(int meters) {
+    if (meters < 1000) return '${meters}m';
+    final kilometers = meters / 1000;
+    return kilometers < 10
+        ? '${kilometers.toStringAsFixed(1)}km'
+        : '${kilometers.round()}km';
   }
 }
 

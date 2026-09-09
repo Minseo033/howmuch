@@ -147,6 +147,68 @@ public class KakaoLocalService {
         }
     }
 
+    /** 매장명 키워드로 장소를 검색한다. 좌표가 있으면 가까운 순으로 반환한다. */
+    public List<Map<String, Object>> searchPlaceSuggestions(
+            String query, Double latitude, Double longitude) {
+        if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()
+                || query == null || query.trim().length() < 2 || query.trim().length() > 100) {
+            return List.of();
+        }
+        boolean hasCoordinates = latitude != null && longitude != null
+                && Double.isFinite(latitude) && Double.isFinite(longitude)
+                && latitude >= -90 && latitude <= 90
+                && longitude >= -180 && longitude <= 180;
+        try {
+            UriComponentsBuilder builder = UriComponentsBuilder
+                    .fromHttpUrl("https://dapi.kakao.com/v2/local/search/keyword.json")
+                    .queryParam("query", query.trim())
+                    .queryParam("size", 10);
+            if (hasCoordinates) {
+                builder.queryParam("x", longitude)
+                        .queryParam("y", latitude)
+                        .queryParam("sort", "distance");
+            }
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "KakaoAK " + kakaoRestApiKey);
+            ResponseEntity<String> response = restTemplate.exchange(
+                    builder.build().encode().toUri(), HttpMethod.GET,
+                    new HttpEntity<>(headers), String.class);
+            if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                return List.of();
+            }
+
+            JsonNode documents = objectMapper.readTree(response.getBody()).path("documents");
+            if (!documents.isArray()) return List.of();
+            List<Map<String, Object>> places = new ArrayList<>();
+            for (JsonNode document : documents) {
+                String name = document.path("place_name").asText("").trim();
+                String roadAddress = document.path("road_address_name").asText("").trim();
+                String address = document.path("address_name").asText("").trim();
+                String selectedAddress = roadAddress.isBlank() ? address : roadAddress;
+                if (name.isBlank() || selectedAddress.isBlank()) continue;
+
+                int distanceMeters = -1;
+                String distance = document.path("distance").asText("").trim();
+                if (!distance.isBlank()) {
+                    try {
+                        distanceMeters = Integer.parseInt(distance);
+                    } catch (NumberFormatException ignored) {
+                        // 거리 형식이 비정상이면 장소 정보만 반환한다.
+                    }
+                }
+                places.add(Map.of(
+                        "name", name,
+                        "address", selectedAddress,
+                        "distanceMeters", distanceMeters));
+            }
+            return places;
+        } catch (Exception e) {
+            log.warn("장소 자동완성 요청에 실패했습니다: {}", e.getClass().getSimpleName());
+            return List.of();
+        }
+    }
+
     /** 좌표를 사용자가 읽을 수 있는 행정동 주소와 짧은 동네명으로 변환합니다. */
     public Map<String, String> getRegionFromCoordinates(double latitude, double longitude) {
         if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()

@@ -21,8 +21,14 @@ void main() {
       ProviderScope(
         child: MaterialApp(
           home: ReportCreateScreen(
-            addressSearch: (query) async => [
-              if (query == '테헤란로') '서울 강남구 테헤란로 123',
+            locationLookup: () async => (latitude: 37.5, longitude: 127.0),
+            placeSearch: (query, latitude, longitude) async => [
+              if (query == '롯데리아')
+                const ReportPlaceSuggestion(
+                  name: '롯데리아 역삼점',
+                  address: '서울 강남구 테헤란로 123',
+                  distanceMeters: 418,
+                ),
             ],
           ),
         ),
@@ -32,17 +38,20 @@ void main() {
     await tester.tap(find.byTooltip('주소 검색'));
     await tester.pumpAndSettle();
 
-    expect(find.text('두 글자 이상 입력하면 주소를 찾아드려요.'), findsOneWidget);
+    expect(find.text('현재 위치에서 가까운 순으로 보여드려요.'), findsOneWidget);
+    expect(find.text('두 글자 이상 입력하면 매장과 주소를 찾아드려요.'), findsOneWidget);
     await tester.enterText(
       find.byKey(const ValueKey('report-address-search-input')),
-      '테헤란로',
+      '롯데리아',
     );
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('서울 강남구 테헤란로 123'));
+    expect(find.text('418m'), findsOneWidget);
+    await tester.tap(find.text('롯데리아 역삼점'));
     await tester.pumpAndSettle();
 
+    expect(find.text('롯데리아 역삼점'), findsOneWidget);
     expect(find.text('서울 강남구 테헤란로 123'), findsOneWidget);
   });
 }

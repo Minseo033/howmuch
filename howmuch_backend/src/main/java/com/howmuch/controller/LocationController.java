@@ -37,6 +37,29 @@ public class LocationController {
         return ResponseEntity.ok(Map.of("addresses", addresses));
     }
 
+    @GetMapping("/places")
+    public ResponseEntity<?> searchPlaces(
+            @RequestParam String q,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            HttpServletRequest request) {
+        if (q == null || q.trim().length() < 2 || q.trim().length() > 100) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "장소 검색어는 2~100자로 입력해주세요."));
+        }
+        boolean hasOneCoordinate = (lat == null) != (lng == null);
+        boolean invalidCoordinates = lat != null && lng != null
+                && (!Double.isFinite(lat) || !Double.isFinite(lng)
+                || lat < -90 || lat > 90 || lng < -180 || lng > 180);
+        if (hasOneCoordinate || invalidCoordinates) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "기준 위치가 올바르지 않습니다."));
+        }
+        if (!allowRequest(request)) return rateLimited();
+        return ResponseEntity.ok(Map.of(
+                "places", kakaoLocalService.searchPlaceSuggestions(q, lat, lng)));
+    }
+
     @GetMapping("/region")
     public ResponseEntity<?> reverseGeocode(
             @RequestParam double lat, @RequestParam double lng, HttpServletRequest request) {
