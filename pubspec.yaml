@@ -81,6 +81,11 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
+  # Flutter registers these assets before drawing the first web frame.
+  fonts:
+    - family: Noto Sans KR
+      fonts:
+        - asset: assets/fonts/NotoSansKR-Variable.ttf
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
 

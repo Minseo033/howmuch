@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 export const releaseFiles = [
   'index.html', 'main.dart.js', 'flutter_bootstrap.js', 'flutter.js',
   'flutter_service_worker.js', 'admin.html', 'version.json', 'manifest.json',
+  'assets/FontManifest.json', 'assets/assets/fonts/NotoSansKR-Variable.ttf',
 ];
 const routes = ['/', '/home', '/login'];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');

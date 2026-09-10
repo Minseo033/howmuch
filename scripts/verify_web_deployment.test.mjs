@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { releaseFiles, verifyWebDeployment } from './verify_web_deployment.mjs';
 
@@ -9,7 +9,10 @@ async function fixture(t) {
   const buildDir = await mkdtemp(join(tmpdir(), 'howmuch-deploy-test-'));
   t.after(() => rm(buildDir, { recursive: true, force: true }));
   const files = new Map(releaseFiles.map((file) => [file, `release content: ${file}`]));
-  await Promise.all([...files].map(([file, body]) => writeFile(join(buildDir, file), body)));
+  await Promise.all([...files].map(async ([file, body]) => {
+    await mkdir(dirname(join(buildDir, file)), { recursive: true });
+    await writeFile(join(buildDir, file), body);
+  }));
   return { buildDir, files };
 }
 
@@ -19,7 +22,7 @@ test('matching assets and SPA entry points pass', async (t) => {
     assert.equal(options.redirect, 'manual');
     return new Response(files.get(url.pathname.slice(1)) ?? files.get('index.html'));
   } });
-  assert.equal(results.length, 11);
+  assert.equal(results.length, releaseFiles.length + 3);
   assert.ok(results.every((result) => result.ok));
 });
 
@@ -29,10 +32,11 @@ test('stale app, SPA fallback for a missing script, and broken deep link fail de
     if (url.pathname === '/main.dart.js') return new Response('old release');
     if (url.pathname === '/flutter_bootstrap.js') return new Response(files.get('index.html'));
     if (url.pathname === '/home') return new Response('not the app');
+    if (url.pathname.endsWith('.ttf')) return new Response(files.get('index.html'));
     return new Response(files.get(url.pathname.slice(1)) ?? files.get('index.html'));
   } });
   assert.deepEqual(results.filter((r) => !r.ok).map((r) => r.path), [
-    'main.dart.js', 'flutter_bootstrap.js', '/home',
+    'main.dart.js', 'flutter_bootstrap.js', 'assets/assets/fonts/NotoSansKR-Variable.ttf', '/home',
   ]);
 });
 

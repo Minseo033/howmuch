@@ -17,6 +17,7 @@ class AppTheme {
       useMaterial3: true,
       fontFamily: 'Noto Sans KR',
       fontFamilyFallback: const [
+        'Noto Sans KR',
         'Apple SD Gothic Neo',
         'AppleGothic',
         'Malgun Gothic',
@@ -89,7 +90,10 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: 'Noto Sans KR',
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -98,7 +102,10 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: 'Noto Sans KR',
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -107,7 +114,10 @@ class AppTheme {
             AppSizes.compactTouchTarget,
             AppSizes.compactTouchTarget,
           ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontFamily: 'Noto Sans KR',
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       chipTheme: ChipThemeData(

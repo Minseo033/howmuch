@@ -1304,3 +1304,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 팝업 관련 테스트 7개와 별도 실제 위젯 렌더링 1개, `flutter analyze` 이슈 0건, `git diff --check`를 확인했다. 320×568 및 568×320에서 글자 크기 2배 상태도 검증했다. 전체 테스트·운영 배포는 이번 변경에서 실행하지 않았다.
 - 예시 공지 문구로 렌더링한 미리보기는 `/Users/min/Documents/졸작/HowMuch_공지팝업_2026-09-10.png`에 저장했다.
 - 변경 커밋 `7c0dd0f`를 GitHub `main`에 푸시하고, 웹 빌드 산출물을 Vercel 프로덕션 도메인 `https://howmuch-zeta.vercel.app`에 배포 완료했다. 배포된 `main.dart.js`(4,216,475 bytes)가 로컬 빌드 파일과 완전히 일치함을 검증했다.
+
+## 5-66. 9/10 첫 화면 한글 폰트 깨짐 방지
+
+- 앱 테마는 `Noto Sans KR`을 지정했지만 Flutter 폰트 자산에는 아이콘 글꼴만 등록되어 있었다. HTML의 비동기 Google Fonts CSS는 CanvasKit에 글꼴을 등록하지 않아 첫 렌더링에서 한글이 누락된 뒤 엔진의 대체 폰트 다운로드로 복구되는 구조였다.
+- 공식 Noto Sans KR 가변 폰트 원본(100–900)과 SIL OFL 라이선스를 앱에 포함하고 `pubspec.yaml`에 등록했다. 전체 Unicode 문자 23,174개와 현대 한글 음절 11,172개 포함을 확인했다. 새 공지·매장명도 지원하도록 현재 화면 문구만으로 글꼴을 축소하지 않았다.
+- Flutter 3.44 엔진이 첫 화면 전에 자산 폰트 다운로드·등록을 기다리는 경로를 확인했다. 웹은 같은 파일을 미리 가져오고 외부 Google Fonts CSS를 제거했으며, 실제 `flutter-first-frame` 이벤트까지 CSS 로딩 표시를 제공한다. 임의 시간 지연은 추가하지 않았다. 공통 버튼 테마도 동일 글꼴을 유지한다.
+- `flutter analyze` 이슈 0건, 전체 Flutter 테스트 169개, 배포 검증 도구 테스트 4개, 웹 release 빌드, `git diff --check`를 통과했다. 미리보기에서 폰트 HTTP 200, 로딩 표시 종료 및 온보딩 제목·본문·버튼의 정상 한글 표시를 확인했다. 스크린샷은 표본 화면 검증이며 모든 로딩 순간을 녹화한 것은 아니다.
+- 배포 전 점검: 폰트 원본은 약 10.4 MB이므로 최초 접속은 다운로드 대기가 생길 수 있다. 대신 준비 전 깨진 텍스트 대신 로딩 상태를 제공하고 이후 브라우저 캐시를 활용한다. 기존 인증·서버·데이터·SEO·분석 설정은 변경하지 않아 해당 영역의 전면 감사는 이번 수정 범위에서 제외했다.
+- 운영 반영 및 공개 주소의 자산 SHA-256 검증은 진행 전이다. 복구가 필요하면 기존 정상 배포 `dpl_FZyjwFEwodKSWTxrzNSobhCyHbzt` (`https://web-13h8kgkyz-minseo033s-projects.vercel.app`)에 운영 별칭을 다시 연결한다.
