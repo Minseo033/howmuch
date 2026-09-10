@@ -1410,3 +1410,4 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 읽지 않은 알림 배너를 닫은 뒤 공지 팝업을 막는 상태를 전체 세션 `bool`이 아닌 현재 공지 ID로 범위화했다. 따라서 같은 공지는 배너 종료 직후 중복 팝업이 나오지 않지만, 다른 ID의 새 공지는 같은 앱 실행 중에도 다시 노출된다.
 - 이전 배너를 닫은 뒤 새로운 공지 ID가 팝업으로 노출되는 회귀 테스트를 추가했다.
 - 공지·마이페이지 관련 집중 테스트 27개와 `flutter test` 전체 182개 통과, `flutter analyze` 이슈 0건, `git diff --check` 통과를 확인했다.
+- `flutter build web --release --no-wasm-dry-run`으로 프로덕션 웹 빌드를 생성하고 Vercel 배포 `dpl_3VPhmDAKVmkQHjkzf5TnhJHUJkhD`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다. 배포본의 `index.html`, `main.dart.js`, Noto Sans KR 글꼴과 `/`, `/home`, `/login` 등 공개 파일·주요 경로 정합성 검사는 13/13 PASS했다.
