@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -59,7 +60,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       final action = await showDialog<_NoticeDialogAction>(
         context: navigatorContext,
         barrierDismissible: false,
-        barrierColor: const Color(0x990F172A),
+        barrierColor: const Color(0x660F172A),
         barrierLabel: '공지사항 닫기',
         builder: (context) => _NoticePopup(notice: notice),
       );
@@ -160,232 +161,182 @@ class _NoticePopup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final timeText = notice.timeText.trim();
+    final actionTextStyle = Theme.of(context).textTheme.labelLarge;
 
     return Dialog(
       key: const ValueKey('notice-popup'),
       elevation: 0,
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 360),
+        constraints: const BoxConstraints(maxWidth: 360, maxHeight: 560),
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.surfaceOverlay,
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0x1A0F172A)),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x1F0F172A),
-                blurRadius: 48,
-                offset: Offset(0, 24),
-              ),
-              BoxShadow(
-                color: Color(0x0F0F172A),
-                blurRadius: 12,
-                offset: Offset(0, 6),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(AppRadii.overlay),
+            boxShadow: AppElevation.overlay,
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(AppRadii.overlay),
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.surfaceOverlay,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    color: AppColors.surfaceOverlay,
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary,
-                                      borderRadius: BorderRadius.circular(15),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: const Text(
-                                      '₩',
-                                      style: TextStyle(
-                                        color: AppColors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          '얼마고 업데이트',
-                                          style: TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w700,
-                                            height: 1.3,
-                                          ),
-                                        ),
-                                        if (timeText.isNotEmpty)
-                                          Text(
-                                            '새 기능  ·  $timeText',
-                                            style: const TextStyle(
-                                              color: AppColors.textMuted,
-                                              fontSize: 11,
-                                              height: 1.45,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: '공지사항 닫기',
-                                    onPressed: () => Navigator.of(
-                                      context,
-                                    ).pop(_NoticeDialogAction.close),
-                                    style: IconButton.styleFrom(
-                                      minimumSize: const Size(44, 44),
-                                      foregroundColor: AppColors.textBody,
-                                      backgroundColor: AppColors.background,
-                                    ),
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                notice.title,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.35,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    padding: const EdgeInsets.fromLTRB(24, 16, 12, 8),
+                    child: Row(
                       children: [
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 15,
-                              vertical: 14,
-                            ),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxHeight:
-                                    MediaQuery.sizeOf(context).height * .28,
-                              ),
-                              child: SingleChildScrollView(
-                                child: Text(
-                                  notice.messageText,
-                                  style: const TextStyle(
-                                    color: AppColors.textBody,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.62,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 22),
-                        FilledButton(
-                          onPressed: () => Navigator.of(
-                            context,
-                          ).pop(_NoticeDialogAction.openNotifications),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: AppColors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
+                        Expanded(
+                          child: Wrap(
+                            spacing: AppSpacing.xs,
+                            runSpacing: AppSpacing.xxs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(
-                                '알림함에서 자세히 보기  →',
+                              const Text(
+                                '공지사항',
                                 style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextButton(
-                                onPressed: () => Navigator.of(
-                                  context,
-                                ).pop(_NoticeDialogAction.hideToday),
-                                style: TextButton.styleFrom(
-                                  minimumSize: const Size.fromHeight(44),
-                                  foregroundColor: AppColors.textMuted,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                ),
-                                child: const Text(
-                                  '오늘 하루 보지 않기',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).pop(_NoticeDialogAction.close),
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(56, 44),
-                                foregroundColor: AppColors.textMuted,
-                              ),
-                              child: const Text(
-                                '닫기',
-                                style: TextStyle(
+                                  color: AppColors.textBody,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
+                              if (timeText.isNotEmpty)
+                                Text(
+                                  timeText,
+                                  style: const TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: '공지사항 닫기',
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop(_NoticeDialogAction.close),
+                          style: IconButton.styleFrom(
+                            minimumSize: const Size(44, 44),
+                            foregroundColor: AppColors.textMuted,
+                          ),
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.xl,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              notice.title,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -.4,
+                                height: 1.4,
+                              ),
                             ),
-                          ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            notice.messageText,
+                            style: const TextStyle(
+                              color: AppColors.textBody,
+                              fontSize: 15,
+                              height: 1.65,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pop(_NoticeDialogAction.openNotifications),
+                      style: FilledButton.styleFrom(
+                        textStyle: actionTextStyle,
+                        minimumSize: const Size.fromHeight(48),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
+                        ),
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.button),
+                        ),
+                      ),
+                      child: const Text(
+                        '공지사항 보기',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1, color: AppColors.borderSubtle),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 12, 4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pop(_NoticeDialogAction.hideToday),
+                            style: TextButton.styleFrom(
+                              textStyle: actionTextStyle,
+                              minimumSize: const Size.fromHeight(44),
+                              foregroundColor: AppColors.textMuted,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.xs,
+                                vertical: AppSpacing.xs,
+                              ),
+                              alignment: Alignment.centerLeft,
+                            ),
+                            child: const Text(
+                              '오늘 하루 보지 않기',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        TextButton(
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pop(_NoticeDialogAction.close),
+                          style: TextButton.styleFrom(
+                            textStyle: actionTextStyle,
+                            minimumSize: const Size(48, 44),
+                            foregroundColor: AppColors.textBody,
+                          ),
+                          child: const Text(
+                            '닫기',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
                         ),
                       ],
                     ),
