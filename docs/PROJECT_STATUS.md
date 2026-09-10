@@ -1269,3 +1269,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - `flutter analyze` 이슈 0건, 전체 Flutter 테스트 162개, 웹 release 빌드를 통과했다. 수정 커밋 `4051140`을 GitHub `main`에 푸시했다.
 - 최초 재배포 1회가 저장소 루트를 대상으로 생성되어 운영 별칭 연결 직후 404 검증에 실패했다. 이를 즉시 탐지해 실제 산출물 `build/web`을 배포한 `dpl_BkYhiZ3KfktMPmXRsPCPt71pKUyK`로 운영 주소 `https://howmuch-zeta.vercel.app`를 다시 연결했다. 이후 공개 파일 8개와 주요 경로 3개 검사가 11/11 PASS했다.
 - 최종 운영 검증에서 로그인된 Chrome을 새로고침했을 때 최신 공지 제목 `ㅎㅇ`, 본문, `공지사항 보기`, `오늘 하루 보지 않기`, `닫기`가 포함된 중앙 팝업이 실제 표시되는 것을 확인했다.
+
+## 5-62. 9/10 웹 공지 팝업 시각 디자인 고도화
+
+- Material 3, Apple HIG, Atlassian Design System, IBM Carbon, W3C Alert Dialog 패턴을 비교해 공지 모달의 정보 위계·행동 수·포커스·터치 영역 원칙을 반영했다.
+- 기존의 큰 원형 확성기 아이콘, 균일한 여백, 밝은 파란 CTA 중심 구성을 제거했다. 작은 세로 강조선과 `얼마고 소식 · 상대 시간` 메타 행을 시그니처 요소로 두고, 23px 굵은 제목·여유 있는 본문·짙은 단일 CTA 순으로 시선을 유도한다.
+- 오버레이를 짙은 네이비 스크림으로 조정하고 모달에 저대비 외곽선과 2단 그림자를 적용했다. 모달·CTA의 반경을 역할별로 다르게 구성했으며 닫기와 하루 숨김은 낮은 위계로 유지했다.
+- 닫기 아이콘과 모든 버튼은 최소 44px 터치 영역을 확보했다. 긴 본문은 화면 높이의 28% 안에서 세로 스크롤되며, 기존 포커스 트랩·Escape·명시적 닫기·`오늘 하루 보지 않기` 동작은 유지한다.
+- 360×740 모바일 회귀 테스트를 추가해 새 레이블과 오버플로 없음을 확인했다. `flutter analyze` 이슈 0건, 전체 Flutter 테스트 162개, 웹 release 빌드를 통과했다.
+- 디자인 커밋 `ec2df1a`를 GitHub `main`에 푸시했다. Vercel 배포 `dpl_8D2tvAd2ACfjUArFJ9CnhHB3oWSy`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했고 CDN 전파 후 공개 파일 8개와 주요 경로 3개가 11/11 일치했다. 로그인된 Chrome에서 새 팝업이 실제 표시되는 것을 최종 확인했다.
