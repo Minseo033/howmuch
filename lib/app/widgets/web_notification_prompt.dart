@@ -171,23 +171,23 @@ class _NoticePopup extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: AppColors.surfaceOverlay,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(color: const Color(0x1A0F172A)),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x290F172A),
-                blurRadius: 40,
-                offset: Offset(0, 20),
+                color: Color(0x1F0F172A),
+                blurRadius: 48,
+                offset: Offset(0, 24),
               ),
               BoxShadow(
-                color: Color(0x140F172A),
-                blurRadius: 10,
-                offset: Offset(0, 4),
+                color: Color(0x0F0F172A),
+                blurRadius: 12,
+                offset: Offset(0, 6),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
             child: Material(
               color: Colors.transparent,
               child: Column(
@@ -195,62 +195,61 @@ class _NoticePopup extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(
-                    color: AppColors.ink,
+                    color: AppColors.surfaceOverlay,
                     child: Stack(
                       clipBehavior: Clip.hardEdge,
                       children: [
-                        const Positioned(
-                          right: -5,
-                          top: -30,
-                          child: IgnorePointer(
-                            child: Text(
-                              '₩',
-                              style: TextStyle(
-                                color: Color(0x0FFFFFFF),
-                                fontSize: 126,
-                                fontWeight: FontWeight.w800,
-                                height: 1,
-                              ),
-                            ),
-                          ),
-                        ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 18, 18, 24),
+                          padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Row(
                                 children: [
-                                  const Text(
-                                    '얼마고 소식',
-                                    style: TextStyle(
-                                      color: Color(0xFF93C5FD),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.3,
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      '₩',
+                                      style: TextStyle(
+                                        color: AppColors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                  if (timeText.isNotEmpty) ...[
-                                    const SizedBox(width: 7),
-                                    const Text(
-                                      '·',
-                                      style: TextStyle(
-                                        color: Color(0x80FFFFFF),
-                                        fontSize: 12,
-                                      ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          '얼마고 업데이트',
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                        if (timeText.isNotEmpty)
+                                          Text(
+                                            '새 기능  ·  $timeText',
+                                            style: const TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 11,
+                                              height: 1.45,
+                                            ),
+                                          ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 7),
-                                    Text(
-                                      timeText,
-                                      style: const TextStyle(
-                                        color: Color(0xB3FFFFFF),
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.3,
-                                      ),
-                                    ),
-                                  ],
-                                  const Spacer(),
+                                  ),
                                   IconButton(
                                     tooltip: '공지사항 닫기',
                                     onPressed: () => Navigator.of(
@@ -258,8 +257,8 @@ class _NoticePopup extends StatelessWidget {
                                     ).pop(_NoticeDialogAction.close),
                                     style: IconButton.styleFrom(
                                       minimumSize: const Size(44, 44),
-                                      foregroundColor: const Color(0xCCFFFFFF),
-                                      backgroundColor: const Color(0x14FFFFFF),
+                                      foregroundColor: AppColors.textBody,
+                                      backgroundColor: AppColors.background,
                                     ),
                                     icon: const Icon(
                                       Icons.close_rounded,
@@ -272,7 +271,7 @@ class _NoticePopup extends StatelessWidget {
                               Text(
                                 notice.title,
                                 style: const TextStyle(
-                                  color: AppColors.white,
+                                  color: AppColors.textPrimary,
                                   fontSize: 24,
                                   fontWeight: FontWeight.w800,
                                   height: 1.35,
@@ -289,18 +288,31 @@ class _NoticePopup extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxHeight: MediaQuery.sizeOf(context).height * .28,
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryLight,
+                            borderRadius: BorderRadius.circular(16),
                           ),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              notice.messageText,
-                              style: const TextStyle(
-                                color: AppColors.textBody,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                height: 1.65,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 15,
+                              vertical: 14,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxHeight:
+                                    MediaQuery.sizeOf(context).height * .28,
+                              ),
+                              child: SingleChildScrollView(
+                                child: Text(
+                                  notice.messageText,
+                                  style: const TextStyle(
+                                    color: AppColors.textBody,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.62,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -311,12 +323,12 @@ class _NoticePopup extends StatelessWidget {
                             context,
                           ).pop(_NoticeDialogAction.openNotifications),
                           style: FilledButton.styleFrom(
-                            minimumSize: const Size.fromHeight(50),
+                            minimumSize: const Size.fromHeight(52),
                             backgroundColor: AppColors.primary,
                             foregroundColor: AppColors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(15),
                             ),
                           ),
                           child: const Row(
@@ -324,14 +336,12 @@ class _NoticePopup extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '알림함에서 자세히 보기',
+                                '알림함에서 자세히 보기  →',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              SizedBox(width: 7),
-                              Icon(Icons.arrow_forward_rounded, size: 18),
                             ],
                           ),
                         ),
@@ -339,7 +349,7 @@ class _NoticePopup extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: TextButton.icon(
+                              child: TextButton(
                                 onPressed: () => Navigator.of(
                                   context,
                                 ).pop(_NoticeDialogAction.hideToday),
@@ -350,11 +360,7 @@ class _NoticePopup extends StatelessWidget {
                                     horizontal: 4,
                                   ),
                                 ),
-                                icon: const Icon(
-                                  Icons.schedule_rounded,
-                                  size: 17,
-                                ),
-                                label: const Text(
+                                child: const Text(
                                   '오늘 하루 보지 않기',
                                   style: TextStyle(
                                     fontSize: 13,

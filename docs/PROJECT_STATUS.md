@@ -1288,3 +1288,10 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - `flutter analyze`, Flutter 전체 테스트 164개, 웹 release 빌드, 백엔드 전체 테스트와 `bootJar`, 어드민 HTML 회귀 검사, `git diff --check`를 통과했다. 운영 사용자에게 영향을 주는 실제 공지·푸시 발송은 검증 과정에서 수행하지 않았다.
 - 기능 커밋 `6d07e39`를 GitHub `main`에 푸시했다. Vercel 배포 `dpl_p9ZVD5aP1PhUpPkkeezwRWS4de81`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했고 공개 파일 8개와 주요 경로 3개 검사가 11/11 PASS했다. 로그인된 Chrome에서 새 공지 팝업을 직접 확인했다.
 - Render 운영 백엔드 `/healthz`는 HTTP 200을 반환했고, `/api/admin/notices`의 허용 메서드가 `POST, OPTIONS`인 것을 확인해 새 경로의 운영 반영을 검증했다.
+
+## 5-64. 9/10 Figma 기준 공지 팝업 재설계 적용
+
+- 기존 어두운 헤더·워터마크 방향을 폐기하고 Figma에서 새 시안을 제작했다: [HowMuch — Notice Popup Redesign](https://www.figma.com/design/HUvKnsfYzwFIpLTUlYeLef).
+- 최종 시안은 밝은 표면, 44px 파란 `₩` 브랜드 코인, 업데이트 메타, 23px 헤드라인, 연한 파란 본문 카드, 52px CTA, 낮은 위계의 닫기·오늘 숨김으로 구성했다. 360px 모바일 폭에서 텍스트가 잘리지 않는 것을 Figma 스크린샷으로 확인했다.
+- Flutter `WebNotificationPrompt`를 Figma 구조에 맞춰 교체하되 제목·본문·상대 시간은 실제 공지 데이터에서 계속 동적으로 렌더링한다. 본문은 긴 공지도 카드 내부에서 스크롤된다.
+- Figma `get_design_context` 기준의 간격·색상·반경을 프로젝트 토큰으로 매핑했다. `flutter analyze`, 팝업 회귀 테스트, 전체 Flutter 테스트 164개, 웹 release 빌드를 통과했다.
