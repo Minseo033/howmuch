@@ -100,6 +100,9 @@ void _injectJsBypass() {
         });
 
         if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
+        setTimeout(function() {
+          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+        }, 300);
       });
     };
 

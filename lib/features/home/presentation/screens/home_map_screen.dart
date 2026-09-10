@@ -259,6 +259,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           } else {
             debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
           }
+          if (_isMapReady) {
+            _searchInCurrentArea();
+          }
         }
       } else {
         throw Exception(
@@ -294,6 +297,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _isAllStoresLoaded = true;
         _usingCachedStores = true;
       });
+      if (_isMapReady) {
+        _searchInCurrentArea();
+      }
     } catch (error) {
       debugPrint('저장된 매장 캐시 복원 실패: $error');
     }
@@ -460,6 +466,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           Print.postMessage("Map Initialized on Mobile");
           setTimeout(relayoutMap, 0);
           setTimeout(relayoutMap, 250);
+          setTimeout(requestBounds, 500);
           } catch (error) {
             reportMapError('지도 화면을 준비하지 못했어요. 잠시 후 다시 시도해주세요.');
           }
@@ -860,6 +867,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
     }
     _flushPendingMapPosition();
+
+    // 💡 최초 진입 시 지도를 움직이지 않아도 마커 자동 로드
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _searchInCurrentArea();
+    });
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted && _currentStores.isEmpty) _searchInCurrentArea();
+    });
   }
 
   void _onMapError(String message) {
@@ -903,11 +918,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         position.latitude,
         position.longitude,
       );
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _searchInCurrentArea();
+      });
       return;
     }
     _safeRunJavaScript(
       'setMapCenter(${position.latitude}, ${position.longitude});',
     );
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _searchInCurrentArea();
+    });
   }
 
   void _updateUserHeading(double heading) {

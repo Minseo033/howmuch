@@ -1387,3 +1387,19 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - `flutter analyze --no-pub` 이슈 0건 통과.
   - `flutter test` 전체 178개 테스트 통과.
   - `flutter build web --release --no-wasm-dry-run` 웹 빌드 성공.
+
+## 5-70. 9/10 홈 지도 최초 진입 시 마커 즉시 렌더링 수정
+
+- **문제점**:
+  - 홈 화면(`HomeMapScreen`)에 최초 진입했을 때 화면을 터치하거나 지도를 드래그하기 전까지 매장 마커가 전혀 뜨지 않고, 화면을 살짝이라도 움직여야만 마커가 노출되는 현상 발생.
+  - 카카오맵 SDK는 초기 `Map` 객체 생성 시 자동으로 `idle` 이벤트를 발생시키지 않으며, Dart 측에서도 지도가 준비(`_onMapReady`)되거나 전체 매장 데이터 로드(`_fetchAllStores`, `_restoreCachedStores`) 완료 시점에 현재 영역 검색(`_searchInCurrentArea`)을 자동으로 호출하지 않았던 것이 원인.
+- **반영 내용**:
+  - `kakao_web_helper.dart` & `web/index.html`: 지도 로드 완료(`onKakaoMapReady`) 직후 및 지도 중심 이동(`setKakaoMapCenter`) 후 1회 즉시 `onKakaoMapIdle`을 트리거하도록 초기화 타이머 추가.
+  - `home_map_screen.dart`:
+    - 지도 준비 완료(`_onMapReady`) 시점에 현재 영역 마커 검색(`_searchInCurrentArea`)을 자동 호출.
+    - 매장 데이터 로드 완료(`_fetchAllStores`) 및 로컬 캐시 복원(`_restoreCachedStores`) 시점에 지도가 준비되어 있으면 즉시 마커를 렌더링하도록 연동.
+    - 사용자 현재 위치 이동(`_centerMapOnPosition`) 및 모바일 인라인 지도 초기화 후에도 현재 영역 마커를 자동 로드하도록 보완.
+- **검증**:
+  - `flutter analyze --no-pub` 0 issues 통과.
+  - 지도 관련 테스트(`home_map_bounds_test.dart`, `home_map_store_loader_test.dart`) 및 위젯 테스트 전체 통과.
+  - `flutter build web --release --no-wasm-dry-run` 웹 빌드 성공.
