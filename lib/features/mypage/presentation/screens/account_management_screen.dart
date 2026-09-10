@@ -4,8 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
-import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -34,7 +34,7 @@ class AccountManagementScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(userProfileProvider);
     final auth = ref.watch(authStateProvider);
-    final permissions = ref.watch(permissionSettingsProvider);
+    final location = ref.watch(locationAccessProvider);
     final email =
         usableAccountEmail(profile.email) ??
         usableAccountEmail(auth.email) ??
@@ -94,9 +94,23 @@ class AccountManagementScreen extends ConsumerWidget {
                   child: _AccountInfoCard(
                     profile: profile,
                     provider: provider,
-                    locationAllowed: permissions.location,
+                    locationAccess: location.valueOrNull,
                     onSocialAccounts: () =>
                         context.go(AppRoutes.connectedSocialAccounts),
+                    onLocationTap: () async {
+                      final service = ref.read(devicePermissionServiceProvider);
+                      final access =
+                          location.valueOrNull ?? DeviceAccess.unknown;
+                      if (access == DeviceAccess.denied) {
+                        await service.requestLocation();
+                      } else if (access != DeviceAccess.allowed) {
+                        await service.openSettings(
+                          locationService: access == DeviceAccess.serviceOff,
+                        );
+                      }
+                      if (!context.mounted) return;
+                      ref.invalidate(locationAccessProvider);
+                    },
                   ),
                 ),
                 Positioned(
@@ -290,14 +304,16 @@ class _AccountInfoCard extends StatelessWidget {
   const _AccountInfoCard({
     required this.profile,
     required this.provider,
-    required this.locationAllowed,
+    required this.locationAccess,
     required this.onSocialAccounts,
+    required this.onLocationTap,
   });
 
   final UserProfile profile;
   final String provider;
-  final bool locationAllowed;
+  final DeviceAccess? locationAccess;
   final VoidCallback onSocialAccounts;
+  final VoidCallback onLocationTap;
 
   @override
   Widget build(BuildContext context) {
@@ -314,11 +330,18 @@ class _AccountInfoCard extends StatelessWidget {
           const _CardDivider(),
           _AccountRow(
             title: '위치 정보 사용 관리',
-            value: locationAllowed ? '허용' : '허용 안 됨',
-            valueColor: locationAllowed
+            value: switch (locationAccess) {
+              DeviceAccess.allowed => '허용',
+              DeviceAccess.blocked => '설정 필요',
+              DeviceAccess.serviceOff => '꺼짐',
+              null => '확인 중',
+              _ => '허용 안 됨',
+            },
+            valueColor: locationAccess == DeviceAccess.allowed
                 ? AccountManagementScreen.green
                 : AccountManagementScreen.muted,
             boldValue: true,
+            onTap: onLocationTap,
           ),
         ],
       ),

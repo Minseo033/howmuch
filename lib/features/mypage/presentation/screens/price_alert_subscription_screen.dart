@@ -6,7 +6,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
-class PriceAlertSubscriptionScreen extends ConsumerWidget {
+class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   const PriceAlertSubscriptionScreen({super.key});
 
   static const blue = AppColors.primary;
@@ -29,7 +29,42 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PriceAlertSubscriptionScreen> createState() =>
+      _PriceAlertSubscriptionScreenState();
+}
+
+class _PriceAlertSubscriptionScreenState
+    extends ConsumerState<PriceAlertSubscriptionScreen> {
+  bool _isSaving = false;
+  PriceAlertSettings? _savedSettings;
+
+  Future<void> _leave(PriceAlertSettings settings) async {
+    if (_isSaving) return;
+    if (_savedSettings != null && !settings.sameAs(_savedSettings!)) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('저장하지 않고 나갈까요?'),
+          content: const Text('변경한 가격 알림 설정은 아직 저장되지 않았어요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('계속 편집'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('나가기'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || discard != true) return;
+    }
+    context.go(AppRoutes.notificationSettings);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settingsState = ref.watch(priceAlertSettingsProvider);
     return settingsState.when(
       loading: () => const _PriceAlertLoading(),
@@ -40,15 +75,14 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
         onRetry: () =>
             ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
       ),
-      data: (settings) => _buildContent(context, ref, settings),
+      data: (settings) {
+        _savedSettings ??= settings;
+        return _buildContent(context, settings);
+      },
     );
   }
 
-  Widget _buildContent(
-    BuildContext context,
-    WidgetRef ref,
-    PriceAlertSettings settings,
-  ) {
+  Widget _buildContent(BuildContext context, PriceAlertSettings settings) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -56,6 +90,7 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
     final scrollContentHeight = 592 + topOffset + footerHeight + 24;
 
     void update(PriceAlertSettings value) {
+      if (_isSaving) return;
       ref.read(priceAlertSettingsProvider.notifier).updateLocal(value);
     }
 
@@ -77,152 +112,156 @@ class PriceAlertSubscriptionScreen extends ConsumerWidget {
       );
     }
 
-    return FigmaMobileCanvas(
-      backgroundColor: AppColors.white,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      right: 20,
-                      height: 20.142044067382812,
-                      child: const Text(
-                        '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
-                        style: _descriptionText,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave(settings);
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: AppColors.white,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: scrollContentHeight,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 20,
+                        top: 64.8720703125 + topOffset,
+                        right: 20,
+                        height: 20.142044067382812,
+                        child: const Text(
+                          '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
+                          style: _descriptionText,
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 99.00537109375 + topOffset,
-                      right: 20,
-                      height: 69.2897720336914,
-                      child: _AllAlertCard(
-                        value: settings.all,
-                        onTap: () {
-                          if (settings.stores.isEmpty) return;
-                          final next = !settings.all;
-                          update(
-                            settings.copyWith(
-                              all: next,
-                              stores: [
-                                for (final store in settings.stores)
-                                  store.copyWith(enabled: next),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 184.28955078125 + topOffset,
-                      child: const _SectionLabel('매장별 알림'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 208.7783203125 + topOffset,
-                      right: 20,
-                      height: 223.86363220214844,
-                      child: Column(
-                        children: [
-                          if (settings.stores.isEmpty)
-                            const _EmptyStoreAlert()
-                          else
-                            for (
-                              var i = 0;
-                              i < settings.stores.length;
-                              i++
-                            ) ...[
-                              _StoreAlertCard(
-                                store: settings.stores[i],
-                                onTap: () => updateStore(i),
+                      Positioned(
+                        left: 20,
+                        top: 99.00537109375 + topOffset,
+                        right: 20,
+                        height: 69.2897720336914,
+                        child: _AllAlertCard(
+                          value: settings.all,
+                          onTap: () {
+                            if (settings.stores.isEmpty) return;
+                            final next = !settings.all;
+                            update(
+                              settings.copyWith(
+                                all: next,
+                                stores: [
+                                  for (final store in settings.stores)
+                                    store.copyWith(enabled: next),
+                                ],
                               ),
-                              if (i != settings.stores.length - 1)
-                                const SizedBox(height: 7.997),
-                            ],
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 452.64208984375 + topOffset,
-                      child: const _SectionLabel('알림 조건'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 477.13037109375 + topOffset,
-                      right: 20,
-                      height: 163.59375,
-                      child: _ConditionCard(
-                        settings: settings,
-                        onRiseTap: () => update(
-                          settings.copyWith(
-                            notifyOnRise: !settings.notifyOnRise,
-                          ),
-                        ),
-                        onDropTap: () => update(
-                          settings.copyWith(
-                            notifyOnDrop: !settings.notifyOnDrop,
-                          ),
-                        ),
-                        onNewMenuTap: () => update(
-                          settings.copyWith(
-                            notifyOnNewMenu: !settings.notifyOnNewMenu,
-                          ),
+                            );
+                          },
                         ),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        left: 20,
+                        top: 184.28955078125 + topOffset,
+                        child: const _SectionLabel('매장별 알림'),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 208.7783203125 + topOffset,
+                        right: 20,
+                        height: 223.86363220214844,
+                        child: settings.stores.isEmpty
+                            ? const _EmptyStoreAlert()
+                            : ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: settings.stores.length,
+                                itemBuilder: (_, index) => _StoreAlertCard(
+                                  store: settings.stores[index],
+                                  onTap: () => updateStore(index),
+                                ),
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 7.997),
+                              ),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 452.64208984375 + topOffset,
+                        child: const _SectionLabel('알림 조건'),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 477.13037109375 + topOffset,
+                        right: 20,
+                        height: 163.59375,
+                        child: _ConditionCard(
+                          settings: settings,
+                          onRiseTap: () => update(
+                            settings.copyWith(
+                              notifyOnRise: !settings.notifyOnRise,
+                            ),
+                          ),
+                          onDropTap: () => update(
+                            settings.copyWith(
+                              notifyOnDrop: !settings.notifyOnDrop,
+                            ),
+                          ),
+                          onNewMenuTap: () => update(
+                            settings.copyWith(
+                              notifyOnNewMenu: !settings.notifyOnNewMenu,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          _Header(
-            topOffset: topOffset,
-            title: '가격 알림 구독',
-            onBack: () => context.go(AppRoutes.notificationSettings),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            right: 0,
-            height: footerHeight,
-            child: _StickyButton(
-              safeBottom: bottomOffset,
-              label: '설정 저장',
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                messenger.clearSnackBars();
-                final saved = await ref
-                    .read(priceAlertSettingsProvider.notifier)
-                    .saveSettings(settings);
-                if (!context.mounted) return;
-                if (!saved) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
-                    ),
-                  );
-                  return;
-                }
-                context.go(AppRoutes.notificationSettings);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('가격 알림을 저장했어요.')),
-                );
-              },
+            _Header(
+              topOffset: topOffset,
+              title: '가격 알림 구독',
+              onBack: () => _leave(settings),
             ),
-          ),
-        ],
+            Positioned(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              height: footerHeight,
+              child: _StickyButton(
+                safeBottom: bottomOffset,
+                label: _isSaving ? '저장 중...' : '설정 저장',
+                onPressed: () async {
+                  if (_isSaving) return;
+                  setState(() => _isSaving = true);
+                  final messenger = ScaffoldMessenger.of(context);
+                  messenger.clearSnackBars();
+                  final saved = await ref
+                      .read(priceAlertSettingsProvider.notifier)
+                      .saveSettings(settings);
+                  if (!context.mounted) return;
+                  if (!saved) {
+                    setState(() => _isSaving = false);
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
+                      ),
+                    );
+                    return;
+                  }
+                  _savedSettings = settings;
+                  setState(() => _isSaving = false);
+                  context.go(AppRoutes.notificationSettings);
+                  messenger.showSnackBar(
+                    const SnackBar(content: Text('가격 알림을 저장했어요.')),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

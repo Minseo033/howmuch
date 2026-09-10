@@ -1664,6 +1664,47 @@ public class FirebaseService {
                 .build();
     }
 
+    /** No writes occur until every requested store is owned by this user. */
+    public void savePriceAlertSettings(String uid, com.howmuch.dto.PriceAlertBatchRequest request)
+            throws Exception {
+        if (request == null || request.getStores() == null || request.getStores().size() > 400
+                || request.getNotifyOnRise() == null || request.getNotifyOnDrop() == null
+                || request.getNotifyOnNewMenu() == null) {
+            throw new IllegalArgumentException("가격 알림 설정이 올바르지 않습니다.");
+        }
+        Map<String, List<DocumentReference>> owned = new HashMap<>();
+        if (!request.getStores().isEmpty()) {
+            for (DocumentSnapshot favorite : db.collection("favorites")
+                    .whereEqualTo("userId", uid).get().get().getDocuments()) {
+                owned.computeIfAbsent(canonicalStoreIdForFavorite(favorite.getData()),
+                        key -> new ArrayList<>()).add(favorite.getReference());
+            }
+        }
+        Map<DocumentReference, Boolean> updates = new HashMap<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (var preference : request.getStores()) {
+            if (preference == null || preference.getStoreId() == null
+                    || preference.getStoreId().isBlank() || preference.getEnabled() == null
+                    || !seen.add(preference.getStoreId())) {
+                throw new IllegalArgumentException("중복되거나 잘못된 매장 설정입니다.");
+            }
+            var references = owned.get(preference.getStoreId());
+            if (references == null) throw new NoSuchElementException("찜한 매장을 찾을 수 없습니다.");
+            for (var reference : references) updates.put(reference, preference.getEnabled());
+        }
+        if (updates.size() > 499) throw new IllegalArgumentException("한 번에 저장할 수 있는 매장 수를 초과했습니다.");
+        var batch = db.batch();
+        for (var update : updates.entrySet()) {
+            batch.update(update.getKey(), "priceAlertEnabled", update.getValue());
+        }
+        batch.set(db.collection("notification_settings").document(uid), Map.of(
+                "notifyOnRise", request.getNotifyOnRise(),
+                "notifyOnDrop", request.getNotifyOnDrop(),
+                "notifyOnNewMenu", request.getNotifyOnNewMenu(),
+                "updatedAt", java.time.Instant.now().toString()), SetOptions.merge());
+        batch.commit().get();
+    }
+
     static String resolveProfileEmail(String requestedEmail, Object existingEmailValue) {
         String requested = requestedEmail == null ? "" : requestedEmail.trim();
         String existing = existingEmailValue == null ? "" : existingEmailValue.toString().trim();
@@ -3160,14 +3201,14 @@ public class FirebaseService {
         data.put("report", normalized.getReport());
         data.put("price", normalized.getPrice());
         data.put("todayPick", normalized.getTodayPick());
-        data.put("notifyOnRise", normalized.getNotifyOnRise());
-        data.put("notifyOnDrop", normalized.getNotifyOnDrop());
-        data.put("notifyOnNewMenu", normalized.getNotifyOnNewMenu());
+        if (requested.getNotifyOnRise() != null) data.put("notifyOnRise", normalized.getNotifyOnRise());
+        if (requested.getNotifyOnDrop() != null) data.put("notifyOnDrop", normalized.getNotifyOnDrop());
+        if (requested.getNotifyOnNewMenu() != null) data.put("notifyOnNewMenu", normalized.getNotifyOnNewMenu());
         data.put("quietHours", normalized.getQuietHours());
         data.put("quietStart", normalized.getQuietStart());
         data.put("quietEnd", normalized.getQuietEnd());
         data.put("updatedAt", java.time.Instant.now().toString());
-        db.collection("notification_settings").document(firebaseUid).set(data).get();
+        db.collection("notification_settings").document(firebaseUid).set(data, SetOptions.merge()).get();
         return normalized;
     }
 

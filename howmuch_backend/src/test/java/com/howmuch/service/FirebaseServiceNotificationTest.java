@@ -8,6 +8,8 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.SetOptions;
+import com.howmuch.dto.NotificationSettingsDto;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -19,8 +21,49 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 
 class FirebaseServiceNotificationTest {
+
+    @Test
+    void generalSettingsSaveDoesNotOverwriteOmittedPriceConditions() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference collection = mock(CollectionReference.class);
+        DocumentReference reference = mock(DocumentReference.class);
+        DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
+        when(db.collection("notification_settings")).thenReturn(collection);
+        when(collection.document("user-1")).thenReturn(reference);
+        when(reference.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        when(snapshot.getData()).thenReturn(Map.of(
+                "notifyOnDrop", false,
+                "notifyOnRise", false,
+                "notifyOnNewMenu", true));
+        when(reference.set(anyMap(), any(SetOptions.class)))
+                .thenReturn(ApiFutures.immediateFuture(null));
+        FirebaseService service = new FirebaseService(db, mock(ReportImageStorage.class));
+        NotificationSettingsDto requested = NotificationSettingsDto.builder()
+                .review(true)
+                .report(true)
+                .price(false)
+                .todayPick(true)
+                .quietHours(false)
+                .quietStart("22:00")
+                .quietEnd("08:00")
+                .build();
+
+        NotificationSettingsDto saved = service.saveNotificationSettings("user-1", requested);
+
+        assertThat(saved.getAll()).isFalse();
+        assertThat(saved.getNotifyOnDrop()).isFalse();
+        verify(reference).set(argThat((Map<String, Object> data) ->
+                Boolean.FALSE.equals(data.get("price"))
+                        && !data.containsKey("notifyOnDrop")
+                        && !data.containsKey("notifyOnRise")
+                        && !data.containsKey("notifyOnNewMenu")), eq(SetOptions.merge()));
+    }
 
     @Test
     void returnsOnlyTheLatestHundredNotifications() throws Exception {

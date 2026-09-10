@@ -116,6 +116,16 @@ void main() {
         final service = PriceAlertApiService(
           MockClient((request) async {
             expect(request.method, 'GET');
+            if (request.url.path == '/api/notifications/settings') {
+              return http.Response(
+                jsonEncode({
+                  'notifyOnRise': true,
+                  'notifyOnDrop': false,
+                  'notifyOnNewMenu': true,
+                }),
+                200,
+              );
+            }
             expect(request.url.path, '/api/notifications/price-alerts');
             return http.Response(
               jsonEncode([
@@ -147,6 +157,87 @@ void main() {
         expect(settings.notifyOnNewMenu, isTrue);
       },
     );
+
+    test('empty favorites still load the account price conditions', () async {
+      final requestedPaths = <String>[];
+      final service = PriceAlertApiService(
+        MockClient((request) async {
+          requestedPaths.add(request.url.path);
+          return http.Response(
+            request.url.path.endsWith('/price-alerts')
+                ? '[]'
+                : jsonEncode({
+                    'notifyOnRise': false,
+                    'notifyOnDrop': false,
+                    'notifyOnNewMenu': true,
+                  }),
+            200,
+          );
+        }),
+      );
+
+      final settings = await service.fetchSettings();
+
+      expect(settings.stores, isEmpty);
+      expect(settings.notifyOnRise, isFalse);
+      expect(settings.notifyOnDrop, isFalse);
+      expect(settings.notifyOnNewMenu, isTrue);
+      expect(requestedPaths, [
+        '/api/notifications/price-alerts',
+        '/api/notifications/settings',
+      ]);
+    });
+
+    test('malformed successful settings response is rejected', () async {
+      final service = NotificationSettingsApiService(
+        MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(service.fetchSettings(), throwsFormatException);
+    });
+
+    test('price settings use one acknowledged batch save', () async {
+      var requests = 0;
+      final service = PriceAlertApiService(
+        MockClient((request) async {
+          requests++;
+          expect(request.method, 'PUT');
+          expect(request.url.path, '/api/notifications/price-alerts/batch');
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['stores'], isEmpty);
+          return http.Response('{"success":true}', 200);
+        }),
+      );
+      const settings = PriceAlertSettings(
+        all: false,
+        stores: [],
+        notifyOnDrop: true,
+        notifyOnRise: false,
+        notifyOnNewMenu: true,
+      );
+
+      expect(await service.saveSettings(settings), same(settings));
+      expect(requests, 1);
+    });
+
+    test('price settings reject an unacknowledged batch save', () async {
+      final service = PriceAlertApiService(
+        MockClient((_) async => http.Response('{"success":false}', 200)),
+      );
+
+      await expectLater(
+        service.saveSettings(
+          const PriceAlertSettings(
+            all: false,
+            stores: [],
+            notifyOnDrop: true,
+            notifyOnRise: false,
+            notifyOnNewMenu: true,
+          ),
+        ),
+        throwsFormatException,
+      );
+    });
 
     test('PriceAlertApiService saves a store subscription', () async {
       late http.Request capturedRequest;

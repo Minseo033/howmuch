@@ -4,6 +4,7 @@ import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.DeviceTokenRequest;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
 import com.howmuch.dto.PriceAlertSubscriptionRequest;
+import com.howmuch.dto.PriceAlertBatchRequest;
 import com.howmuch.service.FirebaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -137,6 +138,33 @@ class NotificationControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().toString()).doesNotContain("not owned");
+    }
+
+    @Test
+    void batchSaveRequiresAuthentication() {
+        FirebaseService service = mock(FirebaseService.class);
+        NotificationController controller = new NotificationController(service);
+
+        ResponseEntity<?> response = controller.savePriceAlertSettings(
+                new PriceAlertBatchRequest(), new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void batchSaveUsesSessionIdentityAndReportsConflict() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        NotificationController controller = new NotificationController(service);
+        PriceAlertBatchRequest body = new PriceAlertBatchRequest();
+        org.mockito.Mockito.doThrow(new java.util.NoSuchElementException("private detail"))
+                .when(service).savePriceAlertSettings("user-1", body);
+
+        ResponseEntity<?> response = controller.savePriceAlertSettings(body, authenticatedRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().toString()).doesNotContain("private detail");
+        verify(service).savePriceAlertSettings("user-1", body);
     }
 
     private MockHttpServletRequest authenticatedRequest() {

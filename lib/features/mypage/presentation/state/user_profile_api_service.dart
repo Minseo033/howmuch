@@ -94,11 +94,11 @@ class UserProfileApiService {
       };
       if (nicknamePublic != null) body['nicknamePublic'] = nicknamePublic;
       if (activityPublic != null) body['activityPublic'] = activityPublic;
-      final response = await ApiClient.post(
-        url,
-        headers: ApiClient.jsonHeaders(auth: true),
-        body: jsonEncode(body),
-      ).timeout(ApiClient.defaultTimeout);
+      final headers = ApiClient.jsonHeaders(auth: true);
+      final response =
+          await (_client?.post(url, headers: headers, body: jsonEncode(body)) ??
+                  ApiClient.post(url, headers: headers, body: jsonEncode(body)))
+              .timeout(ApiClient.defaultTimeout);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('프로필 저장 성공');

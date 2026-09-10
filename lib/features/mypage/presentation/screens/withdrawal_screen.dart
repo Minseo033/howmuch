@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
@@ -40,7 +40,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     '기타',
   ];
   int _selectedReason = 1;
-  bool _confirmed = true;
+  bool _confirmed = false;
+  bool _asking = false;
+  bool _isWithdrawing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -50,100 +52,124 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     final footerHeight = _StickyActions.heightFor(bottomOffset);
     final contentHeight = 876 + topOffset + footerHeight + 24;
 
-    return FigmaMobileCanvas(
-      backgroundColor: WithdrawalScreen.surface,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: contentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      right: 20,
-                      height: 92.94033813476562,
-                      child: const _WarningCard(),
-                    ),
-                    Positioned(
-                      left: 23.991455078125,
-                      top: 173.806640625 + topOffset,
-                      child: const _SectionLabel('탈퇴 시 삭제되는 데이터'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 198.29541015625 + topOffset,
-                      right: 20,
-                      height: 223.1818084716797,
-                      child: const _DeletedDataCard(),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 433.4658203125 + topOffset,
-                      right: 20,
-                      height: 58.039772033691406,
-                      child: const _InfoBox(),
-                    ),
-                    Positioned(
-                      left: 23.991455078125,
-                      top: 511.50537109375 + topOffset,
-                      child: const _SectionLabel('탈퇴 사유 (선택)'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 535.994140625 + topOffset,
-                      right: 20,
-                      height: 225.3408966064453,
-                      child: _ReasonsCard(
-                        reasons: _reasons,
-                        selectedIndex: _selectedReason,
-                        onChanged: (index) =>
-                            setState(() => _selectedReason = index),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && !_asking && !_isWithdrawing) {
+          context.go(AppRoutes.accountManagement);
+        }
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: WithdrawalScreen.surface,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: contentHeight,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: 20,
+                        top: 64.8720703125 + topOffset,
+                        right: 20,
+                        height: 92.94033813476562,
+                        child: const _WarningCard(),
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 777.32958984375 + topOffset,
-                      right: 20,
-                      height: 70.99431610107422,
-                      child: _ConsentCard(
-                        confirmed: _confirmed,
-                        onTap: () => setState(() => _confirmed = !_confirmed),
+                      Positioned(
+                        left: 23.991455078125,
+                        top: 173.806640625 + topOffset,
+                        child: const _SectionLabel('탈퇴 시 삭제되는 데이터'),
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        left: 20,
+                        top: 198.29541015625 + topOffset,
+                        right: 20,
+                        height: 223.1818084716797,
+                        child: const _DeletedDataCard(),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 433.4658203125 + topOffset,
+                        right: 20,
+                        height: 58.039772033691406,
+                        child: const _InfoBox(),
+                      ),
+                      Positioned(
+                        left: 23.991455078125,
+                        top: 511.50537109375 + topOffset,
+                        child: const _SectionLabel('탈퇴 사유 (선택)'),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 535.994140625 + topOffset,
+                        right: 20,
+                        height: 225.3408966064453,
+                        child: _ReasonsCard(
+                          reasons: _reasons,
+                          selectedIndex: _selectedReason,
+                          onChanged: (index) {
+                            if (!_isWithdrawing) {
+                              setState(() => _selectedReason = index);
+                            }
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        left: 20,
+                        top: 777.32958984375 + topOffset,
+                        right: 20,
+                        height: 70.99431610107422,
+                        child: _ConsentCard(
+                          confirmed: _confirmed,
+                          onTap: () {
+                            if (!_isWithdrawing) {
+                              setState(() => _confirmed = !_confirmed);
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          _Header(
-            topOffset: topOffset,
-            title: '회원 탈퇴',
-            onBack: () => context.go(AppRoutes.accountManagement),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            right: 0,
-            height: footerHeight,
-            child: _StickyActions(
-              safeBottom: bottomOffset,
-              onCancel: () => context.go(AppRoutes.accountManagement),
-              onWithdraw: _withdraw,
+            _Header(
+              topOffset: topOffset,
+              title: '회원 탈퇴',
+              onBack: () {
+                if (!_asking && !_isWithdrawing) {
+                  context.go(AppRoutes.accountManagement);
+                }
+              },
             ),
-          ),
-        ],
+            Positioned(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              height: footerHeight,
+              child: _StickyActions(
+                safeBottom: bottomOffset,
+                onCancel: () {
+                  if (!_asking && !_isWithdrawing) {
+                    context.go(AppRoutes.accountManagement);
+                  }
+                },
+                onWithdraw: _withdraw,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _withdraw() async {
+    if (_asking || _isWithdrawing) return;
     final messenger = ScaffoldMessenger.of(context);
     if (!_confirmed) {
       messenger
@@ -152,6 +178,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
+    setState(() => _asking = true);
     final shouldWithdraw = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
@@ -161,16 +188,18 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           destructive: true,
           confirmLabel: '탈퇴하기',
           onConfirm: () => Navigator.of(dialogContext).pop(true),
-          child: Text('선택한 사유: ${_reasons[_selectedReason]}'),
+          child: const Text('계정 정보와 이용 기록은 복구할 수 없어요.'),
         );
       },
     );
 
-    if (shouldWithdraw != true || !mounted) {
+    if (!mounted) return;
+    setState(() => _asking = false);
+    if (shouldWithdraw != true) {
       return;
     }
 
-    // 실제 회원 탈퇴 API 호출
+    setState(() => _isWithdrawing = true);
     try {
       final url = ApiClient.uri('/api/user');
       final response = await ApiClient.delete(
@@ -180,6 +209,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
 
       if (!mounted) return;
       if (response.statusCode != 200) {
+        setState(() => _isWithdrawing = false);
         messenger.showSnackBar(
           const SnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
         );
@@ -187,18 +217,15 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      setState(() => _isWithdrawing = false);
       messenger.showSnackBar(const SnackBar(content: Text('네트워크 오류가 발생했습니다.')));
       return;
     }
 
-    // 로컬 세션 종료
-    await ApiClient.setSessionToken(null);
+    await ref
+        .read(kakaoLoginServiceProvider)
+        .clearLocalSession(unregisterDevice: false);
     if (!mounted) return;
-    ref.read(authStateProvider.notifier).state = const AuthState(
-      isLoggedIn: false,
-      provider: '',
-      email: '',
-    );
 
     messenger.clearSnackBars();
     context.go(AppRoutes.login);
@@ -520,6 +547,7 @@ class _ConsentCard extends StatelessWidget {
     return Material(
       color: AppColors.transparent,
       child: InkWell(
+        key: const ValueKey('withdrawal-consent'),
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Ink(

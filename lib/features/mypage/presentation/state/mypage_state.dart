@@ -108,6 +108,16 @@ class NotificationSettings {
   final String quietStart;
   final String quietEnd;
 
+  bool sameAs(NotificationSettings other) =>
+      all == other.all &&
+      review == other.review &&
+      report == other.report &&
+      price == other.price &&
+      todayPick == other.todayPick &&
+      quietHours == other.quietHours &&
+      quietStart == other.quietStart &&
+      quietEnd == other.quietEnd;
+
   static const defaults = NotificationSettings(
     all: true,
     review: true,
@@ -425,6 +435,18 @@ class PriceAlertSettings {
   final bool notifyOnRise;
   final bool notifyOnNewMenu;
 
+  bool sameAs(PriceAlertSettings other) =>
+      notifyOnRise == other.notifyOnRise &&
+      notifyOnDrop == other.notifyOnDrop &&
+      notifyOnNewMenu == other.notifyOnNewMenu &&
+      stores.length == other.stores.length &&
+      stores.every(
+        (store) => other.stores.any(
+          (item) =>
+              item.storeId == store.storeId && item.enabled == store.enabled,
+        ),
+      );
+
   PriceAlertSettings copyWith({
     bool? all,
     List<PriceAlertStore>? stores,
@@ -646,6 +668,23 @@ class NotificationSettingsApiService {
     if (decoded is! Map) {
       throw const FormatException('알림 설정 응답 형식이 올바르지 않습니다.');
     }
+    if ([
+          'all',
+          'review',
+          'report',
+          'price',
+          'todayPick',
+          'quietHours',
+        ].any((key) => decoded[key] is! bool) ||
+        ['quietStart', 'quietEnd'].any(
+          (key) =>
+              decoded[key] is! String ||
+              !RegExp(
+                r'^(?:[01]\d|2[0-3]):[0-5]\d$',
+              ).hasMatch(decoded[key] as String),
+        )) {
+      throw const FormatException('알림 설정 응답에 필수 값이 없습니다.');
+    }
     return NotificationSettings.fromJson(Map<String, dynamic>.from(decoded));
   }
 }
@@ -749,7 +788,20 @@ class PriceAlertApiService {
       throw const FormatException('가격 알림 응답 형식이 올바르지 않습니다.');
     }
 
-    final items = decoded.whereType<Map>().toList(growable: false);
+    if (decoded.any(
+      (item) =>
+          item is! Map ||
+          item['storeId'] is! String ||
+          (item['storeId'] as String).isEmpty ||
+          item['enabled'] is! bool,
+    )) {
+      throw const FormatException('가격 알림 목록에 잘못된 매장 정보가 있습니다.');
+    }
+    final seenIds = <String>{};
+    final items = decoded
+        .cast<Map>()
+        .where((item) => seenIds.add(item['storeId'] as String))
+        .toList(growable: false);
     final stores = items
         .map((item) {
           final json = Map<String, dynamic>.from(item);
@@ -757,9 +809,9 @@ class PriceAlertApiService {
           final menu = json['menuName']?.toString().trim() ?? '';
           final menuName = menu.isEmpty
               ? '가격 변동 알림'
-              : price.isEmpty || price.endsWith('원')
+              : price.isEmpty
               ? menu
-              : '$menu $price원';
+              : '$menu $price${price.endsWith('원') ? '' : '원'}';
           return PriceAlertStore(
             storeId: json['storeId']?.toString() ?? '',
             storeName: json['storeName']?.toString() ?? '매장명 없음',
@@ -769,19 +821,33 @@ class PriceAlertApiService {
         })
         .where((store) => store.storeId.isNotEmpty)
         .toList(growable: false);
-    final first = items.isEmpty ? null : items.first;
+    final conditionsResponse = await _client
+        .get(
+          ApiClient.uri('/api/notifications/settings'),
+          headers: ApiClient.jsonHeaders(auth: true),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    if (conditionsResponse.statusCode != 200) {
+      throw PriceAlertApiException(
+        '가격 알림 조건을 불러오지 못했어요.',
+        statusCode: conditionsResponse.statusCode,
+      );
+    }
+    final conditions = jsonDecode(utf8.decode(conditionsResponse.bodyBytes));
+    if (conditions is! Map ||
+        [
+          'notifyOnRise',
+          'notifyOnDrop',
+          'notifyOnNewMenu',
+        ].any((key) => conditions[key] is! bool)) {
+      throw const FormatException('가격 알림 조건 응답이 올바르지 않습니다.');
+    }
     return PriceAlertSettings(
       all: stores.isNotEmpty && stores.every((store) => store.enabled),
       stores: stores,
-      notifyOnRise: first?['notifyOnRise'] is bool
-          ? first!['notifyOnRise'] as bool
-          : true,
-      notifyOnDrop: first?['notifyOnDrop'] is bool
-          ? first!['notifyOnDrop'] as bool
-          : true,
-      notifyOnNewMenu: first?['notifyOnNewMenu'] is bool
-          ? first!['notifyOnNewMenu'] as bool
-          : false,
+      notifyOnRise: conditions['notifyOnRise'] as bool,
+      notifyOnDrop: conditions['notifyOnDrop'] as bool,
+      notifyOnNewMenu: conditions['notifyOnNewMenu'] as bool,
     );
   }
 
@@ -828,6 +894,37 @@ class PriceAlertApiService {
       enabled: json['enabled'] is bool ? json['enabled'] as bool : enabled,
     );
   }
+
+  Future<PriceAlertSettings> saveSettings(PriceAlertSettings settings) async {
+    final response = await _client
+        .put(
+          ApiClient.uri('/api/notifications/price-alerts/batch'),
+          headers: ApiClient.jsonHeaders(auth: true),
+          body: jsonEncode({
+            'stores': [
+              for (final store in settings.stores)
+                {'storeId': store.storeId, 'enabled': store.enabled},
+            ],
+            'notifyOnRise': settings.notifyOnRise,
+            'notifyOnDrop': settings.notifyOnDrop,
+            'notifyOnNewMenu': settings.notifyOnNewMenu,
+          }),
+        )
+        .timeout(ApiClient.defaultTimeout);
+    if (response.statusCode != 200) {
+      throw PriceAlertApiException(
+        response.statusCode == 409
+            ? '찜 목록이 변경됐어요. 다시 불러온 뒤 저장해 주세요.'
+            : '가격 알림 설정을 저장하지 못했어요.',
+        statusCode: response.statusCode,
+      );
+    }
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (decoded is! Map || decoded['success'] != true) {
+      throw const FormatException('가격 알림 저장을 확인하지 못했습니다.');
+    }
+    return settings;
+  }
 }
 
 final priceAlertApiServiceProvider = Provider<PriceAlertApiService>((ref) {
@@ -871,28 +968,9 @@ class PriceAlertSettingsNotifier
 
   Future<bool> saveSettings(PriceAlertSettings settings) async {
     try {
-      final savedStores = <PriceAlertStore>[];
-      for (final store in settings.stores) {
-        savedStores.add(
-          await _api.saveSubscription(
-            storeId: store.storeId,
-            enabled: store.enabled,
-            notifyOnRise: settings.notifyOnRise,
-            notifyOnDrop: settings.notifyOnDrop,
-            notifyOnNewMenu: settings.notifyOnNewMenu,
-          ),
-        );
-        if (_disposed) return false;
-      }
+      final saved = await _api.saveSettings(settings);
       if (_disposed) return false;
-      state = AsyncValue.data(
-        settings.copyWith(
-          stores: savedStores,
-          all:
-              savedStores.isNotEmpty &&
-              savedStores.every((store) => store.enabled),
-        ),
-      );
+      state = AsyncValue.data(saved);
       return true;
     } catch (_) {
       return false;

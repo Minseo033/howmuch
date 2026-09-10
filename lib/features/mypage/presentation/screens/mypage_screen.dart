@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -9,7 +8,9 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
+import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -132,51 +133,66 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (!auth.isLoggedIn) return;
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
-    final profileFuture = UserProfileApiService().fetchProfile().catchError((e) {
+    final profileFuture = UserProfileApiService().fetchProfile().catchError((
+      e,
+    ) {
       debugPrint('마이페이지 프로필 로드 오류: $e');
       return null;
     });
 
-    final savingsFuture = ApiClient.get(
-      ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<Map<String, dynamic>?>((res) {
-      if (res.statusCode == 200) {
-        return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 절약 통계 로드 오류: $e');
-      return null;
-    });
+    final savingsFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<Map<String, dynamic>?>((res) {
+              if (res.statusCode == 200) {
+                return jsonDecode(utf8.decode(res.bodyBytes))
+                    as Map<String, dynamic>;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 절약 통계 로드 오류: $e');
+              return null;
+            });
 
-    final favoritesFuture = ApiClient.get(
-      ApiClient.uri('/api/favorites'),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        return decoded is List ? decoded.length : 0;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 찜 수 로드 오류: $e');
-      return null;
-    });
+    final favoritesFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/favorites'),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<int?>((res) {
+              if (res.statusCode == 200) {
+                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+                return decoded is List ? decoded.length : 0;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 찜 수 로드 오류: $e');
+              return null;
+            });
 
-    final reportsFuture = ApiClient.get(
-      ApiClient.uri('/api/report/my'),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        return decoded is List ? decoded.length : 0;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 제보 수 로드 오류: $e');
-      return null;
-    });
+    final reportsFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/report/my'),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<int?>((res) {
+              if (res.statusCode == 200) {
+                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+                return decoded is List ? decoded.length : 0;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 제보 수 로드 오류: $e');
+              return null;
+            });
 
     final results = await Future.wait([
       profileFuture,
@@ -201,7 +217,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
             : null;
         next = next.copyWith(
           nickname: profile['nickname']?.toString(),
-          email: usableAccountEmail(profile['email']) ??
+          email:
+              usableAccountEmail(profile['email']) ??
               usableAccountEmail(auth.email) ??
               state.email,
           region: profile['region']?.toString(),
@@ -919,7 +936,7 @@ class _EmptyReportItem extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatefulWidget {
+class _SettingsCard extends ConsumerStatefulWidget {
   const _SettingsCard({
     required this.onNotificationTap,
     required this.onAccountTap,
@@ -933,45 +950,66 @@ class _SettingsCard extends StatefulWidget {
   final VoidCallback onInquiryTap;
 
   @override
-  State<_SettingsCard> createState() => _SettingsCardState();
+  ConsumerState<_SettingsCard> createState() => _SettingsCardState();
 }
 
-class _SettingsCardState extends State<_SettingsCard> {
-  bool _pushEnabled = false;
-  bool _marketingEnabled = false;
+class _SettingsCardState extends ConsumerState<_SettingsCard> {
+  bool _busy = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _loadPreferences();
+  void _message(String text) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(text)));
   }
 
-  Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _pushEnabled = prefs.getBool('push_notifications') ?? false;
-      _marketingEnabled = prefs.getBool('marketing_consent') ?? false;
-    });
+  Future<void> _location(DeviceAccess access) async {
+    if (_busy) return;
+    _busy = true;
+    final service = ref.read(devicePermissionServiceProvider);
+    if (access == DeviceAccess.denied) {
+      await service.requestLocation();
+    } else if (access != DeviceAccess.allowed) {
+      final opened = await service.openSettings(
+        locationService: access == DeviceAccess.serviceOff,
+      );
+      if (!opened && mounted) {
+        _message(
+          service.web
+              ? '브라우저의 사이트 설정에서 위치 권한을 변경해 주세요.'
+              : '기기 설정에서 위치 권한을 변경해 주세요.',
+        );
+      }
+    }
+    if (!mounted) return;
+    _busy = false;
+    ref.invalidate(locationAccessProvider);
   }
 
-  Future<void> _togglePush(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_notifications', value);
-    setState(() {
-      _pushEnabled = value;
-    });
-  }
-
-  Future<void> _toggleMarketing(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('marketing_consent', value);
-    setState(() {
-      _marketingEnabled = value;
-    });
+  Future<void> _push(DeviceAccess access) async {
+    if (_busy) return;
+    final service = ref.read(devicePermissionServiceProvider);
+    if (!service.supportsPush) {
+      _message('브라우저 푸시는 지원하지 않아요. 앱의 알림함을 이용해 주세요.');
+      return;
+    }
+    if (access == DeviceAccess.blocked || access == DeviceAccess.allowed) {
+      await service.openSettings();
+    } else {
+      _busy = true;
+      final registered = await ref
+          .read(pushNotificationServiceProvider)
+          .registerForCurrentSession();
+      _busy = false;
+      if (mounted && !registered) _message('알림 권한과 연결 상태를 확인해 주세요.');
+    }
+    if (!mounted) return;
+    ref.invalidate(pushAccessProvider);
   }
 
   @override
   Widget build(BuildContext context) {
+    final location = ref.watch(locationAccessProvider).valueOrNull;
+    final push = ref.watch(pushAccessProvider).valueOrNull;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -980,21 +1018,24 @@ class _SettingsCardState extends State<_SettingsCard> {
       ),
       child: Column(
         children: [
-          const _PermissionRow(),
+          _PermissionRow(
+            access: location,
+            onTap: () => _location(location ?? DeviceAccess.unknown),
+          ),
           _DividerLine(),
 
           _ToggleRow(
             icon: Icons.notifications_active_outlined,
             title: '푸시 알림',
-            value: _pushEnabled,
-            onToggle: () => _togglePush(!_pushEnabled),
+            value: push == DeviceAccess.allowed,
+            onToggle: () => _push(push ?? DeviceAccess.unknown),
           ),
           _DividerLine(),
           _ToggleRow(
             icon: Icons.campaign_outlined,
             title: '마케팅 정보 수신 동의',
-            value: _marketingEnabled,
-            onToggle: () => _toggleMarketing(!_marketingEnabled),
+            value: false,
+            onToggle: () => _message('마케팅 알림은 현재 제공하지 않아요.'),
           ),
           _DividerLine(),
 
@@ -1110,28 +1151,53 @@ class _AdminModeSwitch extends StatelessWidget {
 }
 
 class _PermissionRow extends StatelessWidget {
-  const _PermissionRow();
+  const _PermissionRow({required this.access, required this.onTap});
+
+  final DeviceAccess? access;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44.375,
-      child: Row(
-        children: const [
-          SizedBox(width: 15.994),
-          Icon(Icons.location_on_outlined, color: MypageScreen.muted, size: 17),
-          SizedBox(width: 11.989),
-          Text('위치 권한 설정', style: _settingText),
-          Spacer(),
-          Text('허용', style: _allowedText),
-          SizedBox(width: 4.991),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: MypageScreen.muted,
-            size: 15,
+    final value = switch (access) {
+      DeviceAccess.allowed => '허용',
+      DeviceAccess.blocked => '설정 필요',
+      DeviceAccess.serviceOff => '꺼짐',
+      null => '확인 중',
+      _ => '허용 안 됨',
+    };
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 44.375,
+          child: Row(
+            children: [
+              SizedBox(width: 15.994),
+              Icon(
+                Icons.location_on_outlined,
+                color: MypageScreen.muted,
+                size: 17,
+              ),
+              SizedBox(width: 11.989),
+              Text('위치 권한 설정', style: _settingText),
+              Spacer(),
+              Text(
+                value,
+                style: access == DeviceAccess.allowed
+                    ? _allowedText
+                    : _muted11,
+              ),
+              SizedBox(width: 4.991),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: MypageScreen.muted,
+                size: 15,
+              ),
+              SizedBox(width: 16.903),
+            ],
           ),
-          SizedBox(width: 16.903),
-        ],
+        ),
       ),
     );
   }

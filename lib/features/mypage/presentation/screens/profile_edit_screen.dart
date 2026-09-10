@@ -35,9 +35,8 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
-  late bool _nicknamePublic;
-  late bool _activityPublic;
   late String _nickname;
+  late String _savedNickname;
   bool _loaded = false;
   bool _identityRefreshStarted = false;
   bool _isSaving = false;
@@ -48,7 +47,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() => _isSaving = true);
     await (_identityRefresh ??= ref
         .read(kakaoLoginServiceProvider)
-        .refreshKakaoIdentity(requestConsent: true));
+        .refreshKakaoIdentity());
+    if (!mounted) return;
     final profile = ref.read(userProfileProvider);
     final auth = ref.read(authStateProvider);
     final saved = await UserProfileApiService().saveProfile(
@@ -59,8 +59,6 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           '',
       region: profile.region,
       favoriteCategories: profile.favoriteCategories,
-      nicknamePublic: _nicknamePublic,
-      activityPublic: _activityPublic,
     );
     if (!mounted) return;
     if (!saved) {
@@ -72,9 +70,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
     ref.read(userProfileProvider.notifier).state = profile.copyWith(
       nickname: _nickname,
-      nicknamePublic: _nicknamePublic,
-      activityPublic: _activityPublic,
     );
+    _savedNickname = _nickname;
     setState(() => _isSaving = false);
     if (!context.mounted) return;
     context.go(AppRoutes.mypage);
@@ -91,16 +88,15 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
 
     final profile = ref.read(userProfileProvider);
-    _nicknamePublic = profile.nicknamePublic;
-    _activityPublic = profile.activityPublic;
     _nickname = profile.nickname;
+    _savedNickname = profile.nickname;
     _loaded = true;
     if (!_identityRefreshStarted) {
       _identityRefreshStarted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _identityRefresh = ref
             .read(kakaoLoginServiceProvider)
-            .refreshKakaoIdentity(requestConsent: true);
+            .refreshKakaoIdentity();
       });
     }
   }
@@ -118,91 +114,118 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
 
-    return FigmaMobileCanvas(
-      backgroundColor: ProfileEditScreen.surface,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              padding: EdgeInsets.fromLTRB(
-                20,
-                topOffset + 76,
-                20,
-                footerHeight + 24,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: SizedBox(
-                      width: 80,
-                      height: 80,
-                      child: _Avatar(imageUrl: profile.profileImageUrl),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: FigmaMobileCanvas(
+        backgroundColor: ProfileEditScreen.surface,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  topOffset + 76,
+                  20,
+                  footerHeight + 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: _Avatar(imageUrl: profile.profileImageUrl),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 28),
-                  const _SectionLabel('기본 정보'),
-                  const SizedBox(height: 10),
-                  _BasicInfoCard(
-                    nickname: _nickname,
-                    email: displayEmail,
-                    onNicknameTap: _editNickname,
-                  ),
-                  const SizedBox(height: 24),
-                  const _SectionLabel('지역 정보'),
-                  const SizedBox(height: 10),
-                  _RegionCard(region: profile.region),
-                  const SizedBox(height: 24),
-                  const _SectionLabel('공개 설정'),
-                  const SizedBox(height: 10),
-                  _PrivacyCard(
-                    nicknamePublic: _nicknamePublic,
-                    activityPublic: _activityPublic,
-                    onNicknameTap: () {
-                      setState(() {
-                        _nicknamePublic = !_nicknamePublic;
-                      });
-                    },
-                    onActivityTap: () {
-                      setState(() {
-                        _activityPublic = !_activityPublic;
-                      });
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 28),
+                    const _SectionLabel('기본 정보'),
+                    const SizedBox(height: 10),
+                    _BasicInfoCard(
+                      nickname: _nickname,
+                      email: displayEmail,
+                      onNicknameTap: _editNickname,
+                    ),
+                    const SizedBox(height: 24),
+                    const _SectionLabel('지역 정보'),
+                    const SizedBox(height: 10),
+                    _RegionCard(region: profile.region),
+                    const SizedBox(height: 24),
+                    const _SectionLabel('공개 설정'),
+                    const SizedBox(height: 10),
+                    _PrivacyCard(
+                      nicknamePublic: false,
+                      activityPublic: false,
+                      onNicknameTap: _showUnavailablePrivacySetting,
+                      onActivityTap: _showUnavailablePrivacySetting,
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          _Header(
-            topOffset: topOffset,
-            title: '프로필 수정',
-            onBack: () =>
-                context.canPop() ? context.pop() : context.go(AppRoutes.mypage),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            right: 0,
-            height: footerHeight,
-            child: _StickyButton(
-              safeBottom: bottomOffset,
-              label: _isSaving ? '저장 중...' : '저장하기',
-              onPressed: _isSaving
-                  ? null
-                  : () {
-                      _saveProfile();
-                    },
+            _Header(topOffset: topOffset, title: '프로필 수정', onBack: _leave),
+            Positioned(
+              left: 0,
+              bottom: 0,
+              right: 0,
+              height: footerHeight,
+              child: _StickyButton(
+                safeBottom: bottomOffset,
+                label: _isSaving ? '저장 중...' : '저장하기',
+                onPressed: _isSaving
+                    ? null
+                    : () {
+                        _saveProfile();
+                      },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
+  Future<void> _leave() async {
+    if (_isSaving) return;
+    if (_nickname != _savedNickname) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('저장하지 않고 나갈까요?'),
+          content: const Text('변경한 닉네임은 아직 저장되지 않았어요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('계속 편집'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('나가기'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || discard != true) return;
+    }
+    context.canPop() ? context.pop() : context.go(AppRoutes.mypage);
+  }
+
+  void _showUnavailablePrivacySetting() {
+    if (_isSaving) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(const SnackBar(content: Text('프로필 공개 설정은 현재 제공하지 않아요.')));
+  }
+
   Future<void> _editNickname() async {
+    if (_isSaving) return;
     final result = await showDialog<String>(
       context: context,
       builder: (_) => _NicknameDialog(initialValue: _nickname),
