@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,11 +116,25 @@ class _NotificationSettingsScreenState
       final initialValue = isStart ? current.quietStart : current.quietEnd;
       final initialTime = _parseTime(initialValue);
       final title = isStart ? '방해 금지 시작 시간' : '방해 금지 종료 시간';
+      final mediaQuery = MediaQuery.of(context);
+      final sheetMaxWidth = math.min(
+        FigmaMobileCanvas.maxWebWidth,
+        mediaQuery.size.width,
+      );
+      final sheetMaxHeight = math.max(
+        0.0,
+        math.min(320.0, mediaQuery.size.height - mediaQuery.padding.top - 8),
+      );
 
       final picked = await showModalBottomSheet<TimeOfDay>(
         context: context,
         backgroundColor: Colors.transparent,
         isScrollControlled: true,
+        useSafeArea: true,
+        constraints: BoxConstraints(
+          maxWidth: sheetMaxWidth,
+          maxHeight: sheetMaxHeight,
+        ),
         builder: (modalContext) {
           TimeOfDay tempTime = initialTime;
           final now = DateTime.now();
@@ -131,6 +147,8 @@ class _NotificationSettingsScreenState
           );
 
           return Container(
+            key: const ValueKey('quiet-time-bottom-sheet'),
+            clipBehavior: Clip.antiAlias,
             decoration: const BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -195,29 +213,31 @@ class _NotificationSettingsScreenState
                   height: 1,
                   color: NotificationSettingsScreen.border,
                 ),
-                SizedBox(
-                  height: 200,
-                  child: CupertinoTheme(
-                    data: const CupertinoThemeData(
-                      brightness: Brightness.light,
-                      textTheme: CupertinoTextThemeData(
-                        dateTimePickerTextStyle: TextStyle(
-                          fontSize: 20,
-                          color: NotificationSettingsScreen.ink,
-                          fontWeight: FontWeight.w600,
+                Flexible(
+                  child: SizedBox(
+                    height: 180,
+                    child: CupertinoTheme(
+                      data: const CupertinoThemeData(
+                        brightness: Brightness.light,
+                        textTheme: CupertinoTextThemeData(
+                          dateTimePickerTextStyle: TextStyle(
+                            fontSize: 20,
+                            color: NotificationSettingsScreen.ink,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
-                    child: CupertinoDatePicker(
-                      mode: CupertinoDatePickerMode.time,
-                      use24hFormat: false,
-                      initialDateTime: initialDateTime,
-                      onDateTimeChanged: (DateTime newDateTime) {
-                        tempTime = TimeOfDay(
-                          hour: newDateTime.hour,
-                          minute: newDateTime.minute,
-                        );
-                      },
+                      child: CupertinoDatePicker(
+                        mode: CupertinoDatePickerMode.time,
+                        use24hFormat: false,
+                        initialDateTime: initialDateTime,
+                        onDateTimeChanged: (DateTime newDateTime) {
+                          tempTime = TimeOfDay(
+                            hour: newDateTime.hour,
+                            minute: newDateTime.minute,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),

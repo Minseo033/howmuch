@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -108,34 +110,51 @@ class TermsOfServiceScreen extends StatelessWidget {
   }
 
   void _showTermsDetail(BuildContext context, _TermsItem item) {
+    final mediaQuery = MediaQuery.of(context);
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.white,
+      isScrollControlled: true,
+      useSafeArea: true,
+      clipBehavior: Clip.antiAlias,
+      constraints: BoxConstraints(
+        maxWidth: math.min(
+          FigmaMobileCanvas.maxWebWidth,
+          mediaQuery.size.width,
+        ),
+        maxHeight: math.max(
+          0,
+          mediaQuery.size.height - mediaQuery.padding.top - 8,
+        ),
+      ),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (sheetContext) {
         return SafeArea(
+          key: const ValueKey('terms-detail-bottom-sheet'),
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.title, style: _sheetTitleText),
-                const SizedBox(height: 8),
-                Text(item.body, style: _sheetBodyText),
-                const SizedBox(height: 18),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(sheetContext).pop(),
-                    child: const Text('확인'),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(item.title, style: _sheetTitleText),
+                  const SizedBox(height: 8),
+                  Text(item.body, style: _sheetBodyText),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(),
+                      child: const Text('확인'),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
@@ -263,14 +282,34 @@ class _TermsSummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 7.997),
-            Wrap(
-              spacing: 7.997,
-              runSpacing: 7.997,
-              children: const [
-                _SummaryMetric(label: '버전', value: 'v2.4'),
-                _SummaryMetric(label: '시행일', value: '2026.04.01'),
-                _SummaryMetric(label: '최소 이용 연령', value: '만 14세 이상'),
-                _SummaryMetric(label: '준거법', value: '대한민국 법령'),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: const _SummaryMetric(label: '버전', value: 'v2.4'),
+                    ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: _SummaryMetric(label: '시행일', value: '2026.04.01'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Row(
+                  children: [
+                    Expanded(
+                      child: _SummaryMetric(
+                        label: '최소 이용 연령',
+                        value: '만 14세 이상',
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _SummaryMetric(label: '준거법', value: '대한민국 법령'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ],
@@ -289,7 +328,7 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 146.81817626953125,
+      width: double.infinity,
       height: 66,
       padding: const EdgeInsets.fromLTRB(12.897, 8.906, 12.897, 0),
       decoration: BoxDecoration(

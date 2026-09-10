@@ -82,6 +82,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('closing the unread banner does not open a notice popup', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 650));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => const AuthState(
+              isLoggedIn: true,
+              provider: '카카오',
+              email: 'qa@example.com',
+            ),
+          ),
+          notificationsProvider.overrideWith(
+            (ref) => _SeededNotificationsNotifier([
+              _notification(id: 'unread-notice', type: '공지사항'),
+            ]),
+          ),
+        ],
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          home: WebNotificationPrompt(
+            isHome: false,
+            onOpenNotifications: () {},
+            navigatorKey: navigatorKey,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('web-notification-banner')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
+
+    await tester.tap(find.byTooltip('알림 안내 닫기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('web-notification-banner')), findsNothing);
+    expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows a notice popup and hides it for the rest of today', (
     tester,
   ) async {

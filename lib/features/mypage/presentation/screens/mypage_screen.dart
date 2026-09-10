@@ -586,27 +586,45 @@ class _ProfileCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Material(
+                    key: const ValueKey('mypage-profile-edit-button'),
                     color: AppColors.white.withValues(alpha: .22),
                     borderRadius: BorderRadius.circular(999),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: onEdit,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 7,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('프로필 수정', style: _profileEditText),
-                            SizedBox(width: 2),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: AppColors.white,
-                              size: 12,
+                      child: const SizedBox(
+                        height: 30,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Center(
+                            child: Row(
+                              key: ValueKey('mypage-profile-edit-content'),
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '프로필 수정',
+                                  key: ValueKey('mypage-profile-edit-label'),
+                                  style: _profileEditText,
+                                ),
+                                SizedBox(width: 4),
+                                SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: Center(
+                                    child: Icon(
+                                      Icons.chevron_right_rounded,
+                                      key: ValueKey(
+                                        'mypage-profile-edit-chevron',
+                                      ),
+                                      color: AppColors.white,
+                                      size: 14,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -1017,12 +1035,13 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PermissionRow(
             access: location,
             onTap: () => _location(location ?? DeviceAccess.unknown),
           ),
-          _DividerLine(),
+          const _DividerLine(lineKey: ValueKey('mypage-location-divider')),
 
           _ToggleRow(
             icon: Icons.notifications_active_outlined,
@@ -1030,33 +1049,33 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
             value: push == DeviceAccess.allowed,
             onToggle: () => _push(push ?? DeviceAccess.unknown),
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _ToggleRow(
             icon: Icons.campaign_outlined,
             title: '마케팅 정보 수신 동의',
             value: false,
             onToggle: () => _message('마케팅 알림은 현재 제공하지 않아요.'),
           ),
-          _DividerLine(),
+          const _DividerLine(),
 
           _SettingRow(
             icon: Icons.notifications_none_rounded,
             title: '알림 설정',
             onTap: widget.onNotificationTap,
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _SettingRow(
             icon: Icons.manage_accounts_outlined,
             title: '계정 관리',
             onTap: widget.onAccountTap,
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _SettingRow(
             icon: Icons.dataset_outlined,
             title: '공공데이터 출처 안내',
             onTap: widget.onPublicDataTap,
           ),
-          _DividerLine(),
+          const _DividerLine(),
           _SettingRow(
             icon: Icons.support_agent_outlined,
             title: '문의하기',
@@ -1088,16 +1107,19 @@ class _ToggleRow extends StatelessWidget {
       child: InkWell(
         onTap: onToggle,
         child: SizedBox(
-          height: 43.46590805053711,
+          height: 44,
           child: Row(
             children: [
-              const SizedBox(width: 15.994),
-              Icon(icon, color: MypageScreen.muted, size: 17),
-              const SizedBox(width: 11.989),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 17,
+                child: Icon(icon, color: MypageScreen.muted, size: 17),
+              ),
+              const SizedBox(width: 12),
               Text(title, style: _settingText),
               const Spacer(),
               _AdminModeSwitch(value: value),
-              const SizedBox(width: 16.903),
+              const SizedBox(width: 16),
             ],
           ),
         ),
@@ -1170,31 +1192,49 @@ class _PermissionRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          height: 44.375,
+          key: const ValueKey('mypage-location-row'),
+          height: 44,
           child: Row(
             children: [
-              SizedBox(width: 15.994),
-              Icon(
-                Icons.location_on_outlined,
-                color: MypageScreen.muted,
-                size: 17,
+              const SizedBox(width: 16),
+              const SizedBox(
+                width: 17,
+                child: Icon(
+                  Icons.location_on_outlined,
+                  color: MypageScreen.muted,
+                  size: 17,
+                ),
               ),
-              SizedBox(width: 11.989),
-              Text('위치 권한 설정', style: _settingText),
-              Spacer(),
-              Text(
-                value,
-                style: access == DeviceAccess.allowed
-                    ? _allowedText
-                    : _muted11,
+              const SizedBox(width: 12),
+              const Text('위치 권한 설정', style: _settingText),
+              const Spacer(),
+              SizedBox(
+                key: const ValueKey('mypage-location-action'),
+                height: 24,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      value,
+                      key: const ValueKey('mypage-location-status'),
+                      style:
+                          (access == DeviceAccess.allowed
+                                  ? _allowedText
+                                  : _muted11)
+                              .copyWith(height: 1),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      key: ValueKey('mypage-location-chevron'),
+                      color: MypageScreen.muted,
+                      size: 18,
+                    ),
+                  ],
+                ),
               ),
-              SizedBox(width: 4.991),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: MypageScreen.muted,
-                size: 15,
-              ),
-              SizedBox(width: 16.903),
+              const SizedBox(width: 16),
             ],
           ),
         ),
@@ -1221,20 +1261,23 @@ class _SettingRow extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: SizedBox(
-          height: 43.46590805053711,
+          height: 44,
           child: Row(
             children: [
-              const SizedBox(width: 15.994),
-              Icon(icon, color: MypageScreen.muted, size: 17),
-              const SizedBox(width: 11.989),
+              const SizedBox(width: 16),
+              SizedBox(
+                width: 17,
+                child: Icon(icon, color: MypageScreen.muted, size: 17),
+              ),
+              const SizedBox(width: 12),
               Text(title, style: _settingText),
               const Spacer(),
               const Icon(
                 Icons.chevron_right_rounded,
                 color: MypageScreen.muted,
-                size: 15,
+                size: 18,
               ),
-              const SizedBox(width: 16.903),
+              const SizedBox(width: 16),
             ],
           ),
         ),
@@ -1244,12 +1287,19 @@ class _SettingRow extends StatelessWidget {
 }
 
 class _DividerLine extends StatelessWidget {
+  const _DividerLine({this.lineKey});
+
+  final Key? lineKey;
+
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 301.647705078125,
-      height: .9943181276321411,
-      child: ColoredBox(color: MypageScreen.border),
+    return SizedBox(
+      width: double.infinity,
+      height: 1,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 45, right: 16),
+        child: ColoredBox(key: lineKey, color: MypageScreen.border),
+      ),
     );
   }
 }

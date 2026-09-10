@@ -91,6 +91,48 @@ void main() {
     expect(find.text('내 제보 상태'), findsOneWidget);
     expect(find.text('네트워크 오류 화면'), findsNothing);
     expect(find.text('세션 만료 · 재로그인'), findsNothing);
+
+    final locationLabel = tester.getRect(find.text('위치 권한 설정'));
+    final locationDivider = tester.getRect(
+      find.byKey(const ValueKey('mypage-location-divider')),
+    );
+    final locationRow = tester.getRect(
+      find.byKey(const ValueKey('mypage-location-row')),
+    );
+    final locationAction = tester.getRect(
+      find.byKey(const ValueKey('mypage-location-action')),
+    );
+    final locationStatus = tester.getRect(
+      find.byKey(const ValueKey('mypage-location-status')),
+    );
+    final locationChevron = tester.getRect(
+      find.byKey(const ValueKey('mypage-location-chevron')),
+    );
+
+    expect(locationDivider.left, closeTo(locationLabel.left, 0.1));
+    expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
+    expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
+
+    final profileEditButton = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-edit-button')),
+    );
+    final profileEditContent = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-edit-content')),
+    );
+    final profileEditLabel = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-edit-label')),
+    );
+    final profileEditChevron = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-edit-chevron')),
+    );
+    expect(
+      profileEditContent.center.dx,
+      closeTo(profileEditButton.center.dx, 0.1),
+    );
+    expect(
+      profileEditLabel.center.dy,
+      closeTo(profileEditChevron.center.dy, 0.1),
+    );
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
@@ -111,6 +153,34 @@ void main() {
     expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
     expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('회원 탈퇴'), findsOneWidget);
+  });
+
+  testWidgets('quiet time picker stays inside the app frame', (tester) async {
+    tester.view.physicalSize = const Size(1200, 650);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester, _appWithNotificationSettingsApi());
+
+    await _goToRoute(tester, AppRoutes.notificationSettings);
+    await tester.drag(
+      find.byType(SingleChildScrollView).first,
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('오후 10:00'));
+    await tester.pumpAndSettle();
+
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('quiet-time-bottom-sheet')),
+    );
+    expect(sheet.width, lessThanOrEqualTo(430));
+    expect(sheet.center.dx, closeTo(600, 0.1));
+    expect(sheet.top, greaterThanOrEqualTo(0));
+    expect(sheet.bottom, lessThanOrEqualTo(650));
+
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('mypage child screens return with their header back buttons', (
@@ -283,6 +353,32 @@ void main() {
     expect(find.text('문의 유형'), findsOneWidget);
     expect(find.text('문의 보내기'), findsOneWidget);
 
+    const inquiryTypes = ['매장 정보 오류', '제보 검토 문의', '계정/로그인 문제', '기타'];
+    final typeRects = <Rect>[];
+    for (final type in inquiryTypes) {
+      final button = tester.getRect(find.byKey(ValueKey('inquiry-type-$type')));
+      final label = tester.getRect(find.text(type));
+      expect(label.center.dx, closeTo(button.center.dx, 0.1));
+      expect(label.center.dy, closeTo(button.center.dy, 0.1));
+      typeRects.add(button);
+    }
+    expect(typeRects[0].width, closeTo(typeRects[1].width, 0.1));
+    expect(typeRects[2].width, closeTo(typeRects[3].width, 0.1));
+
+    final photoButton = tester.getRect(
+      find.byKey(const ValueKey('inquiry-add-photo-button')),
+    );
+    final photoIcon = tester.getRect(
+      find.byKey(const ValueKey('inquiry-add-photo-icon')),
+    );
+    final photoLabel = tester.getRect(find.text('추가'));
+    expect(photoIcon.center.dx, closeTo(photoButton.center.dx, 0.1));
+    expect(photoLabel.center.dx, closeTo(photoButton.center.dx, 0.1));
+    expect(
+      (photoIcon.top + photoLabel.bottom) / 2,
+      closeTo(photoButton.center.dy, 0.1),
+    );
+
     await tester.tap(find.text('기타'));
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '가격 정보 확인 요청');
@@ -322,6 +418,32 @@ void main() {
     await tester.tap(find.text('확인'));
     await tester.pumpAndSettle();
     expect(find.text('서비스 이용약관'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('terms detail sheet stays inside the mobile app frame', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 650);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await _goToRoute(tester, AppRoutes.termsOfService);
+    await tester.tap(find.text('회원 가입 및 자격'));
+    await tester.pumpAndSettle();
+
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('terms-detail-bottom-sheet')),
+    );
+    expect(sheet.width, lessThanOrEqualTo(430));
+    expect(sheet.center.dx, closeTo(600, 0.1));
+    expect(sheet.left, greaterThanOrEqualTo(0));
+    expect(sheet.right, lessThanOrEqualTo(1200));
+    expect(sheet.bottom, lessThanOrEqualTo(650));
+
+    await tester.tap(find.text('확인'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('opens the real search screen without a fabricated query', (

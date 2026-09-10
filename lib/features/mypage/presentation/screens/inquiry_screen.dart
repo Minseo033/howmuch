@@ -154,38 +154,55 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                           ),
                           Positioned(
                             left: 20,
+                            right: 20,
                             top: 90.8662109375 + topOffset,
-                            child: _InquiryChip(
-                              text: _types[0],
-                              selected: _selectedType == 0,
-                              onTap: () => setState(() => _selectedType = 0),
-                            ),
-                          ),
-                          Positioned(
-                            left: 191.71875,
-                            top: 90.8662109375 + topOffset,
-                            child: _InquiryChip(
-                              text: _types[1],
-                              selected: _selectedType == 1,
-                              onTap: () => setState(() => _selectedType = 1),
-                            ),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 140.66748046875 + topOffset,
-                            child: _InquiryChip(
-                              text: _types[2],
-                              selected: _selectedType == 2,
-                              onTap: () => setState(() => _selectedType = 2),
-                            ),
-                          ),
-                          Positioned(
-                            left: 191.71875,
-                            top: 140.66748046875 + topOffset,
-                            child: _InquiryChip(
-                              text: _types[3],
-                              selected: _selectedType == 3,
-                              onTap: () => setState(() => _selectedType = 3),
+                            height: 91.60794830322266,
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _InquiryChip(
+                                        text: _types[0],
+                                        selected: _selectedType == 0,
+                                        onTap: () =>
+                                            setState(() => _selectedType = 0),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _InquiryChip(
+                                        text: _types[1],
+                                        selected: _selectedType == 1,
+                                        onTap: () =>
+                                            setState(() => _selectedType = 1),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _InquiryChip(
+                                        text: _types[2],
+                                        selected: _selectedType == 2,
+                                        onTap: () =>
+                                            setState(() => _selectedType = 2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: _InquiryChip(
+                                        text: _types[3],
+                                        selected: _selectedType == 3,
+                                        onTap: () =>
+                                            setState(() => _selectedType = 3),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                           Positioned(
@@ -425,9 +442,8 @@ class _InquiryChip extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        width: text == '제보 검토 문의' || text == '기타'
-            ? 163.7357940673828
-            : 163.72158813476562,
+        key: ValueKey('inquiry-type-$text'),
+        width: double.infinity,
         height: 41.80397415161133,
         decoration: BoxDecoration(
           color: selected ? AppColors.primaryLight : AppColors.white,
@@ -647,6 +663,7 @@ class _AddPhotoButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: SizedBox(
+          key: const ValueKey('inquiry-add-photo-button'),
           width: 63.99147415161133,
           height: 63.99147415161133,
           child: DecoratedBox(
@@ -659,23 +676,20 @@ class _AddPhotoButton extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Stack(
-              children: [
-                Positioned(
-                  left: 21.18,
-                  top: 12.68,
-                  child: Icon(
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
                     Icons.add_a_photo_outlined,
+                    key: ValueKey('inquiry-add-photo-icon'),
                     size: 18,
                     color: InquiryScreen.muted,
                   ),
-                ),
-                Positioned(
-                  left: 20.17,
-                  top: 32.67,
-                  child: Text('추가', style: _photoText),
-                ),
-              ],
+                  SizedBox(height: 2),
+                  Text('추가', style: _photoText),
+                ],
+              ),
             ),
           ),
         ),

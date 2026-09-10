@@ -32,9 +32,12 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
   String? _dismissedUnreadSignature;
   String? _dismissedNoticeId;
   String? _pendingNoticeId;
+  bool _suppressNoticePopup = false;
 
   void _scheduleNoticePopup(NotificationModel notice) {
-    if (_dismissedNoticeId == notice.id || _pendingNoticeId == notice.id) {
+    if (_suppressNoticePopup ||
+        _dismissedNoticeId == notice.id ||
+        _pendingNoticeId == notice.id) {
       return;
     }
     _pendingNoticeId = notice.id;
@@ -43,6 +46,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       final preferences = await SharedPreferences.getInstance();
       final hiddenToday = preferences.getString(noticeHiddenDateKey(notice.id));
       if (!mounted) return;
+      if (_suppressNoticePopup || _dismissedNoticeId == notice.id) {
+        _pendingNoticeId = null;
+        return;
+      }
       if (hiddenToday == noticeLocalDate(DateTime.now())) {
         setState(() {
           _dismissedNoticeId = notice.id;
@@ -82,6 +89,14 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     });
   }
 
+  void _dismissUnreadPrompt(String unreadSignature) {
+    setState(() {
+      _dismissedUnreadSignature = unreadSignature;
+      _suppressNoticePopup = true;
+      _pendingNoticeId = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(authStateProvider).isLoggedIn;
@@ -97,9 +112,11 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     final notices = allNotifications
         .where((notification) => notification.type == '공지사항')
         .toList(growable: false);
-    if (notices.isNotEmpty) _scheduleNoticePopup(notices.first);
     final shouldShow =
         unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
+    if (notices.isNotEmpty && !shouldShow) {
+      _scheduleNoticePopup(notices.first);
+    }
     final bannerTop = notificationPromptTop(
       isHome: widget.isHome,
       safeTop: MediaQuery.paddingOf(context).top,
@@ -125,11 +142,9 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
                 child: _UnreadNotificationBanner(
                   key: const ValueKey('web-notification-banner'),
                   unreadCount: unreadCount,
-                  onDismiss: () => setState(
-                    () => _dismissedUnreadSignature = unreadSignature,
-                  ),
+                  onDismiss: () => _dismissUnreadPrompt(unreadSignature),
                   onOpen: () {
-                    setState(() => _dismissedUnreadSignature = unreadSignature);
+                    _dismissUnreadPrompt(unreadSignature);
                     widget.onOpenNotifications();
                   },
                 ),
