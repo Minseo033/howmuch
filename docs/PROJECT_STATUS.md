@@ -1252,3 +1252,4 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 일반 `닫기`는 현재 접속 세션에서 같은 공지를 다시 띄우지 않는다. `오늘 하루 보지 않기`는 공지 ID별로 기기 로컬에 날짜를 저장해 당일 자정 전까지 숨기며, 이후 발송된 다른 공지는 별도로 표시한다.
 - 배경 클릭으로 실수로 닫히지 않게 하고 명시적인 세 가지 동작만 제공한다. 팝업 제목·내용 표시와 하루 숨김 후 재접속 미노출 위젯 테스트를 추가했다.
 - `flutter analyze`, 전체 Flutter 테스트 162개, 웹 release 빌드를 통과했다.
+- 기능 커밋 `949c513`을 GitHub `main`에 푸시했다. Vercel 배포 `dpl_9kWZHVFxVMz6CHigWBLggS67UzG8`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했고, 공개 파일 8개와 주요 진입 경로 3개가 로컬 release 빌드와 모두 일치했다.
