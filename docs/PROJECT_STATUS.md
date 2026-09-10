@@ -1312,4 +1312,7 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - Flutter 3.44 엔진이 첫 화면 전에 자산 폰트 다운로드·등록을 기다리는 경로를 확인했다. 웹은 같은 파일을 미리 가져오고 외부 Google Fonts CSS를 제거했으며, 실제 `flutter-first-frame` 이벤트까지 CSS 로딩 표시를 제공한다. 임의 시간 지연은 추가하지 않았다. 공통 버튼 테마도 동일 글꼴을 유지한다.
 - `flutter analyze` 이슈 0건, 전체 Flutter 테스트 169개, 배포 검증 도구 테스트 4개, 웹 release 빌드, `git diff --check`를 통과했다. 미리보기에서 폰트 HTTP 200, 로딩 표시 종료 및 온보딩 제목·본문·버튼의 정상 한글 표시를 확인했다. 스크린샷은 표본 화면 검증이며 모든 로딩 순간을 녹화한 것은 아니다.
 - 배포 전 점검: 폰트 원본은 약 10.4 MB이므로 최초 접속은 다운로드 대기가 생길 수 있다. 대신 준비 전 깨진 텍스트 대신 로딩 상태를 제공하고 이후 브라우저 캐시를 활용한다. 기존 인증·서버·데이터·SEO·분석 설정은 변경하지 않아 해당 영역의 전면 감사는 이번 수정 범위에서 제외했다.
-- 운영 반영 및 공개 주소의 자산 SHA-256 검증은 진행 전이다. 복구가 필요하면 기존 정상 배포 `dpl_FZyjwFEwodKSWTxrzNSobhCyHbzt` (`https://web-13h8kgkyz-minseo033s-projects.vercel.app`)에 운영 별칭을 다시 연결한다.
+- 수정 커밋 `bed9072`를 GitHub `main`에 푸시하고 실제 웹 산출물 `build/web`을 Vercel 배포 `dpl_66z4J3etNbhjSVDVPuaPCjBxYTYC` (`https://web-niftkcit8-minseo033s-projects.vercel.app`)로 배포했다. `Ready` 확인 후 운영 주소 `https://howmuch-zeta.vercel.app`을 연결했다.
+- 운영 별칭 연결 직후 CDN 전파 중 `index.html`과 `main.dart.js` 불일치가 한 번 발생했고, 재검증에서는 공개 자산 10개·진입 경로 3개가 SHA-256 기준 13/13 PASS했다. 폰트 원본과 운영 파일의 SHA-256은 `194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252`이며 HTTP 200·`font/ttf`·gzip 압축·기존 보안 헤더를 확인했다.
+- 로그인된 운영 Chrome을 새로고침해 공지 팝업의 제목·본문·`공지사항 보기`·`오늘 하루 보지 않기`·`닫기`, 홈 검색창·추천 문구·하단 메뉴의 정상 한글 표시를 직접 확인했다. 검증 중 새 공지나 푸시는 발송하지 않았다.
+- 복구가 필요하면 기존 정상 배포 `dpl_FZyjwFEwodKSWTxrzNSobhCyHbzt` (`https://web-13h8kgkyz-minseo033s-projects.vercel.app`)에 운영 별칭을 다시 연결한다.
