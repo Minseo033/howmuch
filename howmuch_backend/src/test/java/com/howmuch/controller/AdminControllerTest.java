@@ -239,4 +239,28 @@ class AdminControllerTest {
         verify(firebaseService).sendAdminNotification(
                 "missing-user", "알림", "내용", "admin");
     }
+
+    @Test
+    void publishesANoticeThroughTheSeparateAdminContract() throws Exception {
+        Map<String, Object> published = Map.of("sent", 3, "broadcast", true);
+        when(firebaseService.publishAdminNotice("서비스 안내", "새 기능을 확인해주세요."))
+                .thenReturn(published);
+
+        ResponseEntity<?> response = controller.publishNotice(
+                Map.of("title", " 서비스 안내 ", "body", " 새 기능을 확인해주세요. "),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(published);
+        verify(firebaseService).publishAdminNotice("서비스 안내", "새 기능을 확인해주세요.");
+    }
+
+    @Test
+    void rejectsBlankNoticeBeforePublishing() {
+        ResponseEntity<?> response = controller.publishNotice(
+                Map.of("title", " ", "body", "내용"), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
 }

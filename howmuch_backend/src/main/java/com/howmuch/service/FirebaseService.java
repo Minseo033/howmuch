@@ -3271,6 +3271,21 @@ public class FirebaseService {
 
     // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
     public Map<String, Object> sendAdminNotification(String targetUid, String title, String body, String type) throws Exception {
+        return sendAdminMessage(targetUid, title, body,
+                type != null && !type.isBlank() ? type : "general", true);
+    }
+
+    // 공지는 전체 회원의 알림함/웹 접속 팝업에만 등록하고 기기 푸시는 보내지 않습니다.
+    public Map<String, Object> publishAdminNotice(String title, String body) throws Exception {
+        return sendAdminMessage(null, title, body, "notice", false);
+    }
+
+    private Map<String, Object> sendAdminMessage(
+            String targetUid,
+            String title,
+            String body,
+            String type,
+            boolean deliverPush) throws Exception {
         String createdAt = java.time.Instant.now().toString();
         int sent = 0;
         List<String> targetUids = new ArrayList<>();
@@ -3294,8 +3309,9 @@ public class FirebaseService {
                     uid,
                     title,
                     body,
-                    type != null && !type.isBlank() ? type : "admin",
-                    createdAt);
+                    type,
+                    createdAt,
+                    deliverPush);
             sent++;
         }
         Map<String, Object> result = new HashMap<>();
@@ -3309,7 +3325,8 @@ public class FirebaseService {
             String title,
             String body,
             String type,
-            String createdAt) throws Exception {
+            String createdAt,
+            boolean deliverPush) throws Exception {
         Map<String, Object> data = new HashMap<>();
         data.put("userId", userId);
         data.put("title", title);
@@ -3319,7 +3336,9 @@ public class FirebaseService {
         data.put("createdAt", createdAt);
         DocumentReference notification = db.collection("notifications").document();
         notification.set(data).get();
-        dispatchPushNotification(userId, notification.getId(), title, body, type);
+        if (deliverPush) {
+            dispatchPushNotification(userId, notification.getId(), title, body, type);
+        }
     }
 
     /**

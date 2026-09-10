@@ -265,6 +265,11 @@ void main() {
       expect(notificationRouteForType('admin'), isNull);
       expect(notificationRouteForType('공지사항'), isNull);
     });
+
+    test('leaves separated general notifications without a destination', () {
+      expect(notificationRouteForType('general'), isNull);
+      expect(notificationRouteForType('일반 알림'), isNull);
+    });
   });
 
   group('NotificationApiService', () {
@@ -317,6 +322,32 @@ void main() {
       expect(notification.messageText, '오늘 자정에 점검합니다.');
       expect(notification.isUnread, isTrue);
       expect(notification.section, '오늘');
+    });
+
+    test('keeps a general admin message separate from notices', () async {
+      final service = NotificationApiService(
+        MockClient(
+          (_) async => http.Response(
+            jsonEncode([
+              {
+                'id': 'general-1',
+                'title': '처리 완료',
+                'body': '요청이 정상 처리됐습니다.',
+                'type': 'general',
+                'isRead': false,
+                'createdAt': DateTime.now().toUtc().toIso8601String(),
+              },
+            ]),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          ),
+        ),
+      );
+
+      final notification = (await service.fetchNotifications()).single;
+
+      expect(notification.type, '일반 알림');
+      expect(notification.tabCategory, '전체');
     });
 
     test('maps an inquiry answer notification for the in-app inbox', () async {

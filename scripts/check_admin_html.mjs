@@ -19,6 +19,19 @@ for (const file of files) {
         throw new Error(`${file}의 회원 검색 기반 알림 대상 선택 기능이 누락되었습니다: ${hook}`);
       }
     }
+    const separatedNoticeHooks = [
+      'data-view="notices"',
+      'renderNoticesView',
+      "api('/api/admin/notices'",
+      "type: 'general'",
+      '기기 푸시는 발송하지 않',
+      'noticePreviewTitle',
+    ];
+    for (const hook of separatedNoticeHooks) {
+      if (!html.includes(hook)) {
+        throw new Error(`${file}의 공지사항 등록과 일반 알림 발송 분리가 누락되었습니다: ${hook}`);
+      }
+    }
     if (/\b(?:window\.)?confirm\s*\(/.test(html)) {
       throw new Error(`${file}에서 브라우저 기본 confirm()을 사용하면 안 됩니다.`);
     }

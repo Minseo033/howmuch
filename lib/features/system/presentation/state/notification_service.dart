@@ -302,17 +302,26 @@ class NotificationApiService {
         rawType == '공지' ||
         type == 'admin' ||
         type == 'notice';
+    final isGeneral = type == 'general' || type == 'admin_message';
     return _NotificationStyle(
-      label: isNotice ? '공지사항' : (rawType.isEmpty ? '알림' : rawType),
+      label: isNotice
+          ? '공지사항'
+          : isGeneral
+          ? '일반 알림'
+          : (rawType.isEmpty ? '알림' : rawType),
       tabCategory: '전체',
       iconData: isNotice
           ? Icons.campaign_outlined
           : Icons.notifications_none_rounded,
-      iconColor: const Color(0xFF64748B),
-      iconBgColor: const Color.fromRGBO(100, 116, 139, 0.09),
+      iconColor: isGeneral ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+      iconBgColor: isGeneral
+          ? const Color.fromRGBO(37, 99, 235, 0.09)
+          : const Color.fromRGBO(100, 116, 139, 0.09),
       borderColor: const Color(0xFFE5E7EB),
       bgColor: const Color(0xFFFAFBFC),
-      categoryColor: const Color(0xFF64748B),
+      categoryColor: isGeneral
+          ? const Color(0xFF2563EB)
+          : const Color(0xFF64748B),
     );
   }
 

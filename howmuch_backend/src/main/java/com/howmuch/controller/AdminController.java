@@ -635,6 +635,42 @@ public class AdminController {
         }
     }
 
+    /** 공지사항 등록 (POST /api/admin/notices, body: {title, body}) — 전체 회원 알림함/웹 팝업, 푸시 제외. */
+    @PostMapping("/notices")
+    public ResponseEntity<?> publishNotice(@RequestBody Map<String, String> body,
+                                           HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+
+        String title = body != null ? body.get("title") : null;
+        String content = body != null ? body.get("body") : null;
+        if (title == null || title.isBlank() || content == null || content.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "제목(title)과 내용(body)은 필수입니다."
+            ));
+        }
+        if (title.length() > 100 || content.length() > 500) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "제목은 100자, 내용은 500자 이내로 입력해주세요."
+            ));
+        }
+
+        try {
+            Map<String, Object> result = firebaseService.publishAdminNotice(
+                    title.trim(), content.trim());
+            log.warn("[AdminController] 공지사항 등록 완료 - 대상 수: {}", result.get("sent"));
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("[AdminController] 공지사항 등록 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "공지사항 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
+        }
+    }
+
     /** 커뮤니티 활동 지표 (GET /api/admin/community/stats) — 댓글/좋아요/알림 수 */
     @GetMapping("/community/stats")
     public ResponseEntity<?> getCommunityStats(HttpServletRequest httpRequest) {

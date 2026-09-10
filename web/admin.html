@@ -231,6 +231,44 @@
   }
   .notification-body { height: 110px; resize: none; line-height: 1.5; }
   .form-actions { display: flex; justify-content: flex-end; }
+  .notice-layout {
+    display: grid; grid-template-columns: minmax(0, 560px) minmax(280px, 360px);
+    align-items: start; gap: 20px;
+  }
+  .notice-compose-card { padding: 24px; }
+  .notice-guide {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px;
+    padding: 12px 14px; border: 1px solid #BFDBFE; border-radius: 12px;
+    background: var(--primary-soft); color: #1E3A8A; font-size: 12px; line-height: 1.6;
+  }
+  .notice-guide svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 1px; }
+  .field-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .field-count { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .notice-preview-wrap { position: sticky; top: 26px; }
+  .notice-preview-label { margin-bottom: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+  .notice-preview {
+    overflow: hidden; border: 1px solid var(--border); border-radius: 22px;
+    background: var(--card); box-shadow: var(--shadow);
+  }
+  .notice-preview-head {
+    position: relative; overflow: hidden; min-height: 126px; padding: 22px 22px 24px;
+    background: #0F172A; color: #fff;
+  }
+  .notice-preview-mark {
+    position: absolute; right: -5px; top: -35px; color: rgba(255,255,255,.06);
+    font-size: 132px; font-weight: 900; line-height: 1;
+  }
+  .notice-preview-meta { color: #93C5FD; font-size: 11px; font-weight: 700; }
+  .notice-preview-title {
+    position: relative; margin-top: 20px; font-size: 22px; font-weight: 800;
+    line-height: 1.35; word-break: keep-all;
+  }
+  .notice-preview-body { padding: 20px 22px 22px; }
+  .notice-preview-message { min-height: 64px; color: var(--muted); font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+  .notice-preview-button {
+    margin-top: 18px; padding: 13px 14px; border-radius: 12px;
+    background: var(--primary); color: #fff; text-align: center; font-size: 12px; font-weight: 800;
+  }
 
   /* ── 배지/버튼 ─────────────────── */
   .badge {
@@ -413,6 +451,8 @@
     .search-row input { max-width: 100%; }
     .data-table { min-width: 560px; }
     .modal { padding: 20px; }
+    .notice-layout { grid-template-columns: 1fr; }
+    .notice-preview-wrap { position: static; }
   }
   @media (max-width: 480px) {
     .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); }
@@ -454,6 +494,7 @@
     <button class="nav-item" data-view="reviews"><span class="ico"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8-6.1-3.4-6.1 3.4 1.4-6.8L2.2 9.1l6.9-.8L12 2z"/></svg></span>리뷰 관리</button>
     <button class="nav-item" data-view="comments"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>댓글 관리</button>
     <button class="nav-item" data-view="inquiries"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>문의 관리</button>
+    <button class="nav-item" data-view="notices"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a2 2 0 0 0 2 2h2l4 4V5L7 9H5a2 2 0 0 0-2 2z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></span>공지사항</button>
     <button class="nav-item" data-view="notifications"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>알림 발송</button>
     <div class="nav-label">계정</div>
     <button class="nav-item" data-view="users"><span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M15.5 3.13a4 4 0 0 1 0 7.75"/></svg></span>회원 관리</button>
@@ -646,7 +687,8 @@
     reviews:       ['리뷰 관리', '작성된 리뷰를 조회·삭제합니다'],
     comments:      ['댓글 관리', '동네제보 댓글·답글을 조회·삭제합니다'],
     inquiries:     ['문의 관리', '사용자 문의를 조회합니다'],
-    notifications: ['알림 발송', '전체 또는 특정 회원에게 알림을 보냅니다'],
+    notices:        ['공지사항', '웹 접속 팝업과 알림함에 표시할 공지를 등록합니다'],
+    notifications: ['알림 발송', '전체 또는 특정 회원에게 푸시·일반 알림을 보냅니다'],
     users:         ['회원 관리', '가입 회원을 조회·관리합니다'],
   };
 
@@ -1327,7 +1369,88 @@
     });
   }
 
-  /* ══ 뷰 7: 알림 발송 ══ */
+  /* ══ 뷰 7: 공지사항 ══ */
+  function updateNoticePreview() {
+    const title = $('noticeTitle');
+    const body = $('noticeBody');
+    if (!title || !body) return;
+    $('noticeTitleCount').textContent = `${title.value.length} / 100`;
+    $('noticeBodyCount').textContent = `${body.value.length} / 500`;
+    $('noticePreviewTitle').textContent = title.value.trim() || '공지 제목이 여기에 표시됩니다';
+    $('noticePreviewBody').textContent = body.value.trim() || '사용자가 접속했을 때 확인할 공지 내용을 입력하세요.';
+  }
+
+  function renderNoticesView() {
+    content.innerHTML = `
+      <div class="notice-layout">
+        <div class="card notice-compose-card">
+          <div class="notice-guide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <span>공지사항은 <b>전체 회원의 웹 접속 팝업과 알림함</b>에 표시됩니다. 기기 푸시는 발송하지 않으며, 등록 후에는 회수할 수 없습니다.</span>
+          </div>
+          <div class="notification-form">
+            <div>
+              <div class="field-meta"><label for="noticeTitle" class="field-label">제목</label><span class="field-count" id="noticeTitleCount">0 / 100</span></div>
+              <input id="noticeTitle" name="notice-title" class="notification-input" type="text" maxlength="100" placeholder="예: 서비스 업데이트 안내" />
+            </div>
+            <div>
+              <div class="field-meta"><label for="noticeBody" class="field-label">내용</label><span class="field-count" id="noticeBodyCount">0 / 500</span></div>
+              <textarea id="noticeBody" name="notice-body" class="notification-input notification-body" maxlength="500" placeholder="사용자에게 안내할 내용을 구체적으로 입력하세요"></textarea>
+            </div>
+            <div class="form-actions"><button class="btn btn-primary" id="noticePublish" type="button">공지 등록</button></div>
+          </div>
+        </div>
+        <div class="notice-preview-wrap" aria-label="공지사항 미리보기">
+          <div class="notice-preview-label">사용자 화면 미리보기</div>
+          <div class="notice-preview">
+            <div class="notice-preview-head">
+              <div class="notice-preview-mark" aria-hidden="true">₩</div>
+              <div class="notice-preview-meta">얼마고 소식 · 방금 전</div>
+              <div class="notice-preview-title" id="noticePreviewTitle">공지 제목이 여기에 표시됩니다</div>
+            </div>
+            <div class="notice-preview-body">
+              <div class="notice-preview-message" id="noticePreviewBody">사용자가 접속했을 때 확인할 공지 내용을 입력하세요.</div>
+              <div class="notice-preview-button">알림함에서 자세히 보기 →</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    $('noticeTitle').oninput = updateNoticePreview;
+    $('noticeBody').oninput = updateNoticePreview;
+    $('noticePublish').onclick = doPublishNotice;
+  }
+
+  async function doPublishNotice() {
+    const title = $('noticeTitle').value.trim();
+    const body = $('noticeBody').value.trim();
+    if (!title || !body) { toast('공지 제목과 내용을 입력해주세요'); return; }
+    if (!await confirmAction(
+      '전체 회원의 웹 접속 팝업과 알림함에 공지를 등록할까요? 기기 푸시는 발송하지 않습니다.',
+      '공지사항 등록 확인',
+    )) return;
+
+    const button = $('noticePublish');
+    button.disabled = true;
+    button.textContent = '등록 중…';
+    try {
+      const res = await api('/api/admin/notices', {
+        method: 'POST',
+        body: JSON.stringify({ title, body }),
+      });
+      toast(`공지 등록 완료 — ${res.sent}명의 알림함에 반영됨`);
+      $('noticeTitle').value = '';
+      $('noticeBody').value = '';
+      updateNoticePreview();
+    } catch (e) {
+      handleError(e);
+    } finally {
+      button.disabled = false;
+      button.textContent = '공지 등록';
+    }
+  }
+
+  /* ══ 뷰 8: 알림 발송 ══ */
   const notificationUserUid = (user) => String(user?.id || user?.firebaseUid || '').trim();
 
   function notificationUserName(user) {
@@ -1411,7 +1534,7 @@
         <div class="stat-card c-red"><div class="glow"></div><div class="label">좋아요</div><div class="value">${Number(s.feedLikes ?? 0).toLocaleString('ko-KR')}</div></div>
         <div class="stat-card c-blue"><div class="glow"></div><div class="label">발송된 알림</div><div class="value">${Number(s.notifications ?? 0).toLocaleString('ko-KR')}</div></div>
       </div>
-      <div class="section-title">알림 보내기</div>
+      <div class="section-title">일반 알림 보내기</div>
       <div class="card notification-compose-card">
         <div class="notification-form">
           <div>
@@ -1436,7 +1559,7 @@
           </div>
           <div>
             <label for="notifTitle" class="field-label">제목</label>
-            <input id="notifTitle" name="notification-title" class="notification-input" type="text" maxlength="100" placeholder="알림 제목" />
+            <input id="notifTitle" name="notification-title" class="notification-input" type="text" maxlength="100" placeholder="일반 알림 제목" />
           </div>
           <div>
             <label for="notifBody" class="field-label">내용</label>
@@ -1509,11 +1632,11 @@
           audience: targetUid ? 'USER' : 'ALL',
           title,
           body,
-          type: 'admin',
+          type: 'general',
           ...(targetUid ? { targetUid } : {}),
         }),
       });
-      toast(`알림함 등록 완료 — ${res.sent}명에게 등록됨`);
+      toast(`일반 알림 발송 완료 — ${res.sent}명에게 전송됨`);
       $('notifTitle').value = ''; $('notifBody').value = ''; selectedNotificationUid = '';
       communityStats = await api('/api/admin/community/stats');
       renderNotificationsView();
@@ -1750,6 +1873,8 @@
     } else if (view === 'inquiries') {
       if (allInquiries) renderInquiriesView();
       else await loadInquiries();
+    } else if (view === 'notices') {
+      renderNoticesView();
     } else if (view === 'notifications') {
       if (communityStats) renderNotificationsView();
       else await loadCommunityStats();
@@ -1856,6 +1981,7 @@
     else if (currentView === 'reviews') { reviewsLoaded = false; await loadReviews(); }
     else if (currentView === 'comments') await loadComments();
     else if (currentView === 'inquiries') await loadInquiries();
+    else if (currentView === 'notices') renderNoticesView();
     else if (currentView === 'notifications') await loadCommunityStats();
     else if (currentView === 'users') await loadUsers();
   }
