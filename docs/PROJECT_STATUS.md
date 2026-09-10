@@ -1319,9 +1319,35 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 
 ## 5-67. 9/10 마이페이지·설정 기능 재적용 및 운영 배포
 
-- 기존 마이페이지·계정·일반 알림·가격 알림·프로필·회원 탈퇴 화면의 카드, 색상, 간격, 섹션과 하단 메뉴는 유지하고 실제 상태 조회와 저장 안전장치만 다시 적용했다. 세부 점검은 `docs/SETTINGS_FUNCTIONALITY_AUDIT_2026-09-10.md`에 기록했다.
-- 위치와 푸시는 실제 기기 권한 상태를 사용한다. 로컬 값만 바뀌던 마케팅 수신과 실제 공개 범위에 적용되지 않던 프로필 공개 토글은 미지원 안내로 정리했다. 회원 탈퇴는 동의 해제 상태로 시작하고 최종 확인 및 중복 실행 방지를 적용했다.
-- 가격 알림은 새 `PUT /api/notifications/price-alerts/batch`로 찜 매장별 수신 여부와 공통 조건을 원자적으로 저장한다. 모든 매장 소유권을 쓰기 전에 확인하고, 빈 찜 목록의 조건도 저장하며, 일반 알림 저장은 가격 조건을 덮어쓰지 않는다.
-- 기능 커밋 `1430d85`를 GitHub `main`에 푸시했다. GitHub Actions의 Flutter 분석·테스트·웹 빌드, 백엔드 테스트·패키지, iOS Simulator 빌드가 모두 통과했다.
-- Vercel 배포 `dpl_Bg6hqMRvfDbY6QbzgqFU2SsKtYiz` (`https://howmuch-8tcyjhvnp-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다. 공개 앱·폰트 파일 10개와 주요 진입 경로 3개가 로컬 release 빌드와 모두 일치했다.
-- 로그인된 운영 Chrome에서 기존 마이페이지 레이아웃, 실제 위치 권한 표시, 마케팅 미지원 안내, 일반 알림 서버 값, 3개 찜 매장 가격 알림 목록을 확인했다. 현재 설정값을 변경하지 않고 가격 알림 저장을 실행해 Render의 새 일괄 API 성공과 알림 설정 화면 복귀를 확인했다.
+- **작업 원칙**: 기존 마이페이지·계정·일반 알림·가격 알림·프로필·회원 탈퇴 화면의 카드 구조, 색상, 간격, 섹션 및 하단 네비게이션 바 디자인을 100% 원본 그대로 유지하고, 백엔드 연동·실제 기기 권한 조회·원자적 저장·안전 확인 로직만 최소 수정으로 복구함.
+
+### 1) 화면별 개선 및 상태 정상화 내역
+| 화면 / 항목 | 기존 문제점 | 반영 내용 |
+| :--- | :--- | :--- |
+| **위치 권한** | 마이페이지는 항상 '허용' 고정 표시, 계정 화면은 과거 메모리 상태만 표시 | OS 및 브라우저의 실제 위치 권한/서비스 상태 조회 연동, 거부 시 기기 설정/브라우저 설정 이동 안내 |
+| **푸시 알림** | SharedPreferences 로컬 값만 토글되어 실제 FCM 등록 성공 여부와 무관 | 모바일은 실제 OS 알림 권한 및 FCM 토큰 백엔드 등록 성공 시에만 활성화, 실패 시 리소스 정리 및 재시도 허용. 웹 브라우저는 미지원 안내 |
+| **마케팅 수신 동의** | 로컬 값만 저장되는 목업 토글 | 임의 토글 저장 대신 현재 미제공 기능임을 안내 메시지로 명확히 표시 |
+| **일반 알림 설정** | 저장 중 중복 탭 방지 미비, 저장 실패 시 사용자 초안 유실, 시작/종료 동일 시간 허용 문제 | 저장 중 버튼 비활성화, 저장 실패 시 수정 초안 유지, 동일 시간(ex. 08:00~08:00) 방해 금지 설정 검증 차단, 미저장 이탈 방지 가드 적용 |
+| **가격 알림 구독** | 매장별 개별 API 순차 호출로 부분 실패 위험, 찜 매장 0개 시 조건 미저장, 긴 매장 목록 시 레이아웃 겹침 | 신규 일괄 API(`PUT /api/notifications/price-alerts/batch`)로 찜 매장 상태와 조건(인상/인하/신메뉴)을 단일 Firestore Batch로 원자적 저장. 빈 찜 목록도 조건 저장 지원, 기존 카드 영역 내 스크롤 지원 |
+| **서버 응답 검증** | 불완전한 HTTP 200 응답 시 잘못된 기본값 대체 위험 | 필수 불리언/시간 형식/매장 ID 및 일괄 저장의 `success: true` 응답 무결성 검증 |
+| **프로필 수정** | 프로필 공개 토글이 실제 공개 범위 제어에 미적용 | 가짜 공개 토글이 서버 상태를 바꾸지 않도록 정리 및 미지원 안내, 닉네임 변경만 정직하게 저장, 저장 중 이탈 확인 가드 적용 |
+| **회원 탈퇴** | 탈퇴 동의 체크박스가 기본 체크 상태였고 중복 클릭 시 연타 위험 | 동의 체크박스 기본 해제, 복구 불가 명시 다이얼로그, 중복 호출 차단, 탈퇴 완료 시 FCM 등록 해제 및 세션/로컬 캐시 완전 초기화 |
+
+### 2) 백엔드 원자적 저장 계약 (`NotificationController` & `FirebaseService`)
+- `PUT /api/notifications/price-alerts/batch` 엔드포인트 구현: 세션 인증된 사용자 UID 기반 처리.
+- 요청된 모든 매장 ID가 해당 사용자의 찜 목록에 존재하는지 사전에 일괄 검증(불일치 시 409 Conflict, 잘못된 입력/중복 ID 시 400 Bad Request).
+- Firestore `WriteBatch`를 통해 찜 매장별 알림 활성화 여부와 사용자 알림 조건 문서(`notification_settings`)를 한 번에 원자적으로 커밋.
+- 일반 알림 저장 시에도 가격 알림 조건 필드를 덮어쓰지 않고 병합(`SetOptions.merge()`)하도록 보호.
+
+### 3) 품질 검증 및 빌드
+- **Flutter 정적 분석**: `flutter analyze --no-pub` 이슈 0건 통과.
+- **Flutter 단위/위젯/기능 테스트**: 전체 178개 테스트 통과 (`test/settings_functionality_test.dart`, `test/widget_test.dart`, `test/notification_settings_test.dart`, `test/user_profile_api_service_test.dart` 등).
+- **백엔드 테스트 및 패키징**: Spring Boot Gradle 테스트 179개 전건 통과, 실행 가능 JAR 빌드 성공.
+- **배포 검증 스크립트**: `node --test scripts/verify_web_deployment.test.mjs` 4/4 통과.
+- **시각 및 레이아웃 회귀 검증**: 로컬 릴리스 빌드 및 운영 배포 Chrome 탭에서 마이페이지, 알림 설정, 가격 알림 구독, 계정 관리 화면을 직접 확인하여 기존 디자인(폰트, 카드 크기, 여백, 아이콘, 하단 탭)과 시각적으로 100% 동일함을 입증.
+
+### 4) 배포 및 운영 확인
+- **코드 푸시**: GitHub `main` 브랜치 커밋 `1430d85` 푸시 완료. GitHub Actions CI(Flutter 분석·테스트·웹 빌드, 백엔드 테스트, iOS Simulator 빌드) 전건 통과.
+- **Vercel 운영 웹 배포**: 배포 ID `dpl_Bg6hqMRvfDbY6QbzgqFU2SsKtYiz` (`https://howmuch-8tcyjhvnp-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결 완료.
+- **정합성 검증**: `node scripts/verify_web_deployment.mjs` 실행 결과 `index.html`, `main.dart.js`, `NotoSansKR-Variable.ttf`, 주요 진입 라우트 등 총 13개 검사 항목 13/13 PASS.
+- **운영 라이브 확인**: 운영 도메인 접속 확인(HTTP 200), 실제 로그인된 세션에서 마이페이지 정상 진입, 가격 알림 구독 화면에서 3개 찜 매장 목록 노출 및 일괄 저장 정상 작동 확인 완료.
