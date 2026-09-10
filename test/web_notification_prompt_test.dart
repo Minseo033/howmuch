@@ -5,8 +5,11 @@ import 'package:howmuch/app/widgets/web_notification_prompt.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   test('unread signature changes when a notification is replaced', () {
     final first = notificationSignature([
       _notification(id: 'notification-a'),
@@ -75,13 +78,71 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('shows a notice popup and hides it for the rest of today', (
+    tester,
+  ) async {
+    final notice = _notification(
+      id: 'notice-a',
+      type: '공지사항',
+      title: '서비스 업데이트 안내',
+      message: '새로운 기능이 추가됐어요.',
+    );
+
+    Widget app() => ProviderScope(
+      overrides: [
+        authStateProvider.overrideWith(
+          (ref) => const AuthState(
+            isLoggedIn: true,
+            provider: '카카오',
+            email: 'qa@example.com',
+          ),
+        ),
+        notificationsProvider.overrideWith(
+          (ref) => _SeededNotificationsNotifier([notice]),
+        ),
+      ],
+      child: MaterialApp(
+        home: WebNotificationPrompt(
+          isHome: true,
+          onOpenNotifications: () {},
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('notice-popup')), findsOneWidget);
+    expect(find.text('서비스 업데이트 안내'), findsOneWidget);
+    expect(find.text('새로운 기능이 추가됐어요.'), findsOneWidget);
+
+    await tester.tap(find.text('오늘 하루 보지 않기'));
+    await tester.pumpAndSettle();
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getString(noticeHiddenDateKey('notice-a')),
+      noticeLocalDate(DateTime.now()),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
+  });
 }
 
-NotificationModel _notification({required String id}) {
+NotificationModel _notification({
+  required String id,
+  String type = '알림',
+  String title = '새 알림',
+  String message = '내용',
+}) {
   return NotificationModel(
     id: id,
     section: '오늘',
-    type: '알림',
+    type: type,
     tabCategory: '전체',
     iconData: Icons.notifications_none,
     iconColor: Colors.blue,
@@ -90,8 +151,8 @@ NotificationModel _notification({required String id}) {
     bgColor: Colors.white,
     categoryColor: Colors.blue,
     timeText: '',
-    title: '새 알림',
-    messageText: '내용',
+    title: title,
+    messageText: message,
     isUnread: true,
   );
 }

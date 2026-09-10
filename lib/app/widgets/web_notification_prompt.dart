@@ -4,6 +4,7 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Shows a single, dismissible web entry prompt when the signed-in user has
 /// unread in-app notifications. Native apps retain their existing push flow.
@@ -26,6 +27,49 @@ class WebNotificationPrompt extends ConsumerStatefulWidget {
 
 class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
   String? _dismissedUnreadSignature;
+  String? _dismissedNoticeId;
+  String? _pendingNoticeId;
+
+  void _scheduleNoticePopup(NotificationModel notice) {
+    if (_dismissedNoticeId == notice.id || _pendingNoticeId == notice.id) {
+      return;
+    }
+    _pendingNoticeId = notice.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final preferences = await SharedPreferences.getInstance();
+      final hiddenToday = preferences.getString(noticeHiddenDateKey(notice.id));
+      if (!mounted) return;
+      if (hiddenToday == noticeLocalDate(DateTime.now())) {
+        setState(() {
+          _dismissedNoticeId = notice.id;
+          _pendingNoticeId = null;
+        });
+        return;
+      }
+
+      final action = await showDialog<_NoticeDialogAction>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => _NoticePopup(notice: notice),
+      );
+      if (!mounted) return;
+      if (action == _NoticeDialogAction.hideToday) {
+        await preferences.setString(
+          noticeHiddenDateKey(notice.id),
+          noticeLocalDate(DateTime.now()),
+        );
+      }
+      if (!mounted) return;
+      setState(() {
+        _dismissedNoticeId = notice.id;
+        _pendingNoticeId = null;
+      });
+      if (action == _NoticeDialogAction.openNotifications) {
+        widget.onOpenNotifications();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +84,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         const [];
     final unreadCount = unreadNotifications.length;
     final unreadSignature = notificationSignature(unreadNotifications);
+    final notices = unreadNotifications
+        .where((notification) => notification.type == '공지사항')
+        .toList(growable: false);
+    if (notices.isNotEmpty) _scheduleNoticePopup(notices.first);
     final shouldShow =
         unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
     final bannerTop = notificationPromptTop(
@@ -78,6 +126,138 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
               ),
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+String noticeHiddenDateKey(String noticeId) =>
+    'howmuch_notice_hidden_date_$noticeId';
+
+String noticeLocalDate(DateTime dateTime) {
+  final local = dateTime.toLocal();
+  String twoDigits(int value) => value.toString().padLeft(2, '0');
+  return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)}';
+}
+
+enum _NoticeDialogAction { close, hideToday, openNotifications }
+
+class _NoticePopup extends StatelessWidget {
+  const _NoticePopup({required this.notice});
+
+  final NotificationModel notice;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      key: const ValueKey('notice-popup'),
+      backgroundColor: AppColors.white,
+      surfaceTintColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+      contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+      actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      title: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.campaign_outlined,
+              color: AppColors.primary,
+              size: 21,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '공지사항',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  notice.title,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -.4,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Text(
+          notice.messageText,
+          style: const TextStyle(
+            color: AppColors.textBody,
+            fontSize: 14,
+            height: 1.6,
+          ),
+        ),
+      ),
+      actions: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            FilledButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).pop(_NoticeDialogAction.openNotifications),
+              style: FilledButton.styleFrom(
+                minimumSize: const Size.fromHeight(48),
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                '공지사항 보기',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.of(
+                      context,
+                    ).pop(_NoticeDialogAction.hideToday),
+                    child: const Text('오늘 하루 보지 않기'),
+                  ),
+                ),
+                Container(width: 1, height: 16, color: AppColors.border),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () =>
+                        Navigator.of(context).pop(_NoticeDialogAction.close),
+                    child: const Text('닫기'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ],
     );
