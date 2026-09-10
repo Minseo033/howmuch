@@ -94,6 +94,7 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
           // button returns to where the user opened the notification prompt.
           onOpenNotifications: () => router.push(AppRoutes.notifications),
           isHome: isHome,
+          navigatorKey: router.routerDelegate.navigatorKey,
           child: child ?? const SizedBox.shrink(),
         );
       },

@@ -45,6 +45,7 @@ void main() {
       _notification(id: 'notification-b'),
       _notification(id: 'notification-c'),
     ]);
+    final navigatorKey = GlobalKey<NavigatorState>();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -59,9 +60,11 @@ void main() {
           notificationsProvider.overrideWith((ref) => notifier),
         ],
         child: MaterialApp(
+          navigatorKey: navigatorKey,
           home: WebNotificationPrompt(
             isHome: false,
             onOpenNotifications: () {},
+            navigatorKey: navigatorKey,
             child: const SizedBox.expand(),
           ),
         ),
@@ -89,6 +92,7 @@ void main() {
       message: '새로운 기능이 추가됐어요.',
       isUnread: false,
     );
+    final navigatorKey = GlobalKey<NavigatorState>();
 
     Widget app() => ProviderScope(
       overrides: [
@@ -104,10 +108,13 @@ void main() {
         ),
       ],
       child: MaterialApp(
-        home: WebNotificationPrompt(
+        navigatorKey: navigatorKey,
+        home: const SizedBox.expand(),
+        builder: (context, child) => WebNotificationPrompt(
           isHome: true,
           onOpenNotifications: () {},
-          child: const SizedBox.expand(),
+          navigatorKey: navigatorKey,
+          child: child ?? const SizedBox.expand(),
         ),
       ),
     );

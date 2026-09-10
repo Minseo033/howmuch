@@ -7,18 +7,20 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Shows a single, dismissible web entry prompt when the signed-in user has
-/// unread in-app notifications. Native apps retain their existing push flow.
+/// in-app notifications. Native apps retain their existing push flow.
 class WebNotificationPrompt extends ConsumerStatefulWidget {
   const WebNotificationPrompt({
     super.key,
     required this.child,
     required this.onOpenNotifications,
     required this.isHome,
+    required this.navigatorKey,
   });
 
   final Widget child;
   final VoidCallback onOpenNotifications;
   final bool isHome;
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   ConsumerState<WebNotificationPrompt> createState() =>
@@ -48,8 +50,14 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         return;
       }
 
+      final navigatorContext = widget.navigatorKey.currentContext;
+      if (navigatorContext == null || !navigatorContext.mounted) {
+        setState(() => _pendingNoticeId = null);
+        return;
+      }
+
       final action = await showDialog<_NoticeDialogAction>(
-        context: context,
+        context: navigatorContext,
         barrierDismissible: false,
         builder: (context) => _NoticePopup(notice: notice),
       );
