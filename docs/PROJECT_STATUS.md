@@ -1259,3 +1259,13 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 최초 구현이 팝업 대상을 `미읽음 공지사항`으로 제한해 알림함에서 이미 읽은 최신 공지는 접속 팝업에 표시되지 않았다.
 - 팝업 대상만 전체 알림의 최신 공지사항으로 변경했다. 일반 알림 배너의 미읽음 기준은 유지하며, 공지 팝업의 세션 닫기와 `오늘 하루 보지 않기` 정책도 그대로 적용한다.
 - 읽음 상태인 공지도 팝업에 표시되고 하루 숨김 후 재접속에서 사라지는 회귀 테스트를 통과했다.
+- 수정 커밋 `b450dc4`를 GitHub `main`에 푸시했으며 당시 Vercel 배포 `dpl_2DJtFyd4sPAqg59ErAYhF4PW5iKm`의 공개 파일 8개와 주요 경로 3개가 모두 로컬 release 빌드와 일치했다.
+
+## 5-61. 9/10 운영 웹 공지 팝업 Navigator 연결 수정
+
+- 로그인된 운영 Chrome에서 알림함에 읽은 공지사항이 실제로 여러 건 존재하지만 홈 접속 시 팝업이 열리지 않는 현상을 재현했다.
+- 원인은 `MaterialApp.router`의 `builder`가 라우터 Navigator 바깥에서 실행되는데 팝업이 해당 바깥쪽 `BuildContext`로 `showDialog`를 호출한 것이었다. 공지 조회와 읽음 필터는 정상이었지만 다이얼로그가 사용할 Navigator를 찾지 못했다.
+- `GoRouter`의 루트 `navigatorKey`를 공지 프롬프트에 명시적으로 전달하고, 루트 Navigator의 context가 준비된 뒤 다이얼로그를 열도록 수정했다. 위젯 테스트도 운영과 동일하게 `MaterialApp.builder`가 Navigator를 감싸는 구조로 변경해 같은 문제가 재발하면 실패하도록 했다.
+- `flutter analyze` 이슈 0건, 전체 Flutter 테스트 162개, 웹 release 빌드를 통과했다. 수정 커밋 `4051140`을 GitHub `main`에 푸시했다.
+- 최초 재배포 1회가 저장소 루트를 대상으로 생성되어 운영 별칭 연결 직후 404 검증에 실패했다. 이를 즉시 탐지해 실제 산출물 `build/web`을 배포한 `dpl_BkYhiZ3KfktMPmXRsPCPt71pKUyK`로 운영 주소 `https://howmuch-zeta.vercel.app`를 다시 연결했다. 이후 공개 파일 8개와 주요 경로 3개 검사가 11/11 PASS했다.
+- 최종 운영 검증에서 로그인된 Chrome을 새로고침했을 때 최신 공지 제목 `ㅎㅇ`, 본문, `공지사항 보기`, `오늘 하루 보지 않기`, `닫기`가 포함된 중앙 팝업이 실제 표시되는 것을 확인했다.
