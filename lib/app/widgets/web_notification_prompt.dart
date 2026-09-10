@@ -77,14 +77,13 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     if (!isLoggedIn) return widget.child;
 
     final notifications = ref.watch(notificationsProvider);
-    final unreadNotifications =
-        notifications.valueOrNull
-            ?.where((notification) => notification.isUnread)
-            .toList(growable: false) ??
-        const [];
+    final allNotifications = notifications.valueOrNull ?? const [];
+    final unreadNotifications = allNotifications
+        .where((notification) => notification.isUnread)
+        .toList(growable: false);
     final unreadCount = unreadNotifications.length;
     final unreadSignature = notificationSignature(unreadNotifications);
-    final notices = unreadNotifications
+    final notices = allNotifications
         .where((notification) => notification.type == '공지사항')
         .toList(growable: false);
     if (notices.isNotEmpty) _scheduleNoticePopup(notices.first);

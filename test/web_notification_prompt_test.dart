@@ -87,6 +87,7 @@ void main() {
       type: '공지사항',
       title: '서비스 업데이트 안내',
       message: '새로운 기능이 추가됐어요.',
+      isUnread: false,
     );
 
     Widget app() => ProviderScope(
@@ -138,6 +139,7 @@ NotificationModel _notification({
   String type = '알림',
   String title = '새 알림',
   String message = '내용',
+  bool isUnread = true,
 }) {
   return NotificationModel(
     id: id,
@@ -153,7 +155,7 @@ NotificationModel _notification({
     timeText: '',
     title: title,
     messageText: message,
-    isUnread: true,
+    isUnread: isUnread,
   );
 }
 
