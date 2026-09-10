@@ -85,6 +85,9 @@ void main() {
   testWidgets('shows a notice popup and hides it for the rest of today', (
     tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(360, 740));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final notice = _notification(
       id: 'notice-a',
       type: '공지사항',
@@ -123,8 +126,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('notice-popup')), findsOneWidget);
+    expect(find.text('얼마고 소식'), findsOneWidget);
     expect(find.text('서비스 업데이트 안내'), findsOneWidget);
     expect(find.text('새로운 기능이 추가됐어요.'), findsOneWidget);
+    expect(find.text('알림함에서 자세히 보기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('오늘 하루 보지 않기'));
     await tester.pumpAndSettle();
