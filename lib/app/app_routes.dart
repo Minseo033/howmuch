@@ -22,7 +22,6 @@ class AppRoutes {
   static const communityPostDetail = '/community/post/detail';
 
   static const mypage = '/mypage';
-  static const locationSettings = '/mypage/location';
   static const notificationSettings = '/mypage/notifications';
   static const priceAlertSubscription = '/mypage/price-alerts';
   static const accountManagement = '/mypage/account';

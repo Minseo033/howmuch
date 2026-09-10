@@ -51,30 +51,26 @@ class PushNotificationService {
 
   Future<bool> start() {
     if (kIsWeb || !_supportsPush) return Future.value(false);
-    return _startup ??= _start().then((ready) {
-      if (!ready) _startup = null;
-      return ready;
-    });
+    return _startup ??= _start();
   }
 
-  Future<bool> registerForCurrentSession() async {
+  Future<void> registerForCurrentSession() async {
     try {
-      if (!await start()) return false;
+      if (!await start()) return;
 
       final permission = await FirebaseMessaging.instance.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
-      if (!_canShowNotifications(permission)) return false;
+      if (!_canShowNotifications(permission)) return;
 
       final token = await FirebaseMessaging.instance.getToken();
-      if (token == null || token.isEmpty) return false;
-      return await _registerToken(token);
+      if (token == null || token.isEmpty) return;
+      await _registerToken(token);
     } catch (_) {
       // FCM 설정 파일이 아직 없거나 네트워크가 잠시 불안정해도 로그인은 유지합니다.
       debugPrint('FCM 기기 등록을 완료하지 못했습니다.');
-      return false;
     }
   }
 
@@ -131,12 +127,6 @@ class PushNotificationService {
       return true;
     } catch (_) {
       debugPrint('FCM 초기화를 완료하지 못했습니다.');
-      await _foregroundSubscription?.cancel();
-      await _openedSubscription?.cancel();
-      await _tokenRefreshSubscription?.cancel();
-      _foregroundSubscription = null;
-      _openedSubscription = null;
-      _tokenRefreshSubscription = null;
       return false;
     }
   }
@@ -188,8 +178,8 @@ class PushNotificationService {
     );
   }
 
-  Future<bool> _registerToken(String token) async {
-    if (token.isEmpty || !_supportsPush) return false;
+  Future<void> _registerToken(String token) async {
+    if (token.isEmpty || !_supportsPush) return;
 
     try {
       final response = await _client
@@ -202,14 +192,12 @@ class PushNotificationService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         _registeredToken = token;
         _isRegistered = true;
-        return true;
       } else {
         debugPrint('FCM 토큰 등록 실패: ${response.statusCode}');
       }
     } catch (_) {
       debugPrint('FCM 토큰 등록을 완료하지 못했습니다.');
     }
-    return false;
   }
 
   void _openNotificationInbox() {

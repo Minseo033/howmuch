@@ -339,10 +339,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(
-      safePadding.bottom,
-      textScaler: MediaQuery.textScalerOf(context),
-    );
+    final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,

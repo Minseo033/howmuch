@@ -116,16 +116,6 @@ void main() {
         final service = PriceAlertApiService(
           MockClient((request) async {
             expect(request.method, 'GET');
-            if (request.url.path == '/api/notifications/settings') {
-              return http.Response(
-                jsonEncode({
-                  'notifyOnRise': true,
-                  'notifyOnDrop': false,
-                  'notifyOnNewMenu': true,
-                }),
-                200,
-              );
-            }
             expect(request.url.path, '/api/notifications/price-alerts');
             return http.Response(
               jsonEncode([

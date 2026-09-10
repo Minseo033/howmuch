@@ -1,4 +1,3 @@
-import 'package:howmuch/features/mypage/presentation/widgets/settings_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -36,8 +35,9 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
+  late bool _nicknamePublic;
+  late bool _activityPublic;
   late String _nickname;
-  late String _savedNickname;
   bool _loaded = false;
   bool _identityRefreshStarted = false;
   bool _isSaving = false;
@@ -48,8 +48,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     setState(() => _isSaving = true);
     await (_identityRefresh ??= ref
         .read(kakaoLoginServiceProvider)
-        .refreshKakaoIdentity(requestConsent: false));
-    if (!mounted) return;
+        .refreshKakaoIdentity(requestConsent: true));
     final profile = ref.read(userProfileProvider);
     final auth = ref.read(authStateProvider);
     final saved = await UserProfileApiService().saveProfile(
@@ -60,6 +59,8 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           '',
       region: profile.region,
       favoriteCategories: profile.favoriteCategories,
+      nicknamePublic: _nicknamePublic,
+      activityPublic: _activityPublic,
     );
     if (!mounted) return;
     if (!saved) {
@@ -71,11 +72,10 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
     ref.read(userProfileProvider.notifier).state = profile.copyWith(
       nickname: _nickname,
+      nicknamePublic: _nicknamePublic,
+      activityPublic: _activityPublic,
     );
-    setState(() {
-      _isSaving = false;
-      _savedNickname = _nickname;
-    });
+    setState(() => _isSaving = false);
     if (!context.mounted) return;
     context.go(AppRoutes.mypage);
     ScaffoldMessenger.of(
@@ -91,16 +91,16 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     }
 
     final profile = ref.read(userProfileProvider);
+    _nicknamePublic = profile.nicknamePublic;
+    _activityPublic = profile.activityPublic;
     _nickname = profile.nickname;
-    _savedNickname = _nickname;
     _loaded = true;
     if (!_identityRefreshStarted) {
       _identityRefreshStarted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
         _identityRefresh = ref
             .read(kakaoLoginServiceProvider)
-            .refreshKakaoIdentity(requestConsent: false);
+            .refreshKakaoIdentity(requestConsent: true);
       });
     }
   }
@@ -118,88 +118,91 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
 
-    return SettingsExitGuard(
-      dirty: _nickname != _savedNickname,
-      saving: _isSaving,
-      fallback: AppRoutes.mypage,
-      builder: (onBack) => FigmaMobileCanvas(
-        backgroundColor: ProfileEditScreen.surface,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  topOffset + 76,
-                  20,
-                  footerHeight + 24,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: SizedBox(
-                        width: 80,
-                        height: 80,
-                        child: _Avatar(imageUrl: profile.profileImageUrl),
-                      ),
+    return FigmaMobileCanvas(
+      backgroundColor: ProfileEditScreen.surface,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                topOffset + 76,
+                20,
+                footerHeight + 24,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: SizedBox(
+                      width: 80,
+                      height: 80,
+                      child: _Avatar(imageUrl: profile.profileImageUrl),
                     ),
-                    const SizedBox(height: 28),
-                    const _SectionLabel('기본 정보'),
-                    const SizedBox(height: 10),
-                    _BasicInfoCard(
-                      nickname: _nickname,
-                      email: displayEmail,
-                      onNicknameTap: _editNickname,
-                    ),
-                    const SizedBox(height: 24),
-                    const _SectionLabel('지역 정보'),
-                    const SizedBox(height: 10),
-                    _RegionCard(region: profile.region),
-                    const SizedBox(height: 24),
-                    const _SectionLabel('공개 범위 안내'),
-                    const SizedBox(height: 10),
-                    const SettingsSection(
-                      children: [
-                        SettingsMessage(
-                          '작성한 제보·리뷰·댓글에는 닉네임이 표시될 수 있어요. 닉네임 숨김 설정은 현재 지원하지 않아요.',
-                        ),
-                        SettingsMessage(
-                          '개인의 방문·절약 통계를 다른 사용자에게 공개하는 기능은 제공하지 않아요.',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 28),
+                  const _SectionLabel('기본 정보'),
+                  const SizedBox(height: 10),
+                  _BasicInfoCard(
+                    nickname: _nickname,
+                    email: displayEmail,
+                    onNicknameTap: _editNickname,
+                  ),
+                  const SizedBox(height: 24),
+                  const _SectionLabel('지역 정보'),
+                  const SizedBox(height: 10),
+                  _RegionCard(region: profile.region),
+                  const SizedBox(height: 24),
+                  const _SectionLabel('공개 설정'),
+                  const SizedBox(height: 10),
+                  _PrivacyCard(
+                    nicknamePublic: _nicknamePublic,
+                    activityPublic: _activityPublic,
+                    onNicknameTap: () {
+                      setState(() {
+                        _nicknamePublic = !_nicknamePublic;
+                      });
+                    },
+                    onActivityTap: () {
+                      setState(() {
+                        _activityPublic = !_activityPublic;
+                      });
+                    },
+                  ),
+                ],
               ),
             ),
-            _Header(topOffset: topOffset, title: '프로필 수정', onBack: onBack),
-            Positioned(
-              left: 0,
-              bottom: 0,
-              right: 0,
-              height: footerHeight,
-              child: _StickyButton(
-                safeBottom: bottomOffset,
-                label: _isSaving ? '저장 중...' : '저장하기',
-                onPressed: _isSaving
-                    ? null
-                    : () {
-                        _saveProfile();
-                      },
-              ),
+          ),
+          _Header(
+            topOffset: topOffset,
+            title: '프로필 수정',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go(AppRoutes.mypage),
+          ),
+          Positioned(
+            left: 0,
+            bottom: 0,
+            right: 0,
+            height: footerHeight,
+            child: _StickyButton(
+              safeBottom: bottomOffset,
+              label: _isSaving ? '저장 중...' : '저장하기',
+              onPressed: _isSaving
+                  ? null
+                  : () {
+                      _saveProfile();
+                    },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Future<void> _editNickname() async {
-    if (_isSaving) return;
     final result = await showDialog<String>(
       context: context,
       builder: (_) => _NicknameDialog(initialValue: _nickname),
@@ -541,6 +544,166 @@ class _RegionCard extends StatelessWidget {
   }
 }
 
+class _PrivacyCard extends StatelessWidget {
+  const _PrivacyCard({
+    required this.nicknamePublic,
+    required this.activityPublic,
+    required this.onNicknameTap,
+    required this.onActivityTap,
+  });
+
+  final bool nicknamePublic;
+  final bool activityPublic;
+  final VoidCallback onNicknameTap;
+  final VoidCallback onActivityTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RoundedCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PrivacyRow(
+            title: '닉네임 공개',
+            subtitle: '제보와 리뷰에 닉네임이 표시돼요',
+            value: nicknamePublic,
+            switchKey: const ValueKey('nickname-public-switch'),
+            rowKey: const ValueKey('nickname-public-row'),
+            onTap: onNicknameTap,
+          ),
+          const _Divider(),
+          _PrivacyRow(
+            title: '활동 내역 공개',
+            subtitle: '방문·제보 횟수를 다른 사용자에게 공개해요',
+            value: activityPublic,
+            switchKey: const ValueKey('activity-public-switch'),
+            rowKey: const ValueKey('activity-public-row'),
+            onTap: onActivityTap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PrivacyRow extends StatelessWidget {
+  const _PrivacyRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.switchKey,
+    required this.rowKey,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final Key switchKey;
+  final Key rowKey;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        key: rowKey,
+        height: 64.84375,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.9033203125),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: _privacyTitleText),
+                    const SizedBox(height: 1.989),
+                    Text(
+                      subtitle,
+                      style: _privacyCaptionText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              _Toggle(value: value, switchKey: switchKey, onTap: onTap),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({
+    required this.value,
+    required this.switchKey,
+    required this.onTap,
+  });
+
+  final bool value;
+  final Key switchKey;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: onTap,
+      child: SizedBox(
+        width: 52,
+        height: 36,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: AnimatedContainer(
+            key: switchKey,
+            duration: const Duration(milliseconds: 160),
+            width: 40,
+            height: 23.99147605895996,
+            decoration: BoxDecoration(
+              color: value
+                  ? ProfileEditScreen.blue
+                  : ProfileEditScreen.disabled,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOut,
+                  left: value ? 18.991455078125 : 2.9970703125,
+                  top: 2.9970703125,
+                  child: Container(
+                    width: 17.99715805053711,
+                    height: 17.99715805053711,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.black.withValues(alpha: 0.2),
+                          blurRadius: 3,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StickyButton extends StatelessWidget {
   const _StickyButton({
     required this.safeBottom,
@@ -685,4 +848,22 @@ const _normalValueText = TextStyle(
   fontSize: 14,
   fontWeight: FontWeight.w400,
   height: 1.5,
+);
+
+const _privacyTitleText = TextStyle(
+  color: ProfileEditScreen.ink,
+  fontFamily: ProfileEditScreen.fontFamily,
+  fontFamilyFallback: ProfileEditScreen.fontFallback,
+  fontSize: 13,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
+
+const _privacyCaptionText = TextStyle(
+  color: ProfileEditScreen.muted,
+  fontFamily: ProfileEditScreen.fontFamily,
+  fontFamilyFallback: ProfileEditScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.4,
 );

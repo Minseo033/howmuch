@@ -1189,10 +1189,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(
-      bottomOffset,
-      textScaler: MediaQuery.textScalerOf(context),
-    );
+    final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const storeCardHeight = 158.0;
     const storeCardBottomGap = 94.0;
 

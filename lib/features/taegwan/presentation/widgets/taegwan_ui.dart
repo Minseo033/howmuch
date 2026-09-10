@@ -57,10 +57,7 @@ class TaegwanAppFrame extends StatelessWidget {
     final topOffset = safePadding.top;
     final bottomNavHeight = currentTab == null
         ? safePadding.bottom + 24
-        : HowmuchBottomNav.heightFor(
-            safePadding.bottom,
-            textScaler: MediaQuery.textScalerOf(context),
-          );
+        : HowmuchBottomNav.heightFor(safePadding.bottom);
 
     void goBack() {
       if (context.canPop()) {

@@ -102,18 +102,15 @@ void main() {
     expect(find.text('가격 변동 알림'), findsOneWidget);
     expect(find.text('설정 저장'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('가격 변동 알림'));
-    await tester.tap(find.text('가격 변동 알림'));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('설정 저장'));
     await tester.pumpAndSettle();
-    expect(find.text('알림 설정'), findsAtLeastNWidgets(1));
+    expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('알림 설정을 저장했어요.'), findsOneWidget);
 
     await _goToRoute(tester, AppRoutes.accountManagement);
     expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
     expect(find.text('로그인 계정'), findsOneWidget);
-    expect(find.text('회원 탈퇴'), findsNothing);
+    expect(find.text('회원 탈퇴'), findsOneWidget);
   });
 
   testWidgets('mypage child screens return with their header back buttons', (
@@ -180,19 +177,15 @@ void main() {
 
     await _goToRoute(tester, AppRoutes.withdrawal);
     expect(find.text('회원 탈퇴'), findsAtLeastNWidgets(1));
-    expect(find.text('탈퇴 전 확인해 주세요'), findsOneWidget);
-    expect(find.text('가격 정보가 정확하지 않아요'), findsNothing);
-    final consent = find.byKey(const ValueKey('withdrawal-consent'));
-    await tester.ensureVisible(consent);
-    await tester.tap(consent);
-    await tester.pumpAndSettle();
+    expect(find.text('탈퇴 전 꼭 확인해주세요'), findsOneWidget);
+    expect(find.text('가격 정보가 정확하지 않아요'), findsOneWidget);
 
     await tester.tap(find.text('탈퇴하기'));
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsOneWidget);
-    expect(find.text('정말 탈퇴할까요?'), findsOneWidget);
+    expect(find.textContaining('선택한 사유: 가격 정보가 정확하지 않아요'), findsOneWidget);
 
-    await tester.tap(find.text('계정 유지').last);
+    await tester.tap(find.text('취소').last);
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
   });
@@ -204,28 +197,22 @@ void main() {
     await _pumpApp(tester, _appWithNotificationSettingsApi());
 
     await _goToRoute(tester, AppRoutes.notificationSettings);
-    await tester.scrollUntilVisible(
-      find.text('가격 알림 구독'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('가격 알림 구독'));
+    await tester.tap(find.text('구독 중인 가격 알림'));
     await tester.pumpAndSettle();
 
     expect(find.text('가격 알림 구독'), findsAtLeastNWidgets(1));
     expect(find.text('착한분식'), findsOneWidget);
     expect(find.text('알림 조건'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('신메뉴'));
-    await tester.tap(find.text('신메뉴'));
+    await tester.tap(find.text('새 메뉴 등록'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('설정 저장'));
     await tester.pumpAndSettle();
-    expect(find.text('가격 알림 구독'), findsAtLeastNWidgets(1));
-    expect(find.text('가격 알림 설정을 저장했어요.'), findsOneWidget);
+    expect(find.text('알림 설정'), findsAtLeastNWidgets(1));
+    expect(find.text('가격 알림을 저장했어요.'), findsOneWidget);
   });
 
-  testWidgets('profile edit does not promise unsupported privacy settings', (
+  testWidgets('opens profile edit and saves profile visibility', (
     tester,
   ) async {
     _setMobileViewport(tester);
@@ -237,13 +224,19 @@ void main() {
 
     expect(find.text('프로필 수정'), findsAtLeastNWidgets(1));
     expect(find.text('저장하기'), findsOneWidget);
-    expect(find.text('닉네임 공개'), findsNothing);
+    expect(find.text('닉네임 공개'), findsOneWidget);
 
     final nicknameLabelLeft = tester.getTopLeft(find.text('닉네임')).dx;
     final emailLabelLeft = tester.getTopLeft(find.text('이메일')).dx;
     expect(emailLabelLeft, closeTo(nicknameLabelLeft, 0.1));
 
-    expect(find.byKey(const ValueKey('nickname-public-switch')), findsNothing);
+    final nicknameRow = tester.getRect(
+      find.byKey(const ValueKey('nickname-public-row')),
+    );
+    final nicknameSwitch = tester.getRect(
+      find.byKey(const ValueKey('nickname-public-switch')),
+    );
+    expect(nicknameSwitch.center.dy, closeTo(nicknameRow.center.dy, 0.1));
 
     await tester.tap(find.byKey(const ValueKey('profile-nickname-edit')));
     await tester.pumpAndSettle();
@@ -256,7 +249,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('QA 닉네임'), findsOneWidget);
 
-    expect(find.text('활동 내역 공개'), findsNothing);
+    await tester.tap(find.text('활동 내역 공개'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('저장하기'));
     await tester.pumpAndSettle();
     expect(find.text('프로필 저장에 실패했어요. 다시 시도해주세요.'), findsOneWidget);
@@ -470,12 +464,6 @@ class _FakePriceAlertApiService extends PriceAlertApiService {
       enabled: true,
     ),
   ];
-
-  @override
-  Future<PriceAlertSettings> saveSettings(PriceAlertSettings value) async {
-    _stores = value.stores;
-    return value;
-  }
 
   @override
   Future<PriceAlertSettings> fetchSettings() async => PriceAlertSettings(
