@@ -132,6 +132,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a new notice can open after the previous banner was closed', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 650));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final notifier = _SeededNotificationsNotifier([
+      _notification(id: 'previous-notice', type: '공지사항'),
+    ]);
+    final navigatorKey = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => const AuthState(
+              isLoggedIn: true,
+              provider: '카카오',
+              email: 'qa@example.com',
+            ),
+          ),
+          notificationsProvider.overrideWith((ref) => notifier),
+        ],
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          home: WebNotificationPrompt(
+            isHome: false,
+            onOpenNotifications: () {},
+            navigatorKey: navigatorKey,
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('알림 안내 닫기'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
+
+    notifier.replace([
+      _notification(
+        id: 'new-notice',
+        type: '공지사항',
+        title: '새로운 공지',
+        isUnread: false,
+      ),
+    ]);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('notice-popup')), findsOneWidget);
+    expect(find.text('새로운 공지'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('shows a notice popup and hides it for the rest of today', (
     tester,
   ) async {
@@ -326,6 +380,10 @@ class _SeededNotificationsNotifier extends NotificationsNotifier {
           MockClient((_) async => throw UnimplementedError()),
         ),
       ) {
+    state = AsyncValue.data(notifications);
+  }
+
+  void replace(List<NotificationModel> notifications) {
     state = AsyncValue.data(notifications);
   }
 }

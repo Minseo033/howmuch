@@ -32,10 +32,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
   String? _dismissedUnreadSignature;
   String? _dismissedNoticeId;
   String? _pendingNoticeId;
-  bool _suppressNoticePopup = false;
+  String? _suppressedNoticeId;
 
   void _scheduleNoticePopup(NotificationModel notice) {
-    if (_suppressNoticePopup ||
+    if (_suppressedNoticeId == notice.id ||
         _dismissedNoticeId == notice.id ||
         _pendingNoticeId == notice.id) {
       return;
@@ -46,7 +46,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       final preferences = await SharedPreferences.getInstance();
       final hiddenToday = preferences.getString(noticeHiddenDateKey(notice.id));
       if (!mounted) return;
-      if (_suppressNoticePopup || _dismissedNoticeId == notice.id) {
+      if (_suppressedNoticeId == notice.id || _dismissedNoticeId == notice.id) {
         _pendingNoticeId = null;
         return;
       }
@@ -89,10 +89,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     });
   }
 
-  void _dismissUnreadPrompt(String unreadSignature) {
+  void _dismissUnreadPrompt(String unreadSignature, String? noticeId) {
     setState(() {
       _dismissedUnreadSignature = unreadSignature;
-      _suppressNoticePopup = true;
+      _suppressedNoticeId = noticeId;
       _pendingNoticeId = null;
     });
   }
@@ -112,6 +112,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     final notices = allNotifications
         .where((notification) => notification.type == '공지사항')
         .toList(growable: false);
+    final currentNoticeId = notices.isEmpty ? null : notices.first.id;
     final shouldShow =
         unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
     if (notices.isNotEmpty && !shouldShow) {
@@ -142,9 +143,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
                 child: _UnreadNotificationBanner(
                   key: const ValueKey('web-notification-banner'),
                   unreadCount: unreadCount,
-                  onDismiss: () => _dismissUnreadPrompt(unreadSignature),
+                  onDismiss: () =>
+                      _dismissUnreadPrompt(unreadSignature, currentNoticeId),
                   onOpen: () {
-                    _dismissUnreadPrompt(unreadSignature);
+                    _dismissUnreadPrompt(unreadSignature, currentNoticeId);
                     widget.onOpenNotifications();
                   },
                 ),
