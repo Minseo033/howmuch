@@ -266,9 +266,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    const settingsCardHeight = 358.0;
+    const settingsCardHeight = 316.0;
     final scrollContentHeight =
-        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
+        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
 
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,

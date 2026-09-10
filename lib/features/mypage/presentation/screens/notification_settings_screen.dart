@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -76,7 +77,7 @@ class _NotificationSettingsScreenState
     final bottomOffset = safePadding.bottom;
     final saveFooterHeight = _StickySaveButton.heightFor(bottomOffset);
     final scrollContentHeight =
-        705.7955322265625 + topOffset + saveFooterHeight + 20;
+        715.5341796875 + topOffset + saveFooterHeight + 36;
 
     void update(NotificationSettings value) {
       if (_isSaving) return;
@@ -111,10 +112,119 @@ class _NotificationSettingsScreenState
       required bool isStart,
     }) async {
       final initialValue = isStart ? current.quietStart : current.quietEnd;
-      final picked = await showTimePicker(
+      final initialTime = _parseTime(initialValue);
+      final title = isStart ? '방해 금지 시작 시간' : '방해 금지 종료 시간';
+
+      final picked = await showModalBottomSheet<TimeOfDay>(
         context: context,
-        initialTime: _parseTime(initialValue),
-        helpText: isStart ? '방해 금지 시작 시간' : '방해 금지 종료 시간',
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (modalContext) {
+          TimeOfDay tempTime = initialTime;
+          final now = DateTime.now();
+          final initialDateTime = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            initialTime.hour,
+            initialTime.minute,
+          );
+
+          return Container(
+            decoration: const BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.paddingOf(modalContext).bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: NotificationSettingsScreen.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(modalContext),
+                        child: const Text(
+                          '취소',
+                          style: TextStyle(
+                            color: NotificationSettingsScreen.muted,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: NotificationSettingsScreen.ink,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(modalContext, tempTime),
+                        child: const Text(
+                          '완료',
+                          style: TextStyle(
+                            color: NotificationSettingsScreen.blue,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(
+                  height: 1,
+                  color: NotificationSettingsScreen.border,
+                ),
+                SizedBox(
+                  height: 200,
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      brightness: Brightness.light,
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          fontSize: 20,
+                          color: NotificationSettingsScreen.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.time,
+                      use24hFormat: false,
+                      initialDateTime: initialDateTime,
+                      onDateTimeChanged: (DateTime newDateTime) {
+                        tempTime = TimeOfDay(
+                          hour: newDateTime.hour,
+                          minute: newDateTime.minute,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       );
       if (picked == null || _isSaving) return;
       final serialized = _serializeTime(picked);
@@ -250,7 +360,7 @@ class _NotificationSettingsScreenState
                             ),
                           ),
                           Positioned(
-                            left: 23.991485595703125,
+                            left: 20,
                             top: 154.16162109375 + topOffset,
                             child: const _SectionLabel('알림 유형'),
                           ),
@@ -290,7 +400,7 @@ class _NotificationSettingsScreenState
                             ),
                           ),
                           Positioned(
-                            left: 23.991485595703125,
+                            left: 20,
                             top: 547.04541015625 + topOffset,
                             child: const _SectionLabel('방해 금지 시간'),
                           ),
@@ -298,7 +408,7 @@ class _NotificationSettingsScreenState
                             left: 20,
                             right: 20,
                             top: 571.5341796875 + topOffset,
-                            height: 134.2613525390625,
+                            height: 144,
                             child: _QuietHoursCard(
                               settings: settings,
                               onToggle: () => update(
@@ -596,8 +706,9 @@ class _NotificationRow extends StatelessWidget {
       child: SizedBox(
         height: 66.9602279663086,
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, right: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: _TitleSubtitle(
@@ -606,7 +717,7 @@ class _NotificationRow extends StatelessWidget {
                   compact: true,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               _HowmuchToggle(
                 value: value,
                 activeColor: activeColor,
@@ -645,36 +756,31 @@ class _PriceAlertEntryCard extends ConsumerWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: onTap,
-          child: Stack(
-            children: [
-              const Positioned(
-                left: 16,
-                top: 15.88037109375,
-                child: _CircleIcon(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const _CircleIcon(
                   icon: Icons.notifications_none_rounded,
                   bg: AppColors.primaryLight,
                   color: NotificationSettingsScreen.blue,
                 ),
-              ),
-              Positioned(
-                left: 64.8863525390625,
-                top: 14.900390625,
-                child: _TitleSubtitle(
-                  title: '구독 중인 가격 알림',
-                  subtitle: subtitle,
-                  compact: true,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: _TitleSubtitle(
+                    title: '구독 중인 가격 알림',
+                    subtitle: subtitle,
+                    compact: true,
+                  ),
                 ),
-              ),
-              const Positioned(
-                right: 16.903411865234375,
-                top: 25.88037109375,
-                child: Icon(
+                const Icon(
                   Icons.chevron_right_rounded,
                   color: NotificationSettingsScreen.muted,
                   size: 16,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -698,52 +804,50 @@ class _QuietHoursCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _RoundedPanel(
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            right: 0,
-            height: 49,
-            child: GestureDetector(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Column(
+          children: [
+            GestureDetector(
               onTap: onToggle,
               behavior: HitTestBehavior.opaque,
-              child: const SizedBox.expand(),
+              child: SizedBox(
+                height: 36,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('설정 사용', style: _semi13),
+                    _HowmuchToggle(
+                      value: settings.quietHours,
+                      activeColor: NotificationSettingsScreen.blue,
+                      onTap: onToggle,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const Positioned(
-            left: 16.903411865234375,
-            top: 16.9033203125,
-            child: Text('설정 사용', style: _semi13),
-          ),
-          Positioned(
-            right: 16.903411865234375,
-            top: 10.9033203125,
-            child: _HowmuchToggle(
-              value: settings.quietHours,
-              activeColor: NotificationSettingsScreen.blue,
-              onTap: onToggle,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _TimeBox(
+                    label: '시작 시간',
+                    value: settings.quietStart,
+                    onTap: onStartTap,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _TimeBox(
+                    label: '종료 시간',
+                    value: settings.quietEnd,
+                    onTap: onEndTap,
+                  ),
+                ),
+              ],
             ),
-          ),
-          Positioned(
-            left: 16.903411865234375,
-            top: 52.88330078125,
-            child: _TimeBox(
-              label: '시작 시간',
-              value: settings.quietStart,
-              onTap: onStartTap,
-            ),
-          ),
-          Positioned(
-            right: 16.903411865234375,
-            top: 52.88330078125,
-            child: _TimeBox(
-              label: '종료 시간',
-              value: settings.quietEnd,
-              onTap: onEndTap,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -763,7 +867,6 @@ class _TimeBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 146.81817626953125,
       height: 66,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -922,7 +1025,7 @@ class _HowmuchToggle extends StatelessWidget {
         width: 52,
         height: 36,
         child: Align(
-          alignment: Alignment.topRight,
+          alignment: Alignment.centerRight,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             width: 40,
@@ -997,16 +1100,20 @@ class _TitleSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: compact ? 249.65908813476562 : 151.34942626953125,
-      child: Column(
+    return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: compact ? _bold13 : _bold14),
-          SizedBox(height: compact ? 2.997 : 1.989),
-          Text(subtitle, style: _muted11, maxLines: 1),
+          SizedBox(height: compact ? 3.0 : 2.0),
+          Text(
+            subtitle,
+            style: _muted11,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
-      ),
     );
   }
 }

@@ -1351,3 +1351,23 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **Vercel 운영 웹 배포**: 배포 ID `dpl_Bg6hqMRvfDbY6QbzgqFU2SsKtYiz` (`https://howmuch-8tcyjhvnp-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결 완료.
 - **정합성 검증**: `node scripts/verify_web_deployment.mjs` 실행 결과 `index.html`, `main.dart.js`, `NotoSansKR-Variable.ttf`, 주요 진입 라우트 등 총 13개 검사 항목 13/13 PASS.
 - **운영 라이브 확인**: 운영 도메인 접속 확인(HTTP 200), 실제 로그인된 세션에서 마이페이지 정상 진입, 가격 알림 구독 화면에서 3개 찜 매장 목록 노출 및 일괄 저장 정상 작동 확인 완료.
+- **운영 라이브 확인**: 운영 도메인 접속 확인(HTTP 200), 실제 로그인된 세션에서 마이페이지 정상 진입, 가격 알림 구독 화면에서 3개 찜 매장 목록 노출 및 일괄 저장 정상 작동 확인 완료.
+
+## 5-68. 9/10 마이페이지 하단 공백 제거 및 알림 설정 UI·시간 피커 고도화
+
+- **마이페이지 하단 빈 공백 제거**:
+  - `_SettingsCard`의 Positioned 고정 높이(`358.0`)가 실제 내용물 높이(`311.14px`)보다 47px 커서 발생하던 카드 하단 여백 및 `scrollContentHeight` 초과 여백을 정리.
+  - `settingsCardHeight = 316.0`, `scrollContentHeight = 659.9858 + topOffset + settingsCardHeight + bottomNavHeight + 16`로 설정하여 스크롤 끝 지점이 하단 탭 바 바로 위 16px 패딩에서 안정감 있게 안착하도록 개선.
+- **알림 설정 화면 텍스트 위치 및 가림 현상 수정**:
+  - 섹션 라벨(`알림 유형`, `방해 금지 시간`)의 좌측 여백을 `left: 20`으로 통일하여 카드 테두리 라인과 완벽하게 일치시킴.
+  - `_NotificationRow`의 제목/설명 텍스트에 `mainAxisAlignment: MainAxisAlignment.center`, `mainAxisSize: MainAxisSize.min`을 부여하고, 토글의 세로 정렬을 `Alignment.centerRight`로 맞추어 행의 수직 중심선 불일치 해결.
+  - `_PriceAlertEntryCard`를 `Row + Expanded` 레이아웃으로 변경하여 아이콘, 텍스트, 화살표의 수직 정렬 정상화.
+  - `_QuietHoursCard`의 '설정 사용' 텍스트와 토글을 `Row`로 정렬하고, 시작/종료 시간 박스를 `Row + Expanded`로 배치하여 카드 너비에 맞는 대칭 구조 완성.
+  - `scrollContentHeight`에 하단 안전 여백을 36px 확보하여 방해 금지 시간 카드가 하단 고정 '설정 저장' 버튼에 가려지지 않고 온전히 표시되도록 수정.
+- **방해 금지 시간 피커 세련되게 교체**:
+  - 투박한 Material 3 기본 아날로그 바늘 시계 다이얼(`showTimePicker`)을 전면 제거.
+  - 상단 드래그 핸들, '취소'/'완료' 액션 버튼, '방해 금지 시작/종료 시간' 헤더와 부드러운 휠 스크롤 인터랙션을 갖춘 모던한 `CupertinoDatePicker`(오전/오후, 시, 분 휠 피커) 기반의 바텀 시트로 교체.
+- **검증**:
+  - `flutter analyze --no-pub` 0 issues 통과.
+  - `flutter test` 전체 테스트 통과.
+  - `flutter build web --release --no-wasm-dry-run` 웹 빌드 성공.
