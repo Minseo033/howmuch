@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -31,8 +32,20 @@ class HowmuchBottomNav extends StatelessWidget {
   static const designBottomReserve = designHeight - contentHeight;
   static const contentLift = 0.0; // Removed the 32.0 compensation hack
 
-  static double heightFor(double safeBottom) {
-    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0) + contentLift;
+  static double _contentHeightFor(TextScaler textScaler) {
+    // Enlarged labels may wrap to two lines on narrow screens.
+    final labelHeight =
+        textScaler.scale(11) * (textScaler.scale(11) > 15 ? 3 : 1.5);
+    return math.max(contentHeight, 38 + labelHeight);
+  }
+
+  static double heightFor(
+    double safeBottom, {
+    TextScaler textScaler = TextScaler.noScaling,
+  }) {
+    return _contentHeightFor(textScaler) +
+        (safeBottom > 8.0 ? safeBottom : 8.0) +
+        contentLift;
   }
 
   final double safeBottom;
@@ -57,7 +70,7 @@ class HowmuchBottomNav extends StatelessWidget {
               left: 0,
               right: 0,
               bottom: bottomReserve + contentLift,
-              height: contentHeight,
+              height: _contentHeightFor(MediaQuery.textScalerOf(context)),
               child: Padding(
                 padding: const EdgeInsets.only(left: 8, right: 8, top: 6),
                 child: Row(
@@ -130,7 +143,11 @@ class _NavItem extends StatelessWidget {
         highlightShape: BoxShape.rectangle,
         child: SizedBox(
           width: AppSizes.bottomNavItemWidth,
-          height: 54,
+          height:
+              HowmuchBottomNav._contentHeightFor(
+                MediaQuery.textScalerOf(context),
+              ) -
+              6,
           child: Column(
             children: [
               AnimatedContainer(
@@ -147,6 +164,8 @@ class _NavItem extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: color,
                   fontFamily: HowmuchBottomNav.fontFamily,

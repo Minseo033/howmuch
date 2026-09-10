@@ -293,7 +293,10 @@ class _SavingsReportDashboardScreenState
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
+    final bottomNavHeight = HowmuchBottomNav.heightFor(
+      bottomOffset,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),

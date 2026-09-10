@@ -71,6 +71,12 @@ void main() {
       await tester.tap(find.text('변경'));
       await tester.pumpAndSettle();
       expect(find.text('새로운 이름'), findsOneWidget);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
+      await tester.tap(find.text('계속 편집'));
+      await tester.pumpAndSettle();
+      expect(find.text('새로운 이름'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

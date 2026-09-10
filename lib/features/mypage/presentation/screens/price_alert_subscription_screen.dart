@@ -3,797 +3,268 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
-import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/mypage/presentation/widgets/settings_widgets.dart';
 
-class PriceAlertSubscriptionScreen extends ConsumerWidget {
+class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   const PriceAlertSubscriptionScreen({super.key});
-
-  static const blue = AppColors.primary;
-  static const orange = AppColors.warning;
-  static const green = AppColors.success;
-  static const ink = AppColors.ink;
-  static const black = AppColors.black;
-  static const muted = AppColors.muted;
-  static const surface = AppColors.surface;
-  static const border = AppColors.border;
-  static const disabled = AppColors.disabled;
-  static const fontFamily = 'Inter';
-  static const fontFallback = [
-    'Noto Sans KR',
-    'Apple SD Gothic Neo',
-    'AppleGothic',
-    'Arial Unicode MS',
-    'Malgun Gothic',
-    'sans-serif',
-  ];
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settingsState = ref.watch(priceAlertSettingsProvider);
-    return settingsState.when(
-      loading: () => const _PriceAlertLoading(),
-      error: (error, _) => _PriceAlertError(
-        message: error is PriceAlertApiException
-            ? error.message
-            : '가격 알림 매장 목록을 불러오지 못했어요.',
-        onRetry: () =>
-            ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
-      ),
-      data: (settings) => _buildContent(context, ref, settings),
-    );
+  ConsumerState<PriceAlertSubscriptionScreen> createState() =>
+      _PriceAlertSubscriptionScreenState();
+}
+
+class _PriceAlertSubscriptionScreenState
+    extends ConsumerState<PriceAlertSubscriptionScreen> {
+  PriceAlertSettings? _draft;
+  PriceAlertSettings? _saved;
+  bool _saving = false;
+  String? _error;
+  bool _conflict = false;
+  String? _success;
+  bool get _dirty =>
+      _draft != null && _saved != null && !_draft!.sameAs(_saved!);
+  void _update(PriceAlertSettings next) {
+    if (_saving) return;
+    setState(() {
+      _draft = next.copyWith(
+        all: next.stores.isNotEmpty && next.stores.every((s) => s.enabled),
+      );
+      _error = null;
+      _success = null;
+    });
   }
 
-  Widget _buildContent(
-    BuildContext context,
-    WidgetRef ref,
-    PriceAlertSettings settings,
-  ) {
-    final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
-    final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom;
-    final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight = 592 + topOffset + footerHeight + 24;
-
-    void update(PriceAlertSettings value) {
-      ref.read(priceAlertSettingsProvider.notifier).updateLocal(value);
+  Future<void> _save() async {
+    if (_saving || !_dirty) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+      _success = null;
+      _conflict = false;
+    });
+    try {
+      final saved = await ref
+          .read(priceAlertApiServiceProvider)
+          .saveSettings(_draft!);
+      if (!mounted) return;
+      ref.read(priceAlertSettingsProvider.notifier).updateLocal(saved);
+      setState(() {
+        _draft = saved;
+        _saved = saved;
+        _success = '가격 알림 설정을 저장했어요.';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _conflict = error is PriceAlertApiException && error.statusCode == 409;
+        _error = error is PriceAlertApiException
+            ? error.message
+            : '설정을 저장하지 못했어요. 변경 내용은 유지돼요. 다시 저장해 주세요.';
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
+  }
 
-    void updateStore(int index) {
-      final stores = [
-        for (var i = 0; i < settings.stores.length; i++)
-          i == index
-              ? settings.stores[i].copyWith(
-                  enabled: !settings.stores[i].enabled,
-                )
-              : settings.stores[i],
-      ];
-
-      update(
-        settings.copyWith(
-          stores: stores,
-          all: stores.every((store) => store.enabled),
+  Future<void> _reload() async {
+    if (_dirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('설정을 다시 불러올까요?'),
+          content: const Text('아직 저장하지 않은 변경 내용은 사라져요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('계속 편집'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('다시 불러오기'),
+            ),
+          ],
         ),
       );
+      if (!mounted || discard != true) return;
     }
+    setState(() {
+      _draft = null;
+      _saved = null;
+      _error = null;
+      _success = null;
+      _conflict = false;
+    });
+    ref.read(priceAlertSettingsProvider.notifier).loadSettings();
+  }
 
-    return FigmaMobileCanvas(
-      backgroundColor: AppColors.white,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(priceAlertSettingsProvider);
+    if (_draft == null && state.hasValue) {
+      _draft = state.requireValue;
+      _saved = _draft;
+    }
+    final settings = _draft;
+    return SettingsExitGuard(
+      dirty: _dirty,
+      saving: _saving,
+      fallback: AppRoutes.notificationSettings,
+      builder: (onBack) => SettingsPage(
+        title: '가격 알림 구독',
+        onBack: onBack,
+        footer: settings == null
+            ? null
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_error != null)
+                    SettingsMessage(
+                      _error!,
+                      isError: true,
+                      action: _conflict ? '목록 다시 불러오기' : null,
+                      onAction: _saving ? null : _reload,
+                    ),
+                  if (_success != null) SettingsMessage(_success!),
+                  FilledButton(
+                    onPressed: _saving || !_dirty ? null : _save,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(_saving ? '저장 중…' : '설정 저장'),
+                    ),
+                  ),
+                ],
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      right: 20,
-                      height: 20.142044067382812,
-                      child: const Text(
-                        '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
-                        style: _descriptionText,
+        child: settings == null
+            ? state.when(
+                loading: () => const SettingsLoading(),
+                data: (_) => const SettingsLoading(),
+                error: (error, _) {
+                  final unauthorized =
+                      error is PriceAlertApiException &&
+                      [401, 403].contains(error.statusCode);
+                  return ListView(
+                    children: [
+                      SettingsMessage(
+                        unauthorized
+                            ? '로그인 후 가격 알림을 설정할 수 있어요.'
+                            : '가격 알림 목록을 불러오지 못했어요. 다시 시도해 주세요.',
+                        isError: true,
+                        action: unauthorized ? '로그인' : '다시 시도',
+                        onAction: unauthorized
+                            ? () => context.go(AppRoutes.login)
+                            : _reload,
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 99.00537109375 + topOffset,
-                      right: 20,
-                      height: 69.2897720336914,
-                      child: _AllAlertCard(
-                        value: settings.all,
-                        onTap: () {
-                          if (settings.stores.isEmpty) return;
-                          final next = !settings.all;
-                          update(
-                            settings.copyWith(
-                              all: next,
-                              stores: [
-                                for (final store in settings.stores)
-                                  store.copyWith(enabled: next),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 184.28955078125 + topOffset,
-                      child: const _SectionLabel('매장별 알림'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 208.7783203125 + topOffset,
-                      right: 20,
-                      height: 223.86363220214844,
-                      child: Column(
-                        children: [
-                          if (settings.stores.isEmpty)
-                            const _EmptyStoreAlert()
-                          else
-                            for (
-                              var i = 0;
-                              i < settings.stores.length;
-                              i++
-                            ) ...[
-                              _StoreAlertCard(
-                                store: settings.stores[i],
-                                onTap: () => updateStore(i),
-                              ),
-                              if (i != settings.stores.length - 1)
-                                const SizedBox(height: 7.997),
-                            ],
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 452.64208984375 + topOffset,
-                      child: const _SectionLabel('알림 조건'),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 477.13037109375 + topOffset,
-                      right: 20,
-                      height: 163.59375,
-                      child: _ConditionCard(
-                        settings: settings,
-                        onRiseTap: () => update(
-                          settings.copyWith(
-                            notifyOnRise: !settings.notifyOnRise,
-                          ),
-                        ),
-                        onDropTap: () => update(
-                          settings.copyWith(
-                            notifyOnDrop: !settings.notifyOnDrop,
-                          ),
-                        ),
-                        onNewMenuTap: () => update(
-                          settings.copyWith(
-                            notifyOnNewMenu: !settings.notifyOnNewMenu,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          _Header(
-            topOffset: topOffset,
-            title: '가격 알림 구독',
-            onBack: () => context.go(AppRoutes.notificationSettings),
-          ),
-          Positioned(
-            left: 0,
-            bottom: 0,
-            right: 0,
-            height: footerHeight,
-            child: _StickyButton(
-              safeBottom: bottomOffset,
-              label: '설정 저장',
-              onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
-                messenger.clearSnackBars();
-                final saved = await ref
-                    .read(priceAlertSettingsProvider.notifier)
-                    .saveSettings(settings);
-                if (!context.mounted) return;
-                if (!saved) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
-                    ),
+                    ],
                   );
-                  return;
-                }
-                context.go(AppRoutes.notificationSettings);
-                messenger.showSnackBar(
-                  const SnackBar(content: Text('가격 알림을 저장했어요.')),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PriceAlertLoading extends StatelessWidget {
-  const _PriceAlertLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(child: CircularProgressIndicator()),
-    );
-  }
-}
-
-class _PriceAlertError extends StatelessWidget {
-  const _PriceAlertError({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(message, textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('다시 시도'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyStoreAlert extends StatelessWidget {
-  const _EmptyStoreAlert();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      height: 69.2897720336914,
-      child: Center(
-        child: Text(
-          '찜한 매장이 없어요. 매장을 찜하면 여기에서 설정할 수 있어요.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: PriceAlertSubscriptionScreen.muted,
-            fontSize: 12,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.topOffset,
-    required this.title,
-    required this.onBack,
-  });
-
-  final double topOffset;
-  final String title;
-  final VoidCallback onBack;
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: 0,
-      top: 0,
-      right: 0,
-      height: 48.877838134765625 + topOffset,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          border: Border(
-            bottom: BorderSide(
-              color: PriceAlertSubscriptionScreen.border,
-              width: .909,
-            ),
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: topOffset,
-              width: 72,
-              height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: PriceAlertSubscriptionScreen.ink,
-                      ),
+                },
+              )
+            : ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      '찜한 매장의 가격 변동 제보가 승인되면 알려드려요. 변경 후 ‘설정 저장’을 눌러주세요.',
+                      style: TextStyle(fontSize: 14, height: 1.6),
                     ),
                   ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 11.98876953125 + topOffset,
-              child: IgnorePointer(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: PriceAlertSubscriptionScreen.black,
-                    fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-                    fontFamilyFallback:
-                        PriceAlertSubscriptionScreen.fontFallback,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AllAlertCard extends StatelessWidget {
-  const _AllAlertCard({required this.value, required this.onTap});
-
-  final bool value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RoundedCard(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Stack(
-          children: [
-            const Positioned(
-              left: 14.90057373046875,
-              top: 14.90087890625,
-              child: _TitleSubtitle(
-                title: '전체 알림',
-                subtitle: '모든 매장의 변동 알림을 받습니다',
-                titleWeight: FontWeight.w800,
-              ),
-            ),
-            Positioned(
-              right: 14.90057373046875,
-              top: 16.8896484375,
-              child: _ToggleSm(value: value, onTap: onTap),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _StoreAlertCard extends StatelessWidget {
-  const _StoreAlertCard({required this.store, required this.onTap});
-
-  final PriceAlertStore store;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 69.2897720336914,
-      child: _RoundedCard(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Stack(
-            children: [
-              const Positioned(
-                left: 14.90057373046875,
-                top: 25.63916015625,
-                child: Icon(
-                  Icons.favorite_rounded,
-                  size: 18,
-                  color: PriceAlertSubscriptionScreen.orange,
-                ),
-              ),
-              Positioned(
-                left: 44.88641357421875,
-                top: 14.900390625,
-                child: _TitleSubtitle(
-                  title: store.storeName,
-                  subtitle: store.menuName,
-                ),
-              ),
-              Positioned(
-                right: 14.90057373046875,
-                top: 16.8896484375,
-                child: _ToggleSm(value: store.enabled, onTap: onTap),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ConditionCard extends StatelessWidget {
-  const _ConditionCard({
-    required this.settings,
-    required this.onRiseTap,
-    required this.onDropTap,
-    required this.onNewMenuTap,
-  });
-
-  final PriceAlertSettings settings;
-  final VoidCallback onRiseTap;
-  final VoidCallback onDropTap;
-  final VoidCallback onNewMenuTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return _RoundedCard(
-      child: Column(
-        children: [
-          _ConditionRow(
-            label: '가격 인상',
-            dotColor: PriceAlertSubscriptionScreen.orange,
-            value: settings.notifyOnRise,
-            onTap: onRiseTap,
-          ),
-          const _Divider(),
-          _ConditionRow(
-            label: '가격 인하',
-            dotColor: PriceAlertSubscriptionScreen.green,
-            value: settings.notifyOnDrop,
-            onTap: onDropTap,
-          ),
-          const _Divider(),
-          _ConditionRow(
-            label: '새 메뉴 등록',
-            dotColor: PriceAlertSubscriptionScreen.blue,
-            value: settings.notifyOnNewMenu,
-            onTap: onNewMenuTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConditionRow extends StatelessWidget {
-  const _ConditionRow({
-    required this.label,
-    required this.dotColor,
-    required this.value,
-    required this.onTap,
-  });
-
-  final String label;
-  final Color dotColor;
-  final bool value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: SizedBox(
-        height: 53.925,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 14.90057373046875,
-              top: 23,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: dotColor,
-                  shape: BoxShape.circle,
-                ),
-                child: const SizedBox(
-                  width: 7.997159004211426,
-                  height: 7.997159004211426,
-                ),
-              ),
-            ),
-            Positioned(
-              left: 30.8948974609375,
-              top: 17.2,
-              child: Text(label, style: _conditionText),
-            ),
-            Positioned(
-              right: 14.90057373046875,
-              top: 15.1,
-              child: _ToggleSm(value: value, onTap: onTap),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ToggleSm extends StatelessWidget {
-  const _ToggleSm({required this.value, required this.onTap});
-
-  final bool value;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: onTap,
-      child: SizedBox(
-        width: 52,
-        height: 36,
-        child: Align(
-          alignment: Alignment.topRight,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 40,
-            height: 23.99147605895996,
-            decoration: BoxDecoration(
-              color: value
-                  ? PriceAlertSubscriptionScreen.blue
-                  : PriceAlertSubscriptionScreen.disabled,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  left: value ? 17.9970703125 : 1.9886474609375,
-                  top: 1.98876953125,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.black.withValues(alpha: 0.2),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
+                  if (settings.stores.isEmpty)
+                    SettingsSection(
+                      children: [
+                        SettingsMessage(
+                          '아직 찜한 매장이 없어요. 매장을 찜하면 여기에서 수신 여부를 선택할 수 있어요.',
+                          action: '매장 찾아보기',
+                          onAction: _saving
+                              ? null
+                              : () => context.push(AppRoutes.home),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    SettingsSection(
+                      children: [
+                        SettingsToggle(
+                          title: '모든 찜 매장',
+                          subtitle: '찜한 매장의 가격 알림을 한 번에 변경해요.',
+                          value: settings.all,
+                          onChanged: _saving
+                              ? null
+                              : (value) => _update(
+                                  settings.copyWith(
+                                    stores: [
+                                      for (final store in settings.stores)
+                                        store.copyWith(enabled: value),
+                                    ],
+                                  ),
+                                ),
                         ),
                       ],
                     ),
+                    SettingsSection(
+                      title: '매장별 알림 · ${settings.stores.length}곳',
+                      children: [
+                        for (final store in settings.stores)
+                          SettingsToggle(
+                            key: ValueKey('price-alert-${store.storeId}'),
+                            title: store.storeName,
+                            subtitle: store.menuName,
+                            value: store.enabled,
+                            onChanged: _saving
+                                ? null
+                                : (value) => _update(
+                                    settings.copyWith(
+                                      stores: [
+                                        for (final current in settings.stores)
+                                          current.storeId == store.storeId
+                                              ? current.copyWith(enabled: value)
+                                              : current,
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                      ],
+                    ),
+                  ],
+                  SettingsSection(
+                    title: '알림 조건',
+                    children: [
+                      SettingsToggle(
+                        title: '가격 인하',
+                        subtitle: '가격이 내려간 제보가 승인될 때',
+                        value: settings.notifyOnDrop,
+                        onChanged: _saving
+                            ? null
+                            : (value) => _update(
+                                settings.copyWith(notifyOnDrop: value),
+                              ),
+                      ),
+                      SettingsToggle(
+                        title: '가격 인상',
+                        subtitle: '가격이 오른 제보가 승인될 때',
+                        value: settings.notifyOnRise,
+                        onChanged: _saving
+                            ? null
+                            : (value) => _update(
+                                settings.copyWith(notifyOnRise: value),
+                              ),
+                      ),
+                      SettingsToggle(
+                        title: '신메뉴',
+                        subtitle: '새 메뉴 제보가 승인될 때',
+                        value: settings.notifyOnNewMenu,
+                        onChanged: _saving
+                            ? null
+                            : (value) => _update(
+                                settings.copyWith(notifyOnNewMenu: value),
+                              ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StickyButton extends StatelessWidget {
-  const _StickyButton({
-    required this.safeBottom,
-    required this.label,
-    required this.onPressed,
-  });
-
-  static const buttonHeight = 50.48295211791992;
-  static const topGap = 12.8974609375;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
-
-  final double safeBottom;
-  final String label;
-  final VoidCallback onPressed;
-
-  static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
-  }
-
-  static double heightFor(double safeBottom) {
-    return topGap + buttonHeight + bottomGap + effectiveSafeBottom(safeBottom);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveBottom = effectiveSafeBottom(safeBottom);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border(
-          top: BorderSide(
-            color: PriceAlertSubscriptionScreen.border,
-            width: .909,
-          ),
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: effectiveBottom + bottomGap,
-            height: buttonHeight,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: PriceAlertSubscriptionScreen.blue,
-                foregroundColor: AppColors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
+                  const SettingsMessage(
+                    '매장이 없어도 알림 조건은 계정에 저장돼요. 알림 설정의 ‘가격 변동 알림’이 꺼져 있으면 발송되지 않아요.',
+                  ),
+                ],
               ),
-              onPressed: onPressed,
-              child: Text(label),
-            ),
-          ),
-        ],
       ),
     );
   }
 }
-
-class _RoundedCard extends StatelessWidget {
-  const _RoundedCard({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(
-          color: PriceAlertSubscriptionScreen.border,
-          width: .909,
-        ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: child,
-    );
-  }
-}
-
-class _TitleSubtitle extends StatelessWidget {
-  const _TitleSubtitle({
-    required this.title,
-    required this.subtitle,
-    this.titleWeight = FontWeight.w700,
-  });
-
-  final String title;
-  final String subtitle;
-  final FontWeight titleWeight;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40.25,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: _cardTitle.copyWith(fontWeight: titleWeight)),
-          const SizedBox(height: 1.989),
-          Text(subtitle, style: _captionText, maxLines: 1),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(text, style: _sectionText);
-  }
-}
-
-class _Divider extends StatelessWidget {
-  const _Divider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 305.6534118652344,
-      height: .909,
-      child: ColoredBox(color: PriceAlertSubscriptionScreen.border),
-    );
-  }
-}
-
-const _descriptionText = TextStyle(
-  color: PriceAlertSubscriptionScreen.muted,
-  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-  fontSize: 13,
-  fontWeight: FontWeight.w400,
-  height: 1.55,
-);
-
-const _sectionText = TextStyle(
-  color: PriceAlertSubscriptionScreen.muted,
-  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-  fontSize: 11,
-  fontWeight: FontWeight.w700,
-  height: 1.5,
-  letterSpacing: .5,
-);
-
-const _cardTitle = TextStyle(
-  color: PriceAlertSubscriptionScreen.ink,
-  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-  fontSize: 14,
-  fontWeight: FontWeight.w700,
-  height: 1.5,
-);
-
-const _captionText = TextStyle(
-  color: PriceAlertSubscriptionScreen.muted,
-  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-  fontSize: 11,
-  fontWeight: FontWeight.w400,
-  height: 1.5,
-);
-
-const _conditionText = TextStyle(
-  color: PriceAlertSubscriptionScreen.ink,
-  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-  fontSize: 13,
-  fontWeight: FontWeight.w400,
-  height: 1.5,
-);

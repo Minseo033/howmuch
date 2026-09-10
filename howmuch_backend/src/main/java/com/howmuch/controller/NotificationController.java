@@ -6,6 +6,7 @@ import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.DeviceTokenRequest;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
 import com.howmuch.dto.PriceAlertSubscriptionRequest;
+import com.howmuch.dto.PriceAlertBatchRequest;
 import com.howmuch.service.FirebaseService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -140,6 +141,31 @@ public class NotificationController {
             log.error("[NotificationController] 매장별 가격 알림 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "가격 알림 설정을 저장하지 못했습니다."));
+        }
+    }
+
+    /** 매장 선택과 공통 조건을 하나의 원자적 쓰기로 저장합니다. */
+    @PutMapping("/price-alerts/batch")
+    public ResponseEntity<?> savePriceAlertSettings(
+            @Valid @RequestBody PriceAlertBatchRequest request,
+            HttpServletRequest httpRequest) {
+        String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (uid == null || uid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of("success", false));
+        }
+        try {
+            firebaseService.savePriceAlertSettings(uid, request);
+            return ResponseEntity.ok(Map.of("success", true));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false,
+                    "message", "가격 알림 설정을 확인해 주세요."));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(409).body(Map.of("success", false,
+                    "message", "찜 목록이 변경됐어요. 목록을 다시 불러와 주세요."));
+        } catch (Exception e) {
+            log.error("[NotificationController] 가격 알림 일괄 저장 실패", e);
+            return ResponseEntity.status(500).body(Map.of("success", false,
+                    "message", "가격 알림 설정을 저장하지 못했습니다."));
         }
     }
 

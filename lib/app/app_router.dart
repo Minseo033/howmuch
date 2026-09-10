@@ -19,6 +19,7 @@ import 'package:howmuch/features/mypage/presentation/screens/connected_social_ac
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/my_inquiries_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
+import 'package:howmuch/features/mypage/presentation/screens/location_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/privacy_policy_screen.dart';
@@ -251,6 +252,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _tabRoute(AppRoutes.mypage, const MypageScreen()),
+      _route(AppRoutes.locationSettings, const LocationSettingsScreen()),
       _route(
         AppRoutes.notificationSettings,
         const NotificationSettingsScreen(),

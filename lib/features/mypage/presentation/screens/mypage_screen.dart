@@ -1,6 +1,7 @@
+import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
+import 'package:howmuch/features/mypage/presentation/widgets/settings_widgets.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -132,51 +133,66 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (!auth.isLoggedIn) return;
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
-    final profileFuture = UserProfileApiService().fetchProfile().catchError((e) {
+    final profileFuture = UserProfileApiService().fetchProfile().catchError((
+      e,
+    ) {
       debugPrint('마이페이지 프로필 로드 오류: $e');
       return null;
     });
 
-    final savingsFuture = ApiClient.get(
-      ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<Map<String, dynamic>?>((res) {
-      if (res.statusCode == 200) {
-        return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 절약 통계 로드 오류: $e');
-      return null;
-    });
+    final savingsFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<Map<String, dynamic>?>((res) {
+              if (res.statusCode == 200) {
+                return jsonDecode(utf8.decode(res.bodyBytes))
+                    as Map<String, dynamic>;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 절약 통계 로드 오류: $e');
+              return null;
+            });
 
-    final favoritesFuture = ApiClient.get(
-      ApiClient.uri('/api/favorites'),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        return decoded is List ? decoded.length : 0;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 찜 수 로드 오류: $e');
-      return null;
-    });
+    final favoritesFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/favorites'),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<int?>((res) {
+              if (res.statusCode == 200) {
+                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+                return decoded is List ? decoded.length : 0;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 찜 수 로드 오류: $e');
+              return null;
+            });
 
-    final reportsFuture = ApiClient.get(
-      ApiClient.uri('/api/report/my'),
-      headers: ApiClient.jsonHeaders(auth: true),
-    ).timeout(ApiClient.defaultTimeout).then<int?>((res) {
-      if (res.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-        return decoded is List ? decoded.length : 0;
-      }
-      return null;
-    }).catchError((e) {
-      debugPrint('마이페이지 제보 수 로드 오류: $e');
-      return null;
-    });
+    final reportsFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/report/my'),
+              headers: ApiClient.jsonHeaders(auth: true),
+            )
+            .timeout(ApiClient.defaultTimeout)
+            .then<int?>((res) {
+              if (res.statusCode == 200) {
+                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+                return decoded is List ? decoded.length : 0;
+              }
+              return null;
+            })
+            .catchError((e) {
+              debugPrint('마이페이지 제보 수 로드 오류: $e');
+              return null;
+            });
 
     final results = await Future.wait([
       profileFuture,
@@ -201,7 +217,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
             : null;
         next = next.copyWith(
           nickname: profile['nickname']?.toString(),
-          email: usableAccountEmail(profile['email']) ??
+          email:
+              usableAccountEmail(profile['email']) ??
               usableAccountEmail(auth.email) ??
               state.email,
           region: profile['region']?.toString(),
@@ -248,135 +265,90 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
-    const settingsCardHeight = 358.0;
-    final scrollContentHeight =
-        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 20;
-
+    final bottomNavHeight = HowmuchBottomNav.heightFor(
+      bottomOffset,
+      textScaler: MediaQuery.textScalerOf(context),
+    );
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,
-      child: Stack(
+      child: Column(
         children: [
-          Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(
-                parent: BouncingScrollPhysics(),
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: 50.96590805053711 + topOffset,
-                      child: _Header(topOffset: topOffset),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 66.96044921875 + topOffset,
-                      height: 163.23863220214844,
-                      child: _ProfileCard(
+          Expanded(
+            child: ListView(
+              children: [
+                SizedBox(
+                  height: 51 + topOffset,
+                  child: _Header(topOffset: topOffset),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ProfileCard(
                         profile: profile,
                         email: displayEmail,
-                        onEdit: () => context.go(AppRoutes.profileEdit),
+                        onEdit: () => context.push(AppRoutes.profileEdit),
                       ),
-                    ),
-                    // QuickMenu row 1
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 246.193359375 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 제보',
-                                icon: Icons.description_outlined,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.myReportsV2),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '찜한 매장',
-                                icon: Icons.favorite_border_rounded,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.favoriteStores),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 리뷰',
-                                icon: Icons.rate_review_outlined,
-                                color: MypageScreen.blue,
-                                onTap: () => context.push(AppRoutes.myReviews),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    // QuickMenu row 2
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 348.47998046875 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '방문 기록',
-                                icon: Icons.location_on_outlined,
-                                color: MypageScreen.green,
-                                onTap: () =>
-                                    context.push(AppRoutes.visitHistory),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '절약 리포트',
-                                icon: Icons.bar_chart_rounded,
-                                color: MypageScreen.green,
-                                onTap: () => context.go(
-                                  AppRoutes.savingsReportDashboard,
+                      const SizedBox(height: 16),
+                      for (final menus in [
+                        [
+                          (
+                            label: '내 제보',
+                            icon: Icons.description_outlined,
+                            route: AppRoutes.myReportsV2,
+                          ),
+                          (
+                            label: '찜한 매장',
+                            icon: Icons.favorite_border_rounded,
+                            route: AppRoutes.favoriteStores,
+                          ),
+                          (
+                            label: '내 리뷰',
+                            icon: Icons.rate_review_outlined,
+                            route: AppRoutes.myReviews,
+                          ),
+                        ],
+                        [
+                          (
+                            label: '방문 기록',
+                            icon: Icons.location_on_outlined,
+                            route: AppRoutes.visitHistory,
+                          ),
+                          (
+                            label: '절약 리포트',
+                            icon: Icons.bar_chart_rounded,
+                            route: AppRoutes.savingsReportDashboard,
+                          ),
+                          (
+                            label: '알림 설정',
+                            icon: Icons.notifications_none_rounded,
+                            route: AppRoutes.notificationSettings,
+                          ),
+                        ],
+                      ]) ...[
+                        IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (var i = 0; i < menus.length; i++) ...[
+                                if (i > 0) const SizedBox(width: 12),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: menus[i].label,
+                                    icon: menus[i].icon,
+                                    color: MypageScreen.blue,
+                                    onTap: () => context.push(menus[i].route),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '알림 설정',
-                                icon: Icons.notifications_none_rounded,
-                                color: MypageScreen.blue,
-                                onTap: () =>
-                                    context.go(AppRoutes.notificationSettings),
-                              ),
-                            ),
-                          ],
+                              ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 458.76416015625 + topOffset,
-                      height: 189.23294067382812,
-                      child: _ReportStatusCard(
+                        const SizedBox(height: 12),
+                      ],
+                      const SizedBox(height: 8),
+                      _ReportStatusCard(
                         reports: reports,
                         onViewAll: () => context.push(AppRoutes.myReportsV2),
                         onReportTap: (report) => context.push(
@@ -384,13 +356,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                           extra: report,
                         ),
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 659.98583984375 + topOffset,
-                      height: settingsCardHeight,
-                      child: _SettingsCard(
+                      const SizedBox(height: 20),
+                      _SettingsCard(
                         onNotificationTap: () =>
                             context.push(AppRoutes.notificationSettings),
                         onAccountTap: () =>
@@ -399,16 +366,13 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                             context.push(AppRoutes.publicDataSource),
                         onInquiryTap: () => context.push(AppRoutes.inquiry),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+          SizedBox(
             height: bottomNavHeight,
             child: HowmuchBottomNav(
               safeBottom: bottomOffset,
@@ -596,7 +560,7 @@ class _ProfileCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const Spacer(),
+              const SizedBox(height: 28),
               Row(
                 children: [
                   Expanded(
@@ -637,7 +601,7 @@ class _ProfileAvatarImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget fallback() => const Center(
-      child: Text('👑', style: TextStyle(fontSize: 24, height: 1.5)),
+      child: Icon(Icons.person_outline_rounded, color: Colors.white, size: 28),
     );
 
     if (imageUrl.isEmpty) return fallback();
@@ -734,7 +698,8 @@ class _QuickMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
         child: Container(
-          height: 94.2897720336914,
+          constraints: const BoxConstraints(minHeight: 94),
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: MypageScreen.border, width: .909),
@@ -754,7 +719,7 @@ class _QuickMenu extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 5.994),
-              Text(label, style: _quickMenuText),
+              Text(label, style: _quickMenuText, textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -779,12 +744,7 @@ class _ReportStatusCard extends StatelessWidget {
     final visibleReports = reports.take(2).toList();
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(
-        16.903411865234375,
-        16.9033203125,
-        16.903411865234375,
-        .909,
-      ),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
@@ -792,19 +752,14 @@ class _ReportStatusCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SizedBox(
-            height: 19.488636016845703,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('내 제보 상태', style: _sectionTitleText),
-                GestureDetector(
-                  onTap: onViewAll,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Text('전체보기', style: _linkText),
-                ),
-              ],
-            ),
+          Row(
+            children: [
+              const Expanded(child: Text('내 제보 상태', style: _sectionTitleText)),
+              TextButton(
+                onPressed: onViewAll,
+                child: const Text('전체보기', style: _linkText),
+              ),
+            ],
           ),
           const SizedBox(height: 11.989),
           if (visibleReports.isEmpty)
@@ -919,271 +874,67 @@ class _EmptyReportItem extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatefulWidget {
+class _SettingsCard extends ConsumerWidget {
   const _SettingsCard({
     required this.onNotificationTap,
     required this.onAccountTap,
     required this.onPublicDataTap,
     required this.onInquiryTap,
   });
-
   final VoidCallback onNotificationTap;
   final VoidCallback onAccountTap;
   final VoidCallback onPublicDataTap;
   final VoidCallback onInquiryTap;
 
   @override
-  State<_SettingsCard> createState() => _SettingsCardState();
-}
-
-class _SettingsCardState extends State<_SettingsCard> {
-  bool _pushEnabled = false;
-  bool _marketingEnabled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPreferences();
-  }
-
-  Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _pushEnabled = prefs.getBool('push_notifications') ?? false;
-      _marketingEnabled = prefs.getBool('marketing_consent') ?? false;
-    });
-  }
-
-  Future<void> _togglePush(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('push_notifications', value);
-    setState(() {
-      _pushEnabled = value;
-    });
-  }
-
-  Future<void> _toggleMarketing(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('marketing_consent', value);
-    setState(() {
-      _marketingEnabled = value;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MypageScreen.border, width: .909),
-      ),
-      child: Column(
-        children: [
-          const _PermissionRow(),
-          _DividerLine(),
-
-          _ToggleRow(
-            icon: Icons.notifications_active_outlined,
-            title: '푸시 알림',
-            value: _pushEnabled,
-            onToggle: () => _togglePush(!_pushEnabled),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final location = ref.watch(locationAccessProvider);
+    final permissionService = ref.watch(devicePermissionServiceProvider);
+    return SettingsSection(
+      title: '설정',
+      children: [
+        SettingsLink(
+          title: '위치 권한',
+          icon: Icons.location_on_outlined,
+          subtitle: location.when(
+            data: deviceAccessLabel,
+            loading: () => '확인 중…',
+            error: (_, _) => '권한을 확인하지 못했어요',
           ),
-          _DividerLine(),
-          _ToggleRow(
-            icon: Icons.campaign_outlined,
-            title: '마케팅 정보 수신 동의',
-            value: _marketingEnabled,
-            onToggle: () => _toggleMarketing(!_marketingEnabled),
-          ),
-          _DividerLine(),
-
-          _SettingRow(
-            icon: Icons.notifications_none_rounded,
-            title: '알림 설정',
-            onTap: widget.onNotificationTap,
-          ),
-          _DividerLine(),
-          _SettingRow(
-            icon: Icons.manage_accounts_outlined,
-            title: '계정 관리',
-            onTap: widget.onAccountTap,
-          ),
-          _DividerLine(),
-          _SettingRow(
-            icon: Icons.dataset_outlined,
-            title: '공공데이터 출처 안내',
-            onTap: widget.onPublicDataTap,
-          ),
-          _DividerLine(),
-          _SettingRow(
-            icon: Icons.support_agent_outlined,
-            title: '문의하기',
-            onTap: widget.onInquiryTap,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-    required this.onToggle,
-  });
-
-  final IconData icon;
-  final String title;
-  final bool value;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onToggle,
-        child: SizedBox(
-          height: 43.46590805053711,
-          child: Row(
-            children: [
-              const SizedBox(width: 15.994),
-              Icon(icon, color: MypageScreen.muted, size: 17),
-              const SizedBox(width: 11.989),
-              Text(title, style: _settingText),
-              const Spacer(),
-              _AdminModeSwitch(value: value),
-              const SizedBox(width: 16.903),
-            ],
-          ),
+          onTap: () async {
+            await context.push(AppRoutes.locationSettings);
+            if (context.mounted) ref.invalidate(locationAccessProvider);
+          },
         ),
-      ),
-    );
-  }
-}
-
-class _AdminModeSwitch extends StatelessWidget {
-  const _AdminModeSwitch({required this.value});
-
-  final bool value;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 160),
-      width: 40,
-      height: 23.99147605895996,
-      decoration: BoxDecoration(
-        color: value ? MypageScreen.blue : AppColors.disabled,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Stack(
-        children: [
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            left: value ? 17.9970703125 : 1.9886474609375,
-            top: 1.98876953125,
-            child: Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.black.withValues(alpha: 0.2),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PermissionRow extends StatelessWidget {
-  const _PermissionRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44.375,
-      child: Row(
-        children: const [
-          SizedBox(width: 15.994),
-          Icon(Icons.location_on_outlined, color: MypageScreen.muted, size: 17),
-          SizedBox(width: 11.989),
-          Text('위치 권한 설정', style: _settingText),
-          Spacer(),
-          Text('허용', style: _allowedText),
-          SizedBox(width: 4.991),
-          Icon(
-            Icons.chevron_right_rounded,
-            color: MypageScreen.muted,
-            size: 15,
-          ),
-          SizedBox(width: 16.903),
-        ],
-      ),
-    );
-  }
-}
-
-class _SettingRow extends StatelessWidget {
-  const _SettingRow({
-    required this.icon,
-    required this.title,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 43.46590805053711,
-          child: Row(
-            children: [
-              const SizedBox(width: 15.994),
-              Icon(icon, color: MypageScreen.muted, size: 17),
-              const SizedBox(width: 11.989),
-              Text(title, style: _settingText),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: MypageScreen.muted,
-                size: 15,
-              ),
-              const SizedBox(width: 16.903),
-            ],
-          ),
+        SettingsLink(
+          title: '푸시 및 알림 설정',
+          icon: Icons.notifications_active_outlined,
+          subtitle: permissionService.web
+              ? '웹 알림함과 계정 수신 설정 · 브라우저 푸시 미지원'
+              : '기기 권한, 수신 항목 및 방해 금지 시간',
+          onTap: onNotificationTap,
         ),
-      ),
-    );
-  }
-}
-
-class _DividerLine extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 301.647705078125,
-      height: .9943181276321411,
-      child: ColoredBox(color: MypageScreen.border),
+        const SettingsLink(
+          title: '마케팅 알림',
+          icon: Icons.campaign_outlined,
+          subtitle: '현재 제공하지 않는 기능이에요. 수신 동의를 별도로 저장하지 않아요.',
+        ),
+        SettingsLink(
+          title: '계정 관리',
+          icon: Icons.manage_accounts_outlined,
+          onTap: onAccountTap,
+        ),
+        SettingsLink(
+          title: '공공데이터 출처 안내',
+          icon: Icons.dataset_outlined,
+          onTap: onPublicDataTap,
+        ),
+        SettingsLink(
+          title: '문의하기',
+          icon: Icons.support_agent_outlined,
+          onTap: onInquiryTap,
+        ),
+      ],
     );
   }
 }
@@ -1275,23 +1026,5 @@ const _muted11 = TextStyle(
   fontFamilyFallback: MypageScreen.fontFallback,
   fontSize: 11,
   fontWeight: FontWeight.w400,
-  height: 1.5,
-);
-
-const _settingText = TextStyle(
-  color: MypageScreen.ink,
-  fontFamily: MypageScreen.fontFamily,
-  fontFamilyFallback: MypageScreen.fontFallback,
-  fontSize: 13,
-  fontWeight: FontWeight.w400,
-  height: 1.5,
-);
-
-const _allowedText = TextStyle(
-  color: MypageScreen.green,
-  fontFamily: MypageScreen.fontFamily,
-  fontFamilyFallback: MypageScreen.fontFallback,
-  fontSize: 11,
-  fontWeight: FontWeight.w600,
   height: 1.5,
 );

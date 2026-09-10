@@ -144,4 +144,26 @@ class NotificationControllerTest {
         request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
         return request;
     }
+
+    @Test
+    void batchSaveRequiresAuthentication() {
+        FirebaseService service = mock(FirebaseService.class);
+        var controller = new NotificationController(service);
+        var result = controller.savePriceAlertSettings(new com.howmuch.dto.PriceAlertBatchRequest(), new MockHttpServletRequest());
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void batchSaveUsesSessionIdentityAndReportsConflict() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        var controller = new NotificationController(service);
+        var body = new com.howmuch.dto.PriceAlertBatchRequest();
+        org.mockito.Mockito.doThrow(new java.util.NoSuchElementException("private detail"))
+                .when(service).savePriceAlertSettings("user-1", body);
+        var result = controller.savePriceAlertSettings(body, authenticatedRequest());
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(result.getBody().toString()).doesNotContain("private detail");
+        verify(service).savePriceAlertSettings("user-1", body);
+    }
 }
