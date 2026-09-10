@@ -1316,3 +1316,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 운영 별칭 연결 직후 CDN 전파 중 `index.html`과 `main.dart.js` 불일치가 한 번 발생했고, 재검증에서는 공개 자산 10개·진입 경로 3개가 SHA-256 기준 13/13 PASS했다. 폰트 원본과 운영 파일의 SHA-256은 `194018e6b2b293a7964f037b25c0249ce1418bc9ab3c971060a03aa57861e252`이며 HTTP 200·`font/ttf`·gzip 압축·기존 보안 헤더를 확인했다.
 - 로그인된 운영 Chrome을 새로고침해 공지 팝업의 제목·본문·`공지사항 보기`·`오늘 하루 보지 않기`·`닫기`, 홈 검색창·추천 문구·하단 메뉴의 정상 한글 표시를 직접 확인했다. 검증 중 새 공지나 푸시는 발송하지 않았다.
 - 복구가 필요하면 기존 정상 배포 `dpl_FZyjwFEwodKSWTxrzNSobhCyHbzt` (`https://web-13h8kgkyz-minseo033s-projects.vercel.app`)에 운영 별칭을 다시 연결한다.
+
+## 5-67. 9/10 마이페이지·설정 기능 재적용 및 운영 배포
+
+- 기존 마이페이지·계정·일반 알림·가격 알림·프로필·회원 탈퇴 화면의 카드, 색상, 간격, 섹션과 하단 메뉴는 유지하고 실제 상태 조회와 저장 안전장치만 다시 적용했다. 세부 점검은 `docs/SETTINGS_FUNCTIONALITY_AUDIT_2026-09-10.md`에 기록했다.
+- 위치와 푸시는 실제 기기 권한 상태를 사용한다. 로컬 값만 바뀌던 마케팅 수신과 실제 공개 범위에 적용되지 않던 프로필 공개 토글은 미지원 안내로 정리했다. 회원 탈퇴는 동의 해제 상태로 시작하고 최종 확인 및 중복 실행 방지를 적용했다.
+- 가격 알림은 새 `PUT /api/notifications/price-alerts/batch`로 찜 매장별 수신 여부와 공통 조건을 원자적으로 저장한다. 모든 매장 소유권을 쓰기 전에 확인하고, 빈 찜 목록의 조건도 저장하며, 일반 알림 저장은 가격 조건을 덮어쓰지 않는다.
+- 기능 커밋 `1430d85`를 GitHub `main`에 푸시했다. GitHub Actions의 Flutter 분석·테스트·웹 빌드, 백엔드 테스트·패키지, iOS Simulator 빌드가 모두 통과했다.
+- Vercel 배포 `dpl_Bg6hqMRvfDbY6QbzgqFU2SsKtYiz` (`https://howmuch-8tcyjhvnp-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다. 공개 앱·폰트 파일 10개와 주요 진입 경로 3개가 로컬 release 빌드와 모두 일치했다.
+- 로그인된 운영 Chrome에서 기존 마이페이지 레이아웃, 실제 위치 권한 표시, 마케팅 미지원 안내, 일반 알림 서버 값, 3개 찜 매장 가격 알림 목록을 확인했다. 현재 설정값을 변경하지 않고 가격 알림 저장을 실행해 Render의 새 일괄 API 성공과 알림 설정 화면 복귀를 확인했다.
