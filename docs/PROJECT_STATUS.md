@@ -1371,3 +1371,19 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - `flutter analyze --no-pub` 0 issues 통과.
   - `flutter test` 전체 테스트 통과.
   - `flutter build web --release --no-wasm-dry-run` 웹 빌드 성공.
+
+## 5-69. 9/10 미사용 레거시 정리, 모바일 PWA 메타데이터 강화, 영수증 인증 퀵 보정 UX 적용
+
+- **1. 미사용 레거시 코드 정리**:
+  - 어떤 화면에서도 참조하지 않던 `lib/features/taegwan/` 디렉토리(`taegwan_ui.dart`)를 완전 제거하여 코드베이스 정리.
+- **2. 모바일 PWA (설치형 웹앱) 경험 강화**:
+  - `web/manifest.json`: 앱 이름(`얼마고? - 착한가격업소 절약 지도`), 축약 이름(`얼마고?`), 테마 컬러(`#2563EB`), 배경 컬러(`#F4F6FA`), 설명, `scope` 및 언어(`ko`) 설정 보완.
+  - `web/index.html`: `theme-color` 메타 태그, iOS standalone 전체화면 메타 태그(`apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: default`) 추가로 모바일 홈 화면 추가 시 네이티브 앱과 동일한 몰입감 제공.
+- **3. 영수증 방문 인증 실패/오류 처리 UX 고도화**:
+  - `visit_verification_screen.dart`: 매장에 등록된 대표 메뉴 및 가격을 원터치로 자동 입력할 수 있는 [등록 메뉴 퀵 선택 칩] 추가.
+  - 모바일에서 금액을 1초 만에 맞추거나 보정할 수 있는 [퀵 금액 버튼] (`+1천원`, `+5천원`, `+1만원`, `금액 지우기`) 제공.
+  - 영수증 사진 선택 후 즉시 제출할 수 있는 버튼, 취소(삭제) 옵션, 및 OCR/영수증 실제 결제 금액과 입력 금액 일치 안내 팁 추가.
+- **검증**:
+  - `flutter analyze --no-pub` 이슈 0건 통과.
+  - `flutter test` 전체 178개 테스트 통과.
+  - `flutter build web --release --no-wasm-dry-run` 웹 빌드 성공.

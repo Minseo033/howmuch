@@ -480,15 +480,50 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                   ),
                 ),
                 if (_receiptImage != null && !_isSubmittingReceipt) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      FilledButton.icon(
+                        onPressed: _submitReceipt,
+                        icon: const Icon(Icons.send_rounded, size: 14),
+                        label: const Text(
+                          '영수증 인증 제출',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          minimumSize: const Size(0, 32),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => setState(() => _receiptImage = null),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.muted,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          minimumSize: const Size(0, 32),
+                        ),
+                        child: const Text('취소', style: TextStyle(fontSize: 12)),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 6),
-                  TextButton.icon(
-                    onPressed: _submitReceipt,
-                    icon: const Icon(Icons.send_rounded, size: 15),
-                    label: const Text('영수증 제출'),
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(0, 30),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  const Text(
+                    '💡 영수증의 실제 결제 금액과 아래 입력 금액이 일치해야 승인돼요.',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
@@ -611,6 +646,18 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   /// 메뉴 · 결제 금액 입력 (방문 인증 시 절약 금액 계산에 사용)
   Widget _buildMenuPriceSection() {
+    final store = widget.store;
+    final registeredMenus = <({String menu, String price})>[
+      if (store != null && store.menu1.trim().isNotEmpty)
+        (menu: store.menu1.trim(), price: store.price1.trim()),
+      if (store != null && store.menu2.trim().isNotEmpty)
+        (menu: store.menu2.trim(), price: store.price2.trim()),
+      if (store != null && store.menu3.trim().isNotEmpty)
+        (menu: store.menu3.trim(), price: store.price3.trim()),
+      if (store != null && store.menu4.trim().isNotEmpty)
+        (menu: store.menu4.trim(), price: store.price4.trim()),
+    ];
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -621,10 +668,67 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '메뉴 · 결제 금액',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                '메뉴 · 결제 금액',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              if (_priceValue > 0)
+                Text(
+                  '${_formatWon(_priceValue)}원',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                ),
+            ],
           ),
+          if (registeredMenus.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '매장 등록 메뉴 (터치하면 자동 입력)',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+            ),
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final item in registeredMenus) ...[
+                    ActionChip(
+                      label: Text(
+                        item.price.isEmpty
+                            ? item.menu
+                            : '${item.menu} (${item.price}원)',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      backgroundColor: AppColors.primarySubtle,
+                      side: BorderSide.none,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      onPressed: () {
+                        _menuController.text = item.menu;
+                        final cleanPrice = item.price.replaceAll(
+                          RegExp(r'[^0-9]'),
+                          '',
+                        );
+                        if (cleanPrice.isNotEmpty) {
+                          final n = int.tryParse(cleanPrice);
+                          if (n != null) {
+                            _amountController.text = _formatWon(n);
+                          }
+                        }
+                        _onInputChanged();
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _menuController,
@@ -638,7 +742,69 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             onChanged: (_) => _onInputChanged(),
             decoration: _inputDecoration('결제 금액 입력 (원)'),
           ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildQuickPriceChip('+1천원', 1000),
+              const SizedBox(width: 6),
+              _buildQuickPriceChip('+5천원', 5000),
+              const SizedBox(width: 6),
+              _buildQuickPriceChip('+1만원', 10000),
+              const Spacer(),
+              if (_priceValue > 0)
+                GestureDetector(
+                  onTap: () {
+                    _amountController.clear();
+                    _onInputChanged();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '금액 지우기',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickPriceChip(String label, int addAmount) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        final next = _priceValue + addAmount;
+        _amountController.text = _formatWon(next);
+        _onInputChanged();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundLight,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300, width: 0.8),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textBody,
+          ),
+        ),
       ),
     );
   }
