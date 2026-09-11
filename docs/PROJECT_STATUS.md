@@ -1493,3 +1493,4 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - 기능 커밋 `49c89d7`을 GitHub `main`에 푸시했다.
   - Vercel 배포 `dpl_5Juq6p6uTPgkvgGZ2ponNV2q7cAy` (`https://howmuch-8l8mg3ikk-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
   - 운영 화면에서 `내 주변 매장을 찾아볼까요?`와 `위치 허용 요청`이 표시되는 것을 확인했다. 위치가 이미 차단된 테스트 브라우저에서는 버튼 클릭 후 `위치 접근이 차단되어 있어요` 안내로 전환되어 실제 재요청과 오류 분기가 동작함을 확인했다.
+  - iPad 실기기에서 `설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari 웹사이트`가 `안 함`이었던 것이 브라우저 팝업 미표시의 기기 측 원인으로 확인됐다. 이를 `허용`으로 변경해 정상 동작을 확인했고, 앱 안내도 같은 경로로 수정한 커밋 `c1388f5`를 푸시했다. Vercel 배포 `dpl_6Juq6p6uTPgkvgGZ2ponNV2q7cAy`를 운영 주소에 연결하고 13/13 정합성 검사를 통과했다.
