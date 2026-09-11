@@ -195,16 +195,22 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 10,
-                    children: [
-                      for (final prompt in _quickPrompts)
-                        _PromptChip(
-                          prompt: prompt,
-                          onTap: () => _setPrompt(prompt.label),
-                        ),
-                    ],
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final chipWidth = (constraints.maxWidth - 8) / 2;
+                      return Wrap(
+                        spacing: 8,
+                        runSpacing: 10,
+                        children: [
+                          for (final prompt in _quickPrompts)
+                            _PromptChip(
+                              prompt: prompt,
+                              width: chipWidth,
+                              onTap: () => _setPrompt(prompt.label),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                   for (final message in _messages) ...[
                     const SizedBox(height: 14),
@@ -437,7 +443,7 @@ class _HeroCard extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Text(
-            '현재 위치의 실제 매장과 가격을 바탕으로 합리적인 한 끼를 추천해드려요.',
+            '현재 위치의 실제 매장과 가격을 바탕으로\n합리적인 한 끼를 추천해드려요.',
             style: TextStyle(
               color: Color(0xFF64748B),
               fontFamily: _AiUi.fontFamily,
@@ -473,7 +479,7 @@ class _GreetingBubble extends StatelessWidget {
         ],
       ),
       child: const Text(
-        '안녕하세요, 동네 절약 가이드 고미예요.\n현재 위치에서 확인된 매장만 솔직하게 추천해드릴게요.\n아래에서 골라보시거나 직접 입력해 주세요.',
+        '안녕하세요, 동네 절약 가이드 고미예요.\n현재 위치에서 확인된 매장만\n솔직하게 추천해드릴게요.\n\n아래에서 골라보시거나 직접 입력해 주세요.',
         style: TextStyle(
           color: _AiUi.ink,
           fontFamily: _AiUi.fontFamily,
@@ -488,15 +494,20 @@ class _GreetingBubble extends StatelessWidget {
 }
 
 class _PromptChip extends StatelessWidget {
-  const _PromptChip({required this.prompt, required this.onTap});
+  const _PromptChip({
+    required this.prompt,
+    required this.onTap,
+    this.width,
+  });
 
   final _QuickPrompt prompt;
   final VoidCallback onTap;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 163.5,
+      width: width ?? 163.5,
       height: 42,
       child: Material(
         color: Colors.white,

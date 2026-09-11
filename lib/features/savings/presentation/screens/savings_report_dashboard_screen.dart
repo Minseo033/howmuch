@@ -542,7 +542,7 @@ class _SavingsReportDashboardScreenState
                 onTap: () => context.push(AppRoutes.savingsDetail),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(AppSizes.horizontalPadding),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF34D399), Color(0xFF059669)],
@@ -686,16 +686,19 @@ class _SavingsReportDashboardScreenState
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            chartTitle,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF0A0A0A),
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
+                          Expanded(
+                            child: Text(
+                              chartTitle,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontFamilyFallback: ['Noto Sans KR'],
+                                color: Color(0xFF0A0A0A),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             chartDate,
                             style: const TextStyle(

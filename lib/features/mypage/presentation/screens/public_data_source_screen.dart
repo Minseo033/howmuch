@@ -439,8 +439,7 @@ class _StickyButton extends StatelessWidget {
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const bottomGap = 16.0;
 
   final double safeBottom;
   final String label;
@@ -448,7 +447,7 @@ class _StickyButton extends StatelessWidget {
   final IconData? icon;
 
   static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
+    return safeBottom > 0 ? safeBottom : 0;
   }
 
   static double heightFor(double safeBottom) {

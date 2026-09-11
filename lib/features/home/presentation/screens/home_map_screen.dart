@@ -1717,7 +1717,7 @@ class _LocationPermissionModal extends StatelessWidget {
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
-                height: 40,
+                height: 44,
                 child: TextButton(
                   onPressed: onClose,
                   style: TextButton.styleFrom(
@@ -1848,6 +1848,7 @@ class _SourceLegend extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
         boxShadow: const [
           BoxShadow(
             color: Color(0x140F172A),

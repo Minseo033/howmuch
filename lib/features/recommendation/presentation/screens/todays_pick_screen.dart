@@ -331,25 +331,53 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 20),
-                                SizedBox(
-                                  width: 140,
-                                  height: 40,
-                                  child: FilledButton(
-                                    onPressed: _loadTodaysPick,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2563EB),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    if (_errorMessage?.contains('위치') == true) ...[
+                                      SizedBox(
+                                        height: 40,
+                                        child: OutlinedButton(
+                                          onPressed: () => Geolocator.openAppSettings(),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFF2563EB),
+                                            side: const BorderSide(color: Color(0xFF2563EB)),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            '설정 열기',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                    ],
+                                    SizedBox(
+                                      width: 120,
+                                      height: 40,
+                                      child: FilledButton(
+                                        onPressed: _loadTodaysPick,
+                                        style: FilledButton.styleFrom(
+                                          backgroundColor: const Color(0xFF2563EB),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          '다시 시도',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                    child: const Text(
-                                      '다시 시도',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             ),

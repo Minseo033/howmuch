@@ -8,6 +8,7 @@ import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class PermissionSetupScreen extends ConsumerWidget {
   const PermissionSetupScreen({super.key});
@@ -189,6 +190,10 @@ class PermissionSetupScreen extends ConsumerWidget {
   }
 
   Future<void> _startApp(BuildContext context, WidgetRef ref) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_completed', true);
+    } catch (_) {}
     final result = await _requestStartupPermissions();
 
     if (!context.mounted) {
@@ -208,7 +213,10 @@ class PermissionSetupScreen extends ConsumerWidget {
       try {
         var location = await Geolocator.checkPermission();
         if (location == LocationPermission.denied) {
-          location = await Geolocator.requestPermission();
+          location = await Geolocator.requestPermission().timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => LocationPermission.denied,
+          );
         }
         return _StartupPermissionResult(
           location:

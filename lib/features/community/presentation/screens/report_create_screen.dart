@@ -950,8 +950,7 @@ class _TipBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 54.744,
-      padding: const EdgeInsets.fromLTRB(12, 11.989, 12, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(14),
@@ -966,7 +965,7 @@ class _TipBox extends StatelessWidget {
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
             fontWeight: FontWeight.w400,
-            height: 1.35,
+            height: 1.45,
           ),
         ),
       ),
