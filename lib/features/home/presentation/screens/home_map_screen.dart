@@ -609,13 +609,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (!serviceEnabled) {
         if (mounted) {
           _showLocationNotice(
-            _LocationNoticeData(
-              title: '위치 서비스를 켜주세요',
-              message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
-              primaryLabel: '설정 열기',
-              onPrimaryPressed: () =>
-                  _openLocationSettings(serviceDisabled: true),
-            ),
+            kIsWeb
+                ? _webLocationPermissionNotice(
+                    title: '위치 서비스를 확인해 주세요',
+                    message: '브라우저와 기기의 위치 서비스를 켠 뒤\n다시 확인해 주세요.',
+                  )
+                : _LocationNoticeData(
+                    title: '위치 서비스를 켜주세요',
+                    message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
+                    primaryLabel: '설정 열기',
+                    onPrimaryPressed: () =>
+                        _openLocationSettings(serviceDisabled: true),
+                  ),
           );
         }
         return;
@@ -627,10 +632,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (permission == LocationPermission.denied) {
           if (mounted) {
             _showLocationNotice(
-              const _LocationNoticeData(
-                title: '위치 권한이 필요해요',
-                message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
-              ),
+              kIsWeb
+                  ? _webLocationPermissionNotice()
+                  : const _LocationNoticeData(
+                      title: '위치 권한이 필요해요',
+                      message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
+                    ),
             );
           }
           return;
@@ -640,13 +647,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           _showLocationNotice(
-            _LocationNoticeData(
-              title: '위치 권한이 꺼져 있어요',
-              message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
-              primaryLabel: '설정 열기',
-              onPrimaryPressed: () =>
-                  _openLocationSettings(serviceDisabled: false),
-            ),
+            kIsWeb
+                ? _webLocationPermissionNotice()
+                : _LocationNoticeData(
+                    title: '위치 권한이 꺼져 있어요',
+                    message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
+                    primaryLabel: '설정 열기',
+                    onPrimaryPressed: () =>
+                        _openLocationSettings(serviceDisabled: false),
+                  ),
           );
         }
         return;
@@ -711,6 +720,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _hideLocationNotice() {
     if (!mounted) return;
     setState(() => _locationNotice = null);
+  }
+
+  _LocationNoticeData _webLocationPermissionNotice({
+    String title = '브라우저 위치 권한이 꺼져 있어요',
+    String message = "주소창 왼쪽의 사이트 설정에서\n위치 권한을 '허용'으로 바꿔주세요.",
+  }) {
+    return _LocationNoticeData(
+      title: title,
+      message: message,
+      primaryLabel: '다시 확인',
+      onPrimaryPressed: _retryLocationPermission,
+    );
+  }
+
+  Future<void> _retryLocationPermission() async {
+    _hideLocationNotice();
+    await _moveToCurrentLocation();
   }
 
   Future<void> _openLocationSettings({required bool serviceDisabled}) async {
