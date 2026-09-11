@@ -7,6 +7,7 @@ class StoreHours {
   final bool parkingYn;
   final bool packingYn;
   final String? areaCurrency;
+  final List<String> imageUrls;
 
   const StoreHours({
     required this.text,
@@ -16,6 +17,7 @@ class StoreHours {
     this.parkingYn = false,
     this.packingYn = false,
     this.areaCurrency,
+    this.imageUrls = const [],
   });
 
   static StoreHours? tryParse(Object? value) {
@@ -53,6 +55,14 @@ class StoreHours {
         ? (value['areaCurrency'] as String).trim()
         : null;
 
+    final rawImgs = value['imageUrls'];
+    final imgs = rawImgs is List
+        ? rawImgs
+              .whereType<String>()
+              .where((s) => s.startsWith('https://'))
+              .toList()
+        : const <String>[];
+
     return StoreHours(
       text: text.trim(),
       sourceName: name.trim(),
@@ -61,6 +71,7 @@ class StoreHours {
       parkingYn: parking,
       packingYn: packing,
       areaCurrency: currency,
+      imageUrls: imgs,
     );
   }
 
@@ -83,5 +94,6 @@ class StoreHours {
     'parkingYn': parkingYn,
     'packingYn': packingYn,
     if (areaCurrency != null) 'areaCurrency': areaCurrency,
+    if (imageUrls.isNotEmpty) 'imageUrls': imageUrls,
   };
 }

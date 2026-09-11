@@ -1962,3 +1962,17 @@ Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472
 Compiling lib/main.dart for the Web...                              4.0s
 ✓ Built build/web 성공.
   - Vercel 프로덕션 배포 및 대표 도메인() 연결 완료.
+
+## 5-89. 9/12 전국 단위 5,738개 매장 대량 확장 및 실제 매장 외관·음식 사진 갤러리 연동 배포
+
+- **전국 단위 대량 데이터 적재**:
+  - 행정안전부 공식 포털 전국 엑셀 원본(12,843건)을 일괄 확보하여 서비스 매장 DB(11,207건)와 1:1 대조.
+  - 상호명, 도로명 주소, 전화번호가 엄격하게 일치하는 전국 5,738개 매장에 대해 주차 가능 여부(parkingYn), 포장 가능 여부(packingYn), 지역화폐(지류/모바일/카드) 결제 정보(areaCurrency)를 전면 동기화.
+- **실제 매장 사진 갤러리 연동**:
+  - 행안부 상세 포털(bsshInfo.json)의 fileList로부터 실제 업로드된 매장 외관 및 음식 사진 URL을 정밀 추출하여 백엔드 DTO(StoreHoursCatalog.Entry.imageUrls) 및 StoreHours 모델에 연결.
+  - 매장 상세 화면(StoreDetailScreen) 상단에 매장 실사진 가로 스크롤 갤러리 UI를 탑재하여 사진이 있는 매장의 경우 실제 가게 모습과 메뉴 사진을 풍성하게 확인할 수 있도록 고도화.
+- **검증 및 배포**:
+  - 백엔드 182개 전체 테스트 통과 (./gradlew test).
+  - Dart 정적 분석 0건 통과 (dart analyze --fatal-infos).
+  - Flutter 단위/위젯 전체 테스트 통과 (flutter test --no-pub).
+  - Vercel 프로덕션 신규 배포 및 대표 도메인(https://howmuch-zeta.vercel.app) 연결 완료.

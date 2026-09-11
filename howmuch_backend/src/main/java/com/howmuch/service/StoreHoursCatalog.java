@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ClassPathResource;
@@ -20,9 +21,11 @@ import java.util.Objects;
 public class StoreHoursCatalog {
     private final Map<String, Entry> entries;
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public record Entry(String storeId, String storeName, String address, String phoneNumber,
                         String status, String text, String sourceName, String sourceUrl, String checkedAt,
-                        Boolean parkingYn, Boolean packingYn, String areaCurrency) {
+                        Boolean parkingYn, Boolean packingYn, String areaCurrency,
+                        List<String> imageUrls) {
         boolean valid() {
             try {
                 URI uri = URI.create(sourceUrl);
@@ -54,6 +57,7 @@ public class StoreHoursCatalog {
             if (parkingYn != null) map.put("parkingYn", parkingYn);
             if (packingYn != null) map.put("packingYn", packingYn);
             if (areaCurrency != null && !areaCurrency.isBlank()) map.put("areaCurrency", areaCurrency);
+            if (imageUrls != null && !imageUrls.isEmpty()) map.put("imageUrls", imageUrls);
             return Collections.unmodifiableMap(map);
         }
     }

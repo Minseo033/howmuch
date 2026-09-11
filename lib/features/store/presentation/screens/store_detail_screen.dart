@@ -148,6 +148,36 @@ class StoreDetailScreen extends ConsumerWidget {
                       // ─────────────────────────────────────────────
                       //  가게 헤더 (흰 카드)
                       // ─────────────────────────────────────────────
+                      if (store.openingHours != null &&
+                          store.openingHours!.imageUrls.isNotEmpty)
+                        Container(
+                          color: AppColors.white,
+                          height: 190,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            scrollDirection: Axis.horizontal,
+                            itemCount: store.openingHours!.imageUrls.length,
+                            separatorBuilder: (context, index) =>
+                                const SizedBox(width: 10),
+                            itemBuilder: (context, idx) {
+                              final imgUrl = store.openingHours!.imageUrls[idx];
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  imgUrl,
+                                  width: 250,
+                                  height: 170,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox.shrink(),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       _White(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
