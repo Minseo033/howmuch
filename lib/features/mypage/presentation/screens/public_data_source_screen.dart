@@ -265,10 +265,13 @@ class _IntroCard extends StatelessWidget {
           ),
           Positioned(
             left: 68.89208984375,
+            right: 16.9034423828125,
             top: 16.9033203125,
-            width: 210,
-            height: 57,
+            height: 40,
             child: RichText(
+              key: const ValueKey('public-data-intro-text'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               text: const TextSpan(
                 style: _introText,
                 children: [
@@ -276,15 +279,15 @@ class _IntroCard extends StatelessWidget {
                     text: '얼마고?',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  TextSpan(text: '는 행정안전부\n'),
+                  TextSpan(text: '는 행정안전부 '),
                   TextSpan(
-                    text: '착한가격업소 공공데이터',
+                    text: '착한가격업소\n공공데이터',
                     style: TextStyle(
                       color: PublicDataSourceScreen.blue,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  TextSpan(text: '를\n기반으로 정보를 제공합니다.'),
+                  TextSpan(text: '를 기반으로 안내합니다.'),
                 ],
               ),
             ),

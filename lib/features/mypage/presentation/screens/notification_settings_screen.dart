@@ -664,7 +664,9 @@ class _NotificationTypeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _RoundedPanel(
+      key: const ValueKey('notification-type-card'),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _NotificationRow(
             title: '가격 변동 알림',
@@ -673,7 +675,7 @@ class _NotificationTypeCard extends StatelessWidget {
             activeColor: NotificationSettingsScreen.orange,
             onTap: onPriceTap,
           ),
-          const _CardDivider(),
+          const _CardDivider(lineKey: ValueKey('notification-type-divider')),
           _NotificationRow(
             title: '제보 상태 알림',
             subtitle: '내 제보가 승인되거나 보완 요청되면 알려드려요.',
@@ -1087,7 +1089,7 @@ class _HowmuchToggle extends StatelessWidget {
 }
 
 class _RoundedPanel extends StatelessWidget {
-  const _RoundedPanel({required this.child});
+  const _RoundedPanel({super.key, required this.child});
 
   final Widget child;
 
@@ -1162,14 +1164,22 @@ class _CircleIcon extends StatelessWidget {
 }
 
 class _CardDivider extends StatelessWidget {
-  const _CardDivider();
+  const _CardDivider({this.lineKey});
+
+  final Key? lineKey;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 301.647705078125,
-      height: .9943181276321411,
-      child: ColoredBox(color: NotificationSettingsScreen.border),
+    return SizedBox(
+      width: double.infinity,
+      height: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ColoredBox(
+          key: lineKey,
+          color: NotificationSettingsScreen.border,
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
@@ -60,7 +62,20 @@ class _ConnectedSocialAccountsScreenState
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.surface,
-        appBar: const CustomAppBar(title: '로그인 계정'),
+        appBar: CustomAppBar(
+          title: '로그인 계정',
+          leading: IconButton(
+            key: const ValueKey('connected-accounts-back-button'),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go(AppRoutes.accountManagement);
+              }
+            },
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+        ),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.all(20),
@@ -94,7 +109,8 @@ class _ConnectedSocialAccountsScreenState
                             )
                           : Image.network(
                               profile.profileImageUrl,
-                              webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
+                              webHtmlElementStrategy:
+                                  WebHtmlElementStrategy.prefer,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,

@@ -264,6 +264,7 @@ class _LegalHeader extends StatelessWidget {
       right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
+        key: const ValueKey('privacy-policy-header'),
         decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
@@ -289,6 +290,7 @@ class _LegalHeader extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Icon(
+                        key: ValueKey('privacy-policy-back-icon'),
                         Icons.arrow_back_rounded,
                         size: 24,
                         color: _PrivacyPolicyScreenState.ink,
@@ -311,19 +313,25 @@ class _LegalHeader extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 16,
-              top: topOffset + 4,
-              width: 44,
-              height: 44,
+              right: 0,
+              top: topOffset,
+              width: 72,
+              height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
                   onTap: onAction,
-                  child: const Icon(
-                    Icons.open_in_new_rounded,
-                    size: 18,
-                    color: _PrivacyPolicyScreenState.muted,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 20),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        key: ValueKey('privacy-policy-action-icon'),
+                        Icons.open_in_new_rounded,
+                        size: 24,
+                        color: _PrivacyPolicyScreenState.ink,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -577,19 +585,28 @@ class _PrivacyManagerCard extends StatelessWidget {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(10),
                     onTap: onInquiry,
-                    child: const SizedBox(
+                    child: SizedBox(
+                      key: const ValueKey('privacy-inquiry-button'),
                       width: 56.9886360168457,
                       height: 28.480112075805664,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.chat_bubble_outline_rounded,
+                            key: ValueKey('privacy-inquiry-icon'),
                             size: 11,
                             color: _PrivacyPolicyScreenState.blue,
                           ),
-                          SizedBox(width: 3),
-                          Text('문의', style: _inquiryText),
+                          const SizedBox(width: 3),
+                          Transform.translate(
+                            offset: const Offset(0, -1),
+                            child: const Text(
+                              '문의',
+                              key: ValueKey('privacy-inquiry-label'),
+                              style: _inquiryText,
+                            ),
+                          ),
                         ],
                       ),
                     ),
