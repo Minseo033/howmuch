@@ -35,10 +35,21 @@
 - Node 수집기 회귀 검사 2개 통과.
 - 백엔드 전체 테스트 통과: 출처/중복/다른 매장 차단, 전체·범위 API, 공공데이터 교체 후 유지, 39개 실데이터의 정확한 기존 매장 매칭 포함.
 - Flutter 영업시간·화면·매장 캐시 관련 13개 테스트 통과. 375/820 논리 픽셀 너비 레이아웃 검사 포함. 실제 iPad Safari 실기기 검증은 하지 않았다.
-- Flutter 전체 203개 테스트 및 웹 릴리스 빌드 통과. `flutter analyze`는 한글 작업경로에서 LSP 초기 JSON 메시지가 잘려 도구가 종료되어 `dart analyze`로 대체 검증했다. 신규 스타일 안내 1건을 수정하고 최종 분석을 다시 수행한다.
+- Flutter 전체 203개 테스트 및 웹 릴리스 빌드 통과. `flutter analyze`는 한글 작업경로에서 LSP 초기 JSON 메시지가 잘려 도구가 종료되어 `dart analyze --fatal-infos`로 대체 검증했고 최종 이슈 0건이다. GitHub의 원격 `flutter analyze`도 성공했다.
 - 배포 점검 범위: 기존 화면의 반응형 테스트, 기존 캐시 보존, 외부 호출/DB 읽기 증가 없음, 복구 태그·백업. 도메인·SEO·인증·결제·개인정보·보안 헤더 변경 없음으로 관련 신규 설정 검사는 제외했다. 실기기 Safari QA는 미실시.
 - 운영 반영 검증은 `/api/stores/all` 및 범위 조회의 영업시간 실응답과 웹 정적 파일 해시 일치로 판정한다. 단순 health 200으로 새 백엔드 반영을 확정하지 않는다.
 
 ## 모델 분담
 
 핵심 설계·검토는 현재 메인 에이전트가 수행했다. 현재 협업 도구는 Gemini 3.8 Flash를 자식 모델로 지원하지 않으므로 사용했다고 기록하지 않는다. 단순 수집은 모델 호출 없이 공개 응답을 읽는 결정적 스크립트로 수행했다.
+
+## 운영 반영 결과 (2026-09-12 KST)
+
+- 기능 커밋 `4a1047b5893fe274a06dff6b9d7729e055ce95ff` main 통합·원격 푸시 완료. 복구 태그도 원격에 보존.
+- 백엔드: `node scripts/verify-store-hours.mjs` PASS. 기존 11,207건 유지, 시간 보유 정확히 39건. 전체 카탈로그 39곳의 시간·출처·조회일이 검토 파일과 일치하고 지도 범위 조회도 일치한다. 운영 DB 직접 쓰기 없음.
+- 로컬 백엔드 182개 테스트 실패 0. GitHub 백엔드 테스트·패키징 및 Flutter 분석·테스트·웹 빌드 성공.
+- GitHub iOS Simulator 빌드는 마지막 확인 시 진행 중이며, 이번 웹 배포의 완료 근거로 포함하지 않았다.
+- 웹 배포: `dpl_7BGQMVv2RgPpYHKNvgQzb1GtAdRV`, `https://howmuch-jrh9n5y32-minseo033s-projects.vercel.app`.
+- 대표 주소 `https://howmuch-zeta.vercel.app` 연결 후 `node scripts/verify_web_deployment.mjs` 13개 항목 모두 PASS (정적 파일 SHA-256 및 `/`, `/home`, `/login`).
+- 이전 웹 배포 `dpl_7nbFirGNXhF6DXuUEYhxsyCSZi9v` 삭제하지 않음. 복구 절차는 별도 문서 참조.
+- 실제 iPad Safari 조작 검증 및 매장 직접 통화 확인은 미실시. 공식 자료 기반 표시이며 실시간 영업 상태를 보증하지 않는다.
