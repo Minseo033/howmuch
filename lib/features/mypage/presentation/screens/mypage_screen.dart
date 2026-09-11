@@ -592,23 +592,28 @@ class _ProfileCard extends StatelessWidget {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
                       onTap: onEdit,
-                      child: const SizedBox(
+                      child: SizedBox(
                         height: 30,
                         child: Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Center(
                             child: Row(
-                              key: ValueKey('mypage-profile-edit-content'),
+                              key: const ValueKey(
+                                'mypage-profile-edit-content',
+                              ),
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Text(
-                                  '프로필 수정',
-                                  key: ValueKey('mypage-profile-edit-label'),
-                                  style: _profileEditText,
+                                Transform.translate(
+                                  offset: const Offset(0, -1),
+                                  child: const Text(
+                                    '프로필 수정',
+                                    key: ValueKey('mypage-profile-edit-label'),
+                                    style: _profileEditText,
+                                  ),
                                 ),
-                                SizedBox(width: 4),
-                                SizedBox(
+                                const SizedBox(width: 4),
+                                const SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: Center(

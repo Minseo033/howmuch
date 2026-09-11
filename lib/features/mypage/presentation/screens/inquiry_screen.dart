@@ -831,8 +831,7 @@ class _StickyButton extends StatelessWidget {
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const bottomGap = 16.0;
 
   final double safeBottom;
   final String label;
@@ -840,7 +839,7 @@ class _StickyButton extends StatelessWidget {
   final bool isBusy;
 
   static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
+    return safeBottom > 0 ? safeBottom : 0;
   }
 
   static double heightFor(double safeBottom) {
@@ -852,6 +851,7 @@ class _StickyButton extends StatelessWidget {
     final effectiveBottom = effectiveSafeBottom(safeBottom);
 
     return DecoratedBox(
+      key: const ValueKey('inquiry-sticky-footer'),
       decoration: const BoxDecoration(
         color: AppColors.white,
         border: Border(
@@ -866,6 +866,7 @@ class _StickyButton extends StatelessWidget {
             bottom: effectiveBottom + bottomGap,
             height: buttonHeight,
             child: ElevatedButton(
+              key: const ValueKey('inquiry-submit-button'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: InquiryScreen.blue,
                 foregroundColor: AppColors.white,

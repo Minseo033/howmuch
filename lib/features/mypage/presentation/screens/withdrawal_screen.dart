@@ -90,7 +90,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                         top: 198.29541015625 + topOffset,
                         right: 20,
                         height: 223.1818084716797,
-                        child: const _DeletedDataCard(),
+                        child: const _DeletedDataCard(
+                          key: ValueKey('withdrawal-deleted-data-card'),
+                        ),
                       ),
                       Positioned(
                         left: 20,
@@ -128,6 +130,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                           confirmed: _confirmed,
                           onTap: () {
                             if (!_isWithdrawing) {
+                              ScaffoldMessenger.of(context).clearSnackBars();
                               setState(() => _confirmed = !_confirmed);
                             }
                           },
@@ -357,7 +360,7 @@ class _WarningCard extends StatelessWidget {
 }
 
 class _DeletedDataCard extends StatelessWidget {
-  const _DeletedDataCard();
+  const _DeletedDataCard({super.key});
 
   static const items = [
     ('내 제보 내역', '전체 삭제', Icons.feed_outlined),
@@ -380,7 +383,10 @@ class _DeletedDataCard extends StatelessWidget {
                 value: items[index].$2,
                 icon: items[index].$3,
               ),
-              if (index != items.length - 1) const _CardDivider(),
+              if (index != items.length - 1)
+                _CardDivider(
+                  key: ValueKey('withdrawal-deleted-divider-$index'),
+                ),
             ],
           ],
         ),
@@ -603,15 +609,14 @@ class _StickyActions extends StatelessWidget {
 
   static const buttonHeight = 50.0;
   static const topGap = 12.89794921875;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const bottomGap = 16.0;
 
   final double safeBottom;
   final VoidCallback onCancel;
   final VoidCallback onWithdraw;
 
   static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
+    return safeBottom;
   }
 
   static double heightFor(double safeBottom) {
@@ -637,6 +642,7 @@ class _StickyActions extends StatelessWidget {
             bottom: effectiveBottom + bottomGap,
             height: buttonHeight,
             child: Row(
+              key: const ValueKey('withdrawal-action-row'),
               children: [
                 Expanded(
                   child: _ActionButton(
@@ -823,12 +829,12 @@ class _RoundedPanel extends StatelessWidget {
 }
 
 class _CardDivider extends StatelessWidget {
-  const _CardDivider();
+  const _CardDivider({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      width: 301.647705078125,
+      width: double.infinity,
       height: .909,
       child: ColoredBox(color: WithdrawalScreen.border),
     );

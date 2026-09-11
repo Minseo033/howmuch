@@ -129,9 +129,10 @@ void main() {
       profileEditContent.center.dx,
       closeTo(profileEditButton.center.dx, 0.1),
     );
+    final profileEditScale = profileEditButton.height / 30;
     expect(
       profileEditLabel.center.dy,
-      closeTo(profileEditChevron.center.dy, 0.1),
+      closeTo(profileEditChevron.center.dy - profileEditScale, 0.1),
     );
   });
 
@@ -144,6 +145,19 @@ void main() {
     expect(find.text('가격 변동 알림'), findsOneWidget);
     expect(find.text('설정 저장'), findsOneWidget);
 
+    final notificationTypeCard = tester.getRect(
+      find.byKey(const ValueKey('notification-type-card')),
+    );
+    final notificationTitle = tester.getRect(find.text('가격 변동 알림'));
+    final notificationDivider = tester.getRect(
+      find.byKey(const ValueKey('notification-type-divider')),
+    );
+    expect(notificationDivider.left, closeTo(notificationTitle.left, 0.1));
+    expect(
+      notificationTypeCard.right - notificationDivider.right,
+      closeTo(notificationDivider.left - notificationTypeCard.left, 0.1),
+    );
+
     await tester.tap(find.text('설정 저장'));
     await tester.pumpAndSettle();
     expect(find.text('마이'), findsAtLeastNWidgets(1));
@@ -153,6 +167,15 @@ void main() {
     expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
     expect(find.text('로그인 계정'), findsOneWidget);
     expect(find.text('회원 탈퇴'), findsOneWidget);
+    expect(find.text('카카오'), findsOneWidget);
+    expect(find.text('K'), findsNothing);
+    final kakaoBadge = tester.widget<Container>(
+      find.byKey(const ValueKey('kakao-provider-badge')),
+    );
+    final kakaoBadgeDecoration = kakaoBadge.decoration! as BoxDecoration;
+    expect(kakaoBadgeDecoration.color, const Color(0xFFFEE500));
+    expect(kakaoBadgeDecoration.shape, BoxShape.rectangle);
+    expect(kakaoBadgeDecoration.borderRadius, isNotNull);
   });
 
   testWidgets('quiet time picker stays inside the app frame', (tester) async {
@@ -234,9 +257,19 @@ void main() {
 
     await _goToRoute(tester, AppRoutes.connectedSocialAccounts);
     expect(find.text('로그인 계정'), findsAtLeastNWidgets(1));
+    expect(
+      find.byKey(const ValueKey('connected-accounts-back-button')),
+      findsOneWidget,
+    );
     expect(find.text('로그인 정보 없음'), findsOneWidget);
     expect(find.text('현재는 카카오 로그인만 지원합니다.'), findsOneWidget);
     expect(find.text('Apple ID'), findsNothing);
+
+    await tester.tap(
+      find.byKey(const ValueKey('connected-accounts-back-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('opens withdrawal screen and asks for final confirmation', (
@@ -249,6 +282,33 @@ void main() {
     expect(find.text('회원 탈퇴'), findsAtLeastNWidgets(1));
     expect(find.text('탈퇴 전 꼭 확인해주세요'), findsOneWidget);
     expect(find.text('가격 정보가 정확하지 않아요'), findsOneWidget);
+
+    final deletedDataCard = tester.getRect(
+      find.byKey(const ValueKey('withdrawal-deleted-data-card')),
+    );
+    final deletedDataDivider = tester.getRect(
+      find.byKey(const ValueKey('withdrawal-deleted-divider-0')),
+    );
+    final deletedDataScale = deletedDataCard.width / 335.45452880859375;
+    expect(
+      deletedDataDivider.left - deletedDataCard.left,
+      closeTo(16.903 * deletedDataScale, 0.1),
+    );
+    expect(
+      deletedDataCard.right - deletedDataDivider.right,
+      closeTo(16.904 * deletedDataScale, 0.1),
+    );
+
+    final withdrawalActionRow = tester.getRect(
+      find.byKey(const ValueKey('withdrawal-action-row')),
+    );
+    final screenBottom =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final withdrawalScale = withdrawalActionRow.height / 50;
+    expect(
+      screenBottom - withdrawalActionRow.bottom,
+      closeTo(16 * withdrawalScale, 0.1),
+    );
 
     await tester.tap(find.text('탈퇴하기'));
     await tester.pumpAndSettle();
@@ -347,6 +407,15 @@ void main() {
     expect(find.text('공공데이터 출처'), findsAtLeastNWidgets(1));
     expect(find.text('행정안전부 착한가격업소'), findsOneWidget);
     expect(find.text('한국소비자원 참가격'), findsOneWidget);
+    final introText = tester.widget<RichText>(
+      find.byKey(const ValueKey('public-data-intro-text')),
+    );
+    expect(introText.maxLines, 2);
+    expect(
+      introText.text.toPlainText(),
+      '얼마고?는 행정안전부 착한가격업소\n'
+      '공공데이터를 기반으로 안내합니다.',
+    );
 
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
@@ -379,6 +448,18 @@ void main() {
       closeTo(photoButton.center.dy, 0.1),
     );
 
+    final inquiryFooter = tester.getRect(
+      find.byKey(const ValueKey('inquiry-sticky-footer')),
+    );
+    final inquirySubmitButton = tester.getRect(
+      find.byKey(const ValueKey('inquiry-submit-button')),
+    );
+    final inquiryScale = inquirySubmitButton.height / 51.9886360168457;
+    expect(
+      inquiryFooter.bottom - inquirySubmitButton.bottom,
+      closeTo(16 * inquiryScale, 0.1),
+    );
+
     await tester.tap(find.text('기타'));
     final fields = find.byType(TextField);
     await tester.enterText(fields.at(0), '가격 정보 확인 요청');
@@ -401,6 +482,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('얼마고? 개인정보 처리방침'), findsOneWidget);
     expect(find.text('개인정보 보호 책임자'), findsOneWidget);
+    final privacyHeader = tester.getRect(
+      find.byKey(const ValueKey('privacy-policy-header')),
+    );
+    final privacyBackIcon = tester.getRect(
+      find.byKey(const ValueKey('privacy-policy-back-icon')),
+    );
+    final privacyActionIcon = tester.getRect(
+      find.byKey(const ValueKey('privacy-policy-action-icon')),
+    );
+    expect(
+      privacyBackIcon.left - privacyHeader.left,
+      closeTo(privacyHeader.right - privacyActionIcon.right, 0.1),
+    );
+    expect(privacyBackIcon.width, closeTo(privacyActionIcon.width, 0.1));
+    expect(privacyBackIcon.height, closeTo(privacyActionIcon.height, 0.1));
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const ValueKey('privacy-policy-action-icon')),
+          )
+          .color,
+      tester
+          .widget<Icon>(find.byKey(const ValueKey('privacy-policy-back-icon')))
+          .color,
+    );
+    final privacyInquiryButton = tester.getRect(
+      find.byKey(const ValueKey('privacy-inquiry-button')),
+    );
+    final privacyInquiryIcon = tester.getRect(
+      find.byKey(const ValueKey('privacy-inquiry-icon')),
+    );
+    final privacyInquiryLabel = tester.getRect(
+      find.byKey(const ValueKey('privacy-inquiry-label')),
+    );
+    final privacyInquiryScale =
+        privacyInquiryButton.height / 28.480112075805664;
+    expect(
+      privacyInquiryLabel.center.dy,
+      closeTo(privacyInquiryIcon.center.dy - privacyInquiryScale, 0.1),
+    );
 
     await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
     await tester.pumpAndSettle();

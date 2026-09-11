@@ -76,7 +76,6 @@ class AccountManagementScreen extends ConsumerWidget {
                   height: 89.80113220214844,
                   child: _ProfileAccountCard(
                     profile: profile,
-                    provider: provider,
                     email: email,
                     onEdit: () => context.go(AppRoutes.profileEdit),
                   ),
@@ -241,13 +240,11 @@ class _Header extends StatelessWidget {
 class _ProfileAccountCard extends StatelessWidget {
   const _ProfileAccountCard({
     required this.profile,
-    required this.provider,
     required this.email,
     required this.onEdit,
   });
 
   final UserProfile profile;
-  final String provider;
   final String email;
   final VoidCallback onEdit;
 
@@ -278,7 +275,7 @@ class _ProfileAccountCard extends StatelessWidget {
                       const SizedBox(width: 3.992),
                       Expanded(
                         child: Text(
-                          '$provider · $email',
+                          '· $email',
                           style: _muted11,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -625,14 +622,15 @@ class _KakaoMiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 17.798294067382812,
-      height: 17.485794067382812,
-      decoration: const BoxDecoration(
+      key: const ValueKey('kakao-provider-badge'),
+      height: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
         color: AppColors.kakaoYellow,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(9),
       ),
       alignment: Alignment.center,
-      child: const Text('K', style: _kakaoText),
+      child: const Text('카카오', style: _kakaoText),
     );
   }
 }
@@ -768,7 +766,7 @@ const _kakaoText = TextStyle(
   color: AppColors.kakaoBrown,
   fontFamily: AccountManagementScreen.fontFamily,
   fontFamilyFallback: AccountManagementScreen.fontFallback,
-  fontSize: 9,
+  fontSize: 10,
   fontWeight: FontWeight.w700,
-  height: 1.5,
+  height: 1.2,
 );

@@ -182,6 +182,7 @@ class _TermsHeader extends StatelessWidget {
       right: 0,
       height: 48.877838134765625 + topOffset,
       child: DecoratedBox(
+        key: const ValueKey('terms-of-service-header'),
         decoration: const BoxDecoration(
           color: AppColors.white,
           border: Border(
@@ -204,6 +205,7 @@ class _TermsHeader extends StatelessWidget {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Icon(
+                        key: ValueKey('terms-of-service-back-icon'),
                         Icons.arrow_back_rounded,
                         size: 24,
                         color: TermsOfServiceScreen.ink,
@@ -226,19 +228,25 @@ class _TermsHeader extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 16,
-              top: topOffset + 4,
-              width: 44,
-              height: 44,
+              right: 0,
+              top: topOffset,
+              width: 72,
+              height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
                   onTap: onAction,
-                  child: const Icon(
-                    Icons.open_in_new_rounded,
-                    size: 18,
-                    color: TermsOfServiceScreen.muted,
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 20),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Icon(
+                        key: ValueKey('terms-of-service-action-icon'),
+                        Icons.open_in_new_rounded,
+                        size: 24,
+                        color: TermsOfServiceScreen.ink,
+                      ),
+                    ),
                   ),
                 ),
               ),

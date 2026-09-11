@@ -422,6 +422,8 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showDot = report.filter != ReportFilter.approved;
+
     return Container(
       width: report.badgeWidth,
       height: 20.994,
@@ -432,15 +434,17 @@ class StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(
-              color: report.badgeDotColor ?? report.badgeColor,
-              shape: BoxShape.circle,
+          if (showDot) ...[
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: report.badgeDotColor ?? report.badgeColor,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-          const SizedBox(width: 4),
+            const SizedBox(width: 4),
+          ],
           Text(
             report.status,
             style: TextStyle(
