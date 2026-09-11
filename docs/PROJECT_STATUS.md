@@ -1451,3 +1451,23 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - `flutter analyze --no-pub` 0 issues, UI 집중 테스트 24개 통과, 웹 릴리스 빌드 성공.
 - 수정 커밋 `c1d2c05`를 GitHub `main`에 푸시하고 Vercel 프로덕션 배포 `dpl_J8vFH2EChYMeGtvdFJ9DmUUJ8byf`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
 - 운영 HTTP 200과 로컬·운영 `main.dart.js` SHA-256 일치를 확인했고, 동일 복귀 흐름에서 오류·재시도 화면이 로딩 오버레이에 가리지 않는 것을 다시 캡처했다.
+
+## 5-76. 9/11 웹 위치 권한 복구 흐름 수정 및 운영 배포
+
+- **문제점**:
+  - 웹에서 위치 권한이 차단된 경우 `설정 열기`를 제공했지만, 브라우저 보안 정책상 사이트 설정 화면을 프로그래밍 방식으로 열 수 없어 `설정을 열지 못했어요`라는 2차 오류로 이어졌다.
+  - 사용자가 권한을 복구할 방법을 안내받지 못하고 막다른 상태에 머무르는 문제가 있었다.
+- **플랫폼별 복구 흐름 분리**:
+  - 웹에서는 `브라우저 위치 권한이 꺼져 있어요` 제목과 주소창 왼쪽 사이트 설정에서 위치를 `허용`으로 변경하는 방법을 안내한다.
+  - 웹의 기본 동작을 `다시 확인`으로 변경해 위치 서비스와 권한 상태를 다시 검사하고, 보조 동작으로 `나중에 할게요`를 제공한다.
+  - 네이티브 앱에서는 기존 `설정 열기`와 OS 앱 설정 이동 동작을 유지한다.
+- **검증**:
+  - `flutter analyze --no-pub` 이슈 0건.
+  - `test/home_location_policy_test.dart`, `test/widget_test.dart` 총 21개 테스트 통과.
+  - `flutter build web --release --no-wasm-dry-run` 성공.
+  - 운영 사이트에서 위치 권한을 차단한 상태로 새 안내와 `다시 확인` 재검사를 직접 검증했고, 기존 `설정을 열지 못했어요` 오류가 나타나지 않는 것을 확인했다.
+- **배포 및 증적**:
+  - 수정 커밋 `2de5be9`을 GitHub `main`에 푸시했다.
+  - Vercel 프로덕션 배포 `dpl_2iFbvUtghs5V8ycKjMu398xNpTBQ`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
+  - 운영 HTTP 200 및 로컬·운영 `main.dart.js` SHA-256 `0feefe716872dafbfb2c7bd7dc416c1f35c1a6d7786c24fe79c660ef2d3774b7` 일치를 확인했다.
+  - 운영 검증 캡처: `HowMuch_UIUX_QA_2026-09-11/29_운영_웹_위치권한_복구안내.png`.
