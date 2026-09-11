@@ -391,7 +391,11 @@ class StoreDetailScreen extends ConsumerWidget {
                                 label: '편의·결제',
                                 value: [
                                   if (store.openingHours!.areaCurrency != null)
-                                    '${store.openingHours!.areaCurrency} 가능',
+                                    (store.openingHours!.areaCurrency!.contains(
+                                          '지역화폐',
+                                        )
+                                        ? '지역화폐'
+                                        : store.openingHours!.areaCurrency!),
                                   if (store.openingHours!.packingYn) '포장 가능',
                                   store.openingHours!.parkingYn
                                       ? '주차 가능'
@@ -629,7 +633,7 @@ class _InfoRow extends StatelessWidget {
           Icon(icon, size: 16, color: AppColors.textLight),
           const SizedBox(width: 12),
           SizedBox(
-            width: 56,
+            width: 68,
             child: Text(
               label,
               style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
