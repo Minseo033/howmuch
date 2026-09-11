@@ -1494,3 +1494,21 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Vercel 배포 `dpl_5Juq6p6uTPgkvgGZ2ponNV2q7cAy` (`https://howmuch-8l8mg3ikk-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
   - 운영 화면에서 `내 주변 매장을 찾아볼까요?`와 `위치 허용 요청`이 표시되는 것을 확인했다. 위치가 이미 차단된 테스트 브라우저에서는 버튼 클릭 후 `위치 접근이 차단되어 있어요` 안내로 전환되어 실제 재요청과 오류 분기가 동작함을 확인했다.
   - iPad 실기기에서 `설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari 웹사이트`가 `안 함`이었던 것이 브라우저 팝업 미표시의 기기 측 원인으로 확인됐다. 이를 `허용`으로 변경해 정상 동작을 확인했고, 앱 안내도 같은 경로로 수정한 커밋 `c1388f5`를 푸시했다. Vercel 배포 `dpl_6Juq6p6uTPgkvgGZ2ponNV2q7cAy`를 운영 주소에 연결하고 13/13 정합성 검사를 통과했다.
+
+## 5-78. 9/11 탭 전환 복귀 시 위치 권한 무한 반복 및 지도 크기 렌더링 오류 수정
+
+- **문제점**:
+  1. 위치 권한 허용을 이미 수락했음에도 불구하고, 다른 탭(탐색, 제보, 리포트, 마이)으로 이동했다가 홈 탭으로 복귀할 때마다 "내 주변 매장을 찾아볼까요?" 위치 허용 요청 팝업이 무한 반복해서 나타남. (iOS Safari WebKit의 Permissions API 쿼리 미지원으로 `unableToDetermine`가 반환되어 기존 위치 획득 여부를 무시하고 매번 안내 팝업을 띄움)
+  2. 홈 탭으로 진입/복귀 시 "지도 화면 크기가 올바르지 않아요." 에러가 순간적으로 노출되고 '다시 시도'를 눌러야 정상 노출됨. (Flutter Web의 HtmlElementView DOM 삽입 시 CSS 레이아웃 계산 전에 `offsetWidth/offsetHeight`가 순간적으로 0일 때 즉시 에러 콜백을 호출하던 문제)
+- **반영 내용**:
+  1. **위치 권한 팝업 무한 반복 차단**:
+     - `HomeMapScreen.globalUserPosition != null` 또는 이전에 위치 권한을 수락/요청한 상태(`hasRequestedLocationWeb`, SharedPreferences `web_location_granted`)인 경우, 홈 탭 복귀 시 안내 모달을 띄우지 않고 조용히 현재 위치로 이동/갱신하도록 수정.
+     - 사용자가 '나중에 할게요'로 닫은 경우(`hasDismissedLocationNotice`) 탭 복귀 시마다 팝업이 재노출되지 않도록 제어 (하단 우측 조준경 버튼 클릭 시 언제든 수동 요청 가능).
+  2. **지도 화면 크기 레이아웃 안정화**:
+     - `web/index.html` 및 `kakao_web_helper.dart`의 `initKakaoMap`에서 컨테이너 크기가 0일 때 즉시 실패하지 않고 50ms 간격으로 최대 30회(1.5초) 동안 DOM 레이아웃 완료를 대기(`renderMapWhenReady`)하도록 보완.
+     - 이미 지도 객체가 생성된 컨테이너의 경우 중복 초기화 없이 `relayout()` 및 `setCenter()`로 부드럽게 복구.
+     - `ResizeObserver`를 부착하여 컨테이너 크기 변경 시 지도가 자동 `relayout`되도록 안전망 구축.
+- **검증**:
+  - `flutter analyze --no-pub` 이슈 0건 통과.
+  - `test/home_location_policy_test.dart`, `test/home_map_bounds_test.dart`, `test/widget_test.dart` 전체 통과.
+  - `flutter build web --release --no-wasm-dry-run --no-pub` 릴리스 웹 빌드 완료.

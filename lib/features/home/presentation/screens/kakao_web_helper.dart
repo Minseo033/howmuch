@@ -67,24 +67,58 @@ void _injectJsBypass() {
         if (window.onKakaoMapError) window.onKakaoMapError("지도 인증이 지연되고 있어요.");
       }, 5000);
 
-      kakao.maps.load(function() {
-        clearTimeout(loadCheckTimer);
-        var container = window[containerId];
-        if (!container) {
-          if (window.onKakaoMapError) window.onKakaoMapError("지도 화면을 준비하지 못했어요.");
-          return;
-        }
-        if (container.offsetWidth === 0 || container.offsetHeight === 0) {
-          if (window.onKakaoMapError) window.onKakaoMapError("지도 화면 크기가 올바르지 않아요.");
-          return;
-        }
-        var options = { center: new kakao.maps.LatLng(lat, lng), level: 3 };
+     kakao.maps.load(function() {
+       clearTimeout(loadCheckTimer);
+        var sizeWaitAttempts = 0;
+
+        function renderMapWhenReady() {
+          var container = window[containerId] || document.getElementById(containerId);
+          if (!container) {
+            sizeWaitAttempts++;
+            if (sizeWaitAttempts <= 30) {
+              setTimeout(renderMapWhenReady, 50);
+              return;
+            }
+            if (window.onKakaoMapError) window.onKakaoMapError("지도 화면을 준비하지 못했어요.");
+            return;
+          }
+          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+            sizeWaitAttempts++;
+            if (sizeWaitAttempts <= 30) {
+              setTimeout(renderMapWhenReady, 50);
+              return;
+            }
+            if (window.onKakaoMapError) window.onKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+            return;
+          }
+
+          if (window.kakaoMapObjects && window.kakaoMapObjects[containerId]) {
+            var existingMap = window.kakaoMapObjects[containerId];
+            existingMap.relayout();
+            existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
+            if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
+            setTimeout(function() {
+              if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+            }, 100);
+            return;
+          }
+
+          var options = { center: new kakao.maps.LatLng(lat, lng), level: 3 };
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
         window.kakaoLoadWaitCount = 0;
         window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
           map: map, averageCenter: true, minLevel: 6
         });
+
+        if (typeof ResizeObserver !== 'undefined') {
+          var ro = new ResizeObserver(function() {
+            if (map && container.offsetWidth > 0 && container.offsetHeight > 0) {
+              map.relayout();
+            }
+          });
+          ro.observe(container);
+        }
 
         // 💡 맵 이벤트 리스너 추가
         var boundsTimer = null;
@@ -103,6 +137,9 @@ void _injectJsBypass() {
         setTimeout(function() {
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
         }, 300);
+        }
+
+        renderMapWhenReady();
       });
     };
 

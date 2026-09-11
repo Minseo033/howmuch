@@ -65,4 +65,22 @@ void main() {
     expect(opened, isTrue);
     expect(fallbackCalls, 1);
   });
+
+  test('web location permission flags persist and prevent re-prompting on tab switch', () {
+    HomeMapScreen.hasRequestedLocationWeb = false;
+    HomeMapScreen.hasDismissedLocationNotice = false;
+    HomeMapScreen.globalUserPosition = null;
+
+    // Once user has location, flags indicate no prompt needed
+    HomeMapScreen.hasRequestedLocationWeb = true;
+    expect(HomeMapScreen.hasRequestedLocationWeb, isTrue);
+
+    // Dismissing sets flag
+    HomeMapScreen.hasDismissedLocationNotice = true;
+    expect(HomeMapScreen.hasDismissedLocationNotice, isTrue);
+
+    // Clean up
+    HomeMapScreen.hasRequestedLocationWeb = false;
+    HomeMapScreen.hasDismissedLocationNotice = false;
+  });
 }

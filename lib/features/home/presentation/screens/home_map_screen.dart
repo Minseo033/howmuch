@@ -102,6 +102,8 @@ class HomeMapScreen extends StatefulWidget {
 
   static List<Store> globalAllStores = [];
   static Position? globalUserPosition;
+  static bool hasRequestedLocationWeb = false;
+  static bool hasDismissedLocationNotice = false;
 
   final bool showAiSpotlight;
 
@@ -604,6 +606,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       await _moveToCurrentLocation();
       return;
     }
+
+    // 이미 위치를 성공적으로 획득했거나 이전에 위치 권한을 수락한 상태라면
+    // 탭 복귀 시 안내 모달을 띄우지 않고 조용히 현재 위치로 이동/갱신한다.
+    if (HomeMapScreen.globalUserPosition != null ||
+        HomeMapScreen.hasRequestedLocationWeb) {
+      await _moveToCurrentLocation();
+      return;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('web_location_granted') == true) {
+        HomeMapScreen.hasRequestedLocationWeb = true;
+        await _moveToCurrentLocation();
+        return;
+      }
+    } catch (_) {}
+
+    // 사용자가 '나중에 할게요'로 닫은 경우 홈 탭으로 복귀할 때마다 재노출하지 않는다.
+    if (HomeMapScreen.hasDismissedLocationNotice) return;
+
     // Passive entry/resume may reuse a grant, but a new browser prompt must
     // start from the user's button tap, not an asynchronous lifecycle callback.
     var permission = LocationPermission.unableToDetermine;
@@ -641,6 +664,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (kIsWeb) {
         // Keep this before any await so Safari receives the original tap.
         final position = await requestBrowserLocation();
+        HomeMapScreen.hasRequestedLocationWeb = true;
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('web_location_granted', true);
+        } catch (_) {}
         if (!mounted) return;
         _storeUserPosition(position);
         _centerMapOnPosition(position);
@@ -799,6 +827,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _retryLocationPermission() async {
+    HomeMapScreen.hasDismissedLocationNotice = false;
     _hideLocationNotice();
     await _moveToCurrentLocation();
   }
@@ -1811,7 +1840,10 @@ class _LocationPermissionModal extends StatelessWidget {
                 width: double.infinity,
                 height: 44,
                 child: TextButton(
-                  onPressed: onClose,
+                  onPressed: () {
+                    HomeMapScreen.hasDismissedLocationNotice = true;
+                    onClose();
+                  },
                   style: TextButton.styleFrom(
                     foregroundColor: HomeMapScreen.muted,
                     shape: RoundedRectangleBorder(
