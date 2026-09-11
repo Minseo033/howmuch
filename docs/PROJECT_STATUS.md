@@ -1429,3 +1429,7 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 카카오 계정 배지를 `K`에서 `카카오`로 명확히 표시하고 로그인 계정 화면의 직접 진입 뒤로가기를 보완했다. 공공데이터 소개 문구를 2줄 배치에 맞게 정리하고, 승인된 제보 상태 배지에서 불필요한 점 표시를 제거했다.
 - 정렬·여백·뒤로가기·배지 표시를 고정하는 위젯 회귀 테스트를 추가했다.
 - 통합 후 현재 성능 개선 작업과 함께 `flutter analyze --no-pub` 0 issues, Flutter 전체 테스트 190개, `flutter build web --release --no-wasm-dry-run`, `git diff --check`를 모두 통과했다.
+- 태관 통합 커밋 `70e500c`와 성능 개선 커밋 `c9aedd3`을 GitHub `main`에 푸시했다.
+- 검증된 `build/web` 산출물을 Vercel 프로덕션 배포 `dpl_2MTGbGDpnysCXQymyXNYFxAtfvf8` (`https://howmuch-hx0iwvrek-minseo033s-projects.vercel.app`)로 올리고 운영 주소 `https://howmuch-zeta.vercel.app`를 명시적으로 연결했다. 공개 파일 10개와 `/`, `/home`, `/login` 경로의 SHA-256 정합성 검사는 13/13 PASS했다.
+- 로그인 상태의 운영 브라우저에서 공지·위치 안내를 닫은 직후 지도를 조작하지 않아도 정부 인증·사용자 제보 매장 마커가 즉시 표시되는 것을 확인했다. 한글 깨짐과 브라우저 경고·오류는 없었다.
+- 운영 웹은 HTTP 200과 HSTS·CSP·`nosniff`·`DENY`·Permissions Policy 등 기존 보안 헤더를 유지했고, Render 백엔드 `/healthz`도 HTTP 200을 반환했다. 직전 정상 배포로 운영 별칭을 되돌리는 기존 롤백 방식을 유지했다.
