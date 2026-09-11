@@ -790,7 +790,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       message:
           message ??
           (isAppleMobileBrowser
-              ? "Safari 주소창 왼쪽 메뉴 → 웹사이트 설정에서\n위치를 '묻기' 또는 '허용'으로 바꾼 뒤\n아래 버튼을 눌러주세요."
+              ? "iPad 설정 → 개인정보 보호 및 보안 →\n위치 서비스 → Safari 웹사이트에서\n위치를 '허용'으로 바꿔주세요."
               : "주소창의 사이트 설정에서 위치 권한을\n'묻기' 또는 '허용'으로 바꾼 뒤\n아래 버튼을 눌러주세요."),
       primaryLabel: primaryLabel,
       icon: icon,
