@@ -33,6 +33,7 @@
 
   <title>얼마고?</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://dapi.kakao.com" crossorigin>
   <link rel="preload" href="assets/assets/fonts/NotoSansKR-Variable.ttf" as="fetch" type="font/ttf" crossorigin>
   <style>
     @font-face {
@@ -111,7 +112,7 @@
       }
     }
   </style>
-  <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8aa42a2f5dc0314f1fe917a90aa6c112&libraries=services,clusterer&autoload=false"></script>
+  <script defer type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=8aa42a2f5dc0314f1fe917a90aa6c112&libraries=services,clusterer&autoload=false"></script>
   <script>
     window.kakaoMapObjects = {};
     window.kakaoMapLoadAttempts = {};

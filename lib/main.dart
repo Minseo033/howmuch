@@ -7,7 +7,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app/howmuch_app.dart';
-import 'core/network/api_client.dart';
 import 'features/system/presentation/state/push_notification_service.dart';
 
 Future<void> main() async {
@@ -29,9 +28,6 @@ Future<void> main() async {
       debugPrint("카카오 키 해시 조회 실패(무시 가능): $e");
     }
   }
-
-  // 💡 기기에 저장된 로그인 세션 토큰 복원 (앱 재시작 후에도 인증 유지)
-  await ApiClient.restoreSession();
 
   if (!kIsWeb) {
     try {

@@ -14,7 +14,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
-import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -144,6 +143,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _isAllStoresLoaded = false;
   bool _hasLoadError = false;
   bool _usingCachedStores = false;
+  bool _hasFreshStoreResponse = false;
   List<Store> _currentStores = [];
   Store? _selectedStore;
   bool _isFetching = false;
@@ -189,7 +189,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void initState() {
     super.initState();
-    _fetchAllStores(); // 앱 구동 시 한 번만 전체 데이터 로드
+    unawaited(_restoreCachedStores());
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _moveToCurrentLocation(),
@@ -208,92 +208,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  Future<void> _fetchAllStores() async {
-    // 💡 백엔드 베이스 URL은 ApiClient에서 일원 관리합니다.
-    final url = ApiClient.uri('/api/stores/all');
-    await _restoreCachedStores();
-    try {
-      final response = await ApiClient.get(
-        url,
-        headers: ApiClient.jsonHeaders(),
-      ).timeout(const Duration(seconds: 45));
-
-      if (response.statusCode == 200) {
-        debugPrint('JSON decode 시작');
-        final decodedString = utf8.decode(response.bodyBytes);
-        final List<dynamic> data = json.decode(decodedString);
-        debugPrint('JSON decode 완료, data length: ${data.length}');
-
-        final List<Store> parsedStores = [];
-        for (var i = 0; i < data.length; i++) {
-          try {
-            final store = Store.fromJson(data[i]);
-            if (store.hasValidCoordinates) {
-              parsedStores.add(store);
-            }
-          } catch (e) {
-            debugPrint('Store parse error at index $i: $e');
-          }
-        }
-        debugPrint('Store 객체 파싱 완료: ${parsedStores.length}개');
-
-        if (mounted) {
-          setState(() {
-            _allStores = parsedStores;
-            HomeMapScreen.globalAllStores = _allStores;
-            _isAllStoresLoaded = true;
-            _usingCachedStores = false;
-            _hasLoadError = false;
-          });
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(
-            'howmuch.store_cache.v1',
-            jsonEncode(parsedStores.map((store) => store.toJson()).toList()),
-          );
-          debugPrint('setState(_isAllStoresLoaded = true) 완료. UI가 곧 업데이트됩니다.');
-
-          if (kIsWeb) {
-            debugPrint(
-              '웹: 전체 데이터를 로드했습니다. onKakaoMapIdle 이벤트로 bounds 로딩을 진행합니다.',
-            );
-          } else {
-            debugPrint('모바일: requestBounds() 자동 호출에 맡깁니다.');
-          }
-          if (_isMapReady) {
-            _searchInCurrentArea();
-          }
-        }
-      } else {
-        throw Exception(
-          'API responded with status code: ${response.statusCode}',
-        );
-      }
-    } catch (e) {
-      debugPrint('전체 매장 로드 실패: $e');
-      if (mounted) {
-        setState(() {
-          _hasLoadError = !_isAllStoresLoaded;
-        });
-      }
-    }
-  }
-
   Future<void> _restoreCachedStores() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final raw = prefs.getString('howmuch.store_cache.v1');
-      if (raw == null || raw.isEmpty) return;
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return;
-      final cached = decoded
-          .whereType<Map>()
-          .map((item) => Store.fromJson(Map<String, dynamic>.from(item)))
-          .where((store) => store.hasValidCoordinates)
-          .toList();
-      if (cached.isEmpty || !mounted) return;
+      final raw = prefs.getString(homeMapStoreCacheKey);
+      final cached = decodeHomeMapStoreCache(raw);
+      if (cached.isEmpty || !mounted || _hasFreshStoreResponse) return;
       setState(() {
         _allStores = cached;
-        HomeMapScreen.globalAllStores = cached;
         _isAllStoresLoaded = true;
         _usingCachedStores = true;
       });
@@ -666,23 +588,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _initWebMap() {
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (!mounted) return;
-      try {
-        web_helper.initKakaoWebMap(_viewId);
-        _moveToCurrentLocation();
-        // 💡 카카오맵 SDK 로드는 비동기라, 맵 객체 등록 전에 호출된
-        // 중심 이동/위치 마커 갱신이 무시될 수 있습니다.
-        // 맵 준비 완료 후를 겨냥해 지연 재시도합니다.
-        for (final delay in [3, 8]) {
-          Future.delayed(Duration(seconds: delay), () {
-            if (mounted) _moveToCurrentLocation();
-          });
-        }
-      } catch (e) {
-        debugPrint('지도 초기화 에러: $e');
-      }
-    });
+    if (!mounted) return;
+    try {
+      // index.html의 SDK 로더가 준비되지 않았으면 JS 측 짧은 재시도가
+      // 이어진다. 고정 대기 없이 플랫폼 뷰가 생긴 즉시 초기화를 요청한다.
+      web_helper.initKakaoWebMap(_viewId);
+    } catch (e) {
+      debugPrint('지도 초기화 에러: $e');
+    }
   }
 
   Future<void> _moveToCurrentLocation() async {
@@ -868,13 +781,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
     _flushPendingMapPosition();
 
-    // 💡 최초 진입 시 지도를 움직이지 않아도 마커 자동 로드
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _searchInCurrentArea();
-    });
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (mounted && _currentStores.isEmpty) _searchInCurrentArea();
-    });
+    // 최초 진입도 지도 준비 이벤트에서 바로 현재 영역을 조회한다.
+    _searchInCurrentArea();
   }
 
   void _onMapError(String message) {
@@ -918,9 +826,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         position.latitude,
         position.longitude,
       );
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) _searchInCurrentArea();
-      });
+      // JS의 중심 이동 완료 콜백이 최신 bounds 조회를 호출한다.
       return;
     }
     _safeRunJavaScript(
@@ -1031,20 +937,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
     Map<String, double> bounds,
   ) async {
-    if (!_isAllStoresLoaded) {
-      return []; // 전체 데이터가 로드될 때까지 빈 배열 반환
-    }
-
     final minLat = bounds['minLat']!;
     final maxLat = bounds['maxLat']!;
     final minLng = bounds['minLng']!;
     final maxLng = bounds['maxLng']!;
 
     try {
-      final fetchedStores = await loadHomeMapStores(
+      final loadResult = await loadHomeMapStoresWithStatus(
         bounds: bounds,
         cachedStores: _allStores,
       );
+      final fetchedStores = loadResult.stores;
+
+      if (mounted) {
+        setState(() {
+          if (loadResult.hasFreshResponse) {
+            _hasFreshStoreResponse = true;
+            _allStores = fetchedStores
+                .take(maxCachedHomeMapStores)
+                .toList(growable: false);
+          }
+          _isAllStoresLoaded =
+              loadResult.hasFreshResponse || fetchedStores.isNotEmpty;
+          _hasLoadError = !loadResult.hasFreshResponse && fetchedStores.isEmpty;
+          _usingCachedStores =
+              !loadResult.hasFreshResponse && fetchedStores.isNotEmpty;
+        });
+      }
+      if (loadResult.hasFreshResponse) {
+        unawaited(_cacheHomeMapStores(fetchedStores));
+      }
 
       var stores = fetchedStores
           .where(
@@ -1159,6 +1081,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (e) {
       debugPrint('필터링 에러: $e');
       return [];
+    }
+  }
+
+  Future<void> _cacheHomeMapStores(List<Store> stores) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        homeMapStoreCacheKey,
+        encodeHomeMapStoreCache(stores),
+      );
+    } catch (error) {
+      debugPrint('지도 매장 캐시 저장 실패: $error');
     }
   }
 
@@ -1313,7 +1247,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             ),
                           ],
                           image: const DecorationImage(
-                            image: AssetImage('assets/images/app_logo.png'),
+                            image: AssetImage('assets/images/app_logo_ui.png'),
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -1347,7 +1281,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             setState(() {
                               _hasLoadError = false;
                             });
-                            _fetchAllStores();
+                            _searchInCurrentArea();
                           },
                           child: const Text('다시 시도'),
                         )

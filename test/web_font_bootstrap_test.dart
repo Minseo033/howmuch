@@ -39,6 +39,18 @@ void main() {
       expect(html, contains('assets/assets/fonts/NotoSansKR-Variable.ttf'));
       expect(html, contains('as="fetch" type="font/ttf" crossorigin'));
       expect(html, contains('font-display: block'));
+      expect(
+        html,
+        contains(
+          '<script defer type="text/javascript" src="https://dapi.kakao.com',
+        ),
+      );
+      expect(
+        html,
+        contains(
+          '<link rel="preconnect" href="https://dapi.kakao.com" crossorigin>',
+        ),
+      );
       expect(html, isNot(contains('fonts.googleapis.com')));
       expect(html, isNot(contains('media="print"')));
       expect(html, isNot(contains('setTimeout(resolve')));
@@ -67,5 +79,12 @@ void main() {
       theme.textTheme.labelLarge!.fontFamilyFallback,
       contains('Noto Sans KR'),
     );
+  });
+
+  test('startup screens use a lightweight logo asset', () async {
+    final data = await rootBundle.load('assets/images/app_logo_ui.png');
+
+    expect(data.lengthInBytes, lessThan(100000));
+    expect(data.lengthInBytes, greaterThan(1000));
   });
 }

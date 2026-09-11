@@ -30,8 +30,8 @@ class ApiClient {
       _sessionToken != null && _sessionToken!.isNotEmpty;
 
   /// 앱 시작 시 기기에 저장된 세션 토큰을 복원합니다.
-  static Future<void> restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
+  static Future<void> restoreSession({SharedPreferences? preferences}) async {
+    final prefs = preferences ?? await SharedPreferences.getInstance();
     _sessionToken = prefs.getString(_sessionTokenKey);
     _sessionExpirationHandled = false;
   }

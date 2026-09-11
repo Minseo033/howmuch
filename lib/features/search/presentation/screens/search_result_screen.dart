@@ -8,6 +8,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
     as howmuch_home;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -20,10 +21,12 @@ class SearchResultScreen extends StatefulWidget {
     super.key,
     required this.initialQuery,
     this.autoOpenFilter = false,
+    this.storeCatalogLoader,
   });
 
   final String initialQuery;
   final bool autoOpenFilter;
+  final StoreCatalogLoader? storeCatalogLoader;
 
   static const blue = Color(0xFF2563EB);
   static const ink = Color(0xFF0F172A);
@@ -58,6 +61,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   // 디바운스
   Timer? _debounce;
+  Future<List<Store>>? _catalogRequest;
+  int _searchGeneration = 0;
 
   List<String> get _realSuggestions {
     final stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
@@ -115,6 +120,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   // ────────────────────────────────────────────────
   Future<void> _doSearch(String q) async {
     final query = q.trim();
+    final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
       _searched = true;
@@ -122,21 +128,28 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       _errorMessage = null;
     });
 
-    // 💥 서버 요청 대신 HomeMapScreen에 로드된 전체 11,000개 캐시에서 직접 필터링
+    if (query.isEmpty && _filter.activeLabels.isEmpty) {
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
+      return;
+    }
+
     try {
       if (howmuch_home.HomeMapScreen.globalAllStores.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _results = [];
-            _errorMessage = '매장 데이터를 불러오는 중이에요. 잠시 후 다시 시도해주세요.';
-          });
+        final request = _catalogRequest ??=
+            (widget.storeCatalogLoader ?? loadStoreCatalog)();
+        late final List<Store> loadedStores;
+        try {
+          loadedStores = await request;
+        } finally {
+          if (identical(_catalogRequest, request)) {
+            _catalogRequest = null;
+          }
         }
-        return;
-      }
-
-      if (query.isEmpty && _filter.activeLabels.isEmpty) {
-        setState(() => _results = []);
-        return;
+        if (!mounted || generation != _searchGeneration) return;
+        howmuch_home.HomeMapScreen.globalAllStores = loadedStores;
       }
 
       var stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
@@ -243,17 +256,21 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         stores = stores.take(100).toList();
       }
 
-      setState(() => _results = stores);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _results = stores);
+      }
     } catch (e) {
       debugPrint('검색 중 에러: $e');
-      if (mounted) {
+      if (mounted && generation == _searchGeneration) {
         setState(() {
           _results = [];
           _errorMessage = '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
         });
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _loading = false);
+      }
     }
   }
 

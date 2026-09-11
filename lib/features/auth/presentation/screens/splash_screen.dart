@@ -6,13 +6,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/core/network/backend_warmup_service.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/features/system/presentation/screens/service_preparation_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+
+typedef StartupProfileLoader = Future<Map<String, dynamic>?> Function();
+
+final startupProfileLoaderProvider = Provider<StartupProfileLoader>((ref) {
+  return () => UserProfileApiService().fetchProfile(strict: true);
+});
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -26,7 +31,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
-  Timer? _timer;
+  Timer? _preparingTimer;
+  bool _startupInFlight = false;
   _StartupView _startupView = _StartupView.brand;
 
   @override
@@ -46,52 +52,52 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
 
     _ctrl.forward();
-
-    _timer = Timer(const Duration(milliseconds: 1200), _routeAfterSplash);
+    unawaited(_routeAfterSplash());
   }
 
   Future<void> _routeAfterSplash() async {
-    if (!mounted) return;
+    if (!mounted || _startupInFlight) return;
+    _startupInFlight = true;
 
     final prefs = await SharedPreferences.getInstance();
+    await ApiClient.restoreSession(preferences: prefs);
     final onboardingDone = prefs.getBool('onboarding_completed') ?? false;
-    if (!mounted) return;
+    if (!mounted) {
+      _startupInFlight = false;
+      return;
+    }
 
     if (!onboardingDone) {
+      _startupInFlight = false;
       context.go(AppRoutes.onboardingNearby);
       return;
     }
 
     if (!ApiClient.isAuthenticated) {
-      unawaited(ref.read(backendWarmupServiceProvider).ensureReady());
       _markLoggedOut();
+      _startupInFlight = false;
       context.go(AppRoutes.login);
       return;
     }
 
-    var readinessResolved = false;
-    final preparingTimer = Timer(const Duration(milliseconds: 200), () {
-      if (!mounted || readinessResolved) return;
+    _preparingTimer?.cancel();
+    _preparingTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!mounted || !_startupInFlight) return;
       setState(() => _startupView = _StartupView.preparing);
     });
-    final backendReady = await ref
-        .read(backendWarmupServiceProvider)
-        .ensureReady();
-    readinessResolved = true;
-    preparingTimer.cancel();
-    if (!mounted) return;
-    if (!backendReady) {
-      setState(() => _startupView = _StartupView.delayed);
-      return;
-    }
-
-    final kakaoIdentity = await _loadKakaoIdentity(prefs);
-    final profileImageUrl = kakaoIdentity.profileImageUrl;
-    final kakaoEmail = kakaoIdentity.email;
-    if (!mounted) return;
 
     try {
-      final profile = await UserProfileApiService().fetchProfile(strict: true);
+      // 별도 health probe를 기다리지 않고 실제 프로필 요청으로 준비 상태를
+      // 확인한다. 카카오 사용자 정보도 같은 시점에 조회해 왕복을 겹친다.
+      final results = await Future.wait<Object?>([
+        _loadKakaoIdentity(prefs),
+        ref.read(startupProfileLoaderProvider)(),
+      ]);
+      final kakaoIdentity =
+          results[0] as ({String profileImageUrl, String email});
+      final profile = results[1] as Map<String, dynamic>?;
+      final profileImageUrl = kakaoIdentity.profileImageUrl;
+      final kakaoEmail = kakaoIdentity.email;
       if (!mounted) return;
 
       if (profile == null) {
@@ -133,6 +139,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       debugPrint('자동 로그인 프로필 확인 실패: $e');
       if (!mounted) return;
       setState(() => _startupView = _StartupView.delayed);
+    } finally {
+      _preparingTimer?.cancel();
+      _preparingTimer = null;
+      _startupInFlight = false;
     }
   }
 
@@ -149,7 +159,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final cachedEmail =
         usableAccountEmail(prefs.getString(kakaoEmailPreferenceKey)) ?? '';
     try {
-      final user = await UserApi.instance.me();
+      final user = await UserApi.instance.me().timeout(
+        const Duration(seconds: 2),
+      );
       final kakaoProfile = user.kakaoAccount?.profile;
       final currentImageUrl =
           (kakaoProfile?.profileImageUrl ?? kakaoProfile?.thumbnailImageUrl)
@@ -223,7 +235,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _preparingTimer?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -264,7 +276,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                             ),
                           ],
                           image: const DecorationImage(
-                            image: AssetImage('assets/images/app_logo.png'),
+                            image: AssetImage('assets/images/app_logo_ui.png'),
                             fit: BoxFit.cover,
                           ),
                         ),

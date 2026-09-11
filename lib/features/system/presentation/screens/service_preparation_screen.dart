@@ -66,7 +66,7 @@ class _PreparingContent extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: Image.asset(
-                      'assets/images/app_logo.png',
+                      'assets/images/app_logo_ui.png',
                       width: 68,
                       height: 68,
                       fit: BoxFit.cover,
