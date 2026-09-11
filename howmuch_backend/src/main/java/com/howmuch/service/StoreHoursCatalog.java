@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.HashMap;
+import java.util.Collections;import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -21,7 +21,8 @@ public class StoreHoursCatalog {
     private final Map<String, Entry> entries;
 
     public record Entry(String storeId, String storeName, String address, String phoneNumber,
-                        String status, String text, String sourceName, String sourceUrl, String checkedAt) {
+                        String status, String text, String sourceName, String sourceUrl, String checkedAt,
+                        Boolean parkingYn, Boolean packingYn, String areaCurrency) {
         boolean valid() {
             try {
                 URI uri = URI.create(sourceUrl);
@@ -44,8 +45,16 @@ public class StoreHoursCatalog {
         }
 
         Map<String, Object> publicData() {
-            return Map.of("status", status, "text", text, "sourceName", sourceName,
-                    "sourceUrl", sourceUrl, "checkedAt", checkedAt);
+            Map<String, Object> map = new HashMap<>();
+            map.put("status", status);
+            map.put("text", text);
+            map.put("sourceName", sourceName);
+            map.put("sourceUrl", sourceUrl);
+            map.put("checkedAt", checkedAt);
+            if (parkingYn != null) map.put("parkingYn", parkingYn);
+            if (packingYn != null) map.put("packingYn", packingYn);
+            if (areaCurrency != null && !areaCurrency.isBlank()) map.put("areaCurrency", areaCurrency);
+            return Collections.unmodifiableMap(map);
         }
     }
 

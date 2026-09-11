@@ -220,6 +220,37 @@ class StoreDetailScreen extends ConsumerWidget {
                                         ),
                                       ],
                                     ),
+                                  const SizedBox(height: 8),
+                                  if (store.openingHours != null &&
+                                      (store.openingHours!.areaCurrency !=
+                                              null ||
+                                          store.openingHours!.packingYn ||
+                                          store.openingHours!.parkingYn))
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (store.openingHours!.areaCurrency !=
+                                            null)
+                                          const _BenefitBadge(
+                                            label: '지역화폐',
+                                            color: Color(0xFF2563EB),
+                                            bgColor: Color(0xFFEFF6FF),
+                                          ),
+                                        if (store.openingHours!.packingYn)
+                                          const _BenefitBadge(
+                                            label: '포장 가능',
+                                            color: Color(0xFF059669),
+                                            bgColor: Color(0xFFECFDF5),
+                                          ),
+                                        if (store.openingHours!.parkingYn)
+                                          const _BenefitBadge(
+                                            label: '주차 가능',
+                                            color: Color(0xFFD97706),
+                                            bgColor: Color(0xFFFFFBEB),
+                                          ),
+                                      ],
+                                    ),
                                 ],
                               ),
                             ),
@@ -351,6 +382,27 @@ class StoreDetailScreen extends ConsumerWidget {
                               ),
                             ),
                             const SizedBox(height: 8),
+                            if (store.openingHours != null &&
+                                (store.openingHours!.areaCurrency != null ||
+                                    store.openingHours!.packingYn ||
+                                    store.openingHours!.parkingYn)) ...[
+                              _InfoRow(
+                                icon: Icons.storefront_outlined,
+                                label: '편의·결제',
+                                value: [
+                                  if (store.openingHours!.areaCurrency != null)
+                                    '${store.openingHours!.areaCurrency} 가능',
+                                  if (store.openingHours!.packingYn) '포장 가능',
+                                  store.openingHours!.parkingYn
+                                      ? '주차 가능'
+                                      : '주차 불가',
+                                ].join(' · '),
+                              ),
+                              const Divider(
+                                height: 24,
+                                color: AppColors.borderSubtle,
+                              ),
+                            ],
                             _InfoRow(
                               icon: Icons.access_time_outlined,
                               label: '영업시간',
@@ -978,6 +1030,37 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _BenefitBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final Color bgColor;
+
+  const _BenefitBadge({
+    required this.label,
+    required this.color,
+    required this.bgColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
       ),
     );
   }

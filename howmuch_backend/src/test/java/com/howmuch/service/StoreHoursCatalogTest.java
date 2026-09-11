@@ -21,7 +21,7 @@ class StoreHoursCatalogTest {
     private StoreHoursCatalog.Entry entry(String status, String date) {
         return new StoreHoursCatalog.Entry(ID, "같은이름식당", "서울특별시 강동구 천중로 73", "02-123-4567",
                 status, "18:00~익일 02:00\n매주 월요일 휴무", "행정안전부 착한가격업소",
-                "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=104", date);
+                "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=104", date, true, false, "서울페이");
     }
 
     private Map<String, Object> store() {

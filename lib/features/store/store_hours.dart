@@ -4,12 +4,18 @@ class StoreHours {
   final String sourceName;
   final String sourceUrl;
   final String checkedAt;
+  final bool parkingYn;
+  final bool packingYn;
+  final String? areaCurrency;
 
   const StoreHours({
     required this.text,
     required this.sourceName,
     required this.sourceUrl,
     required this.checkedAt,
+    this.parkingYn = false,
+    this.packingYn = false,
+    this.areaCurrency,
   });
 
   static StoreHours? tryParse(Object? value) {
@@ -39,11 +45,22 @@ class StoreHours {
         parsedDate.toIso8601String().substring(0, 10) != date) {
       return null;
     }
+    final parking = value['parkingYn'] == true;
+    final packing = value['packingYn'] == true;
+    final currency =
+        value['areaCurrency'] is String &&
+            (value['areaCurrency'] as String).trim().isNotEmpty
+        ? (value['areaCurrency'] as String).trim()
+        : null;
+
     return StoreHours(
       text: text.trim(),
       sourceName: name.trim(),
       sourceUrl: url,
       checkedAt: date,
+      parkingYn: parking,
+      packingYn: packing,
+      areaCurrency: currency,
     );
   }
 
@@ -63,5 +80,8 @@ class StoreHours {
     'sourceName': sourceName,
     'sourceUrl': sourceUrl,
     'checkedAt': checkedAt,
+    'parkingYn': parkingYn,
+    'packingYn': packingYn,
+    if (areaCurrency != null) 'areaCurrency': areaCurrency,
   };
 }

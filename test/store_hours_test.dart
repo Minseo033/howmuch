@@ -9,6 +9,8 @@ void main() {
     'sourceName': '행정안전부 착한가격업소',
     'sourceUrl': 'https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=104',
     'checkedAt': '2026-09-11',
+    'parkingYn': false,
+    'packingYn': false,
   };
 
   test('hours and evidence survive the store catalog cache round trip', () {
