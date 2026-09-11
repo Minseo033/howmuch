@@ -92,7 +92,6 @@ void main() {
     expect(find.text('네트워크 오류 화면'), findsNothing);
     expect(find.text('세션 만료 · 재로그인'), findsNothing);
 
-    final locationLabel = tester.getRect(find.text('위치 권한 설정'));
     final locationDivider = tester.getRect(
       find.byKey(const ValueKey('mypage-location-divider')),
     );
@@ -109,7 +108,15 @@ void main() {
       find.byKey(const ValueKey('mypage-location-chevron')),
     );
 
-    expect(locationDivider.left, closeTo(locationLabel.left, 0.1));
+    final mypageScale = locationRow.height / 44;
+    expect(
+      locationDivider.left - locationRow.left,
+      closeTo(16 * mypageScale, 0.1),
+    );
+    expect(
+      locationRow.right - locationDivider.right,
+      closeTo(16 * mypageScale, 0.1),
+    );
     expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
     expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
 
@@ -134,6 +141,10 @@ void main() {
       profileEditLabel.center.dy,
       closeTo(profileEditChevron.center.dy - profileEditScale, 0.1),
     );
+
+    await _goToRoute(tester, AppRoutes.favoriteStores);
+    expect(find.text('찜한 매장'), findsAtLeastNWidgets(1));
+    expect(find.byIcon(Icons.more_horiz_rounded), findsNothing);
   });
 
   testWidgets('opens mypage notification and account screens', (tester) async {
@@ -144,6 +155,17 @@ void main() {
     expect(find.text('알림 설정'), findsAtLeastNWidgets(1));
     expect(find.text('가격 변동 알림'), findsOneWidget);
     expect(find.text('설정 저장'), findsOneWidget);
+
+    final allNotificationCard = tester.getRect(
+      find.byKey(const ValueKey('all-notification-card')),
+    );
+    final allNotificationToggle = tester.getRect(
+      find.byKey(const ValueKey('all-notification-toggle')),
+    );
+    expect(
+      allNotificationToggle.center.dy,
+      closeTo(allNotificationCard.center.dy, 0.1),
+    );
 
     final notificationTypeCard = tester.getRect(
       find.byKey(const ValueKey('notification-type-card')),
@@ -156,6 +178,26 @@ void main() {
     expect(
       notificationTypeCard.right - notificationDivider.right,
       closeTo(notificationDivider.left - notificationTypeCard.left, 0.1),
+    );
+    for (final label in ['시작 시간', '종료 시간']) {
+      final quietTimeLabel = tester.getRect(
+        find.byKey(ValueKey('quiet-time-label-$label')),
+      );
+      final quietTimeValue = tester.getRect(
+        find.byKey(ValueKey('quiet-time-value-$label')),
+      );
+      expect(quietTimeLabel.left, closeTo(quietTimeValue.left, 0.1));
+    }
+    final notificationSaveButton = tester.getRect(
+      find.byKey(const ValueKey('notification-save-button')),
+    );
+    final screenBottom =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final notificationSaveScale =
+        notificationSaveButton.height / 51.9886360168457;
+    expect(
+      screenBottom - notificationSaveButton.bottom,
+      closeTo(16 * notificationSaveScale, 0.1),
     );
 
     await tester.tap(find.text('설정 저장'));
@@ -381,6 +423,17 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('profile-nickname-edit')));
     await tester.pumpAndSettle();
     expect(find.text('닉네임 변경'), findsOneWidget);
+    final nicknameField = tester.getRect(
+      find.byKey(const ValueKey('profile-nickname-field')),
+    );
+    final nicknameHelper = tester.getRect(
+      find.byKey(const ValueKey('profile-nickname-helper')),
+    );
+    final nicknameCounter = tester.getRect(
+      find.byKey(const ValueKey('profile-nickname-counter')),
+    );
+    expect(nicknameHelper.left, closeTo(nicknameField.left, 0.1));
+    expect(nicknameCounter.right, closeTo(nicknameField.right, 0.1));
     await tester.enterText(
       find.byKey(const ValueKey('profile-nickname-field')),
       'QA 닉네임',
@@ -407,6 +460,16 @@ void main() {
     expect(find.text('공공데이터 출처'), findsAtLeastNWidgets(1));
     expect(find.text('행정안전부 착한가격업소'), findsOneWidget);
     expect(find.text('한국소비자원 참가격'), findsOneWidget);
+    final introCard = tester.getRect(
+      find.byKey(const ValueKey('public-data-intro-card')),
+    );
+    final introIcon = tester.getRect(
+      find.byKey(const ValueKey('public-data-intro-icon')),
+    );
+    expect(
+      introIcon.top - introCard.top,
+      closeTo(introCard.bottom - introIcon.bottom, 0.1),
+    );
     final introText = tester.widget<RichText>(
       find.byKey(const ValueKey('public-data-intro-text')),
     );
@@ -416,6 +479,11 @@ void main() {
       '얼마고?는 행정안전부 착한가격업소\n'
       '공공데이터를 기반으로 안내합니다.',
     );
+    final syncNotice = tester.widget<Text>(
+      find.byKey(const ValueKey('public-data-sync-notice-text')),
+    );
+    expect(syncNotice.data, isNot(contains('\n')));
+    expect(syncNotice.maxLines, 2);
 
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
@@ -577,6 +645,28 @@ void main() {
 
     expect(find.byType(SearchResultScreen), findsOneWidget);
     expect(find.text('주차요금'), findsNothing);
+  });
+
+  testWidgets('search filter sheet stays inside the mobile app width', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await _goToRoute(tester, AppRoutes.searchResult);
+    await tester.tap(find.bySemanticsLabel('검색 필터 열기'));
+    await tester.pumpAndSettle();
+
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('search-filter-sheet')),
+    );
+    expect(sheet.width, lessThanOrEqualTo(430));
+    expect(sheet.center.dx, closeTo(600, 0.1));
+    expect(sheet.left, greaterThanOrEqualTo(0));
+    expect(sheet.right, lessThanOrEqualTo(1200));
   });
 
   testWidgets('opens network error state with recovery actions', (

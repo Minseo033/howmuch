@@ -31,7 +31,10 @@ class PublicDataSourceScreen extends StatelessWidget {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight = 627.51416015625 + topOffset + footerHeight + 24;
+    const introHeight = 73.806640625;
+    const introHeightReduction = 89.58806610107422 - introHeight;
+    final scrollContentHeight =
+        627.51416015625 - introHeightReduction + topOffset + footerHeight + 24;
     final canPop = Navigator.of(context).canPop();
 
     void goBack() {
@@ -65,17 +68,17 @@ class PublicDataSourceScreen extends StatelessWidget {
                         left: 20,
                         top: 64.8720703125 + topOffset,
                         right: 20,
-                        height: 89.58806610107422,
+                        height: introHeight,
                         child: const _IntroCard(),
                       ),
                       Positioned(
                         left: 23.991455078125,
-                        top: 170.45458984375 + topOffset,
+                        top: 170.45458984375 - introHeightReduction + topOffset,
                         child: const _SectionLabel('데이터 출처'),
                       ),
                       Positioned(
                         left: 20,
-                        top: 194.94287109375 + topOffset,
+                        top: 194.94287109375 - introHeightReduction + topOffset,
                         right: 20,
                         height: 311.1505432128906,
                         child: const Column(
@@ -112,19 +115,19 @@ class PublicDataSourceScreen extends StatelessWidget {
                       ),
                       Positioned(
                         left: 20,
-                        top: 522.087890625 + topOffset,
+                        top: 522.087890625 - introHeightReduction + topOffset,
                         right: 20,
                         height: 56.96022415161133,
                         child: const _NoticeBox(
                           color: AppColors.warningLight,
                           iconColor: AppColors.warningDark,
                           icon: Icons.warning_amber_rounded,
-                          text: '공공데이터는 주기적으로 동기화되며,\n실제 매장 정보와 차이가 있을 수 있어요.',
+                          text: '공공데이터는 주기적으로 동기화되며, 실제 매장 정보와 차이가 있을 수 있어요.',
                         ),
                       ),
                       Positioned(
                         left: 20,
-                        top: 587.04541015625 + topOffset,
+                        top: 587.04541015625 - introHeightReduction + topOffset,
                         right: 20,
                         height: 40.46875,
                         child: const _NoticeBox(
@@ -238,6 +241,7 @@ class _IntroCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const ValueKey('public-data-intro-card'),
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         border: Border.all(color: AppColors.primaryAlpha, width: .909),
@@ -251,6 +255,7 @@ class _IntroCard extends StatelessWidget {
             width: 40,
             height: 40,
             child: Container(
+              key: const ValueKey('public-data-intro-icon'),
               decoration: const BoxDecoration(
                 color: AppColors.white,
                 shape: BoxShape.circle,
@@ -399,9 +404,15 @@ class _NoticeBox extends StatelessWidget {
           ),
           Positioned(
             left: 32.98291015625,
+            right: 11.9886474609375,
             top: 11.98876953125,
             child: Text(
               text,
+              key: singleLine
+                  ? null
+                  : const ValueKey('public-data-sync-notice-text'),
+              maxLines: singleLine ? 1 : 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: iconColor,
                 fontFamily: PublicDataSourceScreen.fontFamily,
