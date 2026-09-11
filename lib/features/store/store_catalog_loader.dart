@@ -5,8 +5,9 @@ import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const storeCatalogCacheKey = 'howmuch.store_cache.v1';
-const storeCatalogCachedAtKey = 'howmuch.store_cache.cached_at.v1';
+// v2 retains source-checked openingHours; v1 clients discarded that field.
+const storeCatalogCacheKey = 'howmuch.store_cache.v2';
+const storeCatalogCachedAtKey = 'howmuch.store_cache.cached_at.v2';
 const storeCatalogCacheMaxAge = Duration(hours: 6);
 
 typedef StoreCatalogLoader = Future<List<Store>> Function();

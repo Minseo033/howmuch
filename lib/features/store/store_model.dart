@@ -1,3 +1,5 @@
+import 'package:howmuch/features/store/store_hours.dart';
+
 class Store {
   final String id;
   final String storeName;
@@ -15,6 +17,7 @@ class Store {
   final double latitude;
   final double longitude;
   final String source; // 💡 GOV 또는 USER
+  final StoreHours? openingHours;
 
   bool get isUserReported => source.trim().toUpperCase() == 'USER';
 
@@ -43,6 +46,7 @@ class Store {
     required this.latitude,
     required this.longitude,
     required this.source,
+    this.openingHours,
   });
 
   factory Store.fromJson(Map<String, dynamic> json) {
@@ -63,6 +67,7 @@ class Store {
       latitude: _coordinate(json['latitude']),
       longitude: _coordinate(json['longitude']),
       source: _source(json['source']),
+      openingHours: StoreHours.tryParse(json['openingHours']),
     );
   }
 
@@ -84,6 +89,7 @@ class Store {
       'latitude': latitude,
       'longitude': longitude,
       'source': source,
+      if (openingHours != null) 'openingHours': openingHours!.toJson(),
     };
   }
 

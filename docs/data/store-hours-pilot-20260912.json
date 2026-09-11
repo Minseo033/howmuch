@@ -1,0 +1,2278 @@
+{
+  "scope": "서울특별시 25개 구별 음식점 4곳, 고정 표본",
+  "counts": {
+    "REVIEW_REQUIRED": 30,
+    "SOURCE_MATCHED": 38,
+    "HOURS_UNAVAILABLE": 32
+  },
+  "results": [
+    {
+      "storeId": "store_03617ff148982bde6b1b3efd",
+      "storeName": "강남손제비",
+      "address": "서울특별시 강남구 테헤란로25길 20 2층",
+      "phoneNumber": "02-2192-3599",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "82",
+          "bsshNm": "강남손제비",
+          "roadNmAddr": "서울특별시 강남구 테헤란로25길 20",
+          "roadNmDtlAddr": "2층",
+          "bsshTelno": "02-219-3599",
+          "bsnHr": "월~금 11:20~18:00\r\n매주 토,일 정기휴무"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0862b01c3c9e0ac6bc5d198c",
+      "storeName": "이모네손칼국수",
+      "address": "서울특별시 강남구 (역삼2동)언주로69길 9 1층",
+      "phoneNumber": "02-555-0767",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "21",
+          "bsshNm": "이모네손칼국수",
+          "roadNmAddr": "서울특별시 강남구 언주로69길 9",
+          "roadNmDtlAddr": "(역삼2동) 1층",
+          "bsshTelno": "02-555-0767",
+          "bsnHr": "월\r\n11:30-21:00\r\n화\r\n11:30-21:00\r\n수\r\n11:30-21:00\r\n목\r\n11:30-21:00\r\n금\r\n11:30-21:00\r\n일\r\n11:30-21:00\r\n\r\n토요일 정기휴무"
+        }
+      ],
+      "review": {
+        "decision": "APPROVED",
+        "reason": "동명·전화번호 일치. 역삼2동 및 1층 표기 위치만 다르며 언주로69길 9로 동일.",
+        "displayText": "일~금 11:30~21:00\n매주 토요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_0b613d7f6d9ffc6475f899c8",
+      "storeName": "하하",
+      "address": "서울특별시 강남구 (신사동)논현로151길 24",
+      "phoneNumber": "02-546-2697",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "10547",
+          "bsshNm": "하하",
+          "roadNmAddr": "서울특별시 강남구 논현로151길 24",
+          "roadNmDtlAddr": "(신사동)",
+          "bsshTelno": "02-546-2697",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0dec1b2d66545c23c946f54e",
+      "storeName": "정든김밥",
+      "address": "서울특별시 강남구 테헤란로25길 17 1층",
+      "phoneNumber": "02-564-6926",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "15913",
+          "bsshNm": "정든김밥",
+          "roadNmAddr": "서울특별시 강남구 테헤란로25길 17 (역삼동)",
+          "roadNmDtlAddr": "1층",
+          "bsshTelno": "02-564-6926",
+          "bsnHr": "24시간/없음"
+        }
+      ],
+      "review": {
+        "decision": "APPROVED",
+        "reason": "상호·전화번호·도로명·건물번호·1층 모두 일치. 원문의 '없음'은 해석하지 않고 24시간만 반영.",
+        "displayText": "24시간 영업"
+      }
+    },
+    {
+      "storeId": "store_077ce93e57068d2554bcd400",
+      "storeName": "와고숯불구이",
+      "address": "서울특별시 강동구 천호옛14길 37, 1층 (성내동, 성내프라자)",
+      "phoneNumber": "0507-1320-5990",
+      "status": "SOURCE_MATCHED",
+      "text": "월-금: 17:00~23:00\n토: 16:00~23:00\n일: 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17427",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17427",
+        "bsshNm": "와고숯불구이",
+        "roadNmAddr": "서울특별시 강동구 천호옛14길 37 (성내동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "0507-1320-5990",
+        "bsnHr": "월-금: 17:00~23:00\r\n토: 16:00~23:00\r\n일: 정기휴무"
+      },
+      "elapsedMs": 1087,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월-금: 17:00~23:00\n토: 16:00~23:00\n일: 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_23d439eac11be908a32f0c97",
+      "storeName": "뚝배기해장국",
+      "address": "서울특별시 강동구 양재대로 1389 (성내동)",
+      "phoneNumber": "02-476-6005",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 05:00~22:00\n정기휴무 없음",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=106",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "106",
+        "bsshNm": "뚝배기해장국",
+        "roadNmAddr": "서울특별시 강동구 양재대로 1389 (성내동)",
+        "roadNmDtlAddr": ".",
+        "bsshTelno": "02-476-6005",
+        "bsnHr": "매일 05:00~22:00\r\n정기휴무 없음"
+      },
+      "elapsedMs": 1074,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 05:00~22:00\n정기휴무 없음"
+      }
+    },
+    {
+      "storeId": "store_300551cdb0204af27748f403",
+      "storeName": "부부식당 둔촌점",
+      "address": "서울특별시 강동구 풍성로56길 7 (성내동)",
+      "phoneNumber": "02-476-3838",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_34aec89614e8bef5a4cd298e",
+      "storeName": "우렁찬",
+      "address": "서울특별시 강동구 풍성로37가길 67, 1층 101호",
+      "phoneNumber": "02-474-5425",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13483",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13483",
+        "bsshNm": "우렁찬",
+        "roadNmAddr": "서울특별시 강동구 풍성로37가길 67 (성내동)",
+        "roadNmDtlAddr": "1층 101호",
+        "bsshTelno": "02-474-5425",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1076,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_1799f23e6ee500bb8bbb3f21",
+      "storeName": "우리농장",
+      "address": "서울특별시 강북구 월계로7나길 42-1",
+      "phoneNumber": "02-917-3033",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19377",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "19377",
+        "bsshNm": "우리농장",
+        "roadNmAddr": "서울특별시 강북구 월계로7나길 42-1 (미아동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-917-3033",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1084,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_255f3ec66015cba51601fca4",
+      "storeName": "주대국초밥집",
+      "address": "서울특별시 강북구 솔샘로48길 4",
+      "phoneNumber": "",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "19759",
+          "bsshNm": "주대국초밥집 길음점",
+          "roadNmAddr": "서울특별시 성북구 길음로 33 (길음동, 길음뉴타운)",
+          "roadNmDtlAddr": "상가B동 지하1층 8~10호",
+          "bsshTelno": "02-909-6652",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_2cbb724ad846ad59df0434b6",
+      "storeName": "음밥협동조합",
+      "address": "서울특별시 강북구 솔매로50길 78, 1층 (미아동)",
+      "phoneNumber": "02-992-2048",
+      "status": "SOURCE_MATCHED",
+      "text": "레디투잇 10:00 ~ 17:00\n해피밀 11:00 ~ 15:00\n토/일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=128",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "128",
+        "bsshNm": "음밥협동조합",
+        "roadNmAddr": "서울특별시 강북구 솔매로50길 78",
+        "roadNmDtlAddr": "1층(미아동)",
+        "bsshTelno": "02-992-2048",
+        "bsnHr": "레디투잇 10:00 ~ 17:00\r\n해피밀 11:00 ~ 15:00\r\n토/일 휴무"
+      },
+      "elapsedMs": 1082,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "레디투잇 10:00 ~ 17:00\n해피밀 11:00 ~ 15:00\n토/일 휴무"
+      }
+    },
+    {
+      "storeId": "store_3c3e06991377f75a09792688",
+      "storeName": "엄마손맛 꼬리곰탕",
+      "address": "서울특별시 강북구 도봉로95길 57, 1층 (수유동)",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15945",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15945",
+        "bsshNm": "엄마손맛 꼬리곰탕",
+        "roadNmAddr": "서울특별시 강북구 도봉로95길 57 (수유동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-999-4527",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1097,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0188cff9143976b19ccd4676",
+      "storeName": "필김밥",
+      "address": "서울특별시 강서구 곰달래로49길 23 (화곡동) 1층",
+      "phoneNumber": "02-2606-2600",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "업소 문의",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15629",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15629",
+        "bsshNm": "필김밥",
+        "roadNmAddr": "서울특별시 강서구 곰달래로49길 23 (화곡동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-2606-2600",
+        "bsnHr": "업소 문의"
+      },
+      "elapsedMs": 1070,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_04d7820a1c9615efd8ba7235",
+      "storeName": "포노",
+      "address": "서울특별시 강서구 화곡로55길 35, 101호",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17798",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17798",
+        "bsshNm": "포노",
+        "roadNmAddr": "서울특별시 강서구 화곡로55길 35 (화곡동, 대상힐탑)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-706-7699",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1190,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0d9d17a5031aa8b4b3824e6c",
+      "storeName": "아메리칸멕스",
+      "address": "서울특별시 강서구 마곡중앙6로 45, A동 106호 (마곡동)",
+      "phoneNumber": "02-6952-2600",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17837",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17837",
+        "bsshNm": "아메리칸멕스",
+        "roadNmAddr": "서울특별시 강서구 마곡중앙6로 45 (마곡동)",
+        "roadNmDtlAddr": "A동 106호",
+        "bsshTelno": "02-6952-2600",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1114,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0fa867f1be93a40b2994d80c",
+      "storeName": "진마루",
+      "address": "서울특별시 강서구 방화동로3길 50, 1층 (방화동)",
+      "phoneNumber": "02-2662-7189",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17835",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17835",
+        "bsshNm": "진마루",
+        "roadNmAddr": "서울특별시 강서구 방화동로3길 50 (방화동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-2662-7189",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1085,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_00f89ff7e1bc38d313f4b901",
+      "storeName": "형제순대국",
+      "address": "서울특별시 관악구 관천로 25",
+      "phoneNumber": "02-875-9204",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17440",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17440",
+        "bsshNm": "형제순대국",
+        "roadNmAddr": "서울특별시 관악구 관천로 25 (신림동)",
+        "roadNmDtlAddr": "",
+        "bsshTelno": "02-875-9204",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1101,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_03fa049d0e06acd9d167d796",
+      "storeName": "콩숙이",
+      "address": "서울특별시 관악구 대학길 57",
+      "phoneNumber": "02-882-5332",
+      "status": "SOURCE_MATCHED",
+      "text": "영업시간\n영업 전\n16:00에 영업 시작\n16시 0분에 영업 시작\n목\n16:00 - 01:00\n금\n16:00 - 01:00\n토\n16:00 - 01:00\n일\n16:00 - 01:00\n월\n정기휴무 (매주 월요일)\n화\n16:00 - 01:00\n수\n16:00 - 01:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=164",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "164",
+        "bsshNm": "콩숙이",
+        "roadNmAddr": "서울특별시 관악구 대학길 57",
+        "roadNmDtlAddr": "-",
+        "bsshTelno": "02-882-5332",
+        "bsnHr": "영업시간\r\n영업 전\r\n16:00에 영업 시작\r\n16시 0분에 영업 시작\r\n목\r\n16:00 - 01:00\r\n금\r\n16:00 - 01:00\r\n토\r\n16:00 - 01:00\r\n일\r\n16:00 - 01:00\r\n월\r\n정기휴무 (매주 월요일)\r\n화\r\n16:00 - 01:00\r\n수\r\n16:00 - 01:00"
+      },
+      "elapsedMs": 1126,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "화~일 16:00~익일 01:00\n매주 월요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_040f372d175e3aad0847e63c",
+      "storeName": "국수회관",
+      "address": "서울특별시 관악구 신림로 277 (신림동)",
+      "phoneNumber": "02-851-2848",
+      "status": "SOURCE_MATCHED",
+      "text": "영업시간\n\n22:00에 영업 종료\n22시 0분에 영업 종료\n금\n10:00 - 22:00\n토\n정기휴무 (매주 토요일)\n일\n10:00 - 19:30\n월(12/25)\n성탄절 휴무\n화\n10:00 - 22:00\n수\n10:00 - 19:30\n목\n10:00 - 22:00\n- 수요일과 공휴일은 육아로인해 7시30분까지 영업합니다",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=202",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "202",
+        "bsshNm": "국수회관",
+        "roadNmAddr": "서울특별시 관악구 신림로 277",
+        "roadNmDtlAddr": "(신림동)",
+        "bsshTelno": "02-851-2848",
+        "bsnHr": "영업시간\r\n\r\n22:00에 영업 종료\r\n22시 0분에 영업 종료\r\n금\r\n10:00 - 22:00\r\n토\r\n정기휴무 (매주 토요일)\r\n일\r\n10:00 - 19:30\r\n월(12/25)\r\n성탄절 휴무\r\n화\r\n10:00 - 22:00\r\n수\r\n10:00 - 19:30\r\n목\r\n10:00 - 22:00\r\n- 수요일과 공휴일은 육아로인해 7시30분까지 영업합니다"
+      },
+      "elapsedMs": 1127,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "12/25 월요일·성탄절 등 과거 특정 날짜가 섞인 원문. 현재 정규 시간으로 재해석하지 않고 보류."
+      }
+    },
+    {
+      "storeId": "store_042ba4701b92de305f50d55b",
+      "storeName": "정 김밥(精)",
+      "address": "서울특별시 관악구 신원로1길 2 (신림동) 1층 105호",
+      "phoneNumber": "0507-1434-5615",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15200",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15200",
+        "bsshNm": "정 김밥(精)",
+        "roadNmAddr": "서울특별시 관악구 신원로1길 2 (신림동)",
+        "roadNmDtlAddr": "1층 105호",
+        "bsshTelno": "0507-1434-5615",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1157,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_024ac327a77c6c01a6639b86",
+      "storeName": "이삭홍두깨칼국수",
+      "address": "서울특별시 광진구 동일로72길 51 (중곡동)",
+      "phoneNumber": "02-464-8457",
+      "status": "SOURCE_MATCHED",
+      "text": "월~토 10:45 ~ 20:00\n일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=278",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "278",
+        "bsshNm": "이삭홍두깨칼국수",
+        "roadNmAddr": "서울특별시 광진구 동일로72길 51",
+        "roadNmDtlAddr": "(중곡동)",
+        "bsshTelno": "02-464-8457",
+        "bsnHr": "월~토 10:45 ~ 20:00\n일 정기휴무"
+      },
+      "elapsedMs": 1126,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~토 10:45 ~ 20:00\n일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_084da9b703bf590a60f9078b",
+      "storeName": "스시교센",
+      "address": "서울특별시 광진구 능동로35길 9, 2층 (군자동)",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "수\n11:00 - 21:30\n14:30 - 17:00 브레이크타임\n목\n11:00 - 21:30\n14:30 - 17:00 브레이크타임\n금\n11:00 - 21:30\n14:30 - 17:00 브레이크타임\n토\n11:00 - 21:30\n14:30 - 17:00 브레이크타임\n일\n11:00 - 21:30\n14:30 - 17:00 브레이크타임\n월\n정기휴무 (매주 월요일)\n화\n11:00 - 21:30\n14:30 - 17:00 브레이크타임",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16326",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16326",
+        "bsshNm": "스시교센",
+        "roadNmAddr": "서울특별시 광진구 능동로35길 9 (군자동)",
+        "roadNmDtlAddr": "2층",
+        "bsshTelno": "02-498-0920",
+        "bsnHr": "수\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임\r\n목\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임\r\n금\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임\r\n토\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임\r\n일\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임\r\n월\r\n정기휴무 (매주 월요일)\r\n화\r\n11:00 - 21:30\r\n14:30 - 17:00 브레이크타임"
+      },
+      "elapsedMs": 1122,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "화~일 11:00~21:30\n브레이크타임 14:30~17:00\n매주 월요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_0f98cc154ef7b977beaf3f06",
+      "storeName": "옛골",
+      "address": "서울특별시 광진구 자양로26길 10 (구의동) 1층",
+      "phoneNumber": "0507-1323-9423",
+      "status": "SOURCE_MATCHED",
+      "text": "05:30 ~ 15:30\n일요일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15834",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15834",
+        "bsshNm": "옛골",
+        "roadNmAddr": "서울특별시 광진구 자양로26길 10 (구의동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "",
+        "bsnHr": "05:30 ~ 15:30\r\n일요일 정기휴무"
+      },
+      "elapsedMs": 1080,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "05:30 ~ 15:30\n일요일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_183dd16fd5c012627a8f8b44",
+      "storeName": "손수제치킨",
+      "address": "서울특별시 광진구 군자로 129, 1층 (군자동)",
+      "phoneNumber": "02-465-0366",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 16:00 ~ 02:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=293",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "293",
+        "bsshNm": "손수제치킨",
+        "roadNmAddr": "서울특별시 광진구 군자로 129",
+        "roadNmDtlAddr": "1층 (군자동)",
+        "bsshTelno": "02-465-0366",
+        "bsnHr": "매일 16:00 ~ 02:00"
+      },
+      "elapsedMs": 1178,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 16:00 ~ 02:00"
+      }
+    },
+    {
+      "storeId": "store_023f6f70b8e20445640f641f",
+      "storeName": "용갈비",
+      "address": "서울특별시 구로구 구로동로 96-4 (구로동)",
+      "phoneNumber": "02-869-2442",
+      "status": "SOURCE_MATCHED",
+      "text": "금\n11:00-23:00\n토\n11:00-23:00\n일\n11:00-23:00\n월\n11:00-23:00\n화\n11:00-23:00\n수\n11:00-23:00\n목\n11:00-23:00\n격주화요일정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=334",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "334",
+        "bsshNm": "용갈비",
+        "roadNmAddr": "서울특별시 구로구 구로동로 96-4",
+        "roadNmDtlAddr": "(구로동)",
+        "bsshTelno": "02-869-2442",
+        "bsnHr": "금\r\n11:00-23:00\r\n토\r\n11:00-23:00\r\n일\r\n11:00-23:00\r\n월\r\n11:00-23:00\r\n화\r\n11:00-23:00\r\n수\r\n11:00-23:00\r\n목\r\n11:00-23:00\r\n격주화요일정기휴무"
+      },
+      "elapsedMs": 1129,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "11:00~23:00\n격주 화요일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_0c2a101aa2fe98e569d22161",
+      "storeName": "국수박사",
+      "address": "서울특별시 구로구 디지털로31길 120 한신플러스상가1동 106호",
+      "phoneNumber": "02-863-5922",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "11593",
+          "bsshNm": "국수박사",
+          "roadNmAddr": "서울특별시 구로구 디지털로31길 120",
+          "roadNmDtlAddr": "한신플러스상가1동 106호",
+          "bsshTelno": "02-863-5922",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_12a62ff243984af6e6d6fd2f",
+      "storeName": "국수뜨락",
+      "address": "서울특별시 구로구 구로중앙로 43",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "매일\n11:00-24:00\n-주일",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=329",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "329",
+        "bsshNm": "국수뜨락",
+        "roadNmAddr": "서울특별시 구로구 구로중앙로 43",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-862-9868",
+        "bsnHr": "매일\r\n11:00-24:00\r\n-주일"
+      },
+      "elapsedMs": 1083,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "매일 영업 뒤 '-주일'이 이어져 일요일 영업 여부가 불명확해 보류."
+      }
+    },
+    {
+      "storeId": "store_1373be799dbf494e039da62c",
+      "storeName": "해피분식",
+      "address": "서울특별시 구로구 중앙로1길 18-19?(고척동, 1동 101호)",
+      "phoneNumber": "",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "353",
+          "bsshNm": "해피분식",
+          "roadNmAddr": "서울특별시 구로구 중앙로1길 18-19",
+          "roadNmDtlAddr": "(고척동, 1동 101호)",
+          "bsshTelno": "02-2688-1242",
+          "bsnHr": "20:00에라스트오더\r\n20시0분에라스트오더\r\n금\r\n06:30-20:30\r\n20:00라스트오더\r\n토\r\n07:00-15:00\r\n14:30라스트오더\r\n일\r\n정기휴무(매주일요일)\r\n월(12/25)\r\n성탄절휴무\r\n화\r\n06:30-20:30\r\n20:00라스트오더\r\n수\r\n06:30-20:30\r\n20:00라스트오더\r\n목\r\n06:30-20:30\r\n20:00라스트오더\r\n01/01새해첫날휴무\r\n-일요일휴무"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0c4ebda4f35e63dbda91ffae",
+      "storeName": "옛고향",
+      "address": "서울특별시 금천구 금하로611",
+      "phoneNumber": "02-805-7214",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "13374",
+          "bsshNm": "옛고향 뼈다귀감자탕",
+          "roadNmAddr": "서울특별시 금천구 금하로 611 (시흥동)",
+          "roadNmDtlAddr": "1층",
+          "bsshTelno": "",
+          "bsnHr": "월\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n화\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n수\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n목\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n금\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n토\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임\r\n일\r\n08:00 - 22:00\r\n15:00 - 17:00 브레이크타임"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0d5c0d351fd205438e4b89fe",
+      "storeName": "금천골 오리명가",
+      "address": "서울특별시 금천구 시흥대로78길59",
+      "phoneNumber": "02-808-1246",
+      "status": "SOURCE_MATCHED",
+      "text": "매일\n11:00-22:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=394",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "394",
+        "bsshNm": "금천골 오리명가",
+        "roadNmAddr": "서울특별시 금천구 시흥대로78길59",
+        "roadNmDtlAddr": "",
+        "bsshTelno": "02-808-1246",
+        "bsnHr": "매일\n11:00-22:00"
+      },
+      "elapsedMs": 1098,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일\n11:00-22:00"
+      }
+    },
+    {
+      "storeId": "store_1fb8c1202efa45edaa218136",
+      "storeName": "금천가든",
+      "address": "서울특별시 금천구 시흥대로124길 6 (독산동) 1층",
+      "phoneNumber": "02-837-7300",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 11:00 - 23:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15699",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15699",
+        "bsshNm": "금천가든",
+        "roadNmAddr": "서울특별시 금천구 시흥대로124길 6 (독산동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-837-7300",
+        "bsnHr": "매일 11:00 - 23:00"
+      },
+      "elapsedMs": 1100,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 11:00 - 23:00"
+      }
+    },
+    {
+      "storeId": "store_24465005680de8795986fd68",
+      "storeName": "초원숯불갈비",
+      "address": "서울특별시 금천구 가산로 34",
+      "phoneNumber": "02-854-1333",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18019",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "18019",
+        "bsshNm": "초원숯불갈비",
+        "roadNmAddr": "서울특별시 금천구 가산로 34 (독산동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-854-1333",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1082,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0e128225a88eacfc440d0e83",
+      "storeName": "마시차이나",
+      "address": "서울특별시 노원구 동일로 217길58",
+      "phoneNumber": "02-3392-1134",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "419",
+          "bsshNm": "마시차이나",
+          "roadNmAddr": "서울특별시 노원구 동일로 217길58",
+          "roadNmDtlAddr": "-",
+          "bsshTelno": "02-339-1134",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0f5445d0fae246679b25a8c7",
+      "storeName": "돈장군",
+      "address": "서울특별시 노원구 광운로 69, 1층",
+      "phoneNumber": "02-941-8276",
+      "status": "SOURCE_MATCHED",
+      "text": "금\n11:00-21:00\n20:20라스트오더\n토\n11:00-20:30\n19:50라스트오더\n일\n11:00-20:30\n19:50라스트오더\n월\n11:00-21:00\n20:20라스트오더\n화\n11:00-21:00\n20:20라스트오더\n수\n11:00-21:00\n20:20라스트오더\n목\n11:00-21:00\n20:20라스트오더",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=421",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "421",
+        "bsshNm": "돈장군",
+        "roadNmAddr": "서울특별시 노원구 광운로 69",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-941-8276",
+        "bsnHr": "금\r\n11:00-21:00\r\n20:20라스트오더\r\n토\r\n11:00-20:30\r\n19:50라스트오더\r\n일\r\n11:00-20:30\r\n19:50라스트오더\r\n월\r\n11:00-21:00\r\n20:20라스트오더\r\n화\r\n11:00-21:00\r\n20:20라스트오더\r\n수\r\n11:00-21:00\r\n20:20라스트오더\r\n목\r\n11:00-21:00\r\n20:20라스트오더"
+      },
+      "elapsedMs": 1141,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~금 11:00~21:00 (라스트오더 20:20)\n토~일 11:00~20:30 (라스트오더 19:50)"
+      }
+    },
+    {
+      "storeId": "store_1571412ccff0fb11cb37960d",
+      "storeName": "옹골면",
+      "address": "서울특별시 노원구 상계로70, 화랑빌딩",
+      "phoneNumber": "02-951-4748",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 10:30~22:00 휴무일x",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=431",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "431",
+        "bsshNm": "옹골면",
+        "roadNmAddr": "서울특별시 노원구 상계로70",
+        "roadNmDtlAddr": "화랑빌딩",
+        "bsshTelno": "02-951-4748",
+        "bsnHr": "매일 10:30~22:00 휴무일x"
+      },
+      "elapsedMs": 1089,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 10:30~22:00 휴무일x"
+      }
+    },
+    {
+      "storeId": "store_15dffd144d9350c4a01abf93",
+      "storeName": "엄나무닭곰탕",
+      "address": "서울특별시 노원구 섬밭로42 (공릉동)",
+      "phoneNumber": "02-949-1677",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "10284",
+          "bsshNm": "엄나무닭곰탕",
+          "roadNmAddr": "서울특별시 노원구 공릉동 604-1",
+          "roadNmDtlAddr": "",
+          "bsshTelno": "02-949-1677",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0358ec4c8c987cc50d5df8d5",
+      "storeName": "다온",
+      "address": "서울특별시 도봉구 도당로13길34-21 (방학동)",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10339",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "10339",
+        "bsshNm": "다온",
+        "roadNmAddr": "서울특별시 도봉구 도당로13길34-21",
+        "roadNmDtlAddr": "(방학동)",
+        "bsshTelno": "",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1866,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0503d3cccaac3bbbcdb4c977",
+      "storeName": "호돈구이",
+      "address": "서울특별시 도봉구 방학로2길 32, 1층 (방학동)",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "22:00에라스트오더\n22시0분에라스트오더\n매일\n10:00-23:00\n22:00라스트오더\n-각종명절당일",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=469",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "469",
+        "bsshNm": "호돈구이",
+        "roadNmAddr": "서울특별시 도봉구 방학로2길 32",
+        "roadNmDtlAddr": "1층(방학동)",
+        "bsshTelno": "",
+        "bsnHr": "22:00에라스트오더\r\n22시0분에라스트오더\r\n매일\r\n10:00-23:00\r\n22:00라스트오더\r\n-각종명절당일"
+      },
+      "elapsedMs": 1070,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "명절 관련 문구 '-각종명절당일'의 의미가 불명확해 보류."
+      }
+    },
+    {
+      "storeId": "store_16372ffd9d51c18f88f96075",
+      "storeName": "보배네능이백숙",
+      "address": "서울특별시 도봉구 시루봉로 295-1 (도봉동)",
+      "phoneNumber": "02-954-6300",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 : 11:30 ~ 19:00(예약마감시간)\n예약제 운영",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=476",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "476",
+        "bsshNm": "보배네능이백숙",
+        "roadNmAddr": "서울특별시 도봉구 시루봉로 295-1",
+        "roadNmDtlAddr": "(도봉동)",
+        "bsshTelno": "02-954-6300",
+        "bsnHr": "매일 : 11:30 ~ 19:00(예약마감시간)\r\n예약제 운영"
+      },
+      "elapsedMs": 1069,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 : 11:30 ~ 19:00(예약마감시간)\n예약제 운영"
+      }
+    },
+    {
+      "storeId": "store_1762970a2f81a07e82bc86a1",
+      "storeName": "장터국수",
+      "address": "서울특별시 도봉구 덕릉로 398 (창동) 상가 209호",
+      "phoneNumber": "02-995-4242",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15313",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15313",
+        "bsshNm": "장터국수",
+        "roadNmAddr": "서울특별시 도봉구 덕릉로 398 (창동)",
+        "roadNmDtlAddr": "상가 209호",
+        "bsshTelno": "02-995-4242",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1076,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_00f6d261996cd798bf6ff5ea",
+      "storeName": "비에르 에 프리트",
+      "address": "서울특별시 동대문구 제기로5길 40 (제기동)",
+      "phoneNumber": "02-3291-5111",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11554",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "11554",
+        "bsshNm": "비에르 에 프리트",
+        "roadNmAddr": "서울특별시 동대문구 제기로5길 40 (제기동)",
+        "roadNmDtlAddr": "",
+        "bsshTelno": "02-3291-5111",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1084,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_041f5930196200c0d36e3d2f",
+      "storeName": "잇츠소유",
+      "address": "서울특별시 동대문구 회기로19길 18, 2층 (회기동)",
+      "phoneNumber": "070-8160-6095",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "인근 학생 5% 제휴 할인",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13728",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13728",
+        "bsshNm": "잇츠소유",
+        "roadNmAddr": "서울특별시 동대문구 회기로19길 18 (회기동)",
+        "roadNmDtlAddr": "2층",
+        "bsshTelno": "070-8160-6095",
+        "bsnHr": "인근 학생 5% 제휴 할인"
+      },
+      "elapsedMs": 1143,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0809aa1b981d250ee877e335",
+      "storeName": "청량리할머니냉면",
+      "address": "서울특별시 동대문구 왕산로37길 51 (제기동)",
+      "phoneNumber": "02-963-5362",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10381",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "10381",
+        "bsshNm": "청량리할머니냉면",
+        "roadNmAddr": "서울특별시 동대문구 왕산로37길 51 (제기동)",
+        "roadNmDtlAddr": "",
+        "bsshTelno": "02-963-5362",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1100,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0d008864f4a992a1dff5adcb",
+      "storeName": "전주곰탕",
+      "address": "서울특별시 동대문구 답십리로51길 15-12, 12호",
+      "phoneNumber": "02-2249-3399",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=514",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "514",
+        "bsshNm": "전주곰탕",
+        "roadNmAddr": "서울특별시 동대문구 답십리로51길 15-12 (답십리동)",
+        "roadNmDtlAddr": "12호",
+        "bsshTelno": "02-2249-3399",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1085,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_03d559511a613611b6ff90fd",
+      "storeName": "낙지랑갈비랑",
+      "address": "서울특별시 동작구 상도동209-16",
+      "phoneNumber": "02-825-5700",
+      "status": "SOURCE_MATCHED",
+      "text": "10:00-22:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=588",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "588",
+        "bsshNm": "낙지랑갈비랑",
+        "roadNmAddr": "서울특별시 동작구 상도동209-16",
+        "roadNmDtlAddr": "",
+        "bsshTelno": "02-825-5700",
+        "bsnHr": "10:00-22:00"
+      },
+      "elapsedMs": 1070,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "10:00-22:00"
+      }
+    },
+    {
+      "storeId": "store_08b3620976a7ad205eff0dd2",
+      "storeName": "금강수산",
+      "address": "서울특별시 동작구 시흥대로 658",
+      "phoneNumber": "0507-1349-7268",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13817",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13817",
+        "bsshNm": "금강수산",
+        "roadNmAddr": "서울특별시 동작구 시흥대로 658 (신대방동)",
+        "roadNmDtlAddr": ".",
+        "bsshTelno": "0507-1349-7268",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1068,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_1264e5403eae7601fe622e69",
+      "storeName": "정가네밥상",
+      "address": "서울특별시 동작구 노량진로10길 28, 1층 (노량진동)",
+      "phoneNumber": "",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_18663a9f9bfc022411d6e311",
+      "storeName": "이수가",
+      "address": "서울특별시 동작구 동작대로27나길 6, 2층",
+      "phoneNumber": "02-593-4279",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13824",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13824",
+        "bsshNm": "이수가",
+        "roadNmAddr": "서울특별시 동작구 동작대로27나길 6 (사당동)",
+        "roadNmDtlAddr": "2층",
+        "bsshTelno": "02-593-4279",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1097,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_01f5b01d4544091fd996e51c",
+      "storeName": "구수한통닭&한방족발",
+      "address": "서울특별시 마포구 굴레방로9길 3, 1층 (아현동)",
+      "phoneNumber": "",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_119598f53bb60ea4ece30fa8",
+      "storeName": "한성축산식당",
+      "address": "서울특별시 마포구 연남로 33 (연남동)",
+      "phoneNumber": "02-375-8447",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 11:30~23:00\n브레이크타임: 15:00~17:30\n정기휴무: 매주 첫째, 셋째 일요일",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=662",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "662",
+        "bsshNm": "한성축산식당",
+        "roadNmAddr": "서울특별시 마포구 연남로 33",
+        "roadNmDtlAddr": "(연남동)",
+        "bsshTelno": "02-375-8447",
+        "bsnHr": "매일 11:30~23:00\r\n브레이크타임: 15:00~17:30\r\n정기휴무: 매주 첫째, 셋째 일요일"
+      },
+      "elapsedMs": 1064,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 11:30~23:00\n브레이크타임: 15:00~17:30\n정기휴무: 매주 첫째, 셋째 일요일"
+      }
+    },
+    {
+      "storeId": "store_13eb4a08082b00f8f11f6696",
+      "storeName": "외양간",
+      "address": "서울특별시 마포구 독막로18길 12, 1층",
+      "phoneNumber": "02-3144-1888",
+      "status": "SOURCE_MATCHED",
+      "text": "- 영업시간 (재료 소진시 조기 마감 가능) \n* 11:00~22:00 / \n* 브레이크타임 15:00~17:00\n* 매주 일요일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13389",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13389",
+        "bsshNm": "외양간",
+        "roadNmAddr": "서울특별시 마포구 독막로18길 12 (상수동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-3144-1888",
+        "bsnHr": "- 영업시간  (재료 소진시 조기 마감 가능) \r\n *  11:00~22:00 / \r\n * 브레이크타임 15:00~17:00\r\n * 매주 일요일 휴무"
+      },
+      "elapsedMs": 1459,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "- 영업시간 (재료 소진시 조기 마감 가능) \n* 11:00~22:00 / \n* 브레이크타임 15:00~17:00\n* 매주 일요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_15daba9223377c8c62b914bd",
+      "storeName": "홍익분식",
+      "address": "서울특별시 마포구 성미산로 99, 지1층 (연남동)",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "매일 11:30 ~ 20:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18866",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "18866",
+        "bsshNm": "홍익분식",
+        "roadNmAddr": "서울특별시 마포구 성미산로 99 (연남동)",
+        "roadNmDtlAddr": "지1층",
+        "bsshTelno": "02-332-7725",
+        "bsnHr": "매일 11:30 ~ 20:00"
+      },
+      "elapsedMs": 1085,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "매일 11:30 ~ 20:00"
+      }
+    },
+    {
+      "storeId": "store_039bd2d3358f58fd8adc6545",
+      "storeName": "온밥",
+      "address": "서울특별시 서대문구 연세로7안길 34-1 (창천동) 지하1층",
+      "phoneNumber": "02-333-4465",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "15457",
+          "bsshNm": "온밥",
+          "roadNmAddr": "서울특별시 서대문구 연세로9길 34-4 (창천동)",
+          "roadNmDtlAddr": "2층",
+          "bsshTelno": "02-333-4465",
+          "bsnHr": "영업시간: 11:00~21:00\r\n브레이크타임: 16:00~17:00\r\n라스트오더:20:30\r\n휴무일: 토,일"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0622a2507d8fc33c5d69c89a",
+      "storeName": "유일한베이커리",
+      "address": "서울특별시 서대문구 거북골로 120 (남가좌동, DMC센트레빌) 상가2동 지하2층 2-1A호 (남가좌동)",
+      "phoneNumber": "02-303-3803",
+      "status": "SOURCE_MATCHED",
+      "text": "영업시간: 10:00~21:00\n휴무일: 일, 목",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15439",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15439",
+        "bsshNm": "유일한베이커리",
+        "roadNmAddr": "서울특별시 서대문구 거북골로 120 (남가좌동, DMC센트레빌)",
+        "roadNmDtlAddr": "상가2동 지하2층 2-1A호(남가좌동)",
+        "bsshTelno": "02-303-3803",
+        "bsnHr": "영업시간: 10:00~21:00\r\n휴무일: 일, 목"
+      },
+      "elapsedMs": 1071,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "영업시간: 10:00~21:00\n휴무일: 일, 목"
+      }
+    },
+    {
+      "storeId": "store_0d43735f79e388514ca7eb5a",
+      "storeName": "포방돈카",
+      "address": "서울특별시 서대문구 포방터길43, 1층좌",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17911",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17911",
+        "bsshNm": "포방돈카",
+        "roadNmAddr": "서울특별시 서대문구 포방터길 43 (홍은동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "0507-1354-4201",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1079,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0f41c077ea42bf19ba64ccce",
+      "storeName": "차푸",
+      "address": "서울특별시 서대문구 가재울로6길 53-87",
+      "phoneNumber": "02-302-0085",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14412",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14412",
+        "bsshNm": "차푸",
+        "roadNmAddr": "서울특별시 서대문구 가재울로6길 53-87 (남가좌동, 가재울백련아파트)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-302-0085",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1084,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_08e783615877675ab24ce8e9",
+      "storeName": "우마루(반포점)",
+      "address": "서울특별시 서초구 신반포로213 (잠원동) 반포쇼핑센터 7동 지하",
+      "phoneNumber": "02-532-8292",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_17a22974e66b38657e23792b",
+      "storeName": "백씨네백년삼겹살",
+      "address": "서울특별시 서초구 효령로 316-1",
+      "phoneNumber": "02-587-0335",
+      "status": "SOURCE_MATCHED",
+      "text": "월-토\n10:00~24:00\n\n\n\n매주 일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=732",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "732",
+        "bsshNm": "백씨네백년삼겹살",
+        "roadNmAddr": "서울특별시 서초구 효령로 316-1 (서초동)",
+        "roadNmDtlAddr": ".",
+        "bsshTelno": "02-587-0335",
+        "bsnHr": "월-토\r\n10:00~24:00\r\n\r\n\r\n\r\n매주 일 정기휴무"
+      },
+      "elapsedMs": 1089,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~토 10:00~24:00\n매주 일요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_18f76e664766a9a446d6ad4c",
+      "storeName": "꽃보다 라면",
+      "address": "서울특별시 서초구 사임당로178, 지하1층 103",
+      "phoneNumber": "02-521-6225",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10017",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "10017",
+        "bsshNm": "꽃보다 라면",
+        "roadNmAddr": "서울특별시 서초구 사임당로178",
+        "roadNmDtlAddr": "지하1층 103",
+        "bsshTelno": "02-521-6225",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1078,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_1d18e5c3c13cfec5f02b0dda",
+      "storeName": "김가네손칼국수",
+      "address": "서울특별시 서초구 남부순환로358길 13, 1층 101, 102호 (양재동)",
+      "phoneNumber": "02-573-1102",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14365",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14365",
+        "bsshNm": "김가네손칼국수",
+        "roadNmAddr": "서울특별시 서초구 남부순환로358길 13 (양재동)",
+        "roadNmDtlAddr": "1층 101, 102호",
+        "bsshTelno": "02-573-1102",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1080,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0ebb87ffe63604ccdc74d6c7",
+      "storeName": "아랫목식당",
+      "address": "서울특별시 성동구 송정 14길 14-1 (송정동)",
+      "phoneNumber": "02-498-3217",
+      "status": "SOURCE_MATCHED",
+      "text": "11:00~23:00 화요일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=752",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "752",
+        "bsshNm": "아랫목식당",
+        "roadNmAddr": "서울특별시 성동구 송정 14길 14-1",
+        "roadNmDtlAddr": "(송정동)",
+        "bsshTelno": "02-498-3217",
+        "bsnHr": "11:00~23:00                화요일 휴무"
+      },
+      "elapsedMs": 1077,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "11:00~23:00 화요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_124ecd657f6e8c726a0b3a49",
+      "storeName": "별난만두",
+      "address": "서울특별시 성동구 용답중앙길 52 (용답동) 1층",
+      "phoneNumber": "02-2246-2751",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_2b3fb3f67e2d5b1ad4f0e580",
+      "storeName": "또와",
+      "address": "서울특별시 성동구 성수일로12길 20 (성수동2가) 1층 101호",
+      "phoneNumber": "02-468-4111",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16962",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16962",
+        "bsshNm": "또와",
+        "roadNmAddr": "서울특별시 성동구 성수일로12길 20 (성수동2가)",
+        "roadNmDtlAddr": "1층 101호",
+        "bsshTelno": "02-468-4111",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1454,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_2d4e4a31d5167a0bc978b8e8",
+      "storeName": "고바우생삼겹",
+      "address": "서울특별시 성동구 동일로 221, 1층",
+      "phoneNumber": "02-498-8442",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0047ddb8ec47863c38041e35",
+      "storeName": "마포숯불갈비",
+      "address": "서울특별시 성북구 보문로40길 1",
+      "phoneNumber": "02-925-1964",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0740f9da7288a687c598aaf6",
+      "storeName": "통닭마을",
+      "address": "서울특별시 성북구 오패산로 71 (하월곡동) 1층",
+      "phoneNumber": "02-942-9249",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15249",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15249",
+        "bsshNm": "통닭마을",
+        "roadNmAddr": "서울특별시 성북구 오패산로 71 (하월곡동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-942-9249",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1078,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_11f205af952a01eacf013f6e",
+      "storeName": "언니네김밥",
+      "address": "서울특별시 성북구 보국문로11길 23",
+      "phoneNumber": "02-6402-2727",
+      "status": "SOURCE_MATCHED",
+      "text": "10:00~19:00\n매주 화요일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14465",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14465",
+        "bsshNm": "언니네김밥",
+        "roadNmAddr": "서울특별시 성북구 보국문로11길 23 (정릉동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-6402-2727",
+        "bsnHr": "10:00~19:00\r\n매주 화요일 정기휴무"
+      },
+      "elapsedMs": 1064,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "10:00~19:00\n매주 화요일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_124b748f3ed6b60719ce4ba3",
+      "storeName": "정이든김밥",
+      "address": "서울특별시 성북구 보국문로 19-8, 1층",
+      "phoneNumber": "02-909-3382",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18200",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "18200",
+        "bsshNm": "정이든김밥",
+        "roadNmAddr": "서울특별시 성북구 보국문로 19-8 (정릉동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-909-3382",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1070,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_092efd887658aa3595970032",
+      "storeName": "푼양이부대&김치찌개",
+      "address": "서울특별시 송파구 송파대로30길 41-5, 1층",
+      "phoneNumber": "0507-1474-1307",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_0b3f181d1ef203ffdd24d879",
+      "storeName": "왕짜장",
+      "address": "서울특별시 송파구 올림픽로55길 11",
+      "phoneNumber": "02-488-5800",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14058",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14058",
+        "bsshNm": "왕짜장",
+        "roadNmAddr": "서울특별시 송파구 올림픽로55길 11 (풍납동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-488-5800",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 2245,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0ce7f63ef9f073a95ddb6623",
+      "storeName": "대박 대패삼겹&우삼겹",
+      "address": "서울특별시 송파구 천호대로152길 11-1, 1층",
+      "phoneNumber": "02-474-1999",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_101f079e39743839c17a1fbb",
+      "storeName": "방이뚝배기",
+      "address": "서울특별시 송파구 오금로23길 25",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "(확인 불가)",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=832",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "832",
+        "bsshNm": "방이뚝배기",
+        "roadNmAddr": "서울특별시 송파구 오금로23길 25",
+        "roadNmDtlAddr": ".",
+        "bsshTelno": "",
+        "bsnHr": "(확인 불가)"
+      },
+      "elapsedMs": 1076,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_19b7c3bfbd5008d28fcd9d29",
+      "storeName": "보라매25시해장국",
+      "address": "서울특별시 양천구 신월로17길 21",
+      "phoneNumber": "02-2604-6952",
+      "status": "SOURCE_MATCHED",
+      "text": "00:00~24:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=857",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "857",
+        "bsshNm": "보라매25시해장국",
+        "roadNmAddr": "서울특별시 양천구  신월로17길 21",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-2604-6952",
+        "bsnHr": "00:00~24:00"
+      },
+      "elapsedMs": 1081,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "00:00~24:00"
+      }
+    },
+    {
+      "storeId": "store_23ef2bb814df647886a401e9",
+      "storeName": "오대쌀김밥홀로생칼국수",
+      "address": "서울특별시 양천구 목동중앙남로 46 (목동, 목동 미소래 아파트) 상가1층 103호",
+      "phoneNumber": "02-2643-7300",
+      "status": "SOURCE_MATCHED",
+      "text": "영업시간 : 11:00 ~ 21:00\n\n휴무일 : 매주 수요일",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15527",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15527",
+        "bsshNm": "오대쌀김밥홀로생칼국수",
+        "roadNmAddr": "서울특별시 양천구 목동중앙남로 46 (목동, 목동 미소래 아파트)",
+        "roadNmDtlAddr": "상가1층 103호",
+        "bsshTelno": "02-2643-7300",
+        "bsnHr": "영업시간 : 11:00 ~ 21:00\r\n\r\n휴무일 : 매주 수요일"
+      },
+      "elapsedMs": 1095,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "영업시간 : 11:00 ~ 21:00\n휴무일 : 매주 수요일"
+      }
+    },
+    {
+      "storeId": "store_32cb653df985b2d4df247f10",
+      "storeName": "풍성돼지갈비 뒷고기전문",
+      "address": "서울특별시 양천구 월정로38길 10, 1층 (신월동)",
+      "phoneNumber": "02-2692-0975",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_32cfd96ba8b3fb696e69a96a",
+      "storeName": "토마토김밥",
+      "address": "서울특별시 양천구 은행정로 19, 1층 (신정동)",
+      "phoneNumber": "02-2649-5005",
+      "status": "SOURCE_MATCHED",
+      "text": "월~금 09:00 ~ 21:00\n토~일 04:00 ~ 21:00",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16056",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16056",
+        "bsshNm": "토마토김밥",
+        "roadNmAddr": "서울특별시 양천구 은행정로 19 (신정동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-2649-5005",
+        "bsnHr": "월~금 09:00 ~ 21:00\r\n토~일 04:00 ~ 21:00"
+      },
+      "elapsedMs": 1098,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~금 09:00 ~ 21:00\n토~일 04:00 ~ 21:00"
+      }
+    },
+    {
+      "storeId": "store_000ab82a1645456cdb90ed31",
+      "storeName": "더리얼치킨 문래본점",
+      "address": "서울특별시 영등포구 선유서로 35",
+      "phoneNumber": "0507-1489-9956",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "17539",
+          "bsshNm": "더리얼치킨 문래본점",
+          "roadNmAddr": "서울특별시 영등포구 선유서로 35 (문래동6가)",
+          "roadNmDtlAddr": "상가동 1층 103-1호(문래동6가, 한신아파트)",
+          "bsshTelno": "02-2636-9955",
+          "bsnHr": "15:00 ~ 01:00"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_08045d6b99c7d236603f6e96",
+      "storeName": "산고을",
+      "address": "서울특별시 영등포구 선유서로25길 5-1",
+      "phoneNumber": "02-2632-0677",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "10663",
+          "bsshNm": "산고을",
+          "roadNmAddr": "서울특별시 영등포구  선유서로25길 5-1",
+          "roadNmDtlAddr": "",
+          "bsshTelno": "02-263-0677",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_08f471e419a09f62dbb82162",
+      "storeName": "대림동꽃돼지",
+      "address": "서울특별시 영등포구 대림로40길 11-1",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "15:00 오픈",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17024",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "17024",
+        "bsshNm": "대림동꽃돼지",
+        "roadNmAddr": "서울특별시 영등포구 대림로40길 11-1 (대림동)",
+        "roadNmDtlAddr": "대림동꽃돼지",
+        "bsshTelno": "010-6400-5439",
+        "bsnHr": "15:00 오픈"
+      },
+      "elapsedMs": 1094,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "15:00 오픈\n마감시간은 원문에 제공되지 않았어요."
+      }
+    },
+    {
+      "storeId": "store_0c84b7e27e301a1e4bde0787",
+      "storeName": "마포돼지갈비",
+      "address": "서울특별시 영등포구 도신로 64길 2",
+      "phoneNumber": "02-836-7942",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13249",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13249",
+        "bsshNm": "마포돼지갈비",
+        "roadNmAddr": "서울특별시 영등포구 도신로64길 2 (신길동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1076,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_05260ad60dd2b53354c90def",
+      "storeName": "용대박",
+      "address": "서울특별시 용산구 원효로83길 13-5 101, 102호",
+      "phoneNumber": "02-718-8853",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "900",
+          "bsshNm": "용대박",
+          "roadNmAddr": "서울특별시 용산구 원효로83길 13-5",
+          "roadNmDtlAddr": "102호",
+          "bsshTelno": "02-718-8853",
+          "bsnHr": "(평일)07:00~21:00\r\n(토) 07:00~13:00\r\n(일) 휴무"
+        }
+      ],
+      "review": {
+        "decision": "APPROVED",
+        "reason": "상호·전화번호·도로명·건물번호 일치. 기존 101,102호에 원문 102호가 포함됨.",
+        "displayText": "월~금 07:00~21:00\n토 07:00~13:00\n일요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_126c0dfc89c550bae24b5efd",
+      "storeName": "보광정 이태원점",
+      "address": "서울특별시 용산구 보광로 118, 1층 (이태원동)",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "16:00~23:00 (월~목)\n12:00~23:00 (금~일)",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16969",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16969",
+        "bsshNm": "보광정 이태원점",
+        "roadNmAddr": "서울특별시 용산구 보광로 118 (이태원동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "0507-1466-9272",
+        "bsnHr": "16:00~23:00 (월~목)\r\n12:00~23:00 (금~일)"
+      },
+      "elapsedMs": 1066,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "16:00~23:00 (월~목)\n12:00~23:00 (금~일)"
+      }
+    },
+    {
+      "storeId": "store_190e4c769e76af6f2f66b8c6",
+      "storeName": "원효로돈가스*어쩌다열게된소주집",
+      "address": "서울특별시 용산구 백범로 323-1, 1층 (원효로1가)",
+      "phoneNumber": "",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_1e9b940be6946af4cc5d2612",
+      "storeName": "부자식당",
+      "address": "서울특별시 용산구 대사관로24길 13",
+      "phoneNumber": "02-797-9046",
+      "status": "SOURCE_MATCHED",
+      "text": "06:00~19:30",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=898",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "898",
+        "bsshNm": "부자식당",
+        "roadNmAddr": "서울특별시 용산구 대사관로24길 13 (한남동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-797-9046",
+        "bsnHr": "06:00~19:30"
+      },
+      "elapsedMs": 1153,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "06:00~19:30"
+      }
+    },
+    {
+      "storeId": "store_00e4e8c983babe0296907942",
+      "storeName": "참맛어울림",
+      "address": "서울특별시 은평구 은평로 187-2 (녹번동) 1층",
+      "phoneNumber": "02-353-1808",
+      "status": "SOURCE_MATCHED",
+      "text": "월~금 10:30~22:00\n매주 토,일요일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15232",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15232",
+        "bsshNm": "참맛어울림",
+        "roadNmAddr": "서울특별시 은평구 은평로 187-2 (녹번동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-353-1808",
+        "bsnHr": "월~금 10:30~22:00\r\n매주 토,일요일 정기휴무"
+      },
+      "elapsedMs": 1090,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~금 10:30~22:00\n매주 토,일요일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_04b184763bb4bbf51a179424",
+      "storeName": "이모네 밥상",
+      "address": "서울특별시 은평구 진관3로 70 롯데캐슬 823동 상가 103호",
+      "phoneNumber": "02-6366-9020",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "14076",
+          "bsshNm": "이모네 밥상",
+          "roadNmAddr": "서울특별시 은평구 진관3로 70 (진관동, 은평뉴타운상림마을)",
+          "roadNmDtlAddr": "롯데캐슬 823동 상가 103호",
+          "bsshTelno": "02-6366-9020",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_09284602b3f08c6f682b023f",
+      "storeName": "대성각",
+      "address": "서울특별시 은평구 녹번로 7 (녹번동) 1층",
+      "phoneNumber": "02-356-2194",
+      "status": "SOURCE_MATCHED",
+      "text": "월~금 11:00~15:00\n토 11:00~20:00(15:00~17:00 브레이크 타임)\n매주 일요일 정기휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15230",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15230",
+        "bsshNm": "대성각",
+        "roadNmAddr": "서울특별시 은평구 녹번로 7 (녹번동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-356-2194",
+        "bsnHr": "월~금 11:00~15:00\r\n토 11:00~20:00(15:00~17:00 브레이크 타임)\r\n매주 일요일 정기휴무"
+      },
+      "elapsedMs": 1461,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~금 11:00~15:00\n토 11:00~20:00(15:00~17:00 브레이크 타임)\n매주 일요일 정기휴무"
+      }
+    },
+    {
+      "storeId": "store_13860a4aa480255c1aef3aac",
+      "storeName": "토종능이버섯닭오리백숙",
+      "address": "서울특별시 은평구 은평로 201-5 1층",
+      "phoneNumber": "02-355-8066",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "14078",
+          "bsshNm": "토종능이버섯닭오리백숙",
+          "roadNmAddr": "서울특별시 은평구 은평로 201-5 (녹번동)",
+          "roadNmDtlAddr": "1층",
+          "bsshTelno": "02-355-8066",
+          "bsnHr": "-"
+        }
+      ],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_002dfdbe603ac66e26648a35",
+      "storeName": "서울풍경",
+      "address": "서울특별시 종로구 북촌로5길 39",
+      "phoneNumber": "02-735-7799",
+      "status": "SOURCE_MATCHED",
+      "text": "10:00~19:00\n4월~11월 연중 무휴\n12월~3월 일요일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13930",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "13930",
+        "bsshNm": "서울풍경",
+        "roadNmAddr": "서울특별시 종로구 북촌로5길 39 (화동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-735-7799",
+        "bsnHr": "10:00~19:00\r\n4월~11월 연중 무휴\r\n12월~3월 일요일 휴무"
+      },
+      "elapsedMs": 1125,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "10:00~19:00\n4월~11월 연중 무휴\n12월~3월 일요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_067700461be17f8e27eb54c4",
+      "storeName": "복코돼지",
+      "address": "서울특별시 종로구 종로 232",
+      "phoneNumber": "02-2271-5989",
+      "status": "SOURCE_MATCHED",
+      "text": "10:00~22:00(일요일 휴무)",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16044",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16044",
+        "bsshNm": "복코돼지",
+        "roadNmAddr": "서울특별시 종로구 종로 232 (종로5가)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-2271-5989",
+        "bsnHr": "10:00~22:00(일요일 휴무)"
+      },
+      "elapsedMs": 1143,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "10:00~22:00(일요일 휴무)"
+      }
+    },
+    {
+      "storeId": "store_0a2496d8a0c3a30006f55612",
+      "storeName": "중국",
+      "address": "서울특별시 종로구 자하문로33길 2",
+      "phoneNumber": "02-737-8055",
+      "status": "SOURCE_MATCHED",
+      "text": "10:00~13:00 (재료 소진 시 마감)\n일요일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16865",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16865",
+        "bsshNm": "중국",
+        "roadNmAddr": "서울특별시 종로구 자하문로33길 2 (청운동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-737-8055",
+        "bsnHr": "10:00~13:00 (재료 소진 시 마감)\r\n일요일 휴무"
+      },
+      "elapsedMs": 1854,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "10:00~13:00 (재료 소진 시 마감)\n일요일 휴무"
+      }
+    },
+    {
+      "storeId": "store_0f10d4c9aee0aa3ef2ccd502",
+      "storeName": "카츠연",
+      "address": "서울특별시 종로구 삼봉로 81, 지층 136호",
+      "phoneNumber": "",
+      "status": "SOURCE_MATCHED",
+      "text": "11:00~20:00 (브레이크 타임 14:00~16:00)\n공휴일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16867",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "16867",
+        "bsshNm": "카츠연",
+        "roadNmAddr": "서울특별시 종로구 삼봉로 81 (수송동)",
+        "roadNmDtlAddr": "지하1층 136호",
+        "bsshTelno": "010-4015-1318",
+        "bsnHr": "11:00~20:00 (브레이크 타임 14:00~16:00)\r\n공휴일 휴무"
+      },
+      "elapsedMs": 1078,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "11:00~20:00 (브레이크 타임 14:00~16:00)\n공휴일 휴무"
+      }
+    },
+    {
+      "storeId": "store_0144f4b581260f300dcedac2",
+      "storeName": "우리집 맛자랑",
+      "address": "서울특별시 중구 퇴계로20길 26 (남산동2가)",
+      "phoneNumber": "02-319-8939",
+      "status": "SOURCE_MATCHED",
+      "text": "월~금 09:00~21:00\n토,일 휴무",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=985",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "985",
+        "bsshNm": "우리집 맛자랑",
+        "roadNmAddr": "서울특별시 중구 퇴계로20길 26",
+        "roadNmDtlAddr": "(남산동2가)",
+        "bsshTelno": "02-319-8939",
+        "bsnHr": "월~금 09:00~21:00\n토,일 휴무"
+      },
+      "elapsedMs": 1093,
+      "review": {
+        "decision": "APPROVED",
+        "reason": "공식 상세의 상호·주소 및 제공된 전화번호를 대조. 원문 영업시간·예외 안내 검토.",
+        "displayText": "월~금 09:00~21:00\n토,일 휴무"
+      }
+    },
+    {
+      "storeId": "store_061e34a12b741b2323e8d925",
+      "storeName": "동경우동집",
+      "address": "서울특별시 중구 충무로 48, 1층 1호",
+      "phoneNumber": "02-2274-3440",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18572",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "18572",
+        "bsshNm": "동경우동집",
+        "roadNmAddr": "서울특별시 중구 충무로 48 (초동)",
+        "roadNmDtlAddr": "1층 1호",
+        "bsshTelno": "02-2274-3440",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1082,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0b7e598fec0d24946b298ccb",
+      "storeName": "명동중앙점 왕비집",
+      "address": "서울특별시 중구 명동8나길 45 2층",
+      "phoneNumber": "02-776-2361",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [
+        {
+          "bsshSn": "974",
+          "bsshNm": "명동중앙점 왕비집",
+          "roadNmAddr": "서울특별시 중구 명동8나길 45",
+          "roadNmDtlAddr": "2층",
+          "bsshTelno": "02-776-2361",
+          "bsnHr": "매일\n11:30-22:00\n21:30라스트오더"
+        }
+      ],
+      "review": {
+        "decision": "APPROVED",
+        "reason": "상호·전화번호·도로명·건물번호·2층 일치. 층 표기 분리만 다름.",
+        "displayText": "매일 11:30~22:00\n라스트오더 21:30"
+      }
+    },
+    {
+      "storeId": "store_2105713697e61fc4b57d6dec",
+      "storeName": "장안김밥",
+      "address": "서울특별시 중구 다산로36길 25",
+      "phoneNumber": "02-2236-8135",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_06ed731010a36a1a38948a34",
+      "storeName": "성창식당",
+      "address": "서울특별시 중랑구 면목로421",
+      "phoneNumber": "02-435-3061",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14496",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14496",
+        "bsshNm": "성창식당",
+        "roadNmAddr": "서울특별시 중랑구 면목로 421 (면목동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "02-435-3061",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1078,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0a7fe3bc7929effebb86d8f8",
+      "storeName": "미례김밥",
+      "address": "서울특별시 중랑구 상봉로 7",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15224",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "15224",
+        "bsshNm": "미례김밥",
+        "roadNmAddr": "서울특별시 중랑구 상봉로 7 (면목동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "010-4757-6109",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1092,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    },
+    {
+      "storeId": "store_0c949ec17a08a5077cf92478",
+      "storeName": "소문난황칠순대국왕족발",
+      "address": "서울특별시 중랑구 겸재로 217, 1층",
+      "phoneNumber": "02-2138-0908",
+      "status": "REVIEW_REQUIRED",
+      "reason": "no_exact_match",
+      "candidates": [],
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "주소·전화번호 불일치 또는 동일 매장 근거 부족. 자동 보완하지 않음."
+      }
+    },
+    {
+      "storeId": "store_1917b525bf8c218c573b33a7",
+      "storeName": "한우리",
+      "address": "서울특별시 중랑구 중랑천로 70",
+      "phoneNumber": "",
+      "status": "HOURS_UNAVAILABLE",
+      "text": "-",
+      "sourceName": "행정안전부 착한가격업소",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14498",
+      "checkedAt": "2026-09-11",
+      "evidence": {
+        "bsshSn": "14498",
+        "bsshNm": "한우리",
+        "roadNmAddr": "서울특별시 중랑구 중랑천로 70 (면목동)",
+        "roadNmDtlAddr": "1층",
+        "bsshTelno": "",
+        "bsnHr": "-"
+      },
+      "elapsedMs": 1439,
+      "review": {
+        "decision": "WITHHELD",
+        "reason": "영업시간 숫자/시간대가 없거나 무관한 원문."
+      }
+    }
+  ],
+  "reviewedAt": "2026-09-12",
+  "dateNote": "원본 checkedAt은 UTC 날짜(2026-09-11). 배포 자료는 실제 조회일의 한국 날짜(2026-09-12)를 사용. 조회일은 원문 수정일이나 매장 직접 확인일이 아님.",
+  "finalCounts": {
+    "sourceVerified": 39,
+    "withheld": 61
+  }
+}

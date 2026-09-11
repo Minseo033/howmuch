@@ -64,6 +64,7 @@ public class FirebaseService {
     private final ReportImageStorage reportImageStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private TruePriceService truePriceService;
+    private StoreHoursCatalog storeHoursCatalog;
 
     /**
      * 착한가격업소(공공데이터) 인메모리 캐시.
@@ -108,6 +109,11 @@ public class FirebaseService {
     @Autowired
     public void setTruePriceService(TruePriceService truePriceService) {
         this.truePriceService = truePriceService;
+    }
+
+    @Autowired
+    public void setStoreHoursCatalog(StoreHoursCatalog storeHoursCatalog) {
+        this.storeHoursCatalog = storeHoursCatalog;
     }
 
     @Async
@@ -1823,6 +1829,12 @@ public class FirebaseService {
         Object existing = copy.get("storeId");
         if (existing == null || existing.toString().isBlank()) {
             copy.put("storeId", stableStoreIdForData(copy));
+        }
+        // Only the reviewed, separate catalog supplies hours; incoming snapshots cannot override it.
+        copy.remove("openingHours");
+        if (storeHoursCatalog != null) {
+            Map<String, Object> hours = storeHoursCatalog.findFor(copy);
+            if (hours != null) copy.put("openingHours", hours);
         }
         return copy;
     }

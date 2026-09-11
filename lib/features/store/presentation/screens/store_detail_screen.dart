@@ -354,7 +354,13 @@ class StoreDetailScreen extends ConsumerWidget {
                             _InfoRow(
                               icon: Icons.access_time_outlined,
                               label: '영업시간',
-                              value: '정보 없음',
+                              value:
+                                  store.openingHours?.text ?? '등록된 영업시간이 없어요.',
+                              supportingText: store.openingHours == null
+                                  ? (hasPhone
+                                        ? '방문 전 매장에 확인해 주세요.'
+                                        : '방문 전 최신 안내를 확인해 주세요.')
+                                  : '${store.openingHours!.sourceLabel}\n${store.openingHours!.isStale(DateTime.now()) ? '조회한 지 오래된 정보예요. 방문 전 확인해 주세요.' : '휴무·영업시간은 매장 사정에 따라 달라질 수 있어요.'}',
                             ),
                             const Divider(
                               height: 24,
@@ -550,11 +556,13 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final String? supportingText;
   final VoidCallback? onTap;
   const _InfoRow({
     required this.icon,
     required this.label,
     required this.value,
+    this.supportingText,
     this.onTap,
   });
 
@@ -579,12 +587,28 @@ class _InfoRow extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    value,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textDark,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        value,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      if (supportingText != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          supportingText!,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            height: 1.5,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (onTap != null)
