@@ -55,17 +55,26 @@ class _DirectionsExternalAppScreenState
       longitude.abs() <= 180;
 
   Future<void> _launchKakaoMap() async {
-    final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
+    final storeQuery = Uri.encodeComponent(widget.storeName);
     final mode = _transports[_selectedTransport]['mode'] as String;
-    final url = _hasRouteCoordinates
+    final hasDestCoords = _isValidCoordinate(widget.latitude, widget.longitude);
+
+    final url = hasDestCoords
+        ? (_hasRouteCoordinates
+            ? Uri.parse(
+                'kakaomap://route?sp=${widget.startLatitude},${widget.startLongitude}'
+                '&ep=${widget.latitude},${widget.longitude}&by=$mode',
+              )
+            : Uri.parse(
+                'kakaomap://route?ep=${widget.latitude},${widget.longitude}&by=$mode',
+              ))
+        : Uri.parse('kakaomap://search?q=$storeQuery');
+
+    final fallbackUrl = hasDestCoords
         ? Uri.parse(
-            'kakaomap://route?sp=${widget.startLatitude},${widget.startLongitude}'
-            '&ep=${widget.latitude},${widget.longitude}&by=$mode',
+            'https://map.kakao.com/link/to/$storeQuery,${widget.latitude},${widget.longitude}',
           )
-        : Uri.parse('kakaomap://search?q=$query');
-    final fallbackUrl = _hasRouteCoordinates
-        ? Uri.parse('https://map.kakao.com/link/search/$query')
-        : Uri.parse('https://map.kakao.com/link/search/$query');
+        : Uri.parse('https://map.kakao.com/link/search/$storeQuery');
 
     try {
       if (await canLaunchUrl(url)) {
@@ -73,7 +82,7 @@ class _DirectionsExternalAppScreenState
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
       }
-      if (!_hasRouteCoordinates && mounted) {
+      if (!_hasRouteCoordinates && !hasDestCoords && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
         );
@@ -84,23 +93,47 @@ class _DirectionsExternalAppScreenState
   }
 
   Future<void> _launchNaverMap() async {
-    final query = Uri.encodeComponent('${widget.storeName} ${widget.address}');
+    final storeQuery = Uri.encodeComponent(widget.storeName);
     final mode = switch (_selectedTransport) {
       0 => 'walk',
       1 => 'public',
       _ => 'car',
     };
-    final url = _hasRouteCoordinates
-        ? Uri.parse(
-            'nmap://route/$mode?slat=${widget.startLatitude}'
-            '&slng=${widget.startLongitude}&sname=현재 위치'
-            '&dlat=${widget.latitude}&dlng=${widget.longitude}'
-            '&dname=${Uri.encodeComponent(widget.storeName)}&appname=com.howmuch.app',
-          )
-        : Uri.parse('nmap://search?query=$query&appname=com.howmuch.app');
-    final fallbackUrl = Uri.parse(
-      'https://m.map.naver.com/search2/search.naver?query=$query',
-    );
+    final naverPathType = switch (_selectedTransport) {
+      0 => '2', // 도보
+      1 => '1', // 대중교통
+      _ => '0', // 자동차
+    };
+    final hasDestCoords = _isValidCoordinate(widget.latitude, widget.longitude);
+
+    final url = hasDestCoords
+        ? (_hasRouteCoordinates
+            ? Uri.parse(
+                'nmap://route/$mode?slat=${widget.startLatitude}'
+                '&slng=${widget.startLongitude}&sname=${Uri.encodeComponent('현재 위치')}'
+                '&dlat=${widget.latitude}&dlng=${widget.longitude}'
+                '&dname=$storeQuery&appname=com.howmuch.app',
+              )
+            : Uri.parse(
+                'nmap://route/$mode?dlat=${widget.latitude}&dlng=${widget.longitude}'
+                '&dname=$storeQuery&appname=com.howmuch.app',
+              ))
+        : Uri.parse('nmap://search?query=$storeQuery&appname=com.howmuch.app');
+
+    final fallbackUrl = hasDestCoords
+        ? (_hasRouteCoordinates
+            ? Uri.parse(
+                'https://m.map.naver.com/route.nhn?menu=route'
+                '&sname=${Uri.encodeComponent('현재 위치')}&sx=${widget.startLongitude}&sy=${widget.startLatitude}'
+                '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
+              )
+            : Uri.parse(
+                'https://m.map.naver.com/route.nhn?menu=route'
+                '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
+              ))
+        : Uri.parse(
+            'https://m.map.naver.com/search2/search.naver?query=$storeQuery',
+          );
 
     try {
       if (await canLaunchUrl(url)) {
@@ -108,7 +141,7 @@ class _DirectionsExternalAppScreenState
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
       }
-      if (!_hasRouteCoordinates && mounted) {
+      if (!_hasRouteCoordinates && !hasDestCoords && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
         );

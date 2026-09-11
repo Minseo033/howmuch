@@ -1547,6 +1547,25 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Flutter 전체 194개 테스트 통과.
   - `flutter build web --release --no-wasm-dry-run --no-pub` 완료.
 
+## 5-83. 9/11 외부 지도 길찾기 연동 오류 (네이버·카카오 길찾기 웹 좌표 직행 복구)
+
+- **문제점**:
+  - 매장 상세에서 [길찾기]를 눌러 네이버 지도(또는 카카오맵)로 이동할 때, '구백년짜장 경기도 평택시 안중읍 안현로서9길 119...'처럼 매장명과 도로명 주소가 하나의 문자열로 검색창에 통째로 입력되어 네이버 지도에서 "검색결과가 없습니다" 오류 화면이 노출됨.
+  - 웹 환경에서는 `nmap://` 또는 `kakaomap://` 앱 스킴 실행이 불가능해 `fallbackUrl`로 넘어가는데, 웹 대체 URL이 길찾기 전용 URL이 아닌 키워드 통합 검색 URL(`m.map.naver.com/search2`)로 고정되어 발생한 문제.
+- **반영 내용**:
+  1. **네이버 지도 웹 길찾기 직접 연결 (`directions_external_app_screen.dart`)**:
+     - 목적지 좌표가 있을 때 네이버 모바일 웹 공식 길찾기 엔드포인트(`m.map.naver.com/route.nhn?menu=route&ename={매장명}&ex={경도}&ey={위도}&pathType={이동수단}`)로 즉시 연결.
+     - 출발지 좌표가 존재할 경우 `sname=현재 위치&sx={출발경도}&sy={출발위도}`를 함께 전달하여 브라우저에서 길찾기 화면이 즉시 완성되도록 수정.
+     - 좌표가 없을 때의 검색 폴백도 주소 병합 문자열을 제거하고 정제된 매장명(`storeName`) 단독으로 검색하도록 개선.
+  2. **카카오맵 웹 길찾기 직행 보정**:
+     - 목적지 좌표 보유 시 카카오맵 공식 길찾기 링크(`map.kakao.com/link/to/{매장명},{위도},{경도}`)로 직접 전달하여 도착지 핀과 최적 경로가 즉각 계산되도록 보완.
+  3. **회귀 검증 테스트 추가**:
+     - `test/directions_url_policy_test.dart`에 매장명 단독 인코딩, 네이버 지도 모바일 경로 URL 파라미터 규격, 카카오맵 경로 링크 규격 검증 테스트 추가.
+- **검증**:
+  - `test/directions_url_policy_test.dart` 및 전체 197개 테스트 통과.
+  - Flutter 정적 분석 이슈 0건 (`flutter analyze --no-pub`).
+  - `flutter build web --release --no-wasm-dry-run --no-pub` 완료.
+
 ## 5-80. 9/11 AI 챗봇 페르소나 및 응답 품질 전면 개편
 
 - **문제점**:
