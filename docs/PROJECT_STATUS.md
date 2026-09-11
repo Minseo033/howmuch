@@ -1442,3 +1442,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 커밋 88b72b0을 GitHub main(dbb9a98→88b72b0)에 푸시했다.
 - Vercel howmuch 프로젝트 프로덕션 배포 dpl_4GwujmSnVphtStqBKUy8hpjmo7J4 완료 후 howmuch-zeta.vercel.app 운영 별칭 연결.
 - 운영 사이트 HTTP 200 확인 완료.
+
+## 5-75. 9/11 UIUX QA 운영 재검증 및 지도 오류 복구
+
+- 운영 Chrome에서 홈, 제보 작성, 공공데이터 출처, 절약 리포트, 오늘의 픽, AI 추천 화면을 직접 재검증하고 최종 캡처를 저장했다.
+- 리포트 탭에서 홈으로 돌아올 때 지도 초기화 오류 화면 위에 매장 로딩 오버레이가 겹쳐 오류 문구와 재시도 버튼을 가리는 상태를 재현했다.
+- 지도 오류가 존재할 때는 매장 로딩 오버레이를 렌더링하지 않도록 수정해 오류 안내와 `다시 시도`를 즉시 노출했다.
+- `flutter analyze --no-pub` 0 issues, UI 집중 테스트 24개 통과, 웹 릴리스 빌드 성공.
+- 수정 커밋 `c1d2c05`를 GitHub `main`에 푸시하고 Vercel 프로덕션 배포 `dpl_J8vFH2EChYMeGtvdFJ9DmUUJ8byf`를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
+- 운영 HTTP 200과 로컬·운영 `main.dart.js` SHA-256 일치를 확인했고, 동일 복귀 흐름에서 오류·재시도 화면이 로딩 오버레이에 가리지 않는 것을 다시 캡처했다.
