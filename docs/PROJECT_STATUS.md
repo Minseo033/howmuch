@@ -1524,8 +1524,7 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
      - 신규 컨테이너 생성 시에는 새 `kakao.maps.Map`을 신규 `container`에 즉시 마운트하고 이전 오버레이·위치 마커 캐시를 초기화하여 타일과 매장 마커가 깨끗하게 렌더링되도록 수정.
   2. **마이페이지 이메일 복원 및 서버 동기화**:
      - `lib/features/auth/presentation/state/kakao_login_service.dart`의 `refreshKakaoIdentity`에서 유효한 이메일을 획득했을 때 `UserProfileApiService().saveProfile`을 비동기로 호출하여 Firestore `users/{uid}`에 영구 저장되도록 연동.
-     - `lib/features/mypage/presentation/screens/mypage_screen.dart` 진입 시 이메일이 누락된 로그인 사용자일 경우 백그라운드에서 카카오 계정 정보(이메일) 갱신을 1회 시도.
-     - 마이페이지 프로필 카드에 '이메일 정보 없음'일 때 우측에 `[불러오기]` 탭 버튼을 제공하여, 사용자 직접 탭(유저 제스처)을 통해 Safari 팝업 차단 없이 카카오 추가 동의 및 이메일 불러오기를 원터치로 완료하도록 UX 강화.
+     - `lib/features/mypage/presentation/screens/mypage_screen.dart` 진입 시 이메일이 누락된 로그인 사용자일 경우 기존 UI 변경 없이 백그라운드에서 카카오 계정 정보(이메일) 갱신을 1회 자동 시도하여 화면과 Firestore에 동기화.
 - **검증**:
   - `flutter analyze --no-pub` 이슈 0건 통과.
   - `test/mypage_email_refresh_test.dart` 및 Flutter 전체 192개 테스트 통과.
