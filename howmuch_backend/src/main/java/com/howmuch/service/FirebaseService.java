@@ -276,21 +276,46 @@ public class FirebaseService {
      */
     public List<Map<String, Object>> getAiStoreContext(
             List<String> storeIds, Double latitude, Double longitude) {
-        if (storeIds == null || storeIds.isEmpty()) return List.of();
+        if (storeIds != null && !storeIds.isEmpty()) {
+            Set<String> requestedIds = new LinkedHashSet<>(storeIds);
+            Map<String, Map<String, Object>> storesById = new HashMap<>();
+            addAiStores(storesById, requestedIds, cachedStores,
+                    "착한가격업소", latitude, longitude);
+            addAiStores(storesById, requestedIds, cachedUserStores.stream()
+                    .filter(this::isPubliclyVisible)
+                    .toList(), "사용자 제보", latitude, longitude);
 
-        Set<String> requestedIds = new LinkedHashSet<>(storeIds);
-        Map<String, Map<String, Object>> storesById = new HashMap<>();
-        addAiStores(storesById, requestedIds, cachedStores,
-                "착한가격업소", latitude, longitude);
-        addAiStores(storesById, requestedIds, cachedUserStores.stream()
-                .filter(this::isPubliclyVisible)
-                .toList(), "사용자 제보", latitude, longitude);
+            List<Map<String, Object>> resolved = requestedIds.stream()
+                    .map(storesById::get)
+                    .filter(java.util.Objects::nonNull)
+                    .limit(10)
+                    .toList();
+            if (!resolved.isEmpty()) return resolved;
+        }
 
-        return requestedIds.stream()
-                .map(storesById::get)
-                .filter(java.util.Objects::nonNull)
-                .limit(10)
-                .toList();
+        if (isValidCoordinate(latitude, longitude)) {
+            List<Map<String, Object>> candidates = new ArrayList<>();
+            for (Map<String, Object> raw : cachedStores) {
+                Map<String, Object> store = withStableStoreId(raw);
+                if (hasValidStoreCoordinate(store)) {
+                    double dist = haversine(latitude, longitude, parseLat(store), parseLng(store));
+                    if (dist <= 15000) {
+                        Map<String, Object> ctx = new HashMap<>();
+                        ctx.put("storeId", store.get("storeId"));
+                        ctx.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
+                        ctx.put("menu1", String.valueOf(store.getOrDefault("menu1", "정보 없음")));
+                        ctx.put("price1", String.valueOf(store.getOrDefault("price1", "")));
+                        ctx.put("source", "착한가격업소");
+                        ctx.put("distanceMeters", (int) Math.round(dist));
+                        candidates.add(ctx);
+                    }
+                }
+            }
+            candidates.sort(Comparator.comparingInt(m -> (int) m.getOrDefault("distanceMeters", Integer.MAX_VALUE)));
+            return candidates.stream().limit(10).toList();
+        }
+
+        return List.of();
     }
 
     private void addAiStores(Map<String, Map<String, Object>> target,

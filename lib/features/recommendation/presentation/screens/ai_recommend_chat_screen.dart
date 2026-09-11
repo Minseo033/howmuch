@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -14,10 +15,11 @@ class AiRecommendChatScreen extends ConsumerStatefulWidget {
       _AiRecommendChatScreenState();
 }
 
+final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) => []);
+
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  final List<_ChatMessage> _messages = [];
   bool _isTyping = false;
 
   static const _quickPrompts = [
@@ -58,8 +60,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
     final userMessage = _ChatMessage(text: messageText, isBot: false);
 
+    ref.read(aiChatHistoryProvider.notifier).update((list) => [...list, userMessage]);
     setState(() {
-      _messages.add(userMessage);
       _controller.clear();
       _isTyping = true;
     });
@@ -68,7 +70,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     _scrollToLatest();
 
     // 💡 최근 대화 내역 추출 (최대 6개, 방금 추가한 본인 메시지 제외)
-    final previousMessages = _messages.take(_messages.length - 1).toList();
+    final allMessages = ref.read(aiChatHistoryProvider);
+    final previousMessages = allMessages.take(allMessages.length - 1).toList();
     final history = previousMessages
         .skip(previousMessages.length > 6 ? previousMessages.length - 6 : 0)
         .map((m) => {'role': m.isBot ? 'model' : 'user', 'text': m.text})
@@ -105,8 +108,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     }
 
     if (mounted) {
+      ref.read(aiChatHistoryProvider.notifier).update((list) => [...list, _ChatMessage(text: botResponse, isBot: true)]);
       setState(() {
-        _messages.add(_ChatMessage(text: botResponse, isBot: true));
         _isTyping = false;
       });
       _scrollToLatest();
@@ -126,6 +129,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final messages = ref.watch(aiChatHistoryProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final rawKeyboard = MediaQuery.viewInsetsOf(context).bottom;
@@ -154,7 +158,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
               top: 0,
               right: 0,
               height: topOffset + 58,
-              child: _ChatHeader(topPadding: topOffset),
+              child: _ChatHeader(
+                topPadding: topOffset,
+                onResetChat: messages.isEmpty
+                    ? null
+                    : () {
+                        ref.read(aiChatHistoryProvider.notifier).state = [];
+                      },
+              ),
             ),
             Positioned(
               left: 0,
@@ -212,7 +223,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                       );
                     },
                   ),
-                  for (final message in _messages) ...[
+                  for (final message in messages) ...[
                     const SizedBox(height: 14),
                     if (message.isBot)
                       Row(
@@ -262,9 +273,10 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 }
 
 class _ChatHeader extends StatelessWidget {
-  const _ChatHeader({required this.topPadding});
+  const _ChatHeader({required this.topPadding, this.onResetChat});
 
   final double topPadding;
+  final VoidCallback? onResetChat;
 
   @override
   Widget build(BuildContext context) {
@@ -320,6 +332,20 @@ class _ChatHeader extends StatelessWidget {
             top: topPadding + 30,
             child: const _OnlineCaption(),
           ),
+          if (onResetChat != null)
+            Positioned(
+              right: 12,
+              top: topPadding + 9,
+              child: IconButton(
+                onPressed: onResetChat,
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: _AiUi.ink,
+                  size: 22,
+                ),
+                tooltip: '새 대화 시작',
+              ),
+            ),
         ],
       ),
     );
@@ -699,29 +725,113 @@ class _BotMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(17, 15, 17, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE1E6EF)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 4,
-            offset: Offset(0, 2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(17, 15, 17, 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE1E6EF)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A0F172A),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Text(
-        message.text,
-        style: const TextStyle(
-          color: _AiUi.ink,
-          fontFamily: _AiUi.fontFamily,
-          fontFamilyFallback: _AiUi.fontFallback,
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          height: 1.55,
+          child: Text(
+            message.text,
+            style: const TextStyle(
+              color: _AiUi.ink,
+              fontFamily: _AiUi.fontFamily,
+              fontFamilyFallback: _AiUi.fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.55,
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _MessageActionChip(
+              icon: Icons.map_outlined,
+              label: '지도에서 찾기',
+              onTap: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go(AppRoutes.home);
+                }
+              },
+            ),
+            const SizedBox(width: 8),
+            _MessageActionChip(
+              icon: Icons.copy_rounded,
+              label: '복사',
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: message.text));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('추천 답변을 복사했어요.'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MessageActionChip extends StatelessWidget {
+  const _MessageActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: const Color(0xFFE1E6EF)),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 12, color: const Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontFamily: _AiUi.fontFamily,
+                  fontFamilyFallback: _AiUi.fontFallback,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -740,13 +850,29 @@ class _TypingIndicator extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE1E6EF)),
       ),
-      child: const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(_AiUi.ink),
-        ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+            ),
+          ),
+          SizedBox(width: 8),
+          Text(
+            '고미가 착한가격 매장을 찾고 있어요...',
+            style: TextStyle(
+              color: Color(0xFF64748B),
+              fontFamily: _AiUi.fontFamily,
+              fontFamilyFallback: _AiUi.fontFallback,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
