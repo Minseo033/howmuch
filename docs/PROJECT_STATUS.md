@@ -1659,3 +1659,19 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - 커밋 0781ca0 main 브랜치 푸시 완료.
   - Vercel 프로덕션 배포 (dpl_EDtyNKk2XTKkSTECQUdg46yhkbhM) 및 https://howmuch-zeta.vercel.app 도메인 연결 완료.
   - node scripts/verify_web_deployment.mjs 정적 파일 13개 검증 모두 PASS.
+
+## 5-86. 9/12 매장 상세 화면 핵심 편의·혜택(지역화폐·포장·주차) 실데이터 연동 및 배포
+
+- **반영 내용**:
+  1. **실데이터 확보**:
+     - 행안부 상세 포털(bsshInfo.json)에서 39개 검증 매장의 실제 `parkingYn`(주차), `packingYn`(포장), `areaCrrncy`(지역화폐/결제수단) 필드를 정밀 추출하여 백엔드 `store-hours.json` 카탈로그에 연동.
+  2. **백엔드 DTO 및 API 확장**:
+     - `StoreHoursCatalog.Entry`에 `parkingYn`, `packingYn`, `areaCurrency` 필드를 추가하고, `/api/stores/all` 및 `/api/stores/bounds` 응답의 `openingHours` 객체 내에 동봉 제공.
+  3. **프론트엔드 UI/UX 고도화**:
+     - 상단 헤더: 매장명/평점 하단에 제공되는 핵심 혜택만 컬러 배지 칩으로 직관적 노출 (`[지역화폐]`, `[포장 가능]`, `[주차 가능]`).
+     - 매장 정보 섹션: 영업시간 바로 위에 `편의·결제` 행을 추가하여 한 줄로 명확하게 요약 (예: "지역화폐(지류형, 모바일형, 카드형) 가능 · 포장 가능 · 주차 불가").
+- **검증**:
+  - 백엔드 전체 테스트 통과 (`./gradlew test`).
+  - Dart 정적 분석 이슈 0건 (`dart analyze --fatal-infos`).
+  - Flutter 위젯/단위 전체 테스트 통과.
+  - Vercel 프로덕션 배포 (`dpl_Au7135en7hhea8qQC5qN2Agxe1cu`) 및 `https://howmuch-zeta.vercel.app` 연결 완료. 정적 검증 13개 모두 PASS.
