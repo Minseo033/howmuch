@@ -1705,3 +1705,260 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Flutter 단위/위젯 테스트 통과 (flutter test --no-pub).
   - flutter build web --release --no-wasm-dry-run --no-pub 웹 릴리스 빌드 성공.
   - Vercel 프로덕션 배포 및 대표 도메인(https://howmuch-zeta.vercel.app) 연결 완료.
+
+## 5-88. 9/12 행안부 엑셀 데이터 기반 서울 전역 1,203개 매장 편의·혜택 정보 대량 확장 배포
+
+- **배경 및 데이터 확보**:
+  - 행정안전부 공식 포털의 엑셀 다운로드() 엔드포인트에서 서울 전역 2,111건의 착한가격업소 원본 데이터 추출.
+  - 엑셀 파일 내 주차여부, 포장여부, 배달여부, 지역화폐(지류/모바일/카드) 컬럼과 우리 서비스 11,207건 매장 DB의 상호 및 도로명 주소를 정밀 대조.
+  - 상호 및 도로명이 완벽 일치하는 서울 지역 1,203개 매장에 대해 주차 가능 여부(), 포장 가능 여부(), 지역화폐 결제 지원 정보()를 일괄 보강.
+- **사진 데이터 관련 분석**:
+  - 엑셀 파일의 '이미지1/2/3' 컬럼은 사용자가 올린 원본 파일명(예: )만 기록되어 있으며, 실제 서버 이미지 다운로드를 위한 저장 해시 파일명 및 경로(, )는 개별 매장 상세 API()에서만 제공됨을 규명.
+- **검증 및 배포**:
+  - 백엔드 182개 전체 테스트 통과 ().
+  - Flutter 단위/위젯 테스트 통과 (00:00 +0: loading /Users/min/Documents/졸작/howmuch-hours-20260912/test/inquiry_service_test.dart
+00:00 +0: /Users/min/Documents/졸작/howmuch-hours-20260912/test/inquiry_service_test.dart: maps an answered inquiry without falling back to sample data
+00:00 +1: /Users/min/Documents/졸작/howmuch-hours-20260912/test/inquiry_service_test.dart: recognizes an answered status before the answer text is loaded
+00:00 +2: /Users/min/Documents/졸작/howmuch-hours-20260912/test/inquiry_service_test.dart: sends uploaded image URLs in the inquiry request
+00:00 +3: /Users/min/Documents/졸작/howmuch-hours-20260912/test/inquiry_service_test.dart: only requests image cleanup for an explicit client rejection
+00:02 +4: /Users/min/Documents/졸작/howmuch-hours-20260912/test/community_service_test.dart: CommunityComment parses the backend comment contract
+00:02 +5: /Users/min/Documents/졸작/howmuch-hours-20260912/test/community_service_test.dart: CommunityComment parses nested replies and compatibility aliases
+00:02 +6: /Users/min/Documents/졸작/howmuch-hours-20260912/test/community_service_test.dart: CommunityReactionResult parses like state and count
+00:02 +7: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_history_verification_test.dart: formats location and receipt verification methods
+00:02 +8: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: (setUpAll)
+00:02 +8: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+00:02 +9: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+00:02 +10: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+00:02 +11: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+00:02 +12: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+00:02 +13: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: nickname form stays usable above keyboard and clears validation
+카카오 계정 정보 갱신 실패: LateInitializationError: Field 'hosts' has not been initialized.
+00:04 +14: /Users/min/Documents/졸작/howmuch-hours-20260912/test/profile_ui_polish_test.dart: (tearDownAll)
+00:06 +14: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_test.dart: hours and evidence survive the store catalog cache round trip
+00:06 +15: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_test.dart: unreviewed or malformed hours do not break an otherwise valid store
+00:06 +16: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_test.dart: old source checks are flagged after 90 Korean calendar days
+00:06 +17: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_report_dashboard_test.dart: chart items keep a dynamic map type for summary reduction
+00:06 +18: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_report_dashboard_test.dart: does not render a failed period as zero savings
+00:07 +19: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_report_dashboard_test.dart: marks a failed auxiliary count as unavailable
+00:07 +20: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: sends coordinates and maps a valid today pick response
+00:07 +21: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: does not treat a non-object JSON response as success
+00:07 +22: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: does not expose transport exception details
+00:07 +23: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: filters malformed pick items while preserving valid stores
+00:07 +24: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: rejects a recommendation payload containing only malformed picks
+00:07 +25: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: local fallback ranks stores by distance
+00:07 +26: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: local fallback never substitutes a default city for missing location
+00:07 +27: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: AI error response becomes a readable nearby-store fallback
+00:07 +28: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: missing AI configuration also activates the local fallback
+00:07 +29: /Users/min/Documents/졸작/howmuch-hours-20260912/test/todays_pick_service_test.dart: AI request context contains only nearby server store IDs
+00:08 +30: /Users/min/Documents/졸작/howmuch-hours-20260912/test/route_geometry_test.dart: accepts numeric and numeric-string route coordinates
+00:08 +31: /Users/min/Documents/졸작/howmuch-hours-20260912/test/route_geometry_test.dart: rejects missing, non-finite, out-of-range, and zero sentinel coordinates
+00:08 +32: /Users/min/Documents/졸작/howmuch-hours-20260912/test/route_geometry_test.dart: calculates route legs in meters
+00:09 +33: /Users/min/Documents/졸작/howmuch-hours-20260912/test/figma_mobile_canvas_test.dart: FigmaMobileCanvas web width policy uses the full width of narrow browser viewports
+00:09 +34: /Users/min/Documents/졸작/howmuch-hours-20260912/test/figma_mobile_canvas_test.dart: FigmaMobileCanvas web width policy caps desktop content at the product shell width
+00:09 +35: /Users/min/Documents/졸작/howmuch-hours-20260912/test/figma_mobile_canvas_test.dart: FigmaMobileCanvas web width policy does not produce a width for invalid constraints
+00:09 +36: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_filter_policy_test.dart: 가격 상한 필터는 가격 정보가 없는 매장을 제외한다
+00:09 +37: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_filter_policy_test.dart: 저렴한순 정렬은 유효 가격을 앞에 두고 가격 미상은 마지막에 둔다
+00:09 +38: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +39: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +40: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+검색 중 에러: Exception: offline
+00:10 +41: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +42: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +43: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +44: /Users/min/Documents/졸작/howmuch-hours-20260912/test/search_result_no_mock_test.dart: shows a retry state instead of fabricated stores
+00:10 +45: /Users/min/Documents/졸작/howmuch-hours-20260912/test/bottom_nav_test.dart: highlights the savings report navigation item in blue
+00:10 +46: /Users/min/Documents/졸작/howmuch-hours-20260912/test/bottom_nav_test.dart: highlights the savings report navigation item in blue
+00:10 +47: /Users/min/Documents/졸작/howmuch-hours-20260912/test/bottom_nav_test.dart: highlights the savings report navigation item in blue
+00:12 +48: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: fresh stores replace cached stores and viewport is sent to the API
+00:12 +49: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: connection failure preserves cached stores
+00:12 +50: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: slow request falls back and a late response cannot replace the result
+00:12 +51: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: HTTP or malformed response unavailable uses valid cached coordinates
+00:12 +52: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: HTTP or malformed response <html>error</html> uses valid cached coordinates
+00:12 +53: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: HTTP or malformed response {"error":"unavailable"} uses valid cached coordinates
+00:12 +54: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: HTTP or malformed response [null] uses valid cached coordinates
+00:12 +55: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: successful empty response does not resurrect cached stores
+00:12 +56: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: status result distinguishes fresh data from an offline fallback
+00:12 +57: /Users/min/Documents/졸작/howmuch-hours-20260912/test/home_map_store_loader_test.dart: home map cache is capped and remains separate from the full catalog
+00:13 +58: /Users/min/Documents/졸작/howmuch-hours-20260912/test/auth_email_test.dart: uses only meaningful account email values
+00:13 +59: /Users/min/Documents/졸작/howmuch-hours-20260912/test/auth_email_test.dart: normalizes safe social profile image URLs
+00:13 +60: /Users/min/Documents/졸작/howmuch-hours-20260912/test/auth_email_test.dart: requests only missing Kakao identity scopes that can be consented
+00:13 +61: /Users/min/Documents/졸작/howmuch-hours-20260912/test/auth_email_test.dart: supports legacy Kakao profile consent scope
+00:13 +62: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: VisitVerificationPolicy accepts usable store coordinates only
+00:13 +63: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: VisitVerificationPolicy uses a 100 meter location verification radius
+00:13 +64: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: VisitVerificationPolicy rejects inaccurate or invalid location readings
+00:13 +65: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: VisitVerificationPolicy rejects stale or future location readings
+00:13 +66: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: receiptSubmissionErrorMessage shows the backend validation message when available
+00:13 +67: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: receiptSubmissionErrorMessage uses a useful fallback for oversized proxy responses
+00:13 +68: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: visitSubmissionErrorMessage shows duplicate visit conflicts returned by the backend
+00:13 +69: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: receipt image request policy accepts only supported binary signatures
+00:13 +70: /Users/min/Documents/졸작/howmuch-hours-20260912/test/visit_verification_policy_test.dart: receipt image request policy allows more time than an ordinary API request
+00:13 +71: /Users/min/Documents/졸작/howmuch-hours-20260912/test/my_inquiries_screen_test.dart: renders long inquiry and answer without overflow
+00:13 +72: /Users/min/Documents/졸작/howmuch-hours-20260912/test/my_inquiries_screen_test.dart: shows a useful empty state
+00:14 +73: /Users/min/Documents/졸작/howmuch-hours-20260912/test/backend_warmup_service_test.dart: 상태 확인 요청이 성공하면 서비스 준비 완료로 판단한다
+00:14 +74: /Users/min/Documents/졸작/howmuch-hours-20260912/test/backend_warmup_service_test.dart: 상태 확인 요청이 실패하면 준비되지 않은 상태로 판단한다
+00:14 +75: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: shows report image upload in the default release configuration
+00:14 +76: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: shows report image upload in the default release configuration
+00:14 +77: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: shows report image upload in the default release configuration
+00:14 +78: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: shows report image upload in the default release configuration
+00:14 +79: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: shows report image upload in the default release configuration
+00:15 +80: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: searches and selects a report address
+00:15 +81: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: searches and selects a report address
+00:15 +82: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: searches and selects a report address
+00:15 +83: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_create_feature_flag_test.dart: searches and selects a report address
+00:16 +84: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: (setUpAll)
+00:16 +84: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+00:17 +85: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+00:17 +85: /Users/min/Documents/졸작/howmuch-hours-20260912/test/user_profile_api_service_test.dart: 404 is the only profile response treated as a new user
+프로필 없음 (신규 사용자)
+00:17 +86: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+00:17 +86: /Users/min/Documents/졸작/howmuch-hours-20260912/test/user_profile_api_service_test.dart: server failure is never treated as a missing profile
+프로필 조회 실패: 500
+00:17 +87: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+00:17 +87: /Users/min/Documents/졸작/howmuch-hours-20260912/test/user_profile_api_service_test.dart: network failure is never treated as a missing profile
+프로필 조회 통신 오류가 발생했습니다.
+00:17 +88: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+00:17 +88: /Users/min/Documents/졸작/howmuch-hours-20260912/test/user_profile_api_service_test.dart: profile save omits unsupported visibility settings
+프로필 저장 성공
+00:17 +89: /Users/min/Documents/졸작/howmuch-hours-20260912/test/savings_goal_ui_test.dart: save and amount entry are disabled while loading or after load failure
+절약 목표 조회 실패: Bad state: 절약 정보를 불러오지 못했습니다.
+00:17 +90: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: starts at the first onboarding screen
+00:18 +91: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: starts at the first onboarding screen
+00:18 +92: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +93: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +94: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +95: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +96: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +97: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: moves through onboarding, login, and permission setup
+00:18 +98: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: unavailable social login explains its status
+00:18 +99: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens mypage
+내 제보 목록 조회: 로그인 세션 없음
+00:19 +100: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens mypage
+00:19 +101: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens mypage
+00:19 +102: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens mypage
+00:19 +103: /Users/min/Documents/졸작/howmuch-hours-20260912/test/recommendation_screens_test.dart: user reports are not labelled government certified
+00:19 +104: /Users/min/Documents/졸작/howmuch-hours-20260912/test/recommendation_screens_test.dart: user reports are not labelled government certified
+00:19 +105: /Users/min/Documents/졸작/howmuch-hours-20260912/test/recommendation_screens_test.dart: user reports are not labelled government certified
+00:19 +105: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens mypage notification and account screens
+내 제보 목록 조회: 로그인 세션 없음
+00:20 +106: /Users/min/Documents/졸작/howmuch-hours-20260912/test/recommendation_screens_test.dart: user reports are not labelled government certified
+00:20 +107: /Users/min/Documents/졸작/howmuch-hours-20260912/test/recommendation_screens_test.dart: user reports are not labelled government certified
+00:20 +108: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +109: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+내 제보 목록 조회: 로그인 세션 없음
+00:20 +110: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+내 제보 목록 조회: 로그인 세션 없음
+내 제보 목록 조회: 로그인 세션 없음
+00:20 +111: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +112: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +113: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +114: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +115: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +116: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +117: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +118: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +119: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +120: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +121: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +122: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +123: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +124: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +125: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +126: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +127: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:20 +128: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+00:21 +129: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: mypage child screens return with their header back buttons
+내 제보 목록 조회: 로그인 세션 없음
+내 제보 목록 조회: 로그인 세션 없음
+내 제보 목록 조회: 로그인 세션 없음
+내 제보 목록 조회: 로그인 세션 없음
+00:21 +130: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +130: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: direct mypage child routes handle the system back action
+내 제보 목록 조회: 로그인 세션 없음
+내 제보 목록 조회: 로그인 세션 없음
+00:21 +131: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +132: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +133: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +134: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +135: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +136: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +136: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: direct mypage child routes handle the system back action
+내 제보 목록 조회: 로그인 세션 없음
+00:21 +137: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: notification save cannot run twice while pending
+00:21 +138: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: shows login account without fabricated social accounts
+00:21 +139: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: shows login account without fabricated social accounts
+00:21 +140: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: equal quiet-hour endpoints are rejected before saving
+00:21 +141: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens withdrawal screen and asks for final confirmation
+00:22 +142: /Users/min/Documents/졸작/howmuch-hours-20260912/test/settings_functionality_test.dart: long price-alert store list scrolls inside the existing card
+00:22 +143: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens price alert subscription and toggles settings
+00:22 +144: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens profile edit and explains unavailable visibility
+내 제보 목록 조회: 로그인 세션 없음
+카카오 계정 정보 갱신 실패: LateInitializationError: Field 'hosts' has not been initialized.
+프로필 저장 실패: 400
+00:22 +145: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens public data source and sends inquiry
+내 제보 목록 조회: 로그인 세션 없음
+00:22 +146: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: opens policy and terms screens from account management
+00:23 +147: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: terms detail sheet stays inside the mobile app frame
+00:23 +148: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: terms detail sheet stays inside the mobile app frame
+00:23 +149: /Users/min/Documents/졸작/howmuch-hours-20260912/test/widget_test.dart: terms detail sheet stays inside the mobile app frame
+00:23 +150: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +151: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +152: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +153: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +154: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +155: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +156: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +157: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +158: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +159: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +160: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +161: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +162: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +163: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: shows the exact unread count below a standard page header
+00:23 +164: /Users/min/Documents/졸작/howmuch-hours-20260912/test/login_required_dialog_test.dart: shows login guidance as a centered dialog
+00:23 +165: /Users/min/Documents/졸작/howmuch-hours-20260912/test/login_required_dialog_test.dart: shows login guidance as a centered dialog
+00:23 +166: /Users/min/Documents/졸작/howmuch-hours-20260912/test/login_required_dialog_test.dart: shows login guidance as a centered dialog
+00:23 +167: /Users/min/Documents/졸작/howmuch-hours-20260912/test/login_required_dialog_test.dart: shows login guidance as a centered dialog
+00:23 +168: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: long notice remains usable at Size(320.0, 568.0) with enlarged text
+00:24 +169: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: long notice remains usable at Size(568.0, 320.0) with enlarged text
+00:24 +170: /Users/min/Documents/졸작/howmuch-hours-20260912/test/web_notification_prompt_test.dart: notice action closes the popup and opens notifications once
+00:24 +171: /Users/min/Documents/졸작/howmuch-hours-20260912/test/latest_request_tracker_test.dart: 가장 최근 요청만 현재 요청으로 인정한다
+00:24 +172: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +173: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +174: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +175: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +176: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +177: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +178: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +179: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+00:24 +180: /Users/min/Documents/졸작/howmuch-hours-20260912/test/splash_backend_preparation_test.dart: 프로필 응답을 기다리는 동안 서비스 준비 화면을 빠르게 표시한다
+카카오 프로필 정보 갱신 실패: LateInitializationError: Field 'hosts' has not been initialized.
+자동 로그인 프로필 확인 실패: UserProfileLoadException(프로필 조회 실패)
+00:25 +181: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: bulk button disables while pending and shows partial failure count
+00:25 +182: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: bulk button disables while pending and shows partial failure count
+00:25 +183: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: bulk button disables while pending and shows partial failure count
+00:26 +184: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_screen_test.dart: source-backed hours wrap safely at width 375.0
+00:26 +185: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: renders long notification content at 360px without overflow
+00:26 +186: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_screen_test.dart: source-backed hours wrap safely at width 820.0
+00:26 +187: /Users/min/Documents/졸작/howmuch-hours-20260912/test/store_hours_screen_test.dart: source-backed hours wrap safely at width 820.0
+00:26 +188: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: back button returns home when inbox has no previous route
+00:26 +189: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: back button returns home when inbox has no previous route
+00:26 +190: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: system back returns home after direct notification entry
+00:26 +191: /Users/min/Documents/졸작/howmuch-hours-20260912/test/notifications_screen_test.dart: back button pops to the page that opened the inbox
+00:26 +192: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:26 +193: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:26 +194: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +195: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +196: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +197: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +198: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +199: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +200: /Users/min/Documents/졸작/howmuch-hours-20260912/test/report_delete_confirm_screen_test.dart: removes local report state only after the delete API succeeds
+00:27 +201: /Users/min/Documents/졸작/howmuch-hours-20260912/test/review_submission_test.dart: empty review stays empty and never reaches the API notifier
+00:27 +202: /Users/min/Documents/졸작/howmuch-hours-20260912/test/review_submission_test.dart: valid review is trimmed and rapid duplicate taps submit once
+00:27 +203: All tests passed!).
+  - Compiling lib/main.dart for the Web...                          
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 25652 bytes (98.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472 bytes (99.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib/main.dart for the Web...                              4.0s
+✓ Built build/web 성공.
+  - Vercel 프로덕션 배포 및 대표 도메인() 연결 완료.
