@@ -1643,3 +1643,19 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - 백엔드: `4a1047b` main 푸시 후 Render 자동 배포 완료. `node scripts/verify-store-hours.mjs` 실행 결과 11,207개 매장 중 39곳 실데이터 및 지도 범위 쿼리 정상 일치 검증 PASS.
   - 웹 프론트엔드: Vercel Production 배포(`dpl_7BGQMVv2RgPpYHKNvgQzb1GtAdRV`) 후 대표 도메인(`howmuch-zeta.vercel.app`) 연결 완료.
   - 배포 파일 검증: `node scripts/verify_web_deployment.mjs` 13개 검증 항목(정적 에셋 SHA-256 및 주요 진입 라우트) 모두 PASS.
+
+## 5-85. 9/12 웹 검색 기능 LocalStorage 5MB 쿼터 초과 에러 방어 및 핫픽스 배포
+
+- **문제점**:
+  - Safari/WebKit 웹 환경에서 검색 실행 시 "매장 정보를 불러오지 못했어요. 검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요." 에러 화면 발생.
+  - 원인: 11,207개 매장 카탈로그 JSON이 약 4.12MB(바이트 환산 시 5MB~8MB)에 달해, Safari WebKit의 LocalStorage 기본 할당량(5MB / 5,000,000자)을 초과하면서 SharedPreferences.setString 호출 시 QuotaExceededError가 발생하고 전체 검색 프로세스가 중단됨.
+- **반영 내용**:
+  - lib/features/store/store_catalog_loader.dart: prefs.setString 및 prefs.setInt 호출부를 try-catch 블록으로 감싸, 브라우저 스토리지 쿼터 초과 예외가 발생하더라도 캐시 저장만 안전하게 생략하고 이미 메모리에 다운로드받은 11,207개 매장 데이터로 검색 필터링을 정상 수행하도록 방어.
+- **검증**:
+  - dart analyze --fatal-infos 이슈 0건 통과.
+  - Flutter 전체 203개 단위/위젯 테스트 통과 (flutter test --no-pub).
+  - flutter build web --release --no-wasm-dry-run --no-pub 릴리스 빌드 성공.
+- **배포 내역**:
+  - 커밋 0781ca0 main 브랜치 푸시 완료.
+  - Vercel 프로덕션 배포 (dpl_EDtyNKk2XTKkSTECQUdg46yhkbhM) 및 https://howmuch-zeta.vercel.app 도메인 연결 완료.
+  - node scripts/verify_web_deployment.mjs 정적 파일 13개 검증 모두 PASS.
