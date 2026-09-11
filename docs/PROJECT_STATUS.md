@@ -1691,3 +1691,17 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Flutter 단위/위젯 테스트 통과 (flutter test --no-pub).
   - flutter build web --release --no-wasm-dry-run --no-pub 웹 릴리스 빌드 성공.
   - Vercel 프로덕션 배포 및 https://howmuch-zeta.vercel.app 연결 완료.
+
+## 5-88. 9/12 행안부 엑셀 데이터 기반 서울 전역 1,203개 매장 편의·혜택 정보 대량 확장 배포
+
+- **배경 및 데이터 확보**:
+  - 행정안전부 공식 포털의 엑셀 다운로드 엔드포인트를 통해 서울 전역 2,111건의 착한가격업소 원본 데이터 확보.
+  - 엑셀 파일 내 주차여부, 포장여부, 배달여부, 지역화폐(지류/모바일/카드) 컬럼과 우리 서비스 11,207건 매장 DB의 상호 및 도로명 주소를 정밀 대조.
+  - 상호 및 도로명이 완벽 일치하는 서울 지역 1,203개 매장에 대해 주차 가능 여부(parkingYn), 포장 가능 여부(packingYn), 지역화폐 결제 지원 정보(areaCurrency)를 일괄 보강.
+- **사진 데이터 분석**:
+  - 엑셀 파일의 '이미지1/2/3' 컬럼은 사용자가 올린 원본 파일명만 기록되어 있으며, 실제 서버 이미지 다운로드를 위한 저장 해시 파일명 및 폴더 경로는 개별 매장 상세 API(bsshInfo.json)에서만 제공됨을 규명.
+- **검증 및 배포**:
+  - 백엔드 182개 전체 테스트 통과 (./gradlew test).
+  - Flutter 단위/위젯 테스트 통과 (flutter test --no-pub).
+  - flutter build web --release --no-wasm-dry-run --no-pub 웹 릴리스 빌드 성공.
+  - Vercel 프로덕션 배포 및 대표 도메인(https://howmuch-zeta.vercel.app) 연결 완료.
