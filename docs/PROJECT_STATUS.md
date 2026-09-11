@@ -1614,3 +1614,32 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Flutter 정적 분석 이슈 0건 (`flutter analyze --no-pub`).
   - Flutter 전체 193개 테스트 통과.
   - `flutter build web --release --no-wasm-dry-run --no-pub` 성공.
+
+## 5-84. 9/12 영업시간 1차 보강 및 실데이터 운영 배포 (행안부 착한가격업소 39곳 반영)
+
+- **문제점 및 배경**:
+  - 기존 공공데이터 매장(11,207건) 원본에 영업시간 항목이 없어 상세 화면에서 일괄 '정보 없음'으로 고정되어 있었음.
+  - 단순 가짜 목업이나 임의 추측 없이 공식 행정안전부 착한가격업소 포털 상세 정보를 대조·추출하여 실서비스에 채워 넣는 정밀 작업 수행.
+- **반영 내용**:
+  1. **서울 25개 구 음식점 100곳 샘플 조사 및 검토**:
+     - 행정안전부 공식 사이트 상세 응답(`result.bsnHr`)과 기존 매장 데이터(상호, 도로명 주소, 전화번호) 정밀 대조.
+     - 100곳 중 동일 매장 및 유효 영업시간 일치 매장 38곳 1차 매칭.
+     - 원문 검토를 통해 불명확/과거 특정일 정보 3곳 보류, 주소 표기 차이 수동 검증 4곳 추가하여 최종 39곳 엄선 (`docs/data/store-hours-pilot-20260912.json`). 미확보 61곳은 정직하게 보류.
+  2. **백엔드 영업시간 분리 적재 및 API 병합 (`StoreHoursCatalog.java`)**:
+     - 기존 공공데이터 갱신 시 덮어쓰여지지 않도록 별도 `store-hours.json` 카탈로그 구축.
+     - `/api/stores/all` 및 `/api/stores/bounds` 조회 시 캐시 레벨에서 `openingHours` 객체를 안전하게 병합 제공.
+  3. **프론트엔드 모델 및 UI 고도화**:
+     - `StoreHours` 모델 및 카탈로그 캐시 v2 (`howmuch.store_cache.v2`) 적용.
+     - 매장 상세 화면에서 정제된 영업시간, 휴무일, 브레이크타임, 라스트오더 및 '자료 조회일' 명시.
+     - 정보가 없는 매장은 불필요한 불러오기 버튼 없이 정직한 안내('등록된 영업시간이 없어요. 방문 전 매장에 확인해 주세요.') 노출.
+  4. **복구 지점 및 백업 생성**:
+     - 변경 전 `fe4c441` 커밋 기준 Git 태그(`checkpoint/before-store-hours-20260912`) 및 번들 파일(`howmuch-before-hours-20260912.bundle`) 생성. 상세 내용은 `docs/STORE_HOURS_ROLLBACK.md`에 기록.
+- **검증**:
+  - 백엔드 단위/통합 182개 테스트 통과 (`./gradlew test`).
+  - Flutter 정적 분석 이슈 0건 (`dart analyze --fatal-infos`).
+  - Flutter 위젯 및 단위 203개 테스트 통과 (`flutter test --no-pub`).
+  - `flutter build web --release --no-wasm-dry-run --no-pub` 웹 릴리스 빌드 성공.
+- **배포 완료 내역**:
+  - 백엔드: `4a1047b` main 푸시 후 Render 자동 배포 완료. `node scripts/verify-store-hours.mjs` 실행 결과 11,207개 매장 중 39곳 실데이터 및 지도 범위 쿼리 정상 일치 검증 PASS.
+  - 웹 프론트엔드: Vercel Production 배포(`dpl_7BGQMVv2RgPpYHKNvgQzb1GtAdRV`) 후 대표 도메인(`howmuch-zeta.vercel.app`) 연결 완료.
+  - 배포 파일 검증: `node scripts/verify_web_deployment.mjs` 13개 검증 항목(정적 에셋 SHA-256 및 주요 진입 라우트) 모두 PASS.
