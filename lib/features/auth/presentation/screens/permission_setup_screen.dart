@@ -7,7 +7,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PermissionSetupScreen extends ConsumerWidget {
@@ -190,11 +190,12 @@ class PermissionSetupScreen extends ConsumerWidget {
   }
 
   Future<void> _startApp(BuildContext context, WidgetRef ref) async {
+    // Request before preferences/network awaits to preserve Safari's tap gesture.
+    final result = await _requestStartupPermissions();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('onboarding_completed', true);
     } catch (_) {}
-    final result = await _requestStartupPermissions();
 
     if (!context.mounted) {
       return;
@@ -211,17 +212,9 @@ class PermissionSetupScreen extends ConsumerWidget {
   Future<_StartupPermissionResult> _requestStartupPermissions() async {
     if (kIsWeb) {
       try {
-        var location = await Geolocator.checkPermission();
-        if (location == LocationPermission.denied) {
-          location = await Geolocator.requestPermission().timeout(
-            const Duration(seconds: 2),
-            onTimeout: () => LocationPermission.denied,
-          );
-        }
-        return _StartupPermissionResult(
-          location:
-              location == LocationPermission.always ||
-              location == LocationPermission.whileInUse,
+        await requestBrowserLocation();
+        return const _StartupPermissionResult(
+          location: true,
           notification: false,
         );
       } catch (_) {
@@ -401,11 +394,28 @@ class _PermissionCard extends StatelessWidget {
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
+class _PrimaryButton extends StatefulWidget {
   const _PrimaryButton({required this.label, required this.onPressed});
 
   final String label;
   final Future<void> Function() onPressed;
+
+  @override
+  State<_PrimaryButton> createState() => _PrimaryButtonState();
+}
+
+class _PrimaryButtonState extends State<_PrimaryButton> {
+  bool _busy = false;
+
+  Future<void> _activate() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await widget.onPressed();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -416,10 +426,10 @@ class _PrimaryButton extends StatelessWidget {
       shadowColor: const Color(0x4D2563EB),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => onPressed(),
+        onTap: _busy ? null : _activate,
         child: Center(
           child: Text(
-            label,
+            _busy ? '권한 응답을 기다리고 있어요…' : widget.label,
             style: const TextStyle(
               color: Colors.white,
               fontFamily: PermissionSetupScreen.fontFamily,

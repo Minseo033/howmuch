@@ -20,6 +20,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
+import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
@@ -192,7 +193,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     unawaited(_restoreCachedStores());
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _moveToCurrentLocation(),
+      (_) => _prepareInitialLocation(),
     );
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
@@ -233,7 +234,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _positionStream?.resume();
       _compassStream?.resume();
       _relayoutMobileMap();
-      _moveToCurrentLocation();
+      _prepareInitialLocation();
     } else if (state == AppLifecycleState.paused) {
       _positionStream?.pause();
       _compassStream?.pause();
@@ -598,29 +599,65 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
+  Future<void> _prepareInitialLocation() async {
+    if (!kIsWeb) {
+      await _moveToCurrentLocation();
+      return;
+    }
+    // Passive entry/resume may reuse a grant, but a new browser prompt must
+    // start from the user's button tap, not an asynchronous lifecycle callback.
+    var permission = LocationPermission.unableToDetermine;
+    try {
+      permission = await Geolocator.checkPermission();
+    } catch (_) {
+      // Older Safari versions do not expose the geolocation Permissions API.
+    }
+    if (!mounted || _isCenteringLocation) return;
+    if (permission == LocationPermission.always ||
+        permission == LocationPermission.whileInUse) {
+      await _moveToCurrentLocation();
+    } else if (_locationNotice == null) {
+      _showLocationNotice(
+        _webLocationPermissionNotice(
+          title: '내 주변 매장을 찾아볼까요?',
+          message: "아래 버튼을 누른 뒤 브라우저의\n위치 접근 요청에서 '허용'을 선택해 주세요.",
+          primaryLabel: '위치 허용 요청',
+          icon: Icons.my_location_rounded,
+        ),
+      );
+    }
+  }
+
   Future<void> _moveToCurrentLocation() async {
     if (_isCenteringLocation) return;
     if (mounted) {
-      setState(() => _isCenteringLocation = true);
+      setState(() {
+        _isCenteringLocation = true;
+        _locationNotice = null;
+      });
     }
 
     try {
+      if (kIsWeb) {
+        // Keep this before any await so Safari receives the original tap.
+        final position = await requestBrowserLocation();
+        if (!mounted) return;
+        _storeUserPosition(position);
+        _centerMapOnPosition(position);
+        _startLocationTracking();
+        return;
+      }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         if (mounted) {
           _showLocationNotice(
-            kIsWeb
-                ? _webLocationPermissionNotice(
-                    title: '위치 서비스를 확인해 주세요',
-                    message: '브라우저와 기기의 위치 서비스를 켠 뒤\n다시 확인해 주세요.',
-                  )
-                : _LocationNoticeData(
-                    title: '위치 서비스를 켜주세요',
-                    message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
-                    primaryLabel: '설정 열기',
-                    onPrimaryPressed: () =>
-                        _openLocationSettings(serviceDisabled: true),
-                  ),
+            _LocationNoticeData(
+              title: '위치 서비스를 켜주세요',
+              message: '주변 가성비 식당을 찾으려면\n기기의 위치 서비스가 필요해요.',
+              primaryLabel: '설정 열기',
+              onPrimaryPressed: () =>
+                  _openLocationSettings(serviceDisabled: true),
+            ),
           );
         }
         return;
@@ -632,12 +669,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         if (permission == LocationPermission.denied) {
           if (mounted) {
             _showLocationNotice(
-              kIsWeb
-                  ? _webLocationPermissionNotice()
-                  : const _LocationNoticeData(
-                      title: '위치 권한이 필요해요',
-                      message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
-                    ),
+              const _LocationNoticeData(
+                title: '위치 권한이 필요해요',
+                message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
+              ),
             );
           }
           return;
@@ -647,15 +682,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           _showLocationNotice(
-            kIsWeb
-                ? _webLocationPermissionNotice()
-                : _LocationNoticeData(
-                    title: '위치 권한이 꺼져 있어요',
-                    message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
-                    primaryLabel: '설정 열기',
-                    onPrimaryPressed: () =>
-                        _openLocationSettings(serviceDisabled: false),
-                  ),
+            _LocationNoticeData(
+              title: '위치 권한이 꺼져 있어요',
+              message: '설정에서 위치 권한을 허용하면\n내 주변 매장을 바로 찾을 수 있어요.',
+              primaryLabel: '설정 열기',
+              onPrimaryPressed: () =>
+                  _openLocationSettings(serviceDisabled: false),
+            ),
           );
         }
         return;
@@ -695,13 +728,37 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       _storeUserPosition(position);
       _centerMapOnPosition(position);
+    } on PermissionDeniedException {
+      if (mounted) {
+        _showLocationNotice(
+          kIsWeb
+              ? _webLocationPermissionNotice()
+              : const _LocationNoticeData(
+                  title: '위치 권한이 필요해요',
+                  message: '내 위치 주변의 매장을 보여드리려면\n위치 권한을 허용해주세요.',
+                ),
+        );
+      }
+    } on TimeoutException {
+      if (mounted) {
+        _showLocationNotice(
+          _LocationNoticeData(
+            title: '위치 확인에 시간이 걸리고 있어요',
+            message: '네트워크와 기기의 위치 서비스를 확인한 뒤\n다시 시도해 주세요.',
+            primaryLabel: '다시 시도',
+            onPrimaryPressed: _retryLocationPermission,
+          ),
+        );
+      }
     } catch (_) {
       debugPrint('위치 가져오기 실패');
       if (mounted) {
         _showLocationNotice(
-          const _LocationNoticeData(
+          _LocationNoticeData(
             title: '현재 위치를 찾지 못했어요',
             message: '잠시 후 다시 시도하거나\n위치 권한과 네트워크를 확인해주세요.',
+            primaryLabel: '다시 시도',
+            onPrimaryPressed: _retryLocationPermission,
           ),
         );
       }
@@ -723,13 +780,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   _LocationNoticeData _webLocationPermissionNotice({
-    String title = '브라우저 위치 권한이 꺼져 있어요',
-    String message = "주소창 왼쪽의 사이트 설정에서\n위치 권한을 '허용'으로 바꿔주세요.",
+    String title = '위치 접근이 차단되어 있어요',
+    String? message,
+    String primaryLabel = '위치 다시 요청',
+    IconData icon = Icons.location_off_rounded,
   }) {
     return _LocationNoticeData(
       title: title,
-      message: message,
-      primaryLabel: '다시 확인',
+      message:
+          message ??
+          (isAppleMobileBrowser
+              ? "Safari 주소창 왼쪽 메뉴 → 웹사이트 설정에서\n위치를 '묻기' 또는 '허용'으로 바꾼 뒤\n아래 버튼을 눌러주세요."
+              : "주소창의 사이트 설정에서 위치 권한을\n'묻기' 또는 '허용'으로 바꾼 뒤\n아래 버튼을 눌러주세요."),
+      primaryLabel: primaryLabel,
+      icon: icon,
       onPrimaryPressed: _retryLocationPermission,
     );
   }
@@ -756,11 +820,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<Position?> _getFreshPosition() async {
     try {
+      if (kIsWeb) return await requestBrowserLocation();
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: kIsWeb
-            ? const Duration(seconds: 10)
-            : const Duration(seconds: 5),
+        timeLimit: const Duration(seconds: 5),
       );
     } catch (_) {
       debugPrint('현재 위치 조회 실패');
@@ -901,9 +964,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             accuracy: LocationAccuracy.best,
             distanceFilter: 2, // 2미터 이상 이동 시 갱신
           ),
-        ).listen((Position position) {
-          _storeUserPosition(position);
-        });
+        ).listen(
+          (Position position) => _storeUserPosition(position),
+          onError: (Object error) {
+            debugPrint('위치 추적 종료: $error');
+            _positionStream = null;
+          },
+          cancelOnError: true,
+        );
 
     if (!kIsWeb) {
       _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
@@ -1629,12 +1697,14 @@ class _LocationNoticeData {
     required this.message,
     this.primaryLabel = '확인',
     this.onPrimaryPressed,
+    this.icon = Icons.location_off_rounded,
   });
 
   final String title;
   final String message;
   final String primaryLabel;
   final Future<void> Function()? onPrimaryPressed;
+  final IconData icon;
 }
 
 class _LocationPermissionModal extends StatelessWidget {
@@ -1678,11 +1748,7 @@ class _LocationPermissionModal extends StatelessWidget {
                   color: HomeMapScreen.blue.withValues(alpha: .10),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.location_off_rounded,
-                  color: HomeMapScreen.blue,
-                  size: 28,
-                ),
+                child: Icon(notice.icon, color: HomeMapScreen.blue, size: 28),
               ),
               const SizedBox(height: 16),
               Text(

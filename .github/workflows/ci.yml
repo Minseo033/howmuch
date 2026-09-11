@@ -40,6 +40,8 @@ jobs:
         run: flutter analyze
       - name: Test
         run: flutter test --reporter compact
+      - name: Test browser location permission flow
+        run: flutter test --platform chrome --no-pub test/browser_location_test.dart
       - name: Build web release
         run: flutter build web --release --no-wasm-dry-run
       - name: Check administrator page scripts
