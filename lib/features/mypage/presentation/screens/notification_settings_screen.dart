@@ -622,24 +622,36 @@ class _AllNotificationCard extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: _RoundedPanel(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              const Expanded(
+        key: const ValueKey('all-notification-card'),
+        child: Stack(
+          children: [
+            const Positioned(
+              left: 16,
+              right: 80,
+              top: 0,
+              bottom: 0,
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: _TitleSubtitle(
                   title: '전체 알림',
                   subtitle: '모든 알림을 켜고 끌 수 있어요',
                 ),
               ),
-              const SizedBox(width: 12),
-              _HowmuchToggle(
-                value: value,
-                activeColor: NotificationSettingsScreen.blue,
-                onTap: onTap,
+            ),
+            Positioned(
+              right: 16,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: _HowmuchToggle(
+                  trackKey: const ValueKey('all-notification-toggle'),
+                  value: value,
+                  activeColor: NotificationSettingsScreen.blue,
+                  onTap: onTap,
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -893,7 +905,14 @@ class _TimeBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: _muted11),
+          Padding(
+            padding: const EdgeInsets.only(left: 11.988),
+            child: Text(
+              label,
+              key: ValueKey('quiet-time-label-$label'),
+              style: _muted11,
+            ),
+          ),
           const SizedBox(height: 5.994),
           Material(
             color: AppColors.white,
@@ -913,7 +932,11 @@ class _TimeBox extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 11.988),
                   child: Row(
                     children: [
-                      Text(_displayTime(value), style: _semi13),
+                      Text(
+                        _displayTime(value),
+                        key: ValueKey('quiet-time-value-$label'),
+                        style: _semi13,
+                      ),
                       const Spacer(),
                       const Icon(
                         Icons.keyboard_arrow_down_rounded,
@@ -953,15 +976,14 @@ class _StickySaveButton extends StatelessWidget {
 
   static const buttonHeight = 51.9886360168457;
   static const topGap = 12.89794921875;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const bottomGap = 16.0;
 
   final double safeBottom;
   final VoidCallback onPressed;
   final bool isSaving;
 
   static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
+    return safeBottom;
   }
 
   static double heightFor(double safeBottom) {
@@ -990,6 +1012,7 @@ class _StickySaveButton extends StatelessWidget {
             bottom: effectiveBottom + bottomGap,
             height: buttonHeight,
             child: SizedBox(
+              key: const ValueKey('notification-save-button'),
               height: buttonHeight,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -1029,11 +1052,13 @@ class _StickySaveButton extends StatelessWidget {
 
 class _HowmuchToggle extends StatelessWidget {
   const _HowmuchToggle({
+    this.trackKey,
     required this.value,
     required this.activeColor,
     required this.onTap,
   });
 
+  final Key? trackKey;
   final bool value;
   final Color activeColor;
   final VoidCallback onTap;
@@ -1049,6 +1074,7 @@ class _HowmuchToggle extends StatelessWidget {
         child: Align(
           alignment: Alignment.centerRight,
           child: AnimatedContainer(
+            key: trackKey,
             duration: const Duration(milliseconds: 160),
             width: 40,
             height: 23.99147605895996,
@@ -1123,19 +1149,19 @@ class _TitleSubtitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: compact ? _bold13 : _bold14),
-          SizedBox(height: compact ? 3.0 : 2.0),
-          Text(
-            subtitle,
-            style: _muted11,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: compact ? _bold13 : _bold14),
+        SizedBox(height: compact ? 3.0 : 2.0),
+        Text(
+          subtitle,
+          style: _muted11,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }

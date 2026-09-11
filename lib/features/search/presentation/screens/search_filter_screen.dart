@@ -99,6 +99,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
         MediaQuery.of(context).padding.bottom;
 
     return Container(
+      key: const ValueKey('search-filter-sheet'),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

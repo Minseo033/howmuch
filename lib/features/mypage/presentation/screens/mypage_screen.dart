@@ -1314,7 +1314,7 @@ class _DividerLine extends StatelessWidget {
       width: double.infinity,
       height: 1,
       child: Padding(
-        padding: const EdgeInsets.only(left: 45, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: ColoredBox(key: lineKey, color: MypageScreen.border),
       ),
     );

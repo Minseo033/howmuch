@@ -276,45 +276,71 @@ class _NicknameDialogState extends State<_NicknameDialog> {
       description: '얼마고?에서 사용할 이름을 정해주세요.\n프로필 화면에서 저장하면 반영돼요.',
       confirmLabel: '변경',
       onConfirm: _submit,
-      child: TextField(
-        key: const ValueKey('profile-nickname-field'),
-        controller: _controller,
-        autofocus: true,
-        cursorColor: AppColors.primary,
-        maxLength: 50,
-        textInputAction: TextInputAction.done,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.ink,
-        ),
-        decoration: InputDecoration(
-          labelText: '닉네임',
-          floatingLabelStyle: const TextStyle(color: AppColors.primary),
-          hintText: '어떤 이름으로 불러드릴까요?',
-          helperText: '최대 50자까지 입력할 수 있어요.',
-          helperMaxLines: 2,
-          errorText: _errorText,
-          filled: true,
-          fillColor: AppColors.bgLight,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 18,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            key: const ValueKey('profile-nickname-field'),
+            controller: _controller,
+            autofocus: true,
+            cursorColor: AppColors.primary,
+            maxLength: 50,
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.ink,
+            ),
+            decoration: InputDecoration(
+              labelText: '닉네임',
+              floatingLabelStyle: const TextStyle(color: AppColors.primary),
+              hintText: '어떤 이름으로 불러드릴까요?',
+              counterText: '',
+              errorText: _errorText,
+              filled: true,
+              fillColor: AppColors.bgLight,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 18,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppColors.primary,
+                  width: 2,
+                ),
+              ),
+            ),
+            onChanged: (_) => setState(() => _errorText = null),
+            onSubmitted: (_) => _submit(),
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.border),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Text(
+                '최대 50자까지 입력할 수 있어요.',
+                key: ValueKey('profile-nickname-helper'),
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+              const Spacer(),
+              Text(
+                '${_controller.text.characters.length}/50',
+                key: const ValueKey('profile-nickname-counter'),
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: AppColors.primary, width: 2),
-          ),
-        ),
-        onChanged: (_) {
-          if (_errorText != null) setState(() => _errorText = null);
-        },
-        onSubmitted: (_) => _submit(),
+        ],
       ),
     );
   }

@@ -1530,6 +1530,23 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - `test/mypage_email_refresh_test.dart` 및 Flutter 전체 192개 테스트 통과.
   - `flutter build web --release --no-wasm-dry-run --no-pub` 성공.
 
+## 5-82. 9/11 태관 마이탭·검색·피드 UI 세부 폴리싱 최신 커밋 통합
+
+- **통합 대상**: `origin/taegwan-front` 최신 커밋 `053c763` ("마이탭 css update").
+- **반영 내용**:
+  1. **커뮤니티 피드 배지 정돈**: '승인 완료' 상태 배지에서 불필요한 점(dot) 표시 제거 (`showDot: status != '승인 완료'`).
+  2. **찜한 매장 화면 정리**: 상단 우측의 미동작 더보기 아이콘(`Icons.more_horiz_rounded`) 제거.
+  3. **마이페이지 구분선 여백 정돈**: 설정 행 구분선(`_DividerLine`) 패딩을 좌우 대칭 16px로 통일.
+  4. **알림 설정 화면 레이아웃 고도화**: 전체 알림 카드 Stack 수직 중앙 정렬, 방해 금지 시간 라벨 패딩 보정, 설정 저장 버튼 하단 여백 16px 조정 및 ValueKey 보강.
+  5. **닉네임 변경 다이얼로그 개선**: 글자 수 카운터(`X/50`) 및 최대 글자 수 안내 문구 좌우 정렬, 포커스 보더 정돈.
+  6. **공공데이터 출처 화면 여백 보정**: 상단 인트로 카드 높이 최적화 및 동기화 안내 문구 줄바꿈 정리.
+  7. **검색 필터 바텀시트 데스크톱 반응형**: PC/웹 와이드 화면에서 검색 필터 시트가 과도하게 넓어지지 않도록 최대 너비 430px 제약 적용.
+  8. **회귀 테스트 갱신**: 위 세부 UI 폴리싱 검증을 위한 위젯 회귀 테스트 갱신 (`test/widget_test.dart`).
+- **검증**:
+  - Flutter 정적 분석 이슈 0건 (`flutter analyze --no-pub`).
+  - Flutter 전체 194개 테스트 통과.
+  - `flutter build web --release --no-wasm-dry-run --no-pub` 완료.
+
 ## 5-80. 9/11 AI 챗봇 페르소나 및 응답 품질 전면 개편
 
 - **문제점**:

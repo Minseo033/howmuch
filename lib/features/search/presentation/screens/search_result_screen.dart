@@ -282,6 +282,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      constraints: const BoxConstraints(
+        maxWidth: FigmaMobileCanvas.maxWebWidth,
+      ),
       builder: (_) => SearchFilterSheet(current: _filter),
     );
     if (result != null && mounted) {

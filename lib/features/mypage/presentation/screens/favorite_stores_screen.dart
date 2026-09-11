@@ -368,15 +368,6 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                       ),
                     ),
                   ),
-                  const Positioned(
-                    right: 20,
-                    top: 13.98,
-                    child: Icon(
-                      Icons.more_horiz_rounded,
-                      size: 24,
-                      color: AppColors.black,
-                    ),
-                  ),
                 ],
               ),
             ),

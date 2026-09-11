@@ -720,6 +720,7 @@ class _FeedCard extends StatelessWidget {
                           dotColor: dotColor ?? statusColor,
                           backgroundColor: statusBackground,
                           compact: compactStatus,
+                          showDot: status != '승인 완료',
                         ),
                       ),
                     ],
@@ -813,6 +814,7 @@ class _StatusBadge extends StatelessWidget {
     required this.dotColor,
     required this.backgroundColor,
     required this.compact,
+    required this.showDot,
   });
 
   final String label;
@@ -820,6 +822,7 @@ class _StatusBadge extends StatelessWidget {
   final Color dotColor;
   final Color backgroundColor;
   final bool compact;
+  final bool showDot;
 
   @override
   Widget build(BuildContext context) {
@@ -833,12 +836,17 @@ class _StatusBadge extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 5,
-            height: 5,
-            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 5),
+          if (showDot) ...[
+            Container(
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 5),
+          ],
           Text(
             label,
             style: TextStyle(
