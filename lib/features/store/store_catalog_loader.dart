@@ -52,14 +52,19 @@ Future<List<Store>> loadStoreCatalog({
     throw const FormatException('Empty store catalog');
   }
 
-  await prefs.setString(
-    storeCatalogCacheKey,
-    jsonEncode(stores.map((store) => store.toJson()).toList()),
-  );
-  await prefs.setInt(
-    storeCatalogCachedAtKey,
-    currentTime.millisecondsSinceEpoch,
-  );
+  try {
+    await prefs.setString(
+      storeCatalogCacheKey,
+      jsonEncode(stores.map((store) => store.toJson()).toList()),
+    );
+    await prefs.setInt(
+      storeCatalogCachedAtKey,
+      currentTime.millisecondsSinceEpoch,
+    );
+  } catch (_) {
+    // Safari 및 모바일 브라우저의 LocalStorage 5MB QuotaExceededError 발생 시
+    // 캐시 저장만 건너뛰고 다운로드받은 메모리 상의 매장 목록으로 검색을 정상 수행합니다.
+  }
   return stores;
 }
 
