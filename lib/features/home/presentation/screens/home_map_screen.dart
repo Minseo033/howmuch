@@ -1225,7 +1225,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
 
-          if (!_isAllStoresLoaded)
+          if (!_isAllStoresLoaded && _mapErrorMessage == null)
             Positioned.fill(
               child: Container(
                 color: Colors.white.withAlpha(230), // 0.9 opacity approx

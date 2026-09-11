@@ -1433,3 +1433,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 검증된 `build/web` 산출물을 Vercel 프로덕션 배포 `dpl_2MTGbGDpnysCXQymyXNYFxAtfvf8` (`https://howmuch-hx0iwvrek-minseo033s-projects.vercel.app`)로 올리고 운영 주소 `https://howmuch-zeta.vercel.app`를 명시적으로 연결했다. 공개 파일 10개와 `/`, `/home`, `/login` 경로의 SHA-256 정합성 검사는 13/13 PASS했다.
 - 로그인 상태의 운영 브라우저에서 공지·위치 안내를 닫은 직후 지도를 조작하지 않아도 정부 인증·사용자 제보 매장 마커가 즉시 표시되는 것을 확인했다. 한글 깨짐과 브라우저 경고·오류는 없었다.
 - 운영 웹은 HTTP 200과 HSTS·CSP·`nosniff`·`DENY`·Permissions Policy 등 기존 보안 헤더를 유지했고, Render 백엔드 `/healthz`도 HTTP 200을 반환했다. 직전 정상 배포로 운영 별칭을 되돌리는 기존 롤백 방식을 유지했다.
+
+## 5-74. 9/11 UIUX QA 수정사항 푸시 및 배포
+
+- UIUX QA 점검에서 발견된 7개 화면의 레이아웃·타이포그래피·터치타겟 오류를 수정하고 커밋 88b72b0으로 기록했다.
+- 수정 범위: permission_setup(onboarding 저장·위치 권한 타임아웃), report_create(팁박스 고정 높이 제거·패딩), home_map(터치타겟 44px·지도 출처 캡슐 테두리), public_data_source(문의 버튼 safe-area 여백), ai_recommend_chat(의미 단위 줄바꿈·칩 2열 반응형), todays_pick(위치 오류 시 설정 열기 추가), savings_report_dashboard(차트 제목 flex·카드 패딩 조정).
+- flutter analyze --no-pub 0 issues, flutter build web --release 성공.
+- 커밋 88b72b0을 GitHub main(dbb9a98→88b72b0)에 푸시했다.
+- Vercel howmuch 프로젝트 프로덕션 배포 dpl_4GwujmSnVphtStqBKUy8hpjmo7J4 완료 후 howmuch-zeta.vercel.app 운영 별칭 연결.
+- 운영 사이트 HTTP 200 확인 완료.
