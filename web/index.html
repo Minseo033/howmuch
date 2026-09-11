@@ -160,12 +160,18 @@
               setTimeout(renderMapWhenReady, 50);
               return;
             }
-            notifyKakaoMapError("지도 화면 크기가 올바르지 않아요.");
-            return;
-          }
+           notifyKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+           return;
+         }
 
-          if (window.kakaoMapObjects && window.kakaoMapObjects[containerId]) {
-            var existingMap = window.kakaoMapObjects[containerId];
+          var existingMap = window.kakaoMapObjects && window.kakaoMapObjects[containerId];
+          var isSameContainer = false;
+          try {
+            isSameContainer = existingMap && typeof existingMap.getNode === 'function' &&
+                              existingMap.getNode() === container && container.childElementCount > 0;
+          } catch (_) {}
+
+          if (isSameContainer) {
             existingMap.relayout();
             existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
             if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
@@ -182,6 +188,8 @@
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
         window.kakaoMapLoadAttempts[containerId] = 0;
+        window.customOverlays[containerId] = [];
+        if (window.userLocationMarkers) delete window.userLocationMarkers[containerId];
 
         if (typeof ResizeObserver !== 'undefined') {
           var ro = new ResizeObserver(function() {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
@@ -245,12 +247,41 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         next = next.copyWith(favoriteStoreCount: favoriteCount);
       }
 
-      if (reportCount != null) {
-        next = next.copyWith(reportCount: reportCount);
-      }
+    if (reportCount != null) {
+      next = next.copyWith(reportCount: reportCount);
+    }
 
-      return next;
-    });
+    return next;
+  });
+
+    final currentEmail = usableAccountEmail(profile?['email']) ??
+        usableAccountEmail(auth.email);
+    if (currentEmail == null && auth.isLoggedIn) {
+      unawaited(
+        ref
+            .read(kakaoLoginServiceProvider)
+            .refreshKakaoIdentity(requestConsent: false),
+      );
+    }
+}
+
+  Future<void> _refreshKakaoEmail() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final identity = await ref
+        .read(kakaoLoginServiceProvider)
+        .refreshKakaoIdentity(requestConsent: true);
+    if (!mounted) return;
+    if (usableAccountEmail(identity.email) != null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('카카오 계정 이메일을 불러왔어요.')),
+      );
+    } else {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('카카오에서 이메일을 제공하지 않았거나 동의하지 않았어요.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -300,6 +331,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                         profile: profile,
                         email: displayEmail,
                         onEdit: () => context.go(AppRoutes.profileEdit),
+                        onRefreshEmail: auth.isLoggedIn ? _refreshKakaoEmail : null,
                       ),
                     ),
                     // QuickMenu row 1
@@ -522,11 +554,13 @@ class _ProfileCard extends StatelessWidget {
     required this.profile,
     required this.email,
     required this.onEdit,
+    this.onRefreshEmail,
   });
 
   final UserProfile profile;
   final String email;
   final VoidCallback onEdit;
+  final VoidCallback? onRefreshEmail;
 
   @override
   Widget build(BuildContext context) {
@@ -573,13 +607,54 @@ class _ProfileCard extends StatelessWidget {
                           style: _white17.copyWith(fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _white11.copyWith(
-                            color: AppColors.white.withValues(alpha: .85),
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _white11.copyWith(
+                                  color: AppColors.white.withValues(alpha: .85),
+                                ),
+                              ),
+                            ),
+                            if (email == '이메일 정보 없음' && onRefreshEmail != null) ...[
+                              const SizedBox(width: 6),
+                              GestureDetector(
+                                key: const ValueKey('mypage-refresh-email-button'),
+                                onTap: onRefreshEmail,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.white.withValues(alpha: .22),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.sync_rounded,
+                                        size: 11,
+                                        color: AppColors.white,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '불러오기',
+                                        style: _white11.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),

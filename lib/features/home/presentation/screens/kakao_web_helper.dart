@@ -88,12 +88,18 @@ void _injectJsBypass() {
               setTimeout(renderMapWhenReady, 50);
               return;
             }
-            if (window.onKakaoMapError) window.onKakaoMapError("지도 화면 크기가 올바르지 않아요.");
-            return;
-          }
+           if (window.onKakaoMapError) window.onKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+           return;
+         }
 
-          if (window.kakaoMapObjects && window.kakaoMapObjects[containerId]) {
-            var existingMap = window.kakaoMapObjects[containerId];
+          var existingMap = window.kakaoMapObjects && window.kakaoMapObjects[containerId];
+          var isSameContainer = false;
+          try {
+            isSameContainer = existingMap && typeof existingMap.getNode === 'function' &&
+                              existingMap.getNode() === container && container.childElementCount > 0;
+          } catch (_) {}
+
+          if (isSameContainer) {
             existingMap.relayout();
             existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
             if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
@@ -107,6 +113,8 @@ void _injectJsBypass() {
         var map = new kakao.maps.Map(container, options);
         window.kakaoMapObjects[containerId] = map;
         window.kakaoLoadWaitCount = 0;
+        window.customOverlays[containerId] = [];
+        if (window.userLocationMarkers) delete window.userLocationMarkers[containerId];
         window.kakaoMapObjects[containerId + '_clusterer'] = new kakao.maps.MarkerClusterer({
           map: map, averageCenter: true, minLevel: 6
         });

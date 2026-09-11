@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -150,6 +151,22 @@ class KakaoLoginService {
                 : state.profileImageUrl,
           ),
         );
+    final validEmail = usableAccountEmail(identity.email);
+    if (validEmail != null && ApiClient.isAuthenticated) {
+      final profile = _ref.read(userProfileProvider);
+      if (profile.nickname.isNotEmpty && profile.nickname != '게스트') {
+        unawaited(
+          UserProfileApiService().saveProfile(
+            nickname: profile.nickname,
+            email: validEmail,
+            region: profile.region,
+            favoriteCategories: profile.favoriteCategories,
+            nicknamePublic: profile.nicknamePublic,
+            activityPublic: profile.activityPublic,
+          ),
+        );
+      }
+    }
     return identity;
   }
 

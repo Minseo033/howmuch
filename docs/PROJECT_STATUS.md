@@ -1512,3 +1512,21 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - `flutter analyze --no-pub` 이슈 0건 통과.
   - `test/home_location_policy_test.dart`, `test/home_map_bounds_test.dart`, `test/widget_test.dart` 전체 통과.
   - `flutter build web --release --no-wasm-dry-run --no-pub` 릴리스 웹 빌드 완료.
+
+## 5-79. 9/11 탭 전환 복귀 시 지도 블랭크 화면 및 마이페이지 이메일 미표시 복구
+
+- **문제점**:
+  1. **탭 전환 복귀 시 지도 블랭크 화면**: 탐색/마이 등 다른 탭으로 이동했다가 홈 탭으로 복귀할 때 지도 타일·마커가 나타나지 않고 연한 하늘색 배경만 빈 화면으로 노출됨. (Flutter Web이 탭 전환 시 신규 DOM `div` 컨테이너를 생성하는데, 5-78에서 추가된 `existingMap` 분기가 이전 언마운트된 컨테이너에 바인딩된 구 `Map` 객체에 `relayout()`을 실행하여 신규 컨테이너가 빈 상태로 방치됨)
+  2. **마이페이지 이메일 미표시 ('이메일 정보 없음')**: 사용자의 계정 이메일이 Firestore `users/{uid}`에 비어있을 때, 마이페이지에서 카카오 계정 이메일을 적극적으로 갱신/동기화하지 못하고, 계정 관리에서 불러오더라도 백엔드에 저장되지 않아 재접속 시 이메일이 계속 누락됨.
+- **반영 내용**:
+  1. **지도 탭 복귀 렌더링 정상화**:
+     - `web/index.html` 및 `lib/features/home/presentation/screens/kakao_web_helper.dart`의 `renderMapWhenReady`에서 `existingMap.getNode() === container && container.childElementCount > 0` 조건을 통해 현재 DOM 컨테이너와 일치할 때만 재사용하도록 보정.
+     - 신규 컨테이너 생성 시에는 새 `kakao.maps.Map`을 신규 `container`에 즉시 마운트하고 이전 오버레이·위치 마커 캐시를 초기화하여 타일과 매장 마커가 깨끗하게 렌더링되도록 수정.
+  2. **마이페이지 이메일 복원 및 서버 동기화**:
+     - `lib/features/auth/presentation/state/kakao_login_service.dart`의 `refreshKakaoIdentity`에서 유효한 이메일을 획득했을 때 `UserProfileApiService().saveProfile`을 비동기로 호출하여 Firestore `users/{uid}`에 영구 저장되도록 연동.
+     - `lib/features/mypage/presentation/screens/mypage_screen.dart` 진입 시 이메일이 누락된 로그인 사용자일 경우 백그라운드에서 카카오 계정 정보(이메일) 갱신을 1회 시도.
+     - 마이페이지 프로필 카드에 '이메일 정보 없음'일 때 우측에 `[불러오기]` 탭 버튼을 제공하여, 사용자 직접 탭(유저 제스처)을 통해 Safari 팝업 차단 없이 카카오 추가 동의 및 이메일 불러오기를 원터치로 완료하도록 UX 강화.
+- **검증**:
+  - `flutter analyze --no-pub` 이슈 0건 통과.
+  - `test/mypage_email_refresh_test.dart` 및 Flutter 전체 192개 테스트 통과.
+  - `flutter build web --release --no-wasm-dry-run --no-pub` 성공.
