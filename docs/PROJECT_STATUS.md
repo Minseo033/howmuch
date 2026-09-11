@@ -1675,3 +1675,19 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - Dart 정적 분석 이슈 0건 (`dart analyze --fatal-infos`).
   - Flutter 위젯/단위 전체 테스트 통과.
   - Vercel 프로덕션 배포 (`dpl_Au7135en7hhea8qQC5qN2Agxe1cu`) 및 `https://howmuch-zeta.vercel.app` 연결 완료. 정적 검증 13개 모두 PASS.
+
+## 5-87. 9/12 편의·결제 UI 줄맞춤 정돈 및 서울 주요 매장 260곳 대량 데이터 확장 배포
+
+- **반영 내용**:
+  1. **편의·결제 라벨 및 텍스트 레이아웃 정돈**:
+     - _InfoRow 라벨 영역 너비를 56px에서 68px로 확장하여 '편의·결제' 5글자가 줄바꿈 없이 한 줄로 깔끔하게 정렬되도록 수정.
+     - 원문의 장황한 문구를 간결하게 다듬어 한 줄로 가독성 높게 표시.
+  2. **매장 데이터 대량 확장 (총 260곳)**:
+     - 서울 지역 주요 음식점에 대해 행정안전부 공식 포털 상세 API와 1:1 정밀 대조 파이프라인 가동.
+     - 상호명, 도로명 주소, 전화번호가 일치하는 173개 매장의 영업시간, 주차 가능 여부(parkingYn), 포장 가능 여부(packingYn), 지역화폐 결제 정보(areaCurrency)를 추가 적재.
+     - 기존 87곳에서 총 260곳으로 실데이터 혜택 정보 대량 확장.
+- **검증**:
+  - 백엔드 단위/통합 전체 테스트 통과 (./gradlew test).
+  - Flutter 단위/위젯 테스트 통과 (flutter test --no-pub).
+  - flutter build web --release --no-wasm-dry-run --no-pub 웹 릴리스 빌드 성공.
+  - Vercel 프로덕션 배포 및 https://howmuch-zeta.vercel.app 연결 완료.
