@@ -479,7 +479,7 @@ class _GreetingBubble extends StatelessWidget {
         ],
       ),
       child: const Text(
-        '안녕하세요, 동네 절약 가이드 고미예요.\n현재 위치에서 확인된 매장만\n솔직하게 추천해드릴게요.\n\n아래에서 골라보시거나 직접 입력해 주세요.',
+        '안녕하세요! 동네 절약 가이드 고미예요.\n오늘 어떤 음식을 찾으시나요?\n\n날씨나 기분, 예산에 딱 맞는 메뉴와\n주변 착한가격 매장을 알맞게 추천해드릴게요!',
         style: TextStyle(
           color: _AiUi.ink,
           fontFamily: _AiUi.fontFamily,
