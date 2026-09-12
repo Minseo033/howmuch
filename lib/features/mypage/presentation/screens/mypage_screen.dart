@@ -122,8 +122,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   }
 
   Future<void> _loadMyReports() async {
+    final sessionToken = ApiClient.sessionToken;
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
-    if (reports != null && mounted) {
+    if (reports != null && mounted && sessionToken == ApiClient.sessionToken) {
       ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
     }
   }
@@ -133,6 +134,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   Future<void> _loadProfileSummary() async {
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) return;
+    final sessionToken = ApiClient.sessionToken;
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
     final profileFuture = UserProfileApiService().fetchProfile().catchError((
@@ -203,7 +205,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
       reportsFuture,
     ]);
 
-    if (!mounted) return;
+    if (!mounted || sessionToken != ApiClient.sessionToken) return;
 
     final profile = results[0] as Map<String, dynamic>?;
     final savingsData = results[1] as Map<String, dynamic>?;
@@ -247,23 +249,23 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         next = next.copyWith(favoriteStoreCount: favoriteCount);
       }
 
-    if (reportCount != null) {
-      next = next.copyWith(reportCount: reportCount);
-    }
+      if (reportCount != null) {
+        next = next.copyWith(reportCount: reportCount);
+      }
 
-    return next;
-  });
+      return next;
+    });
 
-    final currentEmail = usableAccountEmail(profile?['email']) ??
-        usableAccountEmail(auth.email);
+    final currentEmail =
+        usableAccountEmail(profile?['email']) ?? usableAccountEmail(auth.email);
     if (currentEmail == null && auth.isLoggedIn) {
-     unawaited(
-       ref
-           .read(kakaoLoginServiceProvider)
-           .refreshKakaoIdentity(requestConsent: false),
-     );
-   }
- }
+      unawaited(
+        ref
+            .read(kakaoLoginServiceProvider)
+            .refreshKakaoIdentity(requestConsent: false),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

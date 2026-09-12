@@ -9,7 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class _LocalReviews extends StoreReviewNotifier {
   @override
-  Future<void> loadReviews(String storeId) async {}
+  Future<void> loadReviews(String storeId, {bool force = false}) async {}
 }
 
 void main() {

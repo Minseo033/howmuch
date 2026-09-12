@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:http/http.dart' as http;
 
 class UserProfile {
@@ -745,11 +746,16 @@ final notificationSettingsProvider =
     StateNotifierProvider.autoDispose<
       NotificationSettingsNotifier,
       AsyncValue<NotificationSettings>
-    >(
-      (ref) => NotificationSettingsNotifier(
+    >((ref) {
+      ref.watch(
+        authStateProvider.select(
+          (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+        ),
+      );
+      return NotificationSettingsNotifier(
         ref.watch(notificationSettingsApiServiceProvider),
-      ),
-    );
+      );
+    });
 
 class PriceAlertApiException implements Exception {
   const PriceAlertApiException(this.message, {this.statusCode});
@@ -983,6 +989,11 @@ final priceAlertSettingsProvider =
       PriceAlertSettingsNotifier,
       AsyncValue<PriceAlertSettings>
     >((ref) {
+      ref.watch(
+        authStateProvider.select(
+          (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+        ),
+      );
       return PriceAlertSettingsNotifier(
         ref.watch(priceAlertApiServiceProvider),
       );
@@ -994,12 +1005,17 @@ final favoriteStoresProvider =
     StateNotifierProvider.autoDispose<
       FavoriteStoresNotifier,
       AsyncValue<List<FavoriteStoreModel>>
-    >(
-      (ref) => FavoriteStoresNotifier(
+    >((ref) {
+      ref.watch(
+        authStateProvider.select(
+          (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+        ),
+      );
+      return FavoriteStoresNotifier(
         ref.read(favoriteApiServiceProvider),
         ref.read(userProfileProvider.notifier),
-      ),
-    );
+      );
+    });
 
 class FavoriteApiService {
   Future<List<FavoriteStoreModel>> fetchFavorites() async {
@@ -1066,6 +1082,8 @@ class FavoriteStoresNotifier
   final StateController<UserProfile> _profileNotifier;
   bool _loaded = false;
   bool _disposed = false;
+  int _loadGeneration = 0;
+  final Set<String> _pendingStoreIds = {};
 
   @override
   void dispose() {
@@ -1074,16 +1092,18 @@ class FavoriteStoresNotifier
   }
 
   Future<void> loadFavorites({bool force = false}) async {
-    if (_disposed || (_loaded && !force)) return;
+    if (_disposed || _pendingStoreIds.isNotEmpty || (_loaded && !force)) return;
+    final generation = ++_loadGeneration;
     _loaded = true;
     state = const AsyncValue.loading();
     try {
       final favorites = await _api.fetchFavorites();
-      if (_disposed) return;
+      if (_disposed || generation != _loadGeneration) return;
       state = AsyncValue.data(favorites);
       _syncCount(favorites.length);
     } catch (error, stackTrace) {
-      if (_disposed) return;
+      if (_disposed || generation != _loadGeneration) return;
+      _loaded = false;
       state = AsyncValue.error(error, stackTrace);
     }
   }
@@ -1097,8 +1117,12 @@ class FavoriteStoresNotifier
     required String storeId,
     required String storeName,
   }) async {
+    if (_disposed || _pendingStoreIds.contains(storeId)) return;
     final previous = state.valueOrNull ?? const <FavoriteStoreModel>[];
     if (previous.any((store) => store.id == storeId)) return;
+    _pendingStoreIds.add(storeId);
+    _loadGeneration++;
+    _loaded = false;
 
     final optimistic = FavoriteStoreModel.fromJson({
       'storeId': storeId,
@@ -1115,18 +1139,27 @@ class FavoriteStoresNotifier
       );
       if (_disposed) return;
       state = AsyncValue.data([
-        saved,
-        ...previous.where((store) => store.id != storeId),
+        for (final store in state.valueOrNull ?? const <FavoriteStoreModel>[])
+          store.id == storeId ? saved : store,
       ]);
+      _syncCount(state.requireValue.length);
     } catch (error) {
       if (_disposed) return;
-      state = AsyncValue.data(previous);
-      _syncCount(previous.length);
+      final remaining = (state.valueOrNull ?? const <FavoriteStoreModel>[])
+          .where((store) => store.id != storeId)
+          .toList();
+      state = AsyncValue.data(remaining);
+      _syncCount(remaining.length);
       rethrow;
+    } finally {
+      _pendingStoreIds.remove(storeId);
     }
   }
 
   Future<void> removeFavorite(String storeId) async {
+    if (_disposed || !_pendingStoreIds.add(storeId)) return;
+    _loadGeneration++;
+    _loaded = false;
     final previous = state.valueOrNull ?? const <FavoriteStoreModel>[];
     final next = previous.where((store) => store.id != storeId).toList();
     state = AsyncValue.data(next);
@@ -1136,9 +1169,21 @@ class FavoriteStoresNotifier
       await _api.removeFavorite(storeId);
     } catch (error) {
       if (_disposed) return;
-      state = AsyncValue.data(previous);
-      _syncCount(previous.length);
+      final restored = List<FavoriteStoreModel>.from(
+        state.valueOrNull ?? const [],
+      );
+      final previousIndex = previous.indexWhere((store) => store.id == storeId);
+      if (previousIndex >= 0 && !restored.any((store) => store.id == storeId)) {
+        restored.insert(
+          previousIndex.clamp(0, restored.length),
+          previous[previousIndex],
+        );
+      }
+      state = AsyncValue.data(restored);
+      _syncCount(restored.length);
       rethrow;
+    } finally {
+      _pendingStoreIds.remove(storeId);
     }
   }
 

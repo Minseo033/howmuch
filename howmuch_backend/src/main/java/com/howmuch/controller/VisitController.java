@@ -282,10 +282,10 @@ public class VisitController {
                     "message", "storeName은 필수입니다."
             ));
         }
-        if (request.getPrice() == null || request.getPrice() < 0) {
+        if (request.getPrice() == null || request.getPrice() <= 0) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "price는 0 이상의 숫자여야 합니다."
+                    "message", "실제 결제 금액은 1원 이상이어야 합니다."
             ));
         }
         if (!LOCATION_VERIFICATION.equalsIgnoreCase(request.getVerificationMethod())) {

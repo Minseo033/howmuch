@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:http/http.dart' as http;
 
 String? notificationRouteForType(String type) {
@@ -516,6 +517,11 @@ final notificationsProvider =
       NotificationsNotifier,
       AsyncValue<List<NotificationModel>>
     >((ref) {
+      ref.watch(
+        authStateProvider.select(
+          (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+        ),
+      );
       return NotificationsNotifier(
         ref.watch(notificationApiServiceProvider),
         refreshInterval: notificationPollingInterval(isWeb: kIsWeb),

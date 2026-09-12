@@ -6,6 +6,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
 class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
@@ -15,12 +16,20 @@ class AiRecommendChatScreen extends ConsumerStatefulWidget {
       _AiRecommendChatScreenState();
 }
 
-final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) => []);
+final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) {
+  ref.watch(
+    authStateProvider.select(
+      (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+    ),
+  );
+  return [];
+});
 
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _isTyping = false;
+  int _chatGeneration = 0;
 
   static const _quickPrompts = [
     _QuickPrompt(
@@ -57,10 +66,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
     final messageText = _controller.text.trim();
     if (messageText.isEmpty) return;
+    final generation = ++_chatGeneration;
 
     final userMessage = _ChatMessage(text: messageText, isBot: false);
+    final historyNotifier = ref.read(aiChatHistoryProvider.notifier);
 
-    ref.read(aiChatHistoryProvider.notifier).update((list) => [...list, userMessage]);
+    ref
+        .read(aiChatHistoryProvider.notifier)
+        .update((list) => [...list, userMessage]);
     setState(() {
       _controller.clear();
       _isTyping = true;
@@ -107,8 +120,15 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
           botResponse;
     }
 
-    if (mounted) {
-      ref.read(aiChatHistoryProvider.notifier).update((list) => [...list, _ChatMessage(text: botResponse, isBot: true)]);
+    if (mounted && generation == _chatGeneration) {
+      if (identical(
+        historyNotifier,
+        ref.read(aiChatHistoryProvider.notifier),
+      )) {
+        historyNotifier.update(
+          (list) => [...list, _ChatMessage(text: botResponse, isBot: true)],
+        );
+      }
       setState(() {
         _isTyping = false;
       });
@@ -163,7 +183,9 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 onResetChat: messages.isEmpty
                     ? null
                     : () {
-                        ref.read(aiChatHistoryProvider.notifier).state = [];
+                        _chatGeneration++;
+                        ref.invalidate(aiChatHistoryProvider);
+                        setState(() => _isTyping = false);
                       },
               ),
             ),
@@ -520,11 +542,7 @@ class _GreetingBubble extends StatelessWidget {
 }
 
 class _PromptChip extends StatelessWidget {
-  const _PromptChip({
-    required this.prompt,
-    required this.onTap,
-    this.width,
-  });
+  const _PromptChip({required this.prompt, required this.onTap, this.width});
 
   final _QuickPrompt prompt;
   final VoidCallback onTap;

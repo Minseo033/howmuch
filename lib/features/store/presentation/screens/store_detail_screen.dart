@@ -85,7 +85,8 @@ class StoreDetailScreen extends ConsumerWidget {
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
     final reviews =
-        ref.watch(storeReviewProvider)[store.storeName] ?? const <Review>[];
+        ref.watch(storeReviewProvider)[store.storeName]?.valueOrNull ??
+        const <Review>[];
     final averageRating = reviews.isEmpty
         ? null
         : reviews.map((review) => review.stars).reduce((a, b) => a + b) /
@@ -1005,6 +1006,7 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(storeReviewProvider.notifier).loadReviews(widget.storeKey);
     });
   }
@@ -1022,8 +1024,8 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
 
   @override
   Widget build(BuildContext context) {
-    final reviews =
-        ref.watch(storeReviewProvider)[widget.storeKey] ?? const <Review>[];
+    final reviewState = ref.watch(storeReviewProvider)[widget.storeKey];
+    final reviews = reviewState?.valueOrNull ?? const <Review>[];
     final shown = reviews.take(3).toList();
     final avg = reviews.isEmpty
         ? 0.0
@@ -1045,7 +1047,7 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
               ),
               const SizedBox(width: 6),
               Text(
-                '${reviews.length}',
+                reviewState?.hasValue == true ? '${reviews.length}' : '—',
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
@@ -1085,7 +1087,25 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
             ],
           ),
           const SizedBox(height: 14),
-          if (shown.isEmpty)
+          if (reviewState == null || reviewState.isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text('리뷰를 불러오고 있어요'),
+            )
+          else if (reviewState.hasError)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('리뷰를 불러오지 못했어요'),
+                TextButton(
+                  onPressed: () => ref
+                      .read(storeReviewProvider.notifier)
+                      .loadReviews(widget.storeKey, force: true),
+                  child: const Text('다시 시도'),
+                ),
+              ],
+            )
+          else if (shown.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text(

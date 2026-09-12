@@ -17,21 +17,28 @@ Future<List<Store>> loadStoreCatalog({
   SharedPreferences? preferences,
   DateTime? now,
 }) async {
-  final prefs = preferences ?? await SharedPreferences.getInstance();
+  SharedPreferences? prefs;
   final currentTime = (now ?? DateTime.now()).toUtc();
-  final cachedAtMilliseconds = prefs.getInt(storeCatalogCachedAtKey);
-  if (cachedAtMilliseconds != null) {
-    final cachedAt = DateTime.fromMillisecondsSinceEpoch(
-      cachedAtMilliseconds,
-      isUtc: true,
-    );
-    final age = currentTime.difference(cachedAt);
-    if (!age.isNegative && age <= storeCatalogCacheMaxAge) {
-      final cachedStores = _decodeStoreCatalog(
-        prefs.getString(storeCatalogCacheKey),
+  try {
+    prefs = preferences ?? await SharedPreferences.getInstance();
+    final cachedAtMilliseconds = prefs.getInt(storeCatalogCachedAtKey);
+    if (cachedAtMilliseconds != null) {
+      final cachedAt = DateTime.fromMillisecondsSinceEpoch(
+        cachedAtMilliseconds,
+        isUtc: true,
       );
-      if (cachedStores.isNotEmpty) return cachedStores;
+      final age = currentTime.difference(cachedAt);
+      if (!age.isNegative && age <= storeCatalogCacheMaxAge) {
+        final cachedStores = _decodeStoreCatalog(
+          prefs.getString(storeCatalogCacheKey),
+        );
+        if (cachedStores.isNotEmpty) return cachedStores;
+      }
     }
+  } catch (_) {
+    // Browser storage may be blocked or contain an incompatible cache value.
+    // The network catalog remains usable without local persistence.
+    prefs = null;
   }
 
   final uri = ApiClient.uri('/api/stores/all');
@@ -53,11 +60,11 @@ Future<List<Store>> loadStoreCatalog({
   }
 
   try {
-    await prefs.setString(
+    await prefs?.setString(
       storeCatalogCacheKey,
       jsonEncode(stores.map((store) => store.toJson()).toList()),
     );
-    await prefs.setInt(
+    await prefs?.setInt(
       storeCatalogCachedAtKey,
       currentTime.millisecondsSinceEpoch,
     );

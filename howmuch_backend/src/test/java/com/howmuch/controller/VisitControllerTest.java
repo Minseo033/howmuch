@@ -58,6 +58,16 @@ class VisitControllerTest {
     }
 
     @Test
+    void rejectsZeroPaymentInsteadOfCreditingTheFullReferencePrice() {
+        authenticate();
+        VisitRequest body = validRequest();
+        body.setPrice(0L);
+        assertThat(controller.createVisit(body, request).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void rejectsVisitsWithoutVerifiedLocationEvidence() throws Exception {
         authenticate();
         VisitRequest requestBody = validRequest();

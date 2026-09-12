@@ -39,4 +39,23 @@ void main() {
     await store.clear();
     expect(await store.load(), isEmpty);
   });
+
+  test(
+    'overlapping searches from different screens retain both entries',
+    () async {
+      final first = SearchHistoryStore();
+      final second = SearchHistoryStore();
+      await Future.wait([first.add('한식'), second.add('커피')]);
+      expect(await second.load(), ['커피', '한식']);
+    },
+  );
+
+  test(
+    'clear after a pending search cannot resurrect deleted history',
+    () async {
+      final store = SearchHistoryStore();
+      await Future.wait([store.add('한식'), store.clear()]);
+      expect(await SearchHistoryStore().load(), isEmpty);
+    },
+  );
 }

@@ -60,10 +60,13 @@ class ApiClient {
     int statusCode, {
     Map<String, String>? requestHeaders,
   }) async {
-    final hadAuthorization = requestHeaders?.keys.any(
-      (key) => key.toLowerCase() == 'authorization',
-    );
-    if (statusCode != 401 || hadAuthorization != true) return;
+    if (statusCode != 401 || !isAuthenticated) return;
+    final authorization = requestHeaders?.entries
+        .where((entry) => entry.key.toLowerCase() == 'authorization')
+        .firstOrNull
+        ?.value;
+    // A request sent before logout/re-login must not expire the new session.
+    if (authorization != 'Bearer $_sessionToken') return;
     if (_sessionExpirationHandled) return;
     if (_sessionExpirationInFlight != null) {
       await _sessionExpirationInFlight;

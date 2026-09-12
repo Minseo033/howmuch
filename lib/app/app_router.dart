@@ -319,6 +319,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.storeDetail,
+        redirect: (_, state) => state.extra is Store ? null : AppRoutes.home,
         pageBuilder: (_, state) {
           final store = state.extra as Store;
           return CupertinoPage<void>(

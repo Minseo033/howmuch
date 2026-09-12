@@ -6,6 +6,21 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'invalid browser cache metadata does not block the network catalog',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        storeCatalogCachedAtKey: 'broken',
+      });
+      final stores = await loadStoreCatalog(
+        request: (_) async => http.Response(
+          '[{"storeName":"recovered","latitude":37.5,"longitude":127.0}]',
+          200,
+        ),
+      );
+      expect(stores.single.storeName, 'recovered');
+    },
+  );
   test('loads and caches the full catalog only on demand', () async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();

@@ -8,6 +8,8 @@ import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.Query;
 import com.google.cloud.firestore.QueryDocumentSnapshot;
 import com.google.cloud.firestore.QuerySnapshot;
+import com.google.cloud.firestore.FieldValue;
+import com.google.cloud.firestore.WriteBatch;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -17,8 +19,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.never;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 
 class FirebaseServiceCommunityQueryTest {
+
+    @Test
+    void savesReplyAndAtomicParentIncrementInOneCommit() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference comments = mock(CollectionReference.class);
+        DocumentReference parent = mock(DocumentReference.class);
+        DocumentReference reply = mock(DocumentReference.class);
+        DocumentSnapshot parentSnapshot = mock(DocumentSnapshot.class);
+        WriteBatch batch = mock(WriteBatch.class);
+        when(db.collection("comments")).thenReturn(comments);
+        when(comments.document("parent")).thenReturn(parent);
+        when(comments.document()).thenReturn(reply);
+        when(reply.getId()).thenReturn("reply");
+        when(parent.get()).thenReturn(ApiFutures.immediateFuture(parentSnapshot));
+        when(parentSnapshot.exists()).thenReturn(true);
+        when(parentSnapshot.getData()).thenReturn(Map.of("postId", "post", "replyCount", 7));
+        when(db.batch()).thenReturn(batch);
+        when(batch.commit()).thenReturn(ApiFutures.immediateFuture(List.of()));
+        FirebaseService service = spy(new FirebaseService(db, mock(ReportImageStorage.class)));
+        doReturn(true).when(service).feedExists("post");
+
+        var result = service.createReply("parent", "author", "답글");
+
+        assertThat(result.getId()).isEqualTo("reply");
+        verify(batch).set(eq(reply), anyMap());
+        verify(batch).update(parent, "replyCount", FieldValue.increment(1L));
+        verify(batch).commit();
+        verify(reply, never()).set(anyMap());
+    }
 
     @Test
     void limitsTopLevelCommentsAndCachesRepeatedAuthors() throws Exception {

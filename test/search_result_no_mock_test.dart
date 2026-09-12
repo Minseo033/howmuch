@@ -11,6 +11,115 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets(
+    'Korean composition waits for commit even without a text change',
+    (tester) async {
+      final previous = HomeMapScreen.globalAllStores;
+      HomeMapScreen.globalAllStores = [
+        Store.fromJson({
+          'storeName': '국수집',
+          'menu1': '칼국수',
+          'latitude': 37.5,
+          'longitude': 127.0,
+        }),
+      ];
+      addTearDown(() => HomeMapScreen.globalAllStores = previous);
+      await tester.pumpWidget(
+        const MaterialApp(home: SearchResultScreen(initialQuery: '')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(TextField));
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'ㅇ',
+          selection: TextSelection.collapsed(offset: 1),
+          composing: TextRange(start: 0, end: 1),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('검색 결과가 없어요'), findsNothing);
+      expect(find.text('지도에서 보기'), findsNothing);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '칼국수',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: 2, end: 3),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('국수집'), findsNothing);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '칼국수',
+          selection: TextSelection.collapsed(offset: 3),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(milliseconds: 400));
+      expect(find.text('국수집'), findsOneWidget);
+    },
+  );
+
+  testWidgets('empty search uses compact chips and only relevant actions', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final previous = HomeMapScreen.globalAllStores;
+    HomeMapScreen.globalAllStores = [
+      for (final menu in ['짜장', '칼국수', '잔치국수', '막둥이칼국수'])
+        Store.fromJson({
+          'storeName': '$menu 식당',
+          'menu1': menu,
+          'latitude': 37.5,
+          'longitude': 127.0,
+        }),
+    ];
+    addTearDown(() => HomeMapScreen.globalAllStores = previous);
+    await tester.pumpWidget(
+      const MaterialApp(home: SearchResultScreen(initialQuery: '없는 가게')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('검색어 바꾸기'), findsOneWidget);
+    expect(find.text('필터 초기화하기'), findsNothing);
+    expect(find.text('지도에서 보기'), findsNothing);
+    final first = tester.getRect(find.byKey(const ValueKey('suggestion-짜장')));
+    final second = tester.getRect(find.byKey(const ValueKey('suggestion-칼국수')));
+    expect(first.width, lessThan(150));
+    expect(first.top, second.top);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('search finds secondary menus and ignores Latin letter case', (
+    tester,
+  ) async {
+    final previous = HomeMapScreen.globalAllStores;
+    HomeMapScreen.globalAllStores = [
+      Store.fromJson({
+        'storeName': '동네 카페',
+        'menu1': '커피',
+        'menu2': '샌드위치',
+        'menu3': 'LATTE',
+        'menu4': '토스트',
+        'latitude': 37.5,
+        'longitude': 127.0,
+      }),
+    ];
+    addTearDown(() => HomeMapScreen.globalAllStores = previous);
+    await tester.pumpWidget(
+      const MaterialApp(home: SearchResultScreen(initialQuery: '샌드위치')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('동네 카페'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'latte');
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    expect(find.text('동네 카페'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '토스트');
+    await tester.pumpAndSettle(const Duration(milliseconds: 400));
+    expect(find.text('동네 카페'), findsOneWidget);
+  });
+
   testWidgets('shows a retry state instead of fabricated stores', (
     tester,
   ) async {

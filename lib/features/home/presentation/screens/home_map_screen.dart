@@ -1104,12 +1104,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       // ─── 검색 및 필터 적용 ───
       if (_searchQuery.trim().isNotEmpty) {
         stores = stores
-            .where(
-              (s) =>
-                  s.storeName.contains(_searchQuery) ||
-                  s.menu1.contains(_searchQuery) ||
-                  s.industry.contains(_searchQuery),
-            )
+            .where((s) => SearchFilterPolicy.matchesQuery(s, _searchQuery))
             .toList();
       }
 

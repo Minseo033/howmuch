@@ -3,6 +3,19 @@ import 'package:howmuch/features/store/store_model.dart';
 class SearchFilterPolicy {
   const SearchFilterPolicy._();
 
+  static bool matchesQuery(Store store, String query) {
+    final normalized = query.trim().toLowerCase();
+    return [
+      store.storeName,
+      store.menu1,
+      store.menu2,
+      store.menu3,
+      store.menu4,
+      store.industry,
+      store.address,
+    ].any((value) => value.toLowerCase().contains(normalized));
+  }
+
   static int? parsePrice(String rawPrice) {
     final digits = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return null;

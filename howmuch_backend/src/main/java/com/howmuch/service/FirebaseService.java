@@ -2942,15 +2942,13 @@ public class FirebaseService {
         data.put("createdAt", createdAt);
         data.put("parentId", commentId);
         data.put("replyCount", 0);
-        docRef.set(data).get();
-
-        // 부모 댓글 replyCount 갱신
-        int parentReplyCount = 0;
-        Object rc = parentData != null ? parentData.get("replyCount") : null;
-        if (rc != null) {
-            try { parentReplyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
-        }
-        db.collection("comments").document(commentId).update("replyCount", parentReplyCount + 1).get();
+        // Save the reply and increment its parent's count atomically. Concurrent
+        // replies must not overwrite each other's counts or leave orphan writes.
+        var batch = db.batch();
+        batch.set(docRef, data);
+        batch.update(db.collection("comments").document(commentId),
+                "replyCount", com.google.cloud.firestore.FieldValue.increment(1L));
+        batch.commit().get();
 
         if (postId != null) syncFeedCounts(postId);
         notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, true);

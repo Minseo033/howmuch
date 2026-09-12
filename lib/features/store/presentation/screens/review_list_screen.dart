@@ -22,7 +22,7 @@ class ReviewListScreen extends ConsumerStatefulWidget {
 class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
   int _selectedFilter = 0;
 
-  final List<String> _filters = ['전체', '가격 만족', '양 많음', '재방문', '최신순'];
+  final List<String> _filters = ['최신순', '별점 높은순', '별점 낮은순'];
 
   /// 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
   String get _storeId => widget.store?.storeName ?? '';
@@ -31,14 +31,26 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(storeReviewProvider.notifier).loadReviews(_storeId);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final reviewState = ref.watch(storeReviewProvider)[_storeId];
     final reviews =
-        ref.watch(storeReviewProvider)[_storeId] ?? const <Review>[];
+        List<Review>.from(reviewState?.valueOrNull ?? const <Review>[])
+          ..sort((a, b) {
+            if (_selectedFilter != 0 && a.stars != b.stars) {
+              return _selectedFilter == 1
+                  ? b.stars.compareTo(a.stars)
+                  : a.stars.compareTo(b.stars);
+            }
+            return (b.createdAt?.millisecondsSinceEpoch ?? 0).compareTo(
+              a.createdAt?.millisecondsSinceEpoch ?? 0,
+            );
+          });
     final reviewCount = reviews.length;
     final averageRating = reviewCount > 0
         ? reviews.map((r) => r.stars).reduce((a, b) => a + b) / reviewCount
@@ -47,7 +59,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
-        appBar: const CustomAppBar(title: '리뷰와 댓글'),
+        appBar: const CustomAppBar(title: '매장 리뷰'),
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,17 +67,44 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
               _buildStoreHeader(averageRating, reviewCount),
               _buildFilterChips(),
               Expanded(
-                child: ListView.separated(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  itemCount: reviews.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) =>
-                      _buildReviewCard(reviews[index]),
-                ),
+                child: _storeId.isEmpty
+                    ? const Center(child: Text('매장을 선택한 뒤 리뷰를 확인해주세요.'))
+                    : reviewState == null || reviewState.isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : reviewState.hasError
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('리뷰를 불러오지 못했어요'),
+                            TextButton(
+                              onPressed: () => ref
+                                  .read(storeReviewProvider.notifier)
+                                  .loadReviews(_storeId, force: true),
+                              child: const Text('다시 시도'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : reviews.isEmpty
+                    ? const Center(child: Text('아직 리뷰가 없어요. 첫 리뷰를 남겨보세요!'))
+                    : RefreshIndicator(
+                        onRefresh: () => ref
+                            .read(storeReviewProvider.notifier)
+                            .loadReviews(_storeId, force: true),
+                        child: ListView.separated(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          itemCount: reviews.length,
+                          separatorBuilder: (_, _) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) =>
+                              _buildReviewCard(reviews[index]),
+                        ),
+                      ),
               ),
             ],
           ),
@@ -89,14 +128,18 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
         children: [
           Row(
             children: [
-              Text(
-                widget.store?.storeName ?? '매장 정보 없음',
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  widget.store?.storeName ?? '매장 정보 없음',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
@@ -107,12 +150,12 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
-                  children: const [
-                    Icon(Icons.circle, size: 8, color: AppColors.success),
-                    SizedBox(width: 4),
+                  children: [
+                    const Icon(Icons.circle, size: 8, color: AppColors.success),
+                    const SizedBox(width: 4),
                     Text(
-                      '승인 완료',
-                      style: TextStyle(
+                      widget.store?.isUserReported == true ? '사용자 제보' : '정부 인증',
+                      style: const TextStyle(
                         color: AppColors.success,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -221,42 +264,46 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    review.authorName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      review.authorName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Row(
-                        children: List.generate(
-                          5,
-                          (i) => Icon(
-                            Icons.star_rounded,
-                            size: 14,
-                            color: i < review.stars
-                                ? AppColors.star
-                                : Colors.grey.shade300,
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Row(
+                          children: List.generate(
+                            5,
+                            (i) => Icon(
+                              Icons.star_rounded,
+                              size: 14,
+                              color: i < review.stars
+                                  ? AppColors.star
+                                  : Colors.grey.shade300,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        review.timeAgo,
-                        style: const TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 12,
+                        const SizedBox(width: 6),
+                        Text(
+                          review.timeAgo,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -286,33 +333,6 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
               height: 1.5,
               color: Colors.black87,
             ),
-          ),
-          const SizedBox(height: 12),
-          // 액션 버튼
-          Row(
-            children: [
-              Icon(
-                Icons.thumb_up_alt_outlined,
-                size: 16,
-                color: Colors.grey.shade500,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '도움이 돼요 ${review.likes}',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-              const SizedBox(width: 16),
-              Icon(
-                Icons.chat_bubble_outline,
-                size: 16,
-                color: Colors.grey.shade500,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                '댓글',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-              ),
-            ],
           ),
           // 사장님 답글
           if (review.ownerReply != null) ...[

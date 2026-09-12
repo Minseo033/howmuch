@@ -61,4 +61,21 @@ void main() {
     expect(expirationCount, 2);
     expect(ApiClient.sessionToken, isNull);
   });
+
+  test('이전 로그인 요청의 늦은 401은 새 세션을 만료시키지 않는다', () async {
+    var expirationCount = 0;
+    ApiClient.setSessionExpiredHandler(() async => expirationCount++);
+    final oldHeaders = ApiClient.jsonHeaders(auth: true);
+    await ApiClient.setSessionToken('new-session');
+
+    await ApiClient.handleResponseStatus(401, requestHeaders: oldHeaders);
+
+    expect(ApiClient.sessionToken, 'new-session');
+    expect(expirationCount, 0);
+    await ApiClient.handleResponseStatus(
+      401,
+      requestHeaders: const {'authorization': 'Bearer new-session'},
+    );
+    expect(expirationCount, 1);
+  });
 }

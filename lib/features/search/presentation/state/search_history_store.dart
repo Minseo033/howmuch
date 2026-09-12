@@ -6,10 +6,30 @@ class SearchHistoryStore {
 
   static const maxItems = 8;
   static const _storageKey = 'howmuch.recent_searches.v1';
+  // Screens share the same preference key, so read-modify-write operations
+  // must be ordered across instances as well as within one screen.
+  static Future<void>? _pending;
 
   final Future<SharedPreferences> Function() _preferences;
 
-  Future<List<String>> load() async {
+  Future<T> _ordered<T>(Future<T> Function() operation) {
+    final result = _pending == null
+        ? operation()
+        : _pending!.then((_) => operation());
+    final pending = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    _pending = pending;
+    pending.then((_) {
+      if (identical(_pending, pending)) _pending = null;
+    });
+    return result;
+  }
+
+  Future<List<String>> load() => _ordered(_load);
+
+  Future<List<String>> _load() async {
     try {
       final prefs = await _preferences();
       return normalize(prefs.getStringList(_storageKey) ?? const []);
@@ -18,11 +38,11 @@ class SearchHistoryStore {
     }
   }
 
-  Future<List<String>> add(String query) async {
+  Future<List<String>> add(String query) => _ordered(() async {
     final normalizedQuery = query.trim();
-    if (normalizedQuery.isEmpty) return load();
+    if (normalizedQuery.isEmpty) return _load();
 
-    final current = await load();
+    final current = await _load();
     final updated = normalize([
       normalizedQuery,
       ...current.where(
@@ -31,16 +51,16 @@ class SearchHistoryStore {
     ]);
     await _save(updated);
     return updated;
-  }
+  });
 
-  Future<List<String>> remove(String query) async {
-    final current = await load();
+  Future<List<String>> remove(String query) => _ordered(() async {
+    final current = await _load();
     final updated = current.where((item) => item != query).toList();
     await _save(updated);
     return updated;
-  }
+  });
 
-  Future<void> clear() => _save(const []);
+  Future<void> clear() => _ordered(() => _save(const []));
 
   Future<void> _save(List<String> history) async {
     try {

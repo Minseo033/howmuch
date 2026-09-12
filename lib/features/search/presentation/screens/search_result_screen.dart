@@ -58,6 +58,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   List<Store> _results = [];
   bool _loading = false;
   bool _searched = false;
+  bool _isComposing = false;
   String _query = '';
   String? _errorMessage;
   SearchFilter _filter = const SearchFilter();
@@ -104,6 +105,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     super.initState();
     _query = widget.initialQuery;
     _ctrl = TextEditingController(text: _query);
+    _ctrl.addListener(_onSearchInputChanged);
     _searchHistoryStore = widget.searchHistoryStore ?? SearchHistoryStore();
     unawaited(_initializeSearchHistory());
     _doSearch(_query);
@@ -154,8 +156,40 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     _doSearch(query);
   }
 
+  void _onSearchInputChanged() {
+    _debounce?.cancel();
+    final value = _ctrl.value;
+    final composing = value.composing.isValid && !value.composing.isCollapsed;
+    if (_isComposing != composing) setState(() => _isComposing = composing);
+    if (composing) {
+      _searchGeneration++;
+      return;
+    }
+    // A controller listener also sees composition-only commits in Safari.
+    if (value.text.trim().isEmpty) {
+      _doSearch('');
+    } else {
+      _debounce = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) _doSearch(_ctrl.text);
+      });
+    }
+  }
+
+  void _returnToMap({bool clear = false}) {
+    final result = {
+      'query': clear ? '' : _query,
+      'filter': clear ? const SearchFilter() : _filter,
+    };
+    if (context.canPop()) {
+      context.pop(result);
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
   @override
   void dispose() {
+    _ctrl.removeListener(_onSearchInputChanged);
     _ctrl.dispose();
     _focus.dispose();
     _debounce?.cancel();
@@ -166,10 +200,12 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   //  API 검색
   // ────────────────────────────────────────────────
   Future<void> _doSearch(String q) async {
+    _debounce?.cancel();
     final query = q.trim();
     final generation = ++_searchGeneration;
     setState(() {
       _loading = true;
+      _isComposing = false;
       _searched = true;
       _query = query;
       _errorMessage = null;
@@ -204,13 +240,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 검색어 필터링
       if (query.isNotEmpty) {
         stores = stores
-            .where(
-              (s) =>
-                  s.storeName.contains(query) ||
-                  s.menu1.contains(query) ||
-                  s.industry.contains(query) ||
-                  s.address.contains(query),
-            )
+            .where((s) => SearchFilterPolicy.matchesQuery(s, query))
             .toList();
       }
 
@@ -395,12 +425,16 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
-          context.pop({'query': '', 'filter': _filter});
+          _returnToMap(clear: true);
         },
         child: Scaffold(
           backgroundColor: SearchResultScreen.surface,
           bottomNavigationBar:
               _searched &&
+                  !_isComposing &&
+                  !_loading &&
+                  _errorMessage == null &&
+                  _results.isNotEmpty &&
                   (_query.isNotEmpty || _filter.activeLabels.isNotEmpty)
               ? SafeArea(
                   child: Container(
@@ -417,7 +451,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     ),
                     child: FilledButton.icon(
                       onPressed: () {
-                        context.pop({'query': _query, 'filter': _filter});
+                        _returnToMap();
                       },
                       icon: const Icon(Icons.map_rounded, size: 20),
                       label: const Text('지도에서 보기'),
@@ -449,16 +483,10 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                 controller: _ctrl,
                 focus: _focus,
                 activeFilters: activeFilters,
-                onBack: () => context.pop({'query': '', 'filter': _filter}),
+                onBack: () => _returnToMap(clear: true),
                 onSearch: () {
                   _focus.unfocus();
                   _searchAndRemember(_ctrl.text);
-                },
-                onChanged: (val) {
-                  _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 300), () {
-                    _doSearch(val);
-                  });
                 },
                 onFilterTap: _openFilter,
                 onRemoveFilter: (label) {
@@ -470,14 +498,25 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
               // ──────────────────────────────────────────
               //  결과 카운트 바
               // ──────────────────────────────────────────
-              if (_searched && !_loading && _query.isNotEmpty)
+              if (_searched &&
+                  !_loading &&
+                  !_isComposing &&
+                  _errorMessage == null &&
+                  _query.isNotEmpty)
                 _ResultCountBar(query: _query, count: _results.length),
 
               // ──────────────────────────────────────────
               //  본문 (로딩 / 빈 결과 / 결과 리스트)
               // ──────────────────────────────────────────
               Expanded(
-                child: _loading
+                child: _isComposing
+                    ? const Center(
+                        child: Text(
+                          '검색어 입력을 마치면 결과가 표시돼요',
+                          style: TextStyle(color: SearchResultScreen.muted),
+                        ),
+                      )
+                    : _loading
                     ? const Center(
                         child: CircularProgressIndicator(
                           color: SearchResultScreen.blue,
@@ -517,6 +556,15 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     : _searched && _results.isEmpty
                     ? _EmptyResult(
                         suggestions: _realSuggestions,
+                        hasFilters: activeFilters.isNotEmpty,
+                        onShowAll: () => _returnToMap(clear: true),
+                        onEditQuery: () {
+                          _focus.requestFocus();
+                          _ctrl.selection = TextSelection(
+                            baseOffset: 0,
+                            extentOffset: _ctrl.text.length,
+                          );
+                        },
                         onReset: () {
                           setState(() => _filter = const SearchFilter());
                           _doSearch(_query);
@@ -573,7 +621,6 @@ class _SearchHeader extends StatelessWidget {
     required this.onSearch,
     required this.onFilterTap,
     required this.onRemoveFilter,
-    this.onChanged,
   });
 
   final double topOffset;
@@ -584,7 +631,6 @@ class _SearchHeader extends StatelessWidget {
   final VoidCallback onSearch;
   final VoidCallback onFilterTap;
   final ValueChanged<String> onRemoveFilter;
-  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -657,7 +703,6 @@ class _SearchHeader extends StatelessWidget {
                             onSubmitted: (_) {
                               onSearch();
                             },
-                            onChanged: onChanged,
                             style: const TextStyle(
                               fontFamily: SearchResultScreen.fontFamily,
                               fontFamilyFallback:
@@ -1264,11 +1309,17 @@ class _EmptyResult extends StatelessWidget {
     required this.suggestions,
     required this.onReset,
     required this.onSuggestionTap,
+    required this.hasFilters,
+    required this.onShowAll,
+    required this.onEditQuery,
   });
 
   final List<String> suggestions;
   final VoidCallback onReset;
   final ValueChanged<String> onSuggestionTap;
+  final bool hasFilters;
+  final VoidCallback onShowAll;
+  final VoidCallback onEditQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -1313,8 +1364,10 @@ class _EmptyResult extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                '필터를 넓히거나 검색어를 바꿔보세요.\n다른 업종을 찾아볼 수도 있어요.',
+              Text(
+                hasFilters
+                    ? '필터를 넓히거나 다른 검색어로 찾아보세요.'
+                    : '가게명, 메뉴 또는 지역을 다시 확인해주세요.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: SearchResultScreen.muted,
@@ -1337,17 +1390,12 @@ class _EmptyResult extends StatelessWidget {
                 child: Column(
                   children: [
                     _ActionButton(
-                      label: '필터 초기화하기',
+                      label: hasFilters ? '필터 초기화하기' : '검색어 바꾸기',
                       primary: true,
-                      onTap: onReset,
+                      onTap: hasFilters ? onReset : onEditQuery,
                     ),
                     const SizedBox(height: 7.8),
-                    _ActionButton(
-                      label: '전체 매장 보기',
-                      onTap: () {
-                        context.pop();
-                      },
-                    ),
+                    _ActionButton(label: '전체 매장 보기', onTap: onShowAll),
                   ],
                 ),
               ),
@@ -1372,20 +1420,15 @@ class _Suggestions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const SizedBox(
-          height: 16.49147605895996,
-          child: Center(
-            child: Text(
-              '이런 건 어때요?',
-              style: TextStyle(
-                color: SearchResultScreen.muted,
-                fontFamily: SearchResultScreen.fontFamily,
-                fontFamilyFallback: SearchResultScreen.fontFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
-            ),
+        const Text(
+          '이런 건 어때요?',
+          style: TextStyle(
+            color: SearchResultScreen.muted,
+            fontFamily: SearchResultScreen.fontFamily,
+            fontFamilyFallback: SearchResultScreen.fontFallback,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            height: 1.5,
           ),
         ),
         const SizedBox(height: 10),
@@ -1415,31 +1458,21 @@ class _SuggestionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(999),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          height: 31.80397605895996,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            border: Border.all(color: SearchResultScreen.border, width: .909),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: SearchResultScreen.ink,
-              fontFamily: SearchResultScreen.fontFamily,
-              fontFamilyFallback: SearchResultScreen.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              height: 1.5,
-            ),
-          ),
+    return ActionChip(
+      key: ValueKey('suggestion-$label'),
+      onPressed: onTap,
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: SearchResultScreen.border),
+      shape: const StadiumBorder(),
+      label: Text(
+        label,
+        style: const TextStyle(
+          color: SearchResultScreen.ink,
+          fontFamily: SearchResultScreen.fontFamily,
+          fontFamilyFallback: SearchResultScreen.fontFallback,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          height: 1.5,
         ),
       ),
     );
