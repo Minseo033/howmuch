@@ -36,6 +36,9 @@ void main() {
           'sourceUrl':
               'https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17427',
           'checkedAt': '2026-09-12',
+          'imageUrls': [
+            'https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251028/&fileId=store.jpg',
+          ],
         },
       });
       await tester.pumpWidget(
@@ -47,6 +50,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final imageFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is Image && widget.semanticLabel == '와고숯불구이 매장 사진 1',
+      );
+      final image = tester.widget<Image>(imageFinder);
+      final provider = image.image as NetworkImage;
+      expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
       await tester.ensureVisible(find.textContaining('월~금 17:00'));
       expect(find.textContaining('2026.09.12 자료 조회'), findsOneWidget);
       expect(find.text('등록된 영업시간이 없어요.'), findsNothing);

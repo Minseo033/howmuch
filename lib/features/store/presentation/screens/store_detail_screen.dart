@@ -171,8 +171,37 @@ class StoreDetailScreen extends ConsumerWidget {
                                   width: 250,
                                   height: 170,
                                   fit: BoxFit.cover,
+                                  semanticLabel:
+                                      '${store.storeName} 매장 사진 ${idx + 1}',
+                                  // 행안부 이미지 서버는 CORS 응답 헤더를
+                                  // 제공하지 않는다. 웹에서는 <img> 요소로
+                                  // 표시해 교차 출처 이미지도 렌더링한다.
+                                  webHtmlElementStrategy:
+                                      WebHtmlElementStrategy.prefer,
                                   errorBuilder: (context, error, stackTrace) =>
-                                      const SizedBox.shrink(),
+                                      Container(
+                                        width: 250,
+                                        height: 170,
+                                        color: AppColors.surface,
+                                        alignment: Alignment.center,
+                                        child: const Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.broken_image_outlined,
+                                              color: AppColors.textMuted,
+                                            ),
+                                            SizedBox(height: 6),
+                                            Text(
+                                              '사진을 불러오지 못했어요',
+                                              style: TextStyle(
+                                                color: AppColors.textMuted,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                 ),
                               );
                             },
