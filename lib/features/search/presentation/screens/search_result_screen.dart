@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
+import 'package:howmuch/features/search/presentation/state/search_history_store.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
@@ -22,11 +23,13 @@ class SearchResultScreen extends StatefulWidget {
     required this.initialQuery,
     this.autoOpenFilter = false,
     this.storeCatalogLoader,
+    this.searchHistoryStore,
   });
 
   final String initialQuery;
   final bool autoOpenFilter;
   final StoreCatalogLoader? storeCatalogLoader;
+  final SearchHistoryStore? searchHistoryStore;
 
   static const blue = Color(0xFF2563EB);
   static const ink = Color(0xFF0F172A);
@@ -58,11 +61,15 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   String _query = '';
   String? _errorMessage;
   SearchFilter _filter = const SearchFilter();
+  List<String> _recentSearches = const [];
 
   // 디바운스
   Timer? _debounce;
   Future<List<Store>>? _catalogRequest;
   int _searchGeneration = 0;
+  int _historyGeneration = 0;
+
+  late final SearchHistoryStore _searchHistoryStore;
 
   List<String> get _realSuggestions {
     final stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
@@ -97,6 +104,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     super.initState();
     _query = widget.initialQuery;
     _ctrl = TextEditingController(text: _query);
+    _searchHistoryStore = widget.searchHistoryStore ?? SearchHistoryStore();
+    unawaited(_initializeSearchHistory());
     _doSearch(_query);
     if (widget.autoOpenFilter) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -105,6 +114,44 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         if (mounted) _openFilter();
       });
     }
+  }
+
+  Future<void> _initializeSearchHistory() async {
+    final generation = ++_historyGeneration;
+    final initialQuery = widget.initialQuery.trim();
+    final history = initialQuery.isEmpty
+        ? await _searchHistoryStore.load()
+        : await _searchHistoryStore.add(initialQuery);
+    if (!mounted || generation != _historyGeneration) return;
+    setState(() => _recentSearches = history);
+  }
+
+  Future<void> _rememberSearch(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) return;
+    final generation = ++_historyGeneration;
+    final history = await _searchHistoryStore.add(normalized);
+    if (!mounted || generation != _historyGeneration) return;
+    setState(() => _recentSearches = history);
+  }
+
+  Future<void> _removeRecentSearch(String query) async {
+    final generation = ++_historyGeneration;
+    final history = await _searchHistoryStore.remove(query);
+    if (!mounted || generation != _historyGeneration) return;
+    setState(() => _recentSearches = history);
+  }
+
+  Future<void> _clearRecentSearches() async {
+    final generation = ++_historyGeneration;
+    await _searchHistoryStore.clear();
+    if (!mounted || generation != _historyGeneration) return;
+    setState(() => _recentSearches = const []);
+  }
+
+  void _searchAndRemember(String query) {
+    unawaited(_rememberSearch(query));
+    _doSearch(query);
   }
 
   @override
@@ -405,7 +452,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                 onBack: () => context.pop({'query': '', 'filter': _filter}),
                 onSearch: () {
                   _focus.unfocus();
-                  _doSearch(_ctrl.text);
+                  _searchAndRemember(_ctrl.text);
                 },
                 onChanged: (val) {
                   _debounce?.cancel();
@@ -442,8 +489,32 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                         message: _errorMessage!,
                         onRetry: () => _doSearch(_query),
                       )
-                    : (_query.isEmpty && _filter.activeLabels.isEmpty) ||
-                          (_searched && _results.isEmpty)
+                    : _query.isEmpty && _filter.activeLabels.isEmpty
+                    ? _SearchLanding(
+                        recentSearches: _recentSearches,
+                        suggestions: _realSuggestions,
+                        onRecentTap: (query) {
+                          _ctrl.text = query;
+                          _ctrl.selection = TextSelection.collapsed(
+                            offset: query.length,
+                          );
+                          _searchAndRemember(query);
+                        },
+                        onRecentRemove: (query) {
+                          unawaited(_removeRecentSearch(query));
+                        },
+                        onClearAll: () {
+                          unawaited(_clearRecentSearches());
+                        },
+                        onSuggestionTap: (suggestion) {
+                          _ctrl.text = suggestion;
+                          _ctrl.selection = TextSelection.collapsed(
+                            offset: suggestion.length,
+                          );
+                          _searchAndRemember(suggestion);
+                        },
+                      )
+                    : _searched && _results.isEmpty
                     ? _EmptyResult(
                         suggestions: _realSuggestions,
                         onReset: () {
@@ -453,7 +524,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                         onSuggestionTap: (suggestion) {
                           setState(() => _query = suggestion);
                           _ctrl.text = suggestion;
-                          _doSearch(suggestion);
+                          _searchAndRemember(suggestion);
                         },
                       )
                     : ListView.separated(
@@ -473,8 +544,10 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                             priceLabel: s.menu1.isNotEmpty
                                 ? '${s.menu1}  ${_fmt(s.price1)}'
                                 : s.industry,
-                            onTap: () =>
-                                context.push(AppRoutes.storeDetail, extra: s),
+                            onTap: () {
+                              unawaited(_rememberSearch(_query));
+                              context.push(AppRoutes.storeDetail, extra: s);
+                            },
                           );
                         },
                       ),
@@ -994,6 +1067,189 @@ class _SearchLoadError extends StatelessWidget {
               label: const Text('다시 시도'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchLanding extends StatelessWidget {
+  const _SearchLanding({
+    required this.recentSearches,
+    required this.suggestions,
+    required this.onRecentTap,
+    required this.onRecentRemove,
+    required this.onClearAll,
+    required this.onSuggestionTap,
+  });
+
+  final List<String> recentSearches;
+  final List<String> suggestions;
+  final ValueChanged<String> onRecentTap;
+  final ValueChanged<String> onRecentRemove;
+  final VoidCallback onClearAll;
+  final ValueChanged<String> onSuggestionTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      key: const ValueKey('search-landing'),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 32),
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                '최근 검색',
+                style: TextStyle(
+                  color: SearchResultScreen.ink,
+                  fontFamily: SearchResultScreen.fontFamily,
+                  fontFamilyFallback: SearchResultScreen.fontFallback,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            if (recentSearches.isNotEmpty)
+              TextButton(
+                key: const ValueKey('clear-recent-searches'),
+                onPressed: onClearAll,
+                style: TextButton.styleFrom(
+                  foregroundColor: SearchResultScreen.muted,
+                  minimumSize: const Size(44, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text(
+                  '전체 삭제',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (recentSearches.isEmpty)
+          Container(
+            key: const ValueKey('empty-recent-searches'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: SearchResultScreen.border, width: 0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.history_rounded,
+                  color: SearchResultScreen.hint,
+                  size: 22,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    '아직 검색 기록이 없어요',
+                    style: TextStyle(
+                      color: SearchResultScreen.muted,
+                      fontFamily: SearchResultScreen.fontFamily,
+                      fontFamilyFallback: SearchResultScreen.fontFallback,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: SearchResultScreen.border, width: 0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                for (var index = 0; index < recentSearches.length; index++) ...[
+                  _RecentSearchRow(
+                    query: recentSearches[index],
+                    onTap: () => onRecentTap(recentSearches[index]),
+                    onRemove: () => onRecentRemove(recentSearches[index]),
+                  ),
+                  if (index < recentSearches.length - 1)
+                    const Divider(
+                      height: 1,
+                      indent: 50,
+                      color: SearchResultScreen.border,
+                    ),
+                ],
+              ],
+            ),
+          ),
+        if (suggestions.isNotEmpty) ...[
+          const SizedBox(height: 26),
+          _Suggestions(
+            suggestions: suggestions,
+            onSuggestionTap: onSuggestionTap,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _RecentSearchRow extends StatelessWidget {
+  const _RecentSearchRow({
+    required this.query,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String query;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('recent-search-$query'),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.history_rounded,
+                color: SearchResultScreen.hint,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  query,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: SearchResultScreen.ink,
+                    fontFamily: SearchResultScreen.fontFamily,
+                    fontFamilyFallback: SearchResultScreen.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              IconButton(
+                key: ValueKey('remove-recent-search-$query'),
+                tooltip: '$query 검색 기록 삭제',
+                onPressed: onRemove,
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: SearchResultScreen.hint,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

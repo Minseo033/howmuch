@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
+import 'package:howmuch/features/search/presentation/state/search_history_store.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('shows a retry state instead of fabricated stores', (
     tester,
   ) async {
@@ -110,5 +116,80 @@ void main() {
 
     expect(find.text('검색 결과가 없어요'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'empty query shows persistent recent searches with delete actions',
+    (tester) async {
+      final history = SearchHistoryStore();
+      await history.add('한식');
+      await history.add('커피');
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SearchResultScreen(
+            initialQuery: '',
+            searchHistoryStore: history,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('최근 검색'), findsOneWidget);
+      expect(find.text('커피'), findsOneWidget);
+      expect(find.text('한식'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('remove-recent-search-한식')));
+      await tester.pumpAndSettle();
+      expect(find.text('한식'), findsNothing);
+
+      await tester.tap(find.byKey(const ValueKey('clear-recent-searches')));
+      await tester.pumpAndSettle();
+      expect(find.text('커피'), findsNothing);
+      expect(find.text('아직 검색 기록이 없어요'), findsOneWidget);
+    },
+  );
+
+  testWidgets('tapping a recent search runs it and moves it to the front', (
+    tester,
+  ) async {
+    final previousStores = HomeMapScreen.globalAllStores;
+    HomeMapScreen.globalAllStores = [
+      Store(
+        id: 'coffee-store',
+        storeName: '역삼 커피',
+        address: '서울특별시 강남구',
+        phoneNumber: '',
+        industry: '카페',
+        menu1: '커피',
+        price1: '3000',
+        menu2: '',
+        price2: '',
+        menu3: '',
+        price3: '',
+        menu4: '',
+        price4: '',
+        latitude: 37.5,
+        longitude: 127.0,
+        source: 'GOV',
+      ),
+    ];
+    addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
+
+    final history = SearchHistoryStore();
+    await history.add('커피');
+    await history.add('한식');
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SearchResultScreen(initialQuery: '', searchHistoryStore: history),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('recent-search-커피')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('역삼 커피'), findsOneWidget);
+    expect((await history.load()).first, '커피');
   });
 }
