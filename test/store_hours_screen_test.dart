@@ -51,12 +51,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       final imageFinder = find.byWidgetPredicate(
-        (widget) =>
-            widget is Image && widget.semanticLabel == '와고숯불구이 매장 사진 1',
+        (widget) => widget is Image && widget.semanticLabel == '와고숯불구이 매장 사진 1',
       );
       final image = tester.widget<Image>(imageFinder);
       final provider = image.image as NetworkImage;
       expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
+      expect(image.width, closeTo(335.4545, 0.01));
+      expect(image.height, 210);
       await tester.ensureVisible(find.textContaining('월~금 17:00'));
       expect(find.textContaining('2026.09.12 자료 조회'), findsOneWidget);
       expect(find.text('등록된 영업시간이 없어요.'), findsNothing);

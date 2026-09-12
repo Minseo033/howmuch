@@ -90,6 +90,7 @@ class StoreDetailScreen extends ConsumerWidget {
         ? null
         : reviews.map((review) => review.stars).reduce((a, b) => a + b) /
               reviews.length;
+    final storePhotos = store.openingHours?.imageUrls ?? const <String>[];
 
     return FigmaMobileCanvas(
       child: Scaffold(
@@ -148,61 +149,76 @@ class StoreDetailScreen extends ConsumerWidget {
                       // ─────────────────────────────────────────────
                       //  가게 헤더 (흰 카드)
                       // ─────────────────────────────────────────────
-                      if (store.openingHours != null &&
-                          store.openingHours!.imageUrls.isNotEmpty)
+                      if (storePhotos.isNotEmpty)
                         Container(
                           color: AppColors.white,
-                          height: 190,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            scrollDirection: Axis.horizontal,
-                            itemCount: store.openingHours!.imageUrls.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(width: 10),
-                            itemBuilder: (context, idx) {
-                              final imgUrl = store.openingHours!.imageUrls[idx];
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  imgUrl,
-                                  width: 250,
-                                  height: 170,
-                                  fit: BoxFit.cover,
-                                  semanticLabel:
-                                      '${store.storeName} 매장 사진 ${idx + 1}',
-                                  // 행안부 이미지 서버는 CORS 응답 헤더를
-                                  // 제공하지 않는다. 웹에서는 <img> 요소로
-                                  // 표시해 교차 출처 이미지도 렌더링한다.
-                                  webHtmlElementStrategy:
-                                      WebHtmlElementStrategy.prefer,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
-                                        width: 250,
-                                        height: 170,
-                                        color: AppColors.surface,
-                                        alignment: Alignment.center,
-                                        child: const Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.broken_image_outlined,
-                                              color: AppColors.textMuted,
-                                            ),
-                                            SizedBox(height: 6),
-                                            Text(
-                                              '사진을 불러오지 못했어요',
-                                              style: TextStyle(
-                                                color: AppColors.textMuted,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                          height: 230,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              const horizontalPadding = 20.0;
+                              const photoHeight = 210.0;
+                              final availableWidth =
+                                  constraints.maxWidth - horizontalPadding * 2;
+                              final photoWidth = storePhotos.length == 1
+                                  ? availableWidth
+                                  : availableWidth * 0.92;
+
+                              return ListView.separated(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: horizontalPadding,
+                                  vertical: 10,
                                 ),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: storePhotos.length,
+                                separatorBuilder: (context, index) =>
+                                    const SizedBox(width: 10),
+                                itemBuilder: (context, idx) {
+                                  final imgUrl = storePhotos[idx];
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      imgUrl,
+                                      width: photoWidth,
+                                      height: photoHeight,
+                                      fit: BoxFit.cover,
+                                      semanticLabel:
+                                          '${store.storeName} 매장 사진 ${idx + 1}',
+                                      // 행안부 이미지 서버는 CORS 응답 헤더를
+                                      // 제공하지 않는다. 웹에서는 <img> 요소로
+                                      // 표시해 교차 출처 이미지도 렌더링한다.
+                                      webHtmlElementStrategy:
+                                          WebHtmlElementStrategy.prefer,
+                                      errorBuilder:
+                                          (
+                                            context,
+                                            error,
+                                            stackTrace,
+                                          ) => Container(
+                                            width: photoWidth,
+                                            height: photoHeight,
+                                            color: AppColors.surface,
+                                            alignment: Alignment.center,
+                                            child: const Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: AppColors.textMuted,
+                                                ),
+                                                SizedBox(height: 6),
+                                                Text(
+                                                  '사진을 불러오지 못했어요',
+                                                  style: TextStyle(
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                    ),
+                                  );
+                                },
                               );
                             },
                           ),
