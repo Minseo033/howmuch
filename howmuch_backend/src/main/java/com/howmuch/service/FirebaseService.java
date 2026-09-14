@@ -74,6 +74,9 @@ public class FirebaseService {
      */
     private volatile List<Map<String, Object>> cachedStores = List.of();
 
+    /** 자동 갱신되는 공공데이터 원본. 행안부 검증 보강 목록과 분리해 주간 스냅샷에 역혼입되지 않게 합니다. */
+    private volatile List<Map<String, Object>> cachedBaseStores = List.of();
+
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
 
@@ -176,7 +179,7 @@ public class FirebaseService {
                     .map(DocumentSnapshot::getData)
                     .toList();
             if (!stores.isEmpty()) {
-                cachedStores = List.copyOf(stores);
+                installGovStores(stores);
                 lastGovRefreshSuccessMillis = System.currentTimeMillis();
                 persistGovStoresSnapshot(stores);
                 try {
@@ -228,7 +231,7 @@ public class FirebaseService {
             if (!Files.exists(path) || Files.size(path) < 2) return false;
             List<Map<String, Object>> stores = readStoresJson(Files.newInputStream(path));
             if (stores.isEmpty()) return false;
-            cachedStores = List.copyOf(stores);
+            installGovStores(stores);
             return true;
         } catch (Exception e) {
             log.warn("디스크 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
@@ -242,7 +245,7 @@ public class FirebaseService {
             if (!resource.exists()) return false;
             List<Map<String, Object>> stores = readStoresJson(resource.getInputStream());
             if (stores.isEmpty()) return false;
-            cachedStores = List.copyOf(stores);
+            installGovStores(stores);
             return true;
         } catch (Exception e) {
             log.warn("classpath 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
@@ -255,6 +258,84 @@ public class FirebaseService {
         try (in) {
             return objectMapper.readValue(in, List.class);
         }
+    }
+
+    /**
+     * 자동 갱신 원본과 행안부 상세 API로 별도 검증한 신규 매장을 런타임에서만 합칩니다.
+     * 보강 목록은 classpath 파일로 독립 보존되어 Firestore/주간 스냅샷 갱신에 덮어쓰이지 않습니다.
+     */
+    private void installGovStores(List<Map<String, Object>> baseStores) {
+        List<Map<String, Object>> safeBase = List.copyOf(baseStores);
+        cachedBaseStores = safeBase;
+        cachedStores = mergeVerifiedSupplement(safeBase);
+    }
+
+    private List<Map<String, Object>> mergeVerifiedSupplement(List<Map<String, Object>> baseStores) {
+        List<Map<String, Object>> merged = new ArrayList<>();
+        Set<String> identities = new HashSet<>();
+        Set<String> phoneNumbers = new HashSet<>();
+        Set<String> nameAddresses = new HashSet<>();
+        for (Map<String, Object> store : baseStores) {
+            String identity = stableStoreId(
+                    strOrNull(store.get("storeName")),
+                    strOrNull(store.get("address")),
+                    strOrNull(store.get("phoneNumber")));
+            if (!identities.add(identity)) continue;
+            merged.add(store);
+            String phoneNumber = comparablePhone(store.get("phoneNumber"));
+            if (!phoneNumber.isBlank()) phoneNumbers.add(phoneNumber);
+            nameAddresses.add(comparableNameAddress(store));
+        }
+        if (merged.size() != baseStores.size()) {
+            log.info("공공데이터 원본의 완전 중복 {}건을 런타임 목록에서 제거했습니다.",
+                    baseStores.size() - merged.size());
+        }
+        try {
+            ClassPathResource resource = new ClassPathResource("stores-supplement.json");
+            if (!resource.exists()) return List.copyOf(merged);
+            List<Map<String, Object>> supplement = readStoresJson(resource.getInputStream());
+            int accepted = 0;
+            for (Map<String, Object> store : supplement) {
+                String name = strOrNull(store.get("storeName"));
+                String address = strOrNull(store.get("address"));
+                String phoneNumber = strOrNull(store.get("phoneNumber"));
+                String expectedId = stableStoreId(name, address, phoneNumber);
+                String suppliedId = strOrNull(store.get("storeId"));
+                String comparablePhone = comparablePhone(phoneNumber);
+                String comparableNameAddress = comparableNameAddress(store);
+                if (name == null || name.isBlank() || address == null || address.isBlank()
+                        || comparablePhone.length() < 8
+                        || !expectedId.equals(suppliedId)
+                        || !hasValidStoreCoordinate(store)
+                        || identities.contains(expectedId)
+                        || phoneNumbers.contains(comparablePhone)
+                        || nameAddresses.contains(comparableNameAddress)) {
+                    log.warn("검증 보강 매장 1건을 무결성 검사에서 제외했습니다: {}", name);
+                    continue;
+                }
+                identities.add(expectedId);
+                phoneNumbers.add(comparablePhone);
+                nameAddresses.add(comparableNameAddress);
+                merged.add(Collections.unmodifiableMap(new HashMap<>(store)));
+                accepted++;
+            }
+            log.info("행안부 상세 검증 보강 매장 {}개를 합쳤습니다.", accepted);
+        } catch (Exception e) {
+            log.warn("행안부 검증 보강 목록을 읽지 못해 기본 스냅샷만 제공합니다: {}",
+                    e.getClass().getSimpleName());
+        }
+        return List.copyOf(merged);
+    }
+
+    private String comparablePhone(Object value) {
+        String digits = value == null ? "" : value.toString().replaceAll("\\D", "");
+        return digits.length() >= 8 ? digits : "";
+    }
+
+    private String comparableNameAddress(Map<String, Object> store) {
+        return normalizeStoreIdentityPart(strOrNull(store.get("storeName"))).replaceAll("[^\\p{L}\\p{N}]", "")
+                + "|"
+                + normalizeStoreIdentityPart(strOrNull(store.get("address"))).replaceAll("[^\\p{L}\\p{N}]", "");
     }
 
     /** 스냅샷을 임시 파일에 쓴 뒤 원자적으로 교체 (쓰기 중단으로 인한 파일 깨짐 방지) */
@@ -370,7 +451,10 @@ public class FirebaseService {
                 .thenComparing(
                         item -> String.valueOf(item.getOrDefault("address", "")),
                         String.CASE_INSENSITIVE_ORDER);
-        return cachedStores.stream()
+        List<Map<String, Object>> baseSnapshot = cachedBaseStores.isEmpty()
+                ? cachedStores
+                : cachedBaseStores;
+        return baseSnapshot.stream()
                 .<Map<String, Object>>map(HashMap::new)
                 .sorted(stableOrder)
                 .toList();

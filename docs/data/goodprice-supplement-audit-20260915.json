@@ -1,0 +1,5513 @@
+{
+  "checkedAt": "2026-09-15",
+  "sourceCandidateCount": 645,
+  "previousSupplementCount": 183,
+  "acceptedCount": 183,
+  "rejectedCount": 462,
+  "acceptedWithHours": 100,
+  "acceptedWithPhotos": 183,
+  "reasonCounts": {
+    "missing-verifiable-phone": 60,
+    "snapshot-distance-under-500m": 406,
+    "snapshot-nearby-same-name": 17,
+    "snapshot-phone-collision": 31,
+    "source-id-already-in-catalog": 11,
+    "photo-already-in-catalog": 11,
+    "missing-official-photo": 47,
+    "supplement-candidate-collision": 8
+  },
+  "policy": {
+    "source": "행정안전부 착한가격업소 지도 후보를 개별 bsshInfo.json으로 재확인",
+    "required": [
+      "현재 지정 Y",
+      "상호·도로명 주소 원본 일치",
+      "유효 좌표",
+      "공식 메뉴·가격 1개 이상",
+      "시도·시군구",
+      "검증 가능한 전화번호",
+      "공식 사진 1개 이상"
+    ],
+    "duplicateGuards": [
+      "기존 전화·상호주소·주소업종 충돌 제외",
+      "기존 매장 500m 이내 제외",
+      "동일 bsshSn/storeId/사진 제외",
+      "후보끼리 전화·상호주소·주소업종·50m 유사상호·사진 충돌 제외"
+    ]
+  },
+  "accepted": [
+    {
+      "bsshSn": "98",
+      "storeId": "store_a2cadc8500e98990d94fcc48",
+      "storeName": "헤어스케치",
+      "address": "서울특별시 강동구 아리수로93가길 20-5 (강일동)",
+      "phoneNumber": "02-470-5108",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=98"
+    },
+    {
+      "bsshSn": "74",
+      "storeId": "store_c68cec143f4833eb08348534",
+      "storeName": "해남식당",
+      "address": "서울특별시 강남구 학동로101길 26",
+      "phoneNumber": "02-543-9660",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=74"
+    },
+    {
+      "bsshSn": "416",
+      "storeId": "store_8b317d6c33b041fa49eaac1c",
+      "storeName": "컷트클럽",
+      "address": "서울특별시 노원구 동일로 1541",
+      "phoneNumber": "02-933-0221",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=416"
+    },
+    {
+      "bsshSn": "839",
+      "storeId": "store_de24b9d5e9c0aaaf58952b54",
+      "storeName": "판도라",
+      "address": "서울특별시 양천구 목동서로 63",
+      "phoneNumber": "02-2644-3693",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=839"
+    },
+    {
+      "bsshSn": "13419",
+      "storeId": "store_a9c8c7d00d881bad4dc3fcde",
+      "storeName": "궁전미용실",
+      "address": "서울특별시 성동구 성덕정길 114 (성수동2가)",
+      "phoneNumber": "010-7445-9920",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13419"
+    },
+    {
+      "bsshSn": "11361",
+      "storeId": "store_592f190f8d523c61b9422ba2",
+      "storeName": "지혜식당",
+      "address": "서울특별시 용산구 이촌로18길 21-15 (이촌동)",
+      "phoneNumber": "02-706-5255",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11361"
+    },
+    {
+      "bsshSn": "18982",
+      "storeId": "store_1c045a82a0b6b389404ae264",
+      "storeName": "전주식당",
+      "address": "서울 강동구 동남로75길 19",
+      "phoneNumber": "02-442-5556",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18982"
+    },
+    {
+      "bsshSn": "19063",
+      "storeId": "store_1dfbcdc299b837d12d2eb6bb",
+      "storeName": "전주식당",
+      "address": "서울특별시 은평구 은평터널로 3 (수색동)",
+      "phoneNumber": "02-373-9733",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19063"
+    },
+    {
+      "bsshSn": "19368",
+      "storeId": "store_2b3238b374219f2cf2e64b04",
+      "storeName": "란미용실",
+      "address": "서울특별시 마포구 효창목4길 26 (공덕동)",
+      "phoneNumber": "02-703-6981",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19368"
+    },
+    {
+      "bsshSn": "19721",
+      "storeId": "store_d732149034438f7741061b6e",
+      "storeName": "콩쥐팥쥐",
+      "address": "서울특별시 종로구 지봉로 84 (숭인동)",
+      "phoneNumber": "02-747-5249",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19721"
+    },
+    {
+      "bsshSn": "19723",
+      "storeId": "store_f94985036ddf4d080cbbb70a",
+      "storeName": "원준네식당",
+      "address": "서울특별시 종로구 지봉로17길 36 (창신동)",
+      "phoneNumber": "02-765-5454",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19723"
+    },
+    {
+      "bsshSn": "19725",
+      "storeId": "store_b6a2ae05c8b6fc299f510985",
+      "storeName": "천만참숯구이",
+      "address": "서울특별시 종로구 지봉로 80 (숭인동)",
+      "phoneNumber": "070-7537-2179",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19725"
+    },
+    {
+      "bsshSn": "19728",
+      "storeId": "store_3545de30052274555de7172c",
+      "storeName": "온마츠",
+      "address": "서울특별시 종로구 평창문화로 45-1 (평창동)",
+      "phoneNumber": "0507-1366-9041",
+      "industry": "일식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19728"
+    },
+    {
+      "bsshSn": "19759",
+      "storeId": "store_78d34090d76b36a898f102d3",
+      "storeName": "주대국초밥집 길음점",
+      "address": "서울특별시 성북구 길음로 33 (길음동, 길음뉴타운)",
+      "phoneNumber": "02-909-6652",
+      "industry": "일식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19759"
+    },
+    {
+      "bsshSn": "19768",
+      "storeId": "store_4bca1f129217a58108107426",
+      "storeName": "미타임 필라테스",
+      "address": "서울특별시 은평구 불광로 120 (불광동, 세민하이파크)",
+      "phoneNumber": "0507-1341-7929",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19768"
+    },
+    {
+      "bsshSn": "19989",
+      "storeId": "store_f4f21d8bf2d30bef5cd23710",
+      "storeName": "투유스킨케어",
+      "address": "서울특별시 은평구 통일로 610 (녹번동, 힐스테이트녹번)",
+      "phoneNumber": "0507-1381-1527",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19989"
+    },
+    {
+      "bsshSn": "20138",
+      "storeId": "store_c99d1877bf9a9bae95e2ed71",
+      "storeName": "(주)에이치앤디이서울만남의광장휴게소",
+      "address": "서울특별시 서초구 양재대로12길 73-71 (원지동)",
+      "phoneNumber": "02-578-3372",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20138"
+    },
+    {
+      "bsshSn": "20211",
+      "storeId": "store_3dc3173b757050da8c8ebb1a",
+      "storeName": "뚝도국수",
+      "address": "서울특별시 성동구 성덕정길 100 (성수동2가)",
+      "phoneNumber": "02-461-7220",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20211"
+    },
+    {
+      "bsshSn": "20414",
+      "storeId": "store_769d3fb1c8652a55f2dac22c",
+      "storeName": "댕댕이즉석떡볶이",
+      "address": "서울특별시 양천구 신목로 76 (신정동)",
+      "phoneNumber": "010-6476-6393",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20414"
+    },
+    {
+      "bsshSn": "20633",
+      "storeId": "store_32e3c22cb130b5f87c880680",
+      "storeName": "포옹싸",
+      "address": "서울특별시 은평구 진관2로 29-21 (진관동)",
+      "phoneNumber": "0507-1395-1650",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20633"
+    },
+    {
+      "bsshSn": "20634",
+      "storeId": "store_95d04c6ec0911eb13e382a73",
+      "storeName": "삼겹구이구이",
+      "address": "서울특별시 은평구 진관4로 100 (진관동, 은평뉴타운상림마을)",
+      "phoneNumber": "02-376-9292",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20634"
+    },
+    {
+      "bsshSn": "1034",
+      "storeId": "store_00f0b53451f233d36537fd98",
+      "storeName": "신촌반점",
+      "address": "부산광역시 강서구 대저로221번다길 43-1",
+      "phoneNumber": "051-973-0489",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=1034"
+    },
+    {
+      "bsshSn": "1233",
+      "storeId": "store_fbd3dc2aaeb06db1b3fbd91f",
+      "storeName": "미짱헤어",
+      "address": "부산광역시 부산진구 백양산로53번길 103",
+      "phoneNumber": "051-896-0030",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=1233"
+    },
+    {
+      "bsshSn": "16719",
+      "storeId": "store_712ae2a0197629abf26f6421",
+      "storeName": "청춘식당",
+      "address": "부산광역시 해운대구 센텀동로 90 (재송동)",
+      "phoneNumber": "051-782-2030",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16719"
+    },
+    {
+      "bsshSn": "16590",
+      "storeId": "store_71221c1b7310eb6f9d9817de",
+      "storeName": "청수탕",
+      "address": "부산광역시 사하구 다송로 13-2 (다대동)",
+      "phoneNumber": "051-263-2211",
+      "industry": "목욕업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16590"
+    },
+    {
+      "bsshSn": "16299",
+      "storeId": "store_44544ae14aaea3ec16ffd383",
+      "storeName": "행복식당",
+      "address": "부산광역시 강서구 대저로89번가길 27-12 (대저1동)",
+      "phoneNumber": "051-971-2726",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16299"
+    },
+    {
+      "bsshSn": "19670",
+      "storeId": "store_e15aaafd030f97af4ad2cade",
+      "storeName": "마음분식",
+      "address": "부산광역시 기장군 기장읍 동부산관광7로 17",
+      "phoneNumber": "051-711-1568",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19670"
+    },
+    {
+      "bsshSn": "19671",
+      "storeId": "store_f405c6692fd1f2939ce9fa01",
+      "storeName": "토종칼국수",
+      "address": "부산광역시 기장군 장안읍 장안로 14",
+      "phoneNumber": "051-727-4888",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19671"
+    },
+    {
+      "bsshSn": "19917",
+      "storeId": "store_1a2b5b85e2148069bd384cd1",
+      "storeName": "짬뽕제작소",
+      "address": "부산광역시 기장군 기장읍 배산로8번길 48",
+      "phoneNumber": "051-723-6630",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19917"
+    },
+    {
+      "bsshSn": "20640",
+      "storeId": "store_ebdc13c952e6fc08dbdc0bdb",
+      "storeName": "쿤달리숯불치킨",
+      "address": "부산광역시 기장군 정관읍 용수로 108",
+      "phoneNumber": "051-728-6112",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20640"
+    },
+    {
+      "bsshSn": "18127",
+      "storeId": "store_812946aab22b6ff6147403d1",
+      "storeName": "까꼬뽀꼬",
+      "address": "대구광역시 동구 팔공로53길 10 (봉무동, 이시아폴리스 더샵 1차)",
+      "phoneNumber": "0507-1346-9328",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18127"
+    },
+    {
+      "bsshSn": "19496",
+      "storeId": "store_7dadd58c90747c0c0bd23943",
+      "storeName": "따따포토",
+      "address": "대구광역시 수성구 지범로 99 (지산동)",
+      "phoneNumber": "0507-1376-1972",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19496"
+    },
+    {
+      "bsshSn": "19574",
+      "storeId": "store_33cd9be7f149da4168015112",
+      "storeName": "고령촌돼지찌개",
+      "address": "대구광역시 달서구 성서공단로15길 33 (호림동)",
+      "phoneNumber": "0507-1498-6001",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19574"
+    },
+    {
+      "bsshSn": "19576",
+      "storeId": "store_194f043363eb55b7b051f767",
+      "storeName": "돼지국밥신서옥 성서본점",
+      "address": "대구광역시 달서구 성서공단로11길 64-1 (호산동)",
+      "phoneNumber": "053-588-7450",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19576"
+    },
+    {
+      "bsshSn": "19579",
+      "storeId": "store_1e8526cb477614f82084554d",
+      "storeName": "량가비",
+      "address": "대구광역시 달서구 성서공단로11길 78 (호산동)",
+      "phoneNumber": "053-585-0092",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19579"
+    },
+    {
+      "bsshSn": "19582",
+      "storeId": "store_4fdcf2d94473cab2c0669565",
+      "storeName": "방방막창",
+      "address": "대구광역시 달서구 달서대로 65-29 (유천동)",
+      "phoneNumber": "053-281-0088",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19582"
+    },
+    {
+      "bsshSn": "19584",
+      "storeId": "store_1be3fd7e3299c659fb66c67f",
+      "storeName": "별미생막창",
+      "address": "대구광역시 달서구 와룡로53길 88 (용산동)",
+      "phoneNumber": "053-566-9992",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19584"
+    },
+    {
+      "bsshSn": "19593",
+      "storeId": "store_7979a36259ff1d29b26b5978",
+      "storeName": "일신푸드",
+      "address": "대구광역시 달서구 달서대로 555 (신당동)",
+      "phoneNumber": "053-585-1005",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19593"
+    },
+    {
+      "bsshSn": "20146",
+      "storeId": "store_60ab7dcf21f05efb837e1476",
+      "storeName": "돌담집",
+      "address": "대구광역시 동구 옻골로 189 (둔산동)",
+      "phoneNumber": "053-985-2648",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20146"
+    },
+    {
+      "bsshSn": "20147",
+      "storeId": "store_bc3a3c4ff9c9029b9376e525",
+      "storeName": "초당방추어탕",
+      "address": "대구광역시 동구 경안로109길 3 (동호동, 신서A하이츠)",
+      "phoneNumber": "053-965-7712",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20147"
+    },
+    {
+      "bsshSn": "20149",
+      "storeId": "store_36bbafbb5bb8ae489ad6c9b4",
+      "storeName": "헤어아름다운나날",
+      "address": "대구광역시 동구 동호로5길 9 (신서동)",
+      "phoneNumber": "053-217-9953",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20149"
+    },
+    {
+      "bsshSn": "20390",
+      "storeId": "store_b10eff6001f1d3962beb96eb",
+      "storeName": "미성김밥",
+      "address": "대구광역시 달성군 옥포읍 비슬로442길 3",
+      "phoneNumber": "053-615-7953",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20390"
+    },
+    {
+      "bsshSn": "20527",
+      "storeId": "store_6fef63120daecaa77d3f0374",
+      "storeName": "죽전식당",
+      "address": "대구광역시 서구 와룡로 307 (중리동)",
+      "phoneNumber": "053-555-3675",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20527"
+    },
+    {
+      "bsshSn": "20555",
+      "storeId": "store_2d6ef7f28a2479364be7555a",
+      "storeName": "요있찌(YOITZZY)",
+      "address": "대구광역시 남구 장전1길 36 (대명동)",
+      "phoneNumber": "070-5192-6860",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20555"
+    },
+    {
+      "bsshSn": "20563",
+      "storeId": "store_e4f0796f32df1a516ee2e701",
+      "storeName": "더키친스토리",
+      "address": "대구광역시 남구 장전3길 148 (대명동)",
+      "phoneNumber": "053-295-9870",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20563"
+    },
+    {
+      "bsshSn": "20567",
+      "storeId": "store_89214b06a57b9cc7593475e6",
+      "storeName": "정제미식가의 부엌",
+      "address": "대구광역시 남구 안지랑로 5-4 (대명동)",
+      "phoneNumber": "010-6835-0000",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20567"
+    },
+    {
+      "bsshSn": "20568",
+      "storeId": "store_b1e3d04b7378b4239586445b",
+      "storeName": "대흥탕",
+      "address": "대구광역시 남구 두류공원로12길 30 (대명동)",
+      "phoneNumber": "053-624-2580",
+      "industry": "목욕업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20568"
+    },
+    {
+      "bsshSn": "2220",
+      "storeId": "store_34245731811eb039dd4e96e5",
+      "storeName": "서울미용실",
+      "address": "인천광역시 옹진군 영흥면 영흥북로 35번길 27",
+      "phoneNumber": "010-4569-5760",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2220"
+    },
+    {
+      "bsshSn": "2184",
+      "storeId": "store_b086b573139395ffc7c2b6af",
+      "storeName": "머리풍경",
+      "address": "인천광역시 검단구 가현로 53",
+      "phoneNumber": "032-566-1223",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2184"
+    },
+    {
+      "bsshSn": "17599",
+      "storeId": "store_d099f5e15e5813ce29294764",
+      "storeName": "만석골",
+      "address": "인천광역시 제물포구 화도진로192번길 2 (만석동)",
+      "phoneNumber": "032-766-8080",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17599"
+    },
+    {
+      "bsshSn": "19634",
+      "storeId": "store_5c8143d1985e72022fae122a",
+      "storeName": "복생원",
+      "address": "인천광역시 남동구 예술로370번길 47 (간석동)",
+      "phoneNumber": "032-421-2968",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19634"
+    },
+    {
+      "bsshSn": "19904",
+      "storeId": "store_cd31f58120de6ab9b9e41e48",
+      "storeName": "헤어클립스",
+      "address": "인천광역시 남동구 서창남순환로 223 (서창동)",
+      "phoneNumber": "032-873-9955",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19904"
+    },
+    {
+      "bsshSn": "19937",
+      "storeId": "store_19a6031e3b91e97ab4ba01e4",
+      "storeName": "강화질시루",
+      "address": "인천광역시 강화군 양도면 강화남로 445",
+      "phoneNumber": "032-932-4080",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19937"
+    },
+    {
+      "bsshSn": "19939",
+      "storeId": "store_d783ac24b429ab5d3fcbc934",
+      "storeName": "카페 모아로",
+      "address": "인천광역시 강화군 선원면 시리미로42번길 62-17",
+      "phoneNumber": "032-933-8785",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19939"
+    },
+    {
+      "bsshSn": "19940",
+      "storeId": "store_e75f42de4ee49f028eed1f8c",
+      "storeName": "햄버거대마왕 선원점",
+      "address": "인천광역시 강화군 선원면 중앙로 218",
+      "phoneNumber": "070-8844-1101",
+      "industry": "양식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19940"
+    },
+    {
+      "bsshSn": "20030",
+      "storeId": "store_1ca48d8d97a95b06caea5d40",
+      "storeName": "샤이닝 에스테틱",
+      "address": "인천광역시 연수구 신송로118번길 6 (송도동, 송도풍림아이원1단지아파트)",
+      "phoneNumber": "032-831-6495",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20030"
+    },
+    {
+      "bsshSn": "20105",
+      "storeId": "store_3ef8518f9a8d2af6b7e1d549",
+      "storeName": "대관령황태해장국",
+      "address": "인천광역시 계양구 벌말로601번길 1 (하야동)",
+      "phoneNumber": "032-543-8600",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20105"
+    },
+    {
+      "bsshSn": "20158",
+      "storeId": "store_55ab3fda3c18f6811cb4efee",
+      "storeName": "또, 달래",
+      "address": "인천광역시 부평구 화랑남로 12 (산곡동)",
+      "phoneNumber": "010-2479-3352",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20158"
+    },
+    {
+      "bsshSn": "20301",
+      "storeId": "store_dba114299059ba5ca8ddbebf",
+      "storeName": "날아라 솥뚜껑 송도본점",
+      "address": "인천광역시 연수구 아트센터대로168번길 100 (송도동)",
+      "phoneNumber": "070-7697-2777",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20301"
+    },
+    {
+      "bsshSn": "20400",
+      "storeId": "store_0541cc36d3a18ce1a7f44ae6",
+      "storeName": "짱스타 코인노래연습장",
+      "address": "인천광역시 남동구 서창남순환로215번길 35 (서창동)",
+      "phoneNumber": "0507-1314-9531",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20400"
+    },
+    {
+      "bsshSn": "20591",
+      "storeId": "store_e634199bc660de19aaa73451",
+      "storeName": "강주헤어",
+      "address": "인천광역시 부평구 상정로 19 (십정동, 정원아파트)",
+      "phoneNumber": "010-2321-2901",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20591"
+    },
+    {
+      "bsshSn": "2787",
+      "storeId": "store_dd592aaa901c5418455a0f87",
+      "storeName": "정식당",
+      "address": "대전광역시 유성구 유성대로 646번길52",
+      "phoneNumber": "042-822-0745",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2787"
+    },
+    {
+      "bsshSn": "19710",
+      "storeId": "store_a85de8e3ad244d282fbe316a",
+      "storeName": "마스",
+      "address": "대전광역시 유성구 지족로190번길 39 (지족동, 노은에코힐)",
+      "phoneNumber": "042-825-0366",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19710"
+    },
+    {
+      "bsshSn": "20013",
+      "storeId": "store_c35e404dd33e68ed5056e937",
+      "storeName": "용궁식당",
+      "address": "대전광역시 중구 문화로234번길 64 (문화동)",
+      "phoneNumber": "0507-1388-5071",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20013"
+    },
+    {
+      "bsshSn": "20054",
+      "storeId": "store_404ec2442ef11c86b0c86389",
+      "storeName": "신가네식당",
+      "address": "대전광역시 유성구 관들4길 36 (관평동)",
+      "phoneNumber": "042-933-9887",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20054"
+    },
+    {
+      "bsshSn": "15242",
+      "storeId": "store_7a765dbe03fa00cd00ee3c29",
+      "storeName": "홍두깨손칼국수",
+      "address": "울산광역시 울주군 서생면 해맞이로 1184",
+      "phoneNumber": "052-238-5855",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15242"
+    },
+    {
+      "bsshSn": "19370",
+      "storeId": "store_7ca6b8d347a78aaadf3cf5da",
+      "storeName": "모닝베이커리",
+      "address": "울산광역시 중구 구교6길 63 (반구동)",
+      "phoneNumber": "052-294-6636",
+      "industry": "베이커리",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19370"
+    },
+    {
+      "bsshSn": "20342",
+      "storeId": "store_5d1544abfd1c0ec1c495ee22",
+      "storeName": "뉴헤어",
+      "address": "울산광역시 남구 문수로435번길 18-1 (신정동)",
+      "phoneNumber": "010-2113-3211",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20342"
+    },
+    {
+      "bsshSn": "10175",
+      "storeId": "store_37204876e300b1873a452c6a",
+      "storeName": "한아름식당",
+      "address": "세종특별자치시 연동면 태산로 60",
+      "phoneNumber": "044-868-5005",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10175"
+    },
+    {
+      "bsshSn": "15902",
+      "storeId": "store_1f1dfd8013ffd390c6bb1cd1",
+      "storeName": "만리장성",
+      "address": "세종특별자치시 조치원읍 충현로 91",
+      "phoneNumber": "044-868-5400",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15902"
+    },
+    {
+      "bsshSn": "20048",
+      "storeId": "store_850cac5264896fe89b13a844",
+      "storeName": "소담",
+      "address": "세종특별자치시 시청대로 219 (보람동)",
+      "phoneNumber": "044-865-8644",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20048"
+    },
+    {
+      "bsshSn": "20049",
+      "storeId": "store_0b344d3f0706d6dd99485db4",
+      "storeName": "이젠국수",
+      "address": "세종특별자치시 국책연구원3로 6 (반곡동)",
+      "phoneNumber": "044-864-8119",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20049"
+    },
+    {
+      "bsshSn": "20052",
+      "storeId": "store_1fd9ac931e65d384d915aa6a",
+      "storeName": "임효진 안경공방",
+      "address": "세종특별자치시 조치원읍 이화로 22",
+      "phoneNumber": "044-863-3367",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20052"
+    },
+    {
+      "bsshSn": "10261",
+      "storeId": "store_7e93f9dfd997957302b3be96",
+      "storeName": "젠틀맨",
+      "address": "경기도 하남시 대청로116번길 59-1 (창우동)",
+      "phoneNumber": "031-796-8266",
+      "industry": "이용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10261"
+    },
+    {
+      "bsshSn": "3066",
+      "storeId": "store_d369a53e94fc4b92bdb0a426",
+      "storeName": "정미용실",
+      "address": "경기도 고양시 덕양구 통일로 781",
+      "phoneNumber": "031-963-7423",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3066"
+    },
+    {
+      "bsshSn": "3255",
+      "storeId": "store_9eaccff4cc88102cd503c2ef",
+      "storeName": "짱미용실",
+      "address": "경기도 남양주시 진접읍 장현로 59-10",
+      "phoneNumber": "031-573-1023",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3255"
+    },
+    {
+      "bsshSn": "3814",
+      "storeId": "store_8b8004bab63c8b7ae0a5cc0d",
+      "storeName": "전주웰빙새알팥죽",
+      "address": "경기도 파주시 문산읍 문향로 14",
+      "phoneNumber": "031-954-8881",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3814"
+    },
+    {
+      "bsshSn": "3790",
+      "storeId": "store_3f440c6953d9c2d745750d6c",
+      "storeName": "시온미용실",
+      "address": "경기도 파주시 월롱면 쉰우물길 13-16",
+      "phoneNumber": "031-941-5285",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3790"
+    },
+    {
+      "bsshSn": "3781",
+      "storeId": "store_c7f2de726b95e1c323d4cafc",
+      "storeName": "단월식당",
+      "address": "경기도 이천시 단월로 32",
+      "phoneNumber": "031-633-0425",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3781"
+    },
+    {
+      "bsshSn": "3765",
+      "storeId": "store_8bded250b3e646a997bc3726",
+      "storeName": "전주식당",
+      "address": "경기도 의정부시 청사로 47번길 15",
+      "phoneNumber": "031-851-5178",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3765"
+    },
+    {
+      "bsshSn": "3678",
+      "storeId": "store_2302bf5d9d7ccb7871f2756b",
+      "storeName": "고향마을",
+      "address": "경기도 용인시 기흥구 한보라1로134-2",
+      "phoneNumber": "031-274-5758",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3678"
+    },
+    {
+      "bsshSn": "3620",
+      "storeId": "store_037bebf463277fb539cf131d",
+      "storeName": "부산돼지국밥",
+      "address": "경기도 양평군 강상면 강남로 753",
+      "phoneNumber": "031-775-0701",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3620"
+    },
+    {
+      "bsshSn": "3888",
+      "storeId": "store_22c4bddaf15a6102d957ec47",
+      "storeName": "하오츠",
+      "address": "경기도 화성시 봉담읍 효행로 226",
+      "phoneNumber": "031-225-1317",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3888"
+    },
+    {
+      "bsshSn": "14786",
+      "storeId": "store_69f7dd801d20f0d8efdc7ab3",
+      "storeName": "엄마손칼국수",
+      "address": "경기도 여주시 웅골로 168 (가업동)",
+      "phoneNumber": "031-882-8553",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14786"
+    },
+    {
+      "bsshSn": "13476",
+      "storeId": "store_e5d7cf3ed57373c03a238d67",
+      "storeName": "윤식당",
+      "address": "경기도 의정부시 경의로118번길 20 (의정부동)",
+      "phoneNumber": "031-855-3999",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13476"
+    },
+    {
+      "bsshSn": "13198",
+      "storeId": "store_1b51c492230255868b5285e0",
+      "storeName": "중국성",
+      "address": "경기도 용인시 수지구 정든로 25 (죽전동)",
+      "phoneNumber": "031-263-8866",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13198"
+    },
+    {
+      "bsshSn": "13959",
+      "storeId": "store_315c8a15f93ee0af22c99c8b",
+      "storeName": "만원족발",
+      "address": "경기도 안산시 단원구 라성로 43 (원곡동)",
+      "phoneNumber": "031-362-5212",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13959"
+    },
+    {
+      "bsshSn": "15671",
+      "storeId": "store_0c8af0ecfca28b48736b373a",
+      "storeName": "만리장성",
+      "address": "경기도 성남시 분당구 불곡남로7번길 4 (정자동)",
+      "phoneNumber": "031-713-8008",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15671"
+    },
+    {
+      "bsshSn": "15574",
+      "storeId": "store_1e11080b89bfd47cf5e71fb4",
+      "storeName": "엄마손칼국수",
+      "address": "경기도 용인시 수지구 정든로 10 (죽전동)",
+      "phoneNumber": "031-898-0345",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15574"
+    },
+    {
+      "bsshSn": "16775",
+      "storeId": "store_72a71ceaa535b59fa8dfd500",
+      "storeName": "구좌리얼크니손칼국수",
+      "address": "경기도 성남시 분당구 쇳골로 25 (금곡동)",
+      "phoneNumber": "031-711-5557",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16775"
+    },
+    {
+      "bsshSn": "16468",
+      "storeId": "store_4af773fa0488f152fbef9497",
+      "storeName": "자금성",
+      "address": "경기도 시흥시 마유로 415 (정왕동)",
+      "phoneNumber": "031-498-3969",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16468"
+    },
+    {
+      "bsshSn": "16465",
+      "storeId": "store_7e886a545665b12c8b6ff981",
+      "storeName": "만리향",
+      "address": "경기도 시흥시 역전로301번길 24 (정왕동)",
+      "phoneNumber": "0507-1325-6333",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16465"
+    },
+    {
+      "bsshSn": "16446",
+      "storeId": "store_617d96b70f355443742f30e6",
+      "storeName": "머리사랑",
+      "address": "경기도 안양시 동안구 경수대로 458 (호계동)",
+      "phoneNumber": "031-427-3368",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16446"
+    },
+    {
+      "bsshSn": "16269",
+      "storeId": "store_0a64f179185ef2264ad14060",
+      "storeName": "천안문",
+      "address": "경기도 이천시 백사면 이여로 269",
+      "phoneNumber": "031-638-8500",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16269"
+    },
+    {
+      "bsshSn": "17120",
+      "storeId": "store_9db119c0d2a8c058d81037c0",
+      "storeName": "브라더매운갈비찜",
+      "address": "경기도 수원시 팔달구 권광로180번길 46 (인계동)",
+      "phoneNumber": "031-221-1129",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17120"
+    },
+    {
+      "bsshSn": "19484",
+      "storeId": "store_3ea99a7a9be521f49fa4d696",
+      "storeName": "짱뚱어와코다리",
+      "address": "경기도 남양주시 늘을1로 185 (호평동)",
+      "phoneNumber": "031-593-7440",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19484"
+    },
+    {
+      "bsshSn": "19516",
+      "storeId": "store_d04f19c5264d42bc2322e8ff",
+      "storeName": "순족",
+      "address": "경기도 용인시 수지구 신봉2로14번길 8 (신봉동)",
+      "phoneNumber": "031-261-3336",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19516"
+    },
+    {
+      "bsshSn": "19620",
+      "storeId": "store_bf3943bba32ec1b4755c8982",
+      "storeName": "청아대박뒷고기",
+      "address": "경기도 평택시 청북읍 안청로4길 15",
+      "phoneNumber": "031-684-4288",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19620"
+    },
+    {
+      "bsshSn": "19707",
+      "storeId": "store_497321325121acfb27522d2e",
+      "storeName": "토담집",
+      "address": "경기도 가평군 설악면 한서로 162",
+      "phoneNumber": "031-585-9289",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19707"
+    },
+    {
+      "bsshSn": "19730",
+      "storeId": "store_14722e1659fda3330a77dc79",
+      "storeName": "정곰탕 조리직영점",
+      "address": "경기도 파주시 조리읍 등원로91번길 5",
+      "phoneNumber": "031-945-8208",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19730"
+    },
+    {
+      "bsshSn": "19796",
+      "storeId": "store_0e8db26d51e78da1e6e4980d",
+      "storeName": "네일, 또 만나",
+      "address": "경기도 김포시 통진읍 서암로6번길 5-1",
+      "phoneNumber": "0507-1461-9337",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19796"
+    },
+    {
+      "bsshSn": "19821",
+      "storeId": "store_4a0cda2ceaee8b25adb539dd",
+      "storeName": "달지닝하우스",
+      "address": "경기도 수원시 권선구 곡선로49번길 32-4 (곡반정동)",
+      "phoneNumber": "031-223-7617",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19821"
+    },
+    {
+      "bsshSn": "19874",
+      "storeId": "store_a79612860b67b5e566023023",
+      "storeName": "태양당구장",
+      "address": "경기도 성남시 수정구 복정로 57 (복정동)",
+      "phoneNumber": "031-759-4784",
+      "industry": "기타비요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19874"
+    },
+    {
+      "bsshSn": "19930",
+      "storeId": "store_ad95c5b727e99178901cd32d",
+      "storeName": "청학동에서",
+      "address": "경기도 포천시 군내면 청성로 97",
+      "phoneNumber": "031-534-3330",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19930"
+    },
+    {
+      "bsshSn": "19931",
+      "storeId": "store_409b243de1b565db221bc789",
+      "storeName": "엄마네집밥",
+      "address": "경기도 포천시 내촌면 금강로 2490",
+      "phoneNumber": "031-531-0832",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19931"
+    },
+    {
+      "bsshSn": "20007",
+      "storeId": "store_89cc8403aaaba0ff8267da70",
+      "storeName": "월향",
+      "address": "경기도 화성시 만세구 남양읍 남양로 484",
+      "phoneNumber": "031-356-8890",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20007"
+    },
+    {
+      "bsshSn": "20043",
+      "storeId": "store_806dd1929ac48932abafade9",
+      "storeName": "양주로얄세탁",
+      "address": "경기도 양주시 고읍남로191번길 85-13 (광사동)",
+      "phoneNumber": "031-843-9887",
+      "industry": "세탁업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20043"
+    },
+    {
+      "bsshSn": "20189",
+      "storeId": "store_e14fd5a85d25d883f142057e",
+      "storeName": "달구족발",
+      "address": "경기도 고양시 일산서구 산현로92번길 60 (일산동)",
+      "phoneNumber": "031-994-3993",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20189"
+    },
+    {
+      "bsshSn": "20197",
+      "storeId": "store_c1c27304e1bbf0d9ebf9e491",
+      "storeName": "참치슈퍼",
+      "address": "경기도 고양시 일산서구 한류월드로 300 (대화동)",
+      "phoneNumber": "070-7799-0408",
+      "industry": "일식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20197"
+    },
+    {
+      "bsshSn": "20239",
+      "storeId": "store_f925e43087c4b63a28ec90e9",
+      "storeName": "여주원갈비탕",
+      "address": "경기도 여주시 우암로 159 (월송동)",
+      "phoneNumber": "031-881-4839",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20239"
+    },
+    {
+      "bsshSn": "20307",
+      "storeId": "store_35c31ac087f6d0b370a64fa0",
+      "storeName": "티엔바오",
+      "address": "경기도 수원시 영통구 광교중앙로 170 (하동)",
+      "phoneNumber": "0507-1352-5735",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20307"
+    },
+    {
+      "bsshSn": "20308",
+      "storeId": "store_0e0d56090ca2a4bd359290b1",
+      "storeName": "대가흑염소",
+      "address": "경기도 양주시 백석읍 권율로1123번길 7",
+      "phoneNumber": "0505-1440-6277",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20308"
+    },
+    {
+      "bsshSn": "20354",
+      "storeId": "store_123ef06710d29a0bcb9e71e8",
+      "storeName": "황우곰탕",
+      "address": "경기도 남양주시 평내로161번길 4-3 (평내동)",
+      "phoneNumber": "031-592-3885",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20354"
+    },
+    {
+      "bsshSn": "20355",
+      "storeId": "store_b9cd5435cff9223dbbbef861",
+      "storeName": "착한책방",
+      "address": "경기도 남양주시 수동면 비룡로782번길 43-163",
+      "phoneNumber": "0507-1348-0736",
+      "industry": "베이커리",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20355"
+    },
+    {
+      "bsshSn": "20479",
+      "storeId": "store_b16452c513bff030dde83efa",
+      "storeName": "남양대패",
+      "address": "경기도 화성시 만세구 남양읍 역골로 15-24",
+      "phoneNumber": "010-8898-7680",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20479"
+    },
+    {
+      "bsshSn": "20483",
+      "storeId": "store_2812aa9ea0bd9a0d62c79f98",
+      "storeName": "만개",
+      "address": "경기도 화성시 만세구 꽃내음2길 32-6 (새솔동)",
+      "phoneNumber": "031-357-0347",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20483"
+    },
+    {
+      "bsshSn": "20501",
+      "storeId": "store_560f6d98133ca0b442844b95",
+      "storeName": "대곶닭강정",
+      "address": "경기도 김포시 통진읍 담터로 5",
+      "phoneNumber": "031-989-4868",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20501"
+    },
+    {
+      "bsshSn": "20597",
+      "storeId": "store_050bb65c7217d6f7556d965e",
+      "storeName": "일품옥",
+      "address": "경기도 남양주시 진접읍 금강로1845번길 2-1",
+      "phoneNumber": "0507-1426-9605",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20597"
+    },
+    {
+      "bsshSn": "20628",
+      "storeId": "store_37ffe792a35f573f57b3b4ad",
+      "storeName": "디엠지라운지",
+      "address": "경기도 파주시 탄현면 새오리로161번길 90",
+      "phoneNumber": "031-959-2353",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20628"
+    },
+    {
+      "bsshSn": "20630",
+      "storeId": "store_c7817e152f236f6c839a2cf3",
+      "storeName": "세탁에 진심",
+      "address": "경기도 파주시 교하로 100 (목동동, 힐스테이트 운정)",
+      "phoneNumber": "031-934-0473",
+      "industry": "세탁업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20630"
+    },
+    {
+      "bsshSn": "4191",
+      "storeId": "store_12b0c97557d9b0df544d7672",
+      "storeName": "진헤어",
+      "address": "강원특별자치도 원주시 현충로 234-13",
+      "phoneNumber": "033-744-3572",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4191"
+    },
+    {
+      "bsshSn": "4157",
+      "storeId": "store_88551a8e2e5076e328bf022b",
+      "storeName": "단골식당",
+      "address": "강원특별자치도 영월군 영월읍 중리1길 108",
+      "phoneNumber": "033-375-1900",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4157"
+    },
+    {
+      "bsshSn": "14599",
+      "storeId": "store_63b879ec6a0dbc6afdef96d5",
+      "storeName": "정헤어",
+      "address": "강원특별자치도 태백시 버들치길 8 (소도동)",
+      "phoneNumber": "033-554-4075",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14599"
+    },
+    {
+      "bsshSn": "19549",
+      "storeId": "store_ca96a3768b3ddbeb45f024d5",
+      "storeName": "영란헤어샵",
+      "address": "강원특별자치도 영월군 영월읍 중리1길 108 (금용아파트)",
+      "phoneNumber": "033-374-3309",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19549"
+    },
+    {
+      "bsshSn": "19551",
+      "storeId": "store_e533de886a5142bacbf0ce75",
+      "storeName": "지연미용실",
+      "address": "강원특별자치도 영월군 한반도면 쌍용로 81",
+      "phoneNumber": "033-372-4020",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19551"
+    },
+    {
+      "bsshSn": "19809",
+      "storeId": "store_6bb608bd7f527c47cf02d22f",
+      "storeName": "강릉짬뽕회관",
+      "address": "강원특별자치도 강릉시 성덕로 336 (입암동)",
+      "phoneNumber": "033-647-8411",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19809"
+    },
+    {
+      "bsshSn": "19811",
+      "storeId": "store_947a7b5474ddea64d02ea753",
+      "storeName": "교동소머리곰탕",
+      "address": "강원특별자치도 강릉시 정원로 81 (교동)",
+      "phoneNumber": "033-645-3744",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19811"
+    },
+    {
+      "bsshSn": "19839",
+      "storeId": "store_b7af39c08de18a21a9257d88",
+      "storeName": "카페 쉼표",
+      "address": "강원특별자치도 속초시 농공단지1길 4 (대포동)",
+      "phoneNumber": "0507-1318-4261",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19839"
+    },
+    {
+      "bsshSn": "19844",
+      "storeId": "store_053fe81aef9f0c80a3c10621",
+      "storeName": "아바이어시장 속초점",
+      "address": "강원특별자치도 속초시 대포항희망길 93-8 (대포동)",
+      "phoneNumber": "0507-1428-5026",
+      "industry": "일식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19844"
+    },
+    {
+      "bsshSn": "20406",
+      "storeId": "store_e96d0c4e79743719504b0229",
+      "storeName": "청성애원",
+      "address": "강원특별자치도 평창군 평창읍 살구실길 53-10",
+      "phoneNumber": "033-333-6031",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20406"
+    },
+    {
+      "bsshSn": "20604",
+      "storeId": "store_c203b8607c52db781f257267",
+      "storeName": "달빛헤어",
+      "address": "강원특별자치도 정선군 사북읍 도사곡길 21-1",
+      "phoneNumber": "033-592-2266",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20604"
+    },
+    {
+      "bsshSn": "4558",
+      "storeId": "store_fcc87607ce635eec8b1c112d",
+      "storeName": "제일미용실",
+      "address": "충청북도 옥천군 이원면 신흥길 10-1",
+      "phoneNumber": "043-732-2339",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4558"
+    },
+    {
+      "bsshSn": "4515",
+      "storeId": "store_e95d4993b7fbb070fde6f6d8",
+      "storeName": "경남식당",
+      "address": "충청북도 단양군 단양읍 고수동굴길 4-2",
+      "phoneNumber": "0507-1320-3162",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4515"
+    },
+    {
+      "bsshSn": "14753",
+      "storeId": "store_3ebb2ad7465c2aa26bb06028",
+      "storeName": "천안문",
+      "address": "충청북도 청주시 청원구 오창읍 양청2길 22",
+      "phoneNumber": "043-217-1210",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14753"
+    },
+    {
+      "bsshSn": "17956",
+      "storeId": "store_9018c297085ad83c5b5fd523",
+      "storeName": "이원사회적협동조합 이원주민쉼터 내일로",
+      "address": "충북 옥천군 이원면 신흥1길 22",
+      "phoneNumber": "043-731-7988",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17956"
+    },
+    {
+      "bsshSn": "19999",
+      "storeId": "store_40f8379ecb5ce90e4e7c3d2e",
+      "storeName": "스마일찹쌀과배기",
+      "address": "충청북도 음성군 대소읍 대금로 686-36",
+      "phoneNumber": "043-750-8004",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19999"
+    },
+    {
+      "bsshSn": "20033",
+      "storeId": "store_7cb5873e3a6f908783ad0b3e",
+      "storeName": "토종왕순대",
+      "address": "충청북도 영동군 용산면 용산로 341",
+      "phoneNumber": "043-743-1294",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20033"
+    },
+    {
+      "bsshSn": "20056",
+      "storeId": "store_0a7b2976a1c4a35d8eeee031",
+      "storeName": "주이장",
+      "address": "충청북도 옥천군 이원면 건진3길 128",
+      "phoneNumber": "043-733-1118",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20056"
+    },
+    {
+      "bsshSn": "2385",
+      "storeId": "store_d68da8075fa9609fe982e6f3",
+      "storeName": "정헤어",
+      "address": "전남광주통합특별시 북구 비엔날레로 49",
+      "phoneNumber": "062-529-1326",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2385"
+    },
+    {
+      "bsshSn": "2267",
+      "storeId": "store_98bead01c92edfd027970aac",
+      "storeName": "산수골",
+      "address": "전남광주통합특별시 동구 경양로 340",
+      "phoneNumber": "062-233-3318",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2267"
+    },
+    {
+      "bsshSn": "13326",
+      "storeId": "store_15e51618a01012313f2655f6",
+      "storeName": "아하브분식카페",
+      "address": "전남광주통합특별시 해남군 삼산면 고산로 513",
+      "phoneNumber": "061-534-9242",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13326"
+    },
+    {
+      "bsshSn": "14468",
+      "storeId": "store_fdcd32550f9cf3eb2c1a1fa2",
+      "storeName": "행복식당",
+      "address": "전남광주통합특별시 서구 화개중앙로 73 (금호동)",
+      "phoneNumber": "0507-1366-9253",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14468"
+    },
+    {
+      "bsshSn": "18588",
+      "storeId": "store_1fa7dec9238bd8ea86b26082",
+      "storeName": "삼남매",
+      "address": "전남광주통합특별시 북구 북문대로232번길 9 (동림동)",
+      "phoneNumber": "070-8656-3657",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18588"
+    },
+    {
+      "bsshSn": "18957",
+      "storeId": "store_8112f3b08b8e39035a5d8e9b",
+      "storeName": "중국집",
+      "address": "전남광주통합특별시 북구 양산택지로 17 (양산동)",
+      "phoneNumber": "062-572-5100",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18957"
+    },
+    {
+      "bsshSn": "19174",
+      "storeId": "store_d7a3bdf584bbdb7dfdcaecfc",
+      "storeName": "청와",
+      "address": "전남광주통합특별시 무안군 청계면 승달산1길 6",
+      "phoneNumber": "061-454-5215",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19174"
+    },
+    {
+      "bsshSn": "20155",
+      "storeId": "store_25002c42c4b7d6021d81665c",
+      "storeName": "잠수기 장어탕 식당",
+      "address": "전남광주통합특별시 여수시 어항단지로 21 (국동)",
+      "phoneNumber": "061-643-3880",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20155"
+    },
+    {
+      "bsshSn": "20464",
+      "storeId": "store_13c4f7042343d340cb44d0ff",
+      "storeName": "은아미용실",
+      "address": "전남광주통합특별시 곡성군 오곡면 기차마을로 128",
+      "phoneNumber": "061-363-1030",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20464"
+    },
+    {
+      "bsshSn": "20618",
+      "storeId": "store_a5942bf5dd190134220492d1",
+      "storeName": "고향마을",
+      "address": "전남광주통합특별시 서구 쌍학로 5 (쌍촌동)",
+      "phoneNumber": "062-375-8484",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20618"
+    },
+    {
+      "bsshSn": "4900",
+      "storeId": "store_7e6d5625438440bc86cd82bc",
+      "storeName": "시온미용실",
+      "address": "충청남도 서천군 장항읍 장항로 100",
+      "phoneNumber": "041-956-4744",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4900"
+    },
+    {
+      "bsshSn": "4958",
+      "storeId": "store_fe5e36a0a3f8a74e96f2dbdf",
+      "storeName": "꽃샘미용실",
+      "address": "충청남도 천안시 서북구 입장면 성진로 593",
+      "phoneNumber": "041-622-2937",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=4958"
+    },
+    {
+      "bsshSn": "5093",
+      "storeId": "store_4c7cda95a1d1d37f6ff73ffc",
+      "storeName": "그린식당",
+      "address": "충청남도 당진시 우두로 105",
+      "phoneNumber": "041-352-5192",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=5093"
+    },
+    {
+      "bsshSn": "14187",
+      "storeId": "store_bf2ca4d593e6d54b8b391078",
+      "storeName": "소담",
+      "address": "충청남도 당진시 우강면 덕평로 601",
+      "phoneNumber": "041-362-3571",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14187"
+    },
+    {
+      "bsshSn": "14887",
+      "storeId": "store_fe87b895ffea7315c210bf6a",
+      "storeName": "항아리칼국수",
+      "address": "충청남도 당진시 대덕1로1길 20-21 (대덕동)",
+      "phoneNumber": "041-353-0633",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14887"
+    },
+    {
+      "bsshSn": "19627",
+      "storeId": "store_6e378ae92caff025189b9f28",
+      "storeName": "순분이네뼈해장국",
+      "address": "충청남도 천안시 서북구 봉정로 243 (성정동)",
+      "phoneNumber": "0507-1392-8646",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19627"
+    },
+    {
+      "bsshSn": "19631",
+      "storeId": "store_80be4ef64cdfd3a8c87d7a25",
+      "storeName": "돌돌이생고기",
+      "address": "충청남도 천안시 동남구 용곡5길 21 (용곡동)",
+      "phoneNumber": "0507-1470-6088",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19631"
+    },
+    {
+      "bsshSn": "19632",
+      "storeId": "store_a6ef6354d516ecc0c505b52b",
+      "storeName": "널위한식탁",
+      "address": "충청남도 천안시 서북구 서부16길 59 (성정동)",
+      "phoneNumber": "041-579-5008",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19632"
+    },
+    {
+      "bsshSn": "19656",
+      "storeId": "store_89049394986b8501e86041d3",
+      "storeName": "카페오늘",
+      "address": "충청남도 천안시 서북구 성성8로 2-15 (성성동)",
+      "phoneNumber": "0507-1373-5924",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19656"
+    },
+    {
+      "bsshSn": "19660",
+      "storeId": "store_59c347e6b96e81b3ae4a3b97",
+      "storeName": "명문각",
+      "address": "충청남도 천안시 서북구 입장면 성진로 737",
+      "phoneNumber": "041-583-3826",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19660"
+    },
+    {
+      "bsshSn": "19766",
+      "storeId": "store_5b1364582202afb968856a2a",
+      "storeName": "소학한우마을정육식당",
+      "address": "충청남도 공주시 소학동길 83 (소학동)",
+      "phoneNumber": "041-400-8898",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19766"
+    },
+    {
+      "bsshSn": "19767",
+      "storeId": "store_59386c80663963ecb0974eef",
+      "storeName": "바다양푼이동태탕",
+      "address": "충청남도 공주시 우금티로 518 (금학동)",
+      "phoneNumber": "041-856-2224",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19767"
+    },
+    {
+      "bsshSn": "19922",
+      "storeId": "store_af3fe35085b80959c143bc31",
+      "storeName": "푸짐한옛날부대찌개",
+      "address": "충청남도 천안시 동남구 호서대길 5 (안서동)",
+      "phoneNumber": "041-561-3834",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19922"
+    },
+    {
+      "bsshSn": "19923",
+      "storeId": "store_b1459523b944d27b39092979",
+      "storeName": "대천",
+      "address": "충청남도 천안시 서북구 2공단1로 35 (성성동)",
+      "phoneNumber": "041-583-0343",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19923"
+    },
+    {
+      "bsshSn": "20234",
+      "storeId": "store_f722d9563920621ee887f22b",
+      "storeName": "덕희네짬뽕",
+      "address": "충청남도 아산시 순천향로 599 (신인동)",
+      "phoneNumber": "041-532-8221",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20234"
+    },
+    {
+      "bsshSn": "20236",
+      "storeId": "store_1b0fa0ea198b20e002353ad8",
+      "storeName": "홍두깨칼국수",
+      "address": "충청남도 아산시 외암로 1388 (읍내동)",
+      "phoneNumber": "041-532-0079",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20236"
+    },
+    {
+      "bsshSn": "5174",
+      "storeId": "store_31de02cc8ac43c438c5c8389",
+      "storeName": "제일식당",
+      "address": "전북특별자치도 고창군 아산면 녹두로 781",
+      "phoneNumber": "063-562-5425",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=5174"
+    },
+    {
+      "bsshSn": "15644",
+      "storeId": "store_3bbfa3b9732528f1ad238c09",
+      "storeName": "일미식당",
+      "address": "전북특별자치도 고창군 부안면 인촌로 1255",
+      "phoneNumber": "063-561-0854",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15644"
+    },
+    {
+      "bsshSn": "20161",
+      "storeId": "store_a824f7920087e9d9aadc9990",
+      "storeName": "복쟁이",
+      "address": "전북특별자치도 순창군 복흥면 추령로 1467",
+      "phoneNumber": "063-653-1282",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20161"
+    },
+    {
+      "bsshSn": "20164",
+      "storeId": "store_e414006aa0c3a7b288dc7128",
+      "storeName": "강천산모텔",
+      "address": "전북특별자치도 순창군 팔덕면 강천로 116",
+      "phoneNumber": "063-652-6767",
+      "industry": "숙박업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20164"
+    },
+    {
+      "bsshSn": "19995",
+      "storeId": "store_1378241aebf0b5bcc6b7c975",
+      "storeName": "총각네 기름방",
+      "address": "경상북도 경주시 용황로10길 16-32 (용강동)",
+      "phoneNumber": "054-776-2554",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19995"
+    },
+    {
+      "bsshSn": "20410",
+      "storeId": "store_040bfa3fb568bd38651b351b",
+      "storeName": "중원깜돈식당",
+      "address": "경상북도 김천시 대덕면 증산로 4",
+      "phoneNumber": "054-437-3392",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20410"
+    },
+    {
+      "bsshSn": "19508",
+      "storeId": "store_971276271d93858e9c18b8db",
+      "storeName": "우리동네 족발이다",
+      "address": "경상남도 창원시 진해구 용재로 15 (용원동)",
+      "phoneNumber": "070-8287-1875",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19508"
+    },
+    {
+      "bsshSn": "19521",
+      "storeId": "store_028061ae352c806d7acf9335",
+      "storeName": "청춘면옥",
+      "address": "경상남도 사천시 용현면 사천대로 969-2",
+      "phoneNumber": "055-833-9100",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19521"
+    },
+    {
+      "bsshSn": "19580",
+      "storeId": "store_eb15cf2e992b7feb5241caec",
+      "storeName": "카페연덕",
+      "address": "경상남도 창원시 성산구 연덕로184번길 1 (내동)",
+      "phoneNumber": "010-5655-3843",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19580"
+    },
+    {
+      "bsshSn": "19638",
+      "storeId": "store_2f50af644a0916ffb5bbfc26",
+      "storeName": "중앙반점",
+      "address": "경상남도 밀양시 중앙로 92 (가곡동)",
+      "phoneNumber": "055-353-0780",
+      "industry": "중식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19638"
+    },
+    {
+      "bsshSn": "19641",
+      "storeId": "store_bb271ac5d2fd6bc046afe361",
+      "storeName": "사포가마솥순대국밥",
+      "address": "경상남도 밀양시 부북면 사포로 128",
+      "phoneNumber": "055-354-1345",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19641"
+    },
+    {
+      "bsshSn": "20069",
+      "storeId": "store_f490a269c260ab6e39358be9",
+      "storeName": "남해지족펜션",
+      "address": "경상남도 남해군 창선면 동부대로 1927-1",
+      "phoneNumber": "010-6317-6700",
+      "industry": "숙박업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20069"
+    },
+    {
+      "bsshSn": "20070",
+      "storeId": "store_350d3ddc1603058b11d5e84d",
+      "storeName": "헐스밴드",
+      "address": "경상남도 남해군 서면 남서대로1517번길 44",
+      "phoneNumber": "010-7445-9332",
+      "industry": "기타요식업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20070"
+    },
+    {
+      "bsshSn": "20259",
+      "storeId": "store_b608609e6d5a0fe47aaf7098",
+      "storeName": "국밥과 보쌈",
+      "address": "경상남도 양산시 상북면 수서로 159-1",
+      "phoneNumber": "055-374-6903",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20259"
+    },
+    {
+      "bsshSn": "20270",
+      "storeId": "store_7f33501336476d6f33a033e5",
+      "storeName": "구좌리얼크니손칼국수",
+      "address": "경상남도 양산시 소주회야로 143 (소주동)",
+      "phoneNumber": "055-362-3303",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20270"
+    },
+    {
+      "bsshSn": "20329",
+      "storeId": "store_8d9caacd7335832dbc3319d7",
+      "storeName": "행복헤어",
+      "address": "경상남도 진주시 진양호로97번길 19-5 (평거동)",
+      "phoneNumber": "055-746-4548",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20329"
+    },
+    {
+      "bsshSn": "20345",
+      "storeId": "store_d5d22663faafee28247d4809",
+      "storeName": "밀가루집",
+      "address": "경상남도 밀양시 교동로5길 25 (교동)",
+      "phoneNumber": "055-355-4326",
+      "industry": "한식",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20345"
+    },
+    {
+      "bsshSn": "20401",
+      "storeId": "store_60d57a8e097831ae8fff0475",
+      "storeName": "윤헤어",
+      "address": "경상남도 진주시 충의로89번길 33-9 (충무공동)",
+      "phoneNumber": "055-752-2332",
+      "industry": "미용업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=20401"
+    },
+    {
+      "bsshSn": "11175",
+      "storeId": "store_f1eba9003177aa0f5857b944",
+      "storeName": "제주에코 스위츠",
+      "address": "제주특별자치도 서귀포시 중문상로 207-13",
+      "phoneNumber": "064-738-9975",
+      "industry": "숙박업",
+      "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11175"
+    }
+  ],
+  "rejected": [
+    {
+      "bsshSn": "954",
+      "storeName": "현미용실",
+      "address": "서울특별시 종로구 지봉로17길 12",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "947",
+      "storeName": "영미용실",
+      "address": "서울특별시 종로구 지봉로 62",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "922",
+      "storeName": "시장냉면",
+      "address": "서울특별시 은평구 응암로22길 5-17 (응암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11581",
+      "storeName": "박리김밥",
+      "address": "서울특별시 중랑구 공릉로2길 22",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13894",
+      "storeName": "두리미가 솥밥",
+      "address": "서울특별시 서초구 사임당로 108 (서초동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "116",
+      "storeName": "머리하는집",
+      "address": "서울특별시 강북구 오현로9길 132",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "115",
+      "storeName": "럭키미용실",
+      "address": "서울특별시 강북구 오패산로 273",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1010",
+      "storeName": "행운미용실",
+      "address": "서울특별시 중랑구 동일로120길 121-11",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "989",
+      "storeName": "풍년식당",
+      "address": "서울특별시 중구 퇴계로36가길 47",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "319",
+      "storeName": "성원이용원",
+      "address": "서울특별시 구로구 구로동로7길 7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "313",
+      "storeName": "까망머리방",
+      "address": "서울특별시 구로구 고척로33라길 19",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "267",
+      "storeName": "장미미용실",
+      "address": "서울특별시 광진구 면목로167",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "253",
+      "storeName": "겨울나그네",
+      "address": "서울특별시 광진구 능동로 147-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "756",
+      "storeName": "독일베이커리",
+      "address": "서울특별시 성북구 삼양로50",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "663",
+      "storeName": "냠냠분식",
+      "address": "서울특별시 마포구 모래내로 7길 89",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "650",
+      "storeName": "헤어스타",
+      "address": "서울특별시 마포구 독막로 266",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "590",
+      "storeName": "남원추어탕",
+      "address": "서울특별시 동작구 여의대방로 250",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "560",
+      "storeName": "힐링헤어",
+      "address": "서울특별시 동작구 성대로12길 8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "537",
+      "storeName": "화이트세탁소",
+      "address": "서울특별시 동작구 만양로19",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "503",
+      "storeName": "제일정육식당",
+      "address": "서울특별시 동대문구 장한로10길 45 (장안동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "471",
+      "storeName": "남원추어탕",
+      "address": "서울특별시 도봉구 해등로 83",
+      "reasons": [
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "497",
+      "storeName": "정성서울국수집",
+      "address": "서울특별시 동대문구 이문로 166 (이문동)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "488",
+      "storeName": "우주미용실",
+      "address": "서울특별시 동대문구 전농로16길 33 (전농동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "363",
+      "storeName": "한신세탁소",
+      "address": "서울특별시 금천구 한내로 62 한신",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11184",
+      "storeName": "착한이발관",
+      "address": "서울특별시 중랑구 봉화산로 54",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "861",
+      "storeName": "현대세탁소",
+      "address": "서울특별시 영등포구 신풍로25가길11",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "824",
+      "storeName": "서울분식",
+      "address": "서울특별시 송파구 가락로 42길 13",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "802",
+      "storeName": "에덴미용실",
+      "address": "서울특별시 송파구 마천로 61나길 10",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13431",
+      "storeName": "하나미용실",
+      "address": "서울특별시 성동구 상원길 59 (성수동1가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13400",
+      "storeName": "친친",
+      "address": "서울특별시 동대문구 정릉천동로 58 (용두동, 롯데캐슬피렌체)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13381",
+      "storeName": "옛날잔치국수",
+      "address": "서울특별시 금천구 벚꽃로 254 (가산동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13284",
+      "storeName": "공주칼국수",
+      "address": "서울특별시 영등포구 도림천로11길 1 (대림동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13273",
+      "storeName": "김밥하우스",
+      "address": "서울특별시 영등포구 신길로 38 (신길동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13269",
+      "storeName": "반도이용소",
+      "address": "서울특별시 영등포구 신길로17길 20-1 (신길동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14613",
+      "storeName": "다온헤어",
+      "address": "서울특별시 강북구 노해로33길 34 (수유동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14493",
+      "storeName": "유미식당",
+      "address": "서울특별시 중랑구 망우로 276 (상봉동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13956",
+      "storeName": "엄마손김밥",
+      "address": "서울특별시 금천구 독산로 188 (독산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13845",
+      "storeName": "정미용실",
+      "address": "서울특별시 동작구 상도로 385 (상도동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15528",
+      "storeName": "산들바람",
+      "address": "서울특별시 양천구 오목로 276-4 (목동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15225",
+      "storeName": "행복한 한우돈",
+      "address": "서울특별시 중랑구 면목로 365 (면목동)",
+      "reasons": [
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16845",
+      "storeName": "통나무식당",
+      "address": "서울특별시 영등포구 영등포로62길 12 (신길동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16167",
+      "storeName": "작은미용실",
+      "address": "서울특별시 관악구 남현길 52 (남현동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16156",
+      "storeName": "명성식당",
+      "address": "서울특별시 동대문구 무학로 142-2 (용두동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15939",
+      "storeName": "가정식백반",
+      "address": "서울특별시 서초구 논현로31길 30 (양재동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16965",
+      "storeName": "또와분식",
+      "address": "서울특별시 성동구 마장로35나길 40 (마장동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17188",
+      "storeName": "착한헤어",
+      "address": "서울특별시 노원구 상계로24길 23-3 (상계동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17614",
+      "storeName": "컷트클럽",
+      "address": "서울특별시 은평구 연서로9길 3 (역촌동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17816",
+      "storeName": "파스따꼬",
+      "address": "서울특별시 강서구 강서로52길 43 (내발산동, DH647)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17832",
+      "storeName": "전주식당",
+      "address": "서울특별시 강서구 우장산로15길 37 (화곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17928",
+      "storeName": "에스더 미용실",
+      "address": "서울특별시 강북구 인수봉로42길 18 (수유동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18809",
+      "storeName": "은하식당",
+      "address": "서울특별시 강서구 양천로49길 50 (가양동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18810",
+      "storeName": "응봉할매",
+      "address": "서울특별시 강서구 공항대로 18-1 (공항동, 이스카이오피스텔)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19020",
+      "storeName": "시골집",
+      "address": "서울특별시 양천구 은행정로4길 25 (신정동, SM엘루이아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19062",
+      "storeName": "서교밥집",
+      "address": "서울특별시 은평구 서오릉로 179 (구산동, 구산아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19399",
+      "storeName": "원이랑 아구찜",
+      "address": "서울특별시 구로구 개봉로18길 16 (개봉동)",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19558",
+      "storeName": "창창커피",
+      "address": "서울특별시 성동구 성수일로4가길 2 (성수동2가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19691",
+      "storeName": "시드니참치",
+      "address": "서울특별시 용산구 새창로14길 4 (도원동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19699",
+      "storeName": "홍두깨칼국수",
+      "address": "서울특별시 양천구 오목로7길 25 (신월동, 성우아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19722",
+      "storeName": "싸가지",
+      "address": "서울특별시 동대문구 망우로18다길 41 (휘경동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19726",
+      "storeName": "커피&분식",
+      "address": "서울특별시 종로구 지봉로5길 25 (창신동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19815",
+      "storeName": "코코미용실",
+      "address": "서울특별시 노원구 월계로44가길 8 (월계동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19884",
+      "storeName": "양평쭈꾸미",
+      "address": "서울특별시 영등포구 선유동1로 17-2 (양평동1가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19889",
+      "storeName": "신길컴퓨터세탁",
+      "address": "서울특별시 영등포구 신길로42길 38-1 (신길동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19892",
+      "storeName": "헤어풍경",
+      "address": "서울특별시 영등포구 신길로 39 (대림동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19893",
+      "storeName": "브로스",
+      "address": "서울특별시 영등포구 신풍로20길 5-1 (신길동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19911",
+      "storeName": "준이네밥집",
+      "address": "서울특별시 동대문구 천장산로7길 16 (이문동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19947",
+      "storeName": "마로화적",
+      "address": "서울특별시 종로구 성균관로16길 5 (명륜1가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19985",
+      "storeName": "봉이손칼국수",
+      "address": "서울특별시 양천구 중앙로53길 56 (신월동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19993",
+      "storeName": "은평소댕",
+      "address": "서울특별시 은평구 연서로3가길 13 (역촌동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20020",
+      "storeName": "수목화",
+      "address": "서울특별시 동작구 매봉로 61 (상도동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20023",
+      "storeName": "놀부자 정육식당",
+      "address": "서울특별시 동작구 상도로 383 (상도동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20136",
+      "storeName": "정하지송탄부대찌개",
+      "address": "서울특별시 서초구 논현로27길 91 (양재동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20139",
+      "storeName": "필드매뉴얼커피",
+      "address": "서울특별시 서초구 논현로27길 97 (양재동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20186",
+      "storeName": "참새와방앗간",
+      "address": "서울특별시 성동구 광나루로 156 (성수동1가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20213",
+      "storeName": "고가네 며느리",
+      "address": "서울특별시 구로구 신도림로15길 21-34 (신도림동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20217",
+      "storeName": "당가원",
+      "address": "서울특별시 마포구 월드컵북로 173 (성산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20219",
+      "storeName": "두남커피",
+      "address": "서울특별시 마포구 와우산로25길 19 (서교동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20230",
+      "storeName": "시골농장(강북점)",
+      "address": "서울특별시 강북구 노해로 37 (수유동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20248",
+      "storeName": "오천집",
+      "address": "서울특별시 금천구 벚꽃로 244 (가산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20249",
+      "storeName": "완삐마이",
+      "address": "서울특별시 금천구 서부샛길 606 (가산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20288",
+      "storeName": "홍에스테틱",
+      "address": "서울특별시 관악구 성현로 80 (봉천동, 관악드림타운아파트)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20298",
+      "storeName": "행복한 사람들",
+      "address": "서울특별시 은평구 연서로 296 (불광동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20299",
+      "storeName": "엘유헤어",
+      "address": "서울특별시 은평구 진관2로 111-7 (진관동, 은평뉴타운우물골)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20332",
+      "storeName": "우정남성헤어컷트",
+      "address": "서울특별시 강서구 화곡로24길 73 (화곡동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20333",
+      "storeName": "헤어드레서",
+      "address": "서울특별시 강서구 초록마을로 57 (화곡동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20361",
+      "storeName": "속초 그바람에 마곡점",
+      "address": "서울특별시 강서구 마곡중앙6로 10 (마곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20362",
+      "storeName": "진푸드 한식뷔페",
+      "address": "서울특별시 강서구 마곡서로 101 (마곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20368",
+      "storeName": "정 헤어샵",
+      "address": "서울특별시 도봉구 우이천로34길 13 (쌍문동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20376",
+      "storeName": "키치노야",
+      "address": "서울특별시 성동구 뚝섬로13길 32-1 (성수동2가)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20379",
+      "storeName": "달님이네",
+      "address": "서울특별시 성동구 아차산로13길 31 (성수동2가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20383",
+      "storeName": "백운시장곱창",
+      "address": "서울특별시 도봉구 삼양로154길 30 (쌍문동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20529",
+      "storeName": "원조장충왕족발",
+      "address": "서울특별시 양천구 오목로 150 (신정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1053",
+      "storeName": "까꼬뽀꼬",
+      "address": "부산광역시 금정구 중앙대로1719번길 29",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1035",
+      "storeName": "짬뽕이즈",
+      "address": "부산광역시 강서구 명지국제12로 7-2 (명지동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16484",
+      "storeName": "포청천",
+      "address": "부산광역시 영도구 하나길 652 (신선동1가)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1475",
+      "storeName": "가마솥추어탕",
+      "address": "부산광역시 사하구 다대로 657",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17645",
+      "storeName": "남자머리",
+      "address": "부산광역시 수영구 장대골로19번길 56 (광안동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18269",
+      "storeName": "머리하는날",
+      "address": "부산광역시 북구 구남언덕로20번길 26 (구포동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18555",
+      "storeName": "홍보석",
+      "address": "부산광역시 영도구 태종로 513 (동삼동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18833",
+      "storeName": "대구식당",
+      "address": "부산광역시 부산진구 중앙대로 629-7 (범천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19013",
+      "storeName": "바보엄마칼국수",
+      "address": "부산광역시 북구 화명대로12번길 91 (화명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19487",
+      "storeName": "한미장여관",
+      "address": "부산광역시 사하구 다대동로 27-1 (다대동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19490",
+      "storeName": "심헤어칼라",
+      "address": "부산광역시 사하구 윤공단로14번길 31 (다대동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19555",
+      "storeName": "온달미용실",
+      "address": "부산광역시 해운대구 대천로103번길 29 (좌동, 대동타운)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19556",
+      "storeName": "커피일과",
+      "address": "부산광역시 해운대구 재반로103번가길 27 (재송동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19748",
+      "storeName": "샘미용실",
+      "address": "부산광역시 동래구 시실로211번길 74-1 (명장동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19753",
+      "storeName": "원미용실",
+      "address": "부산광역시 동래구 쇠미로129번길 35 (온천동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19754",
+      "storeName": "이승희헤어칼라",
+      "address": "부산광역시 동래구 충렬대로218번길 51-2 (수안동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19935",
+      "storeName": "비스타헤어샵",
+      "address": "부산광역시 북구 낙동대로1722번길 9 (구포동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19950",
+      "storeName": "금정한정식",
+      "address": "부산광역시 금정구 금샘로 431 (구서동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19960",
+      "storeName": "큰집돼지국밥",
+      "address": "부산광역시 부산진구 백양대로60번길 18 (당감동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19971",
+      "storeName": "이영애헤어칼라",
+      "address": "부산광역시 동래구 명장로 122 (명장동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19980",
+      "storeName": "전경숙헤어",
+      "address": "부산광역시 동래구 시실로 171-1 (명장동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20124",
+      "storeName": "건널목대패",
+      "address": "부산광역시 강서구 명지국제7로 37 (명지동, 더샵 명지퍼스트월드 2단지)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20167",
+      "storeName": "노랑머리 헤어샾",
+      "address": "부산광역시 부산진구 백양대로208번길 137 (개금동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20204",
+      "storeName": "나봄안경원",
+      "address": "부산광역시 금정구 금강로 206 (장전동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20205",
+      "storeName": "자매커피",
+      "address": "부산광역시 금정구 금강로 205 (장전동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20206",
+      "storeName": "부산대 고시원",
+      "address": "부산광역시 금정구 금샘로18번길 79-4 (장전동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20285",
+      "storeName": "새노래음악 교습소",
+      "address": "부산광역시 북구 구남언덕로20번길 30 (구포동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20287",
+      "storeName": "진헤어",
+      "address": "부산광역시 북구 낙동북로 679-6 (구포동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20418",
+      "storeName": "정커트",
+      "address": "부산광역시 금정구 시실로 11-3 (부곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20463",
+      "storeName": "금화정",
+      "address": "부산광역시 북구 모분재로 5-1 (구포동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20504",
+      "storeName": "모음스터디카페",
+      "address": "부산광역시 부산진구 백양순환로 103 (부암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20514",
+      "storeName": "대진황금식당",
+      "address": "부산광역시 북구 만덕1로 98 (만덕동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20559",
+      "storeName": "오일가이소",
+      "address": "부산광역시 강서구 공항로 269 (대저2동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20560",
+      "storeName": "한우한판",
+      "address": "부산광역시 강서구 명지국제12로 7-4 (명지동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20585",
+      "storeName": "센스머리방",
+      "address": "부산광역시 금정구 중앙대로1926번길 10 (구서동, 아름베스트빌5차)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20606",
+      "storeName": "60년전통할매국밥",
+      "address": "부산광역시 동구 중앙대로533번길 4 (범일동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1881",
+      "storeName": "가원식당",
+      "address": "대구광역시 동구 팔공산로 1488 (도학동)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "11644",
+      "storeName": "시골밥상",
+      "address": "대구광역시 군위군 부계면 한티로 1903",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1952",
+      "storeName": "동경식당",
+      "address": "대구광역시 서구 달서로12길 22",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10078",
+      "storeName": "제일분식",
+      "address": "대구광역시 중구 남산로2길 26",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1709",
+      "storeName": "홍미용실",
+      "address": "대구광역시 남구 성당로34길 42",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1704",
+      "storeName": "우리칼국수",
+      "address": "대구광역시 군위군 삼국유사면 삼국유사로 5",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1815",
+      "storeName": "초가집",
+      "address": "대구광역시 달서구 진천로23길 21 (대천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "1811",
+      "storeName": "웅아범더덕삼겹살",
+      "address": "대구광역시 달서구 조암남로16길 30",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10118",
+      "storeName": "대복갈비",
+      "address": "대구광역시 달서구 이곡동로 39",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15765",
+      "storeName": "시골뚝배기",
+      "address": "대구광역시 달성군 유가읍 테크노중앙대로6길 1-2",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17155",
+      "storeName": "국수전문점",
+      "address": "대구광역시 수성구 범안로 81 (범물동, 범물용지아파트)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17177",
+      "storeName": "한밭식당",
+      "address": "대구광역시 군위군 소보면 송원3길 35-16",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18676",
+      "storeName": "평리통닭",
+      "address": "대구광역시 남구 대명로 5 (대명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19591",
+      "storeName": "육천국수",
+      "address": "대구광역시 달서구 장기로 41 (성당동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19594",
+      "storeName": "정가국수 월배점",
+      "address": "대구광역시 달서구 진천로 93 (대천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19595",
+      "storeName": "토종생오리농원",
+      "address": "대구광역시 달서구 와룡로 63 (본리동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19597",
+      "storeName": "핀다스튜디오",
+      "address": "대구광역시 달서구 진천로 120 (대천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19598",
+      "storeName": "헤어코디",
+      "address": "대구광역시 달서구 구마로9길 43 (본리동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19617",
+      "storeName": "애당",
+      "address": "대구광역시 서구 북비산로 407 (비산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19861",
+      "storeName": "골목식당",
+      "address": "대구광역시 군위군 소보면 송원3길 39-20",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20061",
+      "storeName": "이인상과자점",
+      "address": "대구광역시 중구 남산로17길 139 (남산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20002",
+      "storeName": "간바레마스터",
+      "address": "대구광역시 북구 대불서길 28-1 (산격동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20142",
+      "storeName": "적동국수",
+      "address": "대구광역시 동구 송라로 55-2 (신천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20297",
+      "storeName": "옛날순대국밥",
+      "address": "대구광역시 동구 동촌로 275 (방촌동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20522",
+      "storeName": "목구멍 때밀어 왕소금구이",
+      "address": "대구광역시 서구 북비산로74길 52 (비산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20556",
+      "storeName": "오분정 앤 어묵방",
+      "address": "대구광역시 남구 중앙대로22길 26 (대명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20562",
+      "storeName": "대명 제빵소",
+      "address": "대구광역시 남구 대명로14길 60 (대명동, 대명역센트럴엘리프)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20570",
+      "storeName": "천우탕",
+      "address": "대구광역시 남구 성당시장길 51 (대명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20575",
+      "storeName": "화성세탁소",
+      "address": "대구광역시 남구 대명복개로 171 (대명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2071",
+      "storeName": "중국성",
+      "address": "인천광역시 남동구 남동대로747번길 51",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2047",
+      "storeName": "남원골추어탕",
+      "address": "인천광역시 계양구 계양대로 122",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2043",
+      "storeName": "행복손칼국수",
+      "address": "인천광역시 계양구 계산로 83",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2218",
+      "storeName": "김밥나라",
+      "address": "인천광역시 연수구 독배로 40번길 11",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2232",
+      "storeName": "부산식당",
+      "address": "인천광역시 제물포구 연안부두로 16",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2179",
+      "storeName": "백양세탁",
+      "address": "인천광역시 서해구 승학로287번길 17",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2156",
+      "storeName": "짱구머리",
+      "address": "인천광역시 부평구 경인로 1100",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2155",
+      "storeName": "중앙이용원",
+      "address": "인천광역시 부평구 부흥로243번길 7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2151",
+      "storeName": "머리하는날",
+      "address": "인천광역시 부평구 항동로7번길 43",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2150",
+      "storeName": "머리사랑미용실",
+      "address": "인천광역시 부평구 장제로373번길 30",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2148",
+      "storeName": "동양이용원",
+      "address": "인천광역시 부평구 안남로417번길 13",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2120",
+      "storeName": "청해루",
+      "address": "인천광역시 미추홀구 학익소로 61번길 21-19",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13049",
+      "storeName": "장수반찬",
+      "address": "인천광역시 부평구 체육관로 40 (삼산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13604",
+      "storeName": "대복갈비",
+      "address": "인천광역시 계양구 안남로554번길 10 (효성동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14208",
+      "storeName": "디마일즈",
+      "address": "인천광역시 부평구 충선로311번길 19-6 (삼산동)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "15529",
+      "storeName": "하루국수",
+      "address": "인천광역시 미추홀구 주안중로50번길 19 (주안동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15170",
+      "storeName": "아는족발",
+      "address": "인천광역시 미추홀구 용오로 80 (용현동)",
+      "reasons": [
+        "snapshot-nearby-same-name"
+      ]
+    },
+    {
+      "bsshSn": "15081",
+      "storeName": "청기와집",
+      "address": "인천광역시 옹진군 연평면 연평중앙로13번길 37-8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16441",
+      "storeName": "송도주물럭",
+      "address": "인천광역시 연수구 컨벤시아대로 80 (송도동, 인천송도힐스테이트)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "17696",
+      "storeName": "블랙헤어",
+      "address": "인천광역시 계양구 도두리로 46 (작전동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17822",
+      "storeName": "정성식당",
+      "address": "인천광역시 서해구 청라커낼로260번길 11 (청라동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19635",
+      "storeName": "짜장마루",
+      "address": "인천광역시 남동구 논고개로 81 (논현동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19709",
+      "storeName": "동아미용실",
+      "address": "인천광역시 검단구 완정로 31 (마전동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19805",
+      "storeName": "무쇠삼겹살",
+      "address": "인천광역시 부평구 세월천로 55 (산곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19807",
+      "storeName": "핫마라탕",
+      "address": "인천광역시 부평구 광장로 지하15 (부평동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19833",
+      "storeName": "찌꼬뽀꼬헤어컬렉션",
+      "address": "인천광역시 제물포구 화수로 70 (화수동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19899",
+      "storeName": "구월오리",
+      "address": "인천광역시 남동구 문화서로 25 (구월동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19905",
+      "storeName": "만수동사진관 앙팡",
+      "address": "인천광역시 남동구 만수로 11 (만수동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19977",
+      "storeName": "노블롱",
+      "address": "인천광역시 서해구 건지로318번길 23 (가좌동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19978",
+      "storeName": "숯불육폭탄",
+      "address": "인천광역시 서해구 원적로100번길 14 (가좌동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20018",
+      "storeName": "아림네일",
+      "address": "인천광역시 연수구 먼우금로161번길 12 (동춘동, 롯데아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20022",
+      "storeName": "텀벙",
+      "address": "인천광역시 연수구 컨벤시아대로 126 (송도동, 푸르지오월드마크)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20024",
+      "storeName": "송도 한우 명가",
+      "address": "인천광역시 연수구 컨벤시아대로 116 (송도동, 푸르지오월드마크)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20027",
+      "storeName": "미니헤어 남성컷 전문",
+      "address": "인천광역시 연수구 한나루로 171 (옥련동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20028",
+      "storeName": "카페 동춘",
+      "address": "인천광역시 연수구 먼우금로 164 (동춘동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20095",
+      "storeName": "더미용실",
+      "address": "인천광역시 계양구 봉오대로676번길 11 (작전동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20098",
+      "storeName": "큐 당구클럽",
+      "address": "인천광역시 계양구 봉오대로 653 (작전동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20106",
+      "storeName": "키아라헤어",
+      "address": "인천광역시 계양구 효서로 129 (효성동, 삼성홈타운)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20180",
+      "storeName": "주문진막국수",
+      "address": "인천광역시 영종구 운중로177번길 39 (중산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20347",
+      "storeName": "현대탁구클럽",
+      "address": "인천광역시 서해구 서곶로 504 (검암동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20399",
+      "storeName": "서울기사식당",
+      "address": "인천광역시 남동구 남촌로84번길 17 (남촌동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20415",
+      "storeName": "딜리셔스하우스",
+      "address": "인천광역시 검단구 검단로768번길 10 (불로동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20558",
+      "storeName": "개성시대미용실",
+      "address": "인천광역시 미추홀구 한나루로 400 (학익동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20621",
+      "storeName": "스타미용실",
+      "address": "인천광역시 미추홀구 석정로279번길 7 (도화동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20631",
+      "storeName": "고기예술",
+      "address": "인천광역시 서해구 율도로 43-1 (신현동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20632",
+      "storeName": "88토스트",
+      "address": "인천광역시 서해구 승학로599번길 57 (검암동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20641",
+      "storeName": "라이라이",
+      "address": "인천광역시 검단구 서곶로 746 (당하동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2602",
+      "storeName": "목련이용원",
+      "address": "대전광역시 서구 둔산남로 127",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2793",
+      "storeName": "학사식당",
+      "address": "대전광역시 유성구 대학로76번안길 32",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2843",
+      "storeName": "뚝방국수",
+      "address": "대전광역시 중구 유등천동로 576",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19959",
+      "storeName": "몬스짐갈마점",
+      "address": "대전광역시 서구 대덕대로 157-1 (갈마동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20009",
+      "storeName": "제일헤어",
+      "address": "대전광역시 중구 어덕마을로10번길 11-21 (용두동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20411",
+      "storeName": "풍미식당",
+      "address": "대전광역시 중구 대흥로 32 (대흥동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20469",
+      "storeName": "위대한 조개전골",
+      "address": "대전광역시 동구 대학로 38 (용운동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2967",
+      "storeName": "태양이발관",
+      "address": "울산광역시 울주군 두동면 계명3길 9",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14774",
+      "storeName": "송림식당",
+      "address": "울산광역시 중구 성안6길 1 (성안동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16817",
+      "storeName": "황가네식당",
+      "address": "울산광역시 남구 중앙로204번길 7-1 (신정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18787",
+      "storeName": "엄마밥상",
+      "address": "울산광역시 남구 남중로80번길 25 (삼산동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19374",
+      "storeName": "돈대박 복산점",
+      "address": "울산광역시 중구 계변로 92-1 (복산동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19485",
+      "storeName": "미미라 베이커리",
+      "address": "울산광역시 북구 매곡로 103 (매곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19493",
+      "storeName": "한마음숯불갈비쌈밥",
+      "address": "울산 동구 바드래2길 6",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "19495",
+      "storeName": "미소식당",
+      "address": "울산 동구 대송7길 51",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20552",
+      "storeName": "초마면관",
+      "address": "울산광역시 남구 삼산로55번길 19 (신정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10256",
+      "storeName": "센스미용실",
+      "address": "경기도 의정부시 전좌로 204-13",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10227",
+      "storeName": "주막골 숯불 돼지갈비 삼겹살",
+      "address": "경기도 성남시 중원구 금상로108번길 10 (상대원동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11699",
+      "storeName": "톰과제리",
+      "address": "경기도 안양시 만안구 양화로37번길 23",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3101",
+      "storeName": "소정미용실",
+      "address": "경기도 과천시 관문로 166 (중앙동, 주공아파트)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "3100",
+      "storeName": "부림이발관",
+      "address": "경기도 과천시 부림로 16",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name"
+      ]
+    },
+    {
+      "bsshSn": "3317",
+      "storeName": "맛나식당",
+      "address": "경기도 부천시 원미구 석천로38번길 56",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3263",
+      "storeName": "고향손칼국수",
+      "address": "경기도 남양주시 와부읍 수레로 74",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3165",
+      "storeName": "돼지한마리",
+      "address": "경기도 광주시 통미로64번길9-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3162",
+      "storeName": "정가네식당",
+      "address": "경기도 광주시 도척면 노곡로 7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3850",
+      "storeName": "우리두리",
+      "address": "경기도 포천시 화현면 봉화로 597",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3830",
+      "storeName": "국수집",
+      "address": "경기도 평택시 포승읍 평택항만길 8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3792",
+      "storeName": "은혜미용실",
+      "address": "경기도 파주시 파평면 장마루로 246-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3597",
+      "storeName": "고향집",
+      "address": "경기도 양평군 양동면 양동로 1844",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13569",
+      "storeName": "한아름식당",
+      "address": "경기도 화성시 동탄반송3길 40-18 (반송동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14707",
+      "storeName": "임진옥 헤어파티",
+      "address": "경기도 용인시 처인구 금어로 76 (고림동, 보평마을삼정그린뷰아파트)",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14640",
+      "storeName": "광명수산 수원역점",
+      "address": "경기도 수원시 팔달구 갓매산로 38 (매산로2가)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14598",
+      "storeName": "삼본식당",
+      "address": "경기도 광주시 도척면 도척윗로 205",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14358",
+      "storeName": "동아분식",
+      "address": "경기도 안양시 만안구 전파로 61 (안양동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14213",
+      "storeName": "밥집",
+      "address": "경기도 부천시 원미구 부천로198번길 18 (춘의동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14120",
+      "storeName": "홍두깨칼국수",
+      "address": "경기도 부천시 오정구 성지로102번길 28 (고강동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15368",
+      "storeName": "덮밥느루",
+      "address": "경기도 군포시 번영로 515 (산본동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14986",
+      "storeName": "이조칼국수",
+      "address": "경기도 안산시 단원구 선부광장1로 124 (선부동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16806",
+      "storeName": "티는헤어",
+      "address": "경기도 평택시 신장로100번길 25 (신장동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16207",
+      "storeName": "국수드림",
+      "address": "경기도 평택시 청북읍 드림산단2로 8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16911",
+      "storeName": "원미용실",
+      "address": "경기도 의정부시 동일로506번길 64 (신곡동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17374",
+      "storeName": "모아미용실",
+      "address": "경기도 성남시 분당구 돌마로366번길 8 (수내동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17532",
+      "storeName": "엄마손맛식당",
+      "address": "경기도 남양주시 수동면 비룡로 1130-3",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17596",
+      "storeName": "착한남성컷",
+      "address": "경기도 안산시 상록구 감골2로 10 (사동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18028",
+      "storeName": "금빛미용실",
+      "address": "경기도 화성시 봉담읍 진등1길 54",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18531",
+      "storeName": "참진멸치국수",
+      "address": "경기도 시흥시 서울대학로 59-21 (배곧동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18552",
+      "storeName": "양심콩마당",
+      "address": "경기도 오산시 독산성로 225 (지곶동)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "18718",
+      "storeName": "더맨",
+      "address": "경기도 화성시 효행로 241 (기안동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18991",
+      "storeName": "강원도위가연탄불고기",
+      "address": "경기도 용인시 처인구 양지읍 남평로 73-4",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "19071",
+      "storeName": "헤어짱",
+      "address": "경기도 수원시 권선구 고현로5번길 16 (고색동)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19503",
+      "storeName": "멋진남자",
+      "address": "경기도 의정부시 범골로 39 (호원동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19517",
+      "storeName": "라이프컴퓨터세탁소",
+      "address": "경기도 용인시 처인구 동부로 7 (마평동, 라이프아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19610",
+      "storeName": "수건세탁 유성클리닝",
+      "address": "경기도 안양시 동안구 시민대로365번길 40 (관양동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19760",
+      "storeName": "해든부엌",
+      "address": "경기도 광명시 일직로12번길 24 (일직동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19790",
+      "storeName": "죽변물회막회",
+      "address": "경기도 김포시 북변중로65번길 35 (북변동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19791",
+      "storeName": "찌개한술",
+      "address": "경기도 안산시 상록구 샘골로 131 (본오동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19800",
+      "storeName": "1989감자탕",
+      "address": "경기도 부천시 원미구 상이로 11 (상동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19823",
+      "storeName": "솔반찬",
+      "address": "경기도 광주시 고불로 94 (태전동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19869",
+      "storeName": "라우드합주실",
+      "address": "경기도 성남시 분당구 황새울로360번길 24 (서현동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19871",
+      "storeName": "살랑살랑펫미용",
+      "address": "경기도 성남시 분당구 정자로76번길 11 (정자동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "19872",
+      "storeName": "라라진헤어",
+      "address": "경기도 성남시 수정구 탄리로 146-1 (태평동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19873",
+      "storeName": "성호사",
+      "address": "경기도 성남시 중원구 원터로93번길 16-1 (성남동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20076",
+      "storeName": "쌀국수공방 평택고덕점",
+      "address": "경기도 평택시 함박산9길 36 (고덕동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20183",
+      "storeName": "62드립커피",
+      "address": "경기도 고양시 일산동구 문봉길62번길 32-22 (문봉동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20190",
+      "storeName": "대나무집",
+      "address": "경기도 고양시 일산동구 강송로113번길 54-11 (백석동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20273",
+      "storeName": "오늘, 염색",
+      "address": "경기도 김포시 대곶면 율마로 42",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20274",
+      "storeName": "얼큰해물짬뽕",
+      "address": "경기도 김포시 대곶면 소래로 6",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20280",
+      "storeName": "큰골 보리밥 칼국수",
+      "address": "경기도 양평군 서종면 북한강로 1161",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20304",
+      "storeName": "스타모터스",
+      "address": "경기도 수원시 장안구 장안로7번길 18 (영화동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20472",
+      "storeName": "더아나스튜디오",
+      "address": "경기도 용인시 처인구 중부대로 1530 (마평동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20495",
+      "storeName": "블럭앤고909 김포장기점",
+      "address": "경기도 김포시 김포한강2로23번길 10 (장기동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20500",
+      "storeName": "김포새마을국수",
+      "address": "경기도 김포시 대곶면 초원로 76",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20513",
+      "storeName": "엉클스도넛",
+      "address": "경기도 수원시 영통구 덕영대로 1470 (망포동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4155",
+      "storeName": "강변식당",
+      "address": "강원특별자치도 영월군 영월읍 제방안길 214",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10360",
+      "storeName": "이모네식당",
+      "address": "강원특별자치도 철원군 갈말읍 두루미로 50-5",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4442",
+      "storeName": "은혜미용실",
+      "address": "강원특별자치도 홍천군 두촌면 자은로 369",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4314",
+      "storeName": "선미용실",
+      "address": "강원특별자치도 철원군 근남면 육단길 38",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4291",
+      "storeName": "동원식당",
+      "address": "강원특별자치도 정선군 화암면 소금강로 1133",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "3971",
+      "storeName": "우리식당",
+      "address": "강원특별자치도 강릉시 용지각길 27",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15486",
+      "storeName": "스타미용실",
+      "address": "강원특별자치도 춘천시 효자로 60 (효자동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15471",
+      "storeName": "다래원",
+      "address": "강원특별자치도 원주시 남원로527번길 6-64 (명륜동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18629",
+      "storeName": "온심",
+      "address": "강원특별자치도 인제군 서화면 천도로 153",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19553",
+      "storeName": "쌍용미용실",
+      "address": "강원특별자치도 영월군 한반도면 쌍용로 224-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19852",
+      "storeName": "선헤어아트",
+      "address": "강원특별자치도 원주시 학성길 54-1 (학성동, 삼천리2차아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20405",
+      "storeName": "장터국밥",
+      "address": "강원특별자치도 평창군 봉평면 기풍3길 28",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4599",
+      "storeName": "엄마손밥상",
+      "address": "충청북도 음성군 금왕읍 금석로 63-4",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4591",
+      "storeName": "고은떡전문",
+      "address": "충청북도 음성군 맹동면 사예1길 5",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4729",
+      "storeName": "시골밥상",
+      "address": "충청북도 청주시 서원구 남이면 구미길 10",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4686",
+      "storeName": "청해루",
+      "address": "충청북도 청주시 상당구 탑동로 32 (탑동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4684",
+      "storeName": "사천성",
+      "address": "충청북도 청주시 상당구 호미로167번길 54",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4641",
+      "storeName": "우돈명가",
+      "address": "충청북도 제천시 고암로14길 11",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14764",
+      "storeName": "만리장성",
+      "address": "충청북도 청주시 흥덕구 덕암로 2 (봉명동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15842",
+      "storeName": "돼지마을",
+      "address": "충청북도 청주시 청원구 오창읍 오창시내1길 51",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15780",
+      "storeName": "마신네 제육짜장",
+      "address": "충청북도 청주시 흥덕구 1순환로594번길 48 (봉명동)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "15534",
+      "storeName": "국수좋은날",
+      "address": "충청북도 청주시 서원구 1순환로1063번길 34 (분평동)",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16603",
+      "storeName": "미가한식",
+      "address": "충청북도 진천군 백곡면 지곡길 2",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16073",
+      "storeName": "달시쓰",
+      "address": "충청북도 청주시 서원구 창직로 104 (사직동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "16982",
+      "storeName": "우돈명가",
+      "address": "충청북도 청주시 상당구 월평로250번길 1 (용암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "17958",
+      "storeName": "주현갈비",
+      "address": "충북 옥천군 옥천읍 양수로3길 6",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20031",
+      "storeName": "예나미용실",
+      "address": "충청북도 영동군 영동읍 동정로 57",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20116",
+      "storeName": "본초다담",
+      "address": "충청북도 제천시 한방엑스포로 16 (왕암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20175",
+      "storeName": "호랑이해장국",
+      "address": "충청북도 충주시 호암수청2로 10 (호암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20176",
+      "storeName": "중앙탑한우",
+      "address": "충청북도 충주시 대소원면 첨단산업2로 4",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20177",
+      "storeName": "언덕넘어",
+      "address": "충청북도 충주시 수안보면 미륵송계로 9",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5813",
+      "storeName": "고향식당",
+      "address": "전남광주통합특별시 영광군 묘량면 묘량로 303",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5740",
+      "storeName": "미가칼국수",
+      "address": "전남광주통합특별시 여수시 박람회길 23-10",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5569",
+      "storeName": "광양숯불갈비",
+      "address": "전남광주통합특별시 구례군 구례읍 서시천로 76-7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2410",
+      "storeName": "부흥식당",
+      "address": "전남광주통합특별시 북구 중가로 86",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2399",
+      "storeName": "고기마트식육식당",
+      "address": "전남광주통합특별시 북구 군왕로194번길 7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "2370",
+      "storeName": "남양세탁",
+      "address": "전남광주통합특별시 북구 설죽로389번길 70",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11130",
+      "storeName": "착한 미용실",
+      "address": "전남광주통합특별시 영광군 법성면 굴비로 11",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10507",
+      "storeName": "백련가정식백반",
+      "address": "전남광주통합특별시 목포시 백년대로 83",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13331",
+      "storeName": "별천지가든",
+      "address": "전남광주통합특별시 해남군 계곡면 해남로 2036",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13329",
+      "storeName": "젠틀맨",
+      "address": "전남광주통합특별시 해남군 해남읍 북부순환로 142-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13186",
+      "storeName": "골목식당",
+      "address": "전남광주통합특별시 동구 서석로7번길 6-16 (불로동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14588",
+      "storeName": "행복한밥상",
+      "address": "전남광주통합특별시 광산구 첨단내촌로11번길 9 (월계동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14587",
+      "storeName": "매안정",
+      "address": "전남광주통합특별시 순천시 해룡면 매안2길 15-3",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "17852",
+      "storeName": "청산옥",
+      "address": "전남광주통합특별시 나주시 금남길 41 (금계동)",
+      "reasons": [
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19172",
+      "storeName": "가야밀면",
+      "address": "전남광주통합특별시 무안군 무안읍 무안중앙로 56",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19173",
+      "storeName": "동백과노을2",
+      "address": "전남광주통합특별시 무안군 현경면 현해로 335-31",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19698",
+      "storeName": "아름다운 JM사진예술원",
+      "address": "전남광주통합특별시 무안군 삼향읍 남악4로 50 (골든스위트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19701",
+      "storeName": "우담샤브칼국수",
+      "address": "전남광주통합특별시 곡성군 곡성읍 학교로 3",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19854",
+      "storeName": "산정골",
+      "address": "전남광주통합특별시 순천시 중앙3길 4 (장천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19865",
+      "storeName": "투탑스짐휘트니스그랜드센트럴점",
+      "address": "전남광주통합특별시 동구 독립로 324 (계림동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20075",
+      "storeName": "뉴황제",
+      "address": "전남광주통합특별시 장성군 삼서면 태청로 181-4",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20125",
+      "storeName": "네일어때",
+      "address": "전남광주통합특별시 광산구 산정로 38 (산정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20127",
+      "storeName": "몬스터대패 신가점",
+      "address": "전남광주통합특별시 광산구 하남대로261번길 14 (신가동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20129",
+      "storeName": "아타요가",
+      "address": "전남광주통합특별시 광산구 사암로340번안길 6-5 (월곡동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20154",
+      "storeName": "진품우리집오리 미평점",
+      "address": "전남광주통합특별시 여수시 미평3길 31 (미평동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20156",
+      "storeName": "조은식당",
+      "address": "전남광주통합특별시 여수시 미평남5길 5 (미평동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20311",
+      "storeName": "옥구슬카페",
+      "address": "전남광주통합특별시 광양시 옥곡면 옥진로 662",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20314",
+      "storeName": "더착한 닭갈비 광양중마직영점",
+      "address": "전남광주통합특별시 광양시 중동로 75-6 (중동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20315",
+      "storeName": "더착한닭갈비",
+      "address": "전남광주통합특별시 광양시 광양읍 서북3길 26",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20319",
+      "storeName": "더몽드베이커리",
+      "address": "전남광주통합특별시 광양시 성황6길 24 (성황동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "20365",
+      "storeName": "샤오란",
+      "address": "전남광주통합특별시 해남군 해남읍 중앙1로 236",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20466",
+      "storeName": "곡성하송",
+      "address": "전남광주통합특별시 곡성군 곡성읍 읍내2길 14-1",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20532",
+      "storeName": "화탑식육식당",
+      "address": "전남광주통합특별시 나주시 세지면 화탑길 61",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20542",
+      "storeName": "자은신안뻘낙지",
+      "address": "전남광주통합특별시 신안군 자은면 자은서부1길 95",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20543",
+      "storeName": "나무늘보펜션",
+      "address": "전남광주통합특별시 신안군 자은면 구영1길 22-41",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20612",
+      "storeName": "리즈헤어",
+      "address": "전남광주통합특별시 서구 화정로 249 (화정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20616",
+      "storeName": "차돌집",
+      "address": "전남광주통합특별시 서구 내방로 308 (내방동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "13061",
+      "storeName": "중앙식당",
+      "address": "충청남도 천안시 동남구 천안천5길 6 (성황동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11761",
+      "storeName": "모시원",
+      "address": "충청남도 서천군 한산면 한마로 18",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4895",
+      "storeName": "꿈앤카페 산타로사",
+      "address": "충청남도 서천군 서천읍 서림로 19",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name"
+      ]
+    },
+    {
+      "bsshSn": "4877",
+      "storeName": "시골집",
+      "address": "충청남도 아산시 배방읍 솔치로 261 (삼정백조1차아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4822",
+      "storeName": "강짬뽕",
+      "address": "충청남도 논산시 부적면 계백로 1660-8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11122",
+      "storeName": "현대미용실",
+      "address": "충청남도 논산시 연산면 연산2길 4",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4918",
+      "storeName": "스타미용실",
+      "address": "충청남도 천안시 동남구 대흥로 271",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "4917",
+      "storeName": "소망미용실",
+      "address": "충청남도 천안시 동남구 구성5길 31",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5148",
+      "storeName": "시골밥상",
+      "address": "충청남도 태안군 소원면 대소산길 368",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5082",
+      "storeName": "서울미용실",
+      "address": "충청남도 당진시 송악읍 기지시2길 9-9",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14454",
+      "storeName": "공주밥상",
+      "address": "충청남도 공주시 연수원길 3-1 (금흥동)",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "14190",
+      "storeName": "해남식당",
+      "address": "충청남도 당진시 송악읍 신복운로6길 12",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18726",
+      "storeName": "와촌이모",
+      "address": "충청남도 천안시 동남구 천안천5길 32 (성황동)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19498",
+      "storeName": "황소고집정육식당",
+      "address": "충청남도 천안시 서북구 서부6길 10 (성정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19629",
+      "storeName": "공백커피",
+      "address": "충청남도 천안시 동남구 청수6로 35-16 (청당동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19630",
+      "storeName": "짜장앤짬뽕",
+      "address": "충청남도 천안시 동남구 동면 충절로 2273",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19762",
+      "storeName": "공주도깨비터국수",
+      "address": "충청남도 공주시 반포면 금벽로 1389",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19779",
+      "storeName": "스마일치킨",
+      "address": "충청남도 보령시 보령북로 111 (대천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19813",
+      "storeName": "이떠기네 즉석떡볶이",
+      "address": "충청남도 계룡시 장안2길 3-8 (금암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19816",
+      "storeName": "BD안경콘택트",
+      "address": "충청남도 계룡시 엄사면 엄사중앙로 96",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19819",
+      "storeName": "수미계닭갈비",
+      "address": "충청남도 계룡시 장안로 70 (금암동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19925",
+      "storeName": "밥때",
+      "address": "충청남도 천안시 서북구 2공단4로 40-6 (성성동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20067",
+      "storeName": "제원식당",
+      "address": "충청남도 금산군 제원면 제원로 25",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20157",
+      "storeName": "자연능이백숙",
+      "address": "충청남도 천안시 동남구 신용로 20 (다가동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20320",
+      "storeName": "아가새농장",
+      "address": "충청남도 홍성군 서부면 서부로 295-90",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20324",
+      "storeName": "올킬다빈치당구클럽",
+      "address": "충청남도 홍성군 홍북읍 의향로 273",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20578",
+      "storeName": "온기소담밥상",
+      "address": "충청남도 논산시 체육로 5 (내동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20579",
+      "storeName": "울엄마콩나물해장국",
+      "address": "충청남도 논산시 가야곡면 육곡길 13-8",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20588",
+      "storeName": "우리손두부",
+      "address": "충청남도 태안군 태안읍 동백로 95",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20595",
+      "storeName": "집밥",
+      "address": "충청남도 태안군 태안읍 군청10길 37",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5289",
+      "storeName": "동원반점",
+      "address": "전북특별자치도 부안군 하서면 하서길 30-2",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5466",
+      "storeName": "최민자국밥",
+      "address": "전북특별자치도 정읍시 칠보면 칠보중앙로 113",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5390",
+      "storeName": "전원식당",
+      "address": "전북특별자치도 장수군 번암면 장수로 446",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "10485",
+      "storeName": "천마루",
+      "address": "전북특별자치도 무주군 안성면 장무로 1730",
+      "reasons": [
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "11768",
+      "storeName": "진미식당",
+      "address": "전북특별자치도 익산시 황등면 황등로 158",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "15646",
+      "storeName": "진미국밥",
+      "address": "전북특별자치도 고창군 대산면 대성로 238",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19194",
+      "storeName": "익산 리틀야구",
+      "address": "전북특별자치도 익산시 무왕로 1397 (부송동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19688",
+      "storeName": "무주 해장국",
+      "address": "전북특별자치도 무주군 적상면 치마재로 72",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20151",
+      "storeName": "미래반점",
+      "address": "전북특별자치도 순창군 순창읍 남계로 78",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20162",
+      "storeName": "엄마손",
+      "address": "전북특별자치도 순창군 복흥면 추령로 1747-14",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20163",
+      "storeName": "춘화루",
+      "address": "전북특별자치도 순창군 복흥면 상송길 18",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6476",
+      "storeName": "태후사랑헤어샵",
+      "address": "경상북도 포항시 북구 천마로 96 (양덕동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6341",
+      "storeName": "송죽미용실",
+      "address": "경상북도 포항시 남구 중앙로28번길 1",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "5980",
+      "storeName": "중앙식육식당",
+      "address": "경상북도 고령군 대가야읍 우륵로 11",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "11838",
+      "storeName": "시장식당",
+      "address": "경상북도 청송군 청송읍 현충로 106",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6197",
+      "storeName": "제우스모텔",
+      "address": "경상북도 영주시 영주로 176번길 3",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6178",
+      "storeName": "나랏골밥상",
+      "address": "경상북도 영덕군 영해면 예주시장5길 9-1",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-phone-collision"
+      ]
+    },
+    {
+      "bsshSn": "10554",
+      "storeName": "젠틀맨",
+      "address": "경상북도 포항시 북구 흥해읍 이인로 46",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6111",
+      "storeName": "장춘왕족집",
+      "address": "경상북도 상주시 동수4길 26 (무양동)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-nearby-same-name"
+      ]
+    },
+    {
+      "bsshSn": "13681",
+      "storeName": "영미용실",
+      "address": "경상북도 영주시 순흥면 순흥로 53",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6300",
+      "storeName": "맑은물소리식당",
+      "address": "경상북도 칠곡군 동명면 금암중앙길 75",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "14823",
+      "storeName": "사라헤어샵",
+      "address": "경상북도 포항시 북구 용흥로 63-4 (용흥동)",
+      "reasons": [
+        "missing-verifiable-phone"
+      ]
+    },
+    {
+      "bsshSn": "15623",
+      "storeName": "머리사랑",
+      "address": "경상북도 안동시 광명로 198 (옥동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18384",
+      "storeName": "머리사랑",
+      "address": "경상북도 포항시 북구 죽도로68번길 15 (죽도동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19518",
+      "storeName": "옛날국수",
+      "address": "경상북도 포항시 남구 오천읍 정몽주로 715",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19523",
+      "storeName": "일억조돼지",
+      "address": "경상북도 포항시 남구 문예로 184 (해도동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19527",
+      "storeName": "면식당 샤브칼국수 포항본점",
+      "address": "경상북도 포항시 남구 대이로143번길 22 (이동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19530",
+      "storeName": "에덴펜션",
+      "address": "경상북도 포항시 북구 죽장면 가사길 15",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19531",
+      "storeName": "인영네일",
+      "address": "경상북도 포항시 북구 삼호로109번길 9 (학산동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19545",
+      "storeName": "준남성헤어샵",
+      "address": "경상북도 포항시 남구 오천읍 하원로35번길 4-10",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19559",
+      "storeName": "칠백식당",
+      "address": "경상북도 영주시 풍기읍 남원로70번길 73",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19684",
+      "storeName": "한재촌",
+      "address": "경상북도 구미시 인동중앙로3길 18-5 (황상동)",
+      "reasons": [
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "19824",
+      "storeName": "채채",
+      "address": "경상북도 영천시 골목시장길 15 (과전동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19913",
+      "storeName": "밀겨울",
+      "address": "경상북도 의성군 의성읍 군청길 60",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19994",
+      "storeName": "돈사무소",
+      "address": "경상북도 경주시 황성로64번길 15 (황성동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19996",
+      "storeName": "쎈놈",
+      "address": "경상북도 경주시 황성로64번길 9-9 (황성동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20072",
+      "storeName": "강우림헤어샵",
+      "address": "경상북도 영주시 광복로 16-1 (영주동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20073",
+      "storeName": "천지식당",
+      "address": "경상북도 영주시 풍기읍 인삼로3번길 9",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20471",
+      "storeName": "온나헤어",
+      "address": "경상북도 상주시 함창읍 함령길 113",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6715",
+      "storeName": "본가중화요리",
+      "address": "경상남도 양산시 삼성5길 5-20",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6624",
+      "storeName": "김해만두만리향",
+      "address": "경상남도 김해시 가야로 281 (구산동)",
+      "reasons": [
+        "snapshot-phone-collision",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6621",
+      "storeName": "고향밥상",
+      "address": "경상남도 김해시 내덕로86번길 7",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6601",
+      "storeName": "가야밀면",
+      "address": "경상남도 김해시 삼안로60번길 1",
+      "reasons": [
+        "snapshot-nearby-same-name"
+      ]
+    },
+    {
+      "bsshSn": "6881",
+      "storeName": "사랑채",
+      "address": "경상남도 함안군 여항면 진함로 943",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19639",
+      "storeName": "만어촌국수",
+      "address": "경상남도 밀양시 삼랑진읍 만어로 396",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19640",
+      "storeName": "국도식당 기계밀면",
+      "address": "경상남도 밀양시 상동면 여수길 1-10",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19716",
+      "storeName": "장방식당",
+      "address": "경상남도 통영시 서송정3길 4 (봉평동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "19914",
+      "storeName": "상순이네식당",
+      "address": "경상남도 산청군 생초면 생초로 68",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20011",
+      "storeName": "남성컷트이용원",
+      "address": "경상남도 창원시 진해구 웅동로 69-1 (마천동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20062",
+      "storeName": "밀양촌국수",
+      "address": "경상남도 밀양시 미리벌중앙로8길 5 (삼문동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20063",
+      "storeName": "나들목",
+      "address": "경상남도 밀양시 약산로 4 (내이동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20068",
+      "storeName": "해뜨는풍경",
+      "address": "경상남도 남해군 삼동면 삼이로 33",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20077",
+      "storeName": "사대부",
+      "address": "경상남도 거창군 거창읍 거창대로 36",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20251",
+      "storeName": "대의사우나",
+      "address": "경상남도 의령군 대의면 대의로 67",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20258",
+      "storeName": "금촌선지국밥",
+      "address": "경상남도 양산시 북정로 6 (북정동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20269",
+      "storeName": "컵닭",
+      "address": "경상남도 양산시 양주로 110 (중부동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20325",
+      "storeName": "마돈나헤어",
+      "address": "경상남도 진주시 금산면 금산로 72",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20326",
+      "storeName": "제이헤어살롱",
+      "address": "경상남도 진주시 문산읍 소문길 55",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20328",
+      "storeName": "아이러브맘헤어",
+      "address": "경상남도 진주시 사들로 36 (충무공동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20402",
+      "storeName": "정일품",
+      "address": "경상남도 통영시 광도면 죽림1로 17-18 (죽림주공아파트)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20404",
+      "storeName": "감나무숯불갈비",
+      "address": "경상남도 진주시 집현면 진산로703번길 4-16",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "7026",
+      "storeName": "피크닉메이트",
+      "address": "제주특별자치도 제주시 아란4길 84",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-nearby-same-name",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "6981",
+      "storeName": "고성장터국밥",
+      "address": "제주특별자치도 서귀포시 성산읍 고성동서로45번길 19",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18079",
+      "storeName": "비파인뷰티",
+      "address": "제주특별자치도 제주시 과원로 18-1 (노형동)",
+      "reasons": [
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18110",
+      "storeName": "시골밥상",
+      "address": "제주특별자치도 서귀포시 성산읍 고성오조로97번길 11",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "18764",
+      "storeName": "구두미바당",
+      "address": "제주특별자치도 서귀포시 칠십리로 525 (보목동)",
+      "reasons": [
+        "source-id-already-in-catalog",
+        "photo-already-in-catalog"
+      ]
+    },
+    {
+      "bsshSn": "20425",
+      "storeName": "삼다행복돌집",
+      "address": "제주특별자치도 제주시 애월읍 수산2길 8-7",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20438",
+      "storeName": "탑동 경이네",
+      "address": "제주특별자치도 제주시 탑동로13길 39 (삼도이동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20441",
+      "storeName": "낙동생오리",
+      "address": "제주특별자치도 제주시 연미2길 23 (오라삼동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20448",
+      "storeName": "추사장추어탕",
+      "address": "제주특별자치도 제주시 서광로29길 12 (이도일동)",
+      "reasons": [
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20450",
+      "storeName": "플로렌스",
+      "address": "제주특별자치도 제주시 추자면 추자로 30-2",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20451",
+      "storeName": "봉골레하우스",
+      "address": "제주특별자치도 제주시 추자면 추자로 94-1",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20460",
+      "storeName": "바르다채",
+      "address": "제주특별자치도 제주시 조천읍 신북로 99",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20461",
+      "storeName": "메밀의고향",
+      "address": "제주특별자치도 제주시 구좌읍 세화남1길 1",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20462",
+      "storeName": "김녕빵집",
+      "address": "제주특별자치도 제주시 구좌읍 김녕로 77-3",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20487",
+      "storeName": "아빠한끼",
+      "address": "제주특별자치도 서귀포시 성산읍 고성오조로 15",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20488",
+      "storeName": "베프랑",
+      "address": "제주특별자치도 서귀포시 성산읍 고성중앙로 28-7",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo",
+        "snapshot-distance-under-500m"
+      ]
+    },
+    {
+      "bsshSn": "20490",
+      "storeName": "일출회포장포차",
+      "address": "제주특별자치도 서귀포시 성산읍 해맞이해안로 2758",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "20506",
+      "storeName": "스르르",
+      "address": "제주특별자치도 서귀포시 일주동로 8867 (호근동)",
+      "reasons": [
+        "missing-verifiable-phone",
+        "missing-official-photo"
+      ]
+    },
+    {
+      "bsshSn": "14236",
+      "storeName": "나드리헤어",
+      "address": "서울특별시 노원구 덕릉로 459-37 (상계동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "16915",
+      "storeName": "헤어이벤트",
+      "address": "서울특별시 노원구 덕릉로 459-37 (상계동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20191",
+      "storeName": "도래울미용실",
+      "address": "경기도 고양시 덕양구 의장로 29-35 (도내동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20192",
+      "storeName": "마음한끼밥앤국수",
+      "address": "경기도 고양시 덕양구 서정마을2로 2 (행신동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20173",
+      "storeName": "착한김치",
+      "address": "충청북도 충주시 봉계1길 49 (칠금동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20174",
+      "storeName": "충주특산품",
+      "address": "충청북도 충주시 봉계1길 49 (칠금동)",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20322",
+      "storeName": "우렁마을",
+      "address": "충청남도 홍성군 홍성읍 내포로 245",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    },
+    {
+      "bsshSn": "20323",
+      "storeName": "우렁마을",
+      "address": "충청남도 홍성군 홍성읍 내포로 245",
+      "reasons": [
+        "supplement-candidate-collision"
+      ]
+    }
+  ]
+}

@@ -21,13 +21,13 @@ function verify(store, entry) {
   assert.deepEqual(store.openingHours, expected, `Store details mismatch: ${entry.storeName}`);
 }
 const stores = await get('/api/stores/all');
-assert.ok(Array.isArray(stores) && stores.length >= 10000, 'Existing store catalog must be available');
+assert.ok(Array.isArray(stores) && stores.length >= 11350, 'Existing store catalog and verified supplement must be available');
 const byId = new Map(stores.map(store => [store.storeId, store]));
 const realHours = records.filter(entry => entry.text !== '등록된 영업시간이 없어요.').length;
 const photos = records.filter(entry => entry.imageUrls?.length).length;
-assert.ok(records.length >= 10400, `Store detail coverage regressed: ${records.length}`);
-assert.ok(realHours >= 135, `Hours coverage regressed: ${realHours}`);
-assert.ok(photos >= 10000, `Photo coverage regressed: ${photos}`);
+assert.ok(records.length >= 10600, `Store detail coverage regressed: ${records.length}`);
+assert.ok(realHours >= 230, `Hours coverage regressed: ${realHours}`);
+assert.ok(photos >= 10300, `Photo coverage regressed: ${photos}`);
 console.log(`Live stores: ${stores.length}; enriched: ${records.length}; hours: ${realHours}; photos: ${photos}`);
 for (const entry of records) verify(byId.get(entry.storeId), entry);
 const enrichedStoreIds = new Set(

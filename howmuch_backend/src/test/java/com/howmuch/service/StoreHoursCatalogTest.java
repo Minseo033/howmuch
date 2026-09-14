@@ -69,23 +69,53 @@ class StoreHoursCatalogTest {
         var mapper = new ObjectMapper();
         List<StoreHoursCatalog.Entry> records;
         List<Map<String, Object>> stores;
+        List<Map<String, Object>> supplement;
         try (var input = new ClassPathResource("store-hours.json").getInputStream()) {
             records = mapper.readValue(input, new TypeReference<>() {});
         }
         try (var input = new ClassPathResource("stores-snapshot.json").getInputStream()) {
             stores = mapper.readValue(input, new TypeReference<>() {});
         }
+        try (var input = new ClassPathResource("stores-supplement.json").getInputStream()) {
+            supplement = mapper.readValue(input, new TypeReference<>() {});
+        }
+        var allStores = new java.util.ArrayList<>(stores);
+        allStores.addAll(supplement);
         assertThat(records).allMatch(StoreHoursCatalog.Entry::valid);
         assertThat(records.stream().map(StoreHoursCatalog.Entry::storeId).toList()).doesNotHaveDuplicates();
-        assertThat(records).hasSizeGreaterThanOrEqualTo(10_400);
+        assertThat(records).hasSizeGreaterThanOrEqualTo(10_600);
         assertThat(records.stream()
                 .filter(entry -> !"등록된 영업시간이 없어요.".equals(entry.text()))
-                .count()).isGreaterThanOrEqualTo(135);
+                .count()).isGreaterThanOrEqualTo(230);
         assertThat(records.stream()
                 .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
-                .count()).isGreaterThanOrEqualTo(10_000);
+                .count()).isGreaterThanOrEqualTo(10_300);
+        assertThat(supplement).hasSizeGreaterThanOrEqualTo(180);
+        assertThat(supplement).allSatisfy(store -> {
+            assertThat(store.get("storeId")).asString().matches("store_[a-f0-9]{24}");
+            assertThat(String.valueOf(store.get("phoneNumber")).replaceAll("\\D", "")).hasSizeGreaterThanOrEqualTo(8);
+            assertThat(Double.parseDouble(String.valueOf(store.get("latitude")))).isBetween(33.0, 39.0);
+            assertThat(Double.parseDouble(String.valueOf(store.get("longitude")))).isBetween(124.0, 132.0);
+            assertThat(store.get("menu1")).isNotNull();
+            assertThat(store.get("price1")).isNotNull();
+        });
+        var supplementIds = supplement.stream()
+                .map(store -> String.valueOf(store.get("storeId")))
+                .collect(java.util.stream.Collectors.toSet());
+        assertThat(records.stream()
+                .filter(entry -> supplementIds.contains(entry.storeId())))
+                .hasSize(supplement.size())
+                .allMatch(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty());
+        var supplementEntries = records.stream()
+                .filter(entry -> supplementIds.contains(entry.storeId()))
+                .toList();
+        assertThat(supplementEntries.stream().map(StoreHoursCatalog.Entry::sourceUrl).toList())
+                .doesNotHaveDuplicates();
+        assertThat(supplementEntries.stream().flatMap(entry -> entry.imageUrls().stream()).toList())
+                .doesNotHaveDuplicates()
+                .allMatch(url -> url.startsWith("https://www.goodprice.go.kr/comm/showImageFile.do?"));
         var service = new FirebaseService(mock(Firestore.class), mock(ReportImageStorage.class));
-        ReflectionTestUtils.setField(service, "cachedStores", stores);
+        ReflectionTestUtils.setField(service, "cachedStores", allStores);
         var catalog = new StoreHoursCatalog(records);
         assertThat(service.getAllStores().stream()
                 .filter(row -> catalog.findFor(row) != null)
