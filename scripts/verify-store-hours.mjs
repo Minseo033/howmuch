@@ -13,8 +13,9 @@ function verify(store, entry) {
   const expected = {
     status: entry.status, text: entry.text, sourceName: entry.sourceName,
     sourceUrl: entry.sourceUrl, checkedAt: entry.checkedAt,
-    parkingYn: entry.parkingYn, packingYn: entry.packingYn,
   };
+  if (entry.parkingYn !== null && entry.parkingYn !== undefined) expected.parkingYn = entry.parkingYn;
+  if (entry.packingYn !== null && entry.packingYn !== undefined) expected.packingYn = entry.packingYn;
   if (entry.areaCurrency) expected.areaCurrency = entry.areaCurrency;
   if (entry.imageUrls?.length) expected.imageUrls = entry.imageUrls;
   assert.deepEqual(store.openingHours, expected, `Store details mismatch: ${entry.storeName}`);
