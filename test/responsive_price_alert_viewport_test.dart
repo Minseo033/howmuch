@@ -313,8 +313,12 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const ValueKey('web-notification-banner')),
-        findsNothing,
+        tester
+            .widget<Opacity>(
+              find.byKey(const ValueKey('web-notification-banner-visibility')),
+            )
+            .opacity,
+        0,
       );
       expect(find.text('앱 메인 화면'), findsOneWidget);
       expect(tester.takeException(), isNull);

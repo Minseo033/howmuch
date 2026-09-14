@@ -123,8 +123,9 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
       safeTop: MediaQuery.paddingOf(context).top,
     );
 
-    if (!shouldShow) return widget.child;
-
+    // Keep the overlay subtree mounted even after dismissal. Replacing this
+    // root Stack with only [child] can leave stale CanvasKit layers over the
+    // Kakao HtmlElementView on web until the next full repaint.
     return Stack(
       children: [
         widget.child,
@@ -140,15 +141,26 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: _UnreadNotificationBanner(
-                  key: const ValueKey('web-notification-banner'),
-                  unreadCount: unreadCount,
-                  onDismiss: () =>
-                      _dismissUnreadPrompt(unreadSignature, currentNoticeId),
-                  onOpen: () {
-                    _dismissUnreadPrompt(unreadSignature, currentNoticeId);
-                    widget.onOpenNotifications();
-                  },
+                child: Opacity(
+                  key: const ValueKey('web-notification-banner-visibility'),
+                  opacity: shouldShow ? 1 : 0,
+                  child: shouldShow
+                      ? _UnreadNotificationBanner(
+                          key: const ValueKey('web-notification-banner'),
+                          unreadCount: unreadCount,
+                          onDismiss: () => _dismissUnreadPrompt(
+                            unreadSignature,
+                            currentNoticeId,
+                          ),
+                          onOpen: () {
+                            _dismissUnreadPrompt(
+                              unreadSignature,
+                              currentNoticeId,
+                            );
+                            widget.onOpenNotifications();
+                          },
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
             ),

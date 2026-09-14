@@ -127,7 +127,14 @@ void main() {
     await tester.tap(find.byTooltip('알림 안내 닫기'));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('web-notification-banner')), findsNothing);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('web-notification-banner-visibility')),
+          )
+          .opacity,
+      0,
+    );
     expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -169,6 +176,14 @@ void main() {
 
     await tester.tap(find.byTooltip('알림 안내 닫기'));
     await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('web-notification-banner-visibility')),
+          )
+          .opacity,
+      0,
+    );
     expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
 
     notifier.replace([
