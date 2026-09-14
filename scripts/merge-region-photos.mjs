@@ -29,9 +29,23 @@ const REGION_CODES = [
 ];
 
 const readJson = async (file) => JSON.parse(await readFile(file, 'utf8'));
-const normalize = (value) => String(value ?? '')
-  .replace(/&amp;apos;|&apos;|&#39;|&amp;/gi, "'")
-  .trim().replace(/\s+/g, ' ').toLowerCase();
+const normalize = (value) => {
+  let decoded = String(value ?? '');
+  // Goodprice occasionally returns names with multiple layers of HTML
+  // escaping (for example &amp;amp; or &amp;apos;). Decode common entities
+  // repeatedly so equivalent names compare identically without damaging '&'.
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const next = decoded
+      .replace(/&amp;/gi, '&')
+      .replace(/&apos;|&#39;/gi, "'")
+      .replace(/&quot;/gi, '"')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>');
+    if (next === decoded) break;
+    decoded = next;
+  }
+  return decoded.trim().replace(/\s+/g, ' ').toLowerCase();
+};
 const compact = (value) => normalize(value).replace(/[\s.,()\-_/]/g, '');
 const phone = (value) => String(value ?? '').replace(/\D/g, '');
 const storeId = (store) => store.storeId || `store_${createHash('sha256').update(

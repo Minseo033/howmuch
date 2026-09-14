@@ -3946,11 +3946,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19822",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260513/&fileId=F265DAF2426D4DBF9EDAAFC6945AAFFC.jpg"
+    ]
   },
   {
     "storeId": "store_1bd625a0d3b78a39c6cb9df2",
@@ -4320,11 +4323,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18850",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251231/&fileId=9542FC0A76CF4E2CA8698A1E11DAC15B.jpeg"
+    ]
   },
   {
     "storeId": "store_a0f7573143de24a07d18523a",
@@ -4609,11 +4615,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15252",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241024/&fileId=46F40C52DFB44358B6612FFD3557A7F1.jpeg"
+    ]
   },
   {
     "storeId": "store_6df350700b9c7419e361f27f",
@@ -4796,11 +4805,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10657",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=271803AF828642899D1170B2BDDA744A.png"
+    ]
   },
   {
     "storeId": "store_2b735da3dfc39e09c4b866ea",
@@ -8942,7 +8954,7 @@
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
     "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15491",
-    "checkedAt": "2026-09-12",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
     "areaCurrency": "지역화폐(모바일형)",
@@ -9064,7 +9076,7 @@
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
     "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19151",
-    "checkedAt": "2026-09-12",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
     "areaCurrency": "지역화폐(모바일형)",
@@ -11800,11 +11812,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17562",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251029/&fileId=F55345552599442AADE7F9D11E025B96.jpg"
+    ]
   },
   {
     "storeId": "store_72ea7a39d1f16b199ac73546",
@@ -15236,11 +15251,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15537",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(모바일형)"
+    "areaCurrency": "지역화폐(모바일형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241106/&fileId=E922DF26F9B04414B589B6937FBB9B31.jpg"
+    ]
   },
   {
     "storeId": "store_a88da176105f049a979c5aee",
@@ -15386,11 +15404,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16392",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": "지역화폐(모바일형)"
+    "areaCurrency": "지역화폐(모바일형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250331/&fileId=6DC7DA58D9774C8C85EEC6526D5AD1B5.jpg"
+    ]
   },
   {
     "storeId": "store_0b3f181d1ef203ffdd24d879",
@@ -20092,11 +20113,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19389",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260401/&fileId=B3C3A997BBA246FE9E4183714D9B28BC.jpg"
+    ]
   },
   {
     "storeId": "store_1697a069450fd8b184f39a8e",
@@ -20208,11 +20232,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19388",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260401/&fileId=F9D19CBB75084A46A050832121CC25FC.jpg"
+    ]
   },
   {
     "storeId": "store_46be3821bc1516d765208d80",
@@ -24421,11 +24448,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18737",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251215/&fileId=350508CCE3884EA68C5DEFEDCAFB465A.jpeg"
+    ]
   },
   {
     "storeId": "store_1082c1f9bfda2ffe0fac3ada",
@@ -24690,11 +24720,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10044",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240924/&fileId=B5D2EE96E1844ED2AD308F4F8AAD968B.png"
+    ]
   },
   {
     "storeId": "store_7e945c55cb3ad70c2827dbcf",
@@ -25316,11 +25349,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14883",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260114/&fileId=278F24C68AE74A458455BAF6C0DB892D.jpg"
+    ]
   },
   {
     "storeId": "store_b202037e962f8adf51221274",
@@ -43294,11 +43330,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13648",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240711/&fileId=769BCD40135E4557891E639AD71F5451.jpg"
+    ]
   },
   {
     "storeId": "store_20589ab465579d6f3dfeeb3b",
@@ -47249,11 +47288,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16808",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250425/&fileId=B8D0E5C6F2B3470E931C0357C8B99489.png"
+    ]
   },
   {
     "storeId": "store_d048256a2492d1a05aee1e15",
@@ -50439,11 +50481,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3334",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241002/&fileId=3EA6E40F78FE4350B17CD43658E6A00A.png"
+    ]
   },
   {
     "storeId": "store_f8e7dcc7322d57578f625b02",
@@ -51032,7 +51077,7 @@
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
     "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16015",
-    "checkedAt": "2026-09-12",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -51218,11 +51263,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3834",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202208080313240821.jpg"
+    ]
   },
   {
     "storeId": "store_98eed71a8b41a23f905ebaa6",
@@ -52496,11 +52544,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17632",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251029/&fileId=AA59CC1CE91D483CA2D05D98DC512A76.jpg"
+    ]
   },
   {
     "storeId": "store_b6381e065227a9d1e2ea71fa",
@@ -53020,11 +53071,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16929",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250501/&fileId=F30F0AE8588E4174BBB2C63D70D0EEB8.jpg"
+    ]
   },
   {
     "storeId": "store_23be69f52a3f9dcddc4dba49",
@@ -53901,11 +53955,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13467",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240629/&fileId=67CCF4C4FBF148D89085436B20F1DF68.jpeg"
+    ]
   },
   {
     "storeId": "store_28e110a0b1c06ef576e1281b",
@@ -59283,11 +59340,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17728",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
-    "areaCurrency": "지역화폐(모바일형, 카드형)"
+    "areaCurrency": "지역화폐(모바일형, 카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=CD04BFFA610D40688A700A0DD1282031.jpeg"
+    ]
   },
   {
     "storeId": "store_20ce776814f0ad2164f46fd3",
@@ -61076,11 +61136,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3156",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207190211500171.jpg"
+    ]
   },
   {
     "storeId": "store_cc4cfb9213ba29ba68569b03",
@@ -61107,11 +61170,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3175",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240619/&fileId=95D9F8606AE04909B504C59833DAC6FA.png"
+    ]
   },
   {
     "storeId": "store_b5a8d40562924b5ac078829b",
@@ -61883,11 +61949,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16184",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260630/&fileId=8FFA1ED9D755481987F41A26814859CB.jpg"
+    ]
   },
   {
     "storeId": "store_0b062c188981bb33da24fd78",
@@ -68893,11 +68962,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11732",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241002/&fileId=4E738D5F040A4781A2FD1A0AC1618E4F.png"
+    ]
   },
   {
     "storeId": "store_257ee7792d29c86a8cf611e4",
@@ -69383,11 +69455,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15515",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(카드형)"
+    "areaCurrency": "지역화폐(카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241104/&fileId=34CAD1F2A6834A64BDD2E4892C675ADB.jpg"
+    ]
   },
   {
     "storeId": "store_fbce5cb2c6b6eeb808d5a959",
@@ -80462,11 +80537,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18392",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(모바일형, 지류형, 카드형)"
+    "areaCurrency": "지역화폐(모바일형, 지류형, 카드형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251110/&fileId=D98AA190147B4B8AB078A4BCE2BD5E36.jpg"
+    ]
   },
   {
     "storeId": "store_8ffdb207c400eb95178132f1",
@@ -87293,11 +87371,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13718",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
-    "areaCurrency": "지역화폐(모바일형)"
+    "areaCurrency": "지역화폐(모바일형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240716/&fileId=CB743DD1991D4A8DB45FFD0642CF0351.png"
+    ]
   },
   {
     "storeId": "store_69a915e215b92505dadcb8f0",
@@ -90151,11 +90232,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=6591",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(모바일형)"
+    "areaCurrency": "지역화폐(모바일형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201910290413132241.jpg"
+    ]
   },
   {
     "storeId": "store_4f70bf68ffa2c88a1bce2b33",
@@ -90981,11 +91065,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11335",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": "지역화폐(모바일형)"
+    "areaCurrency": "지역화폐(모바일형)",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=9425852EE2C84D7D83901173E5A08291.png"
+    ]
   },
   {
     "storeId": "store_d88f42aac9c5d6e29915a37a",
@@ -91910,11 +91997,14 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-12",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14439",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
-    "areaCurrency": null
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=C27AB2E243FE4B84BE4EBDAFC28893E3.jpg"
+    ]
   },
   {
     "storeId": "store_66d6f6aa0a5470c3b376c80d",
@@ -98235,8 +98325,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17513",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
     "areaCurrency": "지역화폐(모바일형)",
@@ -98244,7 +98334,10 @@
     "sourceRowNumber": 962,
     "matchedSourceName": "구수한통닭&한방족발",
     "matchedSourceAddress": "서울특별시 마포구 굴레방로9길 3 (아현동) 1층",
-    "matchedSourcePhoneNumber": "02-312-2253"
+    "matchedSourcePhoneNumber": "02-312-2253",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251028/&fileId=1D98FE75598B4F20B7E5C9CE44BDCC57.jpg"
+    ]
   },
   {
     "storeId": "store_0202a1d4cad214a63aaddf3e",
@@ -105542,8 +105635,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14342",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
     "areaCurrency": null,
@@ -105551,7 +105644,10 @@
     "sourceRowNumber": 6088,
     "matchedSourceName": "수메이크업&헤어",
     "matchedSourceAddress": "경기도 안산시 단원구 중앙대로 921 (고잔동) 4층 442호",
-    "matchedSourcePhoneNumber": "010-4368-0806"
+    "matchedSourcePhoneNumber": "010-4368-0806",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240827/&fileId=67B480CC03114EFB945040C85E60A65D.jpg"
+    ]
   },
   {
     "storeId": "store_1b7e29efed12aa214fddd769",
@@ -114461,8 +114557,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13599",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": "지역화폐(지류형, 카드형)",
@@ -114470,7 +114566,10 @@
     "sourceRowNumber": 10651,
     "matchedSourceName": "흑돼지&면가",
     "matchedSourceAddress": "전북특별자치도 고창군 흥덕면 흥덕로 60 흑돼지&amp;amp;면가",
-    "matchedSourcePhoneNumber": "063-561-0102"
+    "matchedSourcePhoneNumber": "063-561-0102",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240708/&fileId=1A48E22C84CD4AFEAC5B6345324B969E.jpg"
+    ]
   },
   {
     "storeId": "store_3ad50a073dbffc94029a2de2",
@@ -121538,8 +121637,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11041",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -121547,7 +121646,10 @@
     "sourceRowNumber": 1877,
     "matchedSourceName": "J&J뷰티샵",
     "matchedSourceAddress": "서울특별시 강남구 역삼로11길 13-8 (역삼1동) 지상1층 101호",
-    "matchedSourcePhoneNumber": ""
+    "matchedSourcePhoneNumber": "",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=ABC64915D0F24414A2B018B339F02724.jpg"
+    ]
   },
   {
     "storeId": "store_537c913da68b436a3d4c3396",
@@ -125611,8 +125713,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18920",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": "지역화폐(지류형, 모바일형, 카드형)",
@@ -125620,7 +125722,10 @@
     "sourceRowNumber": 9874,
     "matchedSourceName": "우주버거&커피",
     "matchedSourceAddress": "충청남도 아산시 배방읍 동방로 114 (아산배방 엘에이치15단지) 2동 1층 11호",
-    "matchedSourcePhoneNumber": "041-542-2770"
+    "matchedSourcePhoneNumber": "041-542-2770",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260113/&fileId=3465DC2FDEF449E2BE65328CEDEC41B0.jpg"
+    ]
   },
   {
     "storeId": "store_61fd3ab73e56549fc982829a",
@@ -129798,8 +129903,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16417",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": "지역화폐(카드형)",
@@ -129807,7 +129912,10 @@
     "sourceRowNumber": 2641,
     "matchedSourceName": "J-민짱네일&염색방",
     "matchedSourceAddress": "부산광역시 남구 유엔로120번길 18 (대연동) 1층",
-    "matchedSourcePhoneNumber": "010-9308-3455"
+    "matchedSourcePhoneNumber": "010-9308-3455",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250417/&fileId=68BC536911154288BBFF25ABD6DBBF06.jpg"
+    ]
   },
   {
     "storeId": "store_71207c71ca2a7e78136076a3",
@@ -132477,8 +132585,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19301",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
     "areaCurrency": "지역화폐(지류형, 모바일형, 카드형)",
@@ -132486,7 +132594,10 @@
     "sourceRowNumber": 4696,
     "matchedSourceName": "이도경카로김밥&커피",
     "matchedSourceAddress": "대전광역시 중구 보문로47번길 42 (문창동) 1층",
-    "matchedSourcePhoneNumber": "010-9672-1337"
+    "matchedSourcePhoneNumber": "010-9672-1337",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260330/&fileId=BB94A2AE11C9403A900E88EEDA3FB4C1.jpeg"
+    ]
   },
   {
     "storeId": "store_7af93ca394d1741c95a1ca59",
@@ -138990,8 +139101,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10155",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -138999,7 +139110,10 @@
     "sourceRowNumber": 278,
     "matchedSourceName": "보리&치킨",
     "matchedSourceAddress": "서울특별시 광진구 군자로 175 1층",
-    "matchedSourcePhoneNumber": ""
+    "matchedSourcePhoneNumber": "",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240720/&fileId=10419404FF374A9AA0FE11B25E2227DD.jpg"
+    ]
   },
   {
     "storeId": "store_8ff40f8976be44965a9ddab2",
@@ -142590,8 +142704,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15904",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -142599,7 +142713,10 @@
     "sourceRowNumber": 5370,
     "matchedSourceName": "십리향 양꼬치&훠궈",
     "matchedSourceAddress": "세종특별자치시 조치원읍 행복길 12 2층",
-    "matchedSourcePhoneNumber": "044-864-6724"
+    "matchedSourcePhoneNumber": "044-864-6724",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260711/&fileId=7B062147C3A749459E712C2B86EB4489.jpg"
+    ]
   },
   {
     "storeId": "store_9b5b5f0101da33d972131241",
@@ -144350,8 +144467,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11450",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -144359,7 +144476,10 @@
     "sourceRowNumber": 6327,
     "matchedSourceName": "밀마당 바지락 칼국수&보쌈",
     "matchedSourceAddress": "경기도 남양주시 홍유릉로248번길 39 103호",
-    "matchedSourcePhoneNumber": "031-591-7412"
+    "matchedSourcePhoneNumber": "031-591-7412",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241002/&fileId=295A3A3CB9344CEB8CC44C8EB443DF1C.png"
+    ]
   },
   {
     "storeId": "store_a019d7a8d499bfe7afb1ca76",
@@ -144935,8 +145055,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16662",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -144944,7 +145064,10 @@
     "sourceRowNumber": 1613,
     "matchedSourceName": "장승칡냉면&장족",
     "matchedSourceAddress": "서울특별시 동작구 상도로34길 3 (상도동) .",
-    "matchedSourcePhoneNumber": "010-3695-1028"
+    "matchedSourcePhoneNumber": "010-3695-1028",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250415/&fileId=5ABF2C45C5E540A9979E6550661E8A9C.png"
+    ]
   },
   {
     "storeId": "store_a1a4269bb56ab76be95e0a51",
@@ -150135,8 +150258,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11038",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": null,
@@ -150144,7 +150267,10 @@
     "sourceRowNumber": 12350,
     "matchedSourceName": "본모텔&본사우나",
     "matchedSourceAddress": "경상남도 거창군 가조면 가조가야로 1125 본모텔&amp;amp;본사우나",
-    "matchedSourcePhoneNumber": "055-941-1280"
+    "matchedSourcePhoneNumber": "055-941-1280",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241031/&fileId=B23D09DB286B43B198C8DA2EE60F98D6.jpg"
+    ]
   },
   {
     "storeId": "store_b274ed7f5ef3f22a384124d8",
@@ -153456,8 +153582,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3822",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
     "areaCurrency": null,
@@ -153465,7 +153591,10 @@
     "sourceRowNumber": 5972,
     "matchedSourceName": "오커피랩&우유마루",
     "matchedSourceAddress": "경기도 평택시 중앙로 211 1층(비전동)",
-    "matchedSourcePhoneNumber": ""
+    "matchedSourcePhoneNumber": "",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202307181230210861.jpg"
+    ]
   },
   {
     "storeId": "store_bd8c4983a214cf33a071e9b7",
@@ -153557,8 +153686,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15009",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
     "areaCurrency": "지역화폐(지류형, 모바일형, 카드형)",
@@ -153566,7 +153695,10 @@
     "sourceRowNumber": 10115,
     "matchedSourceName": "아가밥상&cafe쉼",
     "matchedSourceAddress": "충청남도 홍성군 홍성읍 문화로 111 1층",
-    "matchedSourcePhoneNumber": "010-4842-4892"
+    "matchedSourcePhoneNumber": "010-4842-4892",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241015/&fileId=E5CA285615E245A7B81A388ECC2E14E1.jpg"
+    ]
   },
   {
     "storeId": "store_bdc93e74e0fe2af3e0dcf833",
@@ -154079,8 +154211,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=3787",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": false,
     "areaCurrency": "지역화폐(카드형)",
@@ -154088,7 +154220,10 @@
     "sourceRowNumber": 6686,
     "matchedSourceName": "네일&젤",
     "matchedSourceAddress": "경기도 파주시 송학1길 158-27 (야당동, 티스퀘어)",
-    "matchedSourcePhoneNumber": "010-7912-4335"
+    "matchedSourcePhoneNumber": "010-7912-4335",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240716/&fileId=3875D13A698842F6B24427AD2829FCC2.jpg"
+    ]
   },
   {
     "storeId": "store_bf9f16d219da885b2c880275",
@@ -157320,8 +157455,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11471",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": "지역화폐(지류형, 카드형)",
@@ -157329,7 +157464,10 @@
     "sourceRowNumber": 7927,
     "matchedSourceName": "짱구네닭갈비&삼겹살",
     "matchedSourceAddress": "강원특별자치도 정선군 남면 무릉1로 127-4 1층",
-    "matchedSourcePhoneNumber": "033-591-0313"
+    "matchedSourcePhoneNumber": "033-591-0313",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240926/&fileId=56A2589ACE4D42EF8B81701255855164.png"
+    ]
   },
   {
     "storeId": "store_ca7cd80ad7eab5d7f02adfca",
@@ -157735,8 +157873,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17257",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": false,
     "areaCurrency": "지역화폐(모바일형)",
@@ -157744,7 +157882,10 @@
     "sourceRowNumber": 2021,
     "matchedSourceName": "아카&춤추는헤어그룹",
     "matchedSourceAddress": "서울 송파구 토성로 36 1층",
-    "matchedSourcePhoneNumber": "02-472-3144"
+    "matchedSourcePhoneNumber": "02-472-3144",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251027/&fileId=34D92646B49845CCA9A3AF1E7EF14023.jpg"
+    ]
   },
   {
     "storeId": "store_cc37a1d7d33a30fd805aa5ca",
@@ -158214,8 +158355,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17013",
+    "checkedAt": "2026-09-15",
     "parkingYn": true,
     "packingYn": true,
     "areaCurrency": "지역화폐(카드형)",
@@ -158223,7 +158364,10 @@
     "sourceRowNumber": 4328,
     "matchedSourceName": "강화샌드&갤러리카페602",
     "matchedSourceAddress": "인천광역시 강화군 화도면 해안남로1184번길 7 1층",
-    "matchedSourcePhoneNumber": "0507-1353-4842"
+    "matchedSourcePhoneNumber": "0507-1353-4842",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250513/&fileId=04804FC138E54D859CEB989CC6ADFCC6.jpg"
+    ]
   },
   {
     "storeId": "store_cdcc9d2e67673ac08e06f10c",
@@ -170661,8 +170805,8 @@
     "status": "SOURCE_VERIFIED",
     "text": "등록된 영업시간이 없어요.",
     "sourceName": "행정안전부 착한가격업소",
-    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=0",
-    "checkedAt": "2026-09-13",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16547",
+    "checkedAt": "2026-09-15",
     "parkingYn": false,
     "packingYn": true,
     "areaCurrency": "지역화폐(카드형)",
@@ -170670,7 +170814,10 @@
     "sourceRowNumber": 8022,
     "matchedSourceName": "시골두마리통닭&마늘통닭",
     "matchedSourceAddress": "강원특별자치도 고성군 토성면 교암길 59 시골두마리통닭&amp;amp;마늘통닭",
-    "matchedSourcePhoneNumber": "033-631-9290"
+    "matchedSourcePhoneNumber": "033-631-9290",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250407/&fileId=9CE8217C47D3415098E4ED05A37D5F3A.jpg"
+    ]
   },
   {
     "storeId": "store_faca3cf45b6dd9ee718bfff9",
@@ -194125,6 +194272,91 @@
     "areaCurrency": null,
     "imageUrls": [
       "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250421/&fileId=6739D788D7E346C7A214851F317AE439.jpg"
+    ]
+  },
+  {
+    "storeId": "store_26e9129976e61cd125c7a15e",
+    "storeName": "M&M미용실",
+    "address": "서울특별시 강남구 (일원1동)일원로3길 10",
+    "phoneNumber": "02-3411-3727",
+    "status": "SOURCE_VERIFIED",
+    "text": "등록된 영업시간이 없어요.",
+    "sourceName": "행정안전부 착한가격업소",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=12",
+    "checkedAt": "2026-09-15",
+    "parkingYn": null,
+    "packingYn": null,
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311240327492431.jpg"
+    ]
+  },
+  {
+    "storeId": "store_092efd887658aa3595970032",
+    "storeName": "푼양이부대&김치찌개",
+    "address": "서울특별시 송파구 송파대로30길 41-5, 1층",
+    "phoneNumber": "0507-1474-1307",
+    "status": "SOURCE_VERIFIED",
+    "text": "등록된 영업시간이 없어요.",
+    "sourceName": "행정안전부 착한가격업소",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=830",
+    "checkedAt": "2026-09-15",
+    "parkingYn": null,
+    "packingYn": null,
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202306210634047421.jpg"
+    ]
+  },
+  {
+    "storeId": "store_b6806109fb39e6a57858ffae",
+    "storeName": "더블와이짐 PT & 헬스(지핏)",
+    "address": "서울특별시 성북구 보문로34길 35 3층 더블와이짐",
+    "phoneNumber": "0507-1340-1051",
+    "status": "SOURCE_VERIFIED",
+    "text": "등록된 영업시간이 없어요.",
+    "sourceName": "행정안전부 착한가격업소",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15889",
+    "checkedAt": "2026-09-15",
+    "parkingYn": null,
+    "packingYn": null,
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241217/&fileId=942BBBF3446B474AAE425FBD5C381982.jpg"
+    ]
+  },
+  {
+    "storeId": "store_fc3184d676a275e9ae7c55a3",
+    "storeName": "술상&밥상",
+    "address": "인천광역시 서구 옻우물로26번길 8, 1층 (석남동)",
+    "phoneNumber": "032-577-9305",
+    "status": "SOURCE_VERIFIED",
+    "text": "등록된 영업시간이 없어요.",
+    "sourceName": "행정안전부 착한가격업소",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=2207",
+    "checkedAt": "2026-09-15",
+    "parkingYn": null,
+    "packingYn": null,
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202310050602228371.jpg"
+    ]
+  },
+  {
+    "storeId": "store_d337b2c2c05292994e0c978c",
+    "storeName": "생생칼국수&돈돈 청라본점",
+    "address": "인천광역시 서구 청라에메랄드로149번길 9, 1층 (청라동)",
+    "phoneNumber": "032-578-1256",
+    "status": "SOURCE_VERIFIED",
+    "text": "등록된 영업시간이 없어요.",
+    "sourceName": "행정안전부 착한가격업소",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14216",
+    "checkedAt": "2026-09-15",
+    "parkingYn": null,
+    "packingYn": null,
+    "areaCurrency": null,
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250408/&fileId=E0F8F9D97F7E49AAB1E7673A7BB7174E.jpg"
     ]
   }
 ]
