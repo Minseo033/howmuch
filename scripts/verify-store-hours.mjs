@@ -26,7 +26,7 @@ const realHours = records.filter(entry => entry.text !== '등록된 영업시간
 const photos = records.filter(entry => entry.imageUrls?.length).length;
 assert.ok(records.length >= 9165, `Store detail coverage regressed: ${records.length}`);
 assert.ok(realHours >= 135, `Hours coverage regressed: ${realHours}`);
-assert.ok(photos >= 251, `Photo coverage regressed: ${photos}`);
+assert.ok(photos >= 770, `Photo coverage regressed: ${photos}`);
 console.log(`Live stores: ${stores.length}; enriched: ${records.length}; hours: ${realHours}; photos: ${photos}`);
 for (const entry of records) verify(byId.get(entry.storeId), entry);
 const enrichedStoreIds = new Set(
