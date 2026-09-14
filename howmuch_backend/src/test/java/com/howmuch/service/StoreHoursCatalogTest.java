@@ -83,7 +83,7 @@ class StoreHoursCatalogTest {
                 .count()).isGreaterThanOrEqualTo(135);
         assertThat(records.stream()
                 .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
-                .count()).isGreaterThanOrEqualTo(770);
+                .count()).isGreaterThanOrEqualTo(1_000);
         var service = new FirebaseService(mock(Firestore.class), mock(ReportImageStorage.class));
         ReflectionTestUtils.setField(service, "cachedStores", stores);
         var catalog = new StoreHoursCatalog(records);

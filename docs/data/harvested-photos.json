@@ -8820,5 +8820,2883 @@
       "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260325/&fileId=88A57A4157304E7EA9F08FF421E55DAB.jpg",
       "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260325/&fileId=045EFFE5D24E4663B533F9FF47258EBD.jpg"
     ]
+  },
+  "store_5e2c1f2dcf1256de9045a33c": {
+    "storeId": "store_5e2c1f2dcf1256de9045a33c",
+    "storeName": "21세기남성헤어",
+    "address": "서울특별시 강서구 강서로17나길 2",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10041",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=4B98EB3219B04DE7BBAA930C5271072D.png"
+    ]
+  },
+  "store_63a8216b489ecb608e051fd4": {
+    "storeId": "store_63a8216b489ecb608e051fd4",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_cb176f0940af78ba423f4312": {
+    "storeId": "store_cb176f0940af78ba423f4312",
+    "storeName": "5080실버미용실",
+    "address": "서울특별시 성북구 돌곶이로 141",
+    "phoneNumber": "02-942-9234",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=762",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515391250.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515391251.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515391252.jpg"
+    ]
+  },
+  "store_e69fa6b9b28e1a24fba894b1": {
+    "storeId": "store_e69fa6b9b28e1a24fba894b1",
+    "storeName": "535로스터리카페",
+    "address": "서울특별시 동작구 상도로30길40 106호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18896",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=2920831F5A764CC7BEBB1D4A8673D9AF.jpg"
+    ]
+  },
+  "store_649fc7007858668699ff4a70": {
+    "storeId": "store_649fc7007858668699ff4a70",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_321ca3e7a17df5114e5b1a53": {
+    "storeId": "store_321ca3e7a17df5114e5b1a53",
+    "storeName": "808네일",
+    "address": "서울특별시 관악구 봉천로 280",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16170",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=0D5E5E153F77425DB3A18F1AA5094639.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=F56F3B47C5524A6190C3279DF738D8A1.jpg"
+    ]
+  },
+  "store_3b2d4a54913b872d9dab5ea2": {
+    "storeId": "store_3b2d4a54913b872d9dab5ea2",
+    "storeName": "88미용실",
+    "address": "서울특별시 동작구 보라매로5길51 116호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18890",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=56091B284B534F589695A7DCC3E0DC0D.jpg"
+    ]
+  },
+  "store_3d309ba7b72b6e7821af8e8d": {
+    "storeId": "store_3d309ba7b72b6e7821af8e8d",
+    "storeName": "JM헤어 오땡큐",
+    "address": "서울특별시 송파구 마천로 192",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14056",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240807/&fileId=6CA690F42B9C49088A4E4AC391C7B003.jpg"
+    ]
+  },
+  "store_4564a4b8677b79436572f79f": {
+    "storeId": "store_4564a4b8677b79436572f79f",
+    "storeName": "MZ필라테스평생교육원",
+    "address": "서울특별시 송파구 백제고분로41길 26, 2층",
+    "phoneNumber": "0507-1397-3137",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16113",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250123/&fileId=FAA1EEF027104520A7F900B5157F0092.jpg"
+    ]
+  },
+  "store_b84086aaab6ce4623854c10b": {
+    "storeId": "store_b84086aaab6ce4623854c10b",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_3a4c59154e90fd36a5ba75b8": {
+    "storeId": "store_3a4c59154e90fd36a5ba75b8",
+    "storeName": "PHO358",
+    "address": "서울특별시 은평구 은평로 91 CJ드림시티 (응암동)",
+    "phoneNumber": "02-386-4042",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13794",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=E3F2E9BDAAE74C50890C8DF1A9DB15BA.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=391187E5DAF44DA5A3EE2DDA3C6EBA9A.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=4219C8A5E58D4AA687F96322EE5EA278.jpg"
+    ]
+  },
+  "store_157d5a958fb6499acd258b5b": {
+    "storeId": "store_157d5a958fb6499acd258b5b",
+    "storeName": "Shville세탁",
+    "address": "서울특별시 성북구 한천로101길 36 장월상가 203호",
+    "phoneNumber": "02-941-8423",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=760",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207270952076441.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207270952076612.jpg"
+    ]
+  },
+  "store_cab7bfa65a23bbe191c310c1": {
+    "storeId": "store_cab7bfa65a23bbe191c310c1",
+    "storeName": "Vamos 카페",
+    "address": "서울특별시 동작구 신대방길 9, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18892",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=6005E916E2CE42E485251A0CFB5A971E.jpg"
+    ]
+  },
+  "store_3efe800fbbec24b7821f8d61": {
+    "storeId": "store_3efe800fbbec24b7821f8d61",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_10fbf9b9b6741c4dff9580be": {
+    "storeId": "store_10fbf9b9b6741c4dff9580be",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_0055c0514f56df49a5cef3f2": {
+    "storeId": "store_0055c0514f56df49a5cef3f2",
+    "storeName": "가연미용실",
+    "address": "서울특별시 광진구 아차산로30길 39 (자양동) 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15835",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241209/&fileId=725397F37A544002BE67595542537A18.jpg"
+    ]
+  },
+  "store_6fcd5fd78df2ffdf9ff190cf": {
+    "storeId": "store_6fcd5fd78df2ffdf9ff190cf",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_d5b749ddf36c0701d811d702": {
+    "storeId": "store_d5b749ddf36c0701d811d702",
+    "storeName": "갈현동미용실",
+    "address": "서울특별시 은평구 갈현로23길 5-1 1층 (갈현동)",
+    "phoneNumber": "0507-1313-4163",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17619",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251029/&fileId=84F47C87B80F4E05B3EF588F1A739F3C.jpg"
+    ]
+  },
+  "store_3b4f82bb4229aee817604423": {
+    "storeId": "store_3b4f82bb4229aee817604423",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8206d3b4c3d9231365c29719": {
+    "storeId": "store_8206d3b4c3d9231365c29719",
+    "storeName": "같이운동PT 까치산점",
+    "address": "서울특별시 강서구 곰달래로 135, 3층 (화곡동)",
+    "phoneNumber": "0507-1381-5808",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17824",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=59F2F536EA2C4252B43C0245FD5698B6.jpg"
+    ]
+  },
+  "store_9c977383cbd886a18a816522": {
+    "storeId": "store_9c977383cbd886a18a816522",
+    "storeName": "개성시대",
+    "address": "서울특별시 송파구 풍성로6길 9",
+    "phoneNumber": "02-477-2939",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=794",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201508210925373161.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201508210925373392.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201508210925373723.jpg"
+    ]
+  },
+  "store_9db87a69430c50129b62874b": {
+    "storeId": "store_9db87a69430c50129b62874b",
+    "storeName": "갤러리헤어",
+    "address": "서울특별시 광진구 동일로72길 46 (중곡동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=254",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515279580.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515279581.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515279582.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515279583.jpg"
+    ]
+  },
+  "store_a48747990fa016676f082199": {
+    "storeId": "store_a48747990fa016676f082199",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_946579383df27aff65763b1f": {
+    "storeId": "store_946579383df27aff65763b1f",
+    "storeName": "경노이발관",
+    "address": "서울특별시 노원구 석계로 27",
+    "phoneNumber": "02-917-7050",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=411",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514053260.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514053261.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514053262.jpg"
+    ]
+  },
+  "store_ec9a04b598dbe64e4152cbbe": {
+    "storeId": "store_ec9a04b598dbe64e4152cbbe",
+    "storeName": "경로이발관",
+    "address": "서울특별시 동대문구 왕산로 175-1",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11179",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=95148C55C85A45FCA67BC247B972BF51.jpg"
+    ]
+  },
+  "store_f85c4dfae5b362a1bb3950b7": {
+    "storeId": "store_f85c4dfae5b362a1bb3950b7",
+    "storeName": "경일크리닝",
+    "address": "서울특별시 동작구 사당로28길 6",
+    "phoneNumber": "02-583-5205",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=527",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170641311631.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170641312182.jpg"
+    ]
+  },
+  "store_2d4e4a31d5167a0bc978b8e8": {
+    "storeId": "store_2d4e4a31d5167a0bc978b8e8",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_36696468afc497c8599ef5bc": {
+    "storeId": "store_36696468afc497c8599ef5bc",
+    "storeName": "고은별",
+    "address": "서울특별시 광진구 자양로 177",
+    "phoneNumber": "02-453-4933",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=243",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202308020506412531.jpg"
+    ]
+  },
+  "store_698ba5ec386e72bec7cd8f0f": {
+    "storeId": "store_698ba5ec386e72bec7cd8f0f",
+    "storeName": "고투콜라헤어",
+    "address": "서울특별시 동작구 사당로2차길 72, 1층 (사당동)",
+    "phoneNumber": "02-586-5080",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=541",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202105210600396981.jpg"
+    ]
+  },
+  "store_0655b472ca67c9ee02bd0abb": {
+    "storeId": "store_0655b472ca67c9ee02bd0abb",
+    "storeName": "공단사우나",
+    "address": "서울특별시 관악구 시흥대로 578",
+    "phoneNumber": "02-867-8665",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=168",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202304271112445511.jpg"
+    ]
+  },
+  "store_56d92ec6653158e65bc26d1a": {
+    "storeId": "store_56d92ec6653158e65bc26d1a",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_db7f0311d0d6188a89e18062": {
+    "storeId": "store_db7f0311d0d6188a89e18062",
+    "storeName": "국제세탁소",
+    "address": "서울특별시 송파구 문정로11길 12",
+    "phoneNumber": "02-409-1914",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=789",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514472680.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514472681.jpg"
+    ]
+  },
+  "store_b003343bff81302199a11e25": {
+    "storeId": "store_b003343bff81302199a11e25",
+    "storeName": "굿띵커피",
+    "address": "서울특별시 관악구 조원로4길 37 (신림동)",
+    "phoneNumber": "0507-1342-5833",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11206",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260814/&fileId=9D1ACE7E60084353A03C83FBCE9B9C45.jpg"
+    ]
+  },
+  "store_afb123f109f0be5916130ba8": {
+    "storeId": "store_afb123f109f0be5916130ba8",
+    "storeName": "권정숙헤어",
+    "address": "서울특별시 성북구 성북로4길 52 (돈암동, 한신한진아파트) 417동1512호",
+    "phoneNumber": "02-745-0104",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15930",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241223/&fileId=A171ACAC8AD0408AB4E93DC4B9AE85DE.jpg"
+    ]
+  },
+  "store_ea4fc4db4df88368d9f2cfc0": {
+    "storeId": "store_ea4fc4db4df88368d9f2cfc0",
+    "storeName": "그날헤어 서울대입구역점",
+    "address": "서울특별시 관악구 남부순환로 1802 (봉천동, 관악캠퍼스타워)",
+    "phoneNumber": "02-2039-3169",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15196",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=F32A1CCABE6646DA80241592B8B8DAB5.jpg"
+    ]
+  },
+  "store_44a560edc034a12e28ef30cb": {
+    "storeId": "store_44a560edc034a12e28ef30cb",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ad002f89695c4a3d092507a5": {
+    "storeId": "store_ad002f89695c4a3d092507a5",
+    "storeName": "그린세탁",
+    "address": "서울특별시 광진구 뚝섬로54길 57 (자양동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=248",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513589830.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513589831.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513589832.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513589833.jpg"
+    ]
+  },
+  "store_91084dded96c244117e92a1f": {
+    "storeId": "store_91084dded96c244117e92a1f",
+    "storeName": "극동머리방",
+    "address": "서울특별시 강북구 인수봉로72가길 7",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16482",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=76ED98EA4EAF478DA345A109236741AA.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=980C8543DE5141C5B6803599243FECC9.jpg"
+    ]
+  },
+  "store_bb2d14d65a260cc72aa060bc": {
+    "storeId": "store_bb2d14d65a260cc72aa060bc",
+    "storeName": "금강숯불생고기",
+    "address": "서울특별시 광진구 용마산로7길 9 (중곡동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=279",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513586230.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513586231.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513586232.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201511241100129024.jpg"
+    ]
+  },
+  "store_c062c3ce86d33323b725e682": {
+    "storeId": "store_c062c3ce86d33323b725e682",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_a01e36b3f7f05c7a96863c51": {
+    "storeId": "store_a01e36b3f7f05c7a96863c51",
+    "storeName": "금성미용실",
+    "address": "서울특별시 강서구 방화대로21길 53",
+    "phoneNumber": "02-2661-7386",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17960",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251103/&fileId=93890C7820654B0C88785BE2F81E5177.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251103/&fileId=CC1A867466734CE38153534B6DD893F6.jpg"
+    ]
+  },
+  "store_95fa1a42df611267582c007b": {
+    "storeId": "store_95fa1a42df611267582c007b",
+    "storeName": "금천이발관",
+    "address": "서울특별시 중랑구 면목로29길 21",
+    "phoneNumber": "02-492-5613",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=1001",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514157600.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514157601.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514157602.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514157603.jpg"
+    ]
+  },
+  "store_ebad1db340b0645159d37f6d": {
+    "storeId": "store_ebad1db340b0645159d37f6d",
+    "storeName": "금호헤어",
+    "address": "서울특별시 노원구 한글비석로 46나길 3, 1층 (상계동)",
+    "phoneNumber": "02-951-5597",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17761",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=F159D545026B4A7C958696B2169EEA30.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=79E747878C1D4B7FBAF44F4D8FB81231.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=4ED51CA6B754491D9439A5904DAA8E72.jpg"
+    ]
+  },
+  "store_d5b50f3ceba39d9a1ad65abb": {
+    "storeId": "store_d5b50f3ceba39d9a1ad65abb",
+    "storeName": "김미라헤어",
+    "address": "서울특별시 광진구 동일로24길 18 (화양동) 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15558",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241111/&fileId=B24AF008A3C44575909AE3D58B600AC9.jpg"
+    ]
+  },
+  "store_482f7f64213117d8c303cf4f": {
+    "storeId": "store_482f7f64213117d8c303cf4f",
+    "storeName": "김미연헤어샵",
+    "address": "서울특별시 관악구 미성길 18",
+    "phoneNumber": "02-839-0211",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16173",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=1C79C47AA92344028D81CE8798EAB828.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=251C7BA71F8A4B419AF9D73DC51303BE.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=1E900E635EDF42408C8FD9AFFFC9270D.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=5719C299176D431FAFDCC65857F0093C.jpg"
+    ]
+  },
+  "store_6b6c8d090e889f00b14bcc0b": {
+    "storeId": "store_6b6c8d090e889f00b14bcc0b",
+    "storeName": "김복남헤어장",
+    "address": "서울특별시 송파구 백제고분로32길 6-1, 103호",
+    "phoneNumber": "02-422-4325",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=795",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514467240.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514467241.jpg"
+    ]
+  },
+  "store_0e3c6d1e2d5410c5e8add4d9": {
+    "storeId": "store_0e3c6d1e2d5410c5e8add4d9",
+    "storeName": "김소선 헤어아트",
+    "address": "서울특별시 관악구 행운1길 14 (봉천동)",
+    "phoneNumber": "02-887-9261",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=176",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180315319371.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515239161.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515239162.jpg"
+    ]
+  },
+  "store_4d31c46215692485a1e5adbf": {
+    "storeId": "store_4d31c46215692485a1e5adbf",
+    "storeName": "김진경헤어",
+    "address": "서울특별시 강서구 등촌로5가길 28, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17825",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=C01B166224514300B38F7036FFB428BB.jpg"
+    ]
+  },
+  "store_159563ff906a2144249fd22b": {
+    "storeId": "store_159563ff906a2144249fd22b",
+    "storeName": "김코치PT",
+    "address": "서울특별시 관악구 봉천로 575, 풍산빌딩 6층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13773",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=4B611CB58EBE4A10BEEF6272A6DD40AD.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=6537439BA8984DE0965FADB405D3619B.jpg"
+    ]
+  },
+  "store_a0d6f474346dc23e1925b858": {
+    "storeId": "store_a0d6f474346dc23e1925b858",
+    "storeName": "김포세탁소",
+    "address": "서울특별시 동작구 서달로10길 40",
+    "phoneNumber": "02-815-7111",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=529",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170640418071.jpg"
+    ]
+  },
+  "store_cff07c837e0eadcbbef86698": {
+    "storeId": "store_cff07c837e0eadcbbef86698",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_581603fbd873089b4336d053": {
+    "storeId": "store_581603fbd873089b4336d053",
+    "storeName": "까치산 냉면&김치찌개",
+    "address": "서울특별시 강서구 강서로15길 40 (화곡동, 감성하이츠) 101호",
+    "phoneNumber": "0507-1327-3953",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15491",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241031/&fileId=978BB8A429794BF59AAE9555DFCE869A.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241031/&fileId=EB51CD673981490AB4D994F56D7C4C54.jpg"
+    ]
+  },
+  "store_aab952c8f04d5793e1d79722": {
+    "storeId": "store_aab952c8f04d5793e1d79722",
+    "storeName": "까페뜨랑",
+    "address": "서울특별시 동대문구 제기로 130, 2층 (청량리동)",
+    "phoneNumber": "02-6949-3928",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=483",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202307070257155931.jpg"
+    ]
+  },
+  "store_d2ab8ffae00e0b18bfe35a82": {
+    "storeId": "store_d2ab8ffae00e0b18bfe35a82",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_0b5426ace081a4d7c6a81cef": {
+    "storeId": "store_0b5426ace081a4d7c6a81cef",
+    "storeName": "꿀띠헤어",
+    "address": "서울특별시 관악구 청룡길 48",
+    "phoneNumber": "02-882-3967",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17435",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260811/&fileId=9443F367683C474E85FF632F21EE3EE9.jpeg"
+    ]
+  },
+  "store_ba404930a5b1b9f19d896c60": {
+    "storeId": "store_ba404930a5b1b9f19d896c60",
+    "storeName": "나경미용실",
+    "address": "서울특별시 성북구 종암로18길 6 (종암동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=763",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202307220908151041.jpg"
+    ]
+  },
+  "store_27c76aaabe9e8215f7f1453b": {
+    "storeId": "store_27c76aaabe9e8215f7f1453b",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_9ec3311788f6be908d74f61c": {
+    "storeId": "store_9ec3311788f6be908d74f61c",
+    "storeName": "난망베이킹스튜디오",
+    "address": "서울특별시 동대문구 사가정로 41-1 (답십리동) 3층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18239",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251107/&fileId=B126EEA3ADDA48B6B337D345ABBC8521.png"
+    ]
+  },
+  "store_cb4067fde9a28573a29492a2": {
+    "storeId": "store_cb4067fde9a28573a29492a2",
+    "storeName": "남성헤어컷트 전문점 우정",
+    "address": "서울특별시 강동구 올림픽로62길 17, 1층 (성내동)",
+    "phoneNumber": "0507-1434-1419",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13944",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240730/&fileId=27D5FA6E252F4BF0B344A69A0B1B189D.jpg"
+    ]
+  },
+  "store_661e40ff57dc2423f4a94145": {
+    "storeId": "store_661e40ff57dc2423f4a94145",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_1aa4df07566ca02781f7aa3a": {
+    "storeId": "store_1aa4df07566ca02781f7aa3a",
+    "storeName": "낸시스테이블",
+    "address": "서울특별시 동작구 여의대방로 36길 105 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18152",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=AAE2210FB3214B369A8600DF35596918.jpg"
+    ]
+  },
+  "store_89f501f1a2362d5eeec31c95": {
+    "storeId": "store_89f501f1a2362d5eeec31c95",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c4e46b7270c8121c52a2c637": {
+    "storeId": "store_c4e46b7270c8121c52a2c637",
+    "storeName": "네모네모",
+    "address": "서울특별시 관악구 낙성대로3길 33-14, 1층",
+    "phoneNumber": "070-7626-9860",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11208",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240619/&fileId=A753BADE56714BF7B445B70FC9672248.png"
+    ]
+  },
+  "store_c24282f1fa1d8a0d5e41d07d": {
+    "storeId": "store_c24282f1fa1d8a0d5e41d07d",
+    "storeName": "네이밍카페커피GO!#1",
+    "address": "서울특별시 관악구 난곡로 317 (신림동)",
+    "phoneNumber": "02-855-4573",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10045",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=2D8F2719F26A4651B46CED4A7FA21C48.png"
+    ]
+  },
+  "store_23424b69b95ffe9256a853d0": {
+    "storeId": "store_23424b69b95ffe9256a853d0",
+    "storeName": "네일멜로디",
+    "address": "서울특별시 동작구 신대방길 45",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18145",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=43EDEDF6C9B74256BE205E6F93C307B4.jpg"
+    ]
+  },
+  "store_4c0fd92e8a3dfe4dbaeab784": {
+    "storeId": "store_4c0fd92e8a3dfe4dbaeab784",
+    "storeName": "노랑머리",
+    "address": "서울특별시 관악구 남부순환로145길 11 (신림동)",
+    "phoneNumber": "02-864-6196",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=178",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180356109131.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180357082922.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180357083083.jpg"
+    ]
+  },
+  "store_c7820df5489022a29bc9b376": {
+    "storeId": "store_c7820df5489022a29bc9b376",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_3371c66557c7309622704d6c": {
+    "storeId": "store_3371c66557c7309622704d6c",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_402706307f6dcc44089f3f5e": {
+    "storeId": "store_402706307f6dcc44089f3f5e",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_abfd98fed32b22bd8f995878": {
+    "storeId": "store_abfd98fed32b22bd8f995878",
+    "storeName": "다산수학영어학원",
+    "address": "서울특별시 도봉구 노해로 174 (쌍문동) 3층",
+    "phoneNumber": "02-998-0555",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15309",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241029/&fileId=667668A5D7AF40D58E88DFAA4BB1BFCB.jpeg"
+    ]
+  },
+  "store_44610c52049485a59e722608": {
+    "storeId": "store_44610c52049485a59e722608",
+    "storeName": "다옴감자탕 양평해장국",
+    "address": "서울특별시 동대문구 전농로 91 (답십리동)",
+    "phoneNumber": "02-2244-8500",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14390",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240828/&fileId=1480AE94340B48EC8387D1AD18749266.jpg"
+    ]
+  },
+  "store_8e43a8eb3f98ca41d7aded03": {
+    "storeId": "store_8e43a8eb3f98ca41d7aded03",
+    "storeName": "단골미용실",
+    "address": "서울특별시 송파구 풍성로23길 42",
+    "phoneNumber": "02-485-4936",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15542",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241106/&fileId=41A2F81BCED84B3EB30EE3C764F21B1F.jpg"
+    ]
+  },
+  "store_9e4240c4bdf13810cb8670f3": {
+    "storeId": "store_9e4240c4bdf13810cb8670f3",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_08d56a6c30e6eed62fe3bfb3": {
+    "storeId": "store_08d56a6c30e6eed62fe3bfb3",
+    "storeName": "달디빈",
+    "address": "서울특별시 광진구 능동로39길 11 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=244",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202308020505383441.jpg"
+    ]
+  },
+  "store_1bd625a0d3b78a39c6cb9df2": {
+    "storeId": "store_1bd625a0d3b78a39c6cb9df2",
+    "storeName": "담다",
+    "address": "서울특별시 중랑구 봉화산로4길 62",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16076",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250113/&fileId=9EBD7B7AB5854B06A765A898E86C3590.jpg"
+    ]
+  },
+  "store_732e24a5bb28361ff23d3af6": {
+    "storeId": "store_732e24a5bb28361ff23d3af6",
+    "storeName": "대광사",
+    "address": "서울특별시 동작구 상도로15길 115",
+    "phoneNumber": "02-813-7728",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13837",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=0FD0E56074614D33B335B32EB4A513E2.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=AB0C0C6BD77C4606A35EA1B16E61273A.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=95B4769013054B71AF880F53CEBAEC66.jpeg"
+    ]
+  },
+  "store_a8a2fd0d287b9305ae5ad919": {
+    "storeId": "store_a8a2fd0d287b9305ae5ad919",
+    "storeName": "대림농협(이용원)",
+    "address": "서울특별시 동작구 신대방길 64 1층",
+    "phoneNumber": "02-846-8847",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13838",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=3D12B013B0324ECDA20AA418243945D5.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=41705B128AB24C28B901665D6FFDEFFE.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=078F40464EA744F591B206B32D8D32CE.jpeg"
+    ]
+  },
+  "store_0ce7f63ef9f073a95ddb6623": {
+    "storeId": "store_0ce7f63ef9f073a95ddb6623",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_92618dd85e57b9b771aa25d4": {
+    "storeId": "store_92618dd85e57b9b771aa25d4",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_1c266004639ded4eb0389458": {
+    "storeId": "store_1c266004639ded4eb0389458",
+    "storeName": "대원(사우나)",
+    "address": "서울특별시 강서구 화곡로21길 78 (화곡동) 2층",
+    "phoneNumber": "02-2695-5752",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15685",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241129/&fileId=DAB734FA0F1543D7ADD5D094528D4448.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241129/&fileId=C99FAEAA21CA4057932B63B86AEFF247.jpg"
+    ]
+  },
+  "store_b0a0afac693b5f92e268da9e": {
+    "storeId": "store_b0a0afac693b5f92e268da9e",
+    "storeName": "대흥이발관",
+    "address": "서울특별시 은평구 연서로32길 19 (불광동)",
+    "phoneNumber": "02-352-5755",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=913",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201503180528542721.jpg"
+    ]
+  },
+  "store_3f8f38419511a56f5894a5ae": {
+    "storeId": "store_3f8f38419511a56f5894a5ae",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_b03fb36798bd0664b5be1469": {
+    "storeId": "store_b03fb36798bd0664b5be1469",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_536357762a4fe225db476bf3": {
+    "storeId": "store_536357762a4fe225db476bf3",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_50ae978938d216e3f6076706": {
+    "storeId": "store_50ae978938d216e3f6076706",
+    "storeName": "더맨커트",
+    "address": "서울특별시 강동구 명일로 375 (명일동) 상가동 3층 40호",
+    "phoneNumber": "0507-1365-9814",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17432",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251028/&fileId=E06E0970951F42299978E00C766E78C1.jpg"
+    ]
+  },
+  "store_b6806109fb39e6a57858ffae": {
+    "storeId": "store_b6806109fb39e6a57858ffae",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8879931646aa3bd5575ba3db": {
+    "storeId": "store_8879931646aa3bd5575ba3db",
+    "storeName": "더샾 명품세탁",
+    "address": "서울특별시 동작구 장승배기로4길 9, 비동 101호",
+    "phoneNumber": "02-822-3460",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13836",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=D5BF9E94B71C4D49BF1F0F2A4AC0246B.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=FF65DED8DC0C42999FF4434C64CFDC64.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=43BCA4C99A3E40D6BAD924F82850FB9F.jpeg"
+    ]
+  },
+  "store_782b9e5fce15cac958afeeae": {
+    "storeId": "store_782b9e5fce15cac958afeeae",
+    "storeName": "더예쁜날",
+    "address": "서울특별시 관악구 낙성대역3길 30, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14423",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=81B6BF710A834404A0A5BE3CAA2D7BBD.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=217683FD3BEA44028606ECC87EBDCBB2.jpg"
+    ]
+  },
+  "store_1622b6f7500596fb72663123": {
+    "storeId": "store_1622b6f7500596fb72663123",
+    "storeName": "덕성이발관(덕성)",
+    "address": "서울특별시 관악구 장군봉2길 11 (봉천동)",
+    "phoneNumber": "02-882-5875",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=179",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513563820.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513563821.jpg"
+    ]
+  },
+  "store_bffe3d7ca1ad94f3da9d046c": {
+    "storeId": "store_bffe3d7ca1ad94f3da9d046c",
+    "storeName": "덕인헤어센스",
+    "address": "서울특별시 관악구 장군봉8길 2",
+    "phoneNumber": "02-886-2587",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14426",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=E100DA805C684F51BAE169E56C3D67BF.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=E0BAAFEE6E344290A363AE59239579DF.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=BCD6389789994418B040AEBCAF5FEBAB.jpg"
+    ]
+  },
+  "store_5a3ead1e703ea800633dfda5": {
+    "storeId": "store_5a3ead1e703ea800633dfda5",
+    "storeName": "덤앤더머",
+    "address": "서울특별시 성동구 사근동길 25-1 (사근동)",
+    "phoneNumber": "02-2292-9700",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=740",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202306261216183401.jpg"
+    ]
+  },
+  "store_b0d64c023fe2542190958cce": {
+    "storeId": "store_b0d64c023fe2542190958cce",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_b6a1376281a97a7450714a73": {
+    "storeId": "store_b6a1376281a97a7450714a73",
+    "storeName": "돈꾹",
+    "address": "서울특별시 은평구 진흥로1길 8 (역촌동)",
+    "phoneNumber": "02-383-6110",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=927",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240613/&fileId=7ADB2FF1963344FBB9EE9EC44AE3529E.jpg"
+    ]
+  },
+  "store_7ede3c2598883e318147efa5": {
+    "storeId": "store_7ede3c2598883e318147efa5",
+    "storeName": "돈나라",
+    "address": "서울특별시 관악구 청림길 2 (봉천동)",
+    "phoneNumber": "02-875-4427",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15207",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=783B243DEFF94F6A8FE29A6EF482D2C1.jpg"
+    ]
+  },
+  "store_61f0e8361220de27b43fda56": {
+    "storeId": "store_61f0e8361220de27b43fda56",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c382855480c272881089266d": {
+    "storeId": "store_c382855480c272881089266d",
+    "storeName": "돈암돈집",
+    "address": "서울특별시 성북구 동소문로20다길 15 (동선동1가) 1층",
+    "phoneNumber": "02-6013-9924",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15458",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241031/&fileId=9366A5E43E3B4D7BAE6EDA9345948EAF.jpg"
+    ]
+  },
+  "store_c66abee280caa305a822221d": {
+    "storeId": "store_c66abee280caa305a822221d",
+    "storeName": "돈암동찌개",
+    "address": "서울특별시 성북구 동소문로20나길 34 (동선동1가) 1층",
+    "phoneNumber": "02-924-9687",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15353",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241030/&fileId=61D9FA3D5AF84CBA8509119D3DD5DD79.jpeg"
+    ]
+  },
+  "store_7e25da8c321348b306a2c8d8": {
+    "storeId": "store_7e25da8c321348b306a2c8d8",
+    "storeName": "돈오야",
+    "address": "서울특별시 강서구 강서로 55 (화곡동) 1층",
+    "phoneNumber": "02-2699-4885",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15687",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241129/&fileId=4467FD00753D4FF5AA1DB89F10A9F2E1.jpg"
+    ]
+  },
+  "store_3d4daa8abb3f902e4b0f1a6a": {
+    "storeId": "store_3d4daa8abb3f902e4b0f1a6a",
+    "storeName": "돈태자",
+    "address": "서울특별시 동대문구 한천로24길 10 (장안동) 1층",
+    "phoneNumber": "02-2244-9255",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16148",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250212/&fileId=22401147345C4A01938B86F3535D2FFE.png"
+    ]
+  },
+  "store_843ad0dd0949a57195735eba": {
+    "storeId": "store_843ad0dd0949a57195735eba",
+    "storeName": "돌쇠와 석쇠",
+    "address": "서울특별시 동작구 솔밭로 110",
+    "phoneNumber": "02-588-1005",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10419",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240726/&fileId=F3564BA4AD1C477F8033EDBE5FBB3A18.png"
+    ]
+  },
+  "store_28bfa48bf0da6d961c8b4b01": {
+    "storeId": "store_28bfa48bf0da6d961c8b4b01",
+    "storeName": "동네",
+    "address": "서울특별시 성북구 개운사길 22-5, 지하",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=777",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=BAB28E8ABBED4DF7BEB44A5E3B9FB325.png"
+    ]
+  },
+  "store_aac2e42963f64d979092fc3d": {
+    "storeId": "store_aac2e42963f64d979092fc3d",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_12991622132b43cf9aeccfe3": {
+    "storeId": "store_12991622132b43cf9aeccfe3",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_4b9bc52c00fdfe16c277dbea": {
+    "storeId": "store_4b9bc52c00fdfe16c277dbea",
+    "storeName": "동원이용원",
+    "address": "서울특별시 동작구 동작대로27다길 41, 2층 (사당동)",
+    "phoneNumber": "02-536-3411",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=543",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311270810158141.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311270810158582.jpg"
+    ]
+  },
+  "store_6b5fed0d3297593dfb7df6d0": {
+    "storeId": "store_6b5fed0d3297593dfb7df6d0",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_98fe87f751a234920b4c9981": {
+    "storeId": "store_98fe87f751a234920b4c9981",
+    "storeName": "동춘원",
+    "address": "서울특별시 중랑구 망우로66길 57",
+    "phoneNumber": "02-434-9454",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16077",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250113/&fileId=DFC776C995FD4CCFADF23FCD0E1434BB.jpg"
+    ]
+  },
+  "store_4c273b2ce15a9f513f5bae05": {
+    "storeId": "store_4c273b2ce15a9f513f5bae05",
+    "storeName": "동치냉면쌍문점",
+    "address": "서울특별시 도봉구 우이천로 335 (쌍문동) 1층",
+    "phoneNumber": "02-999-2109",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17008",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250513/&fileId=57F26658AE364A138E96DBA8B83A0DD6.jpeg"
+    ]
+  },
+  "store_dcc1b2ddc7e51d1e853e634e": {
+    "storeId": "store_dcc1b2ddc7e51d1e853e634e",
+    "storeName": "동해루",
+    "address": "서울특별시 성동구 고산자로8길 26",
+    "phoneNumber": "02-2292-5342",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=747",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514406610.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514406611.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514406612.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514406613.jpg"
+    ]
+  },
+  "store_56b7be58ae85be4f21a69e3e": {
+    "storeId": "store_56b7be58ae85be4f21a69e3e",
+    "storeName": "동해해물탕",
+    "address": "서울특별시 동작구 양녕로22가길 67",
+    "phoneNumber": "02-814-7700",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=596",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202008240243492371.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207290332498282.jpg"
+    ]
+  },
+  "store_4c45a4bd27e67ef8e7fd639d": {
+    "storeId": "store_4c45a4bd27e67ef8e7fd639d",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_a9bd3d131f39dba0846ced05": {
+    "storeId": "store_a9bd3d131f39dba0846ced05",
+    "storeName": "동현세탁",
+    "address": "서울특별시 광진구 뚝섬로52라길 65 (자양동)",
+    "phoneNumber": "02-458-6268",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=249",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514029240.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514029241.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514029242.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201511240118459784.jpg"
+    ]
+  },
+  "store_6d97669c94235fc76cb4118b": {
+    "storeId": "store_6d97669c94235fc76cb4118b",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ee85600e8f9fbfed0834d7c0": {
+    "storeId": "store_ee85600e8f9fbfed0834d7c0",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_a88da176105f049a979c5aee": {
+    "storeId": "store_a88da176105f049a979c5aee",
+    "storeName": "두꺼비닷컴",
+    "address": "서울특별시 송파구 동남로18길 39",
+    "phoneNumber": "02-407-0675",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14048",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240807/&fileId=4831B1B6158443EBBB8294840C6E5DC9.png"
+    ]
+  },
+  "store_e5913f7904ff03412fe245a1": {
+    "storeId": "store_e5913f7904ff03412fe245a1",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_9c73b2dd0d6748657892b8d2": {
+    "storeId": "store_9c73b2dd0d6748657892b8d2",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8e67199b03311fa4e5e941f1": {
+    "storeId": "store_8e67199b03311fa4e5e941f1",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_b5089a50f14ae7a5ce88118d": {
+    "storeId": "store_b5089a50f14ae7a5ce88118d",
+    "storeName": "들름집",
+    "address": "서울특별시 서초구 사임당로178, 지하1층 104",
+    "phoneNumber": "02-585-8449",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10016",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=DDE8531654CA4EFFB947AB627F80B40F.png"
+    ]
+  },
+  "store_4520621244c2610810c658d8": {
+    "storeId": "store_4520621244c2610810c658d8",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_1e976d29afa8f4ce04cfae39": {
+    "storeId": "store_1e976d29afa8f4ce04cfae39",
+    "storeName": "디디카페",
+    "address": "서울특별시 동대문구 회기로21가길 10, 1층 101호 (회기동)",
+    "phoneNumber": "0507-1483-1997",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18855",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251231/&fileId=C78977BC05924EB6B739C009D931C9B0.jpg"
+    ]
+  },
+  "store_9fc9d9f8b4e8cf8c62db2cfd": {
+    "storeId": "store_9fc9d9f8b4e8cf8c62db2cfd",
+    "storeName": "디자인카페허브",
+    "address": "서울특별시 강동구 천호대로200길 15-16 (둔촌동) 1층",
+    "phoneNumber": "02-417-0437",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16279",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250319/&fileId=5BF7B9A0E1114B04BBB86607428AD5F6.jpg"
+    ]
+  },
+  "store_2ba04cac6d02957b183722fa": {
+    "storeId": "store_2ba04cac6d02957b183722fa",
+    "storeName": "따께리아 라 비다(Taqueria La Vida)",
+    "address": "서울특별시 동대문구 경희대로1길 27 (회기동) 1층",
+    "phoneNumber": "0507-1389-4311",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16158",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250214/&fileId=971E1656F9BA4E8087622777BC6682EA.jpg"
+    ]
+  },
+  "store_ba8f6da6db85906883b76d1c": {
+    "storeId": "store_ba8f6da6db85906883b76d1c",
+    "storeName": "따뜻한밥상 외대점",
+    "address": "서울특별시 동대문구 이문로 58 (휘경동) 오스카빌딩 2층",
+    "phoneNumber": "0507-1354-2143",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18240",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251107/&fileId=F9CE07FD5E8F479BA7859DD941A22DF7.png"
+    ]
+  },
+  "store_e9e2f7f95fab88c80cff0e0b": {
+    "storeId": "store_e9e2f7f95fab88c80cff0e0b",
+    "storeName": "땡큐미용실",
+    "address": "서울특별시 도봉구 도당로29길 9, 1층 일부 (방학동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19570",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=AC23451EC6A34E1BA7764A31C794526B.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=D3F891FD450640559CCA981F9FFBD00E.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=EA81F5D81FC8449485559B9B2CC4BC87.jpeg"
+    ]
+  },
+  "store_18784d8fef6a4b1e53306687": {
+    "storeId": "store_18784d8fef6a4b1e53306687",
+    "storeName": "떡마루",
+    "address": "서울특별시 동작구 여의대방로24길 70",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13827",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=4082B9ADC5CF4ECE846F92C6E1AE3D99.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=8ECE7F528A7E451AA0CDF860227039C4.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=D7E564473605455E819370520B47B5E5.jpeg"
+    ]
+  },
+  "store_7ca7135464f1ab28158119db": {
+    "storeId": "store_7ca7135464f1ab28158119db",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ddc45b8012154b389504cd80": {
+    "storeId": "store_ddc45b8012154b389504cd80",
+    "storeName": "또래끼리",
+    "address": "서울특별시 성북구 개운사길 22-5 1층",
+    "phoneNumber": "0507-1424-6694",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16770",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250423/&fileId=9CF2F6F699AD4D8E9B0E59ADEB213706.jpeg"
+    ]
+  },
+  "store_972084fdda43c2b215c8a5e9": {
+    "storeId": "store_972084fdda43c2b215c8a5e9",
+    "storeName": "뚜비뚜밥스",
+    "address": "서울특별시 노원구 동일로 190길 4",
+    "phoneNumber": "070-4115-7775",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11546",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=F42FA4A5550B4156BC0672542C543B66.png"
+    ]
+  },
+  "store_1bb14900ea824060d40d54b8": {
+    "storeId": "store_1bb14900ea824060d40d54b8",
+    "storeName": "뜸부기네 짜장&짬뽕",
+    "address": "서울특별시 강서구 금낭화로 128, 111호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19151",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260305/&fileId=931679A0A2054F89B537938369D75F47.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260305/&fileId=2E4D10E14CC1427F84A96535DB53DC8B.jpg"
+    ]
+  },
+  "store_a83ff44501b108a791ad5c86": {
+    "storeId": "store_a83ff44501b108a791ad5c86",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ff8080a4c2cc72d7e946dcde": {
+    "storeId": "store_ff8080a4c2cc72d7e946dcde",
+    "storeName": "라인헤어",
+    "address": "서울특별시 동작구 사당로16가길 42",
+    "phoneNumber": "02-583-1614",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=544",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170643091481.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170643091992.jpg"
+    ]
+  },
+  "store_db2d9904bfa8529f0e942a25": {
+    "storeId": "store_db2d9904bfa8529f0e942a25",
+    "storeName": "락궁",
+    "address": "서울특별시 노원구 마들로31, 210호",
+    "phoneNumber": "02-949-8585",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11303",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=5D4FEC40DDE443769FA7B9851F265A69.png"
+    ]
+  },
+  "store_a5a229cd02f83976f481d15c": {
+    "storeId": "store_a5a229cd02f83976f481d15c",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ad4ed6044f9f3abc5ae0f94f": {
+    "storeId": "store_ad4ed6044f9f3abc5ae0f94f",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_e35cac208d00401c5b8e4aa6": {
+    "storeId": "store_e35cac208d00401c5b8e4aa6",
+    "storeName": "레스토랑",
+    "address": "서울특별시 노원구 한글비석로24다길 50 (상계동)",
+    "phoneNumber": "02-933-9406",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13550",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240703/&fileId=9538FEB0C99A46EEA310B4EED128A697.jpg"
+    ]
+  },
+  "store_54b6034ead9ee67a61f8c6bb": {
+    "storeId": "store_54b6034ead9ee67a61f8c6bb",
+    "storeName": "레커훈스",
+    "address": "서울특별시 관악구 호암로22길 51 (신림동)",
+    "phoneNumber": "02-873-4992",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15197",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=8E5E20894A394AE4A535E8B71524D354.jpg"
+    ]
+  },
+  "store_0f115cc578e3ecfae10106f7": {
+    "storeId": "store_0f115cc578e3ecfae10106f7",
+    "storeName": "렛츠런24hour휘트니스",
+    "address": "서울특별시 강서구 강서로 43, 지하2층 (화곡동, 도양라비앙타워)",
+    "phoneNumber": "02-2696-3508",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17821",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=1130D8C2B68644C9825F29F972FB09F3.jpg"
+    ]
+  },
+  "store_45f4ceabe0979022a81d712c": {
+    "storeId": "store_45f4ceabe0979022a81d712c",
+    "storeName": "로데오당구장",
+    "address": "서울특별시 성북구 보문로38길 53, 지하1층 (동소문동5가)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13501",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240702/&fileId=15A8D954E8EA444784EB1D5C71F6B95F.jpg"
+    ]
+  },
+  "store_465587d0444c8a6226bfeabc": {
+    "storeId": "store_465587d0444c8a6226bfeabc",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_80a6de19304b76dbbad29a90": {
+    "storeId": "store_80a6de19304b76dbbad29a90",
+    "storeName": "롤리밥스",
+    "address": "서울특별시 강서구 양천로 351, 3호~4호 (가양동)",
+    "phoneNumber": "02-3662-0903",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17841",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=A14924304F054FA4A22355FA5FC355F1.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=185253DE9D364A9FA3A607DB1A9DB7BF.jpg"
+    ]
+  },
+  "store_fba0165250d0c83030efdb13": {
+    "storeId": "store_fba0165250d0c83030efdb13",
+    "storeName": "롯지요가",
+    "address": "서울특별시 동작구 양녕로30길 4 2층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13853",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=0175B7F7875D4ECF9B0ACEDBCF85EC61.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=29BBF46C5B714EF58AC5149944F6CD87.jpg"
+    ]
+  },
+  "store_77ec4a8b0b58cccd7c43d67e": {
+    "storeId": "store_77ec4a8b0b58cccd7c43d67e",
+    "storeName": "루아룸",
+    "address": "서울특별시 서초구 동광로75, 2층",
+    "phoneNumber": "02-537-4117",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=724",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202307251018249491.jpg"
+    ]
+  },
+  "store_6467bdcda2dccc7c1199063e": {
+    "storeId": "store_6467bdcda2dccc7c1199063e",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_d430caf8d0478c8c80580204": {
+    "storeId": "store_d430caf8d0478c8c80580204",
+    "storeName": "리오스포토스튜디오",
+    "address": "서울특별시 광진구 능동로40길 3 (중곡동) 1층",
+    "phoneNumber": "02-455-6727",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15560",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241111/&fileId=A6CDB465F7D34555B599270F11946C25.jpg"
+    ]
+  },
+  "store_fc591bd33ca43bef7efc2518": {
+    "storeId": "store_fc591bd33ca43bef7efc2518",
+    "storeName": "리플커피 건국대점",
+    "address": "서울특별시 광진구 광나루로24길 20 (화양동) 1층",
+    "phoneNumber": "02-455-5600",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15272",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241028/&fileId=94F84148C62343B89076E67A63223485.jpg"
+    ]
+  },
+  "store_f4a0d6e8fde443110c3cb0a2": {
+    "storeId": "store_f4a0d6e8fde443110c3cb0a2",
+    "storeName": "린스튜디오",
+    "address": "서울특별시 중랑구 봉화산로 194, 201호",
+    "phoneNumber": "0507-1412-0549",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=994",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202310201101276361.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202310201101276892.jpg"
+    ]
+  },
+  "store_57072a59bdedec71b7657086": {
+    "storeId": "store_57072a59bdedec71b7657086",
+    "storeName": "마늘오리",
+    "address": "서울특별시 관악구 신림로66길 10",
+    "phoneNumber": "02-883-3153",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16169",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=D38B67CADF1C423EB2050B1F8B2554AC.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=2507E84203CC4B88812555368ED1E464.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=408CCFE1625A4DD0AF276DEC1852F8B1.jpg"
+    ]
+  },
+  "store_1f2488460e24730408b53828": {
+    "storeId": "store_1f2488460e24730408b53828",
+    "storeName": "마니아우동",
+    "address": "서울특별시 광진구 긴고랑로 25 (중곡동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=277",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201901140438208221.jpg"
+    ]
+  },
+  "store_43a6984901eb382551959e63": {
+    "storeId": "store_43a6984901eb382551959e63",
+    "storeName": "마들김밥",
+    "address": "서울특별시 노원구 한글비석로 474 보람상가",
+    "phoneNumber": "02-933-9308",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=424",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514054880.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514054881.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514054882.jpg"
+    ]
+  },
+  "store_24298a6bbb6f4b779743c399": {
+    "storeId": "store_24298a6bbb6f4b779743c399",
+    "storeName": "마떡다이천",
+    "address": "서울특별시 노원구 석계로106 (월계동, 1층)",
+    "phoneNumber": "02-976-4841",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=425",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201908201105249711.jpg"
+    ]
+  },
+  "store_0ffe674430c0e7b61a84e4fb": {
+    "storeId": "store_0ffe674430c0e7b61a84e4fb",
+    "storeName": "마라양꼬치",
+    "address": "서울특별시 동작구 상도로30길 40 상가 104호",
+    "phoneNumber": "070-4065-5678",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13835",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=3B212FACB5584F8298B37A7F21B3EA65.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=EB06C2442BC2435FAE314A4378B47F67.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=42B9D220B3FC4341854EBF951462B01D.jpg"
+    ]
+  },
+  "store_bc0780d429e35b3e66929b7a": {
+    "storeId": "store_bc0780d429e35b3e66929b7a",
+    "storeName": "마르떼헤어",
+    "address": "서울특별시 도봉구 도봉로113길 38 (쌍문동)",
+    "phoneNumber": "02-990-6965",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=442",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080140054371.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080140055322.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080140056493.jpg"
+    ]
+  },
+  "store_762ffa522cd427ef6852b756": {
+    "storeId": "store_762ffa522cd427ef6852b756",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_a9f8cad48c7fd9fac578a252": {
+    "storeId": "store_a9f8cad48c7fd9fac578a252",
+    "storeName": "마션",
+    "address": "서울특별시 중랑구 봉화산로56길 69",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=1028",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240913/&fileId=33ADB0C8DDC84BA58CCEE5A9E276E63F.png"
+    ]
+  },
+  "store_4aa2fcdc2e553136482aefb4": {
+    "storeId": "store_4aa2fcdc2e553136482aefb4",
+    "storeName": "마포곱창",
+    "address": "서울특별시 동작구 사당로 185 (사당동)",
+    "phoneNumber": "02-532-9171",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=579",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202105210546577571.jpg"
+    ]
+  },
+  "store_0047ddb8ec47863c38041e35": {
+    "storeId": "store_0047ddb8ec47863c38041e35",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c1836f58cd6cd642b92df1f3": {
+    "storeId": "store_c1836f58cd6cd642b92df1f3",
+    "storeName": "만나칼국수",
+    "address": "서울특별시 관악구 봉천로7길 23 (봉천동, 주흥빌딩)",
+    "phoneNumber": "02-888-8564",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=204",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201507231106334441.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201507231106335142.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515221582.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180408210044.jpg"
+    ]
+  },
+  "store_65da76fa85d8425cc46059b2": {
+    "storeId": "store_65da76fa85d8425cc46059b2",
+    "storeName": "만다린1997",
+    "address": "서울특별시 강서구 강서로68길 36, 201호 (등촌동, 등촌주공1단지)",
+    "phoneNumber": "02-2658-2000",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17812",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=333406EFB81041D1AF7F047AAB5A4F7F.jpg"
+    ]
+  },
+  "store_4e946a1ebc41273da62b5609": {
+    "storeId": "store_4e946a1ebc41273da62b5609",
+    "storeName": "만두랑",
+    "address": "서울특별시 서초구 남부순환로 356길 39 2층",
+    "phoneNumber": "02-573-7577",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11604",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=422B7140172F4B2D866A575B1090A5BD.png"
+    ]
+  },
+  "store_621780f5f6c8cce9420b9c95": {
+    "storeId": "store_621780f5f6c8cce9420b9c95",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_52dc219b32216ad6fd61e5bd": {
+    "storeId": "store_52dc219b32216ad6fd61e5bd",
+    "storeName": "만미정 식당",
+    "address": "서울특별시 강북구 솔매로43길 96",
+    "phoneNumber": "02-983-8884",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=126",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513592970.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513592971.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513592972.jpg"
+    ]
+  },
+  "store_c22678b057885acb362cfd96": {
+    "storeId": "store_c22678b057885acb362cfd96",
+    "storeName": "만선국수",
+    "address": "서울특별시 강동구 풍성로 111 (성내동)",
+    "phoneNumber": "02-478-0723",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=100",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311070513414451.jpg"
+    ]
+  },
+  "store_b09861dec9bcb927d23b0b57": {
+    "storeId": "store_b09861dec9bcb927d23b0b57",
+    "storeName": "맛밥김밥전문점",
+    "address": "서울특별시 관악구 남부순환로 1740",
+    "phoneNumber": "02-883-5932",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16358",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=F0D0E330170342DAB80BF36A3B527761.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=5DCEB79846B84F77807243328AF64F07.jpg"
+    ]
+  },
+  "store_f225e4ea78eef29aeb553a9c": {
+    "storeId": "store_f225e4ea78eef29aeb553a9c",
+    "storeName": "맛있구마",
+    "address": "서울특별시 관악구 봉천로 612",
+    "phoneNumber": "02-878-6312",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=173",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202304280332162051.jpg"
+    ]
+  },
+  "store_9bae358372c172aa588a7607": {
+    "storeId": "store_9bae358372c172aa588a7607",
+    "storeName": "매일만나",
+    "address": "서울특별시 강북구 삼양로117길 58, 1층 101호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14614",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240910/&fileId=1253A86872A44BD0A9429CCE9058E369.jpg"
+    ]
+  },
+  "store_ce74c136529744229f8e2baa": {
+    "storeId": "store_ce74c136529744229f8e2baa",
+    "storeName": "맨헤어",
+    "address": "서울특별시 송파구 올림픽로 145, B1층 A20호",
+    "phoneNumber": "070-7759-7304",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=797",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202306210633528301.jpg"
+    ]
+  },
+  "store_59e65969cd15353403715fc4": {
+    "storeId": "store_59e65969cd15353403715fc4",
+    "storeName": "맹꽁이",
+    "address": "서울특별시 성동구 용답중앙25길 1 (용답동) 1층",
+    "phoneNumber": "02-2214-9996",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14363",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240828/&fileId=A02C295E61E743A3BF2FBB0E270EF9A2.jpeg"
+    ]
+  },
+  "store_6621132db2a1149a5333a348": {
+    "storeId": "store_6621132db2a1149a5333a348",
+    "storeName": "머리가헤어",
+    "address": "서울특별시 동작구 여의대방로22길38 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18899",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=D8E6B0739FAF41518CBBDA6770F51476.jpg"
+    ]
+  },
+  "store_7e2b94cd2e5343eb0841ba9e": {
+    "storeId": "store_7e2b94cd2e5343eb0841ba9e",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_85db1fe3ab614f0b85f9c417": {
+    "storeId": "store_85db1fe3ab614f0b85f9c417",
+    "storeName": "머리깎자",
+    "address": "서울특별시 도봉구 해등로243 (방학동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10308",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=1A8A3742D419410180A82310A856A38F.png"
+    ]
+  },
+  "store_c0df62edd74ddbd681313a87": {
+    "storeId": "store_c0df62edd74ddbd681313a87",
+    "storeName": "머리메인하우스",
+    "address": "서울특별시 동작구 성대로 29길 80 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18146",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=F08618B3F74942D1A5BC96E37519309A.jpg"
+    ]
+  },
+  "store_5d75011ce34eb272d61b70f0": {
+    "storeId": "store_5d75011ce34eb272d61b70f0",
+    "storeName": "머리염색 전문점",
+    "address": "서울특별시 동작구 사당로16가길 20 (사당동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=546",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311270808439261.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202311270808439882.jpg"
+    ]
+  },
+  "store_9bfd2f04f53af1a5fee57cc0": {
+    "storeId": "store_9bfd2f04f53af1a5fee57cc0",
+    "storeName": "머리이야기",
+    "address": "서울특별시 강서구 강서로18가길 4, 1층 (화곡동)",
+    "phoneNumber": "02-2697-2999",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16240",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250310/&fileId=59B4680261B547648075E07E2D467570.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250310/&fileId=24A81B775EFD4C3A87B2B18A8EC51812.jpeg"
+    ]
+  },
+  "store_9f524faa047b8f5ff2d17fd0": {
+    "storeId": "store_9f524faa047b8f5ff2d17fd0",
+    "storeName": "머리잘hair",
+    "address": "서울특별시 관악구 미성길 40, 1층",
+    "phoneNumber": "070-7543-7526",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13769",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=F75D04323A524AEBB19766226B42FC75.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=856FC243F0274EC6B612944D3F8ACD2D.jpg"
+    ]
+  },
+  "store_941823d14ef4c89b9567e286": {
+    "storeId": "store_941823d14ef4c89b9567e286",
+    "storeName": "머리천국미용실",
+    "address": "서울특별시 광진구 뚝섬로49길 31 (자양동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=255",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201605110426148291.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513582361.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513582362.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201511240210584714.jpg"
+    ]
+  },
+  "store_89e00d6fabe644602180bac9": {
+    "storeId": "store_89e00d6fabe644602180bac9",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_59b04efcdb4e38619634cc5d": {
+    "storeId": "store_59b04efcdb4e38619634cc5d",
+    "storeName": "먹깨비김밥만두",
+    "address": "서울특별시 관악구 난곡로 358",
+    "phoneNumber": "02-830-1388",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16354",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=62B698DC573F4CF3A576208157ECF856.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=8D75384EA5D04B87A6F27B36076EBF4F.jpg"
+    ]
+  },
+  "store_1ebe96e0d024cff1f76635d3": {
+    "storeId": "store_1ebe96e0d024cff1f76635d3",
+    "storeName": "메밀꽃",
+    "address": "서울특별시 노원구 상계로 9가길 67, 1층 (상계동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=426",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=996516D375DE4CB2A21121C54DFE3826.png"
+    ]
+  },
+  "store_cc90ecf8a6c34907ed7f2ee9": {
+    "storeId": "store_cc90ecf8a6c34907ed7f2ee9",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_459cda8531709a0e289133fd": {
+    "storeId": "store_459cda8531709a0e289133fd",
+    "storeName": "메타헤어",
+    "address": "서울특별시 성북구 성북로4길 52 한진한신아파트 상가 스카이프라자 동관 8층 802호",
+    "phoneNumber": "0507-1438-3734",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14338",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240827/&fileId=A0AA1DB685A74F0AAC52E26523C43A45.jpg"
+    ]
+  },
+  "store_5f8043c23ab13664c79476fd": {
+    "storeId": "store_5f8043c23ab13664c79476fd",
+    "storeName": "면곡당",
+    "address": "서울특별시 광진구 면목로17길 24, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17194",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251027/&fileId=AFC03DDFCEE44B5B90F648F6E35123E2.png"
+    ]
+  },
+  "store_c66bae3e4cb891a9f6e86efa": {
+    "storeId": "store_c66bae3e4cb891a9f6e86efa",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_43a8ca89c313a5d28519330f": {
+    "storeId": "store_43a8ca89c313a5d28519330f",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_aad69c3c4a070b36616227dd": {
+    "storeId": "store_aad69c3c4a070b36616227dd",
+    "storeName": "명가왕족발보쌈",
+    "address": "서울특별시 동작구 만양로 92 1층",
+    "phoneNumber": "02-812-5535",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18150",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=EB03FEF6A727418784406E54B27787BD.jpg"
+    ]
+  },
+  "store_daf97d100c7790577f358e0b": {
+    "storeId": "store_daf97d100c7790577f358e0b",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_6df350700b9c7419e361f27f": {
+    "storeId": "store_6df350700b9c7419e361f27f",
+    "storeName": "명가추어탕보리밥",
+    "address": "서울특별시 성북구 오패산로 6-9",
+    "phoneNumber": "02-916-4443",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=778",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207270944518721.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207270944519082.jpg"
+    ]
+  },
+  "store_988647d77ae74c32198cde7e": {
+    "storeId": "store_988647d77ae74c32198cde7e",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_71d1e3034ffdfae1d9592af3": {
+    "storeId": "store_71d1e3034ffdfae1d9592af3",
+    "storeName": "명동국수",
+    "address": "서울특별시 동작구 상도로41길 12",
+    "phoneNumber": "02-813-0402",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=572",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207290348380231.jpg"
+    ]
+  },
+  "store_830093ca73d0ca28fbf7636e": {
+    "storeId": "store_830093ca73d0ca28fbf7636e",
+    "storeName": "명동홍두깨손칼국수",
+    "address": "서울특별시 송파구 마천로51길 32",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16107",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250123/&fileId=782A15D4C8EE4EB6B7072E082C2572F8.jpg"
+    ]
+  },
+  "store_f5a42805ae93e0385c3524b2": {
+    "storeId": "store_f5a42805ae93e0385c3524b2",
+    "storeName": "명물식당",
+    "address": "서울특별시 동대문구 답십리로51길 8-4",
+    "phoneNumber": "02-2212-4039",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=507",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202301250241529431.jpg"
+    ]
+  },
+  "store_dbbd2b1c5e1da3ff8ea20bd6": {
+    "storeId": "store_dbbd2b1c5e1da3ff8ea20bd6",
+    "storeName": "명지각",
+    "address": "서울특별시 강서구 강서로 337, 104호 (내발산동)",
+    "phoneNumber": "02-2666-9833",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16904",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250430/&fileId=67A0C2A4D5D8489FBC8F4858F4FB5E4D.jpg"
+    ]
+  },
+  "store_3b7c74b7083b0ab338c3d823": {
+    "storeId": "store_3b7c74b7083b0ab338c3d823",
+    "storeName": "모결헤어팀",
+    "address": "서울특별시 동작구 상도로22길37 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18148",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=3D5B162F4D15497DAAC38E0BBFAB4E05.jpg"
+    ]
+  },
+  "store_4e670e037a65fcb940e0d21a": {
+    "storeId": "store_4e670e037a65fcb940e0d21a",
+    "storeName": "모두와돈까스",
+    "address": "서울특별시 은평구 은평로197-1 (녹번동)",
+    "phoneNumber": "02-389-3855",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=928",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202304280336449351.jpg"
+    ]
+  },
+  "store_4b95e978da237a80898cf1a8": {
+    "storeId": "store_4b95e978da237a80898cf1a8",
+    "storeName": "모두의운동",
+    "address": "서울특별시 강동구 양재대로111길 27, 3층 301호 (길동, 골드클래스)",
+    "phoneNumber": "0507-1357-1173",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13948",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240730/&fileId=A5E5007B45EC40928B8F75334277E5F5.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240730/&fileId=3FF977A8157E4CB8BC1E84373DB91174.jpg"
+    ]
+  },
+  "store_9d81e8e812a7a18c20b47e9f": {
+    "storeId": "store_9d81e8e812a7a18c20b47e9f",
+    "storeName": "모락미반",
+    "address": "서울특별시 관악구 관악로 211, A동 1층 3호",
+    "phoneNumber": "070-8287-0866",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=224",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202309170846163241.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202309170846163452.jpg"
+    ]
+  },
+  "store_cf7e716270cdfb84781a5abc": {
+    "storeId": "store_cf7e716270cdfb84781a5abc",
+    "storeName": "모모돈까스모밀",
+    "address": "서울특별시 동작구 동작대로11길104 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18897",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=9540BAD133E142B79B84B8434708A42C.jpg"
+    ]
+  },
+  "store_79e53d8a8085e410e7f001a6": {
+    "storeId": "store_79e53d8a8085e410e7f001a6",
+    "storeName": "모아그린드라이방",
+    "address": "서울특별시 관악구 신림로 275-1 (신림동)",
+    "phoneNumber": "02-865-2484",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10050",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=EEEBFED963C14FAFA28D0636B09B20D6.png"
+    ]
+  },
+  "store_62fe112f9f7615ead0682f99": {
+    "storeId": "store_62fe112f9f7615ead0682f99",
+    "storeName": "모아모아세탁",
+    "address": "서울특별시 송파구 송이로 19",
+    "phoneNumber": "02-419-1242",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=790",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514451390.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514451391.jpg"
+    ]
+  },
+  "store_fc9a643b6f0c914ae17c33bd": {
+    "storeId": "store_fc9a643b6f0c914ae17c33bd",
+    "storeName": "모아세탁소",
+    "address": "서울특별시 동작구 사당로26길 106, 1층 (사당동)",
+    "phoneNumber": "02-585-0245",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=531",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202105210601568341.jpg"
+    ]
+  },
+  "store_b274ed7f5ef3f22a384124d8": {
+    "storeId": "store_b274ed7f5ef3f22a384124d8",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c8edf5f69db525f93da66407": {
+    "storeId": "store_c8edf5f69db525f93da66407",
+    "storeName": "모짜르트헤어샵",
+    "address": "서울특별시 광진구 자양번영로1길 12 (자양동)",
+    "phoneNumber": "02-447-1623",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=256",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513585750.jpg"
+    ]
+  },
+  "store_422ad06bf4de1acf57305d67": {
+    "storeId": "store_422ad06bf4de1acf57305d67",
+    "storeName": "목우촌부추삼겹살",
+    "address": "서울특별시 관악구 남현1길 68-10 (남현동)",
+    "phoneNumber": "02-588-7399",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=215",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513576180.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513576181.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310513576182.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180423352944.jpg"
+    ]
+  },
+  "store_890f9be83bd4acf31418f5c1": {
+    "storeId": "store_890f9be83bd4acf31418f5c1",
+    "storeName": "못잊저",
+    "address": "서울특별시 강북구 솔매로 106, 1층 (미아동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15947",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241226/&fileId=85E3571500B346538FCBB27840A50610.jpg"
+    ]
+  },
+  "store_3569b1ece68be294b0e34be6": {
+    "storeId": "store_3569b1ece68be294b0e34be6",
+    "storeName": "무병장수한방삼계탕",
+    "address": "서울특별시 광진구 자양번영로 65",
+    "phoneNumber": "02-444-9988",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=285",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202308020508290041.jpg"
+    ]
+  },
+  "store_e44ed2388e0db486aaef4d52": {
+    "storeId": "store_e44ed2388e0db486aaef4d52",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c8afebd592c35461a54262cd": {
+    "storeId": "store_c8afebd592c35461a54262cd",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_c0951b74fea4325d0018074f": {
+    "storeId": "store_c0951b74fea4325d0018074f",
+    "storeName": "무한정수제돈가스",
+    "address": "서울특별시 광진구 군자로 102, 1층 (군자동)",
+    "phoneNumber": "02-469-3122",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11278",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240913/&fileId=52D11F49EF08409B8B55ED3D54D375C1.png"
+    ]
+  },
+  "store_4320ab8bab7e1a074c5e5107": {
+    "storeId": "store_4320ab8bab7e1a074c5e5107",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8e7fb2fe2f124391ac0978f9": {
+    "storeId": "store_8e7fb2fe2f124391ac0978f9",
+    "storeName": "문세실리아",
+    "address": "서울특별시 동작구 장승배기로27길 77",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=547",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170636239431.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170636239622.jpg"
+    ]
+  },
+  "store_2fb368ac1eff032e2e84261c": {
+    "storeId": "store_2fb368ac1eff032e2e84261c",
+    "storeName": "문정김밥천국",
+    "address": "서울특별시 송파구 법원로 114, E동 지1층 E-B175호",
+    "phoneNumber": "02-2283-1255",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14054",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240807/&fileId=C819EC1F55C54B9788358FD6D10A9536.jpg"
+    ]
+  },
+  "store_283efd6a3db201dfe12519ec": {
+    "storeId": "store_283efd6a3db201dfe12519ec",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_f2da079b1ee299b383dc152a": {
+    "storeId": "store_f2da079b1ee299b383dc152a",
+    "storeName": "미가미용실",
+    "address": "서울특별시 송파구 올림픽로12길 58, 1층",
+    "phoneNumber": "02-423-1334",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11058",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=BD7473EB0DCE4490830245C528AAA432.png"
+    ]
+  },
+  "store_2896b17c41d31201f2940b7c": {
+    "storeId": "store_2896b17c41d31201f2940b7c",
+    "storeName": "미도미용실",
+    "address": "서울특별시 광진구 긴고랑로 149",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=257",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202308020523273541.jpg"
+    ]
+  },
+  "store_956d76f05aed353e2f4d3492": {
+    "storeId": "store_956d76f05aed353e2f4d3492",
+    "storeName": "미락(우성)",
+    "address": "서울특별시 성북구 화랑로25길 13",
+    "phoneNumber": "02-915-3334",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=770",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207260524570541.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207260524570802.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514428392.jpg"
+    ]
+  },
+  "store_6373c5842742e30cdb0bdc62": {
+    "storeId": "store_6373c5842742e30cdb0bdc62",
+    "storeName": "미락칼국수",
+    "address": "서울특별시 도봉구 도봉로110길 68 (창동)",
+    "phoneNumber": "02-908-7017",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=464",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080133500401.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080133501442.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201404080133502273.jpg"
+    ]
+  },
+  "store_8918cde7552de3c171d256a4": {
+    "storeId": "store_8918cde7552de3c171d256a4",
+    "storeName": "미래스포츠클럽",
+    "address": "서울특별시 서초구 나루터로37, 302호 (신사쇼핑센터)",
+    "phoneNumber": "0507-1407-1684",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13901",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240726/&fileId=5C3E210112004AB2B19C622D84430087.jpeg"
+    ]
+  },
+  "store_979c3e392c7a1cfc54c2fbc6": {
+    "storeId": "store_979c3e392c7a1cfc54c2fbc6",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_3810276efa99c288ad012df0": {
+    "storeId": "store_3810276efa99c288ad012df0",
+    "storeName": "미림17분칼라",
+    "address": "서울특별시 관악구 호암로26길 1 (신림동)",
+    "phoneNumber": "02-871-7070",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=157",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180437596141.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180440161432.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180440161583.jpg"
+    ]
+  },
+  "store_85767fb75e2fa724ccdfb1ae": {
+    "storeId": "store_85767fb75e2fa724ccdfb1ae",
+    "storeName": "미림분식",
+    "address": "서울특별시 관악구 호암로 553",
+    "phoneNumber": "02-888-8567",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10121",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240920/&fileId=074302D471574F65A1103E735D8F2AD9.png"
+    ]
+  },
+  "store_a1c5dca8e276ac7b69ee7a2d": {
+    "storeId": "store_a1c5dca8e276ac7b69ee7a2d",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_e2b0e59a3fdec321d52404c7": {
+    "storeId": "store_e2b0e59a3fdec321d52404c7",
+    "storeName": "미미치킨",
+    "address": "서울특별시 서초구 서초대로 108",
+    "phoneNumber": "02-586-7130",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=10011",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240619/&fileId=23B4D0E21FD74865B4E6836870C9CE36.jpg"
+    ]
+  },
+  "store_f2e55f9751485d254a48069c": {
+    "storeId": "store_f2e55f9751485d254a48069c",
+    "storeName": "미쁘다돈까스",
+    "address": "서울특별시 동작구 만양로14가길 4",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18898",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260107/&fileId=892818D2A6F64D7BA2D68E3BC5D20AB7.jpg"
+    ]
+  },
+  "store_df2dbe3e6df9385bb17b9476": {
+    "storeId": "store_df2dbe3e6df9385bb17b9476",
+    "storeName": "미소마을",
+    "address": "서울특별시 서초구 강남대로41길 18, 2층",
+    "phoneNumber": "02-584-9199",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=729",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202303150302030311.jpg"
+    ]
+  },
+  "store_842938611b5931cd03c550c6": {
+    "storeId": "store_842938611b5931cd03c550c6",
+    "storeName": "미소분식",
+    "address": "서울특별시 강동구 성내로3가길 7, 1층 (성내동)",
+    "phoneNumber": "02-474-2884",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=108",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201908231126311321.jpg"
+    ]
+  },
+  "store_f044ebec264ab0d0d7eae94d": {
+    "storeId": "store_f044ebec264ab0d0d7eae94d",
+    "storeName": "미스터 육회연어왕 강서점",
+    "address": "서울특별시 강서구 까치산로 92, 1층 103호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17791",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=9CA9E37D5F4D459185FBBF1449B85A8E.jpg"
+    ]
+  },
+  "store_ab385b1dd952c4bc19230e06": {
+    "storeId": "store_ab385b1dd952c4bc19230e06",
+    "storeName": "미스터미용실",
+    "address": "서울특별시 강동구 천호대로 162길 53 (성내동)",
+    "phoneNumber": "02-473-9374",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=91",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202301300622425281.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202301300622425442.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202301300622425663.jpg"
+    ]
+  },
+  "store_5e176fbd20ad84f7d5dae12a": {
+    "storeId": "store_5e176fbd20ad84f7d5dae12a",
+    "storeName": "미엔미헤어",
+    "address": "서울특별시 동작구 신대방길 93, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18149",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251104/&fileId=CA92A14D9E134231B8081ECFD9C83626.jpg"
+    ]
+  },
+  "store_95f9ecf300552c609f0e766f": {
+    "storeId": "store_95f9ecf300552c609f0e766f",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_ad430a2dc53e5c9d70f5d29a": {
+    "storeId": "store_ad430a2dc53e5c9d70f5d29a",
+    "storeName": "미인브레드 호암로점",
+    "address": "서울특별시 관악구 호암로26길 7",
+    "phoneNumber": "02-888-3169",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16362",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=95E90B3BC0B9427AB258D11B57C09786.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=08835934A68F49848AA09A197D2B8BA0.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260820/&fileId=F46571D320084B08A28EE2E1637F08D0.jpg"
+    ]
+  },
+  "store_cdd1ed8fbe722775f77f2ab0": {
+    "storeId": "store_cdd1ed8fbe722775f77f2ab0",
+    "storeName": "미주이발소",
+    "address": "서울특별시 강북구 인수봉로79길 32",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14193",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240819/&fileId=A894385E24EB449BBF940E5DFE287857.jpg"
+    ]
+  },
+  "store_17fccdd5dfc82389fa853824": {
+    "storeId": "store_17fccdd5dfc82389fa853824",
+    "storeName": "미키식당",
+    "address": "서울특별시 강서구 양천로26길 26, 1층 (방화동, 용빌딩)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17827",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251030/&fileId=3AA14D8791724435BA7D148E06955CA7.jpg"
+    ]
+  },
+  "store_01fc9e8d6d51297ca7129e20": {
+    "storeId": "store_01fc9e8d6d51297ca7129e20",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_6d51e9eafe33114b5003e51c": {
+    "storeId": "store_6d51e9eafe33114b5003e51c",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_7229be9e7f46e7ec44e4e64c": {
+    "storeId": "store_7229be9e7f46e7ec44e4e64c",
+    "storeName": "밀레니엄 김밥",
+    "address": "서울특별시 노원구 중계로 162-11 (중계동) 현대프라자 114호",
+    "phoneNumber": "02-937-3644",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15688",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241129/&fileId=F47814399B464D528A74BDB94A360576.jpg"
+    ]
+  },
+  "store_6bc49d837ce0235f47c08347": {
+    "storeId": "store_6bc49d837ce0235f47c08347",
+    "storeName": "밀밭손칼국수",
+    "address": "서울특별시 성북구 보문로 156-3",
+    "phoneNumber": "02-953-8894",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11572",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=89FCAAC8A0E54350A3E2BA92730CDF81.png"
+    ]
+  },
+  "store_961ac24cf41a6f1684a79f70": {
+    "storeId": "store_961ac24cf41a6f1684a79f70",
+    "storeName": "바르닭치킨",
+    "address": "서울특별시 관악구 관악로24길 37 (봉천동)",
+    "phoneNumber": "02-883-8033",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15214",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=D6134BB6B29644B3A36106D687770A02.png"
+    ]
+  },
+  "store_2bb9a9aad009371220c1dbbf": {
+    "storeId": "store_2bb9a9aad009371220c1dbbf",
+    "storeName": "바른꽈배기",
+    "address": "서울특별시 관악구 은천로 92, 103호 (봉천동)",
+    "phoneNumber": "02-877-7863",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=161",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180537208341.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180537208512.jpg"
+    ]
+  },
+  "store_f0dbfe56402975838d710569": {
+    "storeId": "store_f0dbfe56402975838d710569",
+    "storeName": "박가네생고기전문점",
+    "address": "서울특별시 강북구 덕릉로28길 63",
+    "phoneNumber": "02-982-2929",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=130",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201407011024033011.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201407011024033132.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201407011024033233.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201407011024033394.jpg"
+    ]
+  },
+  "store_f6a685d9f6c98c36d04f562a": {
+    "storeId": "store_f6a685d9f6c98c36d04f562a",
+    "storeName": "박미용실",
+    "address": "서울특별시 송파구 백제고분로27길 41",
+    "phoneNumber": "02-420-8242",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=800",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201512020110116961.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201512020110117122.jpg"
+    ]
+  },
+  "store_abf17b91a81406f5b5b93054": {
+    "storeId": "store_abf17b91a81406f5b5b93054",
+    "storeName": "박연헤어",
+    "address": "서울특별시 도봉구 도봉로136길111, 103호 (창동, 창동2차현대아파트상가)",
+    "phoneNumber": "02-900-0838",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=444",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202302150317564051.jpg"
+    ]
+  },
+  "store_ab2b4b57342ed9073ef1051d": {
+    "storeId": "store_ab2b4b57342ed9073ef1051d",
+    "storeName": "박은선닭꼬치",
+    "address": "서울특별시 도봉구 도봉로145길 65, 상가 나동 104호 (방학동)",
+    "phoneNumber": "02-3494-0369",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16476",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=62827B51E7844567A10EC0AE680C7E71.jpeg"
+    ]
+  },
+  "store_bf80c5b0d6109811918bef8b": {
+    "storeId": "store_bf80c5b0d6109811918bef8b",
+    "storeName": "박철헤어 응암점",
+    "address": "서울특별시 은평구 백련산로 38, 상가동 지2층 101호 (응암동)",
+    "phoneNumber": "02-302-1273",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16765",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250422/&fileId=ACF869F163DA435DAC4DF9F66DF39E48.jpg"
+    ]
+  },
+  "store_e6966ff0fe4de30bc0a7aaa9": {
+    "storeId": "store_e6966ff0fe4de30bc0a7aaa9",
+    "storeName": "밥이야기",
+    "address": "서울특별시 동대문구 한천로33길 21, 1층 (답십리동)",
+    "phoneNumber": "02-3394-7433",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18820",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251226/&fileId=60128D2B71854D7C9B0F54324799DBBC.jpg"
+    ]
+  },
+  "store_9021deeb2628aa7e12c04e92": {
+    "storeId": "store_9021deeb2628aa7e12c04e92",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_3b6875895097b2c7376b9f75": {
+    "storeId": "store_3b6875895097b2c7376b9f75",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_14821e0fa91e322c0b4d5b23": {
+    "storeId": "store_14821e0fa91e322c0b4d5b23",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_dff6ab4fc533dfed0040fd90": {
+    "storeId": "store_dff6ab4fc533dfed0040fd90",
+    "storeName": "방학김밥",
+    "address": "서울특별시 도봉구 도당로13길 37, 1층 우측 (방학동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=19571",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=BB98CFFC91834108B8BC4F9495515627.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=B3668ADB555D47D6946015A080E77BB9.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260414/&fileId=435FCF4517C7469B9C61BF91DE445EDA.jpeg"
+    ]
+  },
+  "store_b87d2fc7822c5dcabe27dea5": {
+    "storeId": "store_b87d2fc7822c5dcabe27dea5",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_d950edb96fe86cb2af41ee06": {
+    "storeId": "store_d950edb96fe86cb2af41ee06",
+    "storeName": "배트콩",
+    "address": "서울특별시 동대문구 경희대로4길 52, 1층 (회기동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11215",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240913/&fileId=2A6401EB078849B888040711EC04321F.png"
+    ]
+  },
+  "store_7c9489c3acc545719eda3666": {
+    "storeId": "store_7c9489c3acc545719eda3666",
+    "storeName": "배할머니네 파절이 삼겹살",
+    "address": "서울특별시 관악구 봉천로 594-1",
+    "phoneNumber": "02-876-5477",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=225",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202304280339003001.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202304280339003152.jpg"
+    ]
+  },
+  "store_61dc951f7737e0099b4e64e3": {
+    "storeId": "store_61dc951f7737e0099b4e64e3",
+    "storeName": "백광컴퓨터크리닝",
+    "address": "서울특별시 성동구 마조로 59",
+    "phoneNumber": "02-2292-8310",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=738",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514401390.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514401392.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514401393.jpg"
+    ]
+  },
+  "store_2d381f1c423c309c9e276b05": {
+    "storeId": "store_2d381f1c423c309c9e276b05",
+    "storeName": "백구사 헤어플랜",
+    "address": "서울특별시 강서구 곰달래로19길45 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11047",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=D8F7832DC607414A803434E4A799EF86.png"
+    ]
+  },
+  "store_bf166930a94733ee894af61c": {
+    "storeId": "store_bf166930a94733ee894af61c",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_5b63cfb49a96d4b586f4b624": {
+    "storeId": "store_5b63cfb49a96d4b586f4b624",
+    "storeName": "백송순두부",
+    "address": "서울특별시 도봉구 도당로27길 43, 1층 좌측 (방학동)",
+    "phoneNumber": "02-3494-1616",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16475",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=177D16EE6DC44E19856ED16639741E51.jpeg"
+    ]
+  },
+  "store_471a6335658a2fdef284395c": {
+    "storeId": "store_471a6335658a2fdef284395c",
+    "storeName": "백조미용실",
+    "address": "서울특별시 도봉구 도봉로160길 17 (도봉동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=445",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201903250302388751.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201903250302388912.jpg"
+    ]
+  },
+  "store_13a12a19410ed161fd4bc408": {
+    "storeId": "store_13a12a19410ed161fd4bc408",
+    "storeName": "버드나무순대국",
+    "address": "서울특별시 동대문구 휘경로2길 42 (이문동, 1층)",
+    "phoneNumber": "02-960-2932",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11549",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240913/&fileId=2D3444F3929542B39603C964F7BC2BFE.png"
+    ]
+  },
+  "store_421976989ef102cf1e1e8260": {
+    "storeId": "store_421976989ef102cf1e1e8260",
+    "storeName": "버들미용실",
+    "address": "서울특별시 도봉구 도당로13길49 (방학동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=446",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202302150359003271.jpg"
+    ]
+  },
+  "store_408d27a64f0e046c51f37850": {
+    "storeId": "store_408d27a64f0e046c51f37850",
+    "storeName": "버팔로스팟",
+    "address": "서울특별시 서초구 효령로31길 81 1층",
+    "phoneNumber": "0507-1324-3242",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13900",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240726/&fileId=ED308D428516459D8B14F96E7CDCB9AF.jpeg"
+    ]
+  },
+  "store_cad2289eb35c86d6fff09dd6": {
+    "storeId": "store_cad2289eb35c86d6fff09dd6",
+    "storeName": "번동식당",
+    "address": "서울특별시 강북구 덕릉로40길 11 (번동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=131",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=69D68459232B4D39A10C12FB84E5C040.png"
+    ]
+  },
+  "store_3de7f1d5dee08f65198f2979": {
+    "storeId": "store_3de7f1d5dee08f65198f2979",
+    "storeName": "번성머리방",
+    "address": "서울특별시 강동구 상암로 120, 1층 (천호동)",
+    "phoneNumber": "02-479-4746",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11044",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240710/&fileId=5A5B566C8F5744CC819F324D4626844E.jpg"
+    ]
+  },
+  "store_a24a61891e66c887a6094b99": {
+    "storeId": "store_a24a61891e66c887a6094b99",
+    "storeName": "벌소(verso)",
+    "address": "서울특별시 관악구 솔밭로 11-1, 1층",
+    "phoneNumber": "02-877-7026",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13771",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=E7960D5092AD40D98D2E07A7297A4B08.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=8EF39ADEDE594B348B2FCF8A0E781EFD.jpg"
+    ]
+  },
+  "store_a408716f02b4e459a1d027a5": {
+    "storeId": "store_a408716f02b4e459a1d027a5",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_d545518410f87816836a8d61": {
+    "storeId": "store_d545518410f87816836a8d61",
+    "storeName": "베이글옆케이크",
+    "address": "서울특별시 중랑구 면목로21길26, 102호",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15221",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=1DCABA66C3CC4E22A3AC95977167238F.jpg"
+    ]
+  },
+  "store_5a759b8d4178efbc81c14f56": {
+    "storeId": "store_5a759b8d4178efbc81c14f56",
+    "storeName": "베이지크",
+    "address": "서울특별시 광진구 뚝섬로24길 21 (자양동) 1층",
+    "phoneNumber": "0507-1351-9020",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15555",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241111/&fileId=67C5AF3B41BF46BDA8E570B16070D048.jpeg"
+    ]
+  },
+  "store_85f5c7c44fbb91a69b84c1ee": {
+    "storeId": "store_85f5c7c44fbb91a69b84c1ee",
+    "storeName": "벧엘손칼국수",
+    "address": "서울특별시 송파구 마천로41길 22",
+    "phoneNumber": "02-408-5151",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=814",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514475270.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514475271.jpg"
+    ]
+  },
+  "store_cfb87867aa5b14a100f75889": {
+    "storeId": "store_cfb87867aa5b14a100f75889",
+    "storeName": "벽산세탁",
+    "address": "서울특별시 성동구 금호로 100 벽산 (아) 상가 6층",
+    "phoneNumber": "02-2298-6675",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=739",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514404930.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514404931.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514404932.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310514404933.jpg"
+    ]
+  },
+  "store_124ecd657f6e8c726a0b3a49": {
+    "storeId": "store_124ecd657f6e8c726a0b3a49",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_fb267bf783d3e104187d70a3": {
+    "storeId": "store_fb267bf783d3e104187d70a3",
+    "storeName": "별미냉삼",
+    "address": "서울특별시 동작구 동작대로7길 34, 1층",
+    "phoneNumber": "02-583-1989",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13823",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=3514C6D0BBC94B138CDB98333D0C24D5.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=C710CD6D3FC5485FB58D30BCD5DFE2C0.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=D2563836D8CA4B0AAE27DABE373F43C2.jpeg"
+    ]
+  },
+  "store_47be2a724c887a817ff88bb1": {
+    "storeId": "store_47be2a724c887a817ff88bb1",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_53ea6acd92586f4eecacc829": {
+    "storeId": "store_53ea6acd92586f4eecacc829",
+    "storeName": "별미용실",
+    "address": "서울특별시 강북구 삼양로41길 17",
+    "phoneNumber": "02-983-0650",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=117",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515278100.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260324/&fileId=889A0DCAA37F4F0E8F9A01DDE26C0111.jpg"
+    ]
+  },
+  "store_32145f1b830bde4586c0a61c": {
+    "storeId": "store_32145f1b830bde4586c0a61c",
+    "storeName": "별별헤어",
+    "address": "서울특별시 관악구 관천로11길 60, 1층 좌측",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13770",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=8F24B600EA64427095DF839E9973C448.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=09B50A2F71494CF6B64D78CF9F9D58FB.jpg"
+    ]
+  },
+  "store_51b365b53ceddf2e659fe579": {
+    "storeId": "store_51b365b53ceddf2e659fe579",
+    "storeName": "보광식당",
+    "address": "서울특별시 광진구 아차산로 341-1 (자양동)",
+    "phoneNumber": "02-456-3707",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=280",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201804260327349241.jpg"
+    ]
+  },
+  "store_81f1771562c110d3bd46801c": {
+    "storeId": "store_81f1771562c110d3bd46801c",
+    "storeName": "보광헤어샵",
+    "address": "서울특별시 광진구 광나루로12길 22, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17344",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251027/&fileId=B45E1B2670CB48FA954483D3A95FE0EE.jpg"
+    ]
+  },
+  "store_332a37a3f94615e8f71a0010": {
+    "storeId": "store_332a37a3f94615e8f71a0010",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8fdd11d08317914be37241a9": {
+    "storeId": "store_8fdd11d08317914be37241a9",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_f34312c02b252062545655d4": {
+    "storeId": "store_f34312c02b252062545655d4",
+    "storeName": "보보미용실",
+    "address": "서울특별시 강서구 곰달래로45길 2",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16932",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20260716/&fileId=1D19927FFE7E49AFBB2B501D9F578E64.jpg"
+    ]
+  },
+  "store_a2005d1e7aa205ffb0358e34": {
+    "storeId": "store_a2005d1e7aa205ffb0358e34",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_523e4b3b29fa78446ebe7cec": {
+    "storeId": "store_523e4b3b29fa78446ebe7cec",
+    "storeName": "보원헤어",
+    "address": "서울특별시 중랑구 동일로130길 71",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=1003",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201512150905160731.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201512150905161192.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201512150905161553.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310516011423.jpg"
+    ]
+  },
+  "store_9500a8c475ef44fb8b6eceb5": {
+    "storeId": "store_9500a8c475ef44fb8b6eceb5",
+    "storeName": "복미세탁소",
+    "address": "서울특별시 동작구 사당로2차길 49",
+    "phoneNumber": "02-586-4026",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=533",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170611060021.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907170611060392.jpg"
+    ]
+  },
+  "store_4e5dbae304a1d1c210cc253d": {
+    "storeId": "store_4e5dbae304a1d1c210cc253d",
+    "storeName": "복숙이순대국",
+    "address": "서울특별시 관악구 남부순환로 1647",
+    "phoneNumber": "02-885-2731",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16357",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=C29480D9F1424CF6837DB0C291669F2B.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=ECBB32F42D1B442D94D79E44FD620CE8.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=1D04E589AA6B4D10AB104F42A6637402.jpg"
+    ]
+  },
+  "store_e86a9f67447a642c1a06e012": {
+    "storeId": "store_e86a9f67447a642c1a06e012",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_a093c77e8faed89d17ec690c": {
+    "storeId": "store_a093c77e8faed89d17ec690c",
+    "storeName": "복희커피 인테리어공방",
+    "address": "서울특별시 중랑구 상봉로1길 14",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15226",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=5616D430922C4280928A431BF181C8BA.jpg"
+    ]
+  },
+  "store_936a50a0f877bdef4ce28875": {
+    "storeId": "store_936a50a0f877bdef4ce28875",
+    "storeName": "본가감자탕",
+    "address": "서울특별시 송파구 백제고분로22길 16",
+    "phoneNumber": "02-423-8592",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16108",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250123/&fileId=77341DDE0DEE4A689482293916596002.jpg"
+    ]
+  },
+  "store_390dd404df4fc1424026e5f2": {
+    "storeId": "store_390dd404df4fc1424026e5f2",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_89f5ef53a29d4ed7583d94e4": {
+    "storeId": "store_89f5ef53a29d4ed7583d94e4",
+    "storeName": "봉천동식당 병천순대국",
+    "address": "서울특별시 관악구 인헌4길 15",
+    "phoneNumber": "02-875-8866",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16367",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=361C4A0191494A14811A061622AE8AE2.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250328/&fileId=1A086487F6F440168EBAC5F42642EBD6.jpg"
+    ]
+  },
+  "store_47d1d7b4cd096b539da851e3": {
+    "storeId": "store_47d1d7b4cd096b539da851e3",
+    "storeName": "봉평매시담막국수",
+    "address": "서울특별시 송파구 송파대로37길 4-31, 1층",
+    "phoneNumber": "02-422-2904",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18789",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251222/&fileId=320CCE6999AC4FAA8F148349D7F96CA0.jpg"
+    ]
+  },
+  "store_300551cdb0204af27748f403": {
+    "storeId": "store_300551cdb0204af27748f403",
+    "storeName": "부부식당 둔촌점",
+    "address": "서울특별시 강동구 풍성로56길 7 (성내동)",
+    "phoneNumber": "02-476-3838",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=14432",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240830/&fileId=88B03864D4FB40E7A93C40009136EBC5.jpg"
+    ]
+  },
+  "store_ec0ce99bb0c3e3d3a2999760": {
+    "storeId": "store_ec0ce99bb0c3e3d3a2999760",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_fed97e171bec3de32e145c56": {
+    "storeId": "store_fed97e171bec3de32e145c56",
+    "storeName": "부자국밥",
+    "address": "서울특별시 동작구 신대방11길 34 (신대방동)",
+    "phoneNumber": "02-834-2570",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=599",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202306021044300911.jpg"
+    ]
+  },
+  "store_9d068048ce20e976e182233a": {
+    "storeId": "store_9d068048ce20e976e182233a",
+    "storeName": "부흥세탁소",
+    "address": "서울특별시 성북구 장위로16길 5",
+    "phoneNumber": "02-918-8260",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17898",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251031/&fileId=6897A0218D744AABAEDA4068BF84E414.jpg"
+    ]
+  },
+  "store_60f160517066c91615a510d7": {
+    "storeId": "store_60f160517066c91615a510d7",
+    "storeName": "북부식당",
+    "address": "서울특별시 도봉구 도봉로152가길 102 (도봉동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=477",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250407/&fileId=EEF3B8B077BD4959A2B64A3EA97E6C75.jpg"
+    ]
+  },
+  "store_1f5a974506588c4452992fbe": {
+    "storeId": "store_1f5a974506588c4452992fbe",
+    "storeName": "북한산 손칼국수",
+    "address": "서울특별시 은평구 대서문길36 (진관동)",
+    "phoneNumber": "0507-1407-4413",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=940",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202312180550165611.jpg"
+    ]
+  },
+  "store_617dbd04a5bd773a681a2e18": {
+    "storeId": "store_617dbd04a5bd773a681a2e18",
+    "storeName": "불꽃냉면칼국수",
+    "address": "서울특별시 동대문구 경희대로3길 13, 2층 (회기동)",
+    "phoneNumber": "02-6014-0013",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16095",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250116/&fileId=9855C7688710489CBC1684B04DA16D18.jpg"
+    ]
+  },
+  "store_35e0e11767d6cc4237c0173d": {
+    "storeId": "store_35e0e11767d6cc4237c0173d",
+    "storeName": "뷰티헤어",
+    "address": "서울특별시 도봉구 도봉로 123길 14",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13397",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240625/&fileId=0B16F1F5E073478F9E2F4E2C5C9E3CB4.jpg"
+    ]
+  },
+  "store_d4707b0d9e6d42fc79da9f6d": {
+    "storeId": "store_d4707b0d9e6d42fc79da9f6d",
+    "storeName": "브랜드특수크리닝",
+    "address": "서울특별시 노원구 섬밭로 263 1층 4호 (롯데상가)",
+    "phoneNumber": "02-979-5474",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=409",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201703070147282511.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201703070147282692.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201609260141390953.jpg"
+    ]
+  },
+  "store_bd4281a10d97fe1c340cd06a": {
+    "storeId": "store_bd4281a10d97fe1c340cd06a",
+    "storeName": "브레쉬에비뉴",
+    "address": "서울특별시 도봉구 방학로 216, 1층 (방학동)",
+    "phoneNumber": "02-955-3799",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11213",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=0C2AB3553FD44B24B63ABB026C30038E.png"
+    ]
+  },
+  "store_ab3aa3abf22db5a24b7631a8": {
+    "storeId": "store_ab3aa3abf22db5a24b7631a8",
+    "storeName": "블루커트",
+    "address": "서울특별시 도봉구 해등로255, 101동131호 (쌍문동, 에벤에셀아파트상가)",
+    "phoneNumber": "02-998-6923",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11052",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240919/&fileId=3BFF0ADE584B46959BDB08027872969F.png"
+    ]
+  },
+  "store_848d8478e6414988c18e0a58": {
+    "storeId": "store_848d8478e6414988c18e0a58",
+    "storeName": "비나레스토랑",
+    "address": "서울특별시 동대문구 안암로24길 4 (제기동)1층",
+    "phoneNumber": "02-926-5860",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=18238",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251107/&fileId=59B54081C0E84B968E005E7B3B22AD2E.png"
+    ]
+  },
+  "store_b5ca890428c023b928e8a661": {
+    "storeId": "store_b5ca890428c023b928e8a661",
+    "storeName": "비니거니 치킨호프",
+    "address": "서울특별시 강서구 까치산로 36, 1층 (화곡동)",
+    "phoneNumber": "02-6032-3332",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=16488",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=0E49804572664E5EBAD2BDF469F44ABA.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250402/&fileId=6EA7513124384A36B783312D63384124.jpg"
+    ]
+  },
+  "store_d0e2e878aa240e30f15180d9": {
+    "storeId": "store_d0e2e878aa240e30f15180d9",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_e49771665fe2a081bfa64e17": {
+    "storeId": "store_e49771665fe2a081bfa64e17",
+    "storeName": "비취",
+    "address": "서울특별시 서초구 신반포로 213 (잠원동) 지하1층",
+    "phoneNumber": "02-532-6211",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15682",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241129/&fileId=97EE26C4CF5343CBAD7E89407524741F.jpg"
+    ]
+  },
+  "store_1fc406e733e5b0cc42e96de4": {
+    "storeId": "store_1fc406e733e5b0cc42e96de4",
+    "storeName": "비타김밥",
+    "address": "서울특별시 관악구 신림동7길 51 (신림동)",
+    "phoneNumber": "02-883-9242",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=11530",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20250509/&fileId=9884CBCA4B0D475E990E12B3AC98FC54.jpeg"
+    ]
+  },
+  "store_e0739fa2ab7f992c4a048b83": {
+    "storeId": "store_e0739fa2ab7f992c4a048b83",
+    "storeName": "빗과결사이",
+    "address": "서울특별시 동작구 등용로 96, 1층 2호 (대방동)",
+    "phoneNumber": "02-812-5108",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=550",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240827/&fileId=B4DD6F5A469446009DFFB29ADA742752.png"
+    ]
+  },
+  "store_ba694a81732e78664a9f5416": {
+    "storeId": "store_ba694a81732e78664a9f5416",
+    "storeName": "빨간리본 샌드위치",
+    "address": "서울특별시 동작구 사당로20나길 40",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13834",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=C54E6D26ED7B48069837A78387FE589A.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=E9B132E972274C379CC6D380165B98FD.jpeg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240725/&fileId=228820C01B81462CAA7BA377F547A41C.jpeg"
+    ]
+  },
+  "store_f6bed510a61e7a7b28eee0e6": {
+    "storeId": "store_f6bed510a61e7a7b28eee0e6",
+    "storeName": "빨리셀프크리닝",
+    "address": "서울특별시 관악구 신림로 224 (신림동)",
+    "phoneNumber": "02-872-8253",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=170",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207180442515111.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515233681.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201403310515233682.jpg"
+    ]
+  },
+  "store_ac17a1623be2faad450497b3": {
+    "storeId": "store_ac17a1623be2faad450497b3",
+    "storeName": "빵과함께",
+    "address": "서울특별시 강북구 인수봉로77길 15, 1층 (수유동)",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15948",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241226/&fileId=D1FC4368A1AD4A7AA63740C2485C9BEC.jpg"
+    ]
+  },
+  "store_f460b3af0e17284278ceb50a": {
+    "storeId": "store_f460b3af0e17284278ceb50a",
+    "storeName": "빵이 조아",
+    "address": "서울특별시 은평구 백련산로84",
+    "phoneNumber": "02-307-0825",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13796",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=04F2EF182A6F44AD8241A1E055FF3647.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240722/&fileId=99D4B25CC8424ACAB1A17764099E1DC7.jpg"
+    ]
+  },
+  "store_5c576084c69ad55c49879caa": {
+    "storeId": "store_5c576084c69ad55c49879caa",
+    "storeName": "쁘띠헤어",
+    "address": "서울특별시 광진구 구의로 34, 1층",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=17346",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20251027/&fileId=F294B6E77450422E8D55E59BA500A623.jpg"
+    ]
+  },
+  "store_e2ffe246fbf9ae72fafe73dc": {
+    "storeId": "store_e2ffe246fbf9ae72fafe73dc",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_39c30effe99e20f5d55776c9": {
+    "storeId": "store_39c30effe99e20f5d55776c9",
+    "storeName": "사가커피",
+    "address": "서울특별시 중랑구 면목로44길 37",
+    "phoneNumber": null,
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15227",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=F5CDC9AB67C34F64909F2B45D7E1793B.jpg"
+    ]
+  },
+  "store_5d462bde7a39fcb8f6d6a526": {
+    "storeId": "store_5d462bde7a39fcb8f6d6a526",
+    "storeName": "사과나무",
+    "address": "서울특별시 동작구 흑석로9길 7",
+    "phoneNumber": "02-825-1831",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=600",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907180918480131.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_201907180918480792.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240311/&fileId=IMG_202207290256252503.jpg"
+    ]
+  },
+  "store_18a82e920683140d25c83866": {
+    "storeId": "store_18a82e920683140d25c83866",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_b00c902d0179913ae96b606e": {
+    "storeId": "store_b00c902d0179913ae96b606e",
+    "scanned": true,
+    "noPhotosFound": true
+  },
+  "store_8d4e1cd93d5de0576d0868ad": {
+    "storeId": "store_8d4e1cd93d5de0576d0868ad",
+    "storeName": "사랑방스튜디오",
+    "address": "서울특별시 관악구 관천로12길 28-6, 가윤 지하1층",
+    "phoneNumber": "0507-1305-4703",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=13775",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=9E44F7BF81394CBA86CEA663BB9DDFA0.jpg",
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20240719/&fileId=CA5E484165C84F00A70986F77772F37C.jpg"
+    ]
+  },
+  "store_cd042ababad5f7c8927655ab": {
+    "storeId": "store_cd042ababad5f7c8927655ab",
+    "storeName": "산마루해장탕",
+    "address": "서울특별시 관악구 조원중앙로2길 116 (신림동)",
+    "phoneNumber": "02-851-2300",
+    "sourceUrl": "https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=15206",
+    "imageUrls": [
+      "https://www.goodprice.go.kr/comm/showImageFile.do?fileCours=/bssh/20241023/&fileId=44B6647072B94F56BB372D2CF88D0FEE.jpg"
+    ]
   }
 }

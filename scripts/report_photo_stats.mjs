@@ -11,11 +11,14 @@ const school = withPhotos.filter(h => /구로구|영등포구|양천구|금천�
 const seoulCore = withPhotos.filter(h => (h.address || '').startsWith('서울특별시') && /종로구|중구|강남구|마포구|서대문구|용산구/.test(h.address || ''));
 const other = withPhotos.filter(h => !pt.includes(h) && !school.includes(h) && !seoulCore.includes(h));
 
+const seoulRest = withPhotos.filter(h => (h.address || '').startsWith('서울특별시') && !school.includes(h) && !seoulCore.includes(h));
 console.log(JSON.stringify({
   totalStoresInCatalog: hours.length,
   totalStoresWithPhotos: withPhotos.length,
   pyeongtaek: pt.length,
   schoolArea: school.length,
   seoulCore: seoulCore.length,
+  seoulRest: seoulRest.length,
+  seoulTotal: school.length + seoulCore.length + seoulRest.length,
   otherAreas: other.length
 }, null, 2));
