@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.util.List;
 import java.util.Map;
@@ -8,6 +9,16 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GeminiServiceTest {
+
+    @Test
+    void springCreatesTheServiceWhenMultipleConstructorsExist() {
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.register(GeminiService.class);
+            context.refresh();
+
+            assertThat(context.getBean(GeminiService.class)).isNotNull();
+        }
+    }
 
     @Test
     void localRouteDoesNotDuplicateTheWonSuffix() {

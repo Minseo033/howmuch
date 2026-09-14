@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +30,7 @@ public class GeminiService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    @Autowired
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
                          @Value("${gemini.timeout-ms:10000}") int timeoutMs,
                          @Value("${gemini.route-enabled:false}") boolean routeAiEnabled,
