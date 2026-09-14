@@ -77,9 +77,20 @@ class StoreHoursCatalogTest {
         }
         assertThat(records).allMatch(StoreHoursCatalog.Entry::valid);
         assertThat(records.stream().map(StoreHoursCatalog.Entry::storeId).toList()).doesNotHaveDuplicates();
+        assertThat(records).hasSizeGreaterThanOrEqualTo(9_165);
+        assertThat(records.stream()
+                .filter(entry -> !"등록된 영업시간이 없어요.".equals(entry.text()))
+                .count()).isGreaterThanOrEqualTo(135);
+        assertThat(records.stream()
+                .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
+                .count()).isGreaterThanOrEqualTo(251);
         var service = new FirebaseService(mock(Firestore.class), mock(ReportImageStorage.class));
         ReflectionTestUtils.setField(service, "cachedStores", stores);
         var catalog = new StoreHoursCatalog(records);
-        assertThat(service.getAllStores().stream().filter(row -> catalog.findFor(row) != null).count()).isEqualTo(records.size());
+        assertThat(service.getAllStores().stream()
+                .filter(row -> catalog.findFor(row) != null)
+                .map(row -> String.valueOf(row.get("storeId")))
+                .distinct()
+                .count()).isEqualTo(records.size());
     }
 }
