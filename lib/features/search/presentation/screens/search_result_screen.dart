@@ -585,13 +585,29 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                             const SizedBox(height: 10),
                         itemBuilder: (ctx, i) {
                           final s = _results[i];
+                          final match = SearchFilterPolicy.findMatchingMenu(
+                            s,
+                            _query,
+                          );
+                          final hasMenuMatch = match != null;
+                          final displayedMenu = hasMenuMatch
+                              ? match.name
+                              : s.menu1;
+                          final displayedPrice = hasMenuMatch
+                              ? match.price
+                              : s.price1;
+                          final priceLabel = displayedMenu.isNotEmpty
+                              ? (displayedPrice.isNotEmpty
+                                    ? '$displayedMenu  ${_fmt(displayedPrice)}'
+                                    : displayedMenu)
+                              : s.industry;
+
                           return _StoreCard(
                             store: s,
                             emoji: _emoji(s.industry),
                             distance: _formatDistance(s),
-                            priceLabel: s.menu1.isNotEmpty
-                                ? '${s.menu1}  ${_fmt(s.price1)}'
-                                : s.industry,
+                            priceLabel: priceLabel,
+                            isMatchedMenu: hasMenuMatch,
                             onTap: () {
                               unawaited(_rememberSearch(_query));
                               context.push(AppRoutes.storeDetail, extra: s);
@@ -896,6 +912,7 @@ class _StoreCard extends StatelessWidget {
     required this.priceLabel,
     required this.distance,
     required this.onTap,
+    this.isMatchedMenu = false,
   });
 
   final Store store;
@@ -903,6 +920,7 @@ class _StoreCard extends StatelessWidget {
   final String priceLabel;
   final String distance;
   final VoidCallback onTap;
+  final bool isMatchedMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -992,6 +1010,34 @@ class _StoreCard extends StatelessWidget {
                     // 대표메뉴 + 가격
                     Row(
                       children: [
+                        if (isMatchedMenu) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: const Color(0xFFBFDBFE),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: const Text(
+                              '검색 메뉴',
+                              style: TextStyle(
+                                fontFamily: SearchResultScreen.fontFamily,
+                                fontFamilyFallback:
+                                    SearchResultScreen.fontFallback,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: SearchResultScreen.blue,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                        ],
                         const Icon(
                           Icons.restaurant_menu_rounded,
                           size: 12,

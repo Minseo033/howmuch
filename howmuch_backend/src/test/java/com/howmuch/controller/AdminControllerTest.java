@@ -109,6 +109,21 @@ class AdminControllerTest {
     }
 
     @Test
+    void deletesAnInquiryThroughTheAdminContract() throws Exception {
+        Map<String, Object> deletion = Map.of(
+                "success", true,
+                "id", "inquiry-1",
+                "deletedImages", 1);
+        when(firebaseService.deleteInquiryAsAdmin("inquiry-1")).thenReturn(deletion);
+
+        ResponseEntity<?> response = controller.deleteInquiry("inquiry-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(deletion);
+        verify(firebaseService).deleteInquiryAsAdmin("inquiry-1");
+    }
+
+    @Test
     void rejectsBlankInquiryAnswersBeforeCallingTheService() {
         ResponseEntity<?> response = controller.answerInquiry(
                 "inquiry-1",

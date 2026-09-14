@@ -1,0 +1,64 @@
+{
+  "root": "/Users/min/Documents/졸작/howmuch-hours-20260912",
+  "files_scanned": 2,
+  "passed": true,
+  "states": {
+    "loading": {
+      "present": true,
+      "matched_terms": [
+        "/loading/i",
+        "/spinner/i",
+        "/pending/i"
+      ]
+    },
+    "empty": {
+      "present": true,
+      "matched_terms": [
+        "/empty/i"
+      ]
+    },
+    "error": {
+      "present": true,
+      "matched_terms": [
+        "/error/i",
+        "/catch\\s*\\(/i"
+      ]
+    },
+    "disabled": {
+      "present": true,
+      "matched_terms": [
+        "/disabled/i"
+      ]
+    },
+    "focus": {
+      "present": true,
+      "matched_terms": [
+        "/focus-visible/i",
+        "/:focus/i"
+      ]
+    },
+    "selected": {
+      "present": true,
+      "matched_terms": [
+        "/selected/i",
+        "/aria-selected/i"
+      ]
+    },
+    "submitting": {
+      "present": true,
+      "matched_terms": [
+        "/saving/i"
+      ]
+    },
+    "success": {
+      "present": true,
+      "matched_terms": [
+        "/success/i",
+        "/saved/i",
+        "/complete/i"
+      ]
+    }
+  },
+  "missing": [],
+  "note": "All state markers found."
+}

@@ -16,6 +16,29 @@ class SearchFilterPolicy {
     ].any((value) => value.toLowerCase().contains(normalized));
   }
 
+  static ({String name, String price, int index})? findMatchingMenu(
+    Store store,
+    String query,
+  ) {
+    final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+
+    final menus = [
+      (name: store.menu1.trim(), price: store.price1.trim(), index: 1),
+      (name: store.menu2.trim(), price: store.price2.trim(), index: 2),
+      (name: store.menu3.trim(), price: store.price3.trim(), index: 3),
+      (name: store.menu4.trim(), price: store.price4.trim(), index: 4),
+    ];
+
+    for (final item in menus) {
+      if (item.name.isNotEmpty &&
+          item.name.toLowerCase().contains(normalized)) {
+        return item;
+      }
+    }
+    return null;
+  }
+
   static int? parsePrice(String rawPrice) {
     final digits = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
     if (digits.isEmpty) return null;

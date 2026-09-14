@@ -331,14 +331,13 @@ void main() {
     final deletedDataDivider = tester.getRect(
       find.byKey(const ValueKey('withdrawal-deleted-divider-0')),
     );
-    final deletedDataScale = deletedDataCard.width / 335.45452880859375;
     expect(
       deletedDataDivider.left - deletedDataCard.left,
-      closeTo(16.903 * deletedDataScale, 0.1),
+      closeTo(16.903, 0.1),
     );
     expect(
       deletedDataCard.right - deletedDataDivider.right,
-      closeTo(16.904 * deletedDataScale, 0.1),
+      closeTo(16.904, 0.1),
     );
 
     final withdrawalActionRow = tester.getRect(

@@ -33,7 +33,6 @@ class TermsOfServiceScreen extends StatelessWidget {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final contentHeight = 1245 + topOffset + bottomOffset;
 
     return FigmaMobileCanvas(
       backgroundColor: surface,
@@ -41,44 +40,31 @@ class TermsOfServiceScreen extends StatelessWidget {
         children: [
           Positioned.fill(
             child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                48.877838134765625 + topOffset + 16,
+                20,
+                24 + bottomOffset,
+              ),
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: contentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      top: 64.8720703125 + topOffset,
-                      right: 20,
-                      height: 200,
-                      child: const _TermsSummaryCard(),
-                    ),
-                    Positioned(
-                      left: 23.99169921875,
-                      top: 281.7783203125 + topOffset,
-                      child: const Text('핵심 조항', style: _sectionText),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 304.26416015625 + topOffset,
-                      right: 20,
-                      height: 840.9005126953125,
-                      child: _TermsListCard(
-                        onOpen: (item) => _showTermsDetail(context, item),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      top: 1157.1533203125 + topOffset,
-                      right: 20,
-                      height: 41.008522033691406,
-                      child: const _TermsNotice(),
-                    ),
-                  ],
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _TermsSummaryCard(),
+                  const SizedBox(height: 16),
+                  const Padding(
+                    padding: EdgeInsets.only(left: 3.99),
+                    child: Text('핵심 조항', style: _sectionText),
+                  ),
+                  const SizedBox(height: 6),
+                  _TermsListCard(
+                    onOpen: (item) => _showTermsDetail(context, item),
+                  ),
+                  const SizedBox(height: 12),
+                  const _TermsNotice(),
+                ],
               ),
             ),
           ),
@@ -102,7 +88,7 @@ class TermsOfServiceScreen extends StatelessWidget {
 
   void _copyDocumentLink(BuildContext context) {
     Clipboard.setData(
-      const ClipboardData(text: '얼마에요 서비스 이용약관 — 앱 내 마이페이지에서 확인'),
+      const ClipboardData(text: '얼마고? 서비스 이용약관 — 앱 내 마이페이지에서 확인'),
     );
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -416,11 +402,11 @@ class _TermsListCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.903, 11.988, 16.903, 0),
+        padding: const EdgeInsets.fromLTRB(16.903, 16, 16.903, 8),
         child: Column(
           children: [
-            const SizedBox(
-              height: 67.798,
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -462,8 +448,8 @@ class _TermsRow extends StatelessWidget {
         ? TermsOfServiceScreen.red
         : TermsOfServiceScreen.ink;
 
-    return SizedBox(
-      height: rowHeight,
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: rowHeight),
       child: DecoratedBox(
         decoration: const BoxDecoration(
           border: Border(
@@ -475,7 +461,7 @@ class _TermsRow extends StatelessWidget {
           child: InkWell(
             onTap: onTap,
             child: Padding(
-              padding: const EdgeInsets.only(top: 11.988),
+              padding: const EdgeInsets.symmetric(vertical: 11.988),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

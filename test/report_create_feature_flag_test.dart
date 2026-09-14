@@ -7,6 +7,11 @@ void main() {
   testWidgets(
     'shows report image upload in the default release configuration',
     (tester) async {
+      tester.view.physicalSize = const Size(390, 1200);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       await tester.pumpWidget(
         const ProviderScope(child: MaterialApp(home: ReportCreateScreen())),
       );

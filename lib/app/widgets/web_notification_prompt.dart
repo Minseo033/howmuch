@@ -403,77 +403,79 @@ class _UnreadNotificationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final countText = notificationCountLabel(unreadCount);
 
-    return Material(
-      color: Colors.transparent,
-      elevation: 4,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.primary.withValues(alpha: .24)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
+    return RepaintBoundary(
+      child: Material(
+        color: AppColors.white,
+        elevation: 2,
+        shadowColor: const Color(0x1A0F172A),
+        borderRadius: BorderRadius.circular(8),
+        clipBehavior: Clip.antiAlias,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.primary.withValues(alpha: .24)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_active_outlined,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
-              child: const Icon(
-                Icons.notifications_active_outlined,
-                color: AppColors.primary,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    countText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      countText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  const Text(
-                    '알림함에서 확인해 보세요.',
-                    style: TextStyle(color: AppColors.muted, fontSize: 11),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    const Text(
+                      '알림함에서 확인해 보세요.',
+                      style: TextStyle(color: AppColors.muted, fontSize: 11),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: onOpen,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: const Size(0, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              TextButton(
+                onPressed: onOpen,
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(44, 44),
+                ),
+                child: const Text(
+                  '알림함 보기',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
               ),
-              child: const Text(
-                '알림함 보기',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              IconButton(
+                tooltip: '알림 안내 닫기',
+                onPressed: onDismiss,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                color: AppColors.muted,
+                style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
               ),
-            ),
-            IconButton(
-              tooltip: '알림 안내 닫기',
-              onPressed: onDismiss,
-              icon: const Icon(Icons.close_rounded, size: 18),
-              color: AppColors.muted,
-              splashRadius: 18,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

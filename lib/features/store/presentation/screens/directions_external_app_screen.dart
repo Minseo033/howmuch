@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
+    as howmuch_home;
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class DirectionsExternalAppScreen extends StatefulWidget {
@@ -40,9 +44,34 @@ class _DirectionsExternalAppScreenState
     {'icon': Icons.directions_car_rounded, 'label': '자동차', 'mode': 'CAR'},
   ];
 
+  double? get _effectiveStartLat =>
+      widget.startLatitude ??
+      howmuch_home.HomeMapScreen.globalUserPosition?.latitude;
+
+  double? get _effectiveStartLng =>
+      widget.startLongitude ??
+      howmuch_home.HomeMapScreen.globalUserPosition?.longitude;
+
   bool get _hasRouteCoordinates =>
       _isValidCoordinate(widget.latitude, widget.longitude) &&
-      _isValidCoordinate(widget.startLatitude, widget.startLongitude);
+      _isValidCoordinate(_effectiveStartLat, _effectiveStartLng);
+
+  String get _effectiveDistanceLabel {
+    if (_hasRouteCoordinates) {
+      final meters = Geolocator.distanceBetween(
+        _effectiveStartLat!,
+        _effectiveStartLng!,
+        widget.latitude!,
+        widget.longitude!,
+      );
+      return formatRecommendationDistance(meters);
+    }
+    if (widget.distanceLabel.isNotEmpty &&
+        widget.distanceLabel != '거리 정보 확인 중') {
+      return widget.distanceLabel;
+    }
+    return '거리 정보 없음';
+  }
 
   bool _isValidCoordinate(double? latitude, double? longitude) =>
       latitude != null &&
@@ -61,13 +90,13 @@ class _DirectionsExternalAppScreenState
 
     final url = hasDestCoords
         ? (_hasRouteCoordinates
-            ? Uri.parse(
-                'kakaomap://route?sp=${widget.startLatitude},${widget.startLongitude}'
-                '&ep=${widget.latitude},${widget.longitude}&by=$mode',
-              )
-            : Uri.parse(
-                'kakaomap://route?ep=${widget.latitude},${widget.longitude}&by=$mode',
-              ))
+              ? Uri.parse(
+                  'kakaomap://route?sp=$_effectiveStartLat,$_effectiveStartLng'
+                  '&ep=${widget.latitude},${widget.longitude}&by=$mode',
+                )
+              : Uri.parse(
+                  'kakaomap://route?ep=${widget.latitude},${widget.longitude}&by=$mode',
+                ))
         : Uri.parse('kakaomap://search?q=$storeQuery');
 
     final fallbackUrl = hasDestCoords
@@ -108,29 +137,29 @@ class _DirectionsExternalAppScreenState
 
     final url = hasDestCoords
         ? (_hasRouteCoordinates
-            ? Uri.parse(
-                'nmap://route/$mode?slat=${widget.startLatitude}'
-                '&slng=${widget.startLongitude}&sname=${Uri.encodeComponent('현재 위치')}'
-                '&dlat=${widget.latitude}&dlng=${widget.longitude}'
-                '&dname=$storeQuery&appname=com.howmuch.app',
-              )
-            : Uri.parse(
-                'nmap://route/$mode?dlat=${widget.latitude}&dlng=${widget.longitude}'
-                '&dname=$storeQuery&appname=com.howmuch.app',
-              ))
+              ? Uri.parse(
+                  'nmap://route/$mode?slat=$_effectiveStartLat'
+                  '&slng=$_effectiveStartLng&sname=${Uri.encodeComponent('현재 위치')}'
+                  '&dlat=${widget.latitude}&dlng=${widget.longitude}'
+                  '&dname=$storeQuery&appname=com.howmuch.app',
+                )
+              : Uri.parse(
+                  'nmap://route/$mode?dlat=${widget.latitude}&dlng=${widget.longitude}'
+                  '&dname=$storeQuery&appname=com.howmuch.app',
+                ))
         : Uri.parse('nmap://search?query=$storeQuery&appname=com.howmuch.app');
 
     final fallbackUrl = hasDestCoords
         ? (_hasRouteCoordinates
-            ? Uri.parse(
-                'https://m.map.naver.com/route.nhn?menu=route'
-                '&sname=${Uri.encodeComponent('현재 위치')}&sx=${widget.startLongitude}&sy=${widget.startLatitude}'
-                '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
-              )
-            : Uri.parse(
-                'https://m.map.naver.com/route.nhn?menu=route'
-                '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
-              ))
+              ? Uri.parse(
+                  'https://m.map.naver.com/route.nhn?menu=route'
+                  '&sname=${Uri.encodeComponent('현재 위치')}&sx=$_effectiveStartLng&sy=$_effectiveStartLat'
+                  '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
+                )
+              : Uri.parse(
+                  'https://m.map.naver.com/route.nhn?menu=route'
+                  '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
+                ))
         : Uri.parse(
             'https://m.map.naver.com/search2/search.naver?query=$storeQuery',
           );
@@ -262,7 +291,7 @@ class _DirectionsExternalAppScreenState
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    widget.distanceLabel,
+                    _effectiveDistanceLabel,
                     style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 12,

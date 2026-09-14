@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
     as howmuch_home;
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -55,14 +57,42 @@ class StoreDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _map(BuildContext ctx) async {
-    final position = howmuch_home.HomeMapScreen.globalUserPosition;
+    var position = howmuch_home.HomeMapScreen.globalUserPosition;
+    if (position == null) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+    String distanceLabel = '거리 정보 없음';
+    final storeLat = store.latitude;
+    final storeLng = store.longitude;
+    final userLat = position?.latitude;
+    final userLng = position?.longitude;
+
+    if (userLat != null &&
+        userLng != null &&
+        storeLat.isFinite &&
+        storeLng.isFinite &&
+        userLat.isFinite &&
+        userLng.isFinite &&
+        storeLat != 0 &&
+        storeLng != 0) {
+      final meters = Geolocator.distanceBetween(
+        userLat,
+        userLng,
+        storeLat,
+        storeLng,
+      );
+      distanceLabel = formatRecommendationDistance(meters);
+    }
+
     if (!ctx.mounted) return;
     await ctx.push(
       AppRoutes.directionsExternalApp,
       extra: {
         'storeName': store.storeName,
         'address': store.address,
-        'distanceLabel': '거리 정보 확인 중',
+        'distanceLabel': distanceLabel,
         'latitude': store.latitude,
         'longitude': store.longitude,
         'startLatitude': position?.latitude,

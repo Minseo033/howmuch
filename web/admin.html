@@ -303,6 +303,7 @@
   .btn-ghost:hover { color: var(--text); border-color: #CBD5E1; }
   .btn-light { background: rgba(255,255,255,.12); color: #E2E8F0; border: 1px solid rgba(255,255,255,.15); }
   .btn-light:hover { background: rgba(255,255,255,.2); }
+  .row-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 
   /* ── 제보 카드 ─────────────────── */
   .report-list { display: flex; flex-direction: column; gap: 14px; }
@@ -602,6 +603,19 @@
   </div>
 </dialog>
 
+<!-- 문의 삭제 확인 모달 -->
+<dialog class="modal-backdrop" id="deleteInquiryModal" aria-labelledby="deleteInquiryHeading">
+  <div class="modal">
+    <h3 id="deleteInquiryHeading">문의 삭제</h3>
+    <p id="deleteInquiryTarget"></p>
+    <div class="warn-box">문의와 첨부 이미지, 답변 알림이 영구 삭제됩니다. 되돌릴 수 없습니다.</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" data-close="deleteInquiryModal">취소</button>
+      <button class="btn btn-danger" id="deleteInquiryConfirm">영구 삭제</button>
+    </div>
+  </div>
+</dialog>
+
 <!-- 문의 답변 모달 -->
 <dialog class="modal-backdrop" id="answerInquiryModal" aria-labelledby="answerInquiryHeading">
   <div class="modal">
@@ -674,6 +688,7 @@
   let deleteTargetUid = null;
   let deleteReviewId = null;
   let deleteCommentId = null;
+  let deleteInquiryId = null;
   let answerInquiryId = null;
   let selectedNotificationUid = '';
   let keyExpiryTimer = null;
@@ -1349,7 +1364,7 @@
         <td class="uid-cell">${shortUid(q.userId)}</td>
         <td>${statusBadge}</td>
         <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
-        <td><button class="btn btn-sm ${isAnswered ? 'btn-ghost' : 'btn-primary'}" data-answer-inquiry="${esc(q.id)}">${isAnswered ? '답변 수정' : '답변하기'}</button></td>
+        <td><div class="row-actions"><button class="btn btn-sm ${isAnswered ? 'btn-ghost' : 'btn-primary'}" data-answer-inquiry="${esc(q.id)}">${isAnswered ? '답변 수정' : '답변하기'}</button><button class="btn btn-sm btn-danger" data-delete-inquiry="${esc(q.id)}" data-inquiry-title="${esc(q.title)}">삭제</button></div></td>
       </tr>`;
     }).join('');
 
@@ -1366,6 +1381,13 @@
 
     content.querySelectorAll('[data-answer-inquiry]').forEach((btn) => {
       btn.onclick = () => openAnswerInquiryModal(btn.dataset.answerInquiry);
+    });
+    content.querySelectorAll('[data-delete-inquiry]').forEach((btn) => {
+      btn.onclick = () => {
+        deleteInquiryId = btn.dataset.deleteInquiry;
+        $('deleteInquiryTarget').textContent = `「${btn.dataset.inquiryTitle || deleteInquiryId}」 문의를 삭제합니다.`;
+        openModal('deleteInquiryModal');
+      };
     });
   }
 
@@ -1761,6 +1783,25 @@
     }
   }
 
+  async function doDeleteInquiry() {
+    if (!deleteInquiryId) return;
+    $('deleteInquiryConfirm').disabled = true;
+    try {
+      const result = await api(`/api/admin/inquiries/${encodeURIComponent(deleteInquiryId)}`, {
+        method: 'DELETE',
+      });
+      allInquiries = (allInquiries || []).filter((item) => item.id !== deleteInquiryId);
+      closeModal('deleteInquiryModal');
+      renderInquiriesView();
+      toast(`문의 삭제 완료${result.deletedImages ? ` · 사진 ${result.deletedImages}장 정리` : ''}`);
+      deleteInquiryId = null;
+    } catch (e) {
+      handleError(e);
+    } finally {
+      $('deleteInquiryConfirm').disabled = false;
+    }
+  }
+
   function openDeleteReportModal(id, name) {
     deleteReportId = id;
     $('deleteReportTarget').textContent = `「${name || id}」 제보를 삭제합니다.`;
@@ -2044,6 +2085,7 @@
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;
   $('deleteCommentConfirm').onclick = doDeleteComment;
+  $('deleteInquiryConfirm').onclick = doDeleteInquiry;
   $('answerInquiryConfirm').onclick = doAnswerInquiry;
   $('confirmActionCancel').onclick = () => finishActionConfirmation(false);
   $('confirmActionAccept').onclick = () => finishActionConfirmation(true);

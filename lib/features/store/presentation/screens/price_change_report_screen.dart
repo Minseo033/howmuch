@@ -50,6 +50,21 @@ class _PriceChangeReportScreenState
   final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
+  List<({String menu, String price})> get _registeredMenus {
+    final s = widget.store;
+    if (s == null) return const [];
+    return [
+      if (s.menu1.trim().isNotEmpty)
+        (menu: s.menu1.trim(), price: s.price1.trim()),
+      if (s.menu2.trim().isNotEmpty)
+        (menu: s.menu2.trim(), price: s.price2.trim()),
+      if (s.menu3.trim().isNotEmpty)
+        (menu: s.menu3.trim(), price: s.price3.trim()),
+      if (s.menu4.trim().isNotEmpty)
+        (menu: s.menu4.trim(), price: s.price4.trim()),
+    ];
+  }
+
   String get _changeType => _changeTypes[_selectedType]['value']!;
 
   Future<void> _submit() async {
@@ -148,6 +163,54 @@ class _PriceChangeReportScreenState
   }
 
   @override
+  void initState() {
+    super.initState();
+    final menus = _registeredMenus;
+    if (menus.isNotEmpty) {
+      _menuController.text = menus.first.menu;
+      final cleanPrice = menus.first.price.replaceAll(RegExp(r'[^0-9]'), '');
+      if (cleanPrice.isNotEmpty) {
+        _priceController.text = cleanPrice;
+      }
+    }
+  }
+
+  void _onTypeSelected(int i) {
+    if (_selectedType == i) return;
+    setState(() {
+      final prev = _selectedType;
+      _selectedType = i;
+      if (i == 3) {
+        if (_registeredMenus.any(
+          (m) => m.menu == _menuController.text.trim(),
+        )) {
+          _menuController.clear();
+          _priceController.clear();
+        }
+      } else if (prev == 3 && _menuController.text.trim().isEmpty) {
+        final menus = _registeredMenus;
+        if (menus.isNotEmpty) {
+          _menuController.text = menus.first.menu;
+          final cleanPrice = menus.first.price.replaceAll(
+            RegExp(r'[^0-9]'),
+            '',
+          );
+          if (cleanPrice.isNotEmpty) {
+            _priceController.text = cleanPrice;
+          }
+        }
+      }
+    });
+  }
+
+  String _formatWon(String raw) {
+    final clean = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    final n = int.tryParse(clean);
+    if (n == null) return raw;
+    return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
+  }
+
+  @override
   void dispose() {
     _menuController.dispose();
     _priceController.dispose();
@@ -189,7 +252,97 @@ class _PriceChangeReportScreenState
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  _buildTextField(_menuController, '아메리카노'),
+                  if (_registeredMenus.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final item in _registeredMenus) ...[
+                            ChoiceChip(
+                              key: ValueKey(
+                                'price-report-menu-chip-${item.menu}',
+                              ),
+                              label: Text(
+                                item.price.isNotEmpty
+                                    ? '${item.menu} (${_formatWon(item.price)})'
+                                    : item.menu,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      _menuController.text.trim() == item.menu
+                                      ? AppColors.white
+                                      : AppColors.ink,
+                                  fontWeight:
+                                      _menuController.text.trim() == item.menu
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
+                              ),
+                              selected:
+                                  _menuController.text.trim() == item.menu,
+                              selectedColor: AppColors.orangeTheme,
+                              backgroundColor: AppColors.surface,
+                              side: BorderSide(
+                                color: _menuController.text.trim() == item.menu
+                                    ? AppColors.orangeTheme
+                                    : Colors.grey.shade300,
+                              ),
+                              onSelected: (selected) {
+                                setState(() {
+                                  if (selected) {
+                                    _menuController.text = item.menu;
+                                    final cleanPrice = item.price.replaceAll(
+                                      RegExp(r'[^0-9]'),
+                                      '',
+                                    );
+                                    if (cleanPrice.isNotEmpty &&
+                                        _selectedType != 2) {
+                                      _priceController.text = cleanPrice;
+                                    }
+                                  } else {
+                                    _menuController.clear();
+                                  }
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          ActionChip(
+                            key: const ValueKey(
+                              'price-report-manual-menu-chip',
+                            ),
+                            avatar: const Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppColors.muted,
+                            ),
+                            label: const Text(
+                              '직접 입력',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                            backgroundColor: AppColors.white,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            onPressed: () {
+                              setState(() {
+                                _menuController.clear();
+                                _priceController.clear();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  _buildTextField(
+                    _menuController,
+                    _registeredMenus.isNotEmpty
+                        ? '메뉴 이름 직접 입력 (예: ${_registeredMenus.first.menu})'
+                        : '메뉴 이름 직접 입력',
+                  ),
                   const SizedBox(height: 20),
 
                   // 변경된 가격 (삭제 유형 제외)
@@ -242,6 +395,11 @@ class _PriceChangeReportScreenState
   }
 
   Widget _buildStoreCard() {
+    final s = widget.store;
+    final primaryMenu = s != null && s.menu1.trim().isNotEmpty
+        ? s.menu1.trim()
+        : null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -269,16 +427,20 @@ class _PriceChangeReportScreenState
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  '메뉴 정보 기입',
-                  style: TextStyle(color: AppColors.muted, fontSize: 13),
+                Text(
+                  primaryMenu != null
+                      ? '대표 메뉴: $primaryMenu'
+                      : (widget.store?.industry ?? '메뉴 정보 기입'),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
             ),
           ),
-          const Text(
-            '-',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Text(
+            s != null && s.price1.trim().isNotEmpty
+                ? _formatWon(s.price1)
+                : '-',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -297,7 +459,7 @@ class _PriceChangeReportScreenState
         final selected = _selectedType == i;
         return FigmaMobileCanvas(
           child: GestureDetector(
-            onTap: () => setState(() => _selectedType = i),
+            onTap: () => _onTypeSelected(i),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               alignment: Alignment.center,

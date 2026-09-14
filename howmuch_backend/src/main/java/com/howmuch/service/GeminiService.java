@@ -12,6 +12,8 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -22,14 +24,19 @@ public class GeminiService {
     // 💡 보안: Gemini API 키는 환경변수(GEMINI_API_KEY)로만 주입합니다 (레포 public — 하드코딩 금지)
     private final String geminiApiKey;
     private final boolean routeAiEnabled;
+    private final String configuredModel;
+    private final List<String> candidateUrls;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
                          @Value("${gemini.timeout-ms:10000}") int timeoutMs,
-                         @Value("${gemini.route-enabled:false}") boolean routeAiEnabled) {
+                         @Value("${gemini.route-enabled:false}") boolean routeAiEnabled,
+                         @Value("${gemini.model:gemini-2.5-flash}") String configuredModel) {
         this.geminiApiKey = geminiApiKey;
         this.routeAiEnabled = routeAiEnabled;
+        this.configuredModel = normalizeModel(configuredModel);
+        this.candidateUrls = buildCandidateUrls(this.configuredModel);
         // 💡 외부 AI 호출 타임아웃 — 지연 시 요청 스레드 고갈 방지
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(timeoutMs);
@@ -37,12 +44,31 @@ public class GeminiService {
         this.restTemplate = new RestTemplate(factory);
     }
 
-   private static final List<String> CANDIDATE_URLS = List.of(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent",
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-    );
+    public GeminiService(String geminiApiKey, int timeoutMs, boolean routeAiEnabled) {
+        this(geminiApiKey, timeoutMs, routeAiEnabled, "gemini-2.5-flash");
+    }
+
+    private static List<String> buildCandidateUrls(String model) {
+        LinkedHashSet<String> urls = new LinkedHashSet<>();
+        if (model != null && !model.isBlank()) {
+            urls.add("https://generativelanguage.googleapis.com/v1beta/models/" + model.trim() + ":generateContent");
+        }
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent");
+        return new ArrayList<>(urls);
+    }
+
+    private static String normalizeModel(String model) {
+        if ("gemini-2.5-flash-lite".equals(model)) {
+            return model;
+        }
+        return "gemini-2.5-flash";
+    }
+
+    List<String> getCandidateUrls() {
+        return List.copyOf(candidateUrls);
+    }
+
     private volatile String workingUrl = null;
 
     private static final String GOMI_SYSTEM_INSTRUCTION = """
@@ -59,7 +85,7 @@ public class GeminiService {
            - 일반적인 음식 종류나 메뉴 추천은 자유롭게 하되, **구체적인 특정 가게 상호명, 가격, 거리**는 반드시 제공된 [현재 위치 주변 매장 데이터]에 있는 실제 사실만 인용하세요.
            - 데이터에 없는 가상의 가게 이름을 지어내거나 추측하지 마세요.
         4. [적합성 중심 선별]:
-           - 질문의 의도(음식, 식사, 카페 등)와 무관한 업종(미용실, 세탁소 등)을 단순히 거리만 가깝다는 이유로 엉뚱하게 추천하지 마세요. 질문 맥락에 꼭 맞는 매장 1~3곳을 추려 깔끔하게 안내하세요.
+           - 질문의 의도(음식, 식사, 카페 등)와 무관한 업종(미용실, 세탁소 등)을 단순히 거리만 가깝다는 이유로 엉뚱하게 추천하지 마세요. 질문 맥락에 꼭 맞는 매장을 사용자가 요청한 개수만큼, 최대 4곳까지 추려 깔끔하게 안내하세요.
         5. [일상 대화 및 유연한 소통]:
            - 인사나 가벼운 잡담에는 밝게 화답하고 오늘 어떤 음식을 찾으시는지 편안하게 물어보세요.
            - 서비스 범위(가성비 식당/생활 서비스)와 완전히 무관한 질문은 짧게 답변한 뒤 맛있는 동네 밥집 탐색으로 부드럽게 돌아오세요.
@@ -146,7 +172,7 @@ public class GeminiService {
 
         // 후보군 순회하며 작동하는 엔드포인트 자동 탐색
         Exception lastException = null;
-        for (String url : CANDIDATE_URLS) {
+        for (String url : candidateUrls) {
             try {
                 String result = callGemini(url, entity);
                 this.workingUrl = url;
@@ -178,9 +204,15 @@ public class GeminiService {
     private String callGemini(String url, HttpEntity<Map<String, Object>> entity) throws Exception {
         ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
         JsonNode root = objectMapper.readTree(response.getBody());
-        return root.path("candidates").get(0)
-                .path("content").path("parts").get(0)
-                .path("text").asText();
+        JsonNode candidates = root.path("candidates");
+        if (candidates.isMissingNode() || !candidates.isArray() || candidates.isEmpty()) {
+            throw new IllegalStateException("Gemini 응답에 candidates가 없습니다.");
+        }
+        JsonNode parts = candidates.get(0).path("content").path("parts");
+        if (parts.isMissingNode() || !parts.isArray() || parts.isEmpty()) {
+            throw new IllegalStateException("Gemini 응답에 content parts가 없습니다.");
+        }
+        return parts.get(0).path("text").asText();
     }
 
     /**
@@ -200,7 +232,7 @@ public class GeminiService {
         }
 
         String aiResponse = getAiResponse(
-                "제공된 매장만 사용해 가까운 순서의 절약 동선을 최대 3곳으로 추천해주세요. "
+                "제공된 매장만 사용해 가까운 순서의 절약 동선을 최대 4곳으로 추천해주세요. "
                         + "'1. 매장명 (메뉴, 가격, 거리) - 이유' 형식으로 알려주세요.",
                 null,
                 picks);
@@ -224,7 +256,7 @@ public class GeminiService {
     private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {
         List<Map<String, Object>> sorted = picks.stream()
                 .sorted((a, b) -> Double.compare(distanceOf(a), distanceOf(b)))
-                .limit(3)
+                .limit(4)
                 .toList();
 
         StringBuilder result = new StringBuilder("현재는 거리순으로 추천 루트를 안내합니다.\n");

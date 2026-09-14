@@ -136,4 +136,47 @@ class FirebaseServiceStoreCoordinatesTest {
         assertThat(context).allSatisfy(item ->
                 assertThat(item.get("distanceMeters")).isInstanceOf(Integer.class));
     }
+
+    @Test
+    void constrainsRecommendationRadiusAndGuaranteesFourthPickReason() {
+        // User is at Seoul City Hall (37.5665, 126.9780)
+        // 4 nearby stores within 500m
+        var near1 = Map.of("storeName", "근처 국수집", "industry", "한식",
+                "menu1", "국수", "price1", "4000",
+                "latitude", 37.5670, "longitude", 126.9780);
+        var near2 = Map.of("storeName", "근처 국밥집", "industry", "한식",
+                "menu1", "국밥", "price1", "6000",
+                "latitude", 37.5680, "longitude", 126.9780);
+        var near3 = Map.of("storeName", "근처 라면집", "industry", "한식",
+                "menu1", "라면", "price1", "3500",
+                "latitude", 37.5690, "longitude", 126.9780);
+        var near4 = Map.of("storeName", "근처 백반집", "industry", "한식",
+                "menu1", "백반", "price1", "6500",
+                "latitude", 37.5700, "longitude", 126.9780);
+        // 1 far store 29km away matching alternative theme ("비 오면 파전")
+        var farAlt = Map.of("storeName", "29km 원거리 파전집", "industry", "한식",
+                "menu1", "해물파전", "price1", "12000",
+                "latitude", 37.4000, "longitude", 126.7000);
+
+        ReflectionTestUtils.setField(service, "cachedStores",
+                List.of(near1, near2, near3, near4, farAlt));
+
+        List<Map<String, Object>> picks = service.getTodaysPicks(
+                "비", 18, 37.5665, 126.9780);
+
+        // Far store (29km) cannot enter the local recommendation picks
+        assertThat(picks).extracting(p -> p.get("storeName"))
+                .doesNotContain("29km 원거리 파전집")
+                .hasSize(4);
+
+        // Every pick must have distance <= 5000m, and non-empty theme and reason
+        assertThat(picks).allSatisfy(pick -> {
+            int dist = (Integer) pick.get("distanceMeters");
+            assertThat(dist).isLessThanOrEqualTo(5000);
+            assertThat(pick.get("theme")).isNotNull();
+            assertThat(pick.get("theme").toString()).isNotBlank();
+            assertThat(pick.get("reason")).isNotNull();
+            assertThat(pick.get("reason").toString()).isNotBlank();
+        });
+    }
 }

@@ -7,6 +7,7 @@ import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.SetOptions;
 import com.google.cloud.firestore.WriteResult;
+import com.google.cloud.firestore.WriteBatch;
 import com.google.firebase.messaging.AndroidConfig;
 import com.google.firebase.messaging.AndroidNotification;
 import com.google.firebase.messaging.ApnsConfig;
@@ -2424,6 +2425,43 @@ public class FirebaseService {
         return inquiries;
     }
 
+    /** 어드민: 문의와 첨부 이미지, 답변 알림을 한 건 단위로 정리합니다. */
+    public Map<String, Object> deleteInquiryAsAdmin(String inquiryId) throws Exception {
+        if (inquiryId == null || inquiryId.isBlank()) {
+            throw new IllegalArgumentException("삭제할 문의 ID가 필요합니다.");
+        }
+
+        DocumentReference inquiryRef = db.collection("inquiries").document(inquiryId);
+        DocumentSnapshot inquiry = inquiryRef.get().get();
+        if (!inquiry.exists()) {
+            throw new NoSuchElementException("문의를 찾을 수 없습니다.");
+        }
+
+        String ownerUid = inquiry.getString("userId");
+        List<String> imageUrls = stringList(inquiry.get("imageUrls"));
+        if (!imageUrls.isEmpty() && (ownerUid == null || ownerUid.isBlank())) {
+            throw new IllegalStateException("첨부 이미지 소유자 정보를 확인할 수 없습니다.");
+        }
+        List<String> ownedImageUrls = imageUrls.stream()
+                        .filter(url -> reportImageStorage.isOwnedBy(ownerUid, url))
+                        .toList();
+        int deletedImages = ownedImageUrls.isEmpty()
+                ? 0
+                : reportImageStorage.deleteOwned(ownerUid, ownedImageUrls);
+
+        DocumentReference answerNotificationRef = db.collection("notifications")
+                .document("inquiry_answer_" + sanitizeForDocId(inquiryId));
+        WriteBatch cleanupBatch = db.batch();
+        cleanupBatch.delete(answerNotificationRef);
+        cleanupBatch.delete(inquiryRef);
+        cleanupBatch.commit().get();
+
+        return Map.of(
+                "success", true,
+                "id", inquiryId,
+                "deletedImages", deletedImages);
+    }
+
     /** 어드민 문의 답변 등록 및 사용자 알림 생성 */
     public Map<String, Object> answerInquiry(String inquiryId, String answer) throws Exception {
         if (inquiryId == null || inquiryId.isBlank()) {
@@ -2499,10 +2537,22 @@ public class FirebaseService {
     /** 최종 추천 개수 */
     private static final int MAX_PICKS = 4;
 
-    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 4곳 선정) */
-    private static final int CANDIDATE_POOL_SIZE = 20;
+   /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 4곳 선정) */
+   private static final int CANDIDATE_POOL_SIZE = 20;
 
     /**
+     * 추천 허용 기본 최대 반경 (미터).
+     * 로컬 도보/대중교통 이동 코스에 20km 이상 원거리 매장이 혼입되는 것을 방지한다.
+     */
+    public static final double MAX_RECOMMENDATION_RADIUS_METERS = 5000.0;
+
+    /**
+     * 추천 허용 확장 최대 반경 (미터).
+     * 기본 반경 내 매장이 부족할 때 허용하는 절대 상한 반경 (10km).
+     */
+    public static final double MAX_FALLBACK_RADIUS_METERS = 10000.0;
+
+   /**
      * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
      * Firestore 읽기 0 (cachedStores만 사용).
      *
@@ -2548,56 +2598,81 @@ public class FirebaseService {
         // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
         List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
 
-        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
-        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
-        List<Map<String, Object>> mainCandidates = nearestShuffled(
-                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed);
-        List<Map<String, Object>> altCandidates = nearestShuffled(
-                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1);
+       // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
+       // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
+       List<Map<String, Object>> mainCandidates = nearestShuffled(
+                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, MAX_RECOMMENDATION_RADIUS_METERS);
+       List<Map<String, Object>> altCandidates = nearestShuffled(
+                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, MAX_RECOMMENDATION_RADIUS_METERS);
 
-        // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
-        Set<String> seenNames = new HashSet<>();
-        List<Map<String, Object>> chosen = new ArrayList<>();
-        addUnique(chosen, mainCandidates, MAIN_PICKS, seenNames);
-        addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
-        if (chosen.size() < MAX_PICKS) {
-            addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+       // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
+       Set<String> seenNames = new HashSet<>();
+       List<Map<String, Object>> chosen = new ArrayList<>();
+       addUnique(chosen, mainCandidates, MAIN_PICKS, seenNames);
+       addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
+       if (chosen.size() < MAX_PICKS) {
+           addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
+       }
+        if (chosen.size() < MAX_PICKS && locationAvailable) {
+            List<Map<String, Object>> nearbyFood = nearestShuffled(
+                    foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed + 2, MAX_RECOMMENDATION_RADIUS_METERS);
+            addUnique(chosen, nearbyFood, MAX_PICKS - chosen.size(), seenNames);
+        }
+        if (chosen.size() < MAX_PICKS && locationAvailable) {
+            List<Map<String, Object>> extendedFood = nearestShuffled(
+                    foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed + 3, MAX_FALLBACK_RADIUS_METERS);
+            addUnique(chosen, extendedFood, MAX_PICKS - chosen.size(), seenNames);
+        }
+        if (chosen.size() < MAX_PICKS && !locationAvailable) {
+            addUnique(chosen, foodStores, MAX_PICKS - chosen.size(), seenNames);
         }
 
-        if (locationAvailable) {
-            chosen.sort(java.util.Comparator.comparingDouble(
-                    store -> haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
-        }
+       if (locationAvailable) {
+           chosen.sort(java.util.Comparator.comparingDouble(
+                   store -> haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
+       }
 
-        List<Map<String, Object>> picks = new ArrayList<>();
-        for (Map<String, Object> store : chosen) {
-            String name = strOrNull(store.get("storeName"));
-            Map<String, Object> pick = new HashMap<>();
-            pick.put("storeName", name);
-            pick.put("industry", strOrNull(store.get("industry")));
-            pick.put("menu1", strOrNull(store.get("menu1")));
-            pick.put("price1", strOrNull(store.get("price1")));
-            for (int menuIndex = 2; menuIndex <= 4; menuIndex++) {
-                pick.put("menu" + menuIndex, strOrNull(store.get("menu" + menuIndex)));
-                pick.put("price" + menuIndex, strOrNull(store.get("price" + menuIndex)));
+       List<Map<String, Object>> picks = new ArrayList<>();
+       for (Map<String, Object> store : chosen) {
+           String name = strOrNull(store.get("storeName"));
+           Map<String, Object> pick = new HashMap<>();
+           pick.put("storeName", name);
+           pick.put("industry", strOrNull(store.get("industry")));
+           pick.put("menu1", strOrNull(store.get("menu1")));
+           pick.put("price1", strOrNull(store.get("price1")));
+           for (int menuIndex = 2; menuIndex <= 4; menuIndex++) {
+               pick.put("menu" + menuIndex, strOrNull(store.get("menu" + menuIndex)));
+               pick.put("price" + menuIndex, strOrNull(store.get("price" + menuIndex)));
+           }
+           pick.put("source", store.get("source"));
+           pick.put("storeId", store.get("storeId"));
+           pick.put("phoneNumber", store.get("phoneNumber"));
+           pick.put("address", strOrNull(store.get("address")));
+           pick.put("latitude", store.get("latitude"));
+           pick.put("longitude", store.get("longitude"));
+           if (locationAvailable) {
+               pick.put("distanceMeters", (int) Math.round(
+                       haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
+           }
+            // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장도 4번째 추천 이유가 누락되지 않도록 메인 테마로 보정)
+            String matchedMenu = matchedMenuByStore.get(name);
+            if (matchedMenu == null || matchedMenu.isBlank()) {
+                matchedMenu = strOrNull(store.get("menu1"));
             }
-            pick.put("source", store.get("source"));
-            pick.put("storeId", store.get("storeId"));
-            pick.put("phoneNumber", store.get("phoneNumber"));
-            pick.put("address", strOrNull(store.get("address")));
-            pick.put("latitude", store.get("latitude"));
-            pick.put("longitude", store.get("longitude"));
-            if (locationAvailable) {
-                pick.put("distanceMeters", (int) Math.round(
-                        haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
+            String theme = themeByStore.get(name);
+            if (theme == null || theme.isBlank()) {
+                theme = mainTheme.label();
             }
-            // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장은 null → 프론트 기본 멘트)
-            pick.put("matchedMenu", matchedMenuByStore.get(name));
-            pick.put("theme", themeByStore.get(name));
-            pick.put("reason", reasonByStore.get(name));
-            picks.add(pick);
-        }
-        return picks;
+            String reason = reasonByStore.get(name);
+            if (reason == null || reason.isBlank()) {
+                reason = mainTheme.reason();
+            }
+            pick.put("matchedMenu", matchedMenu);
+            pick.put("theme", theme);
+            pick.put("reason", reason);
+           picks.add(pick);
+       }
+       return picks;
     }
 
     /** 메인 테마 추천 개수 (나머지 1개는 대안 테마) */
@@ -2697,16 +2772,26 @@ public class FirebaseService {
         return matched;
     }
 
-    /** 가까운 순 상위 limit개를 반환한다. 위치가 없을 때만 날짜 시드로 섞는다. */
-    private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
-                                                      Double lat, Double lng, int limit, long seed) {
-        List<Map<String, Object>> scored = new ArrayList<>(pool);
-        if (lat != null && lng != null) {
-            scored.sort((a, b) -> Double.compare(
-                    haversine(lat, lng, parseLat(a), parseLng(a)),
-                    haversine(lat, lng, parseLat(b), parseLng(b))));
+    /** 가까운 순 상위 limit개를 반환한다. 위치가 있을 때는 maxRadiusMeters 이내 매장만 필터링한다. */
+   private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
+                                                      Double lat, Double lng, int limit, long seed,
+                                                      double maxRadiusMeters) {
+        List<Map<String, Object>> scored = new ArrayList<>();
+       if (lat != null && lng != null) {
+            for (Map<String, Object> store : pool) {
+                double distance = haversine(lat, lng, parseLat(store), parseLng(store));
+                if (Double.isFinite(distance) && distance <= maxRadiusMeters) {
+                    scored.add(store);
+                }
+            }
+           scored.sort((a, b) -> Double.compare(
+                   haversine(lat, lng, parseLat(a), parseLng(a)),
+                   haversine(lat, lng, parseLat(b), parseLng(b))));
+       }
+        else {
+            scored.addAll(pool);
         }
-        if (scored.size() > limit) {
+       if (scored.size() > limit) {
             scored = new ArrayList<>(scored.subList(0, limit));
         }
         if (lat == null || lng == null) {

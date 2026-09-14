@@ -30,6 +30,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   ];
 
   final _scrollController = ScrollController();
+  final List<GlobalKey> _chapterKeys = List.generate(7, (_) => GlobalKey());
 
   @override
   void dispose() {
@@ -42,7 +43,6 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final contentHeight = 1236 + topOffset + bottomOffset;
 
     return FigmaMobileCanvas(
       backgroundColor: surface,
@@ -51,131 +51,131 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _scrollController,
+              padding: EdgeInsets.fromLTRB(
+                20,
+                48.877838134765625 + topOffset + 16,
+                20,
+                24 + bottomOffset,
+              ),
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: contentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 64.8720703125 + topOffset,
-                      height: 73.80681610107422,
-                      child: const _PrivacyIntroCard(),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 150.66748046875 + topOffset,
-                      height: 253.0113525390625,
-                      child: _TableOfContents(
-                        onItemTap: _scrollToPolicyChapter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _PrivacyIntroCard(),
+                  const SizedBox(height: 12),
+                  _TableOfContents(onItemTap: _scrollToPolicyChapter),
+                  const SizedBox(height: 12),
+                  _PolicyChapter(
+                    key: _chapterKeys[0],
+                    number: '1',
+                    title: '수집하는 개인정보 항목',
+                    lines: const [
+                      _PolicyLine(strong: '필수', body: ' · 카카오 로그인 식별자, 이메일'),
+                      _PolicyLine(strong: '선택', body: ' · 위치 정보'),
+                      _PolicyLine(strong: '자동 수집', body: ' · 제보·리뷰·방문·찜·문의 기록'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[1],
+                    number: '2',
+                    title: '개인정보 이용 목적',
+                    body:
+                        '· 회원 식별 및 서비스 제공\n'
+                        '· 주변 매장 추천 및 절약 리포트 산출\n'
+                        '· 제보·리뷰 게시 및 사용자 간 상호작용\n'
+                        '· 부정 이용 방지 및 보안',
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[2],
+                    number: '3',
+                    title: '보유 및 이용 기간',
+                    lines: const [
+                      _PolicyLine(body: '회원 탈퇴 시 즉시 파기를 원칙으로 하나,'),
+                      _PolicyLine(strong: '관계 법령', body: '에 따라 일부 정보는 보관됩니다.'),
+                      _PolicyLine(body: '· 회원 탈퇴 시 회원 정보와 이용 기록 삭제'),
+                      _PolicyLine(body: '· 법령상 보존 의무가 발생하는 정보는 해당 기간 동안 보관'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[3],
+                    number: '4',
+                    title: '제 3자 제공 안내',
+                    lines: const [
+                      _PolicyLine(
+                        body: '운영자는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다.',
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 415.66748046875 + topOffset,
-                      height: 709,
-                      child: const Column(
-                        children: [
-                          _PolicyChapter(
-                            number: '1',
-                            title: '수집하는 개인정보 항목',
-                            lines: [
-                              _PolicyLine(
-                                strong: '필수',
-                                body: ' · 카카오 로그인 식별자, 이메일',
-                              ),
-                              _PolicyLine(strong: '선택', body: ' · 위치 정보'),
-                              _PolicyLine(
-                                strong: '자동 수집',
-                                body: ' · 제보·리뷰·방문·찜·문의 기록',
-                              ),
-                            ],
-                            height: 139,
-                          ),
-                          SizedBox(height: 10),
-                          _PolicyChapter(
-                            number: '2',
-                            title: '개인정보 이용 목적',
-                            body:
-                                '· 회원 식별 및 서비스 제공\n'
-                                '· 주변 매장 추천 및 절약 리포트 산출\n'
-                                '· 제보·리뷰 게시 및 사용자 간 상호작용\n'
-                                '· 부정 이용 방지 및 보안',
-                            height: 145,
-                          ),
-                          SizedBox(height: 10),
-                          _PolicyChapter(
-                            number: '3',
-                            title: '보유 및 이용 기간',
-                            lines: [
-                              _PolicyLine(body: '회원 탈퇴 시 즉시 파기를 원칙으로 하나,'),
-                              _PolicyLine(
-                                strong: '관계 법령',
-                                body: '에 따라 일부 정보는 보관됩니다.',
-                              ),
-                              _PolicyLine(body: '· 회원 탈퇴 시 회원 정보와 이용 기록 삭제'),
-                              _PolicyLine(
-                                body: '· 법령상 보존 의무가 발생하는 정보는 해당 기간 동안 보관',
-                              ),
-                            ],
-                            height: 145,
-                          ),
-                          SizedBox(height: 10),
-                          _PolicyChapter(
-                            number: '5',
-                            title: '위치 정보 처리',
-                            lines: [
-                              _PolicyLine(
-                                body: '위치 정보는 ',
-                                strong: '매장 검색·추천 목적',
-                                tail:
-                                    '으로만 사용되며 별도로 저장하지 않습니다. 위치 권한은 마이페이지에서 언제든 해제할 수 있습니다.',
-                              ),
-                            ],
-                            height: 128,
-                          ),
-                          SizedBox(height: 10),
-                          _PolicyChapter(
-                            number: '7',
-                            title: '회원 탈퇴 시 데이터 처리',
-                            lines: [
-                              _PolicyLine(
-                                body: '개인 식별 정보는 즉시 삭제되며, ',
-                                strong: '승인된 제보 데이터는 익명화',
-                                tail: '되어 공익 목적으로 계속 활용됩니다.',
-                              ),
-                            ],
-                            height: 112,
-                          ),
-                        ],
+                      _PolicyLine(
+                        strong: '예외',
+                        body: ' · 이용자가 요청한 소셜 로그인 인증 시 카카오 계정 직접 연동',
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 1140.66748046875 + topOffset,
-                      height: 93.26704406738281,
-                      child: _PrivacyManagerCard(
-                        onInquiry: () => context.go(AppRoutes.inquiry),
+                      _PolicyLine(
+                        strong: '제공받는 자',
+                        body: ' · (주)카카오 (카카오 로그인 인증 목적 / 카카오 방침 준용)',
                       ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 1249.9287109375 + topOffset,
-                      height: 16.789772033691406,
-                      child: const Center(
-                        child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[4],
+                    number: '5',
+                    title: '위치 정보 처리',
+                    lines: const [
+                      _PolicyLine(
+                        body: '위치 정보는 ',
+                        strong: '매장 검색·추천 목적',
+                        tail:
+                            '으로만 사용되며 별도로 저장하지 않습니다. 위치 권한은 마이페이지에서 언제든 해제할 수 있습니다.',
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[5],
+                    number: '6',
+                    title: '이용자의 권리',
+                    lines: const [
+                      _PolicyLine(
+                        strong: '열람·정정',
+                        body: ' · 마이페이지 프로필 수정에서 닉네임·동네 등 정정',
+                      ),
+                      _PolicyLine(
+                        strong: '삭제·탈퇴',
+                        body: ' · 회원 탈퇴 시 계정 및 연관 데이터 즉시 삭제',
+                      ),
+                      _PolicyLine(
+                        strong: '권한 철회',
+                        body: ' · 단말기 OS 설정에서 위치·알림·사진 권한 해제',
+                      ),
+                      _PolicyLine(body: '기타 권리 행사는 앱 내 1:1 문의를 통해 접수할 수 있습니다.'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[6],
+                    number: '7',
+                    title: '회원 탈퇴 시 데이터 처리',
+                    lines: const [
+                      _PolicyLine(
+                        body: '개인 식별 정보는 즉시 삭제되며, ',
+                        strong: '승인된 제보 데이터는 익명화',
+                        tail: '되어 공익 목적으로 계속 활용됩니다.',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _PrivacyManagerCard(
+                    onInquiry: () => context.go(AppRoutes.inquiry),
+                  ),
+                  const SizedBox(height: 16),
+                  const Center(
+                    child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
+                  ),
+                ],
               ),
             ),
           ),
@@ -200,37 +200,43 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
 
   void _copyDocumentLink() {
     Clipboard.setData(
-      const ClipboardData(text: '얼마에요 개인정보 처리방침 — 앱 내 마이페이지에서 확인'),
+      const ClipboardData(text: '얼마고? 개인정보 처리방침 — 앱 내 마이페이지에서 확인'),
     );
     _showSnackBar('개인정보 처리방침 안내를 복사했어요.');
   }
 
   void _scrollToPolicyChapter(int index) {
-    const chapterTops = [
-      415.66748046875,
-      564.66748046875,
-      719.66748046875,
-      874.66748046875,
-      874.66748046875,
-      1012.66748046875,
-      1012.66748046875,
-    ];
-
-    if (!_scrollController.hasClients) {
+    if (index < 0 || index >= _chapterKeys.length) {
+      return;
+    }
+    final targetContext = _chapterKeys[index].currentContext;
+    if (targetContext == null ||
+        !_scrollController.hasClients ||
+        !_scrollController.position.hasContentDimensions) {
       return;
     }
 
-    final rawTarget =
-        chapterTops[index] +
-        FigmaMobileCanvas.designSafePaddingOf(context).top -
-        60;
-    final target = rawTarget.clamp(
-      0.0,
-      _scrollController.position.maxScrollExtent,
-    );
+    final renderBox = targetContext.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final scrollable = Scrollable.of(targetContext);
+    final scrollBox = scrollable.context.findRenderObject() as RenderBox?;
+    if (scrollBox == null) return;
 
+    final offsetInScrollable = renderBox.localToGlobal(
+      Offset.zero,
+      ancestor: scrollBox,
+    );
+    final headerHeight =
+        48.877838134765625 +
+        FigmaMobileCanvas.designSafePaddingOf(context).top +
+        12.0;
+    final targetOffset =
+        (_scrollController.offset + offsetInScrollable.dy - headerHeight).clamp(
+          0.0,
+          _scrollController.position.maxScrollExtent,
+        );
     _scrollController.animateTo(
-      target,
+      targetOffset,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
@@ -455,62 +461,58 @@ class _TocRow extends StatelessWidget {
 
 class _PolicyChapter extends StatelessWidget {
   const _PolicyChapter({
+    super.key,
     required this.number,
     required this.title,
-    required this.height,
     this.body,
     this.lines,
   });
 
   final String number;
   final String title;
-  final double height;
   final String? body;
   final List<_PolicyLine>? lines;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: height,
-      child: _RoundedPanel(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.903, 0.909),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 21.988,
-                    height: 21.988,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(number, style: _numberText),
+    return _RoundedPanel(
+      child: Padding(
+        padding: const EdgeInsets.all(16.903),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 21.988,
+                  height: 21.988,
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 7.997),
-                  Text(title, style: _chapterTitleText),
-                ],
-              ),
-              const SizedBox(height: 7.997),
-              if (lines != null)
-                RichText(
-                  text: TextSpan(
-                    style: _policyBodyText,
-                    children: [
-                      for (final line in lines!) ...[
-                        line.toSpan(),
-                        if (line != lines!.last) const TextSpan(text: '\n'),
-                      ],
+                  alignment: Alignment.center,
+                  child: Text(number, style: _numberText),
+                ),
+                const SizedBox(width: 7.997),
+                Text(title, style: _chapterTitleText),
+              ],
+            ),
+            const SizedBox(height: 7.997),
+            if (lines != null)
+              RichText(
+                text: TextSpan(
+                  style: _policyBodyText,
+                  children: [
+                    for (final line in lines!) ...[
+                      line.toSpan(),
+                      if (line != lines!.last) const TextSpan(text: '\n'),
                     ],
-                  ),
-                )
-              else
-                Text(body ?? '', style: _policyBodyText),
-            ],
-          ),
+                  ],
+                ),
+              )
+            else
+              Text(body ?? '', style: _policyBodyText),
+          ],
         ),
       ),
     );
@@ -525,30 +527,40 @@ class _PolicyLine {
   final String tail;
 
   TextSpan toSpan() {
-    final strongFirst =
-        strong != null && (body.isEmpty || body.startsWith(' ·'));
-    return TextSpan(
-      children: [
-        if (strongFirst)
-          TextSpan(
-            text: strong,
-            style: _policyBodyText.copyWith(
-              color: _PrivacyPolicyScreenState.ink,
-              fontWeight: FontWeight.w700,
-            ),
+    final spans = <TextSpan>[];
+
+    final leading = tail.isNotEmpty ? body : '';
+    if (leading.isNotEmpty) {
+      spans.add(TextSpan(text: leading));
+    }
+
+    if (strong != null && strong!.isNotEmpty) {
+      spans.add(
+        TextSpan(
+          text: strong,
+          style: _policyBodyText.copyWith(
+            color: _PrivacyPolicyScreenState.ink,
+            fontWeight: FontWeight.w700,
           ),
-        if (body.isNotEmpty) TextSpan(text: body),
-        if (strong != null && !strongFirst)
-          TextSpan(
-            text: strong,
-            style: _policyBodyText.copyWith(
-              color: _PrivacyPolicyScreenState.ink,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        if (tail.isNotEmpty) TextSpan(text: tail),
-      ],
-    );
+        ),
+      );
+    }
+
+    final trailing = tail.isNotEmpty
+        ? tail
+        : (leading.isEmpty && strong != null ? body : '');
+    if (trailing.isNotEmpty) {
+      spans.add(TextSpan(text: trailing));
+    }
+
+    if (leading.isEmpty &&
+        trailing.isEmpty &&
+        (strong == null || strong!.isEmpty) &&
+        body.isNotEmpty) {
+      spans.add(TextSpan(text: body));
+    }
+
+    return TextSpan(children: spans);
   }
 }
 

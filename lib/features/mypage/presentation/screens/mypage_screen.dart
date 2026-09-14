@@ -22,7 +22,9 @@ bool shouldRefreshMypageOnRouteChange(String? previousPath, String? nextPath) {
 }
 
 class MypageScreen extends ConsumerStatefulWidget {
-  const MypageScreen({super.key});
+  const MypageScreen({super.key, this.profileSummaryLoader});
+
+  final Future<void> Function(WidgetRef ref)? profileSummaryLoader;
 
   static const blue = AppColors.primary;
   static const orange = AppColors.warning;
@@ -53,6 +55,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   RouteObserver<PageRoute<dynamic>>? _routeObserver;
   GoRouter? _router;
   String? _lastRoutePath;
+  bool _hasLoadedSummary = false;
+  String? _loadedSessionToken;
 
   @override
   void initState() {
@@ -133,8 +137,30 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   /// 제보 수(/api/report/my) + 찜 수(/api/favorites)를 채웁니다.
   Future<void> _loadProfileSummary() async {
     final auth = ref.read(authStateProvider);
-    if (!auth.isLoggedIn) return;
+    if (!auth.isLoggedIn) {
+      if (mounted && _hasLoadedSummary) {
+        setState(() {
+          _hasLoadedSummary = false;
+          _loadedSessionToken = null;
+        });
+      }
+      return;
+    }
     final sessionToken = ApiClient.sessionToken;
+
+    if (widget.profileSummaryLoader != null) {
+      try {
+        await widget.profileSummaryLoader!(ref);
+      } finally {
+        if (mounted && sessionToken == ApiClient.sessionToken) {
+          setState(() {
+            _hasLoadedSummary = true;
+            _loadedSessionToken = sessionToken;
+          });
+        }
+      }
+      return;
+    }
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
     final profileFuture = UserProfileApiService().fetchProfile().catchError((
@@ -198,72 +224,82 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
               return null;
             });
 
-    final results = await Future.wait([
-      profileFuture,
-      savingsFuture,
-      favoritesFuture,
-      reportsFuture,
-    ]);
+    try {
+      final results = await Future.wait([
+        profileFuture,
+        savingsFuture,
+        favoritesFuture,
+        reportsFuture,
+      ]);
 
-    if (!mounted || sessionToken != ApiClient.sessionToken) return;
+      if (!mounted || sessionToken != ApiClient.sessionToken) return;
 
-    final profile = results[0] as Map<String, dynamic>?;
-    final savingsData = results[1] as Map<String, dynamic>?;
-    final favoriteCount = results[2] as int?;
-    final reportCount = results[3] as int?;
+      final profile = results[0] as Map<String, dynamic>?;
+      final savingsData = results[1] as Map<String, dynamic>?;
+      final favoriteCount = results[2] as int?;
+      final reportCount = results[3] as int?;
 
-    ref.read(userProfileProvider.notifier).update((state) {
-      var next = state;
-      if (profile != null) {
-        final rawCategories = profile['favoriteCategories'];
-        final categories = rawCategories is List
-            ? rawCategories.map((e) => e.toString()).toList()
-            : null;
-        next = next.copyWith(
-          nickname: profile['nickname']?.toString(),
-          email:
-              usableAccountEmail(profile['email']) ??
-              usableAccountEmail(auth.email) ??
-              state.email,
-          region: profile['region']?.toString(),
-          favoriteCategories: categories,
-          nicknamePublic: profile['nicknamePublic'] is bool
-              ? profile['nicknamePublic'] as bool
-              : null,
-          activityPublic: profile['activityPublic'] is bool
-              ? profile['activityPublic'] as bool
-              : null,
+      ref.read(userProfileProvider.notifier).update((state) {
+        var next = state;
+        if (profile != null) {
+          final rawCategories = profile['favoriteCategories'];
+          final categories = rawCategories is List
+              ? rawCategories.map((e) => e.toString()).toList()
+              : null;
+          next = next.copyWith(
+            nickname: profile['nickname']?.toString(),
+            email:
+                usableAccountEmail(profile['email']) ??
+                usableAccountEmail(auth.email) ??
+                state.email,
+            region: profile['region']?.toString(),
+            favoriteCategories: categories,
+            nicknamePublic: profile['nicknamePublic'] is bool
+                ? profile['nicknamePublic'] as bool
+                : null,
+            activityPublic: profile['activityPublic'] is bool
+                ? profile['activityPublic'] as bool
+                : null,
+          );
+        } else {
+          // 프로필 미등록 사용자라도 로그인 이메일은 표시
+          next = next.copyWith(email: auth.email);
+        }
+
+        if (savingsData != null) {
+          final saved = (savingsData['totalSavedAmount'] as num?)?.toInt() ?? 0;
+          final visits = (savingsData['totalVisits'] as num?)?.toInt() ?? 0;
+          next = next.copyWith(savedAmount: saved, visitCount: visits);
+        }
+
+        if (favoriteCount != null) {
+          next = next.copyWith(favoriteStoreCount: favoriteCount);
+        }
+
+        if (reportCount != null) {
+          next = next.copyWith(reportCount: reportCount);
+        }
+
+        return next;
+      });
+
+      final currentEmail =
+          usableAccountEmail(profile?['email']) ??
+          usableAccountEmail(auth.email);
+      if (currentEmail == null && auth.isLoggedIn) {
+        unawaited(
+          ref
+              .read(kakaoLoginServiceProvider)
+              .refreshKakaoIdentity(requestConsent: false),
         );
-      } else {
-        // 프로필 미등록 사용자라도 로그인 이메일은 표시
-        next = next.copyWith(email: auth.email);
       }
-
-      if (savingsData != null) {
-        final saved = (savingsData['totalSavedAmount'] as num?)?.toInt() ?? 0;
-        final visits = (savingsData['totalVisits'] as num?)?.toInt() ?? 0;
-        next = next.copyWith(savedAmount: saved, visitCount: visits);
+    } finally {
+      if (mounted && sessionToken == ApiClient.sessionToken) {
+        setState(() {
+          _hasLoadedSummary = true;
+          _loadedSessionToken = sessionToken;
+        });
       }
-
-      if (favoriteCount != null) {
-        next = next.copyWith(favoriteStoreCount: favoriteCount);
-      }
-
-      if (reportCount != null) {
-        next = next.copyWith(reportCount: reportCount);
-      }
-
-      return next;
-    });
-
-    final currentEmail =
-        usableAccountEmail(profile?['email']) ?? usableAccountEmail(auth.email);
-    if (currentEmail == null && auth.isLoggedIn) {
-      unawaited(
-        ref
-            .read(kakaoLoginServiceProvider)
-            .refreshKakaoIdentity(requestConsent: false),
-      );
     }
   }
 
@@ -314,6 +350,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                         profile: profile,
                         email: displayEmail,
                         onEdit: () => context.go(AppRoutes.profileEdit),
+                        isLoadingMetrics:
+                            auth.isLoggedIn &&
+                            (!_hasLoadedSummary ||
+                                _loadedSessionToken != ApiClient.sessionToken),
                       ),
                     ),
                     // QuickMenu row 1
@@ -536,11 +576,13 @@ class _ProfileCard extends StatelessWidget {
     required this.profile,
     required this.email,
     required this.onEdit,
+    this.isLoadingMetrics = false,
   });
 
   final UserProfile profile;
   final String email;
   final VoidCallback onEdit;
+  final bool isLoadingMetrics;
 
   @override
   Widget build(BuildContext context) {
@@ -655,22 +697,28 @@ class _ProfileCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: _ProfileMetric(
+                      key: const ValueKey('mypage-metric-saved-amount'),
                       value: '${profile.savedAmountText}원',
                       label: '이번 달 절약',
+                      isLoading: isLoadingMetrics,
                     ),
                   ),
                   Expanded(
                     child: _ProfileMetric(
+                      key: const ValueKey('mypage-metric-report-count'),
                       value: '${profile.reportCount}곳',
                       label: '제보 매장',
                       bordered: true,
+                      isLoading: isLoadingMetrics,
                     ),
                   ),
                   Expanded(
                     child: _ProfileMetric(
+                      key: const ValueKey('mypage-metric-favorite-count'),
                       value: '${profile.favoriteStoreCount}곳',
                       label: '찜한 매장',
                       bordered: true,
+                      isLoading: isLoadingMetrics,
                     ),
                   ),
                 ],
@@ -708,14 +756,17 @@ class _ProfileAvatarImage extends StatelessWidget {
 
 class _ProfileMetric extends StatelessWidget {
   const _ProfileMetric({
+    super.key,
     required this.value,
     required this.label,
     this.bordered = false,
+    this.isLoading = false,
   });
 
   final String value;
   final String label;
   final bool bordered;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -735,14 +786,25 @@ class _ProfileMetric extends StatelessWidget {
         children: [
           SizedBox(
             height: 20,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                value,
-                maxLines: 1,
-                textAlign: TextAlign.center,
-                style: _white14Bold,
-              ),
+            child: Center(
+              child: isLoading
+                  ? Container(
+                      width: 36,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: AppColors.white.withValues(alpha: .28),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    )
+                  : FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        textAlign: TextAlign.center,
+                        style: _white14Bold,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(height: 1),

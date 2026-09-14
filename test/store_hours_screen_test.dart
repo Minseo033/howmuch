@@ -56,7 +56,8 @@ void main() {
       final image = tester.widget<Image>(imageFinder);
       final provider = image.image as NetworkImage;
       expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
-      expect(image.width, closeTo(335.4545, 0.01));
+      final expectedImageWidth = width.clamp(0, 430).toDouble() - 40;
+      expect(image.width, closeTo(expectedImageWidth, 0.01));
       expect(image.height, 210);
       await tester.ensureVisible(find.textContaining('월~금 17:00'));
       expect(find.textContaining('2026.09.12 자료 조회'), findsOneWidget);

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -109,16 +110,46 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
           latitude: position?.latitude,
           longitude: position?.longitude,
         );
+    List<Store> recommendedStores = const [];
     if (isAiUnavailableResponse(botResponse)) {
       final position = HomeMapScreen.globalUserPosition;
-      botResponse =
-          buildLocalAiFallback(
-            stores: HomeMapScreen.globalAllStores,
-            lat: position?.latitude,
-            lng: position?.longitude,
-          ) ??
-          botResponse;
+      final fallbackResult = buildLocalAiFallbackResult(
+        stores: HomeMapScreen.globalAllStores,
+        query: messageText,
+        lat: position?.latitude,
+        lng: position?.longitude,
+      );
+      if (fallbackResult != null) {
+        botResponse = fallbackResult.text;
+        recommendedStores = fallbackResult.stores;
+      }
+    } else {
+      final extractedStores = extractRecommendedStoresFromText(
+        text: botResponse,
+        candidateStores: HomeMapScreen.globalAllStores,
+      );
+      final requestedCount = parseRequestedRecommendationCount(messageText);
+      final budgetWon = parseRequestedBudgetWon(messageText);
+      recommendedStores = extractedStores
+          .where((store) => storeMatchesRequestedBudget(store, budgetWon))
+          .take(requestedCount)
+          .toList(growable: false);
+      if (recommendedStores.length != extractedStores.length) {
+        botResponse = buildStructuredAiRecommendationText(
+          stores: recommendedStores,
+          intro: recommendedStores.isEmpty
+              ? '요청한 예산에 맞는 확인된 매장을 찾지 못했어요. 예산이나 지역을 조금 넓혀 다시 알려주세요.'
+              : '요청하신 조건에 맞는 확인된 매장 ${recommendedStores.length}곳이에요.',
+          budgetWon: budgetWon,
+          lat: position?.latitude,
+          lng: position?.longitude,
+        );
+      }
     }
+    final recommendedStoreIds = recommendedStores
+        .map((s) => s.id)
+        .where((id) => id.isNotEmpty)
+        .toList();
 
     if (mounted && generation == _chatGeneration) {
       if (identical(
@@ -126,7 +157,15 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         ref.read(aiChatHistoryProvider.notifier),
       )) {
         historyNotifier.update(
-          (list) => [...list, _ChatMessage(text: botResponse, isBot: true)],
+          (list) => [
+            ...list,
+            _ChatMessage(
+              text: botResponse,
+              isBot: true,
+              recommendedStores: recommendedStores,
+              recommendedStoreIds: recommendedStoreIds,
+            ),
+          ],
         );
       }
       setState(() {
@@ -780,10 +819,33 @@ class _BotMessageBubble extends StatelessWidget {
               icon: Icons.map_outlined,
               label: '지도에서 찾기',
               onTap: () {
-                if (context.canPop()) {
-                  context.pop();
+                List<String> storeIds = message.recommendedStoreIds;
+                List<Store> stores = message.recommendedStores;
+
+                if (storeIds.isEmpty && stores.isEmpty) {
+                  final extracted = extractRecommendedStoresFromText(
+                    text: message.text,
+                    candidateStores: HomeMapScreen.globalAllStores,
+                  );
+                  if (extracted.isNotEmpty) {
+                    stores = extracted;
+                    storeIds = extracted
+                        .map((s) => s.id)
+                        .where((id) => id.isNotEmpty)
+                        .toList();
+                  }
+                }
+
+                final result = AiMapRecommendationResult(
+                  storeIds: storeIds,
+                  stores: stores,
+                  queryText: message.text,
+                );
+
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop(result);
                 } else {
-                  context.go(AppRoutes.home);
+                  context.go(AppRoutes.home, extra: result);
                 }
               },
             ),
@@ -896,12 +958,7 @@ class _TypingIndicator extends StatelessWidget {
   }
 }
 
-class _ChatMessage {
-  const _ChatMessage({required this.text, required this.isBot});
-
-  final String text;
-  final bool isBot;
-}
+typedef _ChatMessage = AiChatMessage;
 
 class _QuickPrompt {
   const _QuickPrompt({required this.icon, required this.label});

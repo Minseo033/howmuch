@@ -86,8 +86,12 @@ class _PriceAlertSubscriptionScreenState
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight = 592 + topOffset + footerHeight + 24;
+    final isCompactScreen = MediaQuery.sizeOf(context).height < 400;
+    final footerHeight = _StickyButton.heightFor(
+      bottomOffset,
+      compact: isCompactScreen,
+    );
+    final headerHeight = _Header.heightFor(topOffset);
 
     void update(PriceAlertSettings value) {
       if (_isSaving) return;
@@ -126,97 +130,72 @@ class _PriceAlertSubscriptionScreenState
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: scrollContentHeight,
-                  child: Stack(
-                    children: [
-                      Positioned(
-                        left: 20,
-                        top: 64.8720703125 + topOffset,
-                        right: 20,
-                        height: 20.142044067382812,
-                        child: const Text(
-                          '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
-                          style: _descriptionText,
-                        ),
-                      ),
-                      Positioned(
-                        left: 20,
-                        top: 99.00537109375 + topOffset,
-                        right: 20,
-                        height: 69.2897720336914,
-                        child: _AllAlertCard(
-                          value: settings.all,
-                          onTap: () {
-                            if (settings.stores.isEmpty) return;
-                            final next = !settings.all;
-                            update(
-                              settings.copyWith(
-                                all: next,
-                                stores: [
-                                  for (final store in settings.stores)
-                                    store.copyWith(enabled: next),
-                                ],
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  headerHeight + 16,
+                  20,
+                  footerHeight + 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '찜한 매장의 가격 변동 제보를 받아볼 수 있어요',
+                      style: _descriptionText,
+                    ),
+                    const SizedBox(height: 14),
+                    _AllAlertCard(
+                      value: settings.all,
+                      onTap: () {
+                        if (settings.stores.isEmpty) return;
+                        final next = !settings.all;
+                        update(
+                          settings.copyWith(
+                            all: next,
+                            stores: [
+                              for (final store in settings.stores)
+                                store.copyWith(enabled: next),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const _SectionLabel('매장별 알림'),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 223.86363220214844,
+                      child: settings.stores.isEmpty
+                          ? const _EmptyStoreAlert()
+                          : ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: settings.stores.length,
+                              itemBuilder: (_, index) => _StoreAlertCard(
+                                store: settings.stores[index],
+                                onTap: () => updateStore(index),
                               ),
-                            );
-                          },
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 7.997),
+                            ),
+                    ),
+                    const SizedBox(height: 16),
+                    const _SectionLabel('알림 조건'),
+                    const SizedBox(height: 8),
+                    _ConditionCard(
+                      settings: settings,
+                      onRiseTap: () => update(
+                        settings.copyWith(notifyOnRise: !settings.notifyOnRise),
+                      ),
+                      onDropTap: () => update(
+                        settings.copyWith(notifyOnDrop: !settings.notifyOnDrop),
+                      ),
+                      onNewMenuTap: () => update(
+                        settings.copyWith(
+                          notifyOnNewMenu: !settings.notifyOnNewMenu,
                         ),
                       ),
-                      Positioned(
-                        left: 20,
-                        top: 184.28955078125 + topOffset,
-                        child: const _SectionLabel('매장별 알림'),
-                      ),
-                      Positioned(
-                        left: 20,
-                        top: 208.7783203125 + topOffset,
-                        right: 20,
-                        height: 223.86363220214844,
-                        child: settings.stores.isEmpty
-                            ? const _EmptyStoreAlert()
-                            : ListView.separated(
-                                padding: EdgeInsets.zero,
-                                itemCount: settings.stores.length,
-                                itemBuilder: (_, index) => _StoreAlertCard(
-                                  store: settings.stores[index],
-                                  onTap: () => updateStore(index),
-                                ),
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 7.997),
-                              ),
-                      ),
-                      Positioned(
-                        left: 20,
-                        top: 452.64208984375 + topOffset,
-                        child: const _SectionLabel('알림 조건'),
-                      ),
-                      Positioned(
-                        left: 20,
-                        top: 477.13037109375 + topOffset,
-                        right: 20,
-                        height: 163.59375,
-                        child: _ConditionCard(
-                          settings: settings,
-                          onRiseTap: () => update(
-                            settings.copyWith(
-                              notifyOnRise: !settings.notifyOnRise,
-                            ),
-                          ),
-                          onDropTap: () => update(
-                            settings.copyWith(
-                              notifyOnDrop: !settings.notifyOnDrop,
-                            ),
-                          ),
-                          onNewMenuTap: () => update(
-                            settings.copyWith(
-                              notifyOnNewMenu: !settings.notifyOnNewMenu,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -232,6 +211,7 @@ class _PriceAlertSubscriptionScreenState
               height: footerHeight,
               child: _StickyButton(
                 safeBottom: bottomOffset,
+                compact: isCompactScreen,
                 label: _isSaving ? '저장 중...' : '설정 저장',
                 onPressed: () async {
                   if (_isSaving) return;
@@ -342,6 +322,8 @@ class _Header extends StatelessWidget {
   final String title;
   final VoidCallback onBack;
 
+  static double heightFor(double topOffset) => 48.877838134765625 + topOffset;
+
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -420,26 +402,24 @@ class _AllAlertCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _RoundedCard(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Stack(
-          children: [
-            const Positioned(
-              left: 14.90057373046875,
-              top: 14.90087890625,
-              child: _TitleSubtitle(
-                title: '전체 알림',
-                subtitle: '모든 매장의 변동 알림을 받습니다',
-                titleWeight: FontWeight.w800,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          child: Row(
+            children: [
+              const Expanded(
+                child: _TitleSubtitle(
+                  title: '전체 알림',
+                  subtitle: '모든 매장의 변동 알림을 받습니다',
+                  titleWeight: FontWeight.w800,
+                ),
               ),
-            ),
-            Positioned(
-              right: 14.90057373046875,
-              top: 16.8896484375,
-              child: _ToggleSm(value: value, onTap: onTap),
-            ),
-          ],
+              const SizedBox(width: 8),
+              _ToggleSm(value: value, onTap: onTap),
+            ],
+          ),
         ),
       ),
     );
@@ -454,37 +434,28 @@ class _StoreAlertCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 69.2897720336914,
-      child: _RoundedCard(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: Stack(
+    return _RoundedCard(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          child: Row(
             children: [
-              const Positioned(
-                left: 14.90057373046875,
-                top: 25.63916015625,
-                child: Icon(
-                  Icons.favorite_rounded,
-                  size: 18,
-                  color: PriceAlertSubscriptionScreen.orange,
-                ),
+              const Icon(
+                Icons.favorite_rounded,
+                size: 18,
+                color: PriceAlertSubscriptionScreen.orange,
               ),
-              Positioned(
-                left: 44.88641357421875,
-                top: 14.900390625,
+              const SizedBox(width: 12),
+              Expanded(
                 child: _TitleSubtitle(
                   title: store.storeName,
                   subtitle: store.menuName,
                 ),
               ),
-              Positioned(
-                right: 14.90057373046875,
-                top: 16.8896484375,
-                child: _ToggleSm(value: store.enabled, onTap: onTap),
-              ),
+              const SizedBox(width: 8),
+              _ToggleSm(value: store.enabled, onTap: onTap),
             ],
           ),
         ),
@@ -555,35 +526,24 @@ class _ConditionRow extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: SizedBox(
-        height: 53.925,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 14.90057373046875,
-              top: 23,
-              child: DecoratedBox(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
+          child: Row(
+            children: [
+              DecoratedBox(
                 decoration: BoxDecoration(
                   color: dotColor,
                   shape: BoxShape.circle,
                 ),
-                child: const SizedBox(
-                  width: 7.997159004211426,
-                  height: 7.997159004211426,
-                ),
+                child: const SizedBox(width: 8, height: 8),
               ),
-            ),
-            Positioned(
-              left: 30.8948974609375,
-              top: 17.2,
-              child: Text(label, style: _conditionText),
-            ),
-            Positioned(
-              right: 14.90057373046875,
-              top: 15.1,
-              child: _ToggleSm(value: value, onTap: onTap),
-            ),
-          ],
+              const SizedBox(width: 8),
+              Expanded(child: Text(label, style: _conditionText)),
+              _ToggleSm(value: value, onTap: onTap),
+            ],
+          ),
         ),
       ),
     );
@@ -598,48 +558,51 @@ class _ToggleSm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onTap: onTap,
-      child: SizedBox(
-        width: 52,
-        height: 36,
-        child: Align(
-          alignment: Alignment.topRight,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            width: 40,
-            height: 23.99147605895996,
-            decoration: BoxDecoration(
-              color: value
-                  ? PriceAlertSubscriptionScreen.blue
-                  : PriceAlertSubscriptionScreen.disabled,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  left: value ? 17.9970703125 : 1.9886474609375,
-                  top: 1.98876953125,
-                  child: Container(
-                    width: 20,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.black.withValues(alpha: 0.2),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+    return Semantics(
+      toggled: value,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 40,
+              height: 24,
+              decoration: BoxDecoration(
+                color: value
+                    ? PriceAlertSubscriptionScreen.blue
+                    : PriceAlertSubscriptionScreen.disabled,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    left: value ? 18.0 : 2.0,
+                    top: 2.0,
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.black.withValues(alpha: 0.2),
+                            blurRadius: 3,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -653,12 +616,14 @@ class _StickyButton extends StatelessWidget {
     required this.safeBottom,
     required this.label,
     required this.onPressed,
+    this.compact = false,
   });
 
   static const buttonHeight = 50.48295211791992;
   static const topGap = 12.8974609375;
   static const bottomGap = 26.0;
   static const minimumSafeBottom = 34.0;
+  final bool compact;
 
   final double safeBottom;
   final String label;
@@ -668,13 +633,20 @@ class _StickyButton extends StatelessWidget {
     return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
   }
 
-  static double heightFor(double safeBottom) {
+  static double heightFor(double safeBottom, {bool compact = false}) {
+    if (compact) {
+      return 8.0 + 44.0 + 8.0 + safeBottom;
+    }
     return topGap + buttonHeight + bottomGap + effectiveSafeBottom(safeBottom);
   }
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBottom = effectiveSafeBottom(safeBottom);
+    final effectiveBottom = compact
+        ? safeBottom + 8.0
+        : effectiveSafeBottom(safeBottom) + bottomGap;
+    final h = compact ? 44.0 : buttonHeight;
+    final topPadding = compact ? 8.0 : topGap;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -686,34 +658,31 @@ class _StickyButton extends StatelessWidget {
           ),
         ),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: effectiveBottom + bottomGap,
-            height: buttonHeight,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: PriceAlertSubscriptionScreen.blue,
-                foregroundColor: AppColors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                textStyle: const TextStyle(
-                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
-                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, topPadding, 20, effectiveBottom),
+        child: SizedBox(
+          height: h,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PriceAlertSubscriptionScreen.blue,
+              foregroundColor: AppColors.white,
+              elevation: 0,
+              minimumSize: const Size.fromHeight(44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
-              onPressed: onPressed,
-              child: Text(label),
+              textStyle: const TextStyle(
+                fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
             ),
+            onPressed: onPressed,
+            child: Text(label),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -753,16 +722,24 @@ class _TitleSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40.25,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: _cardTitle.copyWith(fontWeight: titleWeight)),
-          const SizedBox(height: 1.989),
-          Text(subtitle, style: _captionText, maxLines: 1),
-        ],
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: _cardTitle.copyWith(fontWeight: titleWeight),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: _captionText,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 }
@@ -783,10 +760,10 @@ class _Divider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 305.6534118652344,
-      height: .909,
-      child: ColoredBox(color: PriceAlertSubscriptionScreen.border),
+    return const Divider(
+      height: 1,
+      thickness: .909,
+      color: PriceAlertSubscriptionScreen.border,
     );
   }
 }

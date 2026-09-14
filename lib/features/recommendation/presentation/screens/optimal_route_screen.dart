@@ -115,19 +115,25 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return sum;
   }
 
-  int get _totalDistance {
-    return _picks.asMap().entries.fold<int>(0, (sum, entry) {
-      final leg = _legDistanceMeters(entry.key);
-      return sum + (leg?.round() ?? 0);
-    });
+  int? get _totalDistance {
+    int sum = 0;
+    bool hasAny = false;
+    for (int i = 0; i < _picks.length; i++) {
+      final leg = _legDistanceMeters(i);
+      if (leg != null && leg.isFinite && leg >= 0) {
+        sum += leg.round();
+        hasAny = true;
+      }
+    }
+    return hasAny ? sum : null;
   }
 
   String get _totalDistanceLabel {
-    if (_picks.isEmpty ||
-        _picks.asMap().keys.every((i) => _legDistanceMeters(i) == null)) {
+    final total = _totalDistance;
+    if (total == null || _picks.isEmpty) {
       return '거리 정보 없음';
     }
-    return formatRecommendationDistance(_totalDistance.toDouble());
+    return formatRecommendationDistance(total.toDouble());
   }
 
   Future<Position?> _resolveCurrentPosition() async {
@@ -152,26 +158,38 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
   double? _legDistanceMeters(int index) {
     if (index < 0 || index >= _picks.length) return null;
-    if (_userLatitude == null || _userLongitude == null) {
+    if (index == 0) {
+      final first = _coordinates(_picks[0]);
+      if (_userLatitude != null && _userLongitude != null && first != null) {
+        return routeDistanceMeters((
+          lat: _userLatitude!,
+          lng: _userLongitude!,
+        ), first);
+      }
       return _number(_picks[index]['distanceMeters']);
     }
+
+    final previous = _coordinates(_picks[index - 1]);
     final current = _coordinates(_picks[index]);
-    if (current == null) return _number(_picks[index]['distanceMeters']);
-
-    final previous = index == 0
-        ? (_userLatitude != null && _userLongitude != null
-              ? (lat: _userLatitude!, lng: _userLongitude!)
-              : null)
-        : _coordinates(_picks[index - 1]);
-    if (previous == null) {
-      return index == 0 ? _number(_picks[index]['distanceMeters']) : null;
+    if (previous != null && current != null) {
+      return routeDistanceMeters(previous, current);
     }
-
-    return routeDistanceMeters(previous, current);
+    return null;
   }
 
   String _distanceText(Object? value) {
     return formatRecommendationDistance(_number(value));
+  }
+
+  String _formatLegDuration(double? legDistance) {
+    if (legDistance == null || !legDistance.isFinite || legDistance < 0) {
+      return '이동';
+    }
+    if (legDistance <= 1500) {
+      final walkMinutes = math.max(1, (legDistance / 80).round());
+      return '도보 약 $walkMinutes분';
+    }
+    return '대중교통/차량 이동 (${formatRecommendationDistance(legDistance)})';
   }
 
   @override
@@ -416,7 +434,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final distance = _distanceText(
                                 p['distanceMeters'],
                               );
-                              final legDistance = _legDistanceMeters(idx);
+                              final nextLegDistance = idx < _picks.length - 1
+                                  ? _legDistanceMeters(idx + 1)
+                                  : null;
 
                               return Column(
                                 children: [
@@ -427,10 +447,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                         .where((part) => part.isNotEmpty)
                                         .join(' · '),
                                   ),
-                                  if (idx < _picks.length - 1 &&
-                                      legDistance != null)
+                                  if (idx < _picks.length - 1)
                                     _buildConnection(
-                                      '도보 약 ${math.max(1, (legDistance / 80).round())}분',
+                                      _formatLegDuration(nextLegDistance),
                                     ),
                                 ],
                               );
@@ -576,6 +595,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                         ? _picks.first
                         : const <String, dynamic>{};
                     final firstCoordinates = _coordinates(firstPick);
+                    final startLegDistance = _legDistanceMeters(0);
                     context.push(
                       AppRoutes.directionsExternalApp,
                       extra: {
@@ -583,9 +603,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             firstPick['storeName']?.toString() ?? '선택한 매장',
                         'address':
                             firstPick['address']?.toString() ?? '주소 정보 없음',
-                        'distanceLabel': _distanceText(
-                          firstPick['distanceMeters'],
-                        ),
+                        'distanceLabel': startLegDistance != null
+                            ? formatRecommendationDistance(startLegDistance)
+                            : _distanceText(firstPick['distanceMeters']),
                         'latitude': firstCoordinates?.lat,
                         'longitude': firstCoordinates?.lng,
                         'startLatitude': _userLatitude,

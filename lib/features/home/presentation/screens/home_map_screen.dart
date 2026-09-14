@@ -14,6 +14,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -158,6 +159,102 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   String _searchQuery = '';
   SearchFilter _searchFilter = const SearchFilter();
+  bool _isAiRecommendationActive = false;
+  List<Store> _aiRecommendedStores = [];
+  AiMapRecommendationResult? _lastAppliedAiResult;
+
+  Future<void> _openAiRecommend() async {
+    final result = await context.push<dynamic>(AppRoutes.aiRecommend);
+    if (result is AiMapRecommendationResult && mounted) {
+      _applyAiRecommendationResult(result);
+    }
+  }
+
+  void _applyAiRecommendationResult(AiMapRecommendationResult result) {
+    List<Store> matchingStores = [];
+    if (result.stores.isNotEmpty) {
+      matchingStores = result.stores;
+    } else if (result.storeIds.isNotEmpty) {
+      matchingStores = _allStores
+          .where((s) => result.storeIds.contains(s.id))
+          .toList();
+    }
+
+    if (matchingStores.isEmpty && result.queryText.isNotEmpty) {
+      matchingStores = _allStores
+          .where(
+            (s) =>
+                s.storeName.trim().length >= 2 &&
+                result.queryText.contains(s.storeName.trim()),
+          )
+          .toList();
+    }
+
+    if (matchingStores.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('지도에 표시할 추천 매장 위치 정보를 찾을 수 없습니다.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isAiRecommendationActive = true;
+      _aiRecommendedStores = matchingStores;
+      _currentStores = matchingStores;
+      _selectedStore = matchingStores.first;
+      _showStoreSummary = true;
+    });
+
+    final first = matchingStores.first;
+    if (kIsWeb) {
+      web_helper.setKakaoMapCenterFromSwipeWeb(
+        _viewId,
+        first.latitude,
+        first.longitude,
+      );
+    } else if (_webViewController != null) {
+      _safeRunJavaScript(
+        'setMapCenterFromSwipe(${first.latitude}, ${first.longitude}); highlightMarker(0);',
+      );
+    }
+
+    final markerList = matchingStores.map((s) {
+      final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
+      final priceStr = p.isEmpty
+          ? s.price1
+          : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
+      return {
+        'lat': s.latitude,
+        'lng': s.longitude,
+        'title': s.storeName,
+        'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
+        'price': priceStr,
+        'source': s.source,
+      };
+    }).toList();
+
+    if (kIsWeb) {
+      web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
+    } else if (_webViewController != null) {
+      final jsStringLiteral = jsonEncode(jsonEncode(markerList));
+      _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
+    }
+  }
+
+  void _clearAiRecommendation() {
+    setState(() {
+      _isAiRecommendationActive = false;
+      _aiRecommendedStores = [];
+      _showStoreSummary = false;
+      _selectedStore = null;
+    });
+    _searchInCurrentArea();
+  }
 
   Future<void> _openSearch({bool openFilter = false}) async {
     final result = await context.push<Map<String, dynamic>>(
@@ -167,6 +264,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     if (mounted && result != null) {
       setState(() {
+        _isAiRecommendationActive = false;
+        _aiRecommendedStores = [];
         _searchQuery = result['query'] as String? ?? _searchQuery;
         _searchFilter = result['filter'] as SearchFilter? ?? _searchFilter;
       });
@@ -211,6 +310,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    try {
+      final extra = GoRouterState.of(context).extra;
+      if (extra is AiMapRecommendationResult && extra != _lastAppliedAiResult) {
+        _lastAppliedAiResult = extra;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _applyAiRecommendationResult(extra);
+        });
+      }
+    } catch (_) {}
+  }
+
   Future<void> _restoreCachedStores() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -219,6 +332,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (cached.isEmpty || !mounted || _hasFreshStoreResponse) return;
       setState(() {
         _allStores = cached;
+        HomeMapScreen.globalAllStores = List<Store>.unmodifiable(cached);
         _isAllStoresLoaded = true;
         _usingCachedStores = true;
       });
@@ -1079,6 +1193,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _allStores = fetchedStores
                 .take(maxCachedHomeMapStores)
                 .toList(growable: false);
+            HomeMapScreen.globalAllStores = List<Store>.unmodifiable(
+              _allStores,
+            );
           }
           _isAllStoresLoaded =
               loadResult.hasFreshResponse || fetchedStores.isNotEmpty;
@@ -1089,6 +1206,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       if (loadResult.hasFreshResponse) {
         unawaited(_cacheHomeMapStores(fetchedStores));
+      }
+
+      if (_isAiRecommendationActive && _aiRecommendedStores.isNotEmpty) {
+        _currentStores = _aiRecommendedStores;
+        return _currentStores.map((s) {
+          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
+          final priceStr = p.isEmpty
+              ? s.price1
+              : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
+          return {
+            'lat': s.latitude,
+            'lng': s.longitude,
+            'title': s.storeName,
+            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
+            'price': priceStr,
+            'source': s.source,
+          };
+        }).toList();
       }
 
       var stores = fetchedStores
@@ -1266,22 +1401,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     const storeCardHeight = 158.0;
     const storeCardBottomGap = 94.0;
 
-    // Use actual screen dimensions for responsive layout
+    // FigmaMobileCanvas caps wide layouts at 430px but uses the real viewport
+    // height on every platform. Keep overlay coordinates in that same space.
     final screenSize = MediaQuery.sizeOf(context);
-    final screenWidth = kIsWeb
-        ? screenSize.width.clamp(320.0, FigmaMobileCanvas.maxWebWidth)
-        : FigmaMobileCanvas.width;
-    final screenHeight = kIsWeb ? screenSize.height : FigmaMobileCanvas.height;
+    final screenWidth = FigmaMobileCanvas.webContentWidthFor(screenSize.width);
+    final screenHeight = screenSize.height;
+    final isCompactHeight = screenHeight < 400;
+    final horizontalPadding = screenWidth <= 340
+        ? 12.0
+        : AppSizes.horizontalPadding;
+    final searchTop = (isCompactHeight ? 8.0 : 10.0) + topOffset;
+    final searchHeight = isCompactHeight ? 44.0 : 52.0;
+    final todayPickTop = isCompactHeight
+        ? searchTop + searchHeight + 8
+        : 106.46307373046875 + topOffset;
+    final todayPickHeight = isCompactHeight ? 44.0 : 55.80965805053711;
 
     final storeCardTop = screenHeight - storeCardBottomGap - storeCardHeight;
     final homeChromeOpacity = _showAiSpotlight ? 0.0 : 1.0;
     final bottomBase = screenHeight - bottomNavHeight;
-    final floatingLocationTop = _showStoreSummary
+    final defaultFloatingLocationTop = _showStoreSummary
         ? storeCardTop - 132.0
         : bottomBase - 132.0;
-    final floatingAiTop = _showStoreSummary
+    final defaultFloatingAiTop = _showStoreSummary
         ? storeCardTop - 68.0
         : bottomBase - 68.0;
+    final floatingLocationTop = isCompactHeight
+        ? todayPickTop + todayPickHeight + 4
+        : defaultFloatingLocationTop;
+    final floatingAiTop = isCompactHeight
+        ? (floatingLocationTop + 56).clamp(
+            floatingLocationTop + 56,
+            bottomBase - 56,
+          )
+        : defaultFloatingAiTop;
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
@@ -1291,6 +1444,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
+    final isAiActive =
+        _isAiRecommendationActive && _aiRecommendedStores.isNotEmpty;
+    final showStoreList =
+        (isSearching || isAiActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
     return FigmaMobileCanvas(
@@ -1414,10 +1571,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
 
           Positioned(
-            left: AppSizes.horizontalPadding,
-            right: AppSizes.horizontalPadding,
-            top: 10 + topOffset,
-            height: 52,
+            key: const ValueKey('home-search-control'),
+            left: horizontalPadding,
+            right: horizontalPadding,
+            top: searchTop,
+            height: searchHeight,
             child: Opacity(
               opacity: homeChromeOpacity,
               child: GestureDetector(
@@ -1499,29 +1657,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
 
-          if (!isSearching) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              top: 67.98297119140625 + topOffset + topOffsetPush,
-              width: 183.67897033691406,
-              height: 28.480112075805664,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: const _SourceLegend(),
+          if (!isSearching && !isAiActive) ...[
+            if (!isCompactHeight)
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                top: 67.98297119140625 + topOffset + topOffsetPush,
+                width: 183.67897033691406,
+                height: 28.480112075805664,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: const _SourceLegend(),
+                ),
               ),
-            ),
             Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: 106.46307373046875 + topOffset + topOffsetPush,
-              height: 55.80965805053711,
+              key: const ValueKey('home-today-pick-card'),
+              left: horizontalPadding,
+              right: horizontalPadding,
+              top: todayPickTop + topOffsetPush,
+              height: todayPickHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: const _TodayPickCard(),
+                child: _TodayPickCard(compact: isCompactHeight),
               ),
             ),
           ],
           Positioned(
+            key: const ValueKey('home-location-control'),
             right: 16,
             top: floatingLocationTop,
             width: 52.0,
@@ -1546,6 +1707,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ),
           Positioned(
+            key: const ValueKey('home-ai-control'),
             right: 16,
             top: floatingAiTop,
             height: 51.9886360168457,
@@ -1555,13 +1717,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 behavior: HitTestBehavior.opaque,
                 onVerticalDragUpdate: (_) {},
                 onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: () => context.push(AppRoutes.aiRecommend),
-                ),
+                child: _AiRecommendControl(onTap: _openAiRecommend),
               ),
             ),
           ),
-          if (isSearching && _currentStores.isNotEmpty) ...[
+          if (isAiActive) ...[
+            Positioned(
+              left: AppSizes.horizontalPadding,
+              right: AppSizes.horizontalPadding,
+              top: 64.0 + topOffset + topOffsetPush,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Center(
+                  child: _AiRecommendationBanner(
+                    count: _aiRecommendedStores.length,
+                    onReset: _clearAiRecommendation,
+                  ),
+                ),
+              ),
+            ),
+          ],
+          if (showStoreList) ...[
             Positioned(
               left: 0,
               right: 0,
@@ -1569,7 +1745,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               child: Opacity(
                 opacity: homeChromeOpacity,
                 child: Center(
-                  child: _FloatingSearchSummary(count: _currentStores.length),
+                  child: _FloatingSearchSummary(
+                    count: _currentStores.length,
+                    title: isAiActive ? 'AI 추천 결과 ' : null,
+                  ),
                 ),
               ),
             ),
@@ -1645,6 +1824,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ],
           Positioned(
+            key: const ValueKey('home-bottom-navigation'),
             left: 0,
             right: 0,
             bottom: 0,
@@ -1683,9 +1863,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               top: spotlightCoachTop,
               width: 265,
               height: 38,
-              child: _AiCoachTip(
-                onTap: () => context.push(AppRoutes.aiRecommend),
-              ),
+              child: _AiCoachTip(onTap: _openAiRecommend),
             ),
             Positioned(
               right: 16,
@@ -1696,7 +1874,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 onVerticalDragUpdate: (_) {},
                 onHorizontalDragUpdate: (_) {},
                 child: _AiRecommendControl(
-                  onTap: () => context.push(AppRoutes.aiRecommend),
+                  onTap: _openAiRecommend,
                   spotlight: true,
                 ),
               ),
@@ -2002,7 +2180,9 @@ class _SourceLegend extends StatelessWidget {
 }
 
 class _TodayPickCard extends StatelessWidget {
-  const _TodayPickCard();
+  const _TodayPickCard({this.compact = false});
+
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -2021,57 +2201,64 @@ class _TodayPickCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 55.99431610107422,
-              height: 53.99147415161133,
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.thunderstorm_outlined,
-                      color: HomeMapScreen.blue,
-                      size: 20,
-                    ),
-                    const SizedBox(height: 1.989),
-                    // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
-                    Text(
-                      '오늘',
-                      style: TextStyle(
-                        color: HomeMapScreen.blue,
-                        fontFamily: HomeMapScreen.fontFamily,
-                        fontFamilyFallback: HomeMapScreen.fontFallback,
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        height: 1.5,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final narrow = constraints.maxWidth < 320;
+            return Row(
+              children: [
+                SizedBox(
+                  width: compact ? 44 : 55.99431610107422,
+                  height: double.infinity,
+                  child: DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
                       ),
                     ),
-                  ],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.thunderstorm_outlined,
+                          color: HomeMapScreen.blue,
+                          size: 20,
+                        ),
+                        const SizedBox(height: 1.989),
+                        // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
+                        Text(
+                          '오늘',
+                          style: TextStyle(
+                            color: HomeMapScreen.blue,
+                            fontFamily: HomeMapScreen.fontFamily,
+                            fontFamilyFallback: HomeMapScreen.fontFallback,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 11.988616943359375),
-            const Expanded(child: _TodayPickText()),
-            const _RankDot(label: '1', color: HomeMapScreen.blue),
-            const _RankDot(label: '2', color: HomeMapScreen.orange),
-            const _RankDot(label: '3', color: HomeMapScreen.green),
-            const SizedBox(width: 9.985779),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: HomeMapScreen.muted,
-              size: 17,
-            ),
-            const SizedBox(width: 12),
-          ],
+                SizedBox(width: narrow ? 8 : 11.988616943359375),
+                const Expanded(child: _TodayPickText()),
+                if (!compact) ...[
+                  const _RankDot(label: '1', color: HomeMapScreen.blue),
+                  const _RankDot(label: '2', color: HomeMapScreen.orange),
+                  const _RankDot(label: '3', color: HomeMapScreen.green),
+                ],
+                SizedBox(width: narrow ? 4 : 9.985779),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: HomeMapScreen.muted,
+                  size: 17,
+                ),
+                SizedBox(width: narrow ? 8 : 12),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -2102,15 +2289,19 @@ class _TodayPickText extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 5.994),
-            Text(
-              '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
-              style: TextStyle(
-                color: HomeMapScreen.muted,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
+            Expanded(
+              child: Text(
+                '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: HomeMapScreen.muted,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w400,
+                  height: 1.5,
+                ),
               ),
             ),
           ],
@@ -2118,6 +2309,8 @@ class _TodayPickText extends StatelessWidget {
         const SizedBox(height: .994),
         const Text(
           '날씨와 거리로 매장 추천',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: HomeMapScreen.ink,
             fontFamily: HomeMapScreen.fontFamily,
@@ -2730,8 +2923,9 @@ const _muted11 = TextStyle(
 //  검색 안내 칩
 // ──────────────────────────────────────────────────────────────
 class _FloatingSearchSummary extends StatelessWidget {
-  const _FloatingSearchSummary({required this.count});
+  const _FloatingSearchSummary({required this.count, this.title});
   final int count;
+  final String? title;
 
   @override
   Widget build(BuildContext context) {
@@ -2751,10 +2945,16 @@ class _FloatingSearchSummary extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on, color: Color(0xFFEF4444), size: 14),
+          Icon(
+            title != null ? Icons.auto_awesome : Icons.location_on,
+            color: title != null
+                ? const Color(0xFF38BDF8)
+                : const Color(0xFFEF4444),
+            size: 14,
+          ),
           const SizedBox(width: 6),
-          const Text(
-            '현재 검색 결과 ',
+          Text(
+            title ?? '현재 검색 결과 ',
             style: TextStyle(
               color: HomeMapScreen.ink,
               fontFamily: HomeMapScreen.fontFamily,
@@ -2781,6 +2981,72 @@ class _FloatingSearchSummary extends StatelessWidget {
               fontFamilyFallback: HomeMapScreen.fontFallback,
               fontSize: 13,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiRecommendationBanner extends StatelessWidget {
+  const _AiRecommendationBanner({required this.count, required this.onReset});
+
+  final int count;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 8,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 16),
+          const SizedBox(width: 6),
+          Text(
+            'AI 추천 매장 $count곳',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onReset,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '전체보기',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(width: 2),
+                  Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                ],
+              ),
             ),
           ),
         ],

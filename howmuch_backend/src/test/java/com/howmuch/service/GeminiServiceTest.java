@@ -40,4 +40,37 @@ class GeminiServiceTest {
         assertThat(route).contains("가까운 매장", "거리순으로 추천 루트");
         assertThat(route.indexOf("가까운 매장")).isLessThan(route.indexOf("먼 매장"));
     }
+
+    @Test
+    void candidateUrlsLeadWithConfiguredModelAndModernFlashEndpoints() {
+        GeminiService defaultService = new GeminiService("", 1_000, false);
+        List<String> defaultUrls = defaultService.getCandidateUrls();
+        assertThat(defaultUrls).isNotEmpty();
+        assertThat(defaultUrls.get(0)).contains("gemini-2.5-flash:generateContent");
+        assertThat(defaultUrls).noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+
+        GeminiService customService = new GeminiService("", 1_000, false, "gemini-2.5-flash-lite");
+        List<String> customUrls = customService.getCandidateUrls();
+        assertThat(customUrls.get(0)).contains("gemini-2.5-flash-lite:generateContent");
+        assertThat(customUrls).noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+
+        GeminiService staleConfiguredService = new GeminiService("", 1_000, false, "gemini-1.5-flash");
+        assertThat(staleConfiguredService.getCandidateUrls())
+                .noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+    }
+
+    @Test
+    void localRouteSupportsUpTo4Picks() {
+        GeminiService service = new GeminiService("", 1_000, false);
+        String route = service.getRouteRecommendation(List.of(
+                Map.of("storeName", "매장1", "menu1", "메뉴1", "price1", "1,000", "distanceMeters", 100),
+                Map.of("storeName", "매장2", "menu1", "메뉴2", "price1", "2,000", "distanceMeters", 200),
+                Map.of("storeName", "매장3", "menu1", "메뉴3", "price1", "3,000", "distanceMeters", 300),
+                Map.of("storeName", "매장4", "menu1", "메뉴4", "price1", "4,000", "distanceMeters", 400),
+                Map.of("storeName", "매장5", "menu1", "메뉴5", "price1", "5,000", "distanceMeters", 500)
+        ));
+
+        assertThat(route).contains("1. 매장1", "2. 매장2", "3. 매장3", "4. 매장4");
+        assertThat(route).doesNotContain("5. 매장5");
+    }
 }

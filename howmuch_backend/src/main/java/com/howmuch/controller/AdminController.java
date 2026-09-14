@@ -485,6 +485,36 @@ public class AdminController {
         }
     }
 
+    /** 문의 삭제 (DELETE /api/admin/inquiries/{id}) — 첨부 이미지와 답변 알림까지 함께 삭제 */
+    @DeleteMapping("/inquiries/{id}")
+    public ResponseEntity<?> deleteInquiry(@PathVariable String id,
+                                           HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
+
+        try {
+            Map<String, Object> result = firebaseService.deleteInquiryAsAdmin(id);
+            log.warn("[AdminController] 문의 삭제 - id: {}, 삭제 사진: {}",
+                    id, result.get("deletedImages"));
+            return ResponseEntity.ok(result);
+        } catch (java.util.NoSuchElementException | IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            log.warn("[AdminController] 문의 사진 저장소가 설정되지 않아 삭제를 중단했습니다. id={}", id);
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false,
+                    "message", "사진 저장소를 준비 중입니다. 잠시 후 다시 시도해주세요."));
+        } catch (Exception e) {
+            log.error("[AdminController] 문의 삭제 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "문의 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
+        }
+    }
+
     /** 문의 답변 등록 (POST /api/admin/inquiries/{id}/answer, body: {"answer": "..."}) */
     @PostMapping("/inquiries/{id}/answer")
     public ResponseEntity<?> answerInquiry(@PathVariable String id,

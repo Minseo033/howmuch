@@ -48,35 +48,14 @@ class FigmaMobileCanvas extends StatelessWidget {
   /// On web, this matches the actual viewport width (capped at maxWebWidth).
   /// On native mobile, this is always the design width (375px).
   static double logicalWidthOf(BuildContext context) {
-    if (!_isWeb) return designWidth;
     final viewportWidth = MediaQuery.sizeOf(context).width;
     return webContentWidthFor(viewportWidth);
   }
 
   /// Returns the scale factor applied to the canvas for a given context.
+  /// On both web and native responsive canvas, logical scale is 1.0.
   static double designScaleFor(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-
-    if (_isWeb) {
-      // On web, we use the actual viewport width - no scaling applied.
-      // Scale is 1.0 relative to actual pixels.
-      return 1.0;
-    }
-
-    final isMobile =
-        (defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.android) &&
-        size.width < 600;
-
-    if (isMobile) {
-      return size.width / designWidth;
-    }
-
-    final fitScale = math.min(
-      size.width / designWidth,
-      size.height / designHeight,
-    );
-    return fitScale;
+    return 1.0;
   }
 
   /// Returns safe padding translated into the logical coordinate space of the canvas.
@@ -90,14 +69,11 @@ class FigmaMobileCanvas extends StatelessWidget {
       return EdgeInsets.zero;
     }
 
-    final scale = designScaleFor(context);
-    if (scale <= 0) return EdgeInsets.zero;
-
     return EdgeInsets.fromLTRB(
-      padding.left / scale,
-      padding.top / scale,
-      padding.right / scale,
-      math.max(padding.bottom, systemGestureInsets.bottom) / scale,
+      padding.left,
+      padding.top,
+      padding.right,
+      math.max(padding.bottom, systemGestureInsets.bottom),
     );
   }
 
@@ -110,18 +86,16 @@ class FigmaMobileCanvas extends StatelessWidget {
       resizeToAvoidBottomInset: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          if (_isWeb) {
-            return _buildWebLayout(context, constraints);
-          } else {
-            return _buildNativeLayout(context, constraints);
-          }
+          return _buildLayout(context, constraints);
         },
       ),
     );
   }
 
-  /// Web layout: uses real viewport width, centers on desktop.
-  Widget _buildWebLayout(BuildContext context, BoxConstraints constraints) {
+  /// Canvas layout: uses real viewport width (≤430px) on mobile/narrow screens,
+  /// and centers the content at max 430px width on desktop/tablet/landscape
+  /// without clipping, miniaturization, or horizontal overflow while preserving desktop max-width shell.
+  Widget _buildLayout(BuildContext context, BoxConstraints constraints) {
     final viewportWidth = constraints.maxWidth;
     final viewportHeight = constraints.maxHeight;
 
@@ -155,50 +129,10 @@ class FigmaMobileCanvas extends StatelessWidget {
           child: ClipRect(
             child: ColoredBox(
               color: backgroundColor,
-              child: _WebSafeArea(child: SizedBox.expand(child: child)),
+              child: _isWeb
+                  ? _WebSafeArea(child: SizedBox.expand(child: child))
+                  : SizedBox.expand(child: child),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Native app layout: scales the 375px design to fill screen width.
-  Widget _buildNativeLayout(BuildContext context, BoxConstraints constraints) {
-    final fitScale = math.min(
-      constraints.maxWidth / designWidth,
-      constraints.maxHeight / designHeight,
-    );
-
-    final isMobileDevice =
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.android;
-    final isMobile = isMobileDevice && constraints.maxWidth < 600;
-
-    final scale = isMobile ? constraints.maxWidth / designWidth : fitScale;
-
-    final scaledWidth = isMobile ? constraints.maxWidth : designWidth * scale;
-    final scaledHeight = isMobile
-        ? constraints.maxHeight
-        : designHeight * scale;
-
-    final logicalWidth = designWidth;
-    final logicalHeight = isMobile
-        ? constraints.maxHeight / scale
-        : designHeight;
-
-    return Align(
-      alignment: const Alignment(0, -1),
-      child: SizedBox(
-        width: scaledWidth,
-        height: scaledHeight,
-        child: FittedBox(
-          fit: BoxFit.contain,
-          alignment: Alignment.topLeft,
-          child: SizedBox(
-            width: logicalWidth,
-            height: logicalHeight,
-            child: ColoredBox(color: backgroundColor, child: child),
           ),
         ),
       ),
