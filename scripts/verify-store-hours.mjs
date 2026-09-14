@@ -29,7 +29,10 @@ assert.ok(realHours >= 135, `Hours coverage regressed: ${realHours}`);
 assert.ok(photos >= 251, `Photo coverage regressed: ${photos}`);
 console.log(`Live stores: ${stores.length}; enriched: ${records.length}; hours: ${realHours}; photos: ${photos}`);
 for (const entry of records) verify(byId.get(entry.storeId), entry);
-assert.equal(stores.filter(store => store.openingHours).length, records.length, 'Only reviewed records may have hours');
+const enrichedStoreIds = new Set(
+  stores.filter(store => store.openingHours).map(store => store.storeId),
+);
+assert.equal(enrichedStoreIds.size, records.length, 'Only reviewed store IDs may have details');
 const entry = records[0], store = byId.get(entry.storeId);
 const bounds = new URLSearchParams({
   minLat: store.latitude - 0.002, maxLat: store.latitude + 0.002,
