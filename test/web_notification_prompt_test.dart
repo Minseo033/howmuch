@@ -124,16 +124,18 @@ void main() {
     );
     expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
 
-    await tester.tap(find.byTooltip('알림 안내 닫기'));
+    await tester.tap(find.bySemanticsLabel('알림 안내 닫기'));
     await tester.pumpAndSettle();
 
     expect(
       tester
-          .widget<Opacity>(
+          .widget<Transform>(
             find.byKey(const ValueKey('web-notification-banner-visibility')),
           )
-          .opacity,
-      0,
+          .transform
+          .getTranslation()
+          .y,
+      -240,
     );
     expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
     expect(tester.takeException(), isNull);
@@ -174,15 +176,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('알림 안내 닫기'));
+    await tester.tap(find.bySemanticsLabel('알림 안내 닫기'));
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<Opacity>(
+          .widget<Transform>(
             find.byKey(const ValueKey('web-notification-banner-visibility')),
           )
-          .opacity,
-      0,
+          .transform
+          .getTranslation()
+          .y,
+      -240,
     );
     expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
 

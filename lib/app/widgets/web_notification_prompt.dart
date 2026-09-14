@@ -141,26 +141,30 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Opacity(
+                child: Transform.translate(
                   key: const ValueKey('web-notification-banner-visibility'),
-                  opacity: shouldShow ? 1 : 0,
-                  child: shouldShow
-                      ? _UnreadNotificationBanner(
-                          key: const ValueKey('web-notification-banner'),
-                          unreadCount: unreadCount,
-                          onDismiss: () => _dismissUnreadPrompt(
+                  offset: shouldShow ? Offset.zero : const Offset(0, -240),
+                  child: IgnorePointer(
+                    ignoring: !shouldShow,
+                    child: ExcludeSemantics(
+                      excluding: !shouldShow,
+                      child: _UnreadNotificationBanner(
+                        key: const ValueKey('web-notification-banner'),
+                        unreadCount: unreadCount,
+                        onDismiss: () => _dismissUnreadPrompt(
+                          unreadSignature,
+                          currentNoticeId,
+                        ),
+                        onOpen: () {
+                          _dismissUnreadPrompt(
                             unreadSignature,
                             currentNoticeId,
-                          ),
-                          onOpen: () {
-                            _dismissUnreadPrompt(
-                              unreadSignature,
-                              currentNoticeId,
-                            );
-                            widget.onOpenNotifications();
-                          },
-                        )
-                      : const SizedBox.shrink(),
+                          );
+                          widget.onOpenNotifications();
+                        },
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -479,12 +483,15 @@ class _UnreadNotificationBanner extends StatelessWidget {
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
               ),
-              IconButton(
-                tooltip: '알림 안내 닫기',
-                onPressed: onDismiss,
-                icon: const Icon(Icons.close_rounded, size: 18),
-                color: AppColors.muted,
-                style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+              Semantics(
+                label: '알림 안내 닫기',
+                button: true,
+                child: IconButton(
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  color: AppColors.muted,
+                  style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
+                ),
               ),
             ],
           ),

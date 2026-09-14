@@ -293,7 +293,7 @@ void main() {
       );
 
       // Verify touch target for dismiss button >= 44x44
-      final dismissButtonFinder = find.byTooltip('알림 안내 닫기');
+      final dismissButtonFinder = find.bySemanticsLabel('알림 안내 닫기');
       expect(dismissButtonFinder, findsOneWidget);
       final dismissSize = tester.getSize(dismissButtonFinder);
       expect(dismissSize.width, greaterThanOrEqualTo(44));
@@ -314,11 +314,13 @@ void main() {
 
       expect(
         tester
-            .widget<Opacity>(
+            .widget<Transform>(
               find.byKey(const ValueKey('web-notification-banner-visibility')),
             )
-            .opacity,
-        0,
+            .transform
+            .getTranslation()
+            .y,
+        -240,
       );
       expect(find.text('앱 메인 화면'), findsOneWidget);
       expect(tester.takeException(), isNull);
