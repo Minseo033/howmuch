@@ -7,6 +7,7 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.SessionTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,6 +26,7 @@ public class UserController {
     private final FirebaseService firebaseService;
     private final SessionTokenService sessionTokenService;
 
+    @Autowired
     public UserController(FirebaseService firebaseService, SessionTokenService sessionTokenService) {
         this.firebaseService = firebaseService;
         this.sessionTokenService = sessionTokenService;

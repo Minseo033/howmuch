@@ -4,6 +4,7 @@ import com.howmuch.service.KakaoLocalService;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,6 +26,7 @@ public class LocationController {
     private final SimpleRateLimiter rateLimiter;
     private final ClientIpResolver clientIpResolver;
 
+    @Autowired
     public LocationController(KakaoLocalService kakaoLocalService, SimpleRateLimiter rateLimiter,
                               ClientIpResolver clientIpResolver) {
         this.kakaoLocalService = kakaoLocalService;

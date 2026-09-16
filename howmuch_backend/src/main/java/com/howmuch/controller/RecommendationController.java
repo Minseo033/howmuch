@@ -8,6 +8,7 @@ import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.WeatherService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,6 +36,7 @@ public class RecommendationController {
     private final SimpleRateLimiter rateLimiter;
     private final ClientIpResolver clientIpResolver;
 
+    @Autowired
     public RecommendationController(WeatherService weatherService, FirebaseService firebaseService,
                                     GeminiService geminiService, SimpleRateLimiter rateLimiter,
                                     ClientIpResolver clientIpResolver) {

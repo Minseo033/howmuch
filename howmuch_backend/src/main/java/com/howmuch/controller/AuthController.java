@@ -7,6 +7,7 @@ import com.howmuch.service.SessionTokenService;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +27,7 @@ public class AuthController {
     @Value("${auth.kakao.max-per-5-min:30}")
     private int maxKakaoAttemptsPerFiveMinutes = 30;
 
+    @Autowired
     public AuthController(AuthService authService,
                           SessionTokenService sessionTokenService,
                           SimpleRateLimiter rateLimiter,
