@@ -73,7 +73,7 @@ jobs:
   deploy-web:
     name: Deploy verified web release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, flutter-web, ios-simulator]
+    needs: [backend, flutter-web]
     runs-on: ubuntu-latest
     environment: production
     steps:

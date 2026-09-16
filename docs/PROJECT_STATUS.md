@@ -1891,3 +1891,8 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **원인**: `FigmaMobileCanvas`의 `Scaffold`가 이미 `resizeToAvoidBottomInset: true`로 설정되어 있어 키보드가 켜지면 캔버스 높이가 키보드 높이만큼 자동으로 축소된다. 그런데 `AiRecommendChatScreen`의 입력창 배치에서 `Positioned(bottom: keyboardOffset)`을 중복 적용하여, 이미 축소된 뷰포트 바닥에서 키보드 높이만큼 또다시 위로 밀려 올라가 화면 상단 헤더 바로 아래로 치솟는 이중 오프셋 현상이 발생했다.
 - **수정**: 입력창을 `Positioned(bottom: 0)`으로 배치하여 축소된 캔버스 바닥(키보드 바로 위)에 정확히 밀착되도록 수정했다. 불필요한 `keyboardOffset` 이중 가산을 제거하고 리스트뷰 하단 패딩도 입력창 높이에 맞게 정돈했다.
 - **검증**: 가상 키보드(viewInsets.bottom: 300) 활성화 시 입력창이 키보드 상단에 정확히 안착하고 상단으로 치솟지 않는 자동 회귀 테스트 추가 및 통과.
+
+## 5-109. 9/17 CI 배포 파이프라인 병목 제거 (iOS 시뮬레이터 빌드 의존성 분리)
+
+- **원인**: 9/16 오후 웹 자동배포 구축 당시 `deploy-web`의 선행 의존성(`needs`)에 웹(`flutter-web`)뿐만 아니라 무거운 macOS iOS 시뮬레이터 빌드(`ios-simulator`)까지 필수로 묶여 있었다. 이로 인해 웹 검사는 2분 30초 만에 완료됨에도 불구하고 매 푸시마다 6분가량 소요되는 iOS 빌드가 끝날 때까지 배포가 강제 지연되는 병목이 발생했다.
+- **수정**: `deploy-web`의 `needs` 조건을 `[backend, flutter-web]`로 수정하여, iOS 시뮬레이터 빌드를 기다리지 않고 웹 검사가 통과하는 즉시(약 2분대) Vercel 배포로 직결되도록 최적화했다. iOS 시뮬레이터 빌드는 백그라운드에서 병렬로 품질을 계속 검증한다.
