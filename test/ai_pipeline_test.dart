@@ -404,5 +404,38 @@ void main() {
         expect(resetClicked, isTrue);
       },
     );
+
+    testWidgets(
+      'AI chat input stays pinned to the keyboard bottom without double-offset jump',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const ProviderScope(
+            child: MaterialApp(
+              home: AiRecommendChatScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 키보드 없을 때 입력창 바닥 위치 확인
+        final initialRect = tester.getRect(find.byType(TextField));
+        expect(initialRect.bottom, greaterThan(750));
+
+        // 키보드 300px 올라왔을 때 위치 확인
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        addTearDown(tester.view.resetViewInsets);
+        await tester.pumpAndSettle();
+
+        final keyboardRect = tester.getRect(find.byType(TextField));
+        // 키보드 상단(844 - 300 = 544px) 바로 위에 착 밀착되어야 하며, 상단(헤더 아래 y < 250)으로 솟구치지 않아야 함
+        expect(keyboardRect.bottom, lessThanOrEqualTo(544));
+        expect(keyboardRect.top, greaterThan(450));
+      },
+    );
   });
 }

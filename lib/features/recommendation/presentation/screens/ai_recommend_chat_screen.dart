@@ -237,20 +237,15 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     final messages = ref.watch(aiChatHistoryProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final rawKeyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final isKeyboardOpen = rawKeyboard > 0;
-    final designScale = FigmaMobileCanvas.designScaleFor(context);
-    final keyboardOffset = designScale <= 0 ? 0.0 : rawKeyboard / designScale;
+    final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
-    // 키보드가 켜졌을 때는 홈 인디케이터 여백을 제외하고 10px로 밀착
+    // 키보드가 열렸을 때는 홈바 여백 대신 8px로 키보드 상단에 밀착
     final bottomOffset = isKeyboardOpen
-        ? 10.0
-        : (safePadding.bottom > 16 ? safePadding.bottom : 16.0);
-    final composerLift = isKeyboardOpen ? 0.0 : 12.0;
+        ? 8.0
+        : (safePadding.bottom > 12 ? safePadding.bottom : 12.0);
     final composerHeight = 48.0 + 20.0 + bottomOffset;
     final contentTop = topOffset + 57;
-    final contentBottomPadding =
-        composerHeight + keyboardOffset + composerLift + 10;
+    final contentBottomPadding = composerHeight + 12.0;
 
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -363,7 +358,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
             ),
             Positioned(
               left: 0,
-              bottom: keyboardOffset + composerLift,
+              bottom: 0,
               right: 0,
               child: _Composer(
                 controller: _controller,

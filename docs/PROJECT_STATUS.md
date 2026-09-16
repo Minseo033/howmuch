@@ -1885,3 +1885,9 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **근본 원인**: 백엔드 `GeminiService`에 기본값으로 고정되어 있던 `gemini-2.5-flash`는 Google AI Studio 무료 티어(Free Tier)의 일일 호출 쿼터가 **단 20회(limit: 20)**로 극단적으로 제한되어 있어 금방 `429 RESOURCE_EXHAUSTED`가 발생했다. 또한 보조 후보였던 `gemini-2.5-flash-lite`는 구글에서 지원 종료되어 `404 NOT_FOUND`를 반환했고, `normalizeModel`이 다른 모델 입력을 강제로 2.5-flash로 덮어씌워 매번 모든 엔드포인트가 실패하여 로컬 매장 폴백 안내문구가 노출되었다. 아울러 Gemini 최신 세대 모델의 기본 추론(Thinking) 토큰이 기존 `maxOutputTokens: 700` 예산의 80% 이상을 잠식해 실제 사용자 텍스트가 2문장 만에 중간에 뚝 끊기는 현상이 발생했다.
 - **수정**: 최신 정규 플래시 모델 **`gemini-3.6-flash`**를 메인 모델로 지정하고 `thinkingBudget: 0`을 설정하여 내부 추론 토큰 낭비를 원천 차단했다. 또한 출력 토큰 한도를 **`2,048`**로 3배 가까이 확장하고, thinkingConfig를 거부하는 엔드포인트 발생 시 2048 토큰 단독으로 자동 재시도하는 복구 분기를 추가했다. 타임아웃도 20초로 상향했다.
 - **검증**: 실제 API 키로 thinkingBudget 0 조건에서 문장 끊김 없는 완결된 응답(`finishReason: STOP`) 확인, 백엔드 전체 테스트 통과 (`./gradlew test`).
+
+## 5-108. 9/17 AI 챗봇 모바일 키보드 활성화 시 입력창 상단 치솟음(이중 오프셋) 버그 수정
+
+- **원인**: `FigmaMobileCanvas`의 `Scaffold`가 이미 `resizeToAvoidBottomInset: true`로 설정되어 있어 키보드가 켜지면 캔버스 높이가 키보드 높이만큼 자동으로 축소된다. 그런데 `AiRecommendChatScreen`의 입력창 배치에서 `Positioned(bottom: keyboardOffset)`을 중복 적용하여, 이미 축소된 뷰포트 바닥에서 키보드 높이만큼 또다시 위로 밀려 올라가 화면 상단 헤더 바로 아래로 치솟는 이중 오프셋 현상이 발생했다.
+- **수정**: 입력창을 `Positioned(bottom: 0)`으로 배치하여 축소된 캔버스 바닥(키보드 바로 위)에 정확히 밀착되도록 수정했다. 불필요한 `keyboardOffset` 이중 가산을 제거하고 리스트뷰 하단 패딩도 입력창 높이에 맞게 정돈했다.
+- **검증**: 가상 키보드(viewInsets.bottom: 300) 활성화 시 입력창이 키보드 상단에 정확히 안착하고 상단으로 치솟지 않는 자동 회귀 테스트 추가 및 통과.
