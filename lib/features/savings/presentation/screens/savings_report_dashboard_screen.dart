@@ -19,6 +19,23 @@ List<Map<String, dynamic>> parseSavingsChartItems(List<dynamic> chartItems) {
   }).toList();
 }
 
+@visibleForTesting
+String formatSavingsChartAmount(int value) {
+  final sign = value < 0 ? '-' : '';
+  final absolute = value.abs();
+
+  String compact(double amount, String unit) {
+    final formatted = amount
+        .toStringAsFixed(amount == amount.roundToDouble() ? 0 : 1)
+        .replaceFirst(RegExp(r'\.0$'), '');
+    return '$sign$formatted$unit';
+  }
+
+  if (absolute >= 10000) return compact(absolute / 10000, '만');
+  if (absolute >= 1000) return compact(absolute / 1000, '천');
+  return '$value';
+}
+
 class SavingsReportDashboardScreen extends StatefulWidget {
   const SavingsReportDashboardScreen({super.key});
 
@@ -481,28 +498,24 @@ class _SavingsReportDashboardScreenState
       final List<dynamic> savings = tabData['savings'] ?? [];
       chartBars = savings.map((s) {
         final label = s['label']?.toString() ?? '';
-        final amountVal = s['amount'];
-        final String amountStr = amountVal is num && amountVal >= 10000
-            ? '${(amountVal / 10000).toStringAsFixed(1).replaceAll('.0', '')}만'
-            : amountVal is num
-            ? '${_formatCurrency(amountVal.toInt())}원'
-            : s['amount']?.toString() ?? '';
+        final amountVal = (s['amount'] as num?)?.toInt() ?? 0;
+        final amountStr = formatSavingsChartAmount(amountVal);
         final isMax = s['isMax'] == true;
 
-        final double rawAmt = amountVal is num ? amountVal.toDouble() : 0.0;
-        double height = 40.0;
+        final rawAmt = amountVal.toDouble();
+        double height = 4.0;
         if (savings.isNotEmpty) {
           final maxAmt = savings
               .map((item) => (item['amount'] as num?)?.toDouble() ?? 0.0)
               .reduce((a, b) => a > b ? a : b);
-          if (maxAmt > 0) {
-            height = (rawAmt / maxAmt) * 100.0;
-            if (height < 20) height = 20; // 최소 높이 보장
+          if (maxAmt > 0 && rawAmt > 0) {
+            height = ((rawAmt / maxAmt) * 100.0).clamp(8.0, 100.0);
           }
         }
         return _buildBar(
           label: label,
           amount: amountStr,
+          fullAmount: '${_formatCurrency(amountVal)}원',
           height: height,
           isMax: isMax,
         );
@@ -575,33 +588,44 @@ class _SavingsReportDashboardScreenState
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            formattedSaved,
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Colors.white,
-                              fontSize: 42,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -1.2,
+                      SizedBox(
+                        width: double.infinity,
+                        height: 60,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  formattedSaved,
+                                  style: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Colors.white,
+                                    fontSize: 42,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -1.2,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Text(
+                                  '원',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            '원',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
                       const SizedBox(height: AppSizes.largeSpacing),
                       Container(
@@ -649,16 +673,20 @@ class _SavingsReportDashboardScreenState
                               size: 18,
                             ),
                             const SizedBox(width: AppSizes.smallSpacing),
-                            Text(
-                              visits > 0
-                                  ? '$visits번의 방문 인증으로 계산했어요'
-                                  : '방문 인증을 완료하면 절약액이 기록돼요',
-                              style: const TextStyle(
-                                fontFamily: 'Inter',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF0F172A),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                            Expanded(
+                              child: Text(
+                                visits > 0
+                                    ? '$visits번의 방문 인증으로 계산했어요'
+                                    : '방문 인증을 완료하면 절약액이 기록돼요',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFF0F172A),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ],
@@ -713,7 +741,6 @@ class _SavingsReportDashboardScreenState
                       ),
                       const SizedBox(height: 40),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: chartBars,
                       ),
@@ -836,61 +863,91 @@ class _SavingsReportDashboardScreenState
   Widget _buildBar({
     required String label,
     required String amount,
+    required String fullAmount,
     required double height,
     required bool isMax,
   }) {
-    return Column(
-      children: [
-        if (isMax)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF4FF),
-              borderRadius: BorderRadius.circular(4),
+    return Expanded(
+      child: Semantics(
+        container: true,
+        label: '$label 절약 금액 $fullAmount${isMax ? ', 기간 내 최대' : ''}',
+        child: ExcludeSemantics(
+          child: SizedBox(
+            key: ValueKey('savings-chart-item-$label'),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 18,
+                  width: double.infinity,
+                  child: isMax
+                      ? const FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '최대',
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF2563EB),
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 4),
+                FractionallySizedBox(
+                  widthFactor: .68,
+                  child: Container(
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: isMax
+                          ? const Color(0xFF3B82F6)
+                          : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSizes.smallSpacing),
+                Text(
+                  label,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontFamily: 'Inter',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    color: Color(0xFF64748B),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  width: double.infinity,
+                  height: 16,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      amount,
+                      key: ValueKey('savings-chart-amount-$label'),
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontFamilyFallback: const ['Noto Sans KR'],
+                        color: isMax
+                            ? const Color(0xFF2563EB)
+                            : const Color(0xFF0F172A),
+                        fontSize: 10,
+                        fontWeight: isMax ? FontWeight.bold : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: const Text(
-              '최대',
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontFamilyFallback: ['Noto Sans KR'],
-                color: Color(0xFF2563EB),
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        if (isMax) const SizedBox(height: 4),
-        Container(
-          width: 32,
-          height: height,
-          decoration: BoxDecoration(
-            color: isMax ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0),
-            borderRadius: BorderRadius.circular(6),
           ),
         ),
-        const SizedBox(height: AppSizes.smallSpacing),
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'Inter',
-            fontFamilyFallback: ['Noto Sans KR'],
-            color: Color(0xFF64748B),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          amount,
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontFamilyFallback: const ['Noto Sans KR'],
-            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
-            fontSize: 11,
-            fontWeight: isMax ? FontWeight.bold : FontWeight.w600,
-          ),
-        ),
-      ],
+      ),
     );
   }
 

@@ -7,6 +7,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('formats monthly chart amounts without overflowing narrow cells', () {
+    expect(formatSavingsChartAmount(0), '0');
+    expect(formatSavingsChartAmount(950), '950');
+    expect(formatSavingsChartAmount(1000), '1천');
+    expect(formatSavingsChartAmount(1500), '1.5천');
+    expect(formatSavingsChartAmount(10000), '1만');
+    expect(formatSavingsChartAmount(17000), '1.7만');
+  });
+
   test('chart items keep a dynamic map type for summary reduction', () {
     final items = parseSavingsChartItems([
       <String, dynamic>{'label': '1주', 'amount': 1200, 'isMax': false},
@@ -48,6 +57,65 @@ void main() {
       expect(find.text('5'), findsOneWidget);
     }, () => MockClient(_dashboardResponseWithFavoritesFailure));
   });
+
+  for (final size in [const Size(320, 568), const Size(430, 844)]) {
+    testWidgets('yearly monthly chart stays inside the card at $size', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsReportDashboardScreen()),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('올해'));
+        await tester.pump();
+
+        final first = tester.getRect(
+          find.byKey(const ValueKey('savings-chart-item-1월')),
+        );
+        final last = tester.getRect(
+          find.byKey(const ValueKey('savings-chart-item-12월')),
+        );
+        expect(first.left, greaterThanOrEqualTo(0));
+        expect(last.right, lessThanOrEqualTo(size.width));
+        expect(find.text('1.7만'), findsOneWidget);
+        expect(find.text('1.5천'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, () => MockClient(_dashboardResponseWithYearlyChart));
+    });
+  }
+}
+
+Future<http.Response> _dashboardResponseWithYearlyChart(
+  http.Request request,
+) async {
+  if (request.url.path.endsWith('/api/savings/stats')) {
+    final yearly = request.url.queryParameters['period'] == 'this_year';
+    return _statsResponse(
+      chartTitle: yearly ? '월별 절약 금액' : '절약 금액',
+      chartItems: yearly
+          ? List.generate(12, (index) {
+              final month = index + 1;
+              final amount = month == 8
+                  ? 17000
+                  : month == 9
+                  ? 1500
+                  : 0;
+              return {
+                'label': '$month월',
+                'amount': amount,
+                'isMax': month == 8,
+              };
+            })
+          : const [],
+    );
+  }
+  return _auxiliaryResponse(request);
 }
 
 Future<http.Response> _dashboardResponseWithCurrentPeriodFailure(
@@ -74,11 +142,14 @@ Future<http.Response> _dashboardResponseWithFavoritesFailure(
   return _auxiliaryResponse(request);
 }
 
-http.Response _statsResponse() => _jsonResponse({
+http.Response _statsResponse({
+  String chartTitle = '절약 금액',
+  List<Object> chartItems = const [],
+}) => _jsonResponse({
   'totalSavedAmount': 12000,
   'totalVisits': 3,
-  'chartTitle': '절약 금액',
-  'chartItems': <Object>[],
+  'chartTitle': chartTitle,
+  'chartItems': chartItems,
 });
 
 http.Response _auxiliaryResponse(http.Request request) {
