@@ -75,23 +75,18 @@ void main() {
         await tester.tap(find.text('올해'));
         await tester.pump();
 
-        final first = tester.getRect(
-          find.byKey(const ValueKey('savings-chart-item-1월')),
+        final chartRect = tester.getRect(
+          find.byKey(const ValueKey('savings-yearly-line-chart')),
         );
-        final last = tester.getRect(
-          find.byKey(const ValueKey('savings-chart-item-12월')),
-        );
-        expect(first.left, greaterThanOrEqualTo(0));
-        expect(last.right, lessThanOrEqualTo(size.width));
-        expect(find.text('1.7만'), findsOneWidget);
-        expect(find.text('1.5천'), findsOneWidget);
+        expect(chartRect.left, greaterThanOrEqualTo(0));
+        expect(chartRect.right, lessThanOrEqualTo(size.width));
         expect(tester.takeException(), isNull);
       }, () => MockClient(_dashboardResponseWithYearlyChart));
     });
   }
 
   testWidgets(
-    'renders smooth line chart for monthly/weekly tabs and bar chart for yearly',
+    'renders smooth line chart across all tabs with unified yearly line chart',
     (tester) async {
       await http.runWithClient(() async {
         await tester.pumpWidget(
@@ -118,7 +113,7 @@ void main() {
         await tester.pump();
 
         expect(
-          find.byKey(const ValueKey('savings-chart-item-1월')),
+          find.byKey(const ValueKey('savings-yearly-line-chart')),
           findsOneWidget,
         );
         expect(

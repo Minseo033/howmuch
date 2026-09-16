@@ -609,14 +609,10 @@ class _SavingsReportDashboardScreenState
                         ],
                       ),
                       const SizedBox(height: 24),
-                      _selectedTab == '올해'
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: chartBars,
-                            )
-                          : _buildWeeklyLineChart(
-                              tabData['savings'] as List<dynamic>? ?? const [],
-                            ),
+                      _buildSavingsLineChart(
+                        tabData['savings'] as List<dynamic>? ?? const [],
+                        isYearly: _selectedTab == '올해',
+                      ),
                     ],
                   ),
                 ),
@@ -927,7 +923,7 @@ class _SavingsReportDashboardScreenState
     );
   }
 
-  Widget _buildWeeklyLineChart(List<dynamic> savings) {
+  Widget _buildSavingsLineChart(List<dynamic> savings, {bool isYearly = false}) {
     if (savings.isEmpty) {
       return const SizedBox(
         height: 156,
@@ -963,13 +959,13 @@ class _SavingsReportDashboardScreenState
 
     return Semantics(
       container: true,
-      label: '주차별 절약 추이 그래프: $summary',
+      label: '${isYearly ? '월별' : '주차별'} 절약 추이 그래프: $summary',
       child: SizedBox(
-        key: const ValueKey('savings-weekly-line-chart'),
+        key: ValueKey(isYearly ? 'savings-yearly-line-chart' : 'savings-weekly-line-chart'),
         height: 156,
         width: double.infinity,
         child: CustomPaint(
-          painter: _WeeklyLineChartPainter(points: points),
+          painter: _SavingsLineChartPainter(points: points, isYearly: isYearly),
         ),
       ),
     );
@@ -1160,17 +1156,18 @@ class _WeeklyPoint {
   });
 }
 
-class _WeeklyLineChartPainter extends CustomPainter {
+class _SavingsLineChartPainter extends CustomPainter {
   final List<_WeeklyPoint> points;
+  final bool isYearly;
 
-  _WeeklyLineChartPainter({required this.points});
+  _SavingsLineChartPainter({required this.points, this.isYearly = false});
 
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) return;
 
     final n = points.length;
-    const horizontalPadding = 24.0;
+    final horizontalPadding = isYearly ? 18.0 : 26.0;
     const topPadding = 36.0;
     const bottomPadding = 26.0;
     final plotWidth = size.width - (horizontalPadding * 2);
@@ -1260,53 +1257,77 @@ class _WeeklyLineChartPainter extends CustomPainter {
       // 점 그리기
       if (p.amount > 0) {
         if (isMax) {
-          final glowPaint = Paint()..color = const Color(0x332563EB);
-          canvas.drawCircle(pos, 10.0, glowPaint);
+          final glowPaint = Paint()..color = const Color(0x2E2563EB);
+          canvas.drawCircle(pos, isYearly ? 8.0 : 10.0, glowPaint);
 
           final maxOuterPaint = Paint()..color = const Color(0xFF2563EB);
-          canvas.drawCircle(pos, 5.5, maxOuterPaint);
+          canvas.drawCircle(pos, isYearly ? 4.5 : 5.5, maxOuterPaint);
 
           final maxInnerPaint = Paint()..color = Colors.white;
-          canvas.drawCircle(pos, 2.5, maxInnerPaint);
+          canvas.drawCircle(pos, isYearly ? 2.0 : 2.5, maxInnerPaint);
         } else {
           final dotOuterPaint = Paint()..color = const Color(0xFF2563EB);
-          canvas.drawCircle(pos, 4.5, dotOuterPaint);
+          canvas.drawCircle(pos, isYearly ? 3.5 : 4.5, dotOuterPaint);
 
           final dotInnerPaint = Paint()..color = Colors.white;
-          canvas.drawCircle(pos, 2.0, dotInnerPaint);
+          canvas.drawCircle(pos, isYearly ? 1.5 : 2.0, dotInnerPaint);
         }
       } else {
         final zeroDotPaint = Paint()..color = const Color(0xFFCBD5E1);
-        canvas.drawCircle(pos, 3.0, zeroDotPaint);
+        canvas.drawCircle(pos, isYearly ? 2.5 : 3.0, zeroDotPaint);
       }
 
-      // '최대' 뱃지
-      double labelCenterY = pos.dy - 12.0;
+      // 라벨 및 뱃지 그리기 (금액과 최대 뱃지를 가로 한 묶음으로 결합해 겹침 원천 차단)
       if (isMax) {
         final badgeTextPainter = TextPainter(
-          text: const TextSpan(
-            text: '최대',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontFamilyFallback: ['Noto Sans KR'],
-              color: Color(0xFF2563EB),
-              fontSize: 9.5,
-              fontWeight: FontWeight.w800,
-            ),
+          text: TextSpan(
+            children: [
+              const TextSpan(
+                text: '최대 ',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  color: Color(0xFF2563EB),
+                  fontSize: 10.0,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              TextSpan(
+                text: p.amountStr,
+                style: const TextStyle(
+                  fontFamily: 'Inter',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  color: Color(0xFF1D4ED8),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
           textDirection: TextDirection.ltr,
         )..layout();
 
-        final badgeWidth = badgeTextPainter.width + 10;
-        final badgeHeight = badgeTextPainter.height + 4;
+        final badgeWidth = badgeTextPainter.width + 12;
+        final badgeHeight = badgeTextPainter.height + 6;
+        final badgeCenterY = pos.dy - 16.0 - (badgeHeight / 2);
+        final clampedCenterX = pos.dx.clamp(
+          horizontalPadding + badgeWidth / 2,
+          size.width - horizontalPadding - badgeWidth / 2,
+        );
+
         final badgeRect = RRect.fromRectAndRadius(
           Rect.fromCenter(
-            center: Offset(pos.dx, pos.dy - 28.0),
+            center: Offset(clampedCenterX, badgeCenterY),
             width: badgeWidth,
             height: badgeHeight,
           ),
-          const Radius.circular(4),
+          const Radius.circular(6),
         );
+
+        final shadowPaint = Paint()
+          ..color = const Color(0x152563EB)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+        canvas.drawRRect(badgeRect.shift(const Offset(0, 2)), shadowPaint);
 
         final badgeBgPaint = Paint()..color = const Color(0xFFEFF6FF);
         canvas.drawRRect(badgeRect, badgeBgPaint);
@@ -1320,33 +1341,36 @@ class _WeeklyLineChartPainter extends CustomPainter {
         badgeTextPainter.paint(
           canvas,
           Offset(
-            pos.dx - badgeTextPainter.width / 2,
-            pos.dy - 28.0 - badgeTextPainter.height / 2,
+            clampedCenterX - badgeTextPainter.width / 2,
+            badgeCenterY - badgeTextPainter.height / 2,
           ),
         );
-
-        labelCenterY = pos.dy - 10.0;
-      }
-
-      // 금액 라벨
-      final amountPainter = TextPainter(
-        text: TextSpan(
-          text: p.amountStr,
-          style: TextStyle(
-            fontFamily: 'Inter',
-            fontFamilyFallback: const ['Noto Sans KR'],
-            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
-            fontSize: 11.0,
-            fontWeight: isMax ? FontWeight.w800 : FontWeight.w600,
+      } else if (p.amount > 0 || !isYearly) {
+        // 일반 금액 텍스트 (올해 탭 0원은 베이스라인 점으로만 깔끔하게 정돈)
+        final amountPainter = TextPainter(
+          text: TextSpan(
+            text: p.amountStr,
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: const ['Noto Sans KR'],
+              color: p.amount > 0 ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+              fontSize: isYearly ? 9.5 : 10.5,
+              fontWeight: p.amount > 0 ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
+          textDirection: TextDirection.ltr,
+        )..layout();
 
-      amountPainter.paint(
-        canvas,
-        Offset(pos.dx - amountPainter.width / 2, labelCenterY - amountPainter.height),
-      );
+        final clampedX = (pos.dx - amountPainter.width / 2).clamp(
+          horizontalPadding / 2,
+          size.width - horizontalPadding / 2 - amountPainter.width,
+        );
+
+        amountPainter.paint(
+          canvas,
+          Offset(clampedX, pos.dy - 10.0 - amountPainter.height),
+        );
+      }
 
       // X축 주차 라벨
       final xLabelPainter = TextPainter(
@@ -1356,7 +1380,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
             fontFamily: 'Inter',
             fontFamilyFallback: const ['Noto Sans KR'],
             color: isMax ? const Color(0xFF2563EB) : const Color(0xFF64748B),
-            fontSize: 11.5,
+            fontSize: isYearly ? 9.5 : 11.5,
             fontWeight: isMax ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -1371,7 +1395,7 @@ class _WeeklyLineChartPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _WeeklyLineChartPainter oldDelegate) {
-    return oldDelegate.points != points;
+  bool shouldRepaint(covariant _SavingsLineChartPainter oldDelegate) {
+    return oldDelegate.points != points || oldDelegate.isYearly != isYearly;
   }
 }
