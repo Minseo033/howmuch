@@ -11,6 +11,20 @@ export const releaseFiles = [
 const routes = ['/', '/home', '/login'];
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
+// Flutter injects a service-worker revision into flutter_bootstrap.js at build
+// time. The revision can differ between otherwise identical builds because it
+// is derived from the generated service-worker manifest. We compare the
+// service-worker file itself separately, so normalizing only this generated
+// number avoids a false negative without weakening the release check.
+const comparableBytes = (file, bytes) => {
+  if (file !== 'flutter_bootstrap.js') return bytes;
+  const normalized = Buffer.from(bytes).toString('utf8').replace(
+    /serviceWorkerVersion:\s*"\d+"/,
+    'serviceWorkerVersion: "<generated>"',
+  );
+  return Buffer.from(normalized);
+};
+
 // Compare the actual public alias, not just the protected deployment URL or HTTP status.
 export async function verifyWebDeployment({
   baseUrl = 'https://howmuch-zeta.vercel.app',
@@ -25,7 +39,7 @@ export async function verifyWebDeployment({
   const directory = buildDir instanceof URL ? buildDir : pathToFileURL(`${resolve(buildDir)}/`);
   // Fail before network access if the local release is incomplete.
   const expected = new Map(await Promise.all(releaseFiles.map(async (file) => [
-    file, sha256(await readFile(new URL(file, directory))),
+    file, sha256(comparableBytes(file, await readFile(new URL(file, directory)))),
   ])));
   const results = [];
   for (const path of [...releaseFiles, ...routes]) {
@@ -39,8 +53,9 @@ export async function verifyWebDeployment({
         await response.body?.cancel();
         throw new Error(`HTTP ${response.status} (공개 주소에서 직접 200 응답 필요)`);
       }
-      const actual = sha256(Buffer.from(await response.arrayBuffer()));
-      const reference = expected.get(path.startsWith('/') ? 'index.html' : path);
+      const file = path.startsWith('/') ? 'index.html' : path;
+      const actual = sha256(comparableBytes(file, Buffer.from(await response.arrayBuffer())));
+      const reference = expected.get(file);
       if (actual !== reference) throw new Error('로컬 release와 SHA-256 불일치');
       results.push({ path, ok: true });
     } catch (error) {

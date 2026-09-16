@@ -26,6 +26,38 @@ test('matching assets and SPA entry points pass', async (t) => {
   assert.ok(results.every((result) => result.ok));
 });
 
+test('generated Flutter service worker revision does not cause a false failure', async (t) => {
+  const { buildDir, files } = await fixture(t);
+  const localBootstrap = 'serviceWorkerVersion: "123"; const marker = "same app";';
+  files.set('flutter_bootstrap.js', localBootstrap);
+  await writeFile(join(buildDir, 'flutter_bootstrap.js'), localBootstrap);
+
+  const results = await verifyWebDeployment({ buildDir, fetchImpl: async (url) => {
+    if (url.pathname === '/flutter_bootstrap.js') {
+      return new Response('serviceWorkerVersion: "987"; const marker = "same app";');
+    }
+    return new Response(files.get(url.pathname.slice(1)) ?? files.get('index.html'));
+  } });
+
+  assert.equal(results.find((result) => result.path === 'flutter_bootstrap.js').ok, true);
+});
+
+test('non-generated Flutter bootstrap changes still fail', async (t) => {
+  const { buildDir, files } = await fixture(t);
+  const localBootstrap = 'serviceWorkerVersion: "123"; const marker = "current app";';
+  files.set('flutter_bootstrap.js', localBootstrap);
+  await writeFile(join(buildDir, 'flutter_bootstrap.js'), localBootstrap);
+
+  const results = await verifyWebDeployment({ buildDir, fetchImpl: async (url) => {
+    if (url.pathname === '/flutter_bootstrap.js') {
+      return new Response('serviceWorkerVersion: "987"; const marker = "stale app";');
+    }
+    return new Response(files.get(url.pathname.slice(1)) ?? files.get('index.html'));
+  } });
+
+  assert.equal(results.find((result) => result.path === 'flutter_bootstrap.js').ok, false);
+});
+
 test('stale app, SPA fallback for a missing script, and broken deep link fail despite HTTP 200', async (t) => {
   const { buildDir, files } = await fixture(t);
   const results = await verifyWebDeployment({ buildDir, fetchImpl: async (url) => {
