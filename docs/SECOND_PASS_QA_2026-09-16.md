@@ -287,3 +287,4 @@
 - 로컬 macOS 빌드와 GitHub Actions Linux 빌드는 실제 앱 코드가 같아도 Flutter가 `flutter_bootstrap.js`에 삽입하는 `serviceWorkerVersion` 숫자가 달라질 수 있음을 확인했다.
 - 검증기는 이 생성 숫자만 정규화한다. `main.dart.js`, `flutter_service_worker.js`, 폰트·매니페스트와 부트스트랩의 나머지 내용은 계속 SHA-256 수준으로 비교한다.
 - 생성 숫자만 다른 경우 통과하고, 부트스트랩의 실제 코드가 다른 경우 실패하는 회귀 테스트를 각각 추가했다.
+- 후속 자동배포에서 확인된 GitHub Actions Node 20·`setup-java@v4` 종료 경고를 제거하기 위해 공식 checkout/setup-java/upload-artifact/download-artifact 액션을 현재 지원 버전으로 갱신했다. 품질검사와 운영 배포의 순서·조건은 유지했다.

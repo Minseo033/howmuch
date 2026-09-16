@@ -1854,3 +1854,8 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - 운영 자동배포 성공 뒤 로컬 macOS 산출물과 GitHub Actions Linux 산출물을 다시 비교했다. 앱 코드·서비스워커·폰트·매니페스트·주요 라우트는 모두 일치했지만, `flutter_bootstrap.js`에 Flutter가 삽입하는 `serviceWorkerVersion` 숫자만 달라 검증기가 거짓 실패했다.
 - 해당 숫자는 생성된 서비스워커 매니페스트의 리비전이며 빌드 환경에 따라 달라질 수 있다. 검증기는 이 숫자만 정규화하고, `flutter_service_worker.js` 자체와 부트스트랩의 나머지 코드는 계속 엄격하게 비교하도록 변경했다.
 - 생성 숫자만 다른 경우 PASS, 실제 부트스트랩 코드가 다른 경우 FAIL인 회귀 테스트를 추가했다. 따라서 오래된 앱을 최신 배포로 오인하는 방어는 유지된다.
+
+## 5-103. 9/16 GitHub Actions Node 20 종료 경고 제거
+
+- 자동배포 재검증 중 GitHub가 `actions/checkout@v4`, `actions/setup-java@v4`, `actions/download-artifact@v4`의 Node 20 런타임 종료 경고와 `setup-java@v4` 지원 종료를 표시했다.
+- 각 공식 저장소의 최신 릴리스를 확인해 checkout v7, setup-java v6, upload-artifact v7, download-artifact v8로 갱신했다. 기존 Java 21·Flutter 3.44·1일 아티팩트 보존·배포 게이트 조건은 변경하지 않았다.

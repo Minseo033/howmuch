@@ -16,8 +16,8 @@ jobs:
       run:
         working-directory: howmuch_backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
@@ -29,7 +29,7 @@ jobs:
     name: Flutter analysis, tests, and web build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.0'
@@ -45,7 +45,7 @@ jobs:
       - name: Build web release
         run: flutter build web --release --no-wasm-dry-run
       - name: Package web release artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: flutter-web-release
           path: build/web
@@ -60,7 +60,7 @@ jobs:
     name: iOS Simulator build
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.0'
@@ -77,9 +77,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Download verified web release
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: flutter-web-release
           path: build/web
