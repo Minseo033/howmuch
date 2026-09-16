@@ -14,9 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -247,12 +250,185 @@ public class GeminiService {
         return aiResponse;
     }
 
-    private boolean isAiFailureResponse(String response) {
+    public boolean isAiFailureResponse(String response) {
         if (response == null || response.isBlank()) return true;
         return response.contains("AI 기능이 현재 설정되지 않았습니다")
                 || response.contains("AI 응답을 가져오지 못했습니다")
                 || response.contains("AI 응답을 가져오는 중 오류")
                 || response.contains("AI 연결에 실패했습니다");
+    }
+
+    /**
+     * 외부 AI 장애 시에도 서버가 다시 확인한 실제 주변 매장만으로 답변합니다.
+     * 클라이언트가 전국 매장 목록을 다시 내려받지 못하더라도 채팅이 오류 문구로
+     * 끝나지 않도록 하는 최종 안전망입니다.
+     */
+    public record LocalChatRecommendation(String text, List<String> storeIds) {}
+
+    public LocalChatRecommendation buildLocalChatRecommendation(
+            String userMessage, List<Map<String, Object>> nearbyStores) {
+        if (nearbyStores == null || nearbyStores.isEmpty()) {
+            return new LocalChatRecommendation(
+                    "AI 연결이 원활하지 않습니다. 지도에서 위치를 확인한 뒤 다시 요청해주세요.",
+                    List.of());
+        }
+
+        int requestedCount = requestedRecommendationCount(userMessage);
+        Integer budgetWon = requestedBudgetWon(userMessage);
+        List<Map<String, Object>> distanceSorted = nearbyStores.stream()
+                .sorted(Comparator.comparingDouble(this::distanceOf))
+                .toList();
+        List<Map<String, Object>> intentMatches = storesMatchingIntent(userMessage, distanceSorted);
+        List<Map<String, Object>> candidates = intentMatches.isEmpty()
+                ? distanceSorted
+                : intentMatches;
+        List<Map<String, Object>> budgetMatches = budgetWon == null
+                ? candidates
+                : candidates.stream()
+                .filter(store -> minimumKnownPrice(store) <= budgetWon)
+                .filter(store -> minimumKnownPrice(store) > 0)
+                .toList();
+        boolean hasBudgetMatches = budgetWon == null || !budgetMatches.isEmpty();
+        List<Map<String, Object>> selected = (hasBudgetMatches ? budgetMatches : candidates)
+                .stream().limit(requestedCount).toList();
+
+        StringBuilder result = new StringBuilder();
+        if (budgetWon != null && !hasBudgetMatches) {
+            result.append("AI 연결이 원활하지 않고 요청한 예산 이하 매장을 찾지 못해, 확인된 실제 매장 대안을 안내해요.\n");
+        } else {
+            result.append("AI 연결이 원활하지 않아, 확인된 실제 매장을 거리 정보가 있는 경우 가까운 순서로 안내해요.\n");
+        }
+        for (int i = 0; i < selected.size(); i++) {
+            Map<String, Object> store = selected.get(i);
+            int menuIndex = displayMenuIndex(store, budgetWon, hasBudgetMatches);
+            result.append(i + 1).append(". ")
+                    .append(safeText(store.get("storeName"), "매장명 없음", 100))
+                    .append(" — ")
+                    .append(safeText(store.get("menu" + menuIndex), "메뉴 정보 없음", 100))
+                    .append(" · ").append(priceLabel(store.get("price" + menuIndex)));
+            double distance = distanceOf(store);
+            if (Double.isFinite(distance) && distance < Double.MAX_VALUE) {
+                result.append(" · 약 ").append(Math.max(0, Math.round(distance))).append("m");
+            }
+            result.append("\n");
+        }
+        List<String> storeIds = selected.stream()
+                .map(store -> safeText(store.get("storeId"), "", 200))
+                .filter(id -> !id.isBlank())
+                .distinct()
+                .toList();
+        return new LocalChatRecommendation(result.toString().trim(), storeIds);
+    }
+
+    private int requestedRecommendationCount(String message) {
+        String text = message == null ? "" : message;
+        if (text.matches(".*(?:한\\s*곳|한\\s*군데|한\\s*개|하나).*")) return 1;
+        if (text.matches(".*(?:두\\s*곳|두\\s*군데|두\\s*개|둘).*")) return 2;
+        if (text.matches(".*(?:세\\s*곳|세\\s*군데|세\\s*개|셋).*")) return 3;
+        if (text.matches(".*(?:네\\s*곳|네\\s*군데|네\\s*개|넷).*")) return 4;
+        Matcher matcher = Pattern.compile("(\\d+)\\s*(?:곳|군데|개|개소)").matcher(text);
+        if (matcher.find()) {
+            try {
+                return Math.max(1, Math.min(4, Integer.parseInt(matcher.group(1))));
+            } catch (NumberFormatException ignored) {
+                // Fall through to the mobile-friendly default.
+            }
+        }
+        return 3;
+    }
+
+    private Integer requestedBudgetWon(String message) {
+        String text = message == null ? "" : message.replace(",", "").replace(" ", "");
+        Matcher manWon = Pattern.compile("(\\d+(?:\\.\\d+)?)만원").matcher(text);
+        if (manWon.find()) {
+            try {
+                return (int) Math.round(Double.parseDouble(manWon.group(1)) * 10_000);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        if (text.contains("만원")) return 10_000;
+        Matcher cheonWon = Pattern.compile("(\\d+)천원").matcher(text);
+        if (cheonWon.find()) {
+            try {
+                return Integer.parseInt(cheonWon.group(1)) * 1_000;
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        if (text.contains("천원")) return 1_000;
+        Matcher won = Pattern.compile("(\\d{4,7})원").matcher(text);
+        if (won.find()) {
+            try {
+                return Integer.parseInt(won.group(1));
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private int priceOf(Object value) {
+        if (value == null) return -1;
+        String digits = value.toString().replaceAll("[^0-9]", "");
+        if (digits.isBlank()) return -1;
+        try {
+            return Integer.parseInt(digits);
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private int minimumKnownPrice(Map<String, Object> store) {
+        int minimum = Integer.MAX_VALUE;
+        for (int i = 1; i <= 4; i++) {
+            int price = priceOf(store.get("price" + i));
+            if (price > 0) minimum = Math.min(minimum, price);
+        }
+        return minimum == Integer.MAX_VALUE ? -1 : minimum;
+    }
+
+    private List<Map<String, Object>> storesMatchingIntent(
+            String userMessage, List<Map<String, Object>> stores) {
+        String query = userMessage == null ? "" : userMessage.toLowerCase();
+        boolean mealQuery = List.of(
+                        "아침", "점심", "저녁", "식사", "밥", "맛집", "한식", "중식", "일식",
+                        "양식", "분식", "국밥", "국수", "찌개", "고기", "짜장", "짬뽕", "돈까스")
+                .stream().anyMatch(query::contains);
+        boolean cafeQuery = List.of("카페", "커피", "디저트", "빵", "베이커리")
+                .stream().anyMatch(query::contains);
+        if (!mealQuery && !cafeQuery) return stores;
+
+        return stores.stream().filter(store -> {
+            StringBuilder searchable = new StringBuilder();
+            searchable.append(safeText(store.get("storeName"), "", 100)).append(' ')
+                    .append(safeText(store.get("industry"), "", 100));
+            for (int i = 1; i <= 4; i++) {
+                searchable.append(' ').append(safeText(store.get("menu" + i), "", 100));
+            }
+            String text = searchable.toString().toLowerCase();
+            if (cafeQuery) {
+                return List.of("카페", "커피", "디저트", "빵", "베이커리", "음료", "차")
+                        .stream().anyMatch(text::contains);
+            }
+            return List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
+                    .stream().noneMatch(text::contains);
+        }).toList();
+    }
+
+    private int displayMenuIndex(
+            Map<String, Object> store, Integer budgetWon, boolean hasBudgetMatches) {
+        if (budgetWon != null && hasBudgetMatches) {
+            for (int i = 1; i <= 4; i++) {
+                int price = priceOf(store.get("price" + i));
+                if (price > 0 && price <= budgetWon) return i;
+            }
+        }
+        for (int i = 1; i <= 4; i++) {
+            if (!safeText(store.get("menu" + i), "", 100).isBlank()
+                    || priceOf(store.get("price" + i)) > 0) return i;
+        }
+        return 1;
     }
 
     private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {

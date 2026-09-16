@@ -15,6 +15,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 class AiControllerTest {
 
@@ -85,6 +86,45 @@ class AiControllerTest {
                 org.mockito.ArgumentMatchers.eq("짜장면"),
                 org.mockito.ArgumentMatchers.eq(chatReq.getHistory()),
                 org.mockito.ArgumentMatchers.eq(serverStores));
+    }
+
+    @Test
+    void replacesGeminiFailureWithVerifiedNearbyStoreFallback() {
+        request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+        when(rateLimiter.tryAcquire(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenReturn(true);
+        java.util.List<java.util.Map<String, Object>> serverStores = java.util.List.of(
+                java.util.Map.of(
+                        "storeName", "검증된 식당",
+                        "menu1", "김치찌개",
+                        "price1", "8,000",
+                        "distanceMeters", 250));
+        when(firebaseService.getAiStoreContext(java.util.List.of("store-1"), 37.5, 127.0))
+                .thenReturn(serverStores);
+        when(geminiService.getAiResponse(
+                org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(serverStores)))
+                .thenReturn("죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다.");
+        when(geminiService.isAiFailureResponse(org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(true);
+        when(geminiService.buildLocalChatRecommendation("만원 이하 점심", serverStores))
+                .thenReturn(new GeminiService.LocalChatRecommendation(
+                        "1. 검증된 식당 — 김치찌개 · 8,000원", java.util.List.of("store-1")));
+
+        ResponseEntity<?> response = controller.chat(ChatRequest.builder()
+                .message("만원 이하 점심")
+                .nearbyStoreIds(java.util.List.of("store-1"))
+                .latitude(37.5)
+                .longitude(127.0)
+                .build(), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        com.howmuch.dto.ChatResponse body = (com.howmuch.dto.ChatResponse) response.getBody();
+        assertThat(body.getResponse()).contains("검증된 식당");
+        assertThat(body.isFallback()).isTrue();
+        assertThat(body.getRecommendedStoreIds()).containsExactly("store-1");
     }
 
     @Test

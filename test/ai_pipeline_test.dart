@@ -3,9 +3,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
 
 void main() {
+  group('AI fallback candidate loading', () {
+    test(
+      'uses the map cache without downloading the nationwide catalog',
+      () async {
+        final store = Store(
+          id: 'map-store',
+          storeName: '지도 매장',
+          address: '서울시 마포구',
+          phoneNumber: '',
+          industry: '한식',
+          menu1: '백반',
+          price1: '8000',
+          menu2: '',
+          price2: '',
+          menu3: '',
+          price3: '',
+          menu4: '',
+          price4: '',
+          latitude: 37.55,
+          longitude: 126.92,
+          source: 'GOV',
+        );
+        HomeMapScreen.setSearchCatalog(const []);
+        HomeMapScreen.setMapStores([store]);
+        var catalogRequested = false;
+
+        final candidates = await loadAiFallbackCandidates(
+          catalogLoader: () async {
+            catalogRequested = true;
+            return const [];
+          },
+        );
+
+        expect(candidates.map((item) => item.id), ['map-store']);
+        expect(catalogRequested, isFalse);
+        HomeMapScreen.setMapStores(const []);
+      },
+    );
+  });
+
   group('parseRequestedRecommendationCount', () {
     test('parses Korean count words accurately', () {
       expect(parseRequestedRecommendationCount('한곳만 추천해줘'), 1);

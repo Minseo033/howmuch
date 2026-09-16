@@ -436,8 +436,7 @@ public class FirebaseService {
                         Map<String, Object> ctx = new HashMap<>();
                         ctx.put("storeId", store.get("storeId"));
                         ctx.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
-                        ctx.put("menu1", String.valueOf(store.getOrDefault("menu1", "정보 없음")));
-                        ctx.put("price1", String.valueOf(store.getOrDefault("price1", "")));
+                        addAiStoreDetails(ctx, store);
                         ctx.put("source", "착한가격업소");
                         ctx.put("distanceMeters", (int) Math.round(dist));
                         candidates.add(ctx);
@@ -465,14 +464,21 @@ public class FirebaseService {
             Map<String, Object> context = new HashMap<>();
             context.put("storeId", storeId);
             context.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
-            context.put("menu1", String.valueOf(store.getOrDefault("menu1", "정보 없음")));
-            context.put("price1", String.valueOf(store.getOrDefault("price1", "")));
+            addAiStoreDetails(context, store);
             context.put("source", source);
             if (isValidCoordinate(latitude, longitude) && hasValidStoreCoordinate(store)) {
                 context.put("distanceMeters", (int) Math.round(haversine(
                         latitude, longitude, parseLat(store), parseLng(store))));
             }
             target.put(storeId, context);
+        }
+    }
+
+    private void addAiStoreDetails(Map<String, Object> context, Map<String, Object> store) {
+        context.put("industry", String.valueOf(store.getOrDefault("industry", "")));
+        for (int i = 1; i <= 4; i++) {
+            context.put("menu" + i, String.valueOf(store.getOrDefault("menu" + i, "")));
+            context.put("price" + i, String.valueOf(store.getOrDefault("price" + i, "")));
         }
     }
 

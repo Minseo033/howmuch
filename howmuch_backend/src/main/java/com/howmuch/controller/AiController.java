@@ -71,7 +71,20 @@ public class AiController {
         List<Map<String, Object>> nearbyStores = firebaseService.getAiStoreContext(
                 request.getNearbyStoreIds(), request.getLatitude(), request.getLongitude());
         String aiResponse = geminiService.getAiResponse(message, request.getHistory(), nearbyStores);
-        return ResponseEntity.ok(new ChatResponse(aiResponse));
+        boolean fallback = false;
+        List<String> recommendedStoreIds = List.of();
+        if (geminiService.isAiFailureResponse(aiResponse) && !nearbyStores.isEmpty()) {
+            GeminiService.LocalChatRecommendation local =
+                    geminiService.buildLocalChatRecommendation(message, nearbyStores);
+            aiResponse = local.text();
+            fallback = true;
+            recommendedStoreIds = local.storeIds();
+        }
+        return ResponseEntity.ok(ChatResponse.builder()
+                .response(aiResponse)
+                .fallback(fallback)
+                .recommendedStoreIds(recommendedStoreIds)
+                .build());
     }
 
     private boolean isValidContext(ChatRequest request) {

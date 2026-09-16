@@ -12,7 +12,7 @@ final aiChatServiceProvider = Provider((ref) => AiChatService());
 
 class AiChatService {
   /// Gemini AI 챗봇 응답 요청 (세션 인증 필요)
-  Future<String> getGeminiResponse(
+  Future<AiChatReply> getGeminiResponse(
     String message, {
     List<Map<String, String>>? history,
     List<String>? nearbyStoreIds,
@@ -41,17 +41,48 @@ class AiChatService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data['response'] ?? '응답을 이해하지 못했습니다.';
+        return AiChatReply(
+          text: data['response']?.toString() ?? '응답을 이해하지 못했습니다.',
+          isFallback: data['fallback'] == true,
+          recommendedStoreIds:
+              (data['recommendedStoreIds'] as List?)
+                  ?.map((id) => id.toString().trim())
+                  .where((id) => id.isNotEmpty)
+                  .toList(growable: false) ??
+              const [],
+        );
       } else if (response.statusCode == 401) {
-        return '로그인이 필요한 기능입니다. 다시 로그인해주세요.';
+        return const AiChatReply(text: '로그인이 필요한 기능입니다. 다시 로그인해주세요.');
+      } else if (response.statusCode == 429) {
+        return const AiChatReply(
+          text: 'AI 채팅 사용 횟수를 모두 사용했어요. 잠시 후 다시 시도해주세요.',
+        );
+      } else if (response.statusCode >= 500) {
+        return AiChatReply(
+          text: 'AI 연결에 실패했습니다. 서버 응답: ${response.statusCode}',
+        );
       } else {
-        return '서버 응답 에러: ${response.statusCode}';
+        return AiChatReply(
+          text: '요청을 처리하지 못했습니다. 입력 내용을 확인해주세요. (${response.statusCode})',
+        );
       }
     } catch (e) {
       debugPrint('AI 챗봇 통신 에러: $e');
-      return 'AI 연결에 실패했습니다. 네트워크를 확인해주세요.';
+      return const AiChatReply(text: 'AI 연결에 실패했습니다. 네트워크를 확인해주세요.');
     }
   }
+}
+
+class AiChatReply {
+  const AiChatReply({
+    required this.text,
+    this.isFallback = false,
+    this.recommendedStoreIds = const [],
+  });
+
+  final String text;
+  final bool isFallback;
+  final List<String> recommendedStoreIds;
 }
 
 List<String> buildNearbyStoreIds({
@@ -80,8 +111,7 @@ bool isAiUnavailableResponse(String response) {
   return normalized.contains('AI 응답을 가져오는 중 오류') ||
       normalized.contains('AI 응답을 가져오지 못했습니다') ||
       normalized.contains('AI 기능이 현재 설정되지 않았습니다') ||
-      normalized.startsWith('AI 연결에 실패했습니다') ||
-      normalized.startsWith('서버 응답 에러:');
+      normalized.startsWith('AI 연결에 실패했습니다');
 }
 
 class LocalAiRecommendation {

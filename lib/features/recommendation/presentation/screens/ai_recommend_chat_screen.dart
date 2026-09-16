@@ -27,6 +27,31 @@ final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) {
   return [];
 });
 
+@visibleForTesting
+Future<List<Store>> loadAiFallbackCandidates({
+  StoreCatalogLoader catalogLoader = loadStoreCatalog,
+}) async {
+  final catalog = HomeMapScreen.globalSearchCatalog;
+  if (catalog.isNotEmpty) return catalog;
+
+  // The map already holds a small, server-validated viewport cache in the
+  // common flow. Use it immediately instead of blocking the recovery path on
+  // the nationwide catalog (currently several MB on web/Safari).
+  final mapStores = HomeMapScreen.globalAllStores
+      .where((store) => store.hasValidCoordinates)
+      .toList(growable: false);
+  if (mapStores.isNotEmpty) return mapStores;
+
+  try {
+    final loaded = await catalogLoader();
+    HomeMapScreen.setSearchCatalog(loaded);
+    return loaded;
+  } catch (error) {
+    debugPrint('AI 로컬 추천용 전체 매장 목록 로드 실패: $error');
+    return HomeMapScreen.globalAllStores;
+  }
+}
+
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
@@ -63,24 +88,10 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     });
   }
 
-  /// AI can fail after the map has only loaded a viewport-sized list. Make a
-  /// best effort to obtain the complete catalog before falling back, so the
-  /// fallback recommends real stores instead of ending with an error bubble.
-  Future<List<Store>> _candidateStoresForFallback() async {
-    final catalog = HomeMapScreen.globalSearchCatalog;
-    if (catalog.isNotEmpty) return catalog;
-
-    try {
-      final loaded = await loadStoreCatalog();
-      HomeMapScreen.setSearchCatalog(loaded);
-      return loaded;
-    } catch (error) {
-      debugPrint('AI 로컬 추천용 전체 매장 목록 로드 실패: $error');
-      // The map list is still a valid real-candidate source when the catalog
-      // endpoint is unavailable.
-      return HomeMapScreen.globalAllStores;
-    }
-  }
+  /// Prefer the small viewport cache for an immediate real-store fallback;
+  /// only fetch the complete catalog when the chat was opened directly.
+  Future<List<Store>> _candidateStoresForFallback() =>
+      loadAiFallbackCandidates();
 
   Future<void> _sendMessage() async {
     if (_isTyping) return;
@@ -121,7 +132,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     );
 
     // 💡 Gemini API 호출
-    var botResponse = await ref
+    final aiReply = await ref
         .read(aiChatServiceProvider)
         .getGeminiResponse(
           messageText,
@@ -130,8 +141,17 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
           latitude: position?.latitude,
           longitude: position?.longitude,
         );
+    var botResponse = aiReply.text;
     List<Store> recommendedStores = const [];
-    if (isAiUnavailableResponse(botResponse)) {
+    if (aiReply.isFallback) {
+      final ids = aiReply.recommendedStoreIds.toSet();
+      final candidateStores = HomeMapScreen.globalSearchCatalog.isNotEmpty
+          ? HomeMapScreen.globalSearchCatalog
+          : HomeMapScreen.globalAllStores;
+      recommendedStores = candidateStores
+          .where((store) => ids.contains(store.id))
+          .toList(growable: false);
+    } else if (isAiUnavailableResponse(botResponse)) {
       final position = HomeMapScreen.globalUserPosition;
       final candidateStores = await _candidateStoresForFallback();
       final fallbackResult = buildLocalAiFallbackResult(
@@ -143,6 +163,8 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       if (fallbackResult != null) {
         botResponse = fallbackResult.text;
         recommendedStores = fallbackResult.stores;
+      } else {
+        botResponse = 'AI 연결이 원활하지 않습니다. 지도에서 위치를 확인한 뒤 다시 요청해주세요.';
       }
     } else {
       final candidateStores = HomeMapScreen.globalSearchCatalog.isNotEmpty

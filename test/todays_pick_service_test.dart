@@ -147,6 +147,12 @@ void main() {
     expect(isAiUnavailableResponse(error), isTrue);
   });
 
+  test('client and rate-limit errors are not disguised as AI outages', () {
+    expect(isAiUnavailableResponse('서버 응답 에러: 400'), isFalse);
+    expect(isAiUnavailableResponse('서버 응답 에러: 429'), isFalse);
+    expect(isAiUnavailableResponse('로그인이 필요한 기능입니다.'), isFalse);
+  });
+
   test('AI request context contains only nearby server store IDs', () {
     final ids = buildNearbyStoreIds(
       stores: [

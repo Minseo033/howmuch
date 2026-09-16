@@ -84,4 +84,55 @@ class GeminiServiceTest {
         assertThat(route).contains("1. 매장1", "2. 매장2", "3. 매장3", "4. 매장4");
         assertThat(route).doesNotContain("5. 매장5");
     }
+
+    @Test
+    void localChatFallbackUsesOnlyVerifiedStoresAndHonorsBudgetAndCount() {
+        GeminiService service = new GeminiService("", 1_000, false);
+
+        String response = service.buildLocalChatRecommendation("만원 이하 점심 두 곳", List.of(
+                Map.of("storeId", "a", "storeName", "가까운 식당", "menu1", "백반", "price1", "8,000원", "distanceMeters", 100),
+                Map.of("storeId", "b", "storeName", "예산초과 식당", "menu1", "불고기", "price1", "15,000", "distanceMeters", 120),
+                Map.of("storeId", "c", "storeName", "두번째 식당", "menu1", "칼국수", "price1", "7,000", "distanceMeters", 300))).text();
+
+        assertThat(response).contains("가까운 식당", "두번째 식당", "8,000원", "7,000원");
+        assertThat(response).doesNotContain("예산초과 식당", "원원");
+    }
+
+    @Test
+    void localChatFallbackUsesRealAlternativesWhenBudgetHasNoMatch() {
+        GeminiService service = new GeminiService("", 1_000, false);
+
+        String response = service.buildLocalChatRecommendation("천원 이하 한 곳", List.of(
+                Map.of("storeId", "real", "storeName", "실제 매장", "menu1", "국수", "price1", "5,000", "distanceMeters", 80))).text();
+
+        assertThat(response).contains("실제 매장 대안", "실제 매장", "5,000원");
+    }
+
+    @Test
+    void localChatFallbackUsesSecondaryMenuAndSkipsNonFoodForLunch() {
+        GeminiService service = new GeminiService("", 1_000, false);
+
+        GeminiService.LocalChatRecommendation result = service.buildLocalChatRecommendation(
+                "만원 이하 점심 한 곳", List.of(
+                        Map.of(
+                                "storeId", "hair",
+                                "storeName", "동네미용실",
+                                "industry", "미용",
+                                "menu1", "커트",
+                                "price1", "8,000",
+                                "distanceMeters", 50),
+                        Map.of(
+                                "storeId", "meal",
+                                "storeName", "착한식당",
+                                "industry", "한식",
+                                "menu1", "불고기",
+                                "price1", "15,000",
+                                "menu2", "백반",
+                                "price2", "9,000",
+                                "distanceMeters", 200)));
+
+        assertThat(result.text()).contains("착한식당", "백반", "9,000원");
+        assertThat(result.text()).doesNotContain("동네미용실", "불고기");
+        assertThat(result.storeIds()).containsExactly("meal");
+    }
 }
