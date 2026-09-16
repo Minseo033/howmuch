@@ -57,11 +57,11 @@ class GeminiServiceTest {
         GeminiService defaultService = new GeminiService("", 1_000, false);
         List<String> defaultUrls = defaultService.getCandidateUrls();
         assertThat(defaultUrls).isNotEmpty();
-        assertThat(defaultUrls.get(0)).contains("gemini-3.5-flash-lite:generateContent");
+        assertThat(defaultUrls.get(0)).contains("gemini-3.6-flash:generateContent");
 
-        GeminiService customService = new GeminiService("", 1_000, false, "gemini-3.6-flash");
+        GeminiService customService = new GeminiService("", 1_000, false, "gemini-3.5-flash-lite");
         List<String> customUrls = customService.getCandidateUrls();
-        assertThat(customUrls.get(0)).contains("gemini-3.6-flash:generateContent");
+        assertThat(customUrls.get(0)).contains("gemini-3.5-flash-lite:generateContent");
 
         GeminiService staleConfiguredService = new GeminiService("", 1_000, false, "gemini-1.5-flash");
         assertThat(staleConfiguredService.getCandidateUrls().get(0))

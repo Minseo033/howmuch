@@ -15,6 +15,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +36,9 @@ public class GeminiService {
 
     @Autowired
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
-                         @Value("${gemini.timeout-ms:10000}") int timeoutMs,
+                         @Value("${gemini.timeout-ms:20000}") int timeoutMs,
                          @Value("${gemini.route-enabled:false}") boolean routeAiEnabled,
-                         @Value("${gemini.model:gemini-3.5-flash-lite}") String configuredModel) {
+                         @Value("${gemini.model:gemini-3.6-flash}") String configuredModel) {
         this.geminiApiKey = geminiApiKey;
         this.routeAiEnabled = routeAiEnabled;
         this.configuredModel = normalizeModel(configuredModel);
@@ -50,7 +51,7 @@ public class GeminiService {
     }
 
     public GeminiService(String geminiApiKey, int timeoutMs, boolean routeAiEnabled) {
-        this(geminiApiKey, timeoutMs, routeAiEnabled, "gemini-3.5-flash-lite");
+        this(geminiApiKey, timeoutMs, routeAiEnabled, "gemini-3.6-flash");
     }
 
     private static List<String> buildCandidateUrls(String model) {
@@ -58,8 +59,8 @@ public class GeminiService {
         if (model != null && !model.isBlank()) {
             urls.add("https://generativelanguage.googleapis.com/v1beta/models/" + model.trim() + ":generateContent");
         }
-        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
         urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent");
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
         urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent");
         urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
         return new ArrayList<>(urls);
@@ -67,7 +68,7 @@ public class GeminiService {
 
     private static String normalizeModel(String model) {
         if (model == null || model.isBlank()) {
-            return "gemini-3.5-flash-lite";
+            return "gemini-3.6-flash";
         }
         return model.trim();
     }
@@ -153,24 +154,20 @@ public class GeminiService {
             "parts", List.of(Map.of("text", promptBuilder.toString()))
         ));
 
-        Map<String, Object> requestBody = Map.of(
+        Map<String, Object> basePayload = Map.of(
             "system_instruction", Map.of(
                 "parts", List.of(
                     Map.of("text", GOMI_SYSTEM_INSTRUCTION)
                 )
             ),
-            "contents", contents,
-            "generationConfig", Map.of(
-                    "temperature", 0.7,
-                    "maxOutputTokens", 700)
+            "contents", contents
         );
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         // 이미 확인된 정상 동작 엔드포인트가 있으면 우선 호출
         String cachedUrl = this.workingUrl;
         if (cachedUrl != null) {
             try {
-                return callGemini(cachedUrl, entity);
+                return callGemini(cachedUrl, headers, basePayload);
             } catch (Exception e) {
                 log.warn("캐시된 Gemini 엔드포인트({}) 호출 실패, 후보군 재탐색: {}", cachedUrl, e.getMessage());
                 this.workingUrl = null;
@@ -181,7 +178,7 @@ public class GeminiService {
         Exception lastException = null;
         for (String url : candidateUrls) {
             try {
-                String result = callGemini(url, entity);
+                String result = callGemini(url, headers, basePayload);
                 this.workingUrl = url;
                 log.info("Gemini 유효 엔드포인트 확인 및 저장: {}", url);
                 return result;
@@ -208,7 +205,33 @@ public class GeminiService {
         return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }
 
-    private String callGemini(String url, HttpEntity<Map<String, Object>> entity) throws Exception {
+    private String callGemini(String url, HttpHeaders headers, Map<String, Object> basePayload) throws Exception {
+        Map<String, Object> payloadWithNoThinking = new LinkedHashMap<>(basePayload);
+        Map<String, Object> genConfig = new LinkedHashMap<>();
+        genConfig.put("temperature", 0.7);
+        genConfig.put("maxOutputTokens", 2048);
+        genConfig.put("thinkingConfig", Map.of("thinkingBudget", 0));
+        payloadWithNoThinking.put("generationConfig", genConfig);
+
+        try {
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithNoThinking, headers);
+            return executeGeminiPost(url, entity);
+        } catch (Exception e) {
+            // thinkingConfig를 거부하는 모델(400 등)인 경우 thinkingConfig 없이 2048 토큰으로 재시도
+            if (e.getMessage() != null && e.getMessage().contains("400")) {
+                log.info("Gemini thinkingConfig 미지원 엔드포인트, 기본 2048 토큰으로 재시도: {}", url);
+                Map<String, Object> fallbackPayload = new LinkedHashMap<>(basePayload);
+                fallbackPayload.put("generationConfig", Map.of(
+                        "temperature", 0.7,
+                        "maxOutputTokens", 2048));
+                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(fallbackPayload, headers);
+                return executeGeminiPost(url, entity);
+            }
+            throw e;
+        }
+    }
+
+    private String executeGeminiPost(String url, HttpEntity<Map<String, Object>> entity) throws Exception {
         ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
         JsonNode root = objectMapper.readTree(response.getBody());
         JsonNode candidates = root.path("candidates");
