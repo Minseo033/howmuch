@@ -29,44 +29,51 @@ class NetworkErrorScreen extends StatelessWidget {
       240.0,
       311.4772644042969,
     );
+    final compact = MediaQuery.sizeOf(context).height < 400;
 
     return FigmaMobileCanvas(
       child: Stack(
         children: [
           Positioned.fill(
             top: topOffset,
-            bottom: bottomOffset + 76,
-            child: Center(
-              child: SizedBox(
-                width: actionWidth,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const _StateIcon(icon: Icons.wifi_off_rounded, size: 36),
-                    const SizedBox(height: 24),
-                    const Text(
-                      '연결할 수 없어요',
-                      textAlign: TextAlign.center,
-                      style: _titleText,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '인터넷 연결을 확인하고\n다시 시도해주세요',
-                      textAlign: TextAlign.center,
-                      style: _bodyText,
-                    ),
-                    const SizedBox(height: 36),
-                    _PrimaryButton(
-                      label: '다시 시도',
-                      onPressed: () => context.go(AppRoutes.splash),
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      '오프라인 저장 기능은 아직 준비 중이에요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: muted, fontSize: 13),
-                    ),
-                  ],
+            bottom: compact ? 0 : bottomOffset + 76,
+            child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Center(
+                child: SizedBox(
+                  width: actionWidth,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _StateIcon(
+                        icon: Icons.wifi_off_rounded,
+                        size: compact ? 28 : 36,
+                      ),
+                      SizedBox(height: compact ? 10 : 24),
+                      const Text(
+                        '연결할 수 없어요',
+                        textAlign: TextAlign.center,
+                        style: _titleText,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '인터넷 연결을 확인하고\n다시 시도해주세요',
+                        textAlign: TextAlign.center,
+                        style: _bodyText,
+                      ),
+                      SizedBox(height: compact ? 14 : 36),
+                      _PrimaryButton(
+                        label: '다시 시도',
+                        onPressed: () => context.go(AppRoutes.splash),
+                      ),
+                      SizedBox(height: compact ? 8 : 14),
+                      const Text(
+                        '오프라인 저장 기능은 아직 준비 중이에요.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -79,4 +79,53 @@ class FirebaseServiceStartupTest {
                 .distinct()
                 .count()).isEqualTo(11_385);
     }
+
+    @Test
+    void allStoresIncludesOnlyPublicUserStoresWithoutDuplicatingGovernmentStores() {
+        var service = new FirebaseService(mock(Firestore.class), mock(ReportImageStorage.class));
+        Map<String, Object> governmentStore = new HashMap<>(Map.of(
+                "storeName", "기존매장",
+                "address", "서울특별시 중구 세종대로 1",
+                "phoneNumber", "02-000-0000",
+                "latitude", 37.56,
+                "longitude", 126.97));
+        ReflectionTestUtils.invokeMethod(service, "installGovStores", List.of(governmentStore));
+
+        Map<String, Object> approvedUserStore = new HashMap<>(Map.of(
+                "storeName", "승인사용자매장",
+                "address", "서울특별시 중구 을지로 2",
+                "status", "APPROVED",
+                "latitude", 37.57,
+                "longitude", 126.98));
+        approvedUserStore.put("reporterId", "kakao:private-user");
+        approvedUserStore.put("description", "비공개 제보 설명");
+        approvedUserStore.put("rejectReason", "비공개 반려 사유");
+        approvedUserStore.put("imageUrls", List.of("https://private.example/report.jpg"));
+        Map<String, Object> pendingUserStore = new HashMap<>(Map.of(
+                "storeName", "대기사용자매장",
+                "address", "서울특별시 중구 을지로 3",
+                "status", "PENDING",
+                "latitude", 37.58,
+                "longitude", 126.99));
+        Map<String, Object> duplicateGovernmentStore = new HashMap<>(governmentStore);
+        duplicateGovernmentStore.put("status", "APPROVED");
+        duplicateGovernmentStore.put("storeId", "different-submitted-id");
+        ReflectionTestUtils.setField(service, "cachedUserStores",
+                List.of(approvedUserStore, pendingUserStore, duplicateGovernmentStore));
+
+        List<Map<String, Object>> stores = service.getAllStores();
+
+        assertThat(stores).anySatisfy(store -> {
+            assertThat(store.get("storeName")).isEqualTo("승인사용자매장");
+            assertThat(store.get("source")).isEqualTo("USER");
+            assertThat(store.get("storeId")).isNotNull();
+            assertThat(store).doesNotContainKeys(
+                    "reporterId", "description", "rejectReason", "imageUrls", "status");
+        });
+        assertThat(stores).noneMatch(store -> "대기사용자매장".equals(store.get("storeName")));
+        assertThat(stores.stream()
+                .filter(store -> "기존매장".equals(store.get("storeName"))))
+                .hasSize(1)
+                .allMatch(store -> "GOV".equals(store.get("source")));
+    }
 }

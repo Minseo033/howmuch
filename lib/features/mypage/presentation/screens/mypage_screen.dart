@@ -1183,25 +1183,30 @@ class _ToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onToggle,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              SizedBox(
-                width: 17,
-                child: Icon(icon, color: MypageScreen.muted, size: 17),
-              ),
-              const SizedBox(width: 12),
-              Text(title, style: _settingText),
-              const Spacer(),
-              _AdminModeSwitch(value: value),
-              const SizedBox(width: 16),
-            ],
+    return Semantics(
+      button: true,
+      toggled: value,
+      label: title,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onToggle,
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 17,
+                  child: Icon(icon, color: MypageScreen.muted, size: 17),
+                ),
+                const SizedBox(width: 12),
+                Text(title, style: _settingText),
+                const Spacer(),
+                _AdminModeSwitch(value: value),
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),

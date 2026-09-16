@@ -8,12 +8,17 @@ import 'package:flutter/material.dart';
 /// **App (iOS/Android)**: Scales the 375px design to fill the screen width.
 /// **Mobile Web (≤480px)**: Uses 100% viewport width, height fills available space.
 /// **Desktop Web (>480px)**: Centers the content at max 430px width.
+///
+/// Selected presentation surfaces can opt into the wider web shell. This is
+/// intentionally opt-in so detail/forms screens keep their Figma mobile
+/// geometry while the map and search surfaces can use tablet/desktop space.
 class FigmaMobileCanvas extends StatelessWidget {
   const FigmaMobileCanvas({
     super.key,
     required this.child,
     this.backgroundColor = Colors.white,
     this.outerBackgroundColor = const Color(0xFFF4F6FA),
+    this.wideWebLayout = false,
   });
 
   /// Design reference width from Figma (375px)
@@ -31,15 +36,29 @@ class FigmaMobileCanvas extends StatelessWidget {
   /// Max width for desktop web centering
   static const double maxWebWidth = 430.0;
 
+  /// Breakpoint and max width for the presentation web shell.
+  static const double wideWebBreakpoint = 768.0;
+  static const double maxWideWebWidth = 1180.0;
+
   /// Keeps narrow or zoomed browser viewports inside their actual bounds.
-  static double webContentWidthFor(double viewportWidth) {
+  static double webContentWidthFor(
+    double viewportWidth, {
+    double maxWidth = maxWebWidth,
+  }) {
     if (!viewportWidth.isFinite || viewportWidth <= 0) return 0;
-    return math.min(viewportWidth, maxWebWidth);
+    if (!maxWidth.isFinite || maxWidth <= 0) return 0;
+    return math.min(viewportWidth, maxWidth);
+  }
+
+  /// Returns the width used by the opt-in wide web shell.
+  static double wideWebContentWidthFor(double viewportWidth) {
+    return webContentWidthFor(viewportWidth, maxWidth: maxWideWebWidth);
   }
 
   final Widget child;
   final Color backgroundColor;
   final Color outerBackgroundColor;
+  final bool wideWebLayout;
 
   /// Returns true when running on the web platform.
   static bool get _isWeb => kIsWeb;
@@ -100,7 +119,12 @@ class FigmaMobileCanvas extends StatelessWidget {
     final viewportHeight = constraints.maxHeight;
 
     // On mobile web: fill 100% width
-    final contentWidth = webContentWidthFor(viewportWidth);
+    final useWideWebLayout =
+        wideWebLayout && _isWeb && viewportWidth >= wideWebBreakpoint;
+    final contentWidth = webContentWidthFor(
+      viewportWidth,
+      maxWidth: useWideWebLayout ? maxWideWebWidth : maxWebWidth,
+    );
     final showDesktopFrame = viewportWidth > maxWebWidth;
 
     return Align(

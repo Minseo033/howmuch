@@ -23,6 +23,7 @@ void main() {
           'longitude': 127.0,
         }),
       ];
+      HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
       addTearDown(() => HomeMapScreen.globalAllStores = previous);
       await tester.pumpWidget(
         const MaterialApp(home: SearchResultScreen(initialQuery: '')),
@@ -76,6 +77,7 @@ void main() {
           'longitude': 127.0,
         }),
     ];
+    HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
     addTearDown(() => HomeMapScreen.globalAllStores = previous);
     await tester.pumpWidget(
       const MaterialApp(home: SearchResultScreen(initialQuery: '없는 가게')),
@@ -106,6 +108,7 @@ void main() {
         'longitude': 127.0,
       }),
     ];
+    HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
     addTearDown(() => HomeMapScreen.globalAllStores = previous);
     await tester.pumpWidget(
       const MaterialApp(home: SearchResultScreen(initialQuery: '샌드위치')),
@@ -125,6 +128,7 @@ void main() {
   ) async {
     final previousStores = HomeMapScreen.globalAllStores;
     HomeMapScreen.globalAllStores = <Store>[];
+    HomeMapScreen.setSearchCatalog(const []);
     addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
 
     await tester.pumpWidget(
@@ -147,6 +151,7 @@ void main() {
   ) async {
     final previousStores = HomeMapScreen.globalAllStores;
     HomeMapScreen.globalAllStores = <Store>[];
+    HomeMapScreen.setSearchCatalog(const []);
     addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
     var loadCount = 0;
 
@@ -186,6 +191,53 @@ void main() {
     expect(find.text('실제 김치찌개 식당'), findsOneWidget);
   });
 
+  testWidgets(
+    'loads the nationwide catalog even when the map already has bounds stores',
+    (tester) async {
+      final previousMapStores = HomeMapScreen.globalAllStores;
+      final previousCatalog = HomeMapScreen.globalSearchCatalog;
+      HomeMapScreen.setMapStores([
+        Store.fromJson({
+          'storeName': '현재 지도 매장',
+          'menu1': '김치찌개',
+          'latitude': 37.5,
+          'longitude': 127.0,
+        }),
+      ]);
+      HomeMapScreen.setSearchCatalog(const []);
+      addTearDown(() {
+        HomeMapScreen.setMapStores(previousMapStores);
+        HomeMapScreen.setSearchCatalog(previousCatalog);
+      });
+
+      var loadCount = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SearchResultScreen(
+            initialQuery: '전국 매장',
+            storeCatalogLoader: () async {
+              loadCount++;
+              return [
+                Store.fromJson({
+                  'storeName': '지도 밖 실제 매장',
+                  'menu1': '전국 매장',
+                  'latitude': 35.1,
+                  'longitude': 129.0,
+                }),
+              ];
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(loadCount, 1);
+      expect(find.text('지도 밖 실제 매장'), findsOneWidget);
+      expect(HomeMapScreen.globalAllStores.single.storeName, '현재 지도 매장');
+      expect(HomeMapScreen.globalSearchCatalog.single.storeName, '지도 밖 실제 매장');
+    },
+  );
+
   testWidgets('empty search fits an iPhone-sized viewport without overflow', (
     tester,
   ) async {
@@ -216,6 +268,7 @@ void main() {
         source: 'GOV',
       ),
     );
+    HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
     addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
 
     await tester.pumpWidget(
@@ -283,6 +336,7 @@ void main() {
         source: 'GOV',
       ),
     ];
+    HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
     addTearDown(() => HomeMapScreen.globalAllStores = previousStores);
 
     final history = SearchHistoryStore();

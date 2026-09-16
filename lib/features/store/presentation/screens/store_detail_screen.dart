@@ -57,6 +57,10 @@ class StoreDetailScreen extends ConsumerWidget {
   }
 
   Future<void> _map(BuildContext ctx) async {
+    if (!store.hasValidCoordinates) {
+      _snack(ctx, '이 매장의 위치 정보가 아직 없어요.');
+      return;
+    }
     var position = howmuch_home.HomeMapScreen.globalUserPosition;
     if (position == null) {
       try {

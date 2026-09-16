@@ -197,65 +197,73 @@ class _OnboardingSlideView extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final bottomGap = safeBottom > 0 ? safeBottom / 2 : 20.0;
+        // Keep the artwork fluid on short phones. The previous 240px minimum
+        // made the copy and CTA extend below a 320x568 viewport.
         final fixedHeight = 64 + 34 + 153 + 28 + 6 + 20 + 52 + 30 + bottomGap;
         final artworkHeight = (constraints.maxHeight - fixedHeight).clamp(
-          240.0,
+          140.0,
           320.0,
         );
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 64),
-              SizedBox(
-                height: artworkHeight,
-                child: Center(
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: _ArtworkLayer(artwork: slide.artwork),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 34),
-              SizedBox(height: 153, child: _SlideCopy(slide: slide)),
-              const SizedBox(height: 28),
-              _StepIndicator(step: step, totalSteps: totalSteps),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: _PrimaryButton(
-                  label: slide.primaryLabel,
-                  onPressed: onNext,
-                ),
-              ),
-              if (isLast && onSkip != null) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 18,
-                  child: TextButton(
-                    onPressed: onSkip,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      foregroundColor: OnboardingPage.muted,
-                      textStyle: const TextStyle(
-                        fontFamily: OnboardingPage.fontFamily,
-                        fontFamilyFallback: OnboardingPage.fontFallback,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+          child: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const SizedBox(height: 64),
+                  SizedBox(
+                    height: artworkHeight,
+                    child: Center(
+                      child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: _ArtworkLayer(artwork: slide.artwork),
                       ),
                     ),
-                    child: const Text('로그인 없이 둘러보기'),
                   ),
-                ),
-              ] else ...[
-                const SizedBox(height: 30),
-              ],
-              SizedBox(height: bottomGap),
-            ],
+                  const SizedBox(height: 34),
+                  SizedBox(height: 153, child: _SlideCopy(slide: slide)),
+                  const SizedBox(height: 28),
+                  _StepIndicator(step: step, totalSteps: totalSteps),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: _PrimaryButton(
+                      label: slide.primaryLabel,
+                      onPressed: onNext,
+                    ),
+                  ),
+                  if (isLast && onSkip != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 18,
+                      child: TextButton(
+                        onPressed: onSkip,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          foregroundColor: OnboardingPage.muted,
+                          textStyle: const TextStyle(
+                            fontFamily: OnboardingPage.fontFamily,
+                            fontFamilyFallback: OnboardingPage.fontFallback,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.5,
+                          ),
+                        ),
+                        child: const Text('로그인 없이 둘러보기'),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 30),
+                  ],
+                  SizedBox(height: bottomGap),
+                ],
+              ),
+            ),
           ),
         );
       },

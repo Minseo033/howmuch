@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 
 class UserProfile {
@@ -486,6 +487,7 @@ class FavoriteStoreModel {
     required this.buttonTextColor,
     this.createdAt,
     this.isFavorite = true,
+    this.address = '',
   });
 
   final String id;
@@ -507,6 +509,33 @@ class FavoriteStoreModel {
   final int buttonTextColor;
   final DateTime? createdAt;
   final bool isFavorite;
+  final String address;
+
+  /// Converts the lightweight favorite response into the detail route model.
+  ///
+  /// The favorites endpoint intentionally returns only the metadata needed by
+  /// the list. Detail can still be opened immediately, with richer catalog
+  /// fields filled in when they are available from that response.
+  Store toStore() {
+    return Store(
+      id: id,
+      storeName: storeName,
+      address: address.isNotEmpty ? address : '주소 정보 없음',
+      phoneNumber: '전화번호 없음',
+      industry: category,
+      menu1: menu,
+      price1: price,
+      menu2: '',
+      price2: '',
+      menu3: '',
+      price3: '',
+      menu4: '',
+      price4: '',
+      latitude: 0,
+      longitude: 0,
+      source: 'GOV',
+    );
+  }
 
   factory FavoriteStoreModel.fromJson(Map<String, dynamic> json) {
     final storeName = json['storeName']?.toString().trim();
@@ -540,6 +569,7 @@ class FavoriteStoreModel {
       createdAt: createdAtText == null
           ? null
           : DateTime.tryParse(createdAtText),
+      address: json['address']?.toString().trim() ?? '',
     );
   }
 
@@ -564,6 +594,7 @@ class FavoriteStoreModel {
       buttonTextColor: buttonTextColor,
       createdAt: createdAt,
       isFavorite: isFavorite ?? this.isFavorite,
+      address: address,
     );
   }
 

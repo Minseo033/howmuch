@@ -115,21 +115,25 @@ class FirebaseServiceReceiptApprovalTest {
     }
 
     @Test
-    void refusesReceiptApprovalWhenTheOcrProviderWasUnavailable() {
+    void allowsAdminManualApprovalWhenTheOcrProviderWasUnavailable() throws Exception {
         when(receipt.exists()).thenReturn(true);
         when(receipt.getString("status")).thenReturn("PENDING");
         when(receipt.getBoolean("ocrProviderAvailable")).thenReturn(false);
         when(receipt.getString("ocrStatus")).thenReturn("OCR_NOT_CONFIGURED");
+        when(receipt.getString("userId")).thenReturn("user-1");
+        when(receipt.getString("storeName")).thenReturn("테스트 식당");
+        when(receipt.getLong("price")).thenReturn(6000L);
+        when(receipt.get("imageUrls")).thenReturn(java.util.List.of());
 
-        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
-                .isInstanceOf(ReceiptOcrEvidenceException.class)
-                .hasMessageContaining("OCR 판독이 완료되지 않은");
-        verify(transaction, never()).set(any(DocumentReference.class), anyMap());
-        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+        Map<String, Object> result = service.approveReceiptVerification("receipt-1", "ADMIN");
+
+        assertThat(result).containsEntry("status", "APPROVED");
+        verify(transaction).set(any(DocumentReference.class), anyMap());
+        verify(transaction).update(any(DocumentReference.class), anyMap());
     }
 
     @Test
-    void refusesReceiptApprovalWhenRequiredOcrEvidenceIsMissing() {
+    void stillRefusesAutomaticApprovalWhenRequiredOcrEvidenceIsMissing() {
         when(receipt.exists()).thenReturn(true);
         when(receipt.getString("status")).thenReturn("PENDING");
         when(receipt.getBoolean("ocrProviderAvailable")).thenReturn(true);
@@ -137,7 +141,7 @@ class FirebaseServiceReceiptApprovalTest {
         when(receipt.getLong("ocrDetectedPrice")).thenReturn(7000L);
         when(receipt.getString("ocrDetectedDate")).thenReturn(null);
 
-        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "AUTO_OCR"))
                 .isInstanceOf(ReceiptOcrEvidenceException.class);
         verify(transaction, never()).set(any(DocumentReference.class), anyMap());
     }

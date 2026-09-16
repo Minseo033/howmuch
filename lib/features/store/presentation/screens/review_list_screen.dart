@@ -72,18 +72,27 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                     : reviewState == null || reviewState.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : reviewState.hasError
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('리뷰를 불러오지 못했어요'),
-                            TextButton(
-                              onPressed: () => ref
-                                  .read(storeReviewProvider.notifier)
-                                  .loadReviews(_storeId, force: true),
-                              child: const Text('다시 시도'),
+                    ? SingleChildScrollView(
+                        physics: const ClampingScrollPhysics(),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 100),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('리뷰를 불러오지 못했어요'),
+                                  TextButton(
+                                    onPressed: () => ref
+                                        .read(storeReviewProvider.notifier)
+                                        .loadReviews(_storeId, force: true),
+                                    child: const Text('다시 시도'),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
+                          ),
                         ),
                       )
                     : reviews.isEmpty

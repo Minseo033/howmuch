@@ -55,6 +55,9 @@ void main() {
         .toList();
     expect(fields, hasLength(3));
     expect(fields.every((field) => field.controller!.text.isEmpty), isTrue);
+    // ReviewRequest has no imageUrls field yet, so the picker is unavailable
+    // rather than allowing photos that would be silently dropped.
+    expect(find.text('사진 첨부 (선택)'), findsNothing);
 
     await tester.tap(find.text('리뷰 등록하기'));
     await tester.pump();

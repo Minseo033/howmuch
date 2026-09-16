@@ -127,7 +127,11 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                   context.pop();
                   return;
                 }
-                context.go(AppRoutes.reportComplete);
+                // This screen can be opened directly from a deep link. In
+                // that case there is no completion screen to return to;
+                // return to the owning tab instead of replaying a submitted
+                // report confirmation.
+                context.go(AppRoutes.mypage);
               },
               onSearch: () => _showSnack('내 제보 검색은 다음 단계에서 연결할게요.'),
             ),

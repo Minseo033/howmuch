@@ -6,6 +6,7 @@ import com.howmuch.service.ReportImageStorage;
 import com.howmuch.service.ReceiptOcrEvidenceException;
 import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
+import com.howmuch.service.SessionTokenService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -20,6 +21,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -199,6 +202,38 @@ class AdminControllerTest {
                 request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void revokesAllSessionsBeforeAnAdminDeletesAnAccount() throws Exception {
+        SessionTokenService sessions = mock(SessionTokenService.class);
+        controller = new AdminController(firebaseService, reportImageStorage, publicDataService,
+                rateLimiter, sessions);
+        ReflectionTestUtils.setField(controller, "adminKey", "admin-secret");
+        when(firebaseService.deleteUser("user-1")).thenReturn(Map.of("uid", "user-1"));
+
+        ResponseEntity<?> response = controller.deleteUser("user-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        org.mockito.InOrder order = inOrder(sessions, firebaseService);
+        order.verify(sessions).invalidateAllForUid("user-1");
+        order.verify(firebaseService).deleteUser("user-1");
+    }
+
+    @Test
+    void doesNotDeleteAnAccountWhenAdminSessionRevocationCannotBePersisted() {
+        SessionTokenService sessions = mock(SessionTokenService.class);
+        controller = new AdminController(firebaseService, reportImageStorage, publicDataService,
+                rateLimiter, sessions);
+        ReflectionTestUtils.setField(controller, "adminKey", "admin-secret");
+        doThrow(new RuntimeException("Firestore unavailable"))
+                .when(sessions).invalidateAllForUid("user-1");
+
+        ResponseEntity<?> response = controller.deleteUser("user-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        verify(sessions).invalidateAllForUid("user-1");
         verifyNoInteractions(firebaseService);
     }
 

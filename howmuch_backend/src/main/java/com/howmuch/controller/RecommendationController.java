@@ -1,12 +1,12 @@
 package com.howmuch.controller;
 
 import com.howmuch.config.SessionAuthFilter;
+import com.howmuch.config.ClientIpResolver;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.GeminiService;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.WeatherService;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -27,13 +27,29 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/recommendation")
-@RequiredArgsConstructor
 public class RecommendationController {
 
     private final WeatherService weatherService;
     private final FirebaseService firebaseService;
     private final GeminiService geminiService;
     private final SimpleRateLimiter rateLimiter;
+    private final ClientIpResolver clientIpResolver;
+
+    public RecommendationController(WeatherService weatherService, FirebaseService firebaseService,
+                                    GeminiService geminiService, SimpleRateLimiter rateLimiter,
+                                    ClientIpResolver clientIpResolver) {
+        this.weatherService = weatherService;
+        this.firebaseService = firebaseService;
+        this.geminiService = geminiService;
+        this.rateLimiter = rateLimiter;
+        this.clientIpResolver = clientIpResolver;
+    }
+
+    RecommendationController(WeatherService weatherService, FirebaseService firebaseService,
+                             GeminiService geminiService, SimpleRateLimiter rateLimiter) {
+        this(weatherService, firebaseService, geminiService, rateLimiter,
+                new ClientIpResolver("127.0.0.1/32,::1/128"));
+    }
 
     /** 로그인 여부와 무관하게 공개 화면에서 쓰이므로 IP/UID별 호출량을 제한합니다. */
     @Value("${recommendation.route.max-per-hour:20}")
@@ -79,7 +95,7 @@ public class RecommendationController {
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         String key = uid != null && !uid.isBlank()
                 ? "route:user:" + uid
-                : "route:ip:" + clientAddress(httpRequest);
+                : "route:ip:" + clientIpResolver.resolve(httpRequest);
         if (!rateLimiter.tryAcquire(key, maxRouteRequestsPerHour, 3_600_000L)) {
             return ResponseEntity.status(429).body(Map.of(
                     "success", false,
@@ -108,14 +124,6 @@ public class RecommendationController {
                     "message", "루트 추천 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
-    }
-
-    private String clientAddress(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr() != null ? request.getRemoteAddr() : "unknown";
     }
 
     private ResponseEntity<?> validateCoordinates(Double lat, Double lng) {

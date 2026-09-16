@@ -6,6 +6,8 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
+import 'package:howmuch/features/store/store_model.dart';
 
 class FavoriteStoresScreen extends ConsumerStatefulWidget {
   const FavoriteStoresScreen({super.key});
@@ -429,169 +431,187 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
   }
 
   Widget _buildFavoriteItem(FavoriteStoreModel store) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      decoration: BoxDecoration(
+    return Semantics(
+      button: true,
+      label: '${store.storeName} 매장 상세 보기',
+      hint: '탭하여 매장 상세 정보를 확인합니다',
+      child: Material(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 0.909),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: Color(store.iconBgColor),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                store.iconEmoji,
-                style: const TextStyle(fontSize: 22),
-              ),
-            ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.push(
+            AppRoutes.storeDetail,
+            extra: resolveFavoriteStore(store),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border, width: 0.909),
+            ),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Color(store.badgeBgColor),
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    color: Color(store.iconBgColor),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      store.iconEmoji,
+                      style: const TextStyle(fontSize: 22),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           Container(
-                            width: 6,
-                            height: 6,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
-                              color: Color(store.badgeColor),
-                              shape: BoxShape.circle,
+                              color: Color(store.badgeBgColor),
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: Color(store.badgeColor),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  store.badgeText,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontFamilyFallback: const ['Noto Sans KR'],
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(store.badgeColor),
+                                    fontSize: 10,
+                                    height: 15 / 10,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Text(
-                            store.badgeText,
-                            style: TextStyle(
+                            store.distance,
+                            style: const TextStyle(
                               fontFamily: 'Inter',
-                              fontFamilyFallback: const ['Noto Sans KR'],
-                              fontWeight: FontWeight.w600,
-                              color: Color(store.badgeColor),
-                              fontSize: 10,
-                              height: 15 / 10,
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: AppColors.muted,
+                              fontSize: 11,
+                              height: 16.5 / 11,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      store.distance,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: ['Noto Sans KR'],
-                        color: AppColors.muted,
-                        fontSize: 11,
-                        height: 16.5 / 11,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  store.storeName,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontFamilyFallback: ['Noto Sans KR'],
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.black,
-                    fontSize: 14,
-                    height: 21 / 14,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 2,
-                  children: [
-                    Text(
-                      store.menu,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: ['Noto Sans KR'],
-                        color: AppColors.muted,
-                        fontSize: 12,
-                        height: 18 / 12,
-                      ),
-                    ),
-                    if (store.price.isNotEmpty)
+                      const SizedBox(height: 4),
                       Text(
-                        store.price,
-                        style: TextStyle(
+                        store.storeName,
+                        style: const TextStyle(
                           fontFamily: 'Inter',
-                          fontFamilyFallback: const ['Noto Sans KR'],
+                          fontFamilyFallback: ['Noto Sans KR'],
                           fontWeight: FontWeight.bold,
-                          color: Color(store.priceColor),
-                          fontSize: 13,
-                          height: 19.5 / 13,
+                          color: AppColors.black,
+                          fontSize: 14,
+                          height: 21 / 14,
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 2),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        children: [
+                          Text(
+                            store.menu,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: AppColors.muted,
+                              fontSize: 12,
+                              height: 18 / 12,
+                            ),
+                          ),
+                          if (store.price.isNotEmpty)
+                            Text(
+                              store.price,
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                fontFamilyFallback: const ['Noto Sans KR'],
+                                fontWeight: FontWeight.bold,
+                                color: Color(store.priceColor),
+                                fontSize: 13,
+                                height: 19.5 / 13,
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (store.alertText != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          store.alertText!,
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: const ['Noto Sans KR'],
+                            fontWeight: FontWeight.w600,
+                            color: store.alertColor != null
+                                ? Color(store.alertColor!)
+                                : null,
+                            fontSize: 10,
+                            height: 15 / 10,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                if (store.alertText != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    store.alertText!,
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontFamilyFallback: const ['Noto Sans KR'],
-                      fontWeight: FontWeight.w600,
-                      color: store.alertColor != null
-                          ? Color(store.alertColor!)
-                          : null,
-                      fontSize: 10,
-                      height: 15 / 10,
+                TextButton.icon(
+                  onPressed: () => _confirmFavoriteRemoval(store),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Color(store.buttonTextColor),
+                    backgroundColor: Color(store.buttonColor),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                ],
+                  icon: const Icon(Icons.favorite_rounded, size: 15),
+                  label: Text(
+                    store.buttonText,
+                    style: const TextStyle(
+                      fontFamily: 'Inter',
+                      fontFamilyFallback: ['Noto Sans KR'],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          TextButton.icon(
-            onPressed: () => _confirmFavoriteRemoval(store),
-            style: TextButton.styleFrom(
-              foregroundColor: Color(store.buttonTextColor),
-              backgroundColor: Color(store.buttonColor),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              minimumSize: const Size(0, 36),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            icon: const Icon(Icons.favorite_rounded, size: 15),
-            label: Text(
-              store.buttonText,
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontFamilyFallback: ['Noto Sans KR'],
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -607,6 +627,24 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
       ).showSnackBar(SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')));
     }
   }
+}
+
+/// Uses the richer catalog model when the home/search flow has already loaded
+/// it. Favorites can include legacy user stores that are not in that catalog,
+/// so the lightweight response remains a safe fallback for navigation.
+@visibleForTesting
+Store resolveFavoriteStore(FavoriteStoreModel favorite) {
+  final candidates = <Store>[
+    ...HomeMapScreen.globalSearchCatalog,
+    ...HomeMapScreen.globalAllStores,
+  ];
+  for (final store in candidates) {
+    if (favorite.id.isNotEmpty && store.id == favorite.id) return store;
+  }
+  for (final store in candidates) {
+    if (store.storeName.trim() == favorite.storeName.trim()) return store;
+  }
+  return favorite.toStore();
 }
 
 enum FavoriteStoreSort { recent, name }

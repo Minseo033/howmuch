@@ -364,10 +364,16 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
   final budgetEligibleStores = validStores
       .where((store) => storeMatchesRequestedBudget(store, budgetWon))
       .toList(growable: false);
-  if (budgetEligibleStores.isEmpty) return null;
+  // Do not turn a backend outage into a dead-end message just because the
+  // requested ceiling has no matching entry. Show real nearby candidates and
+  // say clearly that they are alternatives outside the requested budget.
+  final hasBudgetMatches = budgetEligibleStores.isNotEmpty;
+  final recommendationStores = hasBudgetMatches
+      ? budgetEligibleStores
+      : validStores;
 
   List<({Store store, double distance, int score})> ranked =
-      budgetEligibleStores.map((s) {
+      recommendationStores.map((s) {
         final dist = (lat != null && lng != null)
             ? _haversineDistance(lat, lng, s.latitude, s.longitude)
             : 0.0;
@@ -422,7 +428,10 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
 
   // 4. Build friendly, properly formatted message
   String intro;
-  if (matchedAreaKeyword != null && matchedIntentKeyword != null) {
+  if (!hasBudgetMatches && budgetWon != null) {
+    intro =
+        'AI 연결이 원활하지 않고 ${formatRecommendationPrice(budgetWon)} 이하 매장이 없어, 확인된 실제 매장 대안을 먼저 추천할게요.';
+  } else if (matchedAreaKeyword != null && matchedIntentKeyword != null) {
     intro =
         "AI 연결이 원활하지 않아 '$matchedAreaKeyword' 근처 '$matchedIntentKeyword' 가까운 매장 $targetCount곳을 추천할게요.";
   } else if (matchedIntentKeyword != null) {
@@ -439,7 +448,7 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
     text: buildStructuredAiRecommendationText(
       stores: selectedStores,
       intro: intro,
-      budgetWon: budgetWon,
+      budgetWon: hasBudgetMatches ? budgetWon : null,
       lat: lat,
       lng: lng,
     ),

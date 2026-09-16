@@ -4,8 +4,8 @@ import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.UserProfileRequest;
 import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.service.FirebaseService;
+import com.howmuch.service.SessionTokenService;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,13 +17,22 @@ import java.util.regex.Pattern;
 @Slf4j
 @RestController
 @RequestMapping("/api/user")
-@RequiredArgsConstructor
 public class UserController {
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final FirebaseService firebaseService;
+    private final SessionTokenService sessionTokenService;
+
+    public UserController(FirebaseService firebaseService, SessionTokenService sessionTokenService) {
+        this.firebaseService = firebaseService;
+        this.sessionTokenService = sessionTokenService;
+    }
+
+    UserController(FirebaseService firebaseService) {
+        this(firebaseService, null);
+    }
 
     /**
      * 유저 프로필 저장
@@ -115,6 +124,12 @@ public class UserController {
     public ResponseEntity<?> deleteUser(HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         try {
+            // Persist the cutoff before deleting Firestore user data. If the common store is
+            // unavailable, deletion is not acknowledged; otherwise an old token could survive
+            // on a different instance. A later login receives a token issued after this cutoff.
+            if (sessionTokenService != null) {
+                sessionTokenService.invalidateAllForUid(firebaseUid);
+            }
             java.util.Map<String, Object> result = firebaseService.deleteUser(firebaseUid);
             return ResponseEntity.ok(result);
         } catch (Exception e) {

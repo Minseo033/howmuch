@@ -7,6 +7,16 @@ import 'package:howmuch/features/community/presentation/state/community_service.
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
+@visibleForTesting
+List<String> communityPostImageUrls(Object? raw) {
+  if (raw is! List) return const [];
+  return raw
+      .where((value) => value != null)
+      .map((value) => value.toString().trim())
+      .where((value) => value.isNotEmpty)
+      .toList(growable: false);
+}
+
 class CommunityPostDetailScreen extends StatefulWidget {
   final String postId;
   const CommunityPostDetailScreen({super.key, this.postId = ''});
@@ -789,7 +799,7 @@ class _PostCard extends StatelessWidget {
     final String price4 = postData!['price4']?.toString() ?? '';
     final bool visitedRecently = postData!['visitedRecently'] == true;
     final bool checkedMenuPrice = postData!['checkedMenuPrice'] == true;
-    final List<dynamic> imageUrls = postData!['imageUrls'] ?? [];
+    final Object? imageUrls = postData!['imageUrls'];
 
     final String authorInitial = author.isNotEmpty ? author[0] : '알';
     final Color avatarBg = rawStatus.toUpperCase() == 'PENDING'
@@ -850,18 +860,8 @@ class _PostCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8.99),
-          if (imageUrls.isNotEmpty) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Image.network(
-                imageUrls.first.toString(),
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) =>
-                    const _NoImagePlaceholder(),
-              ),
-            ),
+          if (communityPostImageUrls(imageUrls).isNotEmpty) ...[
+            _PostImageGallery(imageUrls: communityPostImageUrls(imageUrls)),
             const SizedBox(height: 10),
           ] else ...[
             const _NoImagePlaceholder(),
@@ -1072,6 +1072,75 @@ class _PostCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PostImageGallery extends StatefulWidget {
+  const _PostImageGallery({required this.imageUrls});
+
+  final List<String> imageUrls;
+
+  @override
+  State<_PostImageGallery> createState() => _PostImageGalleryState();
+}
+
+class _PostImageGalleryState extends State<_PostImageGallery> {
+  int _currentPage = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.imageUrls.isEmpty) return const _NoImagePlaceholder();
+    final count = widget.imageUrls.length;
+    return Semantics(
+      label: '게시글 사진 갤러리, ${_currentPage + 1} / $count',
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          children: [
+            SizedBox(
+              height: 180,
+              width: double.infinity,
+              child: PageView.builder(
+                itemCount: count,
+                onPageChanged: (page) => setState(() => _currentPage = page),
+                itemBuilder: (context, index) => Image.network(
+                  widget.imageUrls[index],
+                  fit: BoxFit.cover,
+                  semanticLabel: '게시글 사진 ${index + 1} / $count',
+                  errorBuilder: (context, error, stackTrace) =>
+                      const _NoImagePlaceholder(),
+                ),
+              ),
+            ),
+            if (count > 1)
+              Positioned(
+                right: 10,
+                bottom: 10,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .62),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      '${_currentPage + 1} / $count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

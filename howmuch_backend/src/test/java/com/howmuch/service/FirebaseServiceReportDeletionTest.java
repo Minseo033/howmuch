@@ -42,7 +42,8 @@ class FirebaseServiceReportDeletionTest {
                 .containsEntry("deletedImages", 1)
                 .containsEntry("deletedComments", 0)
                 .containsEntry("deletedLikes", 0)
-                .containsEntry("deletedSubscriptions", 0);
+                .containsEntry("deletedSubscriptions", 0)
+                .containsEntry("deletedNotifications", 0);
         InOrder deletionOrder = inOrder(fixture.imageStorage, fixture.document);
         deletionOrder.verify(fixture.imageStorage)
                 .deleteOwned("user-1", List.of("owned-url"));
@@ -107,13 +108,15 @@ class FirebaseServiceReportDeletionTest {
             when(firestore.collection("stores_user")).thenReturn(collection);
             when(collection.document(reportId)).thenReturn(document);
             for (String relation : List.of(
-                    "comments", "feed_likes", "feed_notifications")) {
+                    "comments", "feed_likes", "feed_notifications", "notifications")) {
                 CollectionReference relationCollection = mock(CollectionReference.class);
                 Query relationQuery = mock(Query.class);
                 ApiFuture<QuerySnapshot> relationFuture = mock(ApiFuture.class);
                 QuerySnapshot relationSnapshot = mock(QuerySnapshot.class);
                 when(firestore.collection(relation)).thenReturn(relationCollection);
-                when(relationCollection.whereEqualTo("postId", reportId))
+                String relationField = "notifications".equals(relation)
+                        ? "relatedReportId" : "postId";
+                when(relationCollection.whereEqualTo(relationField, reportId))
                         .thenReturn(relationQuery);
                 when(relationQuery.get()).thenReturn(relationFuture);
                 try {

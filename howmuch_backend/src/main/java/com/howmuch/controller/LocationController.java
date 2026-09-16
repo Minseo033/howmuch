@@ -2,8 +2,8 @@ package com.howmuch.controller;
 
 import com.howmuch.service.KakaoLocalService;
 import com.howmuch.service.SimpleRateLimiter;
+import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +16,6 @@ import java.util.Map;
 /** Public, rate-limited location helpers. The Kakao REST credential stays server-side. */
 @RestController
 @RequestMapping("/api/locations")
-@RequiredArgsConstructor
 public class LocationController {
 
     private static final int MAX_REQUESTS_PER_HOUR = 120;
@@ -24,6 +23,18 @@ public class LocationController {
 
     private final KakaoLocalService kakaoLocalService;
     private final SimpleRateLimiter rateLimiter;
+    private final ClientIpResolver clientIpResolver;
+
+    public LocationController(KakaoLocalService kakaoLocalService, SimpleRateLimiter rateLimiter,
+                              ClientIpResolver clientIpResolver) {
+        this.kakaoLocalService = kakaoLocalService;
+        this.rateLimiter = rateLimiter;
+        this.clientIpResolver = clientIpResolver;
+    }
+
+    LocationController(KakaoLocalService kakaoLocalService, SimpleRateLimiter rateLimiter) {
+        this(kakaoLocalService, rateLimiter, new ClientIpResolver("127.0.0.1/32,::1/128"));
+    }
 
     @GetMapping("/addresses")
     public ResponseEntity<?> searchAddresses(
@@ -78,8 +89,7 @@ public class LocationController {
     }
 
     private boolean allowRequest(HttpServletRequest request) {
-        String address = request.getRemoteAddr();
-        if (address == null || address.length() > 64) address = "unknown";
+        String address = clientIpResolver.resolve(request);
         return rateLimiter.tryAcquire(
                 "location:" + address, MAX_REQUESTS_PER_HOUR, ONE_HOUR_MILLIS);
     }

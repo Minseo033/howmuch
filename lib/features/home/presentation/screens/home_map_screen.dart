@@ -101,7 +101,23 @@ Future<bool> openLocationSettingsForStatus({
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({super.key, this.showAiSpotlight = false});
 
+  // `globalAllStores` is the current map/viewport result. It must not be used
+  // as the nationwide search catalog: the bounds endpoint intentionally
+  // returns only a subset of stores.
   static List<Store> globalAllStores = [];
+  static List<Store> _globalSearchCatalog = [];
+
+  /// Full nationwide catalog loaded by search (never a map-bounds response).
+  static List<Store> get globalSearchCatalog => _globalSearchCatalog;
+
+  static void setMapStores(List<Store> stores) {
+    globalAllStores = stores;
+  }
+
+  static void setSearchCatalog(List<Store> stores) {
+    _globalSearchCatalog = stores;
+  }
+
   static Position? globalUserPosition;
   static bool hasRequestedLocationWeb = false;
   static bool hasDismissedLocationNotice = false;
@@ -332,7 +348,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (cached.isEmpty || !mounted || _hasFreshStoreResponse) return;
       setState(() {
         _allStores = cached;
-        HomeMapScreen.globalAllStores = List<Store>.unmodifiable(cached);
+        HomeMapScreen.setMapStores(List<Store>.unmodifiable(cached));
         _isAllStoresLoaded = true;
         _usingCachedStores = true;
       });
@@ -1193,9 +1209,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             _allStores = fetchedStores
                 .take(maxCachedHomeMapStores)
                 .toList(growable: false);
-            HomeMapScreen.globalAllStores = List<Store>.unmodifiable(
-              _allStores,
-            );
+            HomeMapScreen.setMapStores(List<Store>.unmodifiable(_allStores));
           }
           _isAllStoresLoaded =
               loadResult.hasFreshResponse || fetchedStores.isNotEmpty;
@@ -1404,7 +1418,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     // FigmaMobileCanvas caps wide layouts at 430px but uses the real viewport
     // height on every platform. Keep overlay coordinates in that same space.
     final screenSize = MediaQuery.sizeOf(context);
-    final screenWidth = FigmaMobileCanvas.webContentWidthFor(screenSize.width);
+    final isWideWebLayout =
+        kIsWeb && screenSize.width >= FigmaMobileCanvas.wideWebBreakpoint;
+    final screenWidth = isWideWebLayout
+        ? FigmaMobileCanvas.wideWebContentWidthFor(screenSize.width)
+        : FigmaMobileCanvas.webContentWidthFor(screenSize.width);
     final screenHeight = screenSize.height;
     final isCompactHeight = screenHeight < 400;
     final horizontalPadding = screenWidth <= 340
@@ -1452,6 +1470,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFDDE6F0),
+      wideWebLayout: true,
       child: Stack(
         children: [
           Positioned.fill(
@@ -2104,32 +2123,41 @@ class _SearchBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 7.997158050537109),
-        _SquareButton(icon: Icons.tune_rounded, onTap: onFilterTap),
+        _SquareButton(
+          icon: Icons.tune_rounded,
+          label: '검색 필터 열기',
+          onTap: onFilterTap,
+        ),
       ],
     );
   }
 }
 
 class _SquareButton extends StatelessWidget {
-  const _SquareButton({required this.icon, this.onTap});
+  const _SquareButton({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
+  final String label;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: 7,
-      shadowColor: const Color(0x140F172A),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: SizedBox(
-          width: 52,
-          height: 52,
-          child: Icon(icon, color: HomeMapScreen.ink, size: 19),
+        elevation: 7,
+        shadowColor: const Color(0x140F172A),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: SizedBox(
+            width: 52,
+            height: 52,
+            child: Icon(icon, color: HomeMapScreen.ink, size: 19),
+          ),
         ),
       ),
     );

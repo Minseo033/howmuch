@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 import 'package:howmuch/features/store/review_model.dart';
@@ -221,18 +222,22 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
                     _buildReviewContentField(),
                     const SizedBox(height: 20),
 
-                    // 사진 첨부
-                    const Text(
-                      '사진 첨부 (선택)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppColors.muted,
-                        fontWeight: FontWeight.w500,
+                    // ReviewRequest does not support image URLs yet. Keep
+                    // this entire control out of the form while the feature
+                    // flag is off instead of letting selected photos vanish.
+                    if (FeatureFlags.reviewImageUploadEnabled) ...[
+                      const Text(
+                        '사진 첨부 (선택)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildPhotoAttach(),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 8),
+                      _buildPhotoAttach(),
+                      const SizedBox(height: 20),
+                    ],
 
                     // 체크박스
                     _buildCheckbox('최근 1개월 이내 방문했어요', _isVisitedRecently, (v) {
@@ -314,29 +319,56 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
               color: ratingError == null ? Colors.grey.shade200 : Colors.red,
             ),
           ),
-          child: Row(
-            children: [
-              ...List.generate(5, (i) {
-                return GestureDetector(
-                  onTap: () => setState(() => _starRating = i + 1),
-                  child: Icon(
-                    Icons.star_rounded,
-                    size: 36,
-                    color: i < _starRating
-                        ? AppColors.star
-                        : Colors.grey.shade300,
-                  ),
-                );
-              }),
-              const SizedBox(width: 12),
-              Text(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 300;
+              final stars = Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(5, (i) {
+                  return Semantics(
+                    button: true,
+                    label: '${i + 1}점',
+                    child: GestureDetector(
+                      onTap: () => setState(() => _starRating = i + 1),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Center(
+                          child: Icon(
+                            Icons.star_rounded,
+                            size: compact ? 30 : 34,
+                            color: i < _starRating
+                                ? AppColors.star
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              );
+              final ratingLabel = Text(
                 _starRating == 0 ? '선택 전' : '$_starRating.0',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                 ),
-              ),
-            ],
+              );
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [stars, ratingLabel],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: stars),
+                  const SizedBox(width: 8),
+                  ratingLabel,
+                ],
+              );
+            },
           ),
         ),
         if (ratingError != null) ...[

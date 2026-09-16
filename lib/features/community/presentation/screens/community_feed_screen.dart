@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -343,69 +344,86 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topOffset,
-            height: HowmuchTopBar.height,
-            child: _Header(
-              onBack: () => context.go(AppRoutes.home),
-              onSearch: () => context.push(
-                AppRoutes.searchResult,
-                extra: const {'query': ''},
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compactLandscape = constraints.maxHeight < 400;
+          final navHeight = compactLandscape ? 0.0 : bottomNavHeight;
+          final contentTop = compactLandscape
+              ? topOffset + 112
+              : topOffset + 150.64;
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(
+              height: math.max(constraints.maxHeight, contentTop + 420),
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: topOffset,
+                    height: HowmuchTopBar.height,
+                    child: _Header(
+                      onBack: () => context.go(AppRoutes.home),
+                      onSearch: () => context.push(
+                        AppRoutes.searchResult,
+                        extra: const {'query': ''},
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: AppSizes.horizontalPadding,
+                    top: topOffset + 60.87,
+                    right: 20,
+                    height: 28,
+                    child: _LocationRow(
+                      location: _locationLabel,
+                      onTap: _loadCurrentLocationLabel,
+                    ),
+                  ),
+                  Positioned(
+                    left: AppSizes.horizontalPadding,
+                    top: topOffset + 100.85,
+                    right: 20,
+                    height: 33.793,
+                    child: _FilterRow(
+                      selectedIndex: _selectedFilterIndex,
+                      onSelected: (index) =>
+                          setState(() => _selectedFilterIndex = index),
+                    ),
+                  ),
+                  Positioned(
+                    left: AppSizes.horizontalPadding,
+                    top: contentTop,
+                    right: 20,
+                    bottom: navHeight + 85,
+                    child: _buildContent(),
+                  ),
+                  Positioned(
+                    left: AppSizes.horizontalPadding,
+                    bottom: navHeight + 16,
+                    right: 20,
+                    height: 54.972,
+                    child: _NewReportButton(
+                      onTap: () => context.push(AppRoutes.reportCreate),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: navHeight,
+                    child: navHeight == 0
+                        ? const SizedBox.shrink()
+                        : HowmuchBottomNav(
+                            safeBottom: safePadding.bottom,
+                            activeTab: HowmuchBottomTab.explore,
+                          ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: topOffset + 60.87,
-            right: 20,
-            height: 28,
-            child: _LocationRow(
-              location: _locationLabel,
-              onTap: _loadCurrentLocationLabel,
-            ),
-          ),
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: topOffset + 100.85,
-            right: 20,
-            height: 33.793,
-            child: _FilterRow(
-              selectedIndex: _selectedFilterIndex,
-              onSelected: (index) =>
-                  setState(() => _selectedFilterIndex = index),
-            ),
-          ),
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            top: topOffset + 150.64,
-            right: 20,
-            bottom: bottomNavHeight + 85,
-            child: _buildContent(),
-          ),
-          Positioned(
-            left: AppSizes.horizontalPadding,
-            bottom: bottomNavHeight + 16,
-            right: 20,
-            height: 54.972,
-            child: _NewReportButton(
-              onTap: () => context.push(AppRoutes.reportCreate),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: bottomNavHeight,
-            child: HowmuchBottomNav(
-              safeBottom: safePadding.bottom,
-              activeTab: HowmuchBottomTab.explore,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -517,20 +535,26 @@ class _FilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    // The three chips are wider than a 320px viewport once page padding is
+    // included. Keep the row one line and let it scroll rather than allowing
+    // a RenderFlex overflow (also useful in short landscape viewports).
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      physics: const ClampingScrollPhysics(),
+      padding: EdgeInsets.zero,
       children: [
         _FilterChip(
           label: '최신 제보',
           selected: selectedIndex == 0,
           onTap: () => onSelected(0),
         ),
-        const SizedBox(width: 5.994),
+        const SizedBox(width: 6),
         _FilterChip(
           label: '가격 변동',
           selected: selectedIndex == 1,
           onTap: () => onSelected(1),
         ),
-        const SizedBox(width: 5.994),
+        const SizedBox(width: 6),
         _FilterChip(
           label: '인기 제보',
           selected: selectedIndex == 2,

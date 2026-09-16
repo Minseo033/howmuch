@@ -49,6 +49,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -355,7 +356,51 @@ public class FirebaseService {
     }
 
     public List<Map<String, Object>> getAllStores() {
-        return cachedStores.stream().map(this::withStableStoreId).toList();
+        Map<String, Map<String, Object>> publicStoresById = new LinkedHashMap<>();
+        Set<String> publicPhones = new HashSet<>();
+        Set<String> publicNamesAndAddresses = new HashSet<>();
+        for (Map<String, Object> rawStore : cachedStores) {
+            Map<String, Object> store = toPublicStore(rawStore, "GOV");
+            publicStoresById.put(String.valueOf(store.get("storeId")), store);
+            addPublicStoreIdentity(store, publicPhones, publicNamesAndAddresses);
+        }
+        for (Map<String, Object> rawStore : cachedUserStores) {
+            if (!isPubliclyVisible(rawStore)) continue;
+            Map<String, Object> store = toPublicStore(rawStore, "USER");
+            String storeId = String.valueOf(store.get("storeId"));
+            String phone = comparablePhone(store.get("phoneNumber"));
+            String nameAndAddress = comparableNameAddress(store);
+            if (publicStoresById.containsKey(storeId)
+                    || (!phone.isBlank() && publicPhones.contains(phone))
+                    || (!"|".equals(nameAndAddress)
+                    && publicNamesAndAddresses.contains(nameAndAddress))) {
+                continue;
+            }
+            publicStoresById.put(storeId, store);
+            addPublicStoreIdentity(store, publicPhones, publicNamesAndAddresses);
+        }
+        return List.copyOf(publicStoresById.values());
+    }
+
+    private Map<String, Object> toPublicStore(Map<String, Object> rawStore, String source) {
+        Map<String, Object> normalized = withStableStoreId(rawStore);
+        Map<String, Object> result = new HashMap<>();
+        for (String field : List.of(
+                "storeId", "storeName", "address", "phoneNumber", "industry",
+                "menu1", "price1", "menu2", "price2", "menu3", "price3",
+                "menu4", "price4", "latitude", "longitude", "openingHours")) {
+            if (normalized.containsKey(field)) result.put(field, normalized.get(field));
+        }
+        result.put("source", source);
+        return result;
+    }
+
+    private void addPublicStoreIdentity(
+            Map<String, Object> store, Set<String> phones, Set<String> namesAndAddresses) {
+        String phone = comparablePhone(store.get("phoneNumber"));
+        if (!phone.isBlank()) phones.add(phone);
+        String nameAndAddress = comparableNameAddress(store);
+        if (!"|".equals(nameAndAddress)) namesAndAddresses.add(nameAndAddress);
     }
 
     /**
@@ -465,11 +510,7 @@ public class FirebaseService {
         // 1. 정부 인증 업소 (Blue) - 메모리 캐시
         List<Map<String, Object>> govStores = cachedStores.stream()
                 .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
-                .map(data -> {
-                    Map<String, Object> map = withStableStoreId(data);
-                    map.put("source", "GOV");
-                    return map;
-                })
+                .map(data -> toPublicStore(data, "GOV"))
                 .limit(1000)
                 .toList();
 
@@ -479,11 +520,7 @@ public class FirebaseService {
         List<Map<String, Object>> userStores = cachedUserStores.stream()
                 .filter(this::isPubliclyVisible)
                 .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
-                .map(data -> {
-                    Map<String, Object> map = withStableStoreId(data);
-                    map.put("source", "USER");
-                    return map;
-                })
+                .map(data -> toPublicStore(data, "USER"))
                 .limit(200)
                 .toList();
 
@@ -702,6 +739,7 @@ public class FirebaseService {
         int deletedComments = deleteWhere("comments", "postId", reportId);
         int deletedLikes = deleteWhere("feed_likes", "postId", reportId);
         int deletedSubscriptions = deleteWhere("feed_notifications", "postId", reportId);
+        int deletedNotifications = deleteWhere("notifications", "relatedReportId", reportId);
         docRef.delete().get();
         cachedUserStores = cachedUserStores.stream()
                 .filter(item -> !reportId.equals(item.get("id")))
@@ -715,6 +753,7 @@ public class FirebaseService {
         result.put("deletedComments", deletedComments);
         result.put("deletedLikes", deletedLikes);
         result.put("deletedSubscriptions", deletedSubscriptions);
+        result.put("deletedNotifications", deletedNotifications);
         return result;
     }
 
@@ -829,7 +868,7 @@ public class FirebaseService {
         if (status != null && !status.isBlank()) {
             query = query.whereEqualTo("status", status);
         }
-        return query.limit(adminListLimit()).get().get().getDocuments().stream()
+        return query.get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
@@ -837,6 +876,7 @@ public class FirebaseService {
                 })
                 .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
                         .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
+                .limit(adminListLimit())
                 .toList();
     }
 
@@ -859,7 +899,9 @@ public class FirebaseService {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
 
-                requireUsableReceiptOcrEvidence(snapshot);
+                if (!isManualApproval(approvedBy)) {
+                    requireUsableReceiptOcrEvidence(snapshot);
+                }
 
                 String userId = snapshot.getString("userId");
                 String storeName = snapshot.getString("storeName");
@@ -952,6 +994,10 @@ public class FirebaseService {
             throw new ReceiptOcrEvidenceException(
                     "OCR 판독이 완료되지 않은 영수증은 승인할 수 없습니다. 공급자 설정을 확인한 뒤 다시 제출해주세요.");
         }
+    }
+
+    private static boolean isManualApproval(String approvedBy) {
+        return "ADMIN".equalsIgnoreCase(approvedBy);
     }
 
     private record ReceiptApprovalResult(
@@ -1109,7 +1155,7 @@ public class FirebaseService {
         if (status != null && !status.isBlank()) {
             query = query.whereEqualTo("status", status);
         }
-        return query.limit(adminListLimit()).get().get().getDocuments().stream()
+        return query.get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
@@ -1117,6 +1163,7 @@ public class FirebaseService {
                 })
                 .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
                         .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
+                .limit(adminListLimit())
                 .toList();
     }
 
@@ -1304,12 +1351,14 @@ public class FirebaseService {
         return overview;
     }
 
-    // 💡 [어드민] 회원 삭제 — 프로필과 모든 사용자 생성 데이터를 삭제
+    // 💡 회원 삭제 — 승인 제보는 익명화해 공공 데이터로 보존하고, 나머지 개인 데이터는 삭제
     public Map<String, Object> deleteUser(String firebaseUid) throws Exception {
         Map<String, Object> result = new HashMap<>();
         // 연관 컬렉션을 먼저 지워 중간 실패 시 계정을 남겨 재시도할 수 있게 합니다.
         result.put("reviews", deleteWhere("reviews", "authorUid", firebaseUid));
-        result.put("reports", deleteReportsByUser(firebaseUid));
+        ReportDeletionSummary reports = deleteReportsByUser(firebaseUid);
+        result.put("reports", reports.deleted());
+        result.put("anonymizedReports", reports.anonymized());
         result.put("visits", deleteWhere("visits", "userId", firebaseUid));
         result.put("receiptVerifications",
                 deleteWhere("receipt_verifications", "userId", firebaseUid));
@@ -1323,7 +1372,11 @@ public class FirebaseService {
         db.collection("notification_settings").document(firebaseUid).delete().get();
         result.put("reportImages", deleteReportImagePrefix(firebaseUid));
         cachedUserStores = cachedUserStores.stream()
-                .filter(item -> !firebaseUid.equals(item.get("reporterId")))
+                .filter(item -> !firebaseUid.equals(item.get("reporterId"))
+                        || "APPROVED".equalsIgnoreCase(String.valueOf(item.get("status"))))
+                .map(item -> firebaseUid.equals(item.get("reporterId"))
+                        ? anonymizeReportData(item)
+                        : item)
                 .toList();
         db.collection("users").document(firebaseUid).delete().get();
         invalidateCommunityFeedCache();
@@ -1331,19 +1384,45 @@ public class FirebaseService {
         return result;
     }
 
-    private int deleteReportsByUser(String firebaseUid) throws Exception {
+    private ReportDeletionSummary deleteReportsByUser(String firebaseUid) throws Exception {
         var reports = db.collection("stores_user")
                 .whereEqualTo("reporterId", firebaseUid)
                 .get().get().getDocuments();
+        int deleted = 0;
+        int anonymized = 0;
         for (DocumentSnapshot report : reports) {
             String reportId = report.getId();
+            if ("APPROVED".equalsIgnoreCase(report.getString("status"))) {
+                report.getReference().update(anonymizedReportFields()).get();
+                anonymized++;
+                continue;
+            }
             deleteWhere("comments", "postId", reportId);
             deleteWhere("feed_likes", "postId", reportId);
             deleteWhere("feed_notifications", "postId", reportId);
+            deleteWhere("notifications", "relatedReportId", reportId);
             report.getReference().delete().get();
+            deleted++;
         }
-        return reports.size();
+        return new ReportDeletionSummary(deleted, anonymized);
     }
+
+    private static Map<String, Object> anonymizedReportFields() {
+        return Map.of(
+                "reporterId", "",
+                "imageUrls", List.of(),
+                "anonymizedAt", java.time.Instant.now().toString());
+    }
+
+    private static Map<String, Object> anonymizeReportData(Map<String, Object> source) {
+        Map<String, Object> anonymized = new HashMap<>(source);
+        anonymized.put("reporterId", "");
+        anonymized.put("imageUrls", List.of());
+        anonymized.put("anonymizedAt", java.time.Instant.now().toString());
+        return anonymized;
+    }
+
+    private record ReportDeletionSummary(int deleted, int anonymized) { }
 
     private int deleteReportImagePrefix(String firebaseUid) {
         try {
@@ -1385,6 +1464,7 @@ public class FirebaseService {
     // 💡 [어드민] 회원 목록 조회 (가입 최신순, 소량 컬렉션)
     public List<Map<String, Object>> getAllUsers() throws Exception {
         return db.collection("users")
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> source = doc.getData();
@@ -1401,8 +1481,6 @@ public class FirebaseService {
                     }
                     return user;
                 })
-                .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
-                        .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))))
                 .toList();
     }
 
@@ -1611,6 +1689,7 @@ public class FirebaseService {
     // 💡 [어드민] 전체 리뷰 목록 (최신순, 매장명/작성자명 포함 — 소량 컬렉션)
     public List<Map<String, Object>> getAllReviews() throws Exception {
         List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
@@ -1618,8 +1697,6 @@ public class FirebaseService {
                     return data;
                 })
                 .toList());
-        reviews.sort((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
-                .compareTo(String.valueOf(a.getOrDefault("createdAt", ""))));
         return reviews;
     }
 
@@ -2484,6 +2561,7 @@ public class FirebaseService {
     /** 어드민: 전체 문의 목록 조회 (최신순) — /api/admin/inquiries */
     public List<Map<String, Object>> getAllInquiries() throws Exception {
         List<Map<String, Object>> inquiries = new ArrayList<>(db.collection("inquiries")
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
@@ -2501,11 +2579,6 @@ public class FirebaseService {
                     return item;
                 })
                 .toList());
-        inquiries.sort((a, b) -> {
-            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
-            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
-            return bTime.compareTo(aTime);
-        });
         return inquiries;
     }
 
@@ -3455,6 +3528,7 @@ public class FirebaseService {
     // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
     public List<Map<String, Object>> getAllComments() throws Exception {
         List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
+                .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
@@ -3469,11 +3543,6 @@ public class FirebaseService {
                     return item;
                 })
                 .toList());
-        comments.sort((a, b) -> {
-            String aTime = a.get("createdAt") != null ? a.get("createdAt").toString() : "";
-            String bTime = b.get("createdAt") != null ? b.get("createdAt").toString() : "";
-            return bTime.compareTo(aTime);
-        });
         return comments;
     }
 

@@ -16,6 +16,17 @@ void main() {
       );
     });
 
+    test('wide web shell uses tablet width without changing mobile policy', () {
+      expect(FigmaMobileCanvas.wideWebContentWidthFor(768), 768);
+      expect(FigmaMobileCanvas.wideWebContentWidthFor(1024), 1024);
+      expect(
+        FigmaMobileCanvas.wideWebContentWidthFor(1280),
+        FigmaMobileCanvas.maxWideWebWidth,
+      );
+      expect(FigmaMobileCanvas.wideWebBreakpoint, 768);
+      expect(FigmaMobileCanvas.maxWideWebWidth, 1180);
+    });
+
     test('does not produce a width for invalid constraints', () {
       expect(FigmaMobileCanvas.webContentWidthFor(0), 0);
       expect(FigmaMobileCanvas.webContentWidthFor(double.infinity), 0);

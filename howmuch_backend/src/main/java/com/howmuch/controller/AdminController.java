@@ -6,10 +6,12 @@ import com.howmuch.service.ReportImageStorage;
 import com.howmuch.service.ReceiptOcrEvidenceException;
 import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
+import com.howmuch.service.SessionTokenService;
+import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -38,13 +40,38 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("/api/admin")
-@RequiredArgsConstructor
 public class AdminController {
 
     private final FirebaseService firebaseService;
     private final ReportImageStorage reportImageStorage;
     private final PublicDataService publicDataService;
     private final SimpleRateLimiter rateLimiter;
+    private final SessionTokenService sessionTokenService;
+    private final ClientIpResolver clientIpResolver;
+
+    @Autowired
+    public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
+                           PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
+                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver) {
+        this.firebaseService = firebaseService;
+        this.reportImageStorage = reportImageStorage;
+        this.publicDataService = publicDataService;
+        this.rateLimiter = rateLimiter;
+        this.sessionTokenService = sessionTokenService;
+        this.clientIpResolver = clientIpResolver;
+    }
+
+    public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
+                           PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
+                           SessionTokenService sessionTokenService) {
+        this(firebaseService, reportImageStorage, publicDataService, rateLimiter,
+                sessionTokenService, new ClientIpResolver("127.0.0.1/32,::1/128"));
+    }
+
+    AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
+                    PublicDataService publicDataService, SimpleRateLimiter rateLimiter) {
+        this(firebaseService, reportImageStorage, publicDataService, rateLimiter, null);
+    }
 
     @Value("${admin.key:}")
     private String adminKey;
@@ -81,20 +108,7 @@ public class AdminController {
     }
 
     private String clientAddress(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            String[] addresses = forwarded.split(",");
-            for (int index = addresses.length - 1; index >= 0; index--) {
-                String address = addresses[index].trim();
-                if (!address.isBlank() && address.length() <= 64) {
-                    return address;
-                }
-            }
-        }
-        String remoteAddress = request.getRemoteAddr();
-        return remoteAddress != null && remoteAddress.length() <= 64
-                ? remoteAddress
-                : "unknown";
+        return clientIpResolver.resolve(request);
     }
 
     /** 타이밍 공격 방지용 상수 시간 비교 */
@@ -320,6 +334,11 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
+            // Persist the shared cutoff before deletion. Reversing this order would let a
+            // still-running token through another instance if the revocation write failed.
+            if (sessionTokenService != null) {
+                sessionTokenService.invalidateAllForUid(uid);
+            }
             Map<String, Object> result = firebaseService.deleteUser(uid);
             log.warn("[AdminController] 회원 강제 탈퇴 완료");
             return ResponseEntity.ok(result);

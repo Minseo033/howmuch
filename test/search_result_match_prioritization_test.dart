@@ -79,6 +79,7 @@ void main() {
           source: 'GOV',
         ),
       ];
+      HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
       addTearDown(() => HomeMapScreen.globalAllStores = previous);
 
       await tester.pumpWidget(
@@ -116,6 +117,7 @@ void main() {
             source: 'GOV',
           ),
         ];
+        HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
         addTearDown(() => HomeMapScreen.globalAllStores = previous);
 
         await tester.pumpWidget(
@@ -158,6 +160,7 @@ void main() {
           source: 'GOV',
         ),
       ];
+      HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
       addTearDown(() => HomeMapScreen.globalAllStores = previous);
 
       await tester.pumpWidget(

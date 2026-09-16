@@ -193,6 +193,21 @@ void main() {
       expect(result.text, contains('2,500원'));
       expect(result.text, isNot(contains('7,000원')));
     });
+
+    test('keeps real candidates when no store meets the requested budget', () {
+      final result = buildLocalAiFallbackResult(
+        stores: sampleStores,
+        query: '1000원 이하 한 곳 추천해줘',
+        lat: 37.5500,
+        lng: 126.9200,
+      );
+
+      expect(result, isNotNull);
+      expect(result!.stores, hasLength(1));
+      expect(result.text, contains('실제 매장 대안'));
+      expect(result.text, contains(result.stores.single.storeName));
+      expect(result.text, contains('7,000원'));
+    });
   });
 
   group('extractRecommendedStoresFromText', () {

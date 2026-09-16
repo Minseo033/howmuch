@@ -13,6 +13,10 @@ services:
         generateValue: true
       - key: SESSION_ALLOW_DEV_SECRET
         value: "false"
+      # Render's Cloudflare ingress overwrites CF-Connecting-IP with the real client IP.
+      # This avoids an unmaintainable proxy-CIDR allowlist while keeping local deployments strict.
+      - key: TRUST_RENDER_CF_CONNECTING_IP
+        value: "true"
       - key: ADMIN_KEY
         sync: false
       # Cloudinary 콘솔의 API Environment variable 전체 값을 Render에서 직접 입력합니다.

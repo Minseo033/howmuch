@@ -29,119 +29,105 @@ class ReportCompleteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom + 24;
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
       child: LayoutBuilder(
         builder: (context, constraints) {
-          return SizedBox(
-            height: constraints.maxHeight,
-            child: Stack(
-              children: [
-                Positioned(
-                  left: 0,
-                  top: topOffset,
-                  right: 0,
-                  height: 33.977,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: IconButton(
-                      onPressed: () => context.go(AppRoutes.communityFeed),
-                      padding: const EdgeInsets.only(left: 20),
-                      constraints: const BoxConstraints.tightFor(
-                        width: 64,
-                        height: 33.977,
-                      ),
-                      icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        color: ink,
-                        size: 21.989,
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.only(
+              top: topOffset,
+              bottom: safePadding.bottom + 24,
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: IconButton(
+                          onPressed: () => context.go(AppRoutes.communityFeed),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 44,
+                            height: 44,
+                          ),
+                          icon: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            color: ink,
+                            size: 21.989,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 117.73,
-                  top: topOffset + 73.98,
-                  width: 140,
-                  height: 140,
-                  child: const _SuccessMark(),
-                ),
-                Positioned(
-                  left: 78.79,
-                  top: topOffset + 241.97,
-                  width: 217.855,
-                  height: 79.972,
-                  child: const Column(
-                    children: [
-                      Text(
-                        '제보가 접수되었어요',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: ink,
-                          fontFamily: fontFamily,
-                          fontFamilyFallback: fontFallback,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
+                    const SizedBox(height: 30),
+                    const Center(
+                      child: SizedBox(
+                        width: 140,
+                        height: 140,
+                        child: _SuccessMark(),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const Text(
+                      '제보가 접수되었어요',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: ink,
+                        fontFamily: fontFamily,
+                        fontFamilyFallback: fontFallback,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '검토 후 지도에 사용자 제보 매장으로 표시될 예정이에요.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: muted,
+                        fontFamily: fontFamily,
+                        fontFamilyFallback: fontFallback,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    const _SubmittedReportCard(),
+                    const SizedBox(height: 24),
+                    _BottomActionButton(
+                      label: '지도에서 주변 매장 더 보기',
+                      backgroundColor: blue,
+                      foregroundColor: Colors.white,
+                      shadow: const [
+                        BoxShadow(
+                          color: Color(0x4D2563EB),
+                          blurRadius: 8,
+                          offset: Offset(0, 6),
                         ),
-                      ),
-                      SizedBox(height: 7.997),
-                      Text(
-                        '검토 후 지도에 사용자 제보 매장으로 표시될 예정이에요.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: muted,
-                          fontFamily: fontFamily,
-                          fontFamilyFallback: fontFallback,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
+                      ],
+                      onTap: () => context.go(AppRoutes.home),
+                    ),
+                    const SizedBox(height: 10),
+                    _BottomActionButton(
+                      label: '내 제보 내역 확인',
+                      backgroundColor: const Color(0xFFF1F5F9),
+                      foregroundColor: ink,
+                      onTap: () => context.go(AppRoutes.myReportsV2),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                 ),
-                Positioned(
-                  left: 20,
-                  top: topOffset + 349.94,
-                  right: 20,
-                  height: 166.747,
-                  child: const _SubmittedReportCard(),
-                ),
-                Positioned(
-                  left: 20,
-                  bottom: bottomOffset + 62,
-                  right: 20,
-                  height: 50,
-                  child: _BottomActionButton(
-                    label: '지도에서 주변 매장 더 보기',
-                    backgroundColor: blue,
-                    foregroundColor: Colors.white,
-                    shadow: const [
-                      BoxShadow(
-                        color: Color(0x4D2563EB),
-                        blurRadius: 8,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                    onTap: () => context.go(AppRoutes.home),
-                  ),
-                ),
-                Positioned(
-                  left: 20,
-                  bottom: bottomOffset,
-                  right: 20,
-                  height: 50,
-                  child: _BottomActionButton(
-                    label: '내 제보 내역 확인',
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    foregroundColor: ink,
-                    onTap: () => context.go(AppRoutes.myReportsV2),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },

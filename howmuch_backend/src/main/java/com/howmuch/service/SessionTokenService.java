@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
@@ -9,6 +10,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 자체 세션 토큰 서비스.
@@ -23,11 +25,16 @@ public class SessionTokenService {
 
     private final String secret;
     private final long ttlMillis;
+    private final SessionRevocationStore sessionRevocationStore;
+    // Store-less construction is retained only for small, isolated unit tests.
+    private final ConcurrentHashMap<String, Long> revokedAfterByUid = new ConcurrentHashMap<>();
 
+    @Autowired
     public SessionTokenService(
             @Value("${session.secret:}") String secret,
             @Value("${session.ttl-hours:168}") long ttlHours,
-            @Value("${session.allow-dev-secret:true}") boolean allowDevSecret) {
+            @Value("${session.allow-dev-secret:true}") boolean allowDevSecret,
+            SessionRevocationStore sessionRevocationStore) {
         // 💡 fail-fast: 알려진 dev 기본값/빈 시크릿으로는 토큰 위조가 가능하므로,
         //    운영(session.allow-dev-secret=false)에서는 부팅을 거부합니다.
         if (secret == null || secret.isBlank()) {
@@ -43,12 +50,19 @@ public class SessionTokenService {
         }
         this.secret = secret;
         this.ttlMillis = ttlHours * 60L * 60L * 1000L;
+        this.sessionRevocationStore = sessionRevocationStore;
+    }
+
+    SessionTokenService(String secret, long ttlHours, boolean allowDevSecret) {
+        this(secret, ttlHours, allowDevSecret, null);
     }
 
     /** uid를 담은 서명된 세션 토큰을 발급합니다. */
     public String createToken(String uid) {
-        long expiry = System.currentTimeMillis() + ttlMillis;
-        String payload = uid + ":" + expiry;
+        long now = System.currentTimeMillis();
+        long issuedAt = Math.max(now, revokedAfter(uid) + 1);
+        long expiry = issuedAt + ttlMillis;
+        String payload = uid + ":" + issuedAt + ":" + expiry;
         String encodedPayload = Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
         String signature = sign(payload);
@@ -76,15 +90,40 @@ public class SessionTokenService {
                 return null;
             }
 
-            int sep = payload.lastIndexOf(':');
-            if (sep <= 0) return null;
-            long expiry = Long.parseLong(payload.substring(sep + 1));
+            int expirySeparator = payload.lastIndexOf(':');
+            int issuedAtSeparator = expirySeparator <= 0
+                    ? -1 : payload.lastIndexOf(':', expirySeparator - 1);
+            if (issuedAtSeparator <= 0 || expirySeparator <= issuedAtSeparator + 1) return null;
+            String uid = payload.substring(0, issuedAtSeparator);
+            long issuedAt = Long.parseLong(payload.substring(issuedAtSeparator + 1, expirySeparator));
+            long expiry = Long.parseLong(payload.substring(expirySeparator + 1));
             if (System.currentTimeMillis() > expiry) return null;
-
-            return payload.substring(0, sep);
+            if (issuedAt <= revokedAfter(uid)) return null;
+            return uid;
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** Immediately invalidates every session issued for this account so a deleted account cannot keep using APIs. */
+    public void invalidateAllForUid(String uid) {
+        if (uid != null && !uid.isBlank()) {
+            long cutoff = System.currentTimeMillis();
+            if (sessionRevocationStore != null) {
+                sessionRevocationStore.revokeAt(uid, cutoff);
+            } else {
+                revokedAfterByUid.merge(uid, cutoff, Math::max);
+            }
+        }
+    }
+
+    private long revokedAfter(String uid) {
+        if (sessionRevocationStore != null) {
+            // Fail closed: while the shared revocation store is unavailable, no previously
+            // valid token may be trusted. This avoids reviving a deleted account during an outage.
+            return sessionRevocationStore.getRevokedAfter(uid);
+        }
+        return revokedAfterByUid.getOrDefault(uid, Long.MIN_VALUE);
     }
 
     private String sign(String payload) {

@@ -73,7 +73,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   late final SearchHistoryStore _searchHistoryStore;
 
   List<String> get _realSuggestions {
-    final stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
+    final stores = List<Store>.from(
+      howmuch_home.HomeMapScreen.globalSearchCatalog,
+    );
     final position = howmuch_home.HomeMapScreen.globalUserPosition;
     if (position != null) {
       stores.sort((a, b) {
@@ -220,7 +222,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     }
 
     try {
-      if (howmuch_home.HomeMapScreen.globalAllStores.isEmpty) {
+      // The home map list is a viewport cache and can contain only the stores
+      // inside the last map bounds. Search always uses its own full catalog.
+      if (howmuch_home.HomeMapScreen.globalSearchCatalog.isEmpty) {
         final request = _catalogRequest ??=
             (widget.storeCatalogLoader ?? loadStoreCatalog)();
         late final List<Store> loadedStores;
@@ -232,10 +236,12 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           }
         }
         if (!mounted || generation != _searchGeneration) return;
-        howmuch_home.HomeMapScreen.globalAllStores = loadedStores;
+        howmuch_home.HomeMapScreen.setSearchCatalog(loadedStores);
       }
 
-      var stores = List<Store>.from(howmuch_home.HomeMapScreen.globalAllStores);
+      var stores = List<Store>.from(
+        howmuch_home.HomeMapScreen.globalSearchCatalog,
+      );
 
       // 검색어 필터링
       if (query.isNotEmpty) {
@@ -421,6 +427,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final activeFilters = _filter.activeLabels;
 
     return FigmaMobileCanvas(
+      wideWebLayout: true,
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {

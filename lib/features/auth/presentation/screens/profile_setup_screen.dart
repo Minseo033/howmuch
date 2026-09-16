@@ -23,7 +23,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   static const _blue = Color(0xFF2563EB);
   static const _ink = Color(0xFF0F172A);
   static const _muted = Color(0xFF64748B);
-  static const _hint = Color(0xFF94A3B8);
+  // #94A3B8 on white is too faint for helper text (about 2.4:1). Use the
+  // secondary text token so setup guidance remains readable at small sizes.
+  static const _hint = Color(0xFF64748B);
   static const _border = Color(0xFFE2E8F0);
   static const _chipSelected = Color(0xFF2563EB);
   static const _chipSelectedText = Colors.white;
@@ -355,9 +357,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   // ─── STEP 뱃지
   Widget _buildStepBadge() {
-    return Row(
-      children: [
-        Container(
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: const Color(0xFFEFF6FF),
@@ -375,7 +380,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -440,7 +445,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   '닉네임',
@@ -453,28 +457,34 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                   ),
                 ),
                 if (hasText)
-                  Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: BoxDecoration(
-                          color: isValid ? const Color(0xFF10B981) : _hint,
-                          shape: BoxShape.circle,
-                        ),
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: isValid ? const Color(0xFF10B981) : _hint,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isValid ? '사용 가능' : '2자 이상 입력',
+                            style: TextStyle(
+                              fontFamily: _font,
+                              fontFamilyFallback: _fontFallback,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: isValid ? const Color(0xFF10B981) : _hint,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isValid ? '사용 가능' : '2자 이상 입력',
-                        style: TextStyle(
-                          fontFamily: _font,
-                          fontFamilyFallback: _fontFallback,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: isValid ? const Color(0xFF10B981) : _hint,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
               ],
             ),
@@ -564,8 +574,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          runSpacing: 6,
           children: [
             const Text(
               '주 활동 동네',
@@ -730,33 +741,22 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
-              children: [
-                Text(
-                  '관심 카테고리',
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontFamilyFallback: _fontFallback,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _ink,
-                  ),
+            const Expanded(
+              child: Text(
+                '관심 카테고리',
+                style: TextStyle(
+                  fontFamily: _font,
+                  fontFamilyFallback: _fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _ink,
                 ),
-                SizedBox(width: 6),
-                Text(
-                  '· 다중 선택 가능',
-                  style: TextStyle(
-                    fontFamily: _font,
-                    fontFamilyFallback: _fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: _hint,
-                  ),
-                ),
-              ],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${_selectedCategories.length}/${_allCategories.length} 선택됨',
               style: TextStyle(
@@ -850,7 +850,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        const Wrap(
+          spacing: 6,
           children: [
             Text(
               '이번 달 절약 목표',
@@ -862,7 +863,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 color: _ink,
               ),
             ),
-            SizedBox(width: 6),
+            SizedBox(width: 0),
             Text(
               '· 선택',
               style: TextStyle(
@@ -982,22 +983,25 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                           ),
                         ),
                       )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.check_circle_outline_rounded, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            '가입 완료하고 시작하기',
-                            style: TextStyle(
-                              fontFamily: _font,
-                              fontFamilyFallback: _fontFallback,
-                              fontSize: 15.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.2,
+                    : const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              '가입 완료하고 시작하기',
+                              style: TextStyle(
+                                fontFamily: _font,
+                                fontFamilyFallback: _fontFallback,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.2,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
               ),
             ),

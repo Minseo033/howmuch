@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,11 +31,6 @@ class SessionExpiredScreen extends ConsumerWidget {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-    // On web use actual screen height, on native use design height
-    final effectiveHeight = kIsWeb
-        ? MediaQuery.sizeOf(context).height
-        : FigmaMobileCanvas.height;
-    final actionTop = effectiveHeight - bottomOffset - 16 - 111.988;
 
     Future<void> close() async {
       await ref.read(kakaoLoginServiceProvider).clearLocalSession();
@@ -54,82 +49,104 @@ class SessionExpiredScreen extends ConsumerWidget {
     }
 
     return FigmaMobileCanvas(
-      child: Stack(
-        children: [
-          Positioned(
-            right: 20,
-            top: topOffset + 12,
-            width: 31.988636016845703,
-            height: 31.988636016845703,
-            child: Material(
-              color: surface,
-              shape: const CircleBorder(),
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: () => close(),
-                child: const Icon(
-                  Icons.close_rounded,
-                  color: Color(0xFF5F708A),
-                  size: 16,
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // The old native-only design height (800px) placed the actions below
+          // the viewport on short devices. Give the compact layout a scrollable
+          // content height and calculate the CTA from that real layout.
+          final contentHeight = math.max(
+            constraints.maxHeight,
+            topOffset + 620 + bottomOffset,
+          );
+          final actionTop = contentHeight - bottomOffset - 16 - 111.988;
+
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            child: SizedBox(
+              height: contentHeight,
+              child: Stack(
+                children: [
+                  Positioned(
+                    right: 20,
+                    top: topOffset + 12,
+                    width: 31.988636016845703,
+                    height: 31.988636016845703,
+                    child: Material(
+                      color: surface,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => close(),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF5F708A),
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: topOffset + 125.67,
+                    height: 80,
+                    child: const Center(
+                      child: SizedBox(
+                        width: 80,
+                        height: 80,
+                        child: _StateIcon(
+                          icon: Icons.lock_outline_rounded,
+                          size: 36,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    top: topOffset + 229.66,
+                    height: 30,
+                    child: const Text(
+                      '다시 로그인이 필요해요',
+                      textAlign: TextAlign.center,
+                      style: _titleText,
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    top: topOffset + 267.66,
+                    height: 66.26420593261719,
+                    child: const Text(
+                      '보안을 위해 세션이 만료되었어요.\n찜 · 제보 · 절약 리포트는\n로그인 후 이용할 수 있어요.',
+                      textAlign: TextAlign.center,
+                      style: _bodyText,
+                    ),
+                  ),
+                  Positioned(
+                    left: 32,
+                    right: 32,
+                    top: topOffset + 357.91,
+                    height: 128.452,
+                    child: const _AvailableWithoutLoginPanel(),
+                  ),
+                  Positioned(
+                    left: 28,
+                    right: 28,
+                    top: actionTop,
+                    child: Column(
+                      children: [
+                        _KakaoButton(onPressed: loginAgain),
+                        const SizedBox(height: 10),
+                        _LaterButton(onPressed: () => close()),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topOffset + 125.67,
-            height: 80,
-            child: const Center(
-              child: SizedBox(
-                width: 80,
-                height: 80,
-                child: _StateIcon(icon: Icons.lock_outline_rounded, size: 36),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            top: topOffset + 229.66,
-            height: 30,
-            child: const Text(
-              '다시 로그인이 필요해요',
-              textAlign: TextAlign.center,
-              style: _titleText,
-            ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            top: topOffset + 267.66,
-            height: 66.26420593261719,
-            child: const Text(
-              '보안을 위해 세션이 만료되었어요.\n찜 · 제보 · 절약 리포트는\n로그인 후 이용할 수 있어요.',
-              textAlign: TextAlign.center,
-              style: _bodyText,
-            ),
-          ),
-          Positioned(
-            left: 32,
-            right: 32,
-            top: topOffset + 357.91,
-            height: 128.452,
-            child: const _AvailableWithoutLoginPanel(),
-          ),
-          Positioned(
-            left: 28,
-            right: 28,
-            top: actionTop,
-            child: Column(
-              children: [
-                _KakaoButton(onPressed: loginAgain),
-                const SizedBox(height: 10),
-                _LaterButton(onPressed: () => close()),
-              ],
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

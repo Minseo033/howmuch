@@ -5,6 +5,7 @@ import com.howmuch.dto.KakaoAuthRequest;
 import com.howmuch.service.AuthService;
 import com.howmuch.service.SessionTokenService;
 import com.howmuch.service.SimpleRateLimiter;
+import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -20,16 +21,25 @@ public class AuthController {
     private final AuthService authService;
     private final SessionTokenService sessionTokenService;
     private final SimpleRateLimiter rateLimiter;
+    private final ClientIpResolver clientIpResolver;
 
     @Value("${auth.kakao.max-per-5-min:30}")
     private int maxKakaoAttemptsPerFiveMinutes = 30;
 
     public AuthController(AuthService authService,
                           SessionTokenService sessionTokenService,
-                          SimpleRateLimiter rateLimiter) {
+                          SimpleRateLimiter rateLimiter,
+                          ClientIpResolver clientIpResolver) {
         this.authService = authService;
         this.sessionTokenService = sessionTokenService;
         this.rateLimiter = rateLimiter;
+        this.clientIpResolver = clientIpResolver;
+    }
+
+    /** Retained for focused controller tests. Production uses the Spring-injected resolver. */
+    AuthController(AuthService authService, SessionTokenService sessionTokenService,
+                   SimpleRateLimiter rateLimiter) {
+        this(authService, sessionTokenService, rateLimiter, new ClientIpResolver("127.0.0.1/32,::1/128"));
     }
 
     /**
@@ -43,8 +53,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "카카오 로그인 정보를 확인해주세요."));
         }
-        String address = httpRequest.getRemoteAddr() == null
-                ? "unknown" : httpRequest.getRemoteAddr();
+        String address = clientIpResolver.resolve(httpRequest);
         if (!rateLimiter.tryAcquire(
                 "kakao-auth:" + address, maxKakaoAttemptsPerFiveMinutes, 5 * 60_000L)) {
             return ResponseEntity.status(429).body(Map.of(

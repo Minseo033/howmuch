@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -62,6 +63,25 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     });
   }
 
+  /// AI can fail after the map has only loaded a viewport-sized list. Make a
+  /// best effort to obtain the complete catalog before falling back, so the
+  /// fallback recommends real stores instead of ending with an error bubble.
+  Future<List<Store>> _candidateStoresForFallback() async {
+    final catalog = HomeMapScreen.globalSearchCatalog;
+    if (catalog.isNotEmpty) return catalog;
+
+    try {
+      final loaded = await loadStoreCatalog();
+      HomeMapScreen.setSearchCatalog(loaded);
+      return loaded;
+    } catch (error) {
+      debugPrint('AI 로컬 추천용 전체 매장 목록 로드 실패: $error');
+      // The map list is still a valid real-candidate source when the catalog
+      // endpoint is unavailable.
+      return HomeMapScreen.globalAllStores;
+    }
+  }
+
   Future<void> _sendMessage() async {
     if (_isTyping) return;
 
@@ -113,8 +133,9 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     List<Store> recommendedStores = const [];
     if (isAiUnavailableResponse(botResponse)) {
       final position = HomeMapScreen.globalUserPosition;
+      final candidateStores = await _candidateStoresForFallback();
       final fallbackResult = buildLocalAiFallbackResult(
-        stores: HomeMapScreen.globalAllStores,
+        stores: candidateStores,
         query: messageText,
         lat: position?.latitude,
         lng: position?.longitude,
@@ -124,9 +145,12 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         recommendedStores = fallbackResult.stores;
       }
     } else {
+      final candidateStores = HomeMapScreen.globalSearchCatalog.isNotEmpty
+          ? HomeMapScreen.globalSearchCatalog
+          : HomeMapScreen.globalAllStores;
       final extractedStores = extractRecommendedStoresFromText(
         text: botResponse,
-        candidateStores: HomeMapScreen.globalAllStores,
+        candidateStores: candidateStores,
       );
       final requestedCount = parseRequestedRecommendationCount(messageText);
       final budgetWon = parseRequestedBudgetWon(messageText);

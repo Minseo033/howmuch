@@ -645,6 +645,7 @@ class _AllNotificationCard extends StatelessWidget {
               child: Center(
                 child: _HowmuchToggle(
                   trackKey: const ValueKey('all-notification-toggle'),
+                  semanticLabel: '전체 알림',
                   value: value,
                   activeColor: NotificationSettingsScreen.blue,
                   onTap: onTap,
@@ -753,6 +754,7 @@ class _NotificationRow extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               _HowmuchToggle(
+                semanticLabel: title,
                 value: value,
                 activeColor: activeColor,
                 onTap: onTap,
@@ -852,6 +854,7 @@ class _QuietHoursCard extends StatelessWidget {
                   children: [
                     const Text('설정 사용', style: _semi13),
                     _HowmuchToggle(
+                      semanticLabel: '방해 금지 시간 설정 사용',
                       value: settings.quietHours,
                       activeColor: NotificationSettingsScreen.blue,
                       onTap: onToggle,
@@ -1053,59 +1056,68 @@ class _StickySaveButton extends StatelessWidget {
 class _HowmuchToggle extends StatelessWidget {
   const _HowmuchToggle({
     this.trackKey,
+    this.semanticLabel,
     required this.value,
     required this.activeColor,
     required this.onTap,
   });
 
   final Key? trackKey;
+  final String? semanticLabel;
   final bool value;
   final Color activeColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.translucent,
-      child: SizedBox(
-        width: 52,
-        height: 36,
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: AnimatedContainer(
-            key: trackKey,
-            duration: const Duration(milliseconds: 160),
-            width: 40,
-            height: 23.99147605895996,
-            decoration: BoxDecoration(
-              color: value ? activeColor : NotificationSettingsScreen.disabled,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Stack(
-              children: [
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 160),
-                  curve: Curves.easeOut,
-                  left: value ? 18.991455078125 : 2.99713134765625,
-                  top: 2.9970703125,
-                  child: Container(
-                    width: 17.99715805053711,
-                    height: 17.99715805053711,
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.black.withValues(alpha: 0.2),
-                          blurRadius: 3,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
+    return Semantics(
+      button: true,
+      toggled: value,
+      label: semanticLabel ?? '알림 설정',
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.translucent,
+        child: SizedBox(
+          width: 52,
+          height: 36,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: AnimatedContainer(
+              key: trackKey,
+              duration: const Duration(milliseconds: 160),
+              width: 40,
+              height: 23.99147605895996,
+              decoration: BoxDecoration(
+                color: value
+                    ? activeColor
+                    : NotificationSettingsScreen.disabled,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 160),
+                    curve: Curves.easeOut,
+                    left: value ? 18.991455078125 : 2.99713134765625,
+                    top: 2.9970703125,
+                    child: Container(
+                      width: 17.99715805053711,
+                      height: 17.99715805053711,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.black.withValues(alpha: 0.2),
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

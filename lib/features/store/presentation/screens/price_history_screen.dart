@@ -159,26 +159,32 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   }
 
   Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.info_outline_rounded,
-              size: 40,
-              color: AppColors.muted,
+    return SingleChildScrollView(
+      physics: const ClampingScrollPhysics(),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 150),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  size: 32,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(height: 8),
+                Text(_errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _loadHistory,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('다시 시도'),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Text(_errorMessage!, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: _loadHistory,
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('다시 시도'),
-            ),
-          ],
+          ),
         ),
       ),
     );
