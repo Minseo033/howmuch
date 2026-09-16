@@ -37,7 +37,7 @@ public class GeminiService {
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
                          @Value("${gemini.timeout-ms:10000}") int timeoutMs,
                          @Value("${gemini.route-enabled:false}") boolean routeAiEnabled,
-                         @Value("${gemini.model:gemini-2.5-flash}") String configuredModel) {
+                         @Value("${gemini.model:gemini-3.5-flash-lite}") String configuredModel) {
         this.geminiApiKey = geminiApiKey;
         this.routeAiEnabled = routeAiEnabled;
         this.configuredModel = normalizeModel(configuredModel);
@@ -50,7 +50,7 @@ public class GeminiService {
     }
 
     public GeminiService(String geminiApiKey, int timeoutMs, boolean routeAiEnabled) {
-        this(geminiApiKey, timeoutMs, routeAiEnabled, "gemini-2.5-flash");
+        this(geminiApiKey, timeoutMs, routeAiEnabled, "gemini-3.5-flash-lite");
     }
 
     private static List<String> buildCandidateUrls(String model) {
@@ -58,16 +58,18 @@ public class GeminiService {
         if (model != null && !model.isBlank()) {
             urls.add("https://generativelanguage.googleapis.com/v1beta/models/" + model.trim() + ":generateContent");
         }
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent");
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent");
+        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent");
         urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent");
-        urls.add("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent");
         return new ArrayList<>(urls);
     }
 
     private static String normalizeModel(String model) {
-        if ("gemini-2.5-flash-lite".equals(model)) {
-            return model;
+        if (model == null || model.isBlank()) {
+            return "gemini-3.5-flash-lite";
         }
-        return "gemini-2.5-flash";
+        return model.trim();
     }
 
     List<String> getCandidateUrls() {

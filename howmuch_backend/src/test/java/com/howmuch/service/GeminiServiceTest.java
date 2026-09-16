@@ -57,17 +57,15 @@ class GeminiServiceTest {
         GeminiService defaultService = new GeminiService("", 1_000, false);
         List<String> defaultUrls = defaultService.getCandidateUrls();
         assertThat(defaultUrls).isNotEmpty();
-        assertThat(defaultUrls.get(0)).contains("gemini-2.5-flash:generateContent");
-        assertThat(defaultUrls).noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+        assertThat(defaultUrls.get(0)).contains("gemini-3.5-flash-lite:generateContent");
 
-        GeminiService customService = new GeminiService("", 1_000, false, "gemini-2.5-flash-lite");
+        GeminiService customService = new GeminiService("", 1_000, false, "gemini-3.6-flash");
         List<String> customUrls = customService.getCandidateUrls();
-        assertThat(customUrls.get(0)).contains("gemini-2.5-flash-lite:generateContent");
-        assertThat(customUrls).noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+        assertThat(customUrls.get(0)).contains("gemini-3.6-flash:generateContent");
 
         GeminiService staleConfiguredService = new GeminiService("", 1_000, false, "gemini-1.5-flash");
-        assertThat(staleConfiguredService.getCandidateUrls())
-                .noneMatch(url -> url.contains("1.5") || url.contains("2.0"));
+        assertThat(staleConfiguredService.getCandidateUrls().get(0))
+                .contains("gemini-1.5-flash:generateContent");
     }
 
     @Test
