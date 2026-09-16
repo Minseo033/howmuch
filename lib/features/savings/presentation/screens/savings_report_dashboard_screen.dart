@@ -473,7 +473,6 @@ class _SavingsReportDashboardScreenState
     int? goalAmount;
     String chartTitle = '';
     String chartDate = '';
-    List<Widget> chartBars = [];
     int visits = 0;
     int? favorites, reports;
     String recommendationSub = '';
@@ -494,38 +493,11 @@ class _SavingsReportDashboardScreenState
       favorites = (tabData['favorites'] as num?)?.toInt();
       reports = (tabData['reports'] as num?)?.toInt();
       recommendationSub = tabData['recommendation'] ?? '';
-
-      final List<dynamic> savings = tabData['savings'] ?? [];
-      chartBars = savings.map((s) {
-        final label = s['label']?.toString() ?? '';
-        final amountVal = (s['amount'] as num?)?.toInt() ?? 0;
-        final amountStr = formatSavingsChartAmount(amountVal);
-        final isMax = s['isMax'] == true;
-
-        final rawAmt = amountVal.toDouble();
-        double height = 4.0;
-        if (savings.isNotEmpty) {
-          final maxAmt = savings
-              .map((item) => (item['amount'] as num?)?.toDouble() ?? 0.0)
-              .reduce((a, b) => a > b ? a : b);
-          if (maxAmt > 0 && rawAmt > 0) {
-            height = ((rawAmt / maxAmt) * 100.0).clamp(8.0, 100.0);
-          }
-        }
-        return _buildBar(
-          label: label,
-          amount: amountStr,
-          fullAmount: '${_formatCurrency(amountVal)}원',
-          height: height,
-          isMax: isMax,
-        );
-      }).toList();
     } else {
       titlePrefix = _selectedTab;
       displayedSaved = 0;
       chartTitle = '절약 금액';
       chartDate = '';
-      chartBars = [];
       visits = 0;
       favorites = null;
       reports = null;
@@ -996,97 +968,6 @@ class _SavingsReportDashboardScreenState
             color: isSelected ? Colors.white : const Color(0xFF64748B),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBar({
-    required String label,
-    required String amount,
-    required String fullAmount,
-    required double height,
-    required bool isMax,
-  }) {
-    return Expanded(
-      child: Semantics(
-        container: true,
-        label: '$label 절약 금액 $fullAmount${isMax ? ', 기간 내 최대' : ''}',
-        child: ExcludeSemantics(
-          child: SizedBox(
-            key: ValueKey('savings-chart-item-$label'),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  height: 18,
-                  width: double.infinity,
-                  child: isMax
-                      ? const FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            '최대',
-                            style: TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF2563EB),
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : null,
-                ),
-                const SizedBox(height: 4),
-                FractionallySizedBox(
-                  widthFactor: .68,
-                  child: Container(
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: isMax
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSizes.smallSpacing),
-                Text(
-                  label,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontFamilyFallback: ['Noto Sans KR'],
-                    color: Color(0xFF64748B),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: double.infinity,
-                  height: 16,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      amount,
-                      key: ValueKey('savings-chart-amount-$label'),
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontFamily: 'Inter',
-                        fontFamilyFallback: const ['Noto Sans KR'],
-                        color: isMax
-                            ? const Color(0xFF2563EB)
-                            : const Color(0xFF0F172A),
-                        fontSize: 10,
-                        fontWeight: isMax ? FontWeight.bold : FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
