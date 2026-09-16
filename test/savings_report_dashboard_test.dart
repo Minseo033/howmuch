@@ -89,6 +89,45 @@ void main() {
       }, () => MockClient(_dashboardResponseWithYearlyChart));
     });
   }
+
+  testWidgets(
+    'renders smooth line chart for monthly/weekly tabs and bar chart for yearly',
+    (tester) async {
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsReportDashboardScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('savings-weekly-line-chart')),
+          findsOneWidget,
+        );
+        expect(find.text('이번 달 절약 금액'), findsOneWidget);
+
+        await tester.tap(find.text('지난 달'));
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('savings-weekly-line-chart')),
+          findsOneWidget,
+        );
+        expect(find.text('지난 달 절약 금액'), findsOneWidget);
+
+        await tester.tap(find.text('올해'));
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('savings-chart-item-1월')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('savings-weekly-line-chart')),
+          findsNothing,
+        );
+      }, () => MockClient(_dashboardResponseWithWeeklyAndYearlyChart));
+    },
+  );
 }
 
 Future<http.Response> _dashboardResponseWithYearlyChart(
@@ -113,6 +152,33 @@ Future<http.Response> _dashboardResponseWithYearlyChart(
               };
             })
           : const [],
+    );
+  }
+  return _auxiliaryResponse(request);
+}
+
+Future<http.Response> _dashboardResponseWithWeeklyAndYearlyChart(
+  http.Request request,
+) async {
+  if (request.url.path.endsWith('/api/savings/stats')) {
+    final period = request.url.queryParameters['period'];
+    if (period == 'this_year') {
+      return _statsResponse(
+        chartTitle: '월별 절약 금액',
+        chartItems: List.generate(12, (i) => {
+          'label': '${i + 1}월',
+          'amount': 1000,
+          'isMax': i == 7,
+        }),
+      );
+    }
+    return _statsResponse(
+      chartTitle: '주차별 절약 금액',
+      chartItems: List.generate(5, (i) => {
+        'label': '${i + 1}주',
+        'amount': (i + 1) * 2000,
+        'isMax': i == 4,
+      }),
     );
   }
   return _auxiliaryResponse(request);

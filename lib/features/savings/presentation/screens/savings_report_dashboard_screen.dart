@@ -550,151 +550,13 @@ class _SavingsReportDashboardScreenState
           padding: const EdgeInsets.all(AppSizes.horizontalPadding),
           child: Column(
             children: [
-              // Savings Card
-              GestureDetector(
-                onTap: () => context.push(AppRoutes.savingsDetail),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF34D399), Color(0xFF059669)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.savings_outlined,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$titlePrefix 절약 금액',
-                            style: const TextStyle(
-                              fontFamily: 'Inter',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 60,
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  formattedSaved,
-                                  style: const TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Colors.white,
-                                    fontSize: 42,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -1.2,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  '원',
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSizes.largeSpacing),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _selectedTab == '이번 달'
-                              ? goalAmount == null
-                                    ? '목표 정보를 불러오지 못했어요'
-                                    : goalAmount > 0
-                                    ? '목표 대비 $percentage% 달성'
-                                    : '이번 달 목표가 아직 없어요'
-                              : '$visits회 방문 기록 기준',
-                          style: const TextStyle(
-                            fontFamily: 'Inter',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSizes.itemSpacing),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSizes.horizontalPadding,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.verified_outlined,
-                              color: Color(0xFF059669),
-                              size: 18,
-                            ),
-                            const SizedBox(width: AppSizes.smallSpacing),
-                            Expanded(
-                              child: Text(
-                                visits > 0
-                                    ? '$visits번의 방문 인증으로 계산했어요'
-                                    : '방문 인증을 완료하면 절약액이 기록돼요',
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: 'Inter',
-                                  fontFamilyFallback: ['Noto Sans KR'],
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              // Savings Card (탭별 테마 & 글래스모피즘)
+              _buildSavingsCard(
+                titlePrefix: titlePrefix,
+                formattedSaved: formattedSaved,
+                goalAmount: goalAmount,
+                percentage: percentage,
+                visits: visits,
               ),
               const SizedBox(height: AppSizes.itemSpacing),
 
@@ -708,6 +570,13 @@ class _SavingsReportDashboardScreenState
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: const Color(0xFFE5E7EB)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -739,11 +608,15 @@ class _SavingsReportDashboardScreenState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 40),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: chartBars,
-                      ),
+                      const SizedBox(height: 24),
+                      _selectedTab == '올해'
+                          ? Row(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: chartBars,
+                            )
+                          : _buildWeeklyLineChart(
+                              tabData['savings'] as List<dynamic>? ?? const [],
+                            ),
                     ],
                   ),
                 ),
@@ -826,6 +699,279 @@ class _SavingsReportDashboardScreenState
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSavingsCard({
+    required String titlePrefix,
+    required String formattedSaved,
+    required int? goalAmount,
+    required int percentage,
+    required int visits,
+  }) {
+    LinearGradient gradient;
+    Color shadowColor;
+
+    if (_selectedTab == '지난 달') {
+      gradient = const LinearGradient(
+        colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      shadowColor = const Color(0xFF1E3A8A).withValues(alpha: 0.28);
+    } else if (_selectedTab == '올해') {
+      gradient = const LinearGradient(
+        colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      shadowColor = const Color(0xFF2563EB).withValues(alpha: 0.25);
+    } else {
+      gradient = const LinearGradient(
+        colors: [Color(0xFF059669), Color(0xFF064E3B)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+      shadowColor = const Color(0xFF059669).withValues(alpha: 0.25);
+    }
+
+    return GestureDetector(
+      onTap: () => context.push(AppRoutes.savingsDetail),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: gradient,
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor,
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            children: [
+              Positioned(
+                top: -30,
+                right: -30,
+                child: Container(
+                  width: 140,
+                  height: 140,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.07),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: -40,
+                right: 30,
+                child: Container(
+                  width: 110,
+                  height: 110,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.04),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.savings_outlined,
+                          color: Colors.white.withValues(alpha: 0.9),
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '$titlePrefix 절약 금액',
+                          style: TextStyle(
+                            fontFamily: 'Inter',
+                            fontFamilyFallback: const ['Noto Sans KR'],
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                formattedSaved,
+                                style: const TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Colors.white,
+                                  fontSize: 42,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -1.2,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                '원',
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.largeSpacing),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.22),
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        _selectedTab == '이번 달'
+                            ? goalAmount == null
+                              ? '목표 정보를 불러오지 못했어요'
+                              : goalAmount > 0
+                              ? '목표 대비 $percentage% 달성'
+                              : '이번 달 목표가 아직 없어요'
+                            : '$visits회 방문 기록 기준',
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSizes.itemSpacing),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSizes.horizontalPadding,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.verified_outlined,
+                            color: Colors.white.withValues(alpha: 0.95),
+                            size: 18,
+                          ),
+                          const SizedBox(width: AppSizes.smallSpacing),
+                          Expanded(
+                            child: Text(
+                              visits > 0
+                                  ? '$visits번의 방문 인증으로 계산했어요'
+                                  : '방문 인증을 완료하면 절약액이 기록돼요',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Inter',
+                                fontFamilyFallback: ['Noto Sans KR'],
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeeklyLineChart(List<dynamic> savings) {
+    if (savings.isEmpty) {
+      return const SizedBox(
+        height: 156,
+        child: Center(
+          child: Text(
+            '절약 기록이 아직 없어요',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final points = savings.map((s) {
+      final label = s['label']?.toString() ?? '';
+      final amountVal = (s['amount'] as num?)?.toInt() ?? 0;
+      return _WeeklyPoint(
+        label: label,
+        amount: amountVal,
+        amountStr: formatSavingsChartAmount(amountVal),
+        fullAmount: '${_formatCurrency(amountVal)}원',
+        isMax: s['isMax'] == true,
+      );
+    }).toList();
+
+    final summary = points
+        .map((p) => '${p.label} ${p.fullAmount}${p.isMax ? ' (최대)' : ''}')
+        .join(', ');
+
+    return Semantics(
+      container: true,
+      label: '주차별 절약 추이 그래프: $summary',
+      child: SizedBox(
+        key: const ValueKey('savings-weekly-line-chart'),
+        height: 156,
+        width: double.infinity,
+        child: CustomPaint(
+          painter: _WeeklyLineChartPainter(points: points),
+        ),
+      ),
     );
   }
 
@@ -995,5 +1141,237 @@ class _SavingsReportDashboardScreenState
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
       (Match m) => '${m[1]},',
     );
+  }
+}
+
+class _WeeklyPoint {
+  final String label;
+  final int amount;
+  final String amountStr;
+  final String fullAmount;
+  final bool isMax;
+
+  _WeeklyPoint({
+    required this.label,
+    required this.amount,
+    required this.amountStr,
+    required this.fullAmount,
+    required this.isMax,
+  });
+}
+
+class _WeeklyLineChartPainter extends CustomPainter {
+  final List<_WeeklyPoint> points;
+
+  _WeeklyLineChartPainter({required this.points});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
+    final n = points.length;
+    const horizontalPadding = 24.0;
+    const topPadding = 36.0;
+    const bottomPadding = 26.0;
+    final plotWidth = size.width - (horizontalPadding * 2);
+    final plotHeight = size.height - topPadding - bottomPadding;
+    final baselineY = topPadding + plotHeight;
+
+    final maxAmt = points.map((p) => p.amount).reduce((a, b) => a > b ? a : b);
+
+    final offsets = <Offset>[];
+    for (int i = 0; i < n; i++) {
+      final x = n == 1
+          ? size.width / 2
+          : horizontalPadding + (i / (n - 1)) * plotWidth;
+      final ratio =
+          maxAmt > 0 ? (points[i].amount / maxAmt).clamp(0.0, 1.0) : 0.0;
+      final y = baselineY - (ratio * (plotHeight - 8.0));
+      offsets.add(Offset(x, y));
+    }
+
+    // 1. 은은한 가로 그리드선 (베이스라인, 50%, 100%)
+    final gridPaint = Paint()
+      ..color = const Color(0xFFF1F5F9)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawLine(
+      Offset(horizontalPadding, baselineY),
+      Offset(size.width - horizontalPadding, baselineY),
+      gridPaint,
+    );
+    canvas.drawLine(
+      Offset(horizontalPadding, topPadding + plotHeight * 0.5),
+      Offset(size.width - horizontalPadding, topPadding + plotHeight * 0.5),
+      gridPaint,
+    );
+    canvas.drawLine(
+      Offset(horizontalPadding, topPadding),
+      Offset(size.width - horizontalPadding, topPadding),
+      gridPaint,
+    );
+
+    // 2. 부드러운 곡선 & 그라데이션 영역 채움
+    if (n >= 2) {
+      final linePath = Path();
+      linePath.moveTo(offsets[0].dx, offsets[0].dy);
+
+      for (int i = 0; i < n - 1; i++) {
+        final p0 = offsets[i];
+        final p1 = offsets[i + 1];
+        final controlX = (p0.dx + p1.dx) / 2;
+        linePath.cubicTo(controlX, p0.dy, controlX, p1.dy, p1.dx, p1.dy);
+      }
+
+      final fillPath = Path.from(linePath)
+        ..lineTo(offsets.last.dx, baselineY)
+        ..lineTo(offsets.first.dx, baselineY)
+        ..close();
+
+      final fillPaint = Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0x382563EB),
+            Color(0x002563EB),
+          ],
+        ).createShader(Rect.fromLTWH(0, topPadding, size.width, plotHeight));
+
+      canvas.drawPath(fillPath, fillPaint);
+
+      final linePaint = Paint()
+        ..color = const Color(0xFF2563EB)
+        ..strokeWidth = 3.0
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      canvas.drawPath(linePath, linePaint);
+    }
+
+    // 3. 점, 금액 라벨, '최대' 뱃지, X축 주차 라벨
+    for (int i = 0; i < n; i++) {
+      final p = points[i];
+      final pos = offsets[i];
+      final isMax = p.isMax && p.amount > 0;
+
+      // 점 그리기
+      if (p.amount > 0) {
+        if (isMax) {
+          final glowPaint = Paint()..color = const Color(0x332563EB);
+          canvas.drawCircle(pos, 10.0, glowPaint);
+
+          final maxOuterPaint = Paint()..color = const Color(0xFF2563EB);
+          canvas.drawCircle(pos, 5.5, maxOuterPaint);
+
+          final maxInnerPaint = Paint()..color = Colors.white;
+          canvas.drawCircle(pos, 2.5, maxInnerPaint);
+        } else {
+          final dotOuterPaint = Paint()..color = const Color(0xFF2563EB);
+          canvas.drawCircle(pos, 4.5, dotOuterPaint);
+
+          final dotInnerPaint = Paint()..color = Colors.white;
+          canvas.drawCircle(pos, 2.0, dotInnerPaint);
+        }
+      } else {
+        final zeroDotPaint = Paint()..color = const Color(0xFFCBD5E1);
+        canvas.drawCircle(pos, 3.0, zeroDotPaint);
+      }
+
+      // '최대' 뱃지
+      double labelCenterY = pos.dy - 12.0;
+      if (isMax) {
+        final badgeTextPainter = TextPainter(
+          text: const TextSpan(
+            text: '최대',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: Color(0xFF2563EB),
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final badgeWidth = badgeTextPainter.width + 10;
+        final badgeHeight = badgeTextPainter.height + 4;
+        final badgeRect = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(pos.dx, pos.dy - 28.0),
+            width: badgeWidth,
+            height: badgeHeight,
+          ),
+          const Radius.circular(4),
+        );
+
+        final badgeBgPaint = Paint()..color = const Color(0xFFEFF6FF);
+        canvas.drawRRect(badgeRect, badgeBgPaint);
+
+        final badgeBorderPaint = Paint()
+          ..color = const Color(0xFFBFDBFE)
+          ..strokeWidth = 1.0
+          ..style = PaintingStyle.stroke;
+        canvas.drawRRect(badgeRect, badgeBorderPaint);
+
+        badgeTextPainter.paint(
+          canvas,
+          Offset(
+            pos.dx - badgeTextPainter.width / 2,
+            pos.dy - 28.0 - badgeTextPainter.height / 2,
+          ),
+        );
+
+        labelCenterY = pos.dy - 10.0;
+      }
+
+      // 금액 라벨
+      final amountPainter = TextPainter(
+        text: TextSpan(
+          text: p.amountStr,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontFamilyFallback: const ['Noto Sans KR'],
+            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
+            fontSize: 11.0,
+            fontWeight: isMax ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      amountPainter.paint(
+        canvas,
+        Offset(pos.dx - amountPainter.width / 2, labelCenterY - amountPainter.height),
+      );
+
+      // X축 주차 라벨
+      final xLabelPainter = TextPainter(
+        text: TextSpan(
+          text: p.label,
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontFamilyFallback: const ['Noto Sans KR'],
+            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+            fontSize: 11.5,
+            fontWeight: isMax ? FontWeight.w700 : FontWeight.w500,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      xLabelPainter.paint(
+        canvas,
+        Offset(pos.dx - xLabelPainter.width / 2, baselineY + 8.0),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeeklyLineChartPainter oldDelegate) {
+    return oldDelegate.points != points;
   }
 }
