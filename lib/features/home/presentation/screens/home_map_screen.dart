@@ -1415,14 +1415,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     const storeCardHeight = 158.0;
     const storeCardBottomGap = 94.0;
 
-    // FigmaMobileCanvas caps wide layouts at 430px but uses the real viewport
-    // height on every platform. Keep overlay coordinates in that same space.
+    // Keep the home map in the same 430px product shell as the other primary
+    // tabs. MediaQuery still reports the full browser viewport, so overlay
+    // coordinates must be derived from the shell width rather than the window.
     final screenSize = MediaQuery.sizeOf(context);
-    final isWideWebLayout =
-        kIsWeb && screenSize.width >= FigmaMobileCanvas.wideWebBreakpoint;
-    final screenWidth = isWideWebLayout
-        ? FigmaMobileCanvas.wideWebContentWidthFor(screenSize.width)
-        : FigmaMobileCanvas.webContentWidthFor(screenSize.width);
+    final screenWidth = FigmaMobileCanvas.webContentWidthFor(screenSize.width);
     final screenHeight = screenSize.height;
     final isCompactHeight = screenHeight < 400;
     final horizontalPadding = screenWidth <= 340
@@ -1470,7 +1467,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFDDE6F0),
-      wideWebLayout: true,
       child: Stack(
         children: [
           Positioned.fill(

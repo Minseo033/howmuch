@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
 
@@ -52,6 +53,38 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets(
+    'desktop home uses the same centered product shell as other tabs',
+    (tester) async {
+      const viewport = Size(1280, 800);
+      tester.view.physicalSize = viewport;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+      );
+      await tester.pump();
+
+      final shellLeft = (viewport.width - FigmaMobileCanvas.maxWebWidth) / 2;
+      final shellRight = shellLeft + FigmaMobileCanvas.maxWebWidth;
+      for (final key in const [
+        ValueKey('home-search-control'),
+        ValueKey('home-today-pick-card'),
+        ValueKey('home-location-control'),
+        ValueKey('home-ai-control'),
+        ValueKey('home-bottom-navigation'),
+      ]) {
+        final rect = tester.getRect(find.byKey(key));
+        expect(rect.left, greaterThanOrEqualTo(shellLeft));
+        expect(rect.right, lessThanOrEqualTo(shellRight));
+      }
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('restored home cache is shared with the AI recommendation flow', (
     tester,
