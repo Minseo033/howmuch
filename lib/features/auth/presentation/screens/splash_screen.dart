@@ -101,26 +101,15 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       if (!mounted) return;
 
       if (profile == null) {
-        ref
-            .read(authStateProvider.notifier)
-            .update(
-              (state) => state.copyWith(
-                isLoggedIn: true,
-                provider: '카카오',
-                email: kakaoEmail,
-                sessionToken: ApiClient.sessionToken ?? '',
-                profileImageUrl: profileImageUrl,
-              ),
-            );
-        ref
-            .read(userProfileProvider.notifier)
-            .update(
-              (state) => state.copyWith(
-                email: kakaoEmail,
-                profileImageUrl: profileImageUrl,
-              ),
-            );
-        context.go(AppRoutes.profileSetup);
+        // 저장된 세션에 대응하는 프로필이 없다고 해서 앱 시작 시 곧바로
+        // 신규 가입으로 간주하면, 계정 전환·과거 세션 불일치 상황에서 기존
+        // 회원에게 빈 가입 화면이 노출되고 중복 프로필을 만들 수 있다.
+        // 신규 가입 분기는 사용자가 카카오 로그인을 방금 완료한 경우에만
+        // KakaoLoginService에서 처리하고, 자동 로그인은 다시 인증하게 한다.
+        await ApiClient.setSessionToken(null);
+        if (!mounted) return;
+        _markLoggedOut();
+        context.go(AppRoutes.login);
         return;
       }
 

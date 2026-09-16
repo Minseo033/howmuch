@@ -31,7 +31,7 @@
 ## 1. 프로젝트 구성
 - **앱**: Flutter + Riverpod + go_router (`lib/`), iOS/Android/Web
 - **백엔드**: Spring Boot 3 + Firestore (`howmuch_backend/`), Render 배포 → `https://howmuch-backend-1xnu.onrender.com`
-- **웹 배포**: Vercel CLI 수동 배포 → `https://howmuch-zeta.vercel.app` (git 연동 자동 배포 아님!)
+- **웹 배포**: GitHub `main` 품질검사(백엔드·Flutter 웹·iOS) 전체 통과 후 Vercel 자동 배포 → `https://howmuch-zeta.vercel.app`. 수동 배포는 장애 복구용으로만 사용한다.
 - **브랜치 전략**: `main` + 개인 브랜치. **팀원 브랜치 통째 머지 금지 — 신규 파일/메서드만 선별 이식** (구버전 공유 파일 롤백 방지)
 
 ## 2. 완료된 인프라 (재작업 금지)
@@ -50,7 +50,8 @@
 
 ## 4. 배포 방법
 - **백엔드**: `git push origin main` → Render 자동 배포 (자바 빌드 ~5-8분)
-- **웹**: `flutter build web --release --no-wasm-dry-run` → 저장소 루트에서 `npx -y vercel@latest deploy build/web --project howmuch --local-config vercel.json --prod --yes` (다른 Vercel 프로젝트로 잘못 연결되는 것을 막기 위해 프로젝트를 명시)
+- **웹 자동 배포**: `main` 푸시 → GitHub `Quality gates`의 백엔드·Flutter 웹·iOS 작업 전체 통과 → 검증된 `build/web` 아티팩트만 Vercel `howmuch` 프로젝트에 배포 → 운영 별칭 연결 → 공개 파일 해시 검증. Vercel 인증값은 GitHub Actions 암호화 비밀값으로만 관리한다.
+- **웹 수동 복구**: `flutter build web --release --no-wasm-dry-run` → 저장소 루트에서 `npx -y vercel@59.19.0 deploy build/web --project howmuch --local-config vercel.json --prod --yes` (다른 Vercel 프로젝트로 잘못 연결되는 것을 막기 위해 프로젝트를 명시)
 - **운영 주소 연결**: 배포 출력의 실제 URL을 사용해 `npx -y vercel@latest alias set <배포-URL> howmuch-zeta.vercel.app --local-config vercel.json`을 실행한다. `--prod`만으로 기존 대표 주소가 갱신된다고 가정하지 않는다. 롤백도 직전 검증된 배포 URL로 같은 별칭을 연결한다.
 - **배포 완료 기준**: `node scripts/verify_web_deployment.mjs`가 모두 PASS해야 한다. 로컬 `build/web`와 운영 파일 8개의 SHA-256 및 `/`, `/home`, `/login` 진입 HTML을 비교한다. READY나 HTTP 200만으로 최신 버전 반영을 확정하지 않는다. 커스텀 검증은 `node scripts/verify_web_deployment.mjs <공개-URL> <빌드-디렉터리>`를 사용한다.
 - **검증 도구**: `/tmp/howmuch-qa/` Playwright 스크립트 (qa.js, qa2~4.js, probe_geo.js). `node qa.js` 전체 화면 QA, `node probe_geo.js` 지도 위치 검증
@@ -1838,3 +1839,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **운영 배포**: 커밋 `3ed32fd`를 기능 브랜치와 `main`에 푸시했다. Render 자동 배포가 `Live`이며 `/healthz`가 같은 커밋을 반환한다. Vercel `dpl_6mcPgap2J2WBRTQUTESCepBV7uNk`에 `build/web` 45개 파일을 배포하고 `https://howmuch-zeta.vercel.app`에 연결했다. 공개 파일 10개와 `/`, `/home`, `/login`의 SHA-256 검증이 모두 통과했다.
 - **실화면 확인**: 기존 카카오 로그인 세션에서 `이 근처 오후 코스 짜줘`가 오류 대신 검증된 실제 매장 3곳과 지도에서 찾기·복사 동작을 반환했다. 예산 및 보조 메뉴 경계는 백엔드·Flutter 회귀 테스트로 확인했다.
 - **배포 운영 메모**: 첫 Vercel 시도에서 저장소 루트가 올라가 404가 발생했으나 공개 검증기가 즉시 차단했고 직전 정상 배포로 되돌린 뒤 `build/web` 전용 배포로 교정했다. 무료 팀 Deployment Storage 10GB 사용 경고는 남아 있어 오래된 배포 정리 또는 플랜 검토가 필요하다.
+
+## 5-101. 9/16 기존 회원의 빈 회원가입 화면 오진 방지·웹 자동배포 복구
+
+- **운영 재현**: 실제 카카오 로그인 Safari에서 앱 접속 시 `/auth/profile-setup`이 표시되는 현상을 확인했다. 관리자 읽기 API로 기존 프로필 문서가 보존돼 있음도 함께 확인해 계정 데이터 삭제 문제는 배제했다.
+- **원인**: 시작 화면이 저장 세션으로 `/api/user/profile`을 조회해 404를 받으면 계정 전환·세션/프로필 불일치도 신규 사용자로 간주하고 곧바로 프로필 설정 화면으로 보냈다. 이 때문에 기존 회원에게 빈 가입 폼이 노출되고 중복 프로필 생성 위험이 있었다.
+- **수정**: 앱 시작 중 저장 세션의 프로필이 없으면 해당 세션을 폐기하고 로그인 화면으로 복구한다. 신규 사용자용 프로필 설정은 사용자가 카카오 로그인을 방금 완료한 뒤 서버가 프로필 없음으로 확인한 경우에만 유지한다.
+- **회귀 검증**: 저장 세션+프로필 없음 시 로그인 이동, 가입 화면 미노출, 세션 제거를 검증하는 위젯 테스트를 추가했다. Flutter 전체 **297개 테스트**와 웹 release 빌드가 통과했다. 로컬 정적 분석은 기존 Flutter 3.44 분석 서버 JSON 스트림 오류가 재발해 CI 분석을 최종 기준으로 삼는다.
+- **자동배포 복구**: 기존 Vercel 프로젝트는 Git 저장소 연결이 없고 GitHub Actions에도 배포 단계가 없어 수동 CLI 배포만 가능했다. `main`의 백엔드·Flutter 웹·iOS 품질검사가 모두 성공한 뒤 1일 보존 웹 아티팩트를 Vercel에 배포하고 `howmuch-zeta.vercel.app` 별칭을 연결한 다음 공개 SHA-256 검증을 수행하도록 변경했다. Vercel 토큰·조직·프로젝트 ID는 GitHub Actions 암호화 비밀값에 등록했다.
+- **저장공간 주의**: Vercel 10GB 경고는 Firestore 회원·매장 데이터가 아니라 누적된 과거 웹 배포 파일이다. 현재 운영본과 롤백본은 보존한다. 오래된 배포의 자동 만료 정책 설정은 삭제 성격이 있으므로 별도 확인 후 시행한다.

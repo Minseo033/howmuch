@@ -44,6 +44,13 @@ jobs:
         run: flutter test --platform chrome --no-pub test/browser_location_test.dart
       - name: Build web release
         run: flutter build web --release --no-wasm-dry-run
+      - name: Package web release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-web-release
+          path: build/web
+          if-no-files-found: error
+          retention-days: 1
       - name: Check administrator page scripts
         run: node scripts/check_admin_html.mjs
       - name: Test deployment verification guards
@@ -62,3 +69,40 @@ jobs:
         run: flutter pub get
       - name: Build iOS simulator app
         run: flutter build ios --simulator --debug --no-codesign
+
+  deploy-web:
+    name: Deploy verified web release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, flutter-web, ios-simulator]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download verified web release
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-web-release
+          path: build/web
+      - name: Deploy to Vercel production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          test -n "$VERCEL_TOKEN"
+          test -n "$VERCEL_ORG_ID"
+          test -n "$VERCEL_PROJECT_ID"
+          deployment_url="$(npx --yes vercel@59.19.0 deploy build/web \
+            --prod \
+            --yes \
+            --project "$VERCEL_PROJECT_ID" \
+            --scope "$VERCEL_ORG_ID" \
+            --token "$VERCEL_TOKEN" \
+            --meta githubCommitSha="$GITHUB_SHA")"
+          npx --yes vercel@59.19.0 alias set \
+            "$deployment_url" \
+            howmuch-zeta.vercel.app \
+            --scope "$VERCEL_ORG_ID" \
+            --token "$VERCEL_TOKEN"
+      - name: Verify the public production alias
+        run: node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web
