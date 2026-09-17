@@ -230,8 +230,18 @@
 
     window.customOverlays = {};
     window.markerDataCache = {};
+    window.suppressMarkerClicks = false;
+
+    function setSuppressMarkerClicks(durationMs) {
+      window.suppressMarkerClicks = true;
+      if (window._suppressTimer) clearTimeout(window._suppressTimer);
+      window._suppressTimer = setTimeout(function() {
+        window.suppressMarkerClicks = false;
+      }, durationMs || 600);
+    }
 
     window.onMarkerClickWeb = function(index) {
+      if (window.suppressMarkerClicks) return;
       if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
     }
 
@@ -310,7 +320,11 @@
 
             bubble.appendChild(nameEl);
             bubble.appendChild(priceEl);
-            bubble.onclick = function() { window.onMarkerClickWeb(idx); };
+            bubble.onclick = function(e) {
+              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+              if (window.suppressMarkerClicks) return;
+              window.onMarkerClickWeb(idx);
+            };
             wrapper.appendChild(bubble);
             wrapper.appendChild(tail);
 

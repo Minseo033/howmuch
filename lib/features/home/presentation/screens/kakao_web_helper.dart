@@ -37,6 +37,9 @@ external void _setKakaoMapCenterFromSwipe(
   JSNumber lng,
 );
 
+@JS('setSuppressMarkerClicks')
+external void _setSuppressMarkerClicks(JSNumber durationMs);
+
 @JS('updateUserLocationMarker')
 external void _updateUserLocationMarker(
   JSString viewId,
@@ -158,6 +161,15 @@ void _injectJsBypass() {
 
     window.customOverlays = {};
     window.markerDataCache = {};
+    window.suppressMarkerClicks = false;
+
+    window.setSuppressMarkerClicks = function(durationMs) {
+      window.suppressMarkerClicks = true;
+      if (window._suppressTimer) clearTimeout(window._suppressTimer);
+      window._suppressTimer = setTimeout(function() {
+        window.suppressMarkerClicks = false;
+      }, durationMs || 600);
+    };
 
     window.getKakaoMapBounds = function(containerId) {
       var map = window.kakaoMapObjects[containerId];
@@ -192,6 +204,7 @@ void _injectJsBypass() {
     };
 
     window.onMarkerClickWeb = function(index) {
+      if (window.suppressMarkerClicks) return;
       if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
     }
 
@@ -279,7 +292,11 @@ void _injectJsBypass() {
 
             bubble.appendChild(nameEl);
             bubble.appendChild(priceEl);
-            bubble.onclick = function() { window.onMarkerClickWeb(idx); };
+            bubble.onclick = function(e) {
+              if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+              if (window.suppressMarkerClicks) return;
+              window.onMarkerClickWeb(idx);
+            };
             wrapper.appendChild(bubble);
             wrapper.appendChild(tail);
 
@@ -330,6 +347,10 @@ String? getKakaoMapBoundsWeb(String viewId) {
 
 void addMobileMarkersWeb(String viewId, String jsonString) {
   _addMobileMarkers(viewId.toJS, jsonString.toJS);
+}
+
+void suppressMarkerClicksWeb(int durationMs) {
+  _setSuppressMarkerClicks(durationMs.toJS);
 }
 
 void setKakaoMapCenterWeb(String viewId, double lat, double lng) {

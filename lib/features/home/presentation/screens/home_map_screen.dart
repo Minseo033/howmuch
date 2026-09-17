@@ -290,8 +290,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Timer? _boundsDebouncer;
+  int _suppressMarkerClicksUntil = 0;
+
+  void _suppressMarkerClicks([
+    Duration duration = const Duration(milliseconds: 700),
+  ]) {
+    _suppressMarkerClicksUntil =
+        DateTime.now().millisecondsSinceEpoch + duration.inMilliseconds;
+    if (kIsWeb) {
+      web_helper.suppressMarkerClicksWeb(duration.inMilliseconds);
+    }
+  }
 
   void _onMarkerClicked(int index) {
+    if (_isCenteringLocation ||
+        DateTime.now().millisecondsSinceEpoch < _suppressMarkerClicksUntil) {
+      return;
+    }
     if (index == -1) {
       setState(() {
         _showStoreSummary = false;
@@ -782,6 +797,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _moveToCurrentLocation() async {
+    _suppressMarkerClicks(const Duration(milliseconds: 1200));
     if (_isCenteringLocation) return;
     if (mounted) {
       setState(() {
@@ -1723,12 +1739,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 child: Semantics(
                   button: true,
                   label: '내 위치로 이동',
-                  child: GestureDetector(
-                    onTap: _moveToCurrentLocation,
-                    child: _RoundIconButton(
-                      icon: Icons.near_me_rounded,
-                      color: HomeMapScreen.blue,
-                      isLoading: _isCenteringLocation,
+                  child: Listener(
+                    behavior: HitTestBehavior.opaque,
+                    onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                      onTap: () {
+                        _suppressMarkerClicks(const Duration(milliseconds: 1000));
+                        _moveToCurrentLocation();
+                      },
+                      child: _RoundIconButton(
+                        icon: Icons.near_me_rounded,
+                        color: HomeMapScreen.blue,
+                        isLoading: _isCenteringLocation,
+                      ),
                     ),
                   ),
                 ),
@@ -1742,11 +1767,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             height: 51.9886360168457,
             child: Opacity(
               opacity: homeChromeOpacity,
-              child: GestureDetector(
+              child: Listener(
                 behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(onTap: _openAiRecommend),
+                onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _AiRecommendControl(onTap: _openAiRecommend),
+                ),
               ),
             ),
           ),

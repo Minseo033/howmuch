@@ -9,6 +9,7 @@ void registerWebCallbacks(
 ) {}
 void addKakaoMarkersWeb(String viewId, String jsonString) {}
 void addMobileMarkersWeb(String viewId, String jsonString) {}
+void suppressMarkerClicksWeb(int durationMs) {}
 
 void setKakaoMapCenterWeb(String viewId, double lat, double lng) {}
 void setKakaoMapCenterFromSwipeWeb(String viewId, double lat, double lng) {}

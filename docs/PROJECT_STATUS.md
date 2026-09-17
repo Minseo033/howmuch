@@ -1946,3 +1946,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   - `test/settings_functionality_test.dart`에 뒤로가기 시 `HowmuchDialog` 렌더링, '계속 편집' 유지, '나가기' 이탈 동작 테스트를 추가하여 5/5 통과.
   - 전체 Flutter 311개 단위/위젯 테스트 통과, 정적 분석 0 결함.
   - Vercel 프로덕션 배포(`dpl_8nPgHFHhFEJFGGziQ1WFNtA4Hi7S`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 파일/라우트 13종 SHA-256 일치 확인.
+
+## 5-115. 9/17 내 위치로 이동 버튼 탭 시 배경 마커 동시 클릭 방지 및 배포
+
+- **원인 분석**: Flutter Web 환경에서 `HtmlElementView` 위에 배치된 '내 위치로 이동'(현위치) 플로팅 버튼을 터치/클릭할 때, Flutter의 탭 이벤트뿐만 아니라 브라우저의 네이티브 DOM 클릭 이벤트가 z-index를 통과하여 바로 뒤에 겹쳐 있던 카카오맵 `CustomOverlay`(예: '동양미래대학식당' 마커)의 `bubble.onclick`까지 함께 트리거되어 위치 이동과 동시에 매장 상세 시트가 원치 않게 팝업되는 문제가 있었다.
+- **수정 내용**:
+  1. '내 위치로 이동' 버튼과 'AI 추천받기' 버튼에 `Listener(onPointerDown)` 및 `GestureDetector(onTapDown)`를 적용하여 사용자가 버튼에 손가락/마우스를 대는 순간 즉시 `_suppressMarkerClicks` 타이머를 활성화하고, 웹 JS 헬퍼(`setSuppressMarkerClicks`)로 전달하도록 이중 방어막을 구축했다.
+  2. 카카오맵 JS(`kakao_web_helper.dart` 및 `web/index.html`)의 `bubble.onclick` 핸들러에 `e.stopPropagation()` 및 `window.suppressMarkerClicks` 가드를 추가하여 상단 플로팅 컨트롤 인터랙션 중에는 마커 클릭이 일절 전파되지 않도록 차단했다.
+  3. Flutter의 `_onMarkerClicked`에서도 `_isCenteringLocation`이거나 억제 타이머 동안에는 마커 선택 상태 전환을 무시하도록 방어했다.
+- **검증 및 배포**: 홈 지도 반응형/위치 테스트 통과, Dart 정적 분석 결함 0건, Vercel 프로덕션 배포(`dpl_G1isdA7jgiq3KWbZYURLy4igwLDG`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
