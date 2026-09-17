@@ -393,6 +393,13 @@
     window.addEventListener('flutter-first-frame', function () {
       document.getElementById('startup-loading')?.remove();
     }, { once: true });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) {
+          regs[i].unregister();
+        }
+      });
+    }
   </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
