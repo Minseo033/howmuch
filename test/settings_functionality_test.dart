@@ -8,6 +8,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/screens/notification_settings_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/price_alert_subscription_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -178,5 +179,45 @@ void main() {
 
     expect(find.text('검증 매장 11'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('discard dialog uses HowmuchDialog when leaving with unsaved changes', (
+    tester,
+  ) async {
+    final api = _TestSettingsApi();
+    await pumpScreen(
+      tester,
+      const NotificationSettingsScreen(),
+      settingsApi: api,
+    );
+
+    // 설정 변경으로 dirty 상태 전환
+    await tester.tap(find.text('가격 변동 알림'));
+    await tester.pumpAndSettle();
+
+    // 뒤로가기 버튼 클릭
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+
+    // 커스텀 디자인의 HowmuchDialog 렌더링 확인
+    expect(find.byType(HowmuchDialog), findsOneWidget);
+    expect(find.text('저장하지 않고 나갈까요?'), findsOneWidget);
+    expect(find.text('변경한 알림 설정은 아직 저장되지 않았어요.'), findsOneWidget);
+    expect(find.text('계속 편집'), findsOneWidget);
+    expect(find.text('나가기'), findsOneWidget);
+
+    // '계속 편집' 클릭 시 팝업 닫히고 화면 유지
+    await tester.tap(find.text('계속 편집'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HowmuchDialog), findsNothing);
+    expect(find.text('알림 설정'), findsOneWidget);
+
+    // 다시 뒤로가기 후 '나가기' 클릭 시 마이페이지로 이동
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    expect(find.byType(HowmuchDialog), findsOneWidget);
+    await tester.tap(find.text('나가기'));
+    await tester.pumpAndSettle();
+    expect(find.text('마이페이지'), findsOneWidget);
   });
 }

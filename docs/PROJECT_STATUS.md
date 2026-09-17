@@ -1935,3 +1935,14 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   2. `kakao_web_helper.dart` 및 `web/index.html`의 `setKakaoMapCenter` 내에서도 중심 이동 후 `map.relayout()` 및 idle 이벤트를 트리거하도록 보강했다.
   3. `home_map_screen.dart`의 `_centerMapOnPosition`(250ms, 600ms) 및 `_onMapReady`(300ms, 700ms)에 안전 지연 영역 검색 타이머를 추가해 중심 이동 및 지도 로딩 완료 후 지도를 손대지 않아도 현재 화면 영역의 매장 마커가 즉시 로딩되도록 개선했다.
 - **검증 및 배포**: 홈 지도 반응형/위치 테스트 통과, 관리자 스크립트 및 배포 검증 6/6 통과, Vercel 프로덕션 배포(`dpl_C5TkCQ5hKFJgUqdm3Pm1K6js71qN`) 후 `howmuch-zeta.vercel.app` 연결 및 13/13 SHA-256 일치 확인.
+
+## 5-114. 9/17 알림/마이페이지 이탈 팝업창 HowmuchDialog 디자인 통일 및 배포
+
+- **원인 분석**: 알림 설정, 가격 알림 구독, 프로필 수정 화면에서 변경사항이 있는 상태로 뒤로가기 시 머티리얼 3 기본 `AlertDialog`가 그대로 호출되어, 보라빛 틴트 배경, 투박한 여백, 기본 텍스트 버튼 등 앱의 세련된 iOS/Figma 디자인 시스템과 이질감이 발생하는 문제가 있었다.
+- **수정 내용**:
+  1. `HowmuchDialog`에 `cancelFlex` 및 `confirmFlex` 속성을 추가하여 모달 버튼 비율을 균형 있게 제어할 수 있도록 확장했다.
+  2. 알림 설정(`NotificationSettingsScreen`), 가격 알림 구독(`PriceAlertSubscriptionScreen`), 프로필 수정(`ProfileEditScreen`) 3개 화면의 이탈 확인 팝업을 모두 `HowmuchDialog`(순백색 배경, 24px 라운딩, Inter/Noto Sans 볼드 타이포그래피, 하단 1:1 대칭 소프트 그레이 '계속 편집' + 블루 '나가기' 버튼)로 전면 교체하여 앱 내 모든 팝업 디자인을 일관되게 정돈했다.
+- **검증 및 배포**:
+  - `test/settings_functionality_test.dart`에 뒤로가기 시 `HowmuchDialog` 렌더링, '계속 편집' 유지, '나가기' 이탈 동작 테스트를 추가하여 5/5 통과.
+  - 전체 Flutter 311개 단위/위젯 테스트 통과, 정적 분석 0 결함.
+  - Vercel 프로덕션 배포(`dpl_8nPgHFHhFEJFGGziQ1WFNtA4Hi7S`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 파일/라우트 13종 SHA-256 일치 확인.

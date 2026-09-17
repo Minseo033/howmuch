@@ -196,19 +196,14 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (_nickname != _savedNickname) {
       final discard = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('저장하지 않고 나갈까요?'),
-          content: const Text('변경한 닉네임은 아직 저장되지 않았어요.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('계속 편집'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('나가기'),
-            ),
-          ],
+        builder: (context) => HowmuchDialog(
+          title: '저장하지 않고 나갈까요?',
+          description: '변경한 닉네임은 아직 저장되지 않았어요.',
+          cancelLabel: '계속 편집',
+          confirmLabel: '나가기',
+          cancelFlex: 1,
+          confirmFlex: 1,
+          onConfirm: () => Navigator.pop(context, true),
         ),
       );
       if (!mounted || discard != true) return;

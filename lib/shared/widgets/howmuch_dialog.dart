@@ -15,6 +15,8 @@ class HowmuchDialog extends StatelessWidget {
     this.confirmKey,
     this.confirmColor,
     this.confirmForeground,
+    this.cancelFlex = 1,
+    this.confirmFlex = 2,
   });
 
   final String title;
@@ -27,6 +29,8 @@ class HowmuchDialog extends StatelessWidget {
   final Key? confirmKey;
   final Color? confirmColor;
   final Color? confirmForeground;
+  final int cancelFlex;
+  final int confirmFlex;
 
   @override
   Widget build(BuildContext context) {
@@ -79,6 +83,7 @@ class HowmuchDialog extends StatelessWidget {
           Row(
             children: [
               Expanded(
+                flex: cancelFlex,
                 child: TextButton(
                   style: TextButton.styleFrom(
                     minimumSize: const Size(0, 48),
@@ -94,7 +99,7 @@ class HowmuchDialog extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                flex: 2,
+                flex: confirmFlex,
                 child: FilledButton(
                   key: confirmKey,
                   style: FilledButton.styleFrom(

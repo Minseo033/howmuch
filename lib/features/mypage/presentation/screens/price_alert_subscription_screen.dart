@@ -5,6 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   const PriceAlertSubscriptionScreen({super.key});
@@ -43,19 +44,14 @@ class _PriceAlertSubscriptionScreenState
     if (_savedSettings != null && !settings.sameAs(_savedSettings!)) {
       final discard = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('저장하지 않고 나갈까요?'),
-          content: const Text('변경한 가격 알림 설정은 아직 저장되지 않았어요.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('계속 편집'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('나가기'),
-            ),
-          ],
+        builder: (context) => HowmuchDialog(
+          title: '저장하지 않고 나갈까요?',
+          description: '변경한 가격 알림 설정은 아직 저장되지 않았어요.',
+          cancelLabel: '계속 편집',
+          confirmLabel: '나가기',
+          cancelFlex: 1,
+          confirmFlex: 1,
+          onConfirm: () => Navigator.pop(context, true),
         ),
       );
       if (!mounted || discard != true) return;
