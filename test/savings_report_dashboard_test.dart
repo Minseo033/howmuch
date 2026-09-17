@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/savings/presentation/screens/savings_report_dashboard_screen.dart';
@@ -120,6 +121,38 @@ void main() {
           find.byKey(const ValueKey('savings-weekly-line-chart')),
           findsNothing,
         );
+      }, () => MockClient(_dashboardResponseWithWeeklyAndYearlyChart));
+    },
+  );
+
+  testWidgets(
+    'supports interactive mouse hover and horizontal touch drag scrubber',
+    (tester) async {
+      await http.runWithClient(() async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsReportDashboardScreen()),
+        );
+        await tester.pumpAndSettle();
+
+        final chartFinder = find.byKey(const ValueKey('savings-weekly-line-chart'));
+        expect(chartFinder, findsOneWidget);
+
+        // 1. Mouse hover interaction (웹/데스크톱 마우스 커서 올릴 때)
+        final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await gesture.addPointer(location: Offset.zero);
+        await gesture.moveTo(tester.getCenter(chartFinder));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+
+        // 2. Drag gesture interaction (모바일 주식 앱 스타일 터치 스크러버)
+        await tester.drag(chartFinder, const Offset(60, 0));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+
+        // 3. Dismissal on exit
+        await gesture.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
       }, () => MockClient(_dashboardResponseWithWeeklyAndYearlyChart));
     },
   );

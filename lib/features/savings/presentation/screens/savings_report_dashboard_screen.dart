@@ -1,10 +1,13 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
-import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 
 @visibleForTesting
@@ -896,50 +899,9 @@ class _SavingsReportDashboardScreenState
   }
 
   Widget _buildSavingsLineChart(List<dynamic> savings, {bool isYearly = false}) {
-    if (savings.isEmpty) {
-      return const SizedBox(
-        height: 156,
-        child: Center(
-          child: Text(
-            '절약 기록이 아직 없어요',
-            style: TextStyle(
-              fontFamily: 'Inter',
-              fontFamilyFallback: ['Noto Sans KR'],
-              color: Color(0xFF94A3B8),
-              fontSize: 13,
-            ),
-          ),
-        ),
-      );
-    }
-
-    final points = savings.map((s) {
-      final label = s['label']?.toString() ?? '';
-      final amountVal = (s['amount'] as num?)?.toInt() ?? 0;
-      return _WeeklyPoint(
-        label: label,
-        amount: amountVal,
-        amountStr: formatSavingsChartAmount(amountVal),
-        fullAmount: '${_formatCurrency(amountVal)}원',
-        isMax: s['isMax'] == true,
-      );
-    }).toList();
-
-    final summary = points
-        .map((p) => '${p.label} ${p.fullAmount}${p.isMax ? ' (최대)' : ''}')
-        .join(', ');
-
-    return Semantics(
-      container: true,
-      label: '${isYearly ? '월별' : '주차별'} 절약 추이 그래프: $summary',
-      child: SizedBox(
-        key: ValueKey(isYearly ? 'savings-yearly-line-chart' : 'savings-weekly-line-chart'),
-        height: 156,
-        width: double.infinity,
-        child: CustomPaint(
-          painter: _SavingsLineChartPainter(points: points, isYearly: isYearly),
-        ),
-      ),
+    return _InteractiveSavingsLineChart(
+      savings: savings,
+      isYearly: isYearly,
     );
   }
 
@@ -1014,9 +976,159 @@ class _SavingsReportDashboardScreenState
   }
 
   String _formatCurrency(int value) {
-    return value.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+    return formatCurrencyAmount(value);
+  }
+}
+
+String formatCurrencyAmount(int value) {
+  return value.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (Match m) => '${m[1]},',
+  );
+}
+
+/// 터치/마우스 호버 시 주식 차트처럼 해당 위치의 금액을 표시하는 인터랙티브 그래프
+class _InteractiveSavingsLineChart extends StatefulWidget {
+  final List<dynamic> savings;
+  final bool isYearly;
+
+  const _InteractiveSavingsLineChart({
+    required this.savings,
+    this.isYearly = false,
+  });
+
+  @override
+  State<_InteractiveSavingsLineChart> createState() =>
+      _InteractiveSavingsLineChartState();
+}
+
+class _InteractiveSavingsLineChartState
+    extends State<_InteractiveSavingsLineChart> {
+  int? _hoveredIndex;
+  Timer? _dismissTimer;
+
+  void _updatePosition(Offset localPosition, double width, int count) {
+    if (count <= 0) return;
+    _dismissTimer?.cancel();
+    final horizontalPadding = widget.isYearly ? 18.0 : 26.0;
+    final plotWidth = width - (horizontalPadding * 2);
+    if (plotWidth <= 0) return;
+
+    final ratio = ((localPosition.dx - horizontalPadding) / plotWidth)
+        .clamp(0.0, 1.0);
+    final index = (ratio * (count - 1)).round().clamp(0, count - 1);
+
+    if (_hoveredIndex != index) {
+      HapticFeedback.selectionClick();
+      setState(() {
+        _hoveredIndex = index;
+      });
+    }
+  }
+
+  void _clearHover({bool immediate = false}) {
+    _dismissTimer?.cancel();
+    if (immediate) {
+      if (_hoveredIndex != null) {
+        setState(() {
+          _hoveredIndex = null;
+        });
+      }
+    } else {
+      _dismissTimer = Timer(const Duration(milliseconds: 1400), () {
+        if (mounted && _hoveredIndex != null) {
+          setState(() {
+            _hoveredIndex = null;
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.savings.isEmpty) {
+      return const SizedBox(
+        height: 156,
+        child: Center(
+          child: Text(
+            '절약 기록이 아직 없어요',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final points = widget.savings.map((s) {
+      final label = s['label']?.toString() ?? '';
+      final amountVal = (s['amount'] as num?)?.toInt() ?? 0;
+      return _WeeklyPoint(
+        label: label,
+        amount: amountVal,
+        amountStr: formatSavingsChartAmount(amountVal),
+        fullAmount: '${formatCurrencyAmount(amountVal)}원',
+        isMax: s['isMax'] == true,
+      );
+    }).toList();
+
+    final summary = points
+        .map((p) => '${p.label} ${p.fullAmount}${p.isMax ? ' (최대)' : ''}')
+        .join(', ');
+
+    return Semantics(
+      container: true,
+      label: '${widget.isYearly ? '월별' : '주차별'} 절약 추이 그래프: $summary',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final chartWidth = constraints.maxWidth;
+          return MouseRegion(
+            cursor: SystemMouseCursors.precise,
+            onHover: (event) =>
+                _updatePosition(event.localPosition, chartWidth, points.length),
+            onExit: (_) => _clearHover(immediate: true),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragDown: (details) =>
+                  _updatePosition(details.localPosition, chartWidth, points.length),
+              onHorizontalDragUpdate: (details) =>
+                  _updatePosition(details.localPosition, chartWidth, points.length),
+              onHorizontalDragEnd: (_) => _clearHover(),
+              onHorizontalDragCancel: () => _clearHover(immediate: true),
+              onTapDown: (details) =>
+                  _updatePosition(details.localPosition, chartWidth, points.length),
+              onTapUp: (_) => _clearHover(),
+              onTapCancel: () => _clearHover(immediate: true),
+              child: SizedBox(
+                key: ValueKey(
+                  widget.isYearly
+                      ? 'savings-yearly-line-chart'
+                      : 'savings-weekly-line-chart',
+                ),
+                height: 156,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _SavingsLineChartPainter(
+                    points: points,
+                    isYearly: widget.isYearly,
+                    hoveredIndex: _hoveredIndex,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -1040,8 +1152,13 @@ class _WeeklyPoint {
 class _SavingsLineChartPainter extends CustomPainter {
   final List<_WeeklyPoint> points;
   final bool isYearly;
+  final int? hoveredIndex;
 
-  _SavingsLineChartPainter({required this.points, this.isYearly = false});
+  _SavingsLineChartPainter({
+    required this.points,
+    this.isYearly = false,
+    this.hoveredIndex,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1158,8 +1275,9 @@ class _SavingsLineChartPainter extends CustomPainter {
         canvas.drawCircle(pos, isYearly ? 2.5 : 3.0, zeroDotPaint);
       }
 
-      // 라벨 및 뱃지 그리기 (금액과 최대 뱃지를 가로 한 묶음으로 결합해 겹침 원천 차단)
-      if (isMax) {
+      // 라벨 및 뱃지 그리기 (호버된 지점은 상단 플로팅 툴팁이 전담하므로 정적 라벨 숨김)
+      final isHovered = hoveredIndex == i;
+      if (!isHovered && isMax) {
         final badgeTextPainter = TextPainter(
           text: TextSpan(
             children: [
@@ -1226,7 +1344,7 @@ class _SavingsLineChartPainter extends CustomPainter {
             badgeCenterY - badgeTextPainter.height / 2,
           ),
         );
-      } else if (p.amount > 0) {
+      } else if (!isHovered && p.amount > 0) {
         // 일반 유효 금액 라벨 (곡선 그래프와 겹치지 않도록 방어 뱃지 및 스마트 오프셋 적용)
         final amountPainter = TextPainter(
           text: TextSpan(
@@ -1291,7 +1409,7 @@ class _SavingsLineChartPainter extends CustomPainter {
             badgeCenterY - amountPainter.height / 2,
           ),
         );
-      } else if (!isYearly) {
+      } else if (!isHovered && !isYearly) {
         // 주차별 0원 텍스트 (올해 탭 0원은 베이스라인 점으로만 깔끔하게 유지)
         final zeroPainter = TextPainter(
           text: const TextSpan(
@@ -1325,9 +1443,11 @@ class _SavingsLineChartPainter extends CustomPainter {
           style: TextStyle(
             fontFamily: 'Inter',
             fontFamilyFallback: const ['Noto Sans KR'],
-            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+            color: isHovered
+                ? const Color(0xFF2563EB)
+                : (isMax ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
             fontSize: isYearly ? 9.5 : 11.5,
-            fontWeight: isMax ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: (isHovered || isMax) ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -1338,10 +1458,148 @@ class _SavingsLineChartPainter extends CustomPainter {
         Offset(pos.dx - xLabelPainter.width / 2, baselineY + 8.0),
       );
     }
+
+    // 4. 주식 그래프 스타일 크로스헤어 및 플로팅 금액 툴팁
+    if (hoveredIndex != null && hoveredIndex! >= 0 && hoveredIndex! < n) {
+      final hIdx = hoveredIndex!;
+      final hPos = offsets[hIdx];
+      final p = points[hIdx];
+
+      // 세로 가이드 점선 (크로스헤어 라인)
+      final crosshairPaint = Paint()
+        ..color = const Color(0xFF2563EB).withValues(alpha: 0.35)
+        ..strokeWidth = 1.2
+        ..style = PaintingStyle.stroke;
+
+      const dashHeight = 4.0;
+      const dashSpace = 3.0;
+      double startY = topPadding - 4;
+      while (startY < baselineY) {
+        canvas.drawLine(
+          Offset(hPos.dx, startY),
+          Offset(hPos.dx, math.min(startY + dashHeight, baselineY)),
+          crosshairPaint,
+        );
+        startY += dashHeight + dashSpace;
+      }
+
+      // 강조 포인트 링 (주식 앱 타겟 서클)
+      canvas.drawCircle(
+        hPos,
+        isYearly ? 9.0 : 11.0,
+        Paint()..color = const Color(0x282563EB),
+      );
+      canvas.drawCircle(
+        hPos,
+        isYearly ? 5.0 : 6.0,
+        Paint()..color = const Color(0xFF2563EB),
+      );
+      canvas.drawCircle(
+        hPos,
+        isYearly ? 2.0 : 2.5,
+        Paint()..color = Colors.white,
+      );
+
+      // 플로팅 주식형 다크 캡슐 툴팁
+      final tooltipPainter = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(
+              text: '${p.label}  ',
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Color(0xFF94A3B8),
+                fontSize: 11.0,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextSpan(
+              text: p.fullAmount,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Colors.white,
+                fontSize: 12.0,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            if (p.isMax && p.amount > 0)
+              const TextSpan(
+                text: '  최대',
+                style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  color: Color(0xFF60A5FA),
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+          ],
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final tipWidth = tooltipPainter.width + 16.0;
+      final tipHeight = tooltipPainter.height + 8.0;
+
+      // 위치: 점 위쪽 기본, 너무 상단이면 점 아래쪽으로 자동 반전
+      double tipCenterY = hPos.dy - 16.0 - (tipHeight / 2);
+      if (tipCenterY - (tipHeight / 2) < 2.0) {
+        tipCenterY = hPos.dy + 16.0 + (tipHeight / 2);
+      }
+
+      final clampedTipX = hPos.dx.clamp(
+        horizontalPadding + tipWidth / 2,
+        size.width - horizontalPadding - tipWidth / 2,
+      );
+
+      final tipRect = RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(clampedTipX, tipCenterY),
+          width: tipWidth,
+          height: tipHeight,
+        ),
+        const Radius.circular(8),
+      );
+
+      // 툴팁 드롭 섀도
+      canvas.drawRRect(
+        tipRect.shift(const Offset(0, 3)),
+        Paint()
+          ..color = const Color(0x35000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+      );
+
+      // 다크 슬레이트 배경
+      canvas.drawRRect(
+        tipRect,
+        Paint()..color = const Color(0xFF0F172A),
+      );
+
+      // 미세한 림 테두리
+      canvas.drawRRect(
+        tipRect,
+        Paint()
+          ..color = const Color(0xFF334155)
+          ..strokeWidth = 0.8
+          ..style = PaintingStyle.stroke,
+      );
+
+      tooltipPainter.paint(
+        canvas,
+        Offset(
+          clampedTipX - tooltipPainter.width / 2,
+          tipCenterY - tooltipPainter.height / 2,
+        ),
+      );
+    }
   }
 
   @override
   bool shouldRepaint(covariant _SavingsLineChartPainter oldDelegate) {
-    return oldDelegate.points != points || oldDelegate.isYearly != isYearly;
+    return oldDelegate.points != points ||
+        oldDelegate.isYearly != isYearly ||
+        oldDelegate.hoveredIndex != hoveredIndex;
   }
 }

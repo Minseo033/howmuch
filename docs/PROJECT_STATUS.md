@@ -1955,3 +1955,13 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   2. 카카오맵 JS(`kakao_web_helper.dart` 및 `web/index.html`)의 `bubble.onclick` 핸들러에 `e.stopPropagation()` 및 `window.suppressMarkerClicks` 가드를 추가하여 상단 플로팅 컨트롤 인터랙션 중에는 마커 클릭이 일절 전파되지 않도록 차단했다.
   3. Flutter의 `_onMarkerClicked`에서도 `_isCenteringLocation`이거나 억제 타이머 동안에는 마커 선택 상태 전환을 무시하도록 방어했다.
 - **검증 및 배포**: 홈 지도 반응형/위치 테스트 통과, Dart 정적 분석 결함 0건, Vercel 프로덕션 배포(`dpl_G1isdA7jgiq3KWbZYURLy4igwLDG`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
+
+## 5-116. 9/17 절약 리포트 곡선 그래프 주식 차트 스타일 인터랙티브 스크러버(호버/터치 툴팁) 도입 및 배포
+
+- **기능 배경**: 사용자가 절약 추이 곡선 그래프를 볼 때 주식 앱(토스, 트레이딩뷰, 애플 주식 등)처럼 마우스 커서를 올리거나 모바일에서 터치·드래그하면 해당 위치의 주차/월별 절약 금액이 실시간으로 확인되도록 요청했다.
+- **구현 내용**:
+  1. `_InteractiveSavingsLineChart`를 신설하여 데스크톱 웹의 `MouseRegion(onHover)` 및 모바일의 `GestureDetector(onHorizontalDragUpdate, onTapDown)`를 모두 지원하는 반응형 스크러버를 구현했다.
+  2. 사용자의 포인터 X좌표에 따라 가장 가까운 주차(1주~5주) 또는 월(1월~12월)로 자동 스냅되며, 모바일 스크러빙 시 햅틱 피드백(`HapticFeedback.selectionClick`)을 전달하도록 설계했다.
+  3. 활성 지점에 세로 가이드 점선(크로스헤어 라인), 타겟 글로우 링 및 다크 슬레이트 플로팅 툴팁(`[8월 · 17,000원]`, `[1주 · 1,500원]`)을 실시간 렌더링하도록 `_SavingsLineChartPainter`를 확장했다. 호버 중인 지점의 X축 라벨도 로열 블루로 동시 하이라이트된다.
+  4. 차트 카드 탭 제스처와의 경합을 방지하여 차트 영역 내 터치/스크러빙 시 상세 화면으로 튕기지 않고 스크러버가 부드럽게 동작하며, 손을 떼거나 마우스가 벗어나면 1.4초 후 자연스럽게 기본 상태로 복원된다.
+- **검증 및 배포**: `test/savings_report_dashboard_test.dart`에 마우스 호버 및 모바일 드래그 스크러버 테스트를 추가하여 전체 8/8 통과, 정적 분석 0 결함, Vercel 프로덕션 배포(`dpl_99mPmkRSzcjRKsJXDejBytUjuAzU`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
