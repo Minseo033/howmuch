@@ -1924,3 +1924,14 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **월별 절약 금액 텍스트-곡선 겹침 방지**: 급격한 하강 구간(예: 8월 1.7만 → 9월 1.5천)에서 하강 곡선이 9월 텍스트를 가로지르는 문제를 해결하기 위해, 비최대 유효 금액 라벨에 흰색 배경 캡슐 뱃지(`Colors.white` + 테두리 `0xFFE2E8F0` + 소프트 섀도)를 적용하고 급경사 반대 방향으로 스마트 수평 오프셋(+6px)을 부여해 파란 곡선이 텍스트를 관통하거나 가독성을 해치지 않도록 개선했다.
 - **브라우저 캐시 고착 방지**: `web/index.html`에 구형 서비스 워커 등록 해제 로직을 추가하고 `vercel.json`에 진입 파일(`index.html`, `flutter_bootstrap.js`, `version.json`) 대상 `no-cache, no-store, must-revalidate` 헤더를 추가했다.
 - **검증 및 배포**: Flutter 310개 단위/위젯 테스트 전체 통과, 웹 릴리스 빌드 성공, Vercel 프로덕션 배포(`dpl_BuWE1G2cvRhCoSNL9JCtzAjKXcFq`) 후 `https://howmuch-zeta.vercel.app` 연결 및 공개 파일/라우트 13종 SHA-256 일치 검증 완료.
+
+## 5-113. 9/17 카카오맵 초기 진입 시 마커 즉시 렌더링 누락 문제 수정 및 배포
+
+- **원인 분석**:
+  1. 카카오맵 SDK의 `CustomOverlay`는 DOM에 추가될 때 지도 프로젝션(`map.getProjection()`)을 통해 화면 픽셀 좌표를 계산하는데, Flutter Web의 `HtmlElementView` 초기 크기 안정화 전에 오버레이가 등록되거나 `map.relayout()`이 호출되지 않으면 화면 밖(0,0)에 배치되어 보이지 않았다가 사용자가 지도를 드래그하는 순간 내부 이벤트에 의해 강제 재계산되면서 갑자기 마커가 나타나는 현상이 발생했다.
+  2. 웹 환경에서 현재 위치로 중심 이동 시(`_centerMapOnPosition`), 모바일과 달리 지연된 `_searchInCurrentArea()` 호출이 생략된 채 JS 콜백에만 의존하여 초기 영역 검색이 누락되거나 첫 좌표(서울시청) 검색과의 경합으로 덮어씌워졌다.
+- **수정 내용**:
+  1. `addMobileMarkers` 오버레이 등록 완료 직후 및 60ms 후 `map.relayout()`을 명시 호출하여 드래그 없이도 오버레이 좌표가 즉시 렌더링되도록 강제했다.
+  2. `kakao_web_helper.dart` 및 `web/index.html`의 `setKakaoMapCenter` 내에서도 중심 이동 후 `map.relayout()` 및 idle 이벤트를 트리거하도록 보강했다.
+  3. `home_map_screen.dart`의 `_centerMapOnPosition`(250ms, 600ms) 및 `_onMapReady`(300ms, 700ms)에 안전 지연 영역 검색 타이머를 추가해 중심 이동 및 지도 로딩 완료 후 지도를 손대지 않아도 현재 화면 영역의 매장 마커가 즉시 로딩되도록 개선했다.
+- **검증 및 배포**: 홈 지도 반응형/위치 테스트 통과, 관리자 스크립트 및 배포 검증 6/6 통과, Vercel 프로덕션 배포(`dpl_C5TkCQ5hKFJgUqdm3Pm1K6js71qN`) 후 `howmuch-zeta.vercel.app` 연결 및 13/13 SHA-256 일치 확인.

@@ -1031,6 +1031,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     // 최초 진입도 지도 준비 이벤트에서 바로 현재 영역을 조회한다.
     _searchInCurrentArea();
+    if (kIsWeb) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _searchInCurrentArea();
+      });
+      Future.delayed(const Duration(milliseconds: 700), () {
+        if (mounted) _searchInCurrentArea();
+      });
+    }
   }
 
   void _onMapError(String message) {
@@ -1074,7 +1082,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         position.latitude,
         position.longitude,
       );
-      // JS의 중심 이동 완료 콜백이 최신 bounds 조회를 호출한다.
+      // 웹에서도 중심 변경 후 안정화 시간을 두고 현재 영역 검색을 확실히 보장
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (mounted) _searchInCurrentArea();
+      });
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) _searchInCurrentArea();
+      });
       return;
     }
     _safeRunJavaScript(

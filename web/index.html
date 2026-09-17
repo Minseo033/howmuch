@@ -215,8 +215,13 @@
         
         if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
         setTimeout(function() {
+          if (map && typeof map.relayout === 'function') map.relayout();
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
-        }, 300);
+        }, 150);
+        setTimeout(function() {
+          if (map && typeof map.relayout === 'function') map.relayout();
+          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+        }, 500);
         }
 
         renderMapWhenReady();
@@ -320,6 +325,14 @@
           })(i);
         }
         console.log("Markers added successfully!");
+        if (map && typeof map.relayout === 'function') {
+          map.relayout();
+        }
+        setTimeout(function() {
+          if (map && typeof map.relayout === 'function') {
+            map.relayout();
+          }
+        }, 60);
       });
     }
 
@@ -327,9 +340,10 @@
       var map = window.kakaoMapObjects[containerId];
       if (map) {
         map.setCenter(new kakao.maps.LatLng(lat, lng));
+        if (typeof map.relayout === 'function') map.relayout();
         setTimeout(function() {
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
-        }, 200);
+        }, 150);
       }
     }
 

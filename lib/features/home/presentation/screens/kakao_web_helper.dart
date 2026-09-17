@@ -143,8 +143,13 @@ void _injectJsBypass() {
 
         if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
         setTimeout(function() {
+          if (map && typeof map.relayout === 'function') map.relayout();
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
-        }, 300);
+        }, 150);
+        setTimeout(function() {
+          if (map && typeof map.relayout === 'function') map.relayout();
+          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+        }, 500);
         }
 
         renderMapWhenReady();
@@ -153,6 +158,38 @@ void _injectJsBypass() {
 
     window.customOverlays = {};
     window.markerDataCache = {};
+
+    window.getKakaoMapBounds = function(containerId) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!map) return null;
+      var bounds = map.getBounds();
+      if (!bounds) return null;
+      var sw = bounds.getSouthWest();
+      var ne = bounds.getNorthEast();
+      if (!sw || !ne) return null;
+      return JSON.stringify({
+        minLat: sw.getLat(),
+        maxLat: ne.getLat(),
+        minLng: sw.getLng(),
+        maxLng: ne.getLng()
+      });
+    };
+
+    window.setKakaoMapCenter = function(containerId, lat, lng) {
+      var map = window.kakaoMapObjects[containerId];
+      if (map) {
+        map.setCenter(new kakao.maps.LatLng(lat, lng));
+        if (typeof map.relayout === 'function') map.relayout();
+        setTimeout(function() {
+          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+        }, 150);
+      }
+    };
+
+    window.setKakaoMapCenterFromSwipe = function(containerId, lat, lng) {
+      var map = window.kakaoMapObjects[containerId];
+      if (map) map.panTo(new kakao.maps.LatLng(lat, lng));
+    };
 
     window.onMarkerClickWeb = function(index) {
       if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
@@ -256,6 +293,14 @@ void _injectJsBypass() {
             overlays.push(customOverlay);
           })(i);
         }
+        if (map && typeof map.relayout === 'function') {
+          map.relayout();
+        }
+        setTimeout(function() {
+          if (map && typeof map.relayout === 'function') {
+            map.relayout();
+          }
+        }, 60);
       });
     };
   '''
