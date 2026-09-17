@@ -29,6 +29,56 @@ import static org.mockito.ArgumentMatchers.eq;
 class FirebaseServiceNotificationTest {
 
     @Test
+    void approvalFiltersOtherBranchesBeforeReadingRecipientSettings() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference favorites = mock(CollectionReference.class);
+        Query query = mock(Query.class);
+        QuerySnapshot snapshot = mock(QuerySnapshot.class);
+        when(db.collection("favorites")).thenReturn(favorites);
+        when(favorites.whereEqualTo("storeName", "같은식당")).thenReturn(query);
+        when(query.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        QueryDocumentSnapshot correct = mock(QueryDocumentSnapshot.class);
+        QueryDocumentSnapshot other = mock(QueryDocumentSnapshot.class);
+        when(correct.getString("userId")).thenReturn("correct-user");
+        when(other.getString("userId")).thenReturn("other-user");
+        when(other.getString("storeName")).thenReturn("같은식당");
+        when(correct.getData()).thenReturn(Map.of("storeId", "store_a", "storeName", "같은식당"));
+        when(other.getData()).thenReturn(Map.of("storeId", "store_b", "storeName", "같은식당"));
+        when(snapshot.getDocuments()).thenReturn(List.of(correct, other));
+        FirebaseService service = org.mockito.Mockito.spy(new FirebaseService(db, mock(ReportImageStorage.class)));
+        org.mockito.Mockito.doReturn(List.of()).when(service).getAllStores();
+        org.mockito.Mockito.doReturn(NotificationSettingsDto.builder().price(false).build())
+                .when(service).getNotificationSettings("correct-user");
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(service,
+                "notifyUsersOnPriceReportApproved", "같은식당", "store_a", "report-1", "drop");
+
+        verify(service).getNotificationSettings("correct-user");
+        verify(service, org.mockito.Mockito.never()).getNotificationSettings("other-user");
+        verify(db, org.mockito.Mockito.never()).collection("notifications");
+    }
+
+    @Test
+    void priceAlertsNeverCrossBranchesWithTheSameName() {
+        FirebaseService service = new FirebaseService(mock(Firestore.class), mock(ReportImageStorage.class));
+        List<Map<String, Object>> catalog = List.of(
+                Map.of("storeId", "store_a", "storeName", "같은식당", "address", "서울 1"),
+                Map.of("storeId", "store_b", "storeName", "같은식당", "address", "서울 2"));
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeId", "store_b", "storeName", "같은식당"), "store_a", catalog)).isFalse();
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeId", "store_a", "storeName", "같은식당"), "store_a", catalog)).isTrue();
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeId", "같은식당", "storeName", "같은식당"), "store_a", catalog)).isFalse();
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeName", "같은식당", "address", "서울 1"), "store_a", catalog)).isTrue();
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeName", "같은식당", "address", "서울 2"), "store_a", catalog)).isFalse();
+        assertThat(service.matchesPriceAlertStore(
+                Map.of("storeName", "같은식당"), "store_a", List.of(catalog.getFirst()))).isTrue();
+    }
+
+    @Test
     void generalSettingsSaveDoesNotOverwriteOmittedPriceConditions() throws Exception {
         Firestore db = mock(Firestore.class);
         CollectionReference collection = mock(CollectionReference.class);

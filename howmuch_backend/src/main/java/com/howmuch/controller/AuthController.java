@@ -4,6 +4,7 @@ import com.howmuch.dto.FirebaseTokenResponse;
 import com.howmuch.dto.KakaoAuthRequest;
 import com.howmuch.service.AuthService;
 import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.SessionRevocationStore;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
@@ -72,6 +73,11 @@ public class AuthController {
                     result.email(),
                     result.profileImageUrl()
             ));
+        } catch (SessionRevocationStore.UnavailableException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header("Retry-After", "5")
+                    .body(Map.of("success", false,
+                            "message", "인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요."));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "카카오 로그인 정보를 확인해주세요."));

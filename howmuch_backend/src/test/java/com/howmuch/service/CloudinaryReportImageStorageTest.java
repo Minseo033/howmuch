@@ -74,4 +74,16 @@ class CloudinaryReportImageStorageTest {
                 .containsKey("storage")
                 .doesNotContainKeys("api_key", "cloud_name");
     }
+
+    @Test
+    void bulkDeletionMustConfirmEveryAssetAndAllowIdempotentRetries() {
+        assertThat(storage.confirmedBulkDeletions(Map.of("deleted",
+                Map.of("photo-1", "deleted", "photo-2", "not_found")))).isEqualTo(1);
+        assertThat(storage.confirmedBulkDeletions(Map.of("deleted", Map.of()))).isZero();
+        assertThatThrownBy(() -> storage.confirmedBulkDeletions(Map.of("deleted",
+                Map.of("photo-1", "deleted", "photo-2", "error"))))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> storage.confirmedBulkDeletions(Map.of("error", "unavailable")))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }

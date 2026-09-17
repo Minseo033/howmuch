@@ -100,6 +100,10 @@ public class SessionTokenService {
             if (System.currentTimeMillis() > expiry) return null;
             if (issuedAt <= revokedAfter(uid)) return null;
             return uid;
+        } catch (SessionRevocationStore.UnavailableException e) {
+            // A valid signature with an unavailable revocation check is not an
+            // expired token. Let the filter fail closed with a retryable 503.
+            throw e;
         } catch (Exception e) {
             return null;
         }

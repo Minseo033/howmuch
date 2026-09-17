@@ -1260,20 +1260,20 @@ public class FirebaseService {
                 .whereEqualTo("storeName", storeName)
                 .get().get().getDocuments();
 
+        List<Map<String, Object>> catalog = getAllStores();
+        String targetId = storeId;
+        if (targetId == null || targetId.isBlank() || !targetId.startsWith("store_")) {
+            Map<String, Object> target = resolveReviewStore(storeName, catalog);
+            if (target == null) return; // 이름만 있는 동명이점 제보는 지점을 추측하지 않습니다.
+            targetId = strOrNull(target.get("storeId"));
+        }
         String createdAt = java.time.Instant.now().toString();
 
         for (DocumentSnapshot favDoc : favoriteDocs) {
             String userId = favDoc.getString("userId");
             if (userId == null) continue;
 
-            if (storeId != null && !storeId.isBlank()) {
-                String favoriteStoreId = canonicalStoreIdForFavorite(favDoc.getData());
-                String favoriteStoreName = favDoc.getString("storeName");
-                if (!storeId.equals(favoriteStoreId)
-                        && !storeName.equals(favoriteStoreName)) {
-                    continue;
-                }
-            }
+            if (!matchesPriceAlertStore(favDoc.getData(), targetId, catalog)) continue;
 
             // 매장별 구독을 끈 사용자는 전체 가격 알림 설정이 켜져 있어도 제외합니다.
             if (!booleanOrDefault(favDoc.getData(), "priceAlertEnabled", true)) {
@@ -1311,6 +1311,21 @@ public class FirebaseService {
             // 5. 푸시 알림 발송 (기존 구조 재사용)
             dispatchPushNotification(userId, docId, (String) data.get("title"), (String) data.get("body"), "PRICE_ALERT");
         }
+    }
+
+    boolean matchesPriceAlertStore(Map<String, Object> favorite, String targetId,
+                                   List<Map<String, Object>> catalog) {
+        if (favorite == null || targetId == null) return false;
+        String id = strOrNull(favorite.get("storeId"));
+        if (id != null && id.startsWith("store_")) return targetId.equals(id);
+        List<Map<String, Object>> matches = reviewStoresNamed(
+                strOrNull(favorite.get("storeName")), catalog);
+        String address = strOrNull(favorite.get("address"));
+        if (address != null && !address.isBlank()) {
+            matches = matches.stream().filter(store -> normalizeStoreIdentityPart(address)
+                    .equals(normalizeStoreIdentityPart(strOrNull(store.get("address"))))).toList();
+        }
+        return matches.size() == 1 && targetId.equals(matches.getFirst().get("storeId"));
     }
 
     private boolean shouldNotifyPriceChange(NotificationSettingsDto settings, String changeType) {
@@ -1360,6 +1375,9 @@ public class FirebaseService {
     // 💡 회원 삭제 — 승인 제보는 익명화해 공공 데이터로 보존하고, 나머지 개인 데이터는 삭제
     public Map<String, Object> deleteUser(String firebaseUid) throws Exception {
         Map<String, Object> result = new HashMap<>();
+        // Keep ownership and receipt/report references until external deletion
+        // succeeds. A failure must not acknowledge withdrawal or orphan images.
+        result.put("reportImages", reportImageStorage.deleteAllOwned(firebaseUid));
         // 연관 컬렉션을 먼저 지워 중간 실패 시 계정을 남겨 재시도할 수 있게 합니다.
         result.put("reviews", deleteWhere("reviews", "authorUid", firebaseUid));
         ReportDeletionSummary reports = deleteReportsByUser(firebaseUid);
@@ -1376,7 +1394,6 @@ public class FirebaseService {
         result.put("notifications", deleteWhere("notifications", "userId", firebaseUid));
         result.put("deviceTokens", deleteWhere("device_tokens", "userId", firebaseUid));
         db.collection("notification_settings").document(firebaseUid).delete().get();
-        result.put("reportImages", deleteReportImagePrefix(firebaseUid));
         cachedUserStores = cachedUserStores.stream()
                 .filter(item -> !firebaseUid.equals(item.get("reporterId"))
                         || "APPROVED".equalsIgnoreCase(String.valueOf(item.get("status"))))
@@ -1429,15 +1446,6 @@ public class FirebaseService {
     }
 
     private record ReportDeletionSummary(int deleted, int anonymized) { }
-
-    private int deleteReportImagePrefix(String firebaseUid) {
-        try {
-            return reportImageStorage.deleteAllOwned(firebaseUid);
-        } catch (Exception e) {
-            log.warn("회원 탈퇴 중 제보 이미지 정리에 실패했습니다.", e);
-            return 0;
-        }
-    }
 
     /** 컬렉션에서 field == value 인 문서 전부 삭제하고 삭제 건수 반환 */
     private int deleteWhere(String collection, String field, String value) throws Exception {
@@ -1653,9 +1661,15 @@ public class FirebaseService {
         if (authorUid == null || authorUid.isBlank()) {
             throw new IllegalArgumentException("인증된 사용자만 리뷰를 저장할 수 있습니다.");
         }
+        Map<String, Object> store = resolveReviewStore(request.getStoreId(), getAllStores());
+        if (store == null || !normalizeStoreIdentityPart(request.getStoreName())
+                .equals(normalizeStoreIdentityPart(strOrNull(store.get("storeName"))))) {
+            throw new IllegalArgumentException("매장을 정확히 확인할 수 없습니다. 매장 상세에서 다시 작성해주세요.");
+        }
         Map<String, Object> data = new HashMap<>();
-        data.put("storeId", request.getStoreId());
-        data.put("storeName", request.getStoreName());
+        data.put("storeId", store.get("storeId"));
+        data.put("storeName", store.get("storeName"));
+        data.put("storeAddress", store.get("address"));
         data.put("authorUid", authorUid);
         data.put("authorName", request.getAuthorName());
         data.put("menu", request.getMenu());
@@ -1674,15 +1688,28 @@ public class FirebaseService {
 
     // 💡 특정 매장의 리뷰 목록 조회 (최신순 정렬 포함)
     public List<Map<String, Object>> getReviews(String storeId) throws Exception {
-        List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
-                .whereEqualTo("storeId", storeId)
-                .get().get().getDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId());
-                    return data;
-                })
-                .toList());
+        List<Map<String, Object>> catalog = getAllStores();
+        Map<String, Object> store = resolveReviewStore(storeId, catalog);
+        if (store == null) return List.of();
+        String canonicalId = String.valueOf(store.get("storeId"));
+        String storeName = String.valueOf(store.get("storeName")).trim();
+        Set<String> lookupIds = new LinkedHashSet<>();
+        lookupIds.add(canonicalId);
+        // Keep old name-keyed reviews visible only when that name identifies a
+        // single public store. Ambiguous records remain in my/admin reviews for
+        // manual reconciliation; never guess a branch or rewrite data on GET.
+        if (reviewStoresNamed(storeName, catalog).size() == 1) lookupIds.add(storeName);
+        Map<String, Map<String, Object>> reviewsById = new LinkedHashMap<>();
+        for (String lookupId : lookupIds) {
+            for (DocumentSnapshot doc : db.collection("reviews")
+                    .whereEqualTo("storeId", lookupId).get().get().getDocuments()) {
+                Map<String, Object> data = new HashMap<>(doc.getData());
+                data.put("id", doc.getId());
+                data.put("storeId", canonicalId);
+                reviewsById.put(doc.getId(), data);
+            }
+        }
+        List<Map<String, Object>> reviews = new ArrayList<>(reviewsById.values());
         // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
         reviews.sort((a, b) -> {
             String aTime = String.valueOf(a.getOrDefault("createdAt", ""));
@@ -1690,6 +1717,24 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
         return reviews;
+    }
+
+    private Map<String, Object> resolveReviewStore(String storeId, List<Map<String, Object>> catalog) {
+        if (storeId == null || storeId.isBlank()) return null;
+        String key = storeId.trim();
+        for (Map<String, Object> store : catalog) {
+            if (key.equals(store.get("storeId"))) return store;
+        }
+        List<Map<String, Object>> named = reviewStoresNamed(key, catalog);
+        return named.size() == 1 ? named.getFirst() : null;
+    }
+
+    private List<Map<String, Object>> reviewStoresNamed(String name, List<Map<String, Object>> catalog) {
+        String normalized = normalizeStoreIdentityPart(name);
+        return catalog.stream()
+                .filter(store -> normalized.equals(
+                        normalizeStoreIdentityPart(strOrNull(store.get("storeName")))))
+                .toList();
     }
 
     // 💡 [어드민] 전체 리뷰 목록 (최신순, 매장명/작성자명 포함 — 소량 컬렉션)

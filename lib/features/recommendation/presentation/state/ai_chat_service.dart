@@ -11,6 +11,9 @@ import 'package:howmuch/features/recommendation/presentation/state/todays_pick_s
 final aiChatServiceProvider = Provider((ref) => AiChatService());
 
 class AiChatService {
+  // 서버의 전체 AI 호출 예산(최대 12초) + 인증/매장 조회/전송 여유.
+  static const requestTimeout = Duration(seconds: 25);
+
   /// Gemini AI 챗봇 응답 요청 (세션 인증 필요)
   Future<AiChatReply> getGeminiResponse(
     String message, {
@@ -22,9 +25,10 @@ class AiChatService {
     final url = ApiClient.uri('/api/ai/chat');
 
     try {
+      final safeHistory = buildAiRequestHistory(history);
       final payload = <String, dynamic>{
         'message': message,
-        if (history != null && history.isNotEmpty) 'history': history,
+        if (safeHistory.isNotEmpty) 'history': safeHistory,
         if (nearbyStoreIds != null && nearbyStoreIds.isNotEmpty)
           'nearbyStoreIds': nearbyStoreIds,
         if (latitude != null && longitude != null) ...{
@@ -37,7 +41,7 @@ class AiChatService {
         url,
         headers: ApiClient.jsonHeaders(auth: true),
         body: jsonEncode(payload),
-      ).timeout(ApiClient.defaultTimeout);
+      ).timeout(requestTimeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -71,6 +75,32 @@ class AiChatService {
       return const AiChatReply(text: 'AI 연결에 실패했습니다. 네트워크를 확인해주세요.');
     }
   }
+}
+
+/// 화면의 원본 답변은 유지하고 서버 검증 규격에 맞는 최근 기록만 전송합니다.
+List<Map<String, String>> buildAiRequestHistory(
+  List<Map<String, String>>? history,
+) {
+  final valid = (history ?? const <Map<String, String>>[])
+      .where(
+        (turn) =>
+            (turn['role'] == 'user' || turn['role'] == 'model') &&
+            (turn['text']?.trim().isNotEmpty ?? false),
+      )
+      .toList();
+  return valid
+      .skip(math.max(0, valid.length - 6))
+      .map((turn) {
+        final text = turn['text']!.trim();
+        var end = math.min(text.length, 1000);
+        if (end < text.length &&
+            text.codeUnitAt(end - 1) >= 0xD800 &&
+            text.codeUnitAt(end - 1) <= 0xDBFF) {
+          end--;
+        }
+        return {'role': turn['role']!, 'text': text.substring(0, end)};
+      })
+      .toList(growable: false);
 }
 
 class AiChatReply {

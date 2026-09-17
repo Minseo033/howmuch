@@ -101,6 +101,7 @@ void main() {
     await tester.pump();
 
     expect(notifier.submitCount, 1);
+    expect(notifier.submittedReview?.storeId, 'store_review_branch_1');
     expect(notifier.submittedReview?.menu, '김치찌개');
     expect(notifier.submittedReview?.price, 8000);
     expect(notifier.submittedReview?.content, '가격이 합리적이에요.');
@@ -135,6 +136,7 @@ Future<void> _pumpReviewScreen(
 }
 
 final _sampleStore = Store(
+  id: 'store_review_branch_1',
   storeName: '테스트 식당',
   address: '서울시 테스트구',
   phoneNumber: '',

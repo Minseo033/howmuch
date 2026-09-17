@@ -9,10 +9,10 @@ import 'package:howmuch/features/store/store_model.dart';
 class LocalReviews extends StoreReviewNotifier {
   LocalReviews() {
     state = {
-      '식당': AsyncValue.data([
+      'store_branch_1': AsyncValue.data([
         Review(
           id: 'a',
-          storeId: '식당',
+          storeId: 'store_branch_1',
           authorName: '최근 작성자',
           stars: 2,
           content: '최근 리뷰',
@@ -20,7 +20,7 @@ class LocalReviews extends StoreReviewNotifier {
         ),
         Review(
           id: 'b',
-          storeId: '식당',
+          storeId: 'store_branch_1',
           authorName: '이전 작성자',
           stars: 5,
           content: '이전 리뷰',
@@ -39,7 +39,10 @@ class LocalReviews extends StoreReviewNotifier {
   }
 
   void fail() => state = {
-    '식당': AsyncValue.error(StateError('offline'), StackTrace.current),
+    'store_branch_1': AsyncValue.error(
+      StateError('offline'),
+      StackTrace.current,
+    ),
   };
 }
 
@@ -56,7 +59,12 @@ void main() {
         ProviderScope(
           overrides: [storeReviewProvider.overrideWith((ref) => notifier)],
           child: MaterialApp(
-            home: ReviewListScreen(store: Store.fromJson({'storeName': '식당'})),
+            home: ReviewListScreen(
+              store: Store.fromJson({
+                'storeId': 'store_branch_1',
+                'storeName': '식당',
+              }),
+            ),
           ),
         ),
       );

@@ -12,9 +12,12 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.inOrder;
 
 class FirebaseServiceUserDeletionTest {
 
@@ -46,6 +49,10 @@ class FirebaseServiceUserDeletionTest {
 
         Map<String, Object> result = service.deleteUser(uid);
 
+        var order = inOrder(imageStorage, firestore);
+        order.verify(imageStorage).deleteAllOwned(uid);
+        order.verify(firestore).collection("reviews");
+
         assertThat(result).containsEntry("uid", uid)
                 .containsEntry("inquiries", 0)
                 .containsEntry("receiptVerifications", 0)
@@ -59,6 +66,24 @@ class FirebaseServiceUserDeletionTest {
         List<Map<String, Object>> cache = (List<Map<String, Object>>)
                 ReflectionTestUtils.getField(service, "cachedUserStores");
         assertThat(cache).extracting(item -> item.get("id")).containsExactly("report-2");
+    }
+
+    @Test
+    void keepsAllAccountAndImageReferencesWhenExternalCleanupFails() throws Exception {
+        Firestore firestore = mock(Firestore.class);
+        ReportImageStorage imageStorage = mock(ReportImageStorage.class);
+        FirebaseService service = new FirebaseService(firestore, imageStorage);
+        Map<String, Object> report = Map.of("id", "report-1", "reporterId", "user-1",
+                "imageUrls", List.of("owned-url"), "status", "APPROVED");
+        ReflectionTestUtils.setField(service, "cachedUserStores", List.of(report));
+        when(imageStorage.deleteAllOwned("user-1"))
+                .thenThrow(new IllegalStateException("storage unavailable"));
+
+        assertThatThrownBy(() -> service.deleteUser("user-1"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("storage unavailable");
+
+        verifyNoInteractions(firestore);
+        assertThat(ReflectionTestUtils.getField(service, "cachedUserStores")).isEqualTo(List.of(report));
     }
 
     private void stubEmptyQuery(

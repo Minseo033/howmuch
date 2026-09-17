@@ -24,8 +24,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
 
   final List<String> _filters = ['최신순', '별점 높은순', '별점 낮은순'];
 
-  /// 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
-  String get _storeId => widget.store?.storeName ?? '';
+  String get _storeId => widget.store?.id.trim() ?? '';
 
   @override
   void initState() {

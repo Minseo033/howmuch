@@ -119,7 +119,7 @@ class StoreDetailScreen extends ConsumerWidget {
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
     final reviews =
-        ref.watch(storeReviewProvider)[store.storeName]?.valueOrNull ??
+        ref.watch(storeReviewProvider)[store.id.trim()]?.valueOrNull ??
         const <Review>[];
     final averageRating = reviews.isEmpty
         ? null
@@ -1027,8 +1027,7 @@ class _StoreReviewSection extends ConsumerStatefulWidget {
   final Store store;
   const _StoreReviewSection({required this.store});
 
-  /// 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
-  String get storeKey => store.storeName;
+  String get storeKey => store.id.trim();
 
   @override
   ConsumerState<_StoreReviewSection> createState() =>

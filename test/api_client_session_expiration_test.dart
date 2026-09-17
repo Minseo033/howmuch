@@ -62,6 +62,20 @@ void main() {
     expect(ApiClient.sessionToken, isNull);
   });
 
+  test('인증 저장소의 일시 장애 503은 저장된 세션을 유지한다', () async {
+    var expirationCount = 0;
+    ApiClient.setSessionExpiredHandler(() async => expirationCount++);
+    await ApiClient.handleResponseStatus(
+      503,
+      requestHeaders: const {'Authorization': 'Bearer session-token'},
+    );
+
+    expect(expirationCount, 0);
+    expect(ApiClient.sessionToken, 'session-token');
+    await ApiClient.restoreSession();
+    expect(ApiClient.sessionToken, 'session-token');
+  });
+
   test('이전 로그인 요청의 늦은 401은 새 세션을 만료시키지 않는다', () async {
     var expirationCount = 0;
     ApiClient.setSessionExpiredHandler(() async => expirationCount++);

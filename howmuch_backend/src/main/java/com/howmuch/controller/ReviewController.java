@@ -123,6 +123,9 @@ public class ReviewController {
                     "reviewId", reviewId,
                     "message", "리뷰가 등록되었습니다."
             ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[ReviewController] 리뷰 저장 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

@@ -76,9 +76,10 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     if (_isSubmitting) return;
     FocusManager.instance.primaryFocus?.unfocus();
 
-    // 공공데이터 매장은 별도 id가 없으므로 매장명을 storeId로 사용합니다.
+    // 상호가 같은 지점도 구분할 수 있도록 서버의 매장 ID를 사용합니다.
     final storeName = widget.store?.storeName.trim() ?? '';
-    if (storeName.isEmpty) {
+    final storeId = widget.store?.id.trim() ?? '';
+    if (storeName.isEmpty || storeId.isEmpty) {
       _showSnackBar('매장 정보가 없어 리뷰를 등록할 수 없습니다.');
       return;
     }
@@ -107,7 +108,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
 
     final nickname = ref.read(userProfileProvider).nickname;
     final review = Review(
-      storeId: storeName,
+      storeId: storeId,
       storeName: storeName,
       authorName: nickname.trim().isNotEmpty ? nickname.trim() : '사용자',
       stars: _starRating,

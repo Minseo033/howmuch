@@ -1,10 +1,15 @@
 package com.howmuch.service;
 
 import org.junit.jupiter.api.Test;
+import com.howmuch.config.SessionAuthFilter;
+import org.springframework.mock.web.MockFilterChain;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -68,6 +73,36 @@ class SessionTokenServiceTest {
                 .thenThrow(new SessionRevocationStore.UnavailableException("unavailable", null));
         SessionTokenService checkingInstance = new SessionTokenService("test-secret", 1, true, store);
 
-        assertThat(checkingInstance.verifyAndGetUid(token)).isNull();
+        assertThatThrownBy(() -> checkingInstance.verifyAndGetUid(token))
+                .isInstanceOf(SessionRevocationStore.UnavailableException.class);
+    }
+
+    @Test
+    void outageReturns503WithoutAuthorizingAndTheSameTokenWorksAfterRecovery() throws Exception {
+        SessionRevocationStore store = mock(SessionRevocationStore.class);
+        String token = new SessionTokenService("test-secret", 1, true).createToken("user-1");
+        when(store.getRevokedAfter("user-1"))
+                .thenThrow(new SessionRevocationStore.UnavailableException("timeout", null))
+                .thenReturn(Long.MIN_VALUE);
+        SessionAuthFilter filter = new SessionAuthFilter(
+                new SessionTokenService("test-secret", 1, true, store));
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/user/profile");
+        request.addHeader("Authorization", "Bearer " + token);
+        MockHttpServletResponse failed = new MockHttpServletResponse();
+        MockFilterChain blockedChain = new MockFilterChain();
+
+        filter.doFilter(request, failed, blockedChain);
+
+        assertThat(failed.getStatus()).isEqualTo(503);
+        assertThat(failed.getHeader("Retry-After")).isEqualTo("5");
+        assertThat(blockedChain.getRequest()).isNull();
+        assertThat(request.getAttribute(SessionAuthFilter.UID_ATTRIBUTE)).isNull();
+
+        MockHttpServletResponse recovered = new MockHttpServletResponse();
+        MockFilterChain recoveredChain = new MockFilterChain();
+        filter.doFilter(request, recovered, recoveredChain);
+        assertThat(recovered.getStatus()).isEqualTo(200);
+        assertThat(request.getAttribute(SessionAuthFilter.UID_ATTRIBUTE)).isEqualTo("user-1");
+        assertThat(recoveredChain.getRequest()).isSameAs(request);
     }
 }

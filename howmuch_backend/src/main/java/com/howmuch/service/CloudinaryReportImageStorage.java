@@ -112,15 +112,25 @@ public class CloudinaryReportImageStorage implements ReportImageStorage {
             if (nextCursor != null) options.put("next_cursor", nextCursor);
 
             Map<?, ?> response = client.api().deleteResourcesByPrefix(prefix, options);
-            Object deletedItems = response.get("deleted");
-            if (deletedItems instanceof Map<?, ?> items) {
-                deleted += (int) items.values().stream()
-                        .filter("deleted"::equals)
-                        .count();
-            }
+            deleted += confirmedBulkDeletions(response);
             nextCursor = stringOrNull(response.get("next_cursor"));
         } while (nextCursor != null);
         return deleted;
+    }
+
+    int confirmedBulkDeletions(Map<?, ?> response) {
+        if (!(response.get("deleted") instanceof Map<?, ?> items)) {
+            throw new IllegalStateException("사진 삭제 결과를 확인할 수 없습니다.");
+        }
+        int count = 0;
+        for (Object status : items.values()) {
+            if ("deleted".equals(status)) {
+                count++;
+            } else if (!"not_found".equals(status) && !"not found".equals(status)) {
+                throw new IllegalStateException("일부 사진을 삭제하지 못했습니다. 다시 시도해주세요.");
+            }
+        }
+        return count;
     }
 
     @Override

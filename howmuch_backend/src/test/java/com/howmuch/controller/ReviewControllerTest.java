@@ -107,6 +107,15 @@ class ReviewControllerTest {
         assertThat(saved.getPrice()).isEqualTo(8_000);
     }
 
+    @Test
+    void ambiguousReviewTargetReturnsValidationErrorInsteadOfServerError() throws Exception {
+        authenticate();
+        when(firebaseService.saveReview(anyString(), any()))
+                .thenThrow(new IllegalArgumentException("매장을 정확히 확인할 수 없습니다."));
+        assertThat(controller.createReview(httpRequest, validRequest()).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
     private void authenticate() {
         httpRequest.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
     }

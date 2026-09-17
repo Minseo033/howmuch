@@ -1,6 +1,7 @@
 package com.howmuch.config;
 
 import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.SessionRevocationStore;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,10 +31,23 @@ public class SessionAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         String header = request.getHeader("Authorization");
         String token = (header != null && header.startsWith("Bearer "))
                 ? header.substring(7) : null;
-        String uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
+        String uid;
+        try {
+            uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
+        } catch (SessionRevocationStore.UnavailableException e) {
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+            response.setHeader("Retry-After", "5");
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"success\":false,\"message\":\"인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요.\"}");
+            return;
+        }
 
         if (requiresAuth(request)) {
             if (uid == null) {

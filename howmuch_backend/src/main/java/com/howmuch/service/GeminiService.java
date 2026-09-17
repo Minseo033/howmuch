@@ -5,13 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,23 +33,28 @@ public class GeminiService {
     private final boolean routeAiEnabled;
     private final String configuredModel;
     private final List<String> candidateUrls;
-    private final RestTemplate restTemplate;
+    private final HttpClient httpClient;
+    private final int totalTimeoutMs;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public GeminiService(@Value("${gemini.api-key:}") String geminiApiKey,
-                         @Value("${gemini.timeout-ms:20000}") int timeoutMs,
+                         @Value("${gemini.timeout-ms:12000}") int timeoutMs,
                          @Value("${gemini.route-enabled:false}") boolean routeAiEnabled,
                          @Value("${gemini.model:gemini-3.6-flash}") String configuredModel) {
+        this(geminiApiKey, timeoutMs, routeAiEnabled, configuredModel,
+                HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build());
+    }
+
+    GeminiService(String geminiApiKey, int timeoutMs, boolean routeAiEnabled,
+                  String configuredModel, HttpClient httpClient) {
         this.geminiApiKey = geminiApiKey;
         this.routeAiEnabled = routeAiEnabled;
         this.configuredModel = normalizeModel(configuredModel);
         this.candidateUrls = buildCandidateUrls(this.configuredModel);
-        // 💡 외부 AI 호출 타임아웃 — 지연 시 요청 스레드 고갈 방지
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(timeoutMs);
-        factory.setReadTimeout(timeoutMs);
-        this.restTemplate = new RestTemplate(factory);
+        // 모든 모델/호환성 재시도가 공유하는 총 예산. 과거 20초 환경값도 제한합니다.
+        this.totalTimeoutMs = Math.max(1, Math.min(timeoutMs, 12_000));
+        this.httpClient = httpClient;
     }
 
     public GeminiService(String geminiApiKey, int timeoutMs, boolean routeAiEnabled) {
@@ -110,9 +117,7 @@ public class GeminiService {
             return "AI 기능이 현재 설정되지 않았습니다. 관리자에게 문의해주세요.";
         }
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Goog-Api-Key", geminiApiKey);
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(totalTimeoutMs);
 
         // 서버에서 검증한 주변 매장 데이터만 프롬프트 컨텍스트로 구성합니다.
         StringBuilder promptBuilder = new StringBuilder();
@@ -163,49 +168,34 @@ public class GeminiService {
             "contents", contents
         );
 
-        // 이미 확인된 정상 동작 엔드포인트가 있으면 우선 호출
+        // 캐시도 후보에 한 번만 포함하며 모든 시도가 같은 마감 시각을 공유합니다.
         String cachedUrl = this.workingUrl;
-        if (cachedUrl != null) {
+        LinkedHashSet<String> urls = new LinkedHashSet<>();
+        if (cachedUrl != null) urls.add(cachedUrl);
+        urls.addAll(candidateUrls);
+        for (String url : urls) {
+            if (System.nanoTime() >= deadline) break;
             try {
-                return callGemini(cachedUrl, headers, basePayload);
-            } catch (Exception e) {
-                log.warn("캐시된 Gemini 엔드포인트({}) 호출 실패, 후보군 재탐색: {}", cachedUrl, e.getMessage());
-                this.workingUrl = null;
-            }
-        }
-
-        // 후보군 순회하며 작동하는 엔드포인트 자동 탐색
-        Exception lastException = null;
-        for (String url : candidateUrls) {
-            try {
-                String result = callGemini(url, headers, basePayload);
+                String result = callGemini(url, basePayload, deadline);
                 this.workingUrl = url;
                 log.info("Gemini 유효 엔드포인트 확인 및 저장: {}", url);
                 return result;
             } catch (Exception e) {
-                lastException = e;
-                log.warn("Gemini 엔드포인트({}) 시도 실패: {}", url, e.getMessage());
+                if (url.equals(cachedUrl)) this.workingUrl = null;
+                log.warn("Gemini 호출 실패: {}", e.getClass().getSimpleName());
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                if (e instanceof TimeoutException
+                        || (e instanceof GeminiHttpException status
+                        && (status.code == 401 || status.code == 403))) break;
             }
-        }
-
-        log.error("모든 Gemini 엔드포인트 호출 실패: {}", lastException != null ? lastException.getMessage() : "unknown");
-        try {
-            HttpHeaders probeHeaders = new HttpHeaders();
-            probeHeaders.set("X-Goog-Api-Key", geminiApiKey);
-            ResponseEntity<String> modelsRes = restTemplate.exchange(
-                "https://generativelanguage.googleapis.com/v1beta/models",
-                org.springframework.http.HttpMethod.GET,
-                new HttpEntity<>(probeHeaders),
-                String.class
-            );
-            log.info("[GeminiService] 사용 가능한 구글 모델 목록: {}", modelsRes.getBody());
-        } catch (Exception ex) {
-            log.warn("[GeminiService] ListModels 조회 실패: {}", ex.getMessage());
         }
         return "죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
     }
 
-    private String callGemini(String url, HttpHeaders headers, Map<String, Object> basePayload) throws Exception {
+    private String callGemini(String url, Map<String, Object> basePayload, long deadline) throws Exception {
         Map<String, Object> payloadWithNoThinking = new LinkedHashMap<>(basePayload);
         Map<String, Object> genConfig = new LinkedHashMap<>();
         genConfig.put("temperature", 0.7);
@@ -214,26 +204,43 @@ public class GeminiService {
         payloadWithNoThinking.put("generationConfig", genConfig);
 
         try {
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payloadWithNoThinking, headers);
-            return executeGeminiPost(url, entity);
-        } catch (Exception e) {
+            return executeGeminiPost(url, payloadWithNoThinking, deadline);
+        } catch (GeminiHttpException e) {
             // thinkingConfig를 거부하는 모델(400 등)인 경우 thinkingConfig 없이 2048 토큰으로 재시도
-            if (e.getMessage() != null && e.getMessage().contains("400")) {
+            if (e.code == 400) {
                 log.info("Gemini thinkingConfig 미지원 엔드포인트, 기본 2048 토큰으로 재시도: {}", url);
                 Map<String, Object> fallbackPayload = new LinkedHashMap<>(basePayload);
                 fallbackPayload.put("generationConfig", Map.of(
                         "temperature", 0.7,
                         "maxOutputTokens", 2048));
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(fallbackPayload, headers);
-                return executeGeminiPost(url, entity);
+                return executeGeminiPost(url, fallbackPayload, deadline);
             }
             throw e;
         }
     }
 
-    private String executeGeminiPost(String url, HttpEntity<Map<String, Object>> entity) throws Exception {
-        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-        JsonNode root = objectMapper.readTree(response.getBody());
+    private String executeGeminiPost(String url, Map<String, Object> payload, long deadline) throws Exception {
+        long remaining = deadline - System.nanoTime();
+        if (remaining <= 0) throw new TimeoutException();
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofNanos(remaining))
+                .header("Content-Type", "application/json")
+                .header("X-Goog-Api-Key", geminiApiKey)
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(payload)))
+                .build();
+        var pending = httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response;
+        try {
+            // BodyHandlers.ofString 완료까지 제한해 느린 본문 수신도 예산에 포함합니다.
+            response = pending.get(Math.max(1, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException | InterruptedException e) {
+            pending.cancel(true);
+            throw e;
+        }
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new GeminiHttpException(response.statusCode());
+        }
+        JsonNode root = objectMapper.readTree(response.body());
         JsonNode candidates = root.path("candidates");
         if (candidates.isMissingNode() || !candidates.isArray() || candidates.isEmpty()) {
             throw new IllegalStateException("Gemini 응답에 candidates가 없습니다.");
@@ -243,6 +250,15 @@ public class GeminiService {
             throw new IllegalStateException("Gemini 응답에 content parts가 없습니다.");
         }
         return parts.get(0).path("text").asText();
+    }
+
+    private static class GeminiHttpException extends Exception {
+        final int code;
+
+        GeminiHttpException(int code) {
+            super("Gemini HTTP " + code);
+            this.code = code;
+        }
     }
 
     /**
