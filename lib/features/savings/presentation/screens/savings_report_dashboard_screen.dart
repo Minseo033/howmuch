@@ -1226,30 +1226,95 @@ class _SavingsLineChartPainter extends CustomPainter {
             badgeCenterY - badgeTextPainter.height / 2,
           ),
         );
-      } else if (p.amount > 0 || !isYearly) {
-        // 일반 금액 텍스트 (올해 탭 0원은 베이스라인 점으로만 깔끔하게 정돈)
+      } else if (p.amount > 0) {
+        // 일반 유효 금액 라벨 (곡선 그래프와 겹치지 않도록 방어 뱃지 및 스마트 오프셋 적용)
         final amountPainter = TextPainter(
           text: TextSpan(
             text: p.amountStr,
             style: TextStyle(
               fontFamily: 'Inter',
               fontFamilyFallback: const ['Noto Sans KR'],
-              color: p.amount > 0 ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
+              color: const Color(0xFF0F172A),
               fontSize: isYearly ? 9.5 : 10.5,
-              fontWeight: p.amount > 0 ? FontWeight.w700 : FontWeight.w500,
+              fontWeight: FontWeight.w700,
             ),
           ),
           textDirection: TextDirection.ltr,
         )..layout();
 
-        final clampedX = (pos.dx - amountPainter.width / 2).clamp(
-          horizontalPadding / 2,
-          size.width - horizontalPadding / 2 - amountPainter.width,
+        // 인접 지점의 급경사 하강/상승에 따라 라벨을 완만한 쪽으로 스마트 이동
+        final isDescDrop = i > 0 && points[i - 1].amount > p.amount * 1.5;
+        final isAscRise = i < n - 1 && points[i + 1].amount > p.amount * 1.5;
+        double shiftX = 0;
+        if (isDescDrop && !isAscRise) {
+          shiftX = isYearly ? 6.0 : 4.0;
+        } else if (isAscRise && !isDescDrop) {
+          shiftX = isYearly ? -6.0 : -4.0;
+        }
+
+        final badgeWidth = amountPainter.width + (isYearly ? 8.0 : 10.0);
+        final badgeHeight = amountPainter.height + 4.0;
+        final badgeCenterY = pos.dy - 12.0 - (badgeHeight / 2);
+        final clampedCenterX = (pos.dx + shiftX).clamp(
+          horizontalPadding + badgeWidth / 2,
+          size.width - horizontalPadding - badgeWidth / 2,
         );
+
+        final badgeRect = RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(clampedCenterX, badgeCenterY),
+            width: badgeWidth,
+            height: badgeHeight,
+          ),
+          const Radius.circular(5),
+        );
+
+        // 은은한 그림자 + 깔끔한 화이트 배경 (파란 곡선이 텍스트를 관통하지 못하도록 완벽 차단)
+        final shadowPaint = Paint()
+          ..color = const Color(0x0C000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
+        canvas.drawRRect(badgeRect.shift(const Offset(0, 1)), shadowPaint);
+
+        final bgPaint = Paint()..color = Colors.white;
+        canvas.drawRRect(badgeRect, bgPaint);
+
+        final borderPaint = Paint()
+          ..color = const Color(0xFFE2E8F0)
+          ..strokeWidth = 1.0
+          ..style = PaintingStyle.stroke;
+        canvas.drawRRect(badgeRect, borderPaint);
 
         amountPainter.paint(
           canvas,
-          Offset(clampedX, pos.dy - 10.0 - amountPainter.height),
+          Offset(
+            clampedCenterX - amountPainter.width / 2,
+            badgeCenterY - amountPainter.height / 2,
+          ),
+        );
+      } else if (!isYearly) {
+        // 주차별 0원 텍스트 (올해 탭 0원은 베이스라인 점으로만 깔끔하게 유지)
+        final zeroPainter = TextPainter(
+          text: const TextSpan(
+            text: '0',
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: Color(0xFF94A3B8),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+
+        final clampedX = (pos.dx - zeroPainter.width / 2).clamp(
+          horizontalPadding / 2,
+          size.width - horizontalPadding / 2 - zeroPainter.width,
+        );
+
+        zeroPainter.paint(
+          canvas,
+          Offset(clampedX, pos.dy - 10.0 - zeroPainter.height),
         );
       }
 

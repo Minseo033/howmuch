@@ -1918,3 +1918,9 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **배포 계획·승인**: 사용자가 P2 수정과 운영 배포를 명시 승인했다. 기준점은 main `b8c89b4`, 배포 전 Render health commit은 `ae86a37`이다. 기능 브랜치/main을 동일 변경분으로 fast-forward하고 Render health의 새 커밋 및 Vercel 공개 파일/라우트 13개를 확인한다. 최근 CI 배포는 Vercel 토큰 거절로 실패했으며 기존 로컬 Vercel 로그인은 유효해 수동 배포로 우회한다. CI 비밀값 생성·교체와 과거 배포 삭제는 시행하지 않는다.
 - **CI 및 Render 트리거 연동 보완**: CI 워크플로에서 `deploy-web` 단계가 만료된 Vercel 토큰으로 실패하여 전체 CI 결과가 실패로 처리되고, 이로 인해 Render의 `After CI Checks Pass` 자동 배포가 트리거되지 않던 현상을 해결하기 위해 `deploy-web` 단계에 `continue-on-error: true`를 부여했다. 이로써 품질 게이트(백엔드/웹/iOS 빌드 및 테스트) 통과 시 Render 자동 배포가 정상 트리거된다.
 - **출시 점검 범위**: 기존 서비스의 버그 수정으로 SEO·분석 계정·DNS 변경은 범위 밖이다. 반응형/입력/권한 회귀는 앱·Chrome 테스트로 확인했다. 운영 확인은 HTTPS·보안 헤더·공개 자산 정합성·백엔드 health/조회·인증 차단에 한정한다. 운영 회원 탈퇴·실제 푸시 발송 같은 파괴적 검증은 하지 않는다. 기존 데이터 스키마/마이그레이션 변경은 없다.
+
+## 5-112. 9/17 절약 리포트 차트 텍스트 겹침 방지 뱃지 및 브라우저 캐시 무효화 배포
+
+- **월별 절약 금액 텍스트-곡선 겹침 방지**: 급격한 하강 구간(예: 8월 1.7만 → 9월 1.5천)에서 하강 곡선이 9월 텍스트를 가로지르는 문제를 해결하기 위해, 비최대 유효 금액 라벨에 흰색 배경 캡슐 뱃지(`Colors.white` + 테두리 `0xFFE2E8F0` + 소프트 섀도)를 적용하고 급경사 반대 방향으로 스마트 수평 오프셋(+6px)을 부여해 파란 곡선이 텍스트를 관통하거나 가독성을 해치지 않도록 개선했다.
+- **브라우저 캐시 고착 방지**: `web/index.html`에 구형 서비스 워커 등록 해제 로직을 추가하고 `vercel.json`에 진입 파일(`index.html`, `flutter_bootstrap.js`, `version.json`) 대상 `no-cache, no-store, must-revalidate` 헤더를 추가했다.
+- **검증 및 배포**: Flutter 310개 단위/위젯 테스트 전체 통과, 웹 릴리스 빌드 성공, Vercel 프로덕션 배포(`dpl_BuWE1G2cvRhCoSNL9JCtzAjKXcFq`) 후 `https://howmuch-zeta.vercel.app` 연결 및 공개 파일/라우트 13종 SHA-256 일치 검증 완료.
