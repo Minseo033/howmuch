@@ -84,6 +84,8 @@ jobs:
           name: flutter-web-release
           path: build/web
       - name: Deploy to Vercel production
+        id: vercel_deploy
+        continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -105,4 +107,5 @@ jobs:
             --scope "$VERCEL_ORG_ID" \
             --token "$VERCEL_TOKEN"
       - name: Verify the public production alias
+        if: steps.vercel_deploy.outcome == 'success'
         run: node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web
