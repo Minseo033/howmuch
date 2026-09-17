@@ -2463,6 +2463,9 @@ public class FirebaseService {
                         .status(status)
                         .imageUrls(imageUrls)
                         .createdAt(createdAt)
+                        .storeName(storeName)
+                        .menu(menu1)
+                        .price(price1)
                         .build();
                 feeds.add(dto);
             }

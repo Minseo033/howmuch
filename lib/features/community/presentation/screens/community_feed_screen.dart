@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -165,15 +164,29 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       final int likes = (data['likes'] as num?)?.toInt() ?? 0;
       final int comments = (data['comments'] as num?)?.toInt() ?? 0;
       final String rawStatus = data['status']?.toString() ?? 'PENDING';
+      final String createdAt = data['createdAt']?.toString() ?? '';
       final imageUrls = data['imageUrls'] is List
           ? data['imageUrls'] as List
           : const [];
-      final String? imageUrl = imageUrls
+      final validUrls = imageUrls
           .map((url) => url.toString())
           .where(
             (url) => url.startsWith('http://') || url.startsWith('https://'),
           )
-          .firstOrNull;
+          .toList();
+      final String? imageUrl = validUrls.firstOrNull;
+      final int imageCount = validUrls.length;
+
+      final rawStore = data['storeName']?.toString().trim() ?? '';
+      final rawMenu = data['menu']?.toString().trim() ?? '';
+      final rawPrice = data['price']?.toString().trim() ?? '';
+
+      final parsed = _parseFeedTitle(
+        title,
+        store: rawStore.isNotEmpty ? rawStore : null,
+        menu: rawMenu.isNotEmpty ? rawMenu : null,
+        price: rawPrice.isNotEmpty ? rawPrice : null,
+      );
 
       final String status = switch (rawStatus.toUpperCase()) {
         'APPROVED' => '승인 완료',
@@ -203,13 +216,18 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         id: id,
         location: loc,
         title: title,
+        storeName: parsed.storeName,
+        menu: parsed.menu,
+        price: parsed.priceFormatted,
         author: author,
+        relativeTime: _formatRelativeTime(createdAt),
         likes: likes,
         comments: comments,
         status: status,
         statusColor: statusColor,
         statusBackground: statusBackground,
         imageUrl: imageUrl,
+        imageCount: imageCount,
         dotColor: dotColor,
         compactStatus: compactStatus,
       );
@@ -303,35 +321,26 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     }
     return RefreshIndicator(
       onRefresh: _fetchFeeds,
-      child: SingleChildScrollView(
+      color: CommunityFeedScreen.blue,
+      child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: items
-              .map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 11.989),
-                  child: _FeedCard(
-                    title: item.title,
-                    author: item.author,
-                    likes: item.likes,
-                    comments: item.comments,
-                    status: item.status,
-                    statusColor: item.statusColor,
-                    statusBackground: item.statusBackground,
-                    imageUrl: item.imageUrl,
-                    dotColor: item.dotColor,
-                    compactStatus: item.compactStatus,
-                    onTap: () async {
-                      await context.push(
-                        '${AppRoutes.communityPostDetail}?id=${item.id}',
-                      );
-                      if (mounted) await _fetchFeeds(silent: true);
-                    },
-                  ),
-                ),
-              )
-              .toList(),
-        ),
+        padding: const EdgeInsets.only(top: 4, bottom: 84),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _FeedCard(
+              item: item,
+              onTap: () async {
+                await context.push(
+                  '${AppRoutes.communityPostDetail}?id=${item.id}',
+                );
+                if (mounted) await _fetchFeeds(silent: true);
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -343,84 +352,80 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     return FigmaMobileCanvas(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF8FAFC),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compactLandscape = constraints.maxHeight < 400;
           final navHeight = compactLandscape ? 0.0 : bottomNavHeight;
           final contentTop = compactLandscape
               ? topOffset + 112
-              : topOffset + 150.64;
-          return SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
-            child: SizedBox(
-              height: math.max(constraints.maxHeight, contentTop + 420),
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: topOffset,
-                    height: HowmuchTopBar.height,
-                    child: _Header(
-                      onBack: () => context.go(AppRoutes.home),
-                      onSearch: () => context.push(
-                        AppRoutes.searchResult,
-                        extra: const {'query': ''},
-                      ),
+              : topOffset + 148.0;
+          return SizedBox(
+            height: constraints.maxHeight,
+            width: constraints.maxWidth,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: topOffset,
+                  height: HowmuchTopBar.height,
+                  child: _Header(
+                    onBack: () => context.go(AppRoutes.home),
+                    onSearch: () => context.push(
+                      AppRoutes.searchResult,
+                      extra: const {'query': ''},
                     ),
                   ),
-                  Positioned(
-                    left: AppSizes.horizontalPadding,
-                    top: topOffset + 60.87,
-                    right: 20,
-                    height: 28,
-                    child: _LocationRow(
-                      location: _locationLabel,
-                      onTap: _loadCurrentLocationLabel,
-                    ),
+                ),
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: topOffset + 58.0,
+                  right: AppSizes.horizontalPadding,
+                  height: 32,
+                  child: _LocationRow(
+                    location: _locationLabel,
+                    onTap: _loadCurrentLocationLabel,
                   ),
-                  Positioned(
-                    left: AppSizes.horizontalPadding,
-                    top: topOffset + 100.85,
-                    right: 20,
-                    height: 33.793,
-                    child: _FilterRow(
-                      selectedIndex: _selectedFilterIndex,
-                      onSelected: (index) =>
-                          setState(() => _selectedFilterIndex = index),
-                    ),
+                ),
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: topOffset + 98.0,
+                  right: AppSizes.horizontalPadding,
+                  height: 34,
+                  child: _FilterRow(
+                    selectedIndex: _selectedFilterIndex,
+                    onSelected: (index) =>
+                        setState(() => _selectedFilterIndex = index),
                   ),
-                  Positioned(
-                    left: AppSizes.horizontalPadding,
-                    top: contentTop,
-                    right: 20,
-                    bottom: navHeight + 85,
-                    child: _buildContent(),
+                ),
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: contentTop,
+                  right: AppSizes.horizontalPadding,
+                  bottom: navHeight,
+                  child: _buildContent(),
+                ),
+                Positioned(
+                  right: 16,
+                  bottom: navHeight + 16,
+                  child: _NewReportButton(
+                    onTap: () => context.push(AppRoutes.reportCreate),
                   ),
-                  Positioned(
-                    left: AppSizes.horizontalPadding,
-                    bottom: navHeight + 16,
-                    right: 20,
-                    height: 54.972,
-                    child: _NewReportButton(
-                      onTap: () => context.push(AppRoutes.reportCreate),
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: navHeight,
-                    child: navHeight == 0
-                        ? const SizedBox.shrink()
-                        : HowmuchBottomNav(
-                            safeBottom: safePadding.bottom,
-                            activeTab: HowmuchBottomTab.explore,
-                          ),
-                  ),
-                ],
-              ),
+                ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: navHeight,
+                  child: navHeight == 0
+                      ? const SizedBox.shrink()
+                      : HowmuchBottomNav(
+                          safeBottom: safePadding.bottom,
+                          activeTab: HowmuchBottomTab.explore,
+                        ),
+                ),
+              ],
             ),
           );
         },
@@ -457,15 +462,15 @@ class _LocationRow extends StatelessWidget {
     return Row(
       children: [
         _LocationChip(location: location, onTap: onTap),
-        const SizedBox(width: AppSizes.smallSpacing),
+        const Spacer(),
         Text(
-          '$location 기준',
-          style: TextStyle(
+          '우리 동네 실시간 절약 제보',
+          style: const TextStyle(
             color: CommunityFeedScreen.muted,
             fontFamily: CommunityFeedScreen.fontFamily,
             fontFamilyFallback: CommunityFeedScreen.fontFallback,
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
             height: 1.5,
           ),
         ),
@@ -492,31 +497,38 @@ class _LocationChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: onTap,
           child: Container(
-            height: 28,
-            padding: const EdgeInsets.only(left: 10, right: 12),
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF4FF),
+              color: const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: const Color(0xFFDBEAFE)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(
-                  Icons.location_on_outlined,
-                  size: 12,
+                  Icons.my_location_rounded,
+                  size: 13,
                   color: CommunityFeedScreen.blue,
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 5),
                 Text(
                   location,
                   style: const TextStyle(
                     color: CommunityFeedScreen.blue,
                     fontFamily: CommunityFeedScreen.fontFamily,
                     fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     height: 1.5,
                   ),
+                ),
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 16,
+                  color: CommunityFeedScreen.blue,
                 ),
               ],
             ),
@@ -581,15 +593,26 @@ class _FilterChip extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: 33.793,
-        padding: EdgeInsets.symmetric(horizontal: AppSizes.horizontalPadding),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: selected ? CommunityFeedScreen.blue : Colors.white,
-          border: selected
-              ? null
-              : Border.all(color: CommunityFeedScreen.border, width: .909),
+          border: Border.all(
+            color: selected ? CommunityFeedScreen.blue : const Color(0xFFE2E8F0),
+            width: 1.0,
+          ),
           borderRadius: BorderRadius.circular(999),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         alignment: Alignment.center,
         child: Text(
@@ -598,7 +621,7 @@ class _FilterChip extends StatelessWidget {
             color: selected ? Colors.white : const Color(0xFF475569),
             fontFamily: CommunityFeedScreen.fontFamily,
             fontFamilyFallback: CommunityFeedScreen.fontFallback,
-            fontSize: 12,
+            fontSize: 12.5,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             height: 1.5,
           ),
@@ -610,149 +633,367 @@ class _FilterChip extends StatelessWidget {
 
 class _FeedCard extends StatelessWidget {
   const _FeedCard({
-    required this.title,
-    required this.author,
-    required this.likes,
-    required this.comments,
-    required this.status,
-    required this.statusColor,
-    required this.statusBackground,
-    required this.imageUrl,
-    this.dotColor,
-    this.compactStatus = false,
+    required this.item,
     required this.onTap,
   });
 
-  final String title;
-  final String author;
-  final int likes;
-  final int comments;
-  final String status;
-  final Color statusColor;
-  final Color statusBackground;
-  final String? imageUrl;
-  final Color? dotColor;
-  final bool compactStatus;
+  final _FeedItem item;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    const height = 93.807;
-    final imageHeight = height - 1.818;
+    final hasImage = item.imageUrl != null;
 
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: CommunityFeedScreen.border, width: .909),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 91.989,
-              height: imageHeight,
-              color: CommunityFeedScreen.commentSurface,
-              child: imageUrl == null
-                  ? const _FeedImageFallback()
-                  : Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const _FeedImageFallback(),
-                    ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 11.989,
-                  top: 11.989,
-                  right: 11.8,
-                ),
-                child: SizedBox(
-                  height: height - 24,
-                  child: Stack(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 좌측: 본문 정보
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        right: 0,
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: CommunityFeedScreen.ink,
-                            fontFamily: CommunityFeedScreen.fontFamily,
-                            fontFamilyFallback:
-                                CommunityFeedScreen.fontFallback,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            height: 1.4,
+                      // 1. 태그 행 (위치 칩 + 상태 뱃지)
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.place_rounded,
+                                  size: 11,
+                                  color: Color(0xFF64748B),
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  item.location,
+                                  style: const TextStyle(
+                                    fontFamily: CommunityFeedScreen.fontFamily,
+                                    fontFamilyFallback:
+                                        CommunityFeedScreen.fontFallback,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          if (item.status == '가격 변동') ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF7ED),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFFFFEDD5),
+                                ),
+                              ),
+                              child: const Text(
+                                '가격 변동',
+                                style: TextStyle(
+                                  fontFamily: CommunityFeedScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      CommunityFeedScreen.fontFallback,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFEA580C),
+                                ),
+                              ),
+                            ),
+                          ] else if (item.status == '검토 중') ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEFCE8),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFFFEF08A),
+                                ),
+                              ),
+                              child: const Text(
+                                '검토 중',
+                                style: TextStyle(
+                                  fontFamily: CommunityFeedScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      CommunityFeedScreen.fontFallback,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFCA8A04),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // 2. 상호명 (볼드 타이틀)
+                      Text(
+                        item.storeName.isNotEmpty ? item.storeName : item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: CommunityFeedScreen.fontFamily,
+                          fontFamilyFallback:
+                              CommunityFeedScreen.fontFallback,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                          letterSpacing: -0.3,
+                          height: 1.3,
                         ),
                       ),
-                      Positioned(
-                        left: 0,
-                        top: 22.19,
-                        child: Text(
-                          'by $author',
-                          style: const TextStyle(
-                            color: CommunityFeedScreen.muted,
-                            fontFamily: CommunityFeedScreen.fontFamily,
-                            fontFamilyFallback:
-                                CommunityFeedScreen.fontFallback,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 0,
-                        top: 48.92,
-                        child: Row(
+                      const SizedBox(height: 4),
+
+                      // 3. 대표 메뉴 및 가격 (블루 볼드 강조)
+                      if (item.menu.isNotEmpty || item.price.isNotEmpty)
+                        Row(
                           children: [
-                            const Icon(
-                              Icons.thumb_up_alt_outlined,
-                              size: 11,
-                              color: CommunityFeedScreen.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text('$likes', style: _metricStyle),
-                            const SizedBox(width: 11.989),
-                            const Icon(
-                              Icons.chat_bubble_outline_rounded,
-                              size: 11,
-                              color: CommunityFeedScreen.muted,
-                            ),
-                            const SizedBox(width: 4),
-                            Text('$comments', style: _metricStyle),
+                            if (item.menu.isNotEmpty)
+                              Flexible(
+                                child: Text(
+                                  item.menu,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: CommunityFeedScreen.fontFamily,
+                                    fontFamilyFallback:
+                                        CommunityFeedScreen.fontFallback,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                              ),
+                            if (item.menu.isNotEmpty && item.price.isNotEmpty)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6),
+                                child: Text(
+                                  '·',
+                                  style: TextStyle(
+                                    color: Color(0xFFCBD5E1),
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            if (item.price.isNotEmpty)
+                              Text(
+                                item.price,
+                                style: const TextStyle(
+                                  fontFamily: CommunityFeedScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      CommunityFeedScreen.fontFallback,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF2563EB),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
                           ],
                         ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        top: 46.67,
-                        child: _StatusBadge(
-                          label: status,
-                          color: statusColor,
-                          dotColor: dotColor ?? statusColor,
-                          backgroundColor: statusBackground,
-                          compact: compactStatus,
-                          showDot: status != '승인 완료',
-                        ),
+                      const SizedBox(height: 12),
+
+                      // 4. 메타 정보 (작성자, 시간, 반응 카운트)
+                      Row(
+                        children: [
+                          Text(
+                            item.author,
+                            style: const TextStyle(
+                              fontFamily: CommunityFeedScreen.fontFamily,
+                              fontFamilyFallback:
+                                  CommunityFeedScreen.fontFallback,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                          if (item.relativeTime.isNotEmpty) ...[
+                            const SizedBox(width: 5),
+                            const Text(
+                              '·',
+                              style: TextStyle(
+                                color: Color(0xFFCBD5E1),
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              item.relativeTime,
+                              style: const TextStyle(
+                                fontFamily: CommunityFeedScreen.fontFamily,
+                                fontFamilyFallback:
+                                    CommunityFeedScreen.fontFallback,
+                                fontSize: 12,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          // 좋아요
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                item.likes > 0
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 13,
+                                color: item.likes > 0
+                                    ? const Color(0xFFEF4444)
+                                    : const Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${item.likes}',
+                                style: TextStyle(
+                                  fontFamily: CommunityFeedScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      CommunityFeedScreen.fontFallback,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: item.likes > 0
+                                      ? const Color(0xFFEF4444)
+                                      : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 10),
+                          // 댓글
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 13,
+                                color: Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                '${item.comments}',
+                                style: const TextStyle(
+                                  fontFamily: CommunityFeedScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      CommunityFeedScreen.fontFallback,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ),
+
+                // 우측: 사진이 있을 때만 썸네일 노출
+                if (hasImage) ...[
+                  const SizedBox(width: 14),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          item.imageUrl!,
+                          width: 84,
+                          height: 84,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 84,
+                            height: 84,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(
+                              Icons.storefront_rounded,
+                              color: Color(0xFF94A3B8),
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (item.imageCount > 1)
+                        Positioned(
+                          right: 6,
+                          bottom: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.image_rounded,
+                                  size: 10,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 2.5),
+                                Text(
+                                  '${item.imageCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -766,52 +1007,46 @@ class _NewReportButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0x00FFFFFF), Colors.white],
-          stops: [0, .4],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.only(top: 0),
-        child: FilledButton(
-          onPressed: onTap,
-          style: FilledButton.styleFrom(
-            backgroundColor: CommunityFeedScreen.orange,
-            foregroundColor: Colors.white,
-            elevation: 8,
-            shadowColor: const Color(0x4DF97316),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFB923C), Color(0xFFEA580C)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFEA580C).withValues(alpha: 0.35),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '＋',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: CommunityFeedScreen.fontFamily,
-                  fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
-                ),
+              Icon(
+                Icons.edit_note_rounded,
+                color: Colors.white,
+                size: 19,
               ),
               SizedBox(width: 5),
               Text(
-                '새 제보하기',
+                '제보하기',
                 style: TextStyle(
                   color: Colors.white,
                   fontFamily: CommunityFeedScreen.fontFamily,
                   fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  height: 1.5,
+                  letterSpacing: -0.2,
                 ),
               ),
             ],
@@ -822,84 +1057,23 @@ class _NewReportButton extends StatelessWidget {
   }
 }
 
-const _metricStyle = TextStyle(
-  color: CommunityFeedScreen.muted,
-  fontFamily: CommunityFeedScreen.fontFamily,
-  fontFamilyFallback: CommunityFeedScreen.fontFallback,
-  fontSize: 11,
-  fontWeight: FontWeight.w400,
-  height: 1.5,
-);
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({
-    required this.label,
-    required this.color,
-    required this.dotColor,
-    required this.backgroundColor,
-    required this.compact,
-    required this.showDot,
-  });
-
-  final String label;
-  final Color color;
-  final Color dotColor;
-  final Color backgroundColor;
-  final bool compact;
-  final bool showDot;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 21,
-      width: compact ? 60.5 : 70.5,
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (showDot) ...[
-            Container(
-              width: 5,
-              height: 5,
-              decoration: BoxDecoration(
-                color: dotColor,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontFamily: CommunityFeedScreen.fontFamily,
-              fontFamilyFallback: CommunityFeedScreen.fontFallback,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _FeedItem {
   const _FeedItem({
     required this.id,
     required this.location,
     required this.title,
+    required this.storeName,
+    required this.menu,
+    required this.price,
     required this.author,
+    required this.relativeTime,
     required this.likes,
     required this.comments,
     required this.status,
     required this.statusColor,
     required this.statusBackground,
     required this.imageUrl,
+    required this.imageCount,
     this.dotColor,
     this.compactStatus = false,
   });
@@ -907,42 +1081,109 @@ class _FeedItem {
   final String id;
   final String location;
   final String title;
+  final String storeName;
+  final String menu;
+  final String price;
   final String author;
+  final String relativeTime;
   final int likes;
   final int comments;
   final String status;
   final Color statusColor;
   final Color statusBackground;
   final String? imageUrl;
+  final int imageCount;
   final Color? dotColor;
   final bool compactStatus;
 }
 
-class _FeedImageFallback extends StatelessWidget {
-  const _FeedImageFallback();
+String _formatRelativeTime(String isoString) {
+  if (isoString.isEmpty) return '';
+  try {
+    final date = DateTime.parse(isoString).toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return '방금 전';
+    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+    if (diff.inDays < 1) return '${diff.inHours}시간 전';
+    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    return '${date.month}월 ${date.day}일';
+  } catch (_) {
+    return '';
+  }
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.image_not_supported_outlined,
-            color: CommunityFeedScreen.muted,
-            size: 21,
-          ),
-          SizedBox(height: 4),
-          Text(
-            '이미지 없음',
-            style: TextStyle(
-              color: CommunityFeedScreen.muted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
+String _formatNumberComma(int value) {
+  return value.toString().replaceAllMapped(
+    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+    (Match m) => '${m[1]},',
+  );
+}
+
+class _ParsedFeedTitle {
+  final String storeName;
+  final String menu;
+  final String priceFormatted;
+
+  const _ParsedFeedTitle({
+    required this.storeName,
+    required this.menu,
+    required this.priceFormatted,
+  });
+}
+
+_ParsedFeedTitle _parseFeedTitle(
+  String rawTitle, {
+  String? store,
+  String? menu,
+  String? price,
+}) {
+  if (store != null && store.isNotEmpty) {
+    final pNum = int.tryParse(price?.replaceAll(RegExp(r'[^0-9]'), '') ?? '');
+    final formattedPrice = pNum != null
+        ? '${_formatNumberComma(pNum)}원'
+        : (price != null && price.isNotEmpty
+            ? (price.endsWith('원') ? price : '$price원')
+            : '');
+    return _ParsedFeedTitle(
+      storeName: store,
+      menu: menu ?? '',
+      priceFormatted: formattedPrice,
     );
   }
+
+  final tokens = rawTitle
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((t) => t.isNotEmpty)
+      .toList();
+  if (tokens.isEmpty) {
+    return const _ParsedFeedTitle(storeName: '', menu: '', priceFormatted: '');
+  }
+
+  // 맨 끝 토큰이 숫자이면 가격으로 분리
+  String priceStr = '';
+  if (tokens.length >= 2 && RegExp(r'^\d+원?$').hasMatch(tokens.last)) {
+    final rawNumStr = tokens.removeLast().replaceAll('원', '');
+    final numVal = int.tryParse(rawNumStr);
+    if (numVal != null) {
+      priceStr = '${_formatNumberComma(numVal)}원';
+    } else {
+      priceStr = '$rawNumStr원';
+    }
+  }
+
+  if (tokens.isEmpty) {
+    return _ParsedFeedTitle(storeName: rawTitle, menu: '', priceFormatted: priceStr);
+  }
+
+  if (tokens.length == 1) {
+    return _ParsedFeedTitle(storeName: tokens.first, menu: '', priceFormatted: priceStr);
+  }
+
+  return _ParsedFeedTitle(
+    storeName: tokens.first,
+    menu: tokens.sublist(1).join(' '),
+    priceFormatted: priceStr,
+  );
 }

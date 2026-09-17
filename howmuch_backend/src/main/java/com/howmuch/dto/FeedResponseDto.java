@@ -21,4 +21,7 @@ public class FeedResponseDto {
     private String status;
     private List<String> imageUrls;
     private String createdAt;
+    private String storeName;
+    private String menu;
+    private String price;
 }
