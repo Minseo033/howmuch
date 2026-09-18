@@ -600,7 +600,9 @@ class _FilterChip extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? CommunityFeedScreen.blue : Colors.white,
           border: Border.all(
-            color: selected ? CommunityFeedScreen.blue : const Color(0xFFE2E8F0),
+            color: selected
+                ? CommunityFeedScreen.blue
+                : const Color(0xFFE2E8F0),
             width: 1.0,
           ),
           borderRadius: BorderRadius.circular(999),
@@ -632,10 +634,7 @@ class _FilterChip extends StatelessWidget {
 }
 
 class _FeedCard extends StatelessWidget {
-  const _FeedCard({
-    required this.item,
-    required this.onTap,
-  });
+  const _FeedCard({required this.item, required this.onTap});
 
   final _FeedItem item;
   final VoidCallback onTap;
@@ -645,6 +644,7 @@ class _FeedCard extends StatelessWidget {
     final hasImage = item.imageUrl != null;
 
     return Container(
+      key: ValueKey('feed-card-${item.id}'),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -665,332 +665,344 @@ class _FeedCard extends StatelessWidget {
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Stack(
               children: [
-                // 좌측: 본문 정보
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 1. 태그 행 (위치 칩 + 상태 뱃지)
-                      Row(
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 좌측: 본문 정보
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.place_rounded,
-                                  size: 11,
-                                  color: Color(0xFF64748B),
+                          // 1. 태그 행 (위치 칩 + 상태 뱃지)
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3.5,
                                 ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  item.location,
-                                  style: const TextStyle(
-                                    fontFamily: CommunityFeedScreen.fontFamily,
-                                    fontFamilyFallback:
-                                        CommunityFeedScreen.fontFallback,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF64748B),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.place_rounded,
+                                      size: 11,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      item.location,
+                                      style: const TextStyle(
+                                        fontFamily:
+                                            CommunityFeedScreen.fontFamily,
+                                        fontFamilyFallback:
+                                            CommunityFeedScreen.fontFallback,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (item.status == '가격 변동') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFF7ED),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: const Color(0xFFFFEDD5),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    '가격 변동',
+                                    style: TextStyle(
+                                      fontFamily:
+                                          CommunityFeedScreen.fontFamily,
+                                      fontFamilyFallback:
+                                          CommunityFeedScreen.fontFallback,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFEA580C),
+                                    ),
+                                  ),
+                                ),
+                              ] else if (item.status == '검토 중') ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEFCE8),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: const Color(0xFFFEF08A),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    '검토 중',
+                                    style: TextStyle(
+                                      fontFamily:
+                                          CommunityFeedScreen.fontFamily,
+                                      fontFamilyFallback:
+                                          CommunityFeedScreen.fontFallback,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFCA8A04),
+                                    ),
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                          if (item.status == '가격 변동') ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF7ED),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFFFFEDD5),
-                                ),
-                              ),
-                              child: const Text(
-                                '가격 변동',
-                                style: TextStyle(
-                                  fontFamily: CommunityFeedScreen.fontFamily,
-                                  fontFamilyFallback:
-                                      CommunityFeedScreen.fontFallback,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFEA580C),
-                                ),
-                              ),
-                            ),
-                          ] else if (item.status == '검토 중') ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFEFCE8),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: const Color(0xFFFEF08A),
-                                ),
-                              ),
-                              child: const Text(
-                                '검토 중',
-                                style: TextStyle(
-                                  fontFamily: CommunityFeedScreen.fontFamily,
-                                  fontFamilyFallback:
-                                      CommunityFeedScreen.fontFallback,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFCA8A04),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
+                          const SizedBox(height: 8),
 
-                      // 2. 상호명 (볼드 타이틀)
-                      Text(
-                        item.storeName.isNotEmpty ? item.storeName : item.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: CommunityFeedScreen.fontFamily,
-                          fontFamilyFallback:
-                              CommunityFeedScreen.fontFallback,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF0F172A),
-                          letterSpacing: -0.3,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-
-                      // 3. 대표 메뉴 및 가격 (블루 볼드 강조)
-                      if (item.menu.isNotEmpty || item.price.isNotEmpty)
-                        Row(
-                          children: [
-                            if (item.menu.isNotEmpty)
-                              Flexible(
-                                child: Text(
-                                  item.menu,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontFamily: CommunityFeedScreen.fontFamily,
-                                    fontFamilyFallback:
-                                        CommunityFeedScreen.fontFallback,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                              ),
-                            if (item.menu.isNotEmpty && item.price.isNotEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 6),
-                                child: Text(
-                                  '·',
-                                  style: TextStyle(
-                                    color: Color(0xFFCBD5E1),
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            if (item.price.isNotEmpty)
-                              Text(
-                                item.price,
-                                style: const TextStyle(
-                                  fontFamily: CommunityFeedScreen.fontFamily,
-                                  fontFamilyFallback:
-                                      CommunityFeedScreen.fontFallback,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF2563EB),
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
-                          ],
-                        ),
-                      const SizedBox(height: 12),
-
-                      // 4. 메타 정보 (작성자, 시간, 반응 카운트)
-                      Row(
-                        children: [
+                          // 2. 상호명 (볼드 타이틀)
                           Text(
-                            item.author,
+                            item.storeName.isNotEmpty
+                                ? item.storeName
+                                : item.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontFamily: CommunityFeedScreen.fontFamily,
                               fontFamilyFallback:
                                   CommunityFeedScreen.fontFallback,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF64748B),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                              letterSpacing: -0.3,
+                              height: 1.3,
                             ),
                           ),
-                          if (item.relativeTime.isNotEmpty) ...[
-                            const SizedBox(width: 5),
-                            const Text(
-                              '·',
-                              style: TextStyle(
-                                color: Color(0xFFCBD5E1),
-                                fontSize: 12,
-                              ),
+                          const SizedBox(height: 4),
+
+                          // 3. 대표 메뉴 및 가격 (블루 볼드 강조)
+                          if (item.menu.isNotEmpty || item.price.isNotEmpty)
+                            Row(
+                              children: [
+                                if (item.menu.isNotEmpty)
+                                  Flexible(
+                                    child: Text(
+                                      item.menu,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontFamily:
+                                            CommunityFeedScreen.fontFamily,
+                                        fontFamilyFallback:
+                                            CommunityFeedScreen.fontFallback,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        color: Color(0xFF475569),
+                                      ),
+                                    ),
+                                  ),
+                                if (item.menu.isNotEmpty &&
+                                    item.price.isNotEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                    ),
+                                    child: Text(
+                                      '·',
+                                      style: TextStyle(
+                                        color: Color(0xFFCBD5E1),
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                if (item.price.isNotEmpty)
+                                  Text(
+                                    item.price,
+                                    style: const TextStyle(
+                                      fontFamily:
+                                          CommunityFeedScreen.fontFamily,
+                                      fontFamilyFallback:
+                                          CommunityFeedScreen.fontFallback,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF2563EB),
+                                      letterSpacing: -0.2,
+                                    ),
+                                  ),
+                              ],
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              item.relativeTime,
-                              style: const TextStyle(
-                                fontFamily: CommunityFeedScreen.fontFamily,
-                                fontFamilyFallback:
-                                    CommunityFeedScreen.fontFallback,
-                                fontSize: 12,
-                                color: Color(0xFF94A3B8),
-                              ),
-                            ),
-                          ],
-                          const Spacer(),
-                          // 좋아요
+                          const SizedBox(height: 12),
+
+                          // 4. 메타 정보 (작성자, 시간, 반응 카운트)
                           Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                item.likes > 0
-                                    ? Icons.favorite_rounded
-                                    : Icons.favorite_border_rounded,
-                                size: 13,
-                                color: item.likes > 0
-                                    ? const Color(0xFFEF4444)
-                                    : const Color(0xFF94A3B8),
-                              ),
-                              const SizedBox(width: 3),
                               Text(
-                                '${item.likes}',
-                                style: TextStyle(
-                                  fontFamily: CommunityFeedScreen.fontFamily,
-                                  fontFamilyFallback:
-                                      CommunityFeedScreen.fontFallback,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: item.likes > 0
-                                      ? const Color(0xFFEF4444)
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 10),
-                          // 댓글
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Icons.chat_bubble_outline_rounded,
-                                size: 13,
-                                color: Color(0xFF94A3B8),
-                              ),
-                              const SizedBox(width: 3),
-                              Text(
-                                '${item.comments}',
+                                item.author,
                                 style: const TextStyle(
                                   fontFamily: CommunityFeedScreen.fontFamily,
                                   fontFamilyFallback:
                                       CommunityFeedScreen.fontFallback,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                   color: Color(0xFF64748B),
                                 ),
                               ),
+                              if (item.relativeTime.isNotEmpty) ...[
+                                const SizedBox(width: 5),
+                                const Text(
+                                  '·',
+                                  style: TextStyle(
+                                    color: Color(0xFFCBD5E1),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  item.relativeTime,
+                                  style: const TextStyle(
+                                    fontFamily: CommunityFeedScreen.fontFamily,
+                                    fontFamilyFallback:
+                                        CommunityFeedScreen.fontFallback,
+                                    fontSize: 12,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              // 우측 하단 반응 카운트가 들어갈 공간을 항상 확보한다.
+                              const SizedBox(width: 76),
                             ],
                           ),
                         ],
                       ),
+                    ),
+
+                    // 우측: 사진이 있을 때만 썸네일 노출
+                    if (hasImage) ...[
+                      const SizedBox(width: 14),
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(
+                              item.imageUrl!,
+                              width: 84,
+                              height: 84,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                width: 84,
+                                height: 84,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.storefront_rounded,
+                                  color: Color(0xFF94A3B8),
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (item.imageCount > 1)
+                            Positioned(
+                              right: 6,
+                              bottom: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.image_rounded,
+                                      size: 10,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 2.5),
+                                    Text(
+                                      '${item.imageCount}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+                Positioned(
+                  key: ValueKey('feed-reactions-${item.id}'),
+                  right: 0,
+                  bottom: 0,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        item.likes > 0
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        size: 13,
+                        color: item.likes > 0
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${item.likes}',
+                        style: TextStyle(
+                          fontFamily: CommunityFeedScreen.fontFamily,
+                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: item.likes > 0
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 13,
+                        color: Color(0xFF94A3B8),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        '${item.comments}',
+                        style: const TextStyle(
+                          fontFamily: CommunityFeedScreen.fontFamily,
+                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-
-                // 우측: 사진이 있을 때만 썸네일 노출
-                if (hasImage) ...[
-                  const SizedBox(width: 14),
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.network(
-                          item.imageUrl!,
-                          width: 84,
-                          height: 84,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            width: 84,
-                            height: 84,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: const Icon(
-                              Icons.storefront_rounded,
-                              color: Color(0xFF94A3B8),
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (item.imageCount > 1)
-                        Positioned(
-                          right: 6,
-                          bottom: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.65),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.image_rounded,
-                                  size: 10,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(width: 2.5),
-                                Text(
-                                  '${item.imageCount}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
               ],
             ),
           ),
@@ -1032,11 +1044,7 @@ class _NewReportButton extends StatelessWidget {
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.edit_note_rounded,
-                color: Colors.white,
-                size: 19,
-              ),
+              Icon(Icons.edit_note_rounded, color: Colors.white, size: 19),
               SizedBox(width: 5),
               Text(
                 '제보하기',
@@ -1143,8 +1151,8 @@ _ParsedFeedTitle _parseFeedTitle(
     final formattedPrice = pNum != null
         ? '${_formatNumberComma(pNum)}원'
         : (price != null && price.isNotEmpty
-            ? (price.endsWith('원') ? price : '$price원')
-            : '');
+              ? (price.endsWith('원') ? price : '$price원')
+              : '');
     return _ParsedFeedTitle(
       storeName: store,
       menu: menu ?? '',
@@ -1174,11 +1182,19 @@ _ParsedFeedTitle _parseFeedTitle(
   }
 
   if (tokens.isEmpty) {
-    return _ParsedFeedTitle(storeName: rawTitle, menu: '', priceFormatted: priceStr);
+    return _ParsedFeedTitle(
+      storeName: rawTitle,
+      menu: '',
+      priceFormatted: priceStr,
+    );
   }
 
   if (tokens.length == 1) {
-    return _ParsedFeedTitle(storeName: tokens.first, menu: '', priceFormatted: priceStr);
+    return _ParsedFeedTitle(
+      storeName: tokens.first,
+      menu: '',
+      priceFormatted: priceStr,
+    );
   }
 
   return _ParsedFeedTitle(
