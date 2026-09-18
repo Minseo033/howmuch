@@ -45,7 +45,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   Future<void> _saveProfile() async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
-    await (_identityRefresh ??= ref
+    final refreshedIdentity = await (_identityRefresh ??= ref
         .read(kakaoLoginServiceProvider)
         .refreshKakaoIdentity());
     if (!mounted) return;
@@ -59,6 +59,11 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
           '',
       region: profile.region,
       favoriteCategories: profile.favoriteCategories,
+      profileImageUrl: refreshedIdentity.profileImageUrl.isNotEmpty
+          ? refreshedIdentity.profileImageUrl
+          : (profile.profileImageUrl.isNotEmpty
+                ? profile.profileImageUrl
+                : auth.profileImageUrl),
     );
     if (!mounted) return;
     if (!saved) {

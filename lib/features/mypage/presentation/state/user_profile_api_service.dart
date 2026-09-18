@@ -81,6 +81,7 @@ class UserProfileApiService {
     required String email,
     required String region,
     required List<String> favoriteCategories,
+    String? profileImageUrl,
     bool? nicknamePublic,
     bool? activityPublic,
   }) async {
@@ -92,6 +93,10 @@ class UserProfileApiService {
         'region': region,
         'favoriteCategories': favoriteCategories,
       };
+      final normalizedProfileImageUrl = profileImageUrl?.trim() ?? '';
+      if (normalizedProfileImageUrl.isNotEmpty) {
+        body['profileImageUrl'] = normalizedProfileImageUrl;
+      }
       if (nicknamePublic != null) body['nicknamePublic'] = nicknamePublic;
       if (activityPublic != null) body['activityPublic'] = activityPublic;
       final headers = ApiClient.jsonHeaders(auth: true);

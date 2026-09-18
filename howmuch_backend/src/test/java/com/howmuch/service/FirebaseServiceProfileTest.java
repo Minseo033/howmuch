@@ -22,4 +22,16 @@ class FirebaseServiceProfileTest {
                 "new@example.com",
                 FirebaseService.resolveProfileEmail(" new@example.com ", "saved@example.com"));
     }
+
+    @Test
+    void preservesOrUpdatesProfileImageUrl() {
+        assertEquals(
+                "https://saved.example/profile.jpg",
+                FirebaseService.resolveProfileImageUrl("", " https://saved.example/profile.jpg "));
+        assertEquals(
+                "https://new.example/profile.jpg",
+                FirebaseService.resolveProfileImageUrl(
+                        " https://new.example/profile.jpg ",
+                        "https://saved.example/profile.jpg"));
+    }
 }

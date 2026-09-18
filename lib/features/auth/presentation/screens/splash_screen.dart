@@ -113,6 +113,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         return;
       }
 
+      if (profileImageUrl.isNotEmpty &&
+          profile['profileImageUrl']?.toString() != profileImageUrl) {
+        final rawCategories = profile['favoriteCategories'];
+        final categories = rawCategories is List
+            ? rawCategories.map((category) => category.toString()).toList()
+            : <String>[];
+        await UserProfileApiService().saveProfile(
+          nickname: profile['nickname']?.toString() ?? '',
+          email: usableAccountEmail(profile['email']) ?? kakaoEmail,
+          region: profile['region']?.toString() ?? '',
+          favoriteCategories: categories,
+          profileImageUrl: profileImageUrl,
+          nicknamePublic: profile['nicknamePublic'] as bool?,
+          activityPublic: profile['activityPublic'] as bool?,
+        );
+      }
+
       _applyAuthenticatedProfile(
         profile,
         profileImageUrl: profileImageUrl,

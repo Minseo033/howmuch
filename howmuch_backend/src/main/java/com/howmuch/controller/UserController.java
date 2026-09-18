@@ -70,13 +70,22 @@ public class UserController {
         String nickname = request.getNickname().trim();
         String email = request.getEmail() == null ? "" : request.getEmail().trim();
         String region = request.getRegion() == null ? "" : request.getRegion().trim();
-        if (nickname.length() > 50 || email.length() > 254 || region.length() > 100) {
+        String profileImageUrl = request.getProfileImageUrl() == null
+                ? ""
+                : request.getProfileImageUrl().trim();
+        if (nickname.length() > 50 || email.length() > 254 || region.length() > 100
+                || profileImageUrl.length() > 2048) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "프로필 입력값이 허용 길이를 초과했습니다."));
         }
         if (!email.isEmpty() && !EMAIL_PATTERN.matcher(email).matches()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "이메일 형식을 확인해주세요."));
+        }
+        if (!profileImageUrl.isEmpty()
+                && !(profileImageUrl.startsWith("https://") || profileImageUrl.startsWith("http://"))) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "프로필 사진 주소 형식을 확인해주세요."));
         }
         List<String> categories = request.getFavoriteCategories() == null
                 ? List.of()
@@ -92,6 +101,7 @@ public class UserController {
         request.setNickname(nickname);
         request.setEmail(email);
         request.setRegion(region);
+        request.setProfileImageUrl(profileImageUrl);
         request.setFavoriteCategories(categories);
         return null;
     }

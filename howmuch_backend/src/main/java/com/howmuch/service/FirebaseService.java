@@ -1877,6 +1877,9 @@ public class FirebaseService {
                 : existingActivityPublic != null && existingActivityPublic;
         String resolvedEmail = resolveProfileEmail(
                 request.getEmail(), existing.exists() ? existing.get("email") : null);
+        String resolvedProfileImageUrl = resolveProfileImageUrl(
+                request.getProfileImageUrl(),
+                existing.exists() ? existing.get("profileImageUrl") : null);
 
         Map<String, Object> data = new HashMap<>();
         data.put("firebaseUid", firebaseUid);
@@ -1886,6 +1889,9 @@ public class FirebaseService {
         data.put("favoriteCategories", request.getFavoriteCategories());
         data.put("nicknamePublic", nicknamePublic);
         data.put("activityPublic", activityPublic);
+        if (!resolvedProfileImageUrl.isBlank()) {
+            data.put("profileImageUrl", resolvedProfileImageUrl);
+        }
         data.put("updatedAt", java.time.Instant.now().toString());
 
         String createdAt = existing.exists() && existing.get("createdAt") != null
@@ -1905,6 +1911,7 @@ public class FirebaseService {
                 .createdAt(createdAt)
                 .nicknamePublic((Boolean) data.get("nicknamePublic"))
                 .activityPublic((Boolean) data.get("activityPublic"))
+                .profileImageUrl(resolvedProfileImageUrl)
                 .build();
     }
 
@@ -1952,6 +1959,12 @@ public class FirebaseService {
     static String resolveProfileEmail(String requestedEmail, Object existingEmailValue) {
         String requested = requestedEmail == null ? "" : requestedEmail.trim();
         String existing = existingEmailValue == null ? "" : existingEmailValue.toString().trim();
+        return requested.isBlank() && !existing.isBlank() ? existing : requested;
+    }
+
+    static String resolveProfileImageUrl(String requestedImageUrl, Object existingImageValue) {
+        String requested = requestedImageUrl == null ? "" : requestedImageUrl.trim();
+        String existing = existingImageValue == null ? "" : existingImageValue.toString().trim();
         return requested.isBlank() && !existing.isBlank() ? existing : requested;
     }
 
@@ -3217,9 +3230,11 @@ public class FirebaseService {
         docRef.set(data).get();
         syncFeedCounts(postId);
         notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, false);
+        AuthorSnapshot authorInfo = resolveAuthorSnapshot(requesterUid);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
-                .author(resolveAuthor(requesterUid))
+                .author(authorInfo.nickname())
+                .authorProfileImageUrl(authorInfo.profileImageUrl())
                 .content(content)
                 .createdAt(createdAt)
                 .isMine(true)
@@ -3282,9 +3297,11 @@ public class FirebaseService {
         if (postId != null) syncFeedCounts(postId);
         notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, true);
 
+        AuthorSnapshot authorInfo = resolveAuthorSnapshot(requesterUid);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
-                .author(resolveAuthor(requesterUid))
+                .author(authorInfo.nickname())
+                .authorProfileImageUrl(authorInfo.profileImageUrl())
                 .content(content)
                 .createdAt(createdAt)
                 .isMine(true)

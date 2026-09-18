@@ -93,6 +93,15 @@ class KakaoLoginService {
                   profileImageUrl: profileImageUrl,
                 ),
               );
+          await profileService.saveProfile(
+            nickname: profile['nickname'] as String? ?? '',
+            email: usableAccountEmail(profile['email']) ?? email,
+            region: profile['region'] as String? ?? '',
+            favoriteCategories: parsedCategories ?? const [],
+            profileImageUrl: profileImageUrl,
+            nicknamePublic: profile['nicknamePublic'] as bool?,
+            activityPublic: profile['activityPublic'] as bool?,
+          );
           _ref.read(appRouterProvider).go(AppRoutes.home);
         } else {
           // 신규 사용자: 프로필 설정 화면으로 이동
@@ -161,6 +170,9 @@ class KakaoLoginService {
             email: validEmail,
             region: profile.region,
             favoriteCategories: profile.favoriteCategories,
+            profileImageUrl: identity.profileImageUrl.isNotEmpty
+                ? identity.profileImageUrl
+                : profile.profileImageUrl,
             nicknamePublic: profile.nicknamePublic,
             activityPublic: profile.activityPublic,
           ),
@@ -227,10 +239,7 @@ class KakaoLoginService {
     return (email: email, profileImageUrl: profileImageUrl);
   }
 
-  Future<void> _cacheKakaoIdentity(
-    String email,
-    String profileImageUrl,
-  ) async {
+  Future<void> _cacheKakaoIdentity(String email, String profileImageUrl) async {
     final prefs = await SharedPreferences.getInstance();
     if (email.isNotEmpty) {
       await prefs.setString(kakaoEmailPreferenceKey, email);
@@ -240,14 +249,10 @@ class KakaoLoginService {
     }
   }
 
-  Future<({
-    String uid,
-    String sessionToken,
-    String email,
-    String profileImageUrl,
-  })?> _authenticateWithBackend(
-    String accessToken,
-  ) async {
+  Future<
+    ({String uid, String sessionToken, String email, String profileImageUrl})?
+  >
+  _authenticateWithBackend(String accessToken) async {
     final url = ApiClient.uri('/api/auth/kakao');
 
     try {

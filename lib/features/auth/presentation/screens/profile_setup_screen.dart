@@ -231,6 +231,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         email: email,
         region: _regionController.text.trim(),
         favoriteCategories: _selectedCategories.toList(),
+        profileImageUrl: authState.profileImageUrl,
       );
 
       ref

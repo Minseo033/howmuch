@@ -7,6 +7,7 @@ void main() {
       final comment = CommunityComment.fromJson({
         'id': 'comment-1',
         'author': '민서',
+        'authorProfileImageUrl': 'https://k.kakaocdn.net/profile.jpg',
         'content': '좋은 정보예요',
         'createdAt': '2026-08-11T10:00:00Z',
         'isMine': true,
@@ -16,6 +17,10 @@ void main() {
       expect(comment.id, 'comment-1');
       expect(comment.author, '민서');
       expect(comment.content, '좋은 정보예요');
+      expect(
+        comment.authorProfileImageUrl,
+        'https://k.kakaocdn.net/profile.jpg',
+      );
       expect(comment.isMine, isTrue);
       expect(comment.replyCount, 2);
       expect(comment.replies, isEmpty);

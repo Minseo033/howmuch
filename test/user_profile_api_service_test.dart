@@ -49,10 +49,12 @@ void main() {
       email: 'test@example.com',
       region: '서울',
       favoriteCategories: const ['한식'],
+      profileImageUrl: ' https://k.kakaocdn.net/profile.jpg ',
     );
 
     expect(saved, isTrue);
     expect(body, isNot(contains('nicknamePublic')));
     expect(body, isNot(contains('activityPublic')));
+    expect(body['profileImageUrl'], 'https://k.kakaocdn.net/profile.jpg');
   });
 }

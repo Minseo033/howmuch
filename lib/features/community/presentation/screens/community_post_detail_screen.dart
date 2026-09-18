@@ -1,11 +1,12 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/community_service.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
@@ -19,7 +20,7 @@ List<String> communityPostImageUrls(Object? raw) {
       .toList(growable: false);
 }
 
-class CommunityPostDetailScreen extends StatefulWidget {
+class CommunityPostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
   const CommunityPostDetailScreen({super.key, this.postId = ''});
 
@@ -46,16 +47,15 @@ class CommunityPostDetailScreen extends StatefulWidget {
   ];
 
   @override
-  State<CommunityPostDetailScreen> createState() =>
+  ConsumerState<CommunityPostDetailScreen> createState() =>
       _CommunityPostDetailScreenState();
 }
 
-class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
+class _CommunityPostDetailScreenState
+    extends ConsumerState<CommunityPostDetailScreen>
     with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final CommunityService _service = const CommunityService();
-  String _cachedMyProfileImageUrl = '';
-  String _cachedMyNickname = '';
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -77,22 +77,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_loadCachedUserIdentity());
     _fetchDetail();
-  }
-
-  Future<void> _loadCachedUserIdentity() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final img = prefs.getString('kakao_profile_image_url') ?? '';
-      final nick = prefs.getString('user_nickname') ?? '';
-      if (mounted) {
-        setState(() {
-          _cachedMyProfileImageUrl = img;
-          _cachedMyNickname = nick;
-        });
-      }
-    } catch (_) {}
   }
 
   @override
@@ -316,7 +301,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
     }
   }
 
-  Widget _buildCommentSection() {
+  Widget _buildCommentSection({
+    required String myProfileImageUrl,
+    required String myNickname,
+  }) {
     final count = _commentCount;
 
     return Column(
@@ -358,8 +346,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
                 repliesExpanded: _expandedReplyIds.contains(comment.id),
                 repliesLoading: _replyLoadingIds.contains(comment.id),
                 onToggleReplies: () => _toggleReplies(comment),
-                myProfileImageUrl: _cachedMyProfileImageUrl,
-                myNickname: _cachedMyNickname,
+                myProfileImageUrl: myProfileImageUrl,
+                myNickname: myNickname,
               ),
             ),
           ),
@@ -457,6 +445,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
 
   @override
   Widget build(BuildContext context) {
+    final profile = ref.watch(userProfileProvider);
+    final auth = ref.watch(authStateProvider);
+    final myProfileImageUrl = profile.profileImageUrl.isNotEmpty
+        ? profile.profileImageUrl
+        : auth.profileImageUrl;
+    final myNickname = profile.nickname;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
@@ -575,11 +569,14 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
                             notificationInFlight: _notificationInFlight,
                             onLikeTap: _toggleLike,
                             onNotifyTap: _toggleNotification,
-                            myProfileImageUrl: _cachedMyProfileImageUrl,
-                            myNickname: _cachedMyNickname,
+                            myProfileImageUrl: myProfileImageUrl,
+                            myNickname: myNickname,
                           ),
                           const SizedBox(height: 14.66),
-                          _buildCommentSection(),
+                          _buildCommentSection(
+                            myProfileImageUrl: myProfileImageUrl,
+                            myNickname: myNickname,
+                          ),
                         ],
                       ),
                     ),
@@ -812,12 +809,19 @@ class _PostCard extends StatelessWidget {
     final String rawStatus = postData!['status']?.toString() ?? 'PENDING';
     final int likes = (postData!['likes'] as num?)?.toInt() ?? 0;
     final int comments = (postData!['comments'] as num?)?.toInt() ?? 0;
-    final String? serverAuthorImg = postData!['authorProfileImageUrl']?.toString() ?? postData!['profileImageUrl']?.toString();
-    final String? authorProfileImageUrl = (serverAuthorImg != null && serverAuthorImg.isNotEmpty)
+    final String? serverAuthorImg =
+        postData!['authorProfileImageUrl']?.toString() ??
+        postData!['profileImageUrl']?.toString();
+    final String? authorProfileImageUrl =
+        (serverAuthorImg != null && serverAuthorImg.isNotEmpty)
         ? serverAuthorImg
-        : ((myNickname != null && myNickname!.isNotEmpty && author == myNickname && myProfileImageUrl != null && myProfileImageUrl!.isNotEmpty)
-            ? myProfileImageUrl
-            : null);
+        : ((myNickname != null &&
+                  myNickname!.isNotEmpty &&
+                  author == myNickname &&
+                  myProfileImageUrl != null &&
+                  myProfileImageUrl!.isNotEmpty)
+              ? myProfileImageUrl
+              : null);
 
     final String storeName = postData!['storeName']?.toString() ?? '';
     final String address = postData!['address']?.toString() ?? '';
@@ -846,7 +850,11 @@ class _PostCard extends StatelessWidget {
     String displaySubhead = '';
 
     if (displayStoreTitle.isEmpty) {
-      final tokens = title.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
+      final tokens = title
+          .trim()
+          .split(RegExp(r'\s+'))
+          .where((t) => t.isNotEmpty)
+          .toList();
       if (tokens.isNotEmpty) {
         if (tokens.length >= 2 && RegExp(r'^\d+원?$').hasMatch(tokens.last)) {
           tokens.removeLast();
@@ -873,10 +881,7 @@ class _PostCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0xFFF1F5F9),
-          width: 1.0,
-        ),
+        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1279,17 +1284,16 @@ class _PostImageGalleryState extends State<_PostImageGallery> {
                       widget.imageUrls[index],
                       fit: BoxFit.contain,
                       semanticLabel: '게시글 사진 ${index + 1} / $count',
-                      errorBuilder: (context, error, stackTrace) =>
-                          Container(
-                            color: const Color(0xFFF1F5F9),
-                            child: const Center(
-                              child: Icon(
-                                Icons.broken_image_outlined,
-                                color: Color(0xFF94A3B8),
-                                size: 28,
-                              ),
-                            ),
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        color: const Color(0xFFF1F5F9),
+                        child: const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Color(0xFF94A3B8),
+                            size: 28,
                           ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -1423,7 +1427,10 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
             child: Align(
               alignment: Alignment.topCenter,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1594,7 +1601,9 @@ String _formatDetailRelativeDate(String rawDate) {
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return '${parsed.year}.${parsed.month.toString().padLeft(2, '0')}.${parsed.day.toString().padLeft(2, '0')}';
   } catch (_) {
-    return rawDate.length >= 10 ? rawDate.substring(0, 10).replaceAll('-', '.') : rawDate;
+    return rawDate.length >= 10
+        ? rawDate.substring(0, 10).replaceAll('-', '.')
+        : rawDate;
   }
 }
 
@@ -1674,11 +1683,16 @@ class _CommentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? commentImg = (comment.authorProfileImageUrl != null && comment.authorProfileImageUrl!.isNotEmpty)
+    final String? commentImg =
+        (comment.authorProfileImageUrl != null &&
+            comment.authorProfileImageUrl!.isNotEmpty)
         ? comment.authorProfileImageUrl
-        : ((comment.isMine || (myNickname != null && myNickname!.isNotEmpty && comment.author == myNickname))
-            ? myProfileImageUrl
-            : null);
+        : ((comment.isMine ||
+                  (myNickname != null &&
+                      myNickname!.isNotEmpty &&
+                      comment.author == myNickname))
+              ? myProfileImageUrl
+              : null);
 
     return Container(
       width: double.infinity,
@@ -1845,11 +1859,16 @@ class _ReplyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String? replyImg = (reply.authorProfileImageUrl != null && reply.authorProfileImageUrl!.isNotEmpty)
+    final String? replyImg =
+        (reply.authorProfileImageUrl != null &&
+            reply.authorProfileImageUrl!.isNotEmpty)
         ? reply.authorProfileImageUrl
-        : ((reply.isMine || (myNickname != null && myNickname!.isNotEmpty && reply.author == myNickname))
-            ? myProfileImageUrl
-            : null);
+        : ((reply.isMine ||
+                  (myNickname != null &&
+                      myNickname!.isNotEmpty &&
+                      reply.author == myNickname))
+              ? myProfileImageUrl
+              : null);
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1966,7 +1985,9 @@ String _formatCommentDate(String value) {
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return '${parsed.year}.${parsed.month.toString().padLeft(2, '0')}.${parsed.day.toString().padLeft(2, '0')}';
   } catch (_) {
-    return value.length >= 10 ? value.substring(0, 10).replaceAll('-', '.') : value;
+    return value.length >= 10
+        ? value.substring(0, 10).replaceAll('-', '.')
+        : value;
   }
 }
 
@@ -1989,7 +2010,8 @@ class _AvatarBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null &&
+    final hasImage =
+        imageUrl != null &&
         imageUrl!.isNotEmpty &&
         (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://'));
 
@@ -2006,6 +2028,7 @@ class _AvatarBadge extends StatelessWidget {
         child: Image.network(
           imageUrl!,
           fit: BoxFit.cover,
+          webHtmlElementStrategy: WebHtmlElementStrategy.prefer,
           errorBuilder: (_, _, _) => Center(
             child: Text(
               label,
