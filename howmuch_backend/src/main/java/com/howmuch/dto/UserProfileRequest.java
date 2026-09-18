@@ -18,4 +18,5 @@ public class UserProfileRequest {
     private List<String> favoriteCategories;
     private Boolean nicknamePublic;
     private Boolean activityPublic;
+    private String profileImageUrl;
 }

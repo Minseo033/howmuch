@@ -1978,6 +1978,24 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
      - `FeedResponseDto` 및 `FirebaseService`에 `storeName`, `menu`, `price` 필드를 추가하여 클라이언트가 원본 데이터를 구조화된 상태로 직접 수신할 수 있도록 연동했다.
 - **검증 및 배포**: 백엔드 Gradle 테스트 전원 통과, Flutter 반응형 4개 뷰포트 테스트 통과, Dart 정적 분석 0 결함, Vercel 프로덕션 배포(`dpl_4qgBCsypYqpWiMsKZpboaKJTJ7cv`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
 
+## 5-119. 9/18 게시글 상세 사진 잘림 방지, 핀치줌 풀스크린 뷰어 및 작성자 프로필 사진 연동 배포
+
+- **기존 문제점**:
+  1. 갤러리 높이가 180px로 고정되고 `BoxFit.cover`가 적용되어, 세로 사진이나 메뉴판/영수증 사진의 상하단 텍스트가 심각하게 잘려 나갔다.
+  2. 사진을 탭해도 크게 볼 수 있는 확대 뷰어가 없어 상세 메뉴 확인이 불가능했다.
+  3. 작성자 닉네임 옆에 이니셜 텍스트만 노출되고 실제 카카오/프로필 사진이 표시되지 않았다.
+- **개선 내용**:
+  1. **사진 잘림 원천 방지 및 블러 앰비언트 갤러리**:
+     - 갤러리 높이를 240px로 넉넉히 확장하고, `BoxFit.contain`을 적용하여 세로/가로/영수증 어떤 비율의 사진이든 **단 1px의 잘림 없이 원본 그대로 표시**되도록 개편했다.
+     - 여백에는 원본 사진의 색감을 부드럽게 블러 처리한 배경 레이어를 깔아 시각적 이질감을 없애고, 좌측 하단에 `[ 🔍 크게보기 ]` 힌트를 제공했다.
+  2. **풀스크린 핀치줌 갤러리 라이트박스 신설**:
+     - 사진을 터치하면 다크 백드롭의 `_FullScreenImageViewer` 모달이 열려 `InteractiveViewer`를 통해 최대 4배까지 부드러운 핀치 투 줌(확대/축소) 및 좌우 스와이프 탐색을 지원한다.
+     - 상단에 `✕` 닫기 버튼과 `1 / N` 카운터를 제공하여 자유롭게 사진을 확대 검토할 수 있다.
+  3. **작성자 프로필 사진 연동**:
+     - `_AvatarBadge`에 `imageUrl` 속성을 추가하여 실제 카카오 프로필 사진이 있으면 원형 테두리 프로필 사진으로 출력하고, 프로필 사진이 없으면 기존처럼 산뜻한 이니셜 컬러 원으로 자동 폴백하도록 구현했다.
+     - 백엔드 `FeedDetailResponseDto`, `FeedResponseDto`, `UserProfileResponse`에 `authorProfileImageUrl`을 추가하고 `FirebaseService`에서 리포터 프로필 사진을 연결했다.
+- **검증 및 배포**: 백엔드 Gradle 테스트 통과, Flutter 반응형/접근성 테스트 통과, Dart 정적 분석 0 결함, Vercel 프로덕션 배포(`dpl_EATzZ55u4qZ1PNEfUL94UBXp3tYt`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
+
 ## 5-118. 9/18 게시글 상세 페이지 디자인 리뉴얼 및 휑한 레이아웃 전면 개선 배포
 
 - **기존 문제점**:

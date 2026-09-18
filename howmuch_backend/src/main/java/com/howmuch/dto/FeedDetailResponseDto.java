@@ -16,6 +16,7 @@ public class FeedDetailResponseDto {
     private String location;
     private String title;
     private String author;
+    private String authorProfileImageUrl;
     private int likes;
     private int comments;
     private boolean likedByMe;

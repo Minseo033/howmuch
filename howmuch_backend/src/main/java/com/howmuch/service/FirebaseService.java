@@ -1979,6 +1979,7 @@ public class FirebaseService {
                 .createdAt((String) data.get("createdAt"))
                 .nicknamePublic(data.get("nicknamePublic") == null || Boolean.parseBoolean(data.get("nicknamePublic").toString()))
                 .activityPublic(data.get("activityPublic") != null && Boolean.parseBoolean(data.get("activityPublic").toString()))
+                .profileImageUrl((String) data.get("profileImageUrl"))
                 .build();
     }
 
@@ -2419,14 +2420,18 @@ public class FirebaseService {
 
                 String reporterId = (String) data.get("reporterId");
                 String author = "알 수 없음";
+                String authorProfileImageUrl = (String) data.get("reporterProfileImageUrl");
                 if (reporterId != null) {
                     if (authorCache.containsKey(reporterId)) {
                         author = authorCache.get(reporterId);
                     } else {
                         try {
                             com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
-                            if (user != null && user.getNickname() != null) {
-                                author = user.getNickname();
+                            if (user != null) {
+                                if (user.getNickname() != null) author = user.getNickname();
+                                if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+                                    authorProfileImageUrl = user.getProfileImageUrl();
+                                }
                             }
                         } catch (Exception e) {
                             // Ignore
@@ -2458,6 +2463,7 @@ public class FirebaseService {
                         .location(location)
                         .title(title.trim())
                         .author(author)
+                        .authorProfileImageUrl(authorProfileImageUrl)
                         .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                         .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
                         .status(status)
@@ -2495,11 +2501,15 @@ public class FirebaseService {
 
         String reporterId = (String) data.get("reporterId");
         String author = "알 수 없음";
+        String authorProfileImageUrl = (String) data.get("reporterProfileImageUrl");
         if (reporterId != null) {
             try {
                 com.howmuch.dto.UserProfileResponse user = getUserProfile(reporterId);
-                if (user != null && user.getNickname() != null) {
-                    author = user.getNickname();
+                if (user != null) {
+                    if (user.getNickname() != null) author = user.getNickname();
+                    if (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank()) {
+                        authorProfileImageUrl = user.getProfileImageUrl();
+                    }
                 }
             } catch (Exception e) {
                 // Ignore
@@ -2529,6 +2539,7 @@ public class FirebaseService {
                 .location(location)
                 .title(title.trim())
                 .author(author)
+                .authorProfileImageUrl(authorProfileImageUrl)
                 .likes(data.get("likes") != null ? Integer.parseInt(data.get("likes").toString()) : 0)
                 .comments(data.get("comments") != null ? Integer.parseInt(data.get("comments").toString()) : 0)
                 .likedByMe(isFeedLikedBy(id, requesterUid))

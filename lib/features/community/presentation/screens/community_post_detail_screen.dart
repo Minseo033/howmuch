@@ -785,6 +785,7 @@ class _PostCard extends StatelessWidget {
     final String rawStatus = postData!['status']?.toString() ?? 'PENDING';
     final int likes = (postData!['likes'] as num?)?.toInt() ?? 0;
     final int comments = (postData!['comments'] as num?)?.toInt() ?? 0;
+    final String? authorProfileImageUrl = postData!['authorProfileImageUrl']?.toString() ?? postData!['profileImageUrl']?.toString();
 
     final String storeName = postData!['storeName']?.toString() ?? '';
     final String address = postData!['address']?.toString() ?? '';
@@ -861,8 +862,9 @@ class _PostCard extends StatelessWidget {
                 label: authorInitial,
                 backgroundColor: avatarBg,
                 textColor: avatarText,
-                size: 36,
-                fontSize: 14,
+                imageUrl: authorProfileImageUrl,
+                size: 38,
+                fontSize: 15,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -1207,6 +1209,19 @@ class _PostImageGallery extends StatefulWidget {
 class _PostImageGalleryState extends State<_PostImageGallery> {
   int _currentPage = 0;
 
+  void _openFullScreen(BuildContext context, int initialIndex) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.95),
+      builder: (dialogContext) {
+        return _FullScreenImageViewer(
+          imageUrls: widget.imageUrls,
+          initialIndex: initialIndex,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.imageUrls.isEmpty) return const SizedBox.shrink();
@@ -1214,30 +1229,75 @@ class _PostImageGalleryState extends State<_PostImageGallery> {
     return Semantics(
       label: '게시글 사진 갤러리, ${_currentPage + 1} / $count',
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Stack(
           children: [
             SizedBox(
-              height: 180,
+              height: 240,
               width: double.infinity,
               child: PageView.builder(
                 itemCount: count,
                 onPageChanged: (page) => setState(() => _currentPage = page),
-                itemBuilder: (context, index) => Image.network(
-                  widget.imageUrls[index],
-                  fit: BoxFit.cover,
-                  semanticLabel: '게시글 사진 ${index + 1} / $count',
-                  errorBuilder: (context, error, stackTrace) =>
-                      Container(
-                        color: const Color(0xFFF1F5F9),
-                        child: const Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: Color(0xFF94A3B8),
-                            size: 28,
-                          ),
-                        ),
+                itemBuilder: (context, index) => GestureDetector(
+                  onTap: () => _openFullScreen(context, index),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // 은은한 블러 배경 (비율 차이로 생기는 여백을 사진 본래 색상으로 자연스럽게 채움)
+                      Image.network(
+                        widget.imageUrls[index],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
+                      Container(
+                        color: Colors.black.withValues(alpha: 0.25),
+                      ),
+                      // 잘림 없는 원본 비율 사진
+                      Image.network(
+                        widget.imageUrls[index],
+                        fit: BoxFit.contain,
+                        semanticLabel: '게시글 사진 ${index + 1} / $count',
+                        errorBuilder: (context, error, stackTrace) =>
+                            Container(
+                              color: const Color(0xFFF1F5F9),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: Color(0xFF94A3B8),
+                                  size: 28,
+                                ),
+                              ),
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // 좌측 하단: 클릭 시 크게보기 힌트
+            Positioned(
+              left: 10,
+              bottom: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: .55),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.zoom_in_rounded, color: Colors.white, size: 13),
+                    SizedBox(width: 3),
+                    Text(
+                      '크게보기',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1268,6 +1328,120 @@ class _PostImageGalleryState extends State<_PostImageGallery> {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 사진 클릭 시 화면 가득 띄워주는 풀스크린 확대 뷰어
+class _FullScreenImageViewer extends StatefulWidget {
+  final List<String> imageUrls;
+  final int initialIndex;
+
+  const _FullScreenImageViewer({
+    required this.imageUrls,
+    required this.initialIndex,
+  });
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  late PageController _controller;
+  late int _currentIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = widget.imageUrls.length;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. 줌 가능한 이미지 PageView
+          PageView.builder(
+            controller: _controller,
+            itemCount: count,
+            onPageChanged: (page) => setState(() => _currentIndex = page),
+            itemBuilder: (context, index) {
+              return InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4.0,
+                child: Center(
+                  child: Image.network(
+                    widget.imageUrls[index],
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white70,
+                      size: 48,
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          // 2. 상단 헤더 (닫기 버튼 + 페이지 카운터)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                    if (count > 1)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${_currentIndex + 1} / $count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 48),
+                    const SizedBox(width: 48),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1743,6 +1917,7 @@ class _AvatarBadge extends StatelessWidget {
     required this.textColor,
     required this.size,
     required this.fontSize,
+    this.imageUrl,
   });
 
   final String label;
@@ -1750,9 +1925,44 @@ class _AvatarBadge extends StatelessWidget {
   final Color textColor;
   final double size;
   final double fontSize;
+  final String? imageUrl;
 
   @override
   Widget build(BuildContext context) {
+    final hasImage = imageUrl != null &&
+        imageUrl!.isNotEmpty &&
+        (imageUrl!.startsWith('http://') || imageUrl!.startsWith('https://'));
+
+    if (hasImage) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: textColor,
+                fontFamily: CommunityPostDetailScreen.fontFamily,
+                fontFamilyFallback: CommunityPostDetailScreen.fontFallback,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: size,
       height: size,

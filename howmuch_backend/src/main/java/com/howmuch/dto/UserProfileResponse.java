@@ -20,4 +20,5 @@ public class UserProfileResponse {
     private String createdAt;
     private Boolean nicknamePublic;
     private Boolean activityPublic;
+    private String profileImageUrl;
 }
