@@ -3136,11 +3136,32 @@ public class FirebaseService {
         }
     }
 
+    private record AuthorSnapshot(String nickname, String profileImageUrl) {}
+
+    private AuthorSnapshot resolveAuthorSnapshot(String uid) {
+        if (uid == null) return new AuthorSnapshot("알 수 없음", null);
+        try {
+            com.howmuch.dto.UserProfileResponse user = getUserProfile(uid);
+            if (user != null) {
+                String nickname = (user.getNickname() != null && !user.getNickname().isBlank())
+                        ? user.getNickname()
+                        : "알 수 없음";
+                String img = (user.getProfileImageUrl() != null && !user.getProfileImageUrl().isBlank())
+                        ? user.getProfileImageUrl()
+                        : null;
+                return new AuthorSnapshot(nickname, img);
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return new AuthorSnapshot("알 수 없음", null);
+    }
+
     /** 문서 스냅샷 → CommentResponse 변환 */
     private com.howmuch.dto.CommentResponse toCommentResponse(
             DocumentSnapshot doc,
             String requesterUid,
-            Map<String, String> authorCache) {
+            Map<String, AuthorSnapshot> authorCache) {
         Map<String, Object> data = doc.getData();
         if (data == null) data = new HashMap<>();
         String uid = data.get("userId") != null ? data.get("userId").toString() : null;
@@ -3152,12 +3173,13 @@ public class FirebaseService {
         if (rc != null) {
             try { replyCount = Integer.parseInt(rc.toString()); } catch (NumberFormatException ignored) {}
         }
-        String author = uid == null
-                ? "알 수 없음"
-                : authorCache.computeIfAbsent(uid, this::resolveAuthor);
+        AuthorSnapshot authorInfo = uid == null
+                ? new AuthorSnapshot("알 수 없음", null)
+                : authorCache.computeIfAbsent(uid, this::resolveAuthorSnapshot);
         return com.howmuch.dto.CommentResponse.builder()
                 .id(doc.getId())
-                .author(author)
+                .author(authorInfo.nickname())
+                .authorProfileImageUrl(authorInfo.profileImageUrl())
                 .content(content)
                 .createdAt(createdAt)
                 .isMine(isMine)
@@ -3174,7 +3196,7 @@ public class FirebaseService {
                 .limit(MAX_COMMUNITY_COMMENTS)
                 .get().get().getDocuments());
         List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
-        Map<String, String> authorCache = new HashMap<>();
+        Map<String, AuthorSnapshot> authorCache = new HashMap<>();
         for (DocumentSnapshot doc : docs) {
             result.add(toCommentResponse(doc, requesterUid, authorCache));
         }
@@ -3213,7 +3235,7 @@ public class FirebaseService {
                 .limit(MAX_COMMUNITY_REPLIES)
                 .get().get().getDocuments());
         List<com.howmuch.dto.CommentResponse> result = new ArrayList<>();
-        Map<String, String> authorCache = new HashMap<>();
+        Map<String, AuthorSnapshot> authorCache = new HashMap<>();
         for (DocumentSnapshot doc : docs) {
             result.add(toCommentResponse(doc, requesterUid, authorCache));
         }

@@ -18,6 +18,7 @@ import lombok.NoArgsConstructor;
 public class CommentResponse {
     private String id;
     private String author;
+    private String authorProfileImageUrl;
     private String content;
     private String createdAt;
     // Lombok은 boolean isMine을 "mine"으로 직렬화하므로, 프론트 명세 키(isMine)로 고정

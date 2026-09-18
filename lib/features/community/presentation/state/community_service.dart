@@ -43,6 +43,7 @@ class CommunityComment {
     required this.isMine,
     required this.replyCount,
     required this.replies,
+    this.authorProfileImageUrl,
   });
 
   final String id;
@@ -52,12 +53,14 @@ class CommunityComment {
   final bool isMine;
   final int replyCount;
   final List<CommunityComment> replies;
+  final String? authorProfileImageUrl;
 
   String get initial => author.isNotEmpty ? author[0] : '익';
 
   CommunityComment copyWith({
     int? replyCount,
     List<CommunityComment>? replies,
+    String? authorProfileImageUrl,
   }) {
     return CommunityComment(
       id: id,
@@ -67,6 +70,7 @@ class CommunityComment {
       isMine: isMine,
       replyCount: replyCount ?? this.replyCount,
       replies: replies ?? this.replies,
+      authorProfileImageUrl: authorProfileImageUrl ?? this.authorProfileImageUrl,
     );
   }
 
@@ -91,6 +95,12 @@ class CommunityComment {
             'writer',
           ]) ??
           '알 수 없음',
+      authorProfileImageUrl: _readString(json, const [
+        'authorProfileImageUrl',
+        'profileImageUrl',
+        'profileImage',
+        'avatarUrl',
+      ]),
       content:
           _readString(json, const ['content', 'body', 'text', 'message']) ?? '',
       createdAt:

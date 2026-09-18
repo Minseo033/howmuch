@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -52,6 +54,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
     with WidgetsBindingObserver {
   final _controller = TextEditingController();
   final CommunityService _service = const CommunityService();
+  String _cachedMyProfileImageUrl = '';
+  String _cachedMyNickname = '';
 
   bool _isLoading = false;
   bool _hasError = false;
@@ -73,7 +77,22 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_loadCachedUserIdentity());
     _fetchDetail();
+  }
+
+  Future<void> _loadCachedUserIdentity() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final img = prefs.getString('kakao_profile_image_url') ?? '';
+      final nick = prefs.getString('user_nickname') ?? '';
+      if (mounted) {
+        setState(() {
+          _cachedMyProfileImageUrl = img;
+          _cachedMyNickname = nick;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -339,6 +358,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
                 repliesExpanded: _expandedReplyIds.contains(comment.id),
                 repliesLoading: _replyLoadingIds.contains(comment.id),
                 onToggleReplies: () => _toggleReplies(comment),
+                myProfileImageUrl: _cachedMyProfileImageUrl,
+                myNickname: _cachedMyNickname,
               ),
             ),
           ),
@@ -554,6 +575,8 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen>
                             notificationInFlight: _notificationInFlight,
                             onLikeTap: _toggleLike,
                             onNotifyTap: _toggleNotification,
+                            myProfileImageUrl: _cachedMyProfileImageUrl,
+                            myNickname: _cachedMyNickname,
                           ),
                           const SizedBox(height: 14.66),
                           _buildCommentSection(),
@@ -764,6 +787,8 @@ class _PostCard extends StatelessWidget {
     required this.notificationInFlight,
     required this.onLikeTap,
     required this.onNotifyTap,
+    this.myProfileImageUrl,
+    this.myNickname,
   });
 
   final Map<String, dynamic>? postData;
@@ -773,6 +798,8 @@ class _PostCard extends StatelessWidget {
   final bool notificationInFlight;
   final VoidCallback onLikeTap;
   final VoidCallback onNotifyTap;
+  final String? myProfileImageUrl;
+  final String? myNickname;
 
   @override
   Widget build(BuildContext context) {
@@ -785,7 +812,12 @@ class _PostCard extends StatelessWidget {
     final String rawStatus = postData!['status']?.toString() ?? 'PENDING';
     final int likes = (postData!['likes'] as num?)?.toInt() ?? 0;
     final int comments = (postData!['comments'] as num?)?.toInt() ?? 0;
-    final String? authorProfileImageUrl = postData!['authorProfileImageUrl']?.toString() ?? postData!['profileImageUrl']?.toString();
+    final String? serverAuthorImg = postData!['authorProfileImageUrl']?.toString() ?? postData!['profileImageUrl']?.toString();
+    final String? authorProfileImageUrl = (serverAuthorImg != null && serverAuthorImg.isNotEmpty)
+        ? serverAuthorImg
+        : ((myNickname != null && myNickname!.isNotEmpty && author == myNickname && myProfileImageUrl != null && myProfileImageUrl!.isNotEmpty)
+            ? myProfileImageUrl
+            : null);
 
     final String storeName = postData!['storeName']?.toString() ?? '';
     final String address = postData!['address']?.toString() ?? '';
@@ -1240,36 +1272,25 @@ class _PostImageGalleryState extends State<_PostImageGallery> {
                 onPageChanged: (page) => setState(() => _currentPage = page),
                 itemBuilder: (context, index) => GestureDetector(
                   onTap: () => _openFullScreen(context, index),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // 은은한 블러 배경 (비율 차이로 생기는 여백을 사진 본래 색상으로 자연스럽게 채움)
-                      Image.network(
-                        widget.imageUrls[index],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                      Container(
-                        color: Colors.black.withValues(alpha: 0.25),
-                      ),
-                      // 잘림 없는 원본 비율 사진
-                      Image.network(
-                        widget.imageUrls[index],
-                        fit: BoxFit.contain,
-                        semanticLabel: '게시글 사진 ${index + 1} / $count',
-                        errorBuilder: (context, error, stackTrace) =>
-                            Container(
-                              color: const Color(0xFFF1F5F9),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.broken_image_outlined,
-                                  color: Color(0xFF94A3B8),
-                                  size: 28,
-                                ),
+                  child: Container(
+                    color: const Color(0xFF0F172A),
+                    alignment: Alignment.center,
+                    child: Image.network(
+                      widget.imageUrls[index],
+                      fit: BoxFit.contain,
+                      semanticLabel: '게시글 사진 ${index + 1} / $count',
+                      errorBuilder: (context, error, stackTrace) =>
+                          Container(
+                            color: const Color(0xFFF1F5F9),
+                            child: const Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: Color(0xFF94A3B8),
+                                size: 28,
                               ),
                             ),
-                      ),
-                    ],
+                          ),
+                    ),
                   ),
                 ),
               ),
@@ -1639,6 +1660,8 @@ class _CommentCard extends StatelessWidget {
     required this.repliesExpanded,
     required this.repliesLoading,
     required this.onToggleReplies,
+    this.myProfileImageUrl,
+    this.myNickname,
   });
 
   final CommunityComment comment;
@@ -1646,9 +1669,17 @@ class _CommentCard extends StatelessWidget {
   final bool repliesExpanded;
   final bool repliesLoading;
   final VoidCallback onToggleReplies;
+  final String? myProfileImageUrl;
+  final String? myNickname;
 
   @override
   Widget build(BuildContext context) {
+    final String? commentImg = (comment.authorProfileImageUrl != null && comment.authorProfileImageUrl!.isNotEmpty)
+        ? comment.authorProfileImageUrl
+        : ((comment.isMine || (myNickname != null && myNickname!.isNotEmpty && comment.author == myNickname))
+            ? myProfileImageUrl
+            : null);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -1670,6 +1701,7 @@ class _CommentCard extends StatelessWidget {
                 label: comment.initial,
                 backgroundColor: CommunityPostDetailScreen.softBlue,
                 textColor: CommunityPostDetailScreen.blue,
+                imageUrl: commentImg,
                 size: 28,
                 fontSize: 12,
               ),
@@ -1745,7 +1777,11 @@ class _CommentCard extends StatelessWidget {
             ...comment.replies.map(
               (reply) => Padding(
                 padding: const EdgeInsets.only(left: 36, top: 6),
-                child: _ReplyCard(reply: reply),
+                child: _ReplyCard(
+                  reply: reply,
+                  myProfileImageUrl: myProfileImageUrl,
+                  myNickname: myNickname,
+                ),
               ),
             ),
           ],
@@ -1797,12 +1833,24 @@ class _CommentCard extends StatelessWidget {
 }
 
 class _ReplyCard extends StatelessWidget {
-  const _ReplyCard({required this.reply});
+  const _ReplyCard({
+    required this.reply,
+    this.myProfileImageUrl,
+    this.myNickname,
+  });
 
   final CommunityComment reply;
+  final String? myProfileImageUrl;
+  final String? myNickname;
 
   @override
   Widget build(BuildContext context) {
+    final String? replyImg = (reply.authorProfileImageUrl != null && reply.authorProfileImageUrl!.isNotEmpty)
+        ? reply.authorProfileImageUrl
+        : ((reply.isMine || (myNickname != null && myNickname!.isNotEmpty && reply.author == myNickname))
+            ? myProfileImageUrl
+            : null);
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1810,6 +1858,7 @@ class _ReplyCard extends StatelessWidget {
           label: reply.initial,
           backgroundColor: CommunityPostDetailScreen.softOrange,
           textColor: CommunityPostDetailScreen.orange,
+          imageUrl: replyImg,
           size: 24,
           fontSize: 10,
         ),
@@ -1906,8 +1955,19 @@ bool? _readBool(Map<String, dynamic> json, List<String> keys) {
 }
 
 String _formatCommentDate(String value) {
-  if (value.length >= 10) return value.substring(0, 10).replaceAll('-', '.');
-  return value;
+  if (value.isEmpty) return '';
+  try {
+    final parsed = DateTime.parse(value).toLocal();
+    final now = DateTime.now();
+    final diff = now.difference(parsed);
+    if (diff.inSeconds < 45) return '방금 전';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+    if (diff.inHours < 24) return '${diff.inHours}시간 전';
+    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    return '${parsed.year}.${parsed.month.toString().padLeft(2, '0')}.${parsed.day.toString().padLeft(2, '0')}';
+  } catch (_) {
+    return value.length >= 10 ? value.substring(0, 10).replaceAll('-', '.') : value;
+  }
 }
 
 class _AvatarBadge extends StatelessWidget {

@@ -1996,6 +1996,18 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
      - 백엔드 `FeedDetailResponseDto`, `FeedResponseDto`, `UserProfileResponse`에 `authorProfileImageUrl`을 추가하고 `FirebaseService`에서 리포터 프로필 사진을 연결했다.
 - **검증 및 배포**: 백엔드 Gradle 테스트 통과, Flutter 반응형/접근성 테스트 통과, Dart 정적 분석 0 결함, Vercel 프로덕션 배포(`dpl_EATzZ55u4qZ1PNEfUL94UBXp3tYt`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 검증 완료.
 
+## 5-120. 9/18 갤러리 이중 블러 겹침 제거, 댓글 상대시간 갱신 및 유저 프로필 사진 렌더링 배포
+
+- **원인 분석**:
+  1. `_PostImageGallery` 내에서 배경에 `BoxFit.cover` 레이어를 두고 전면에 `BoxFit.contain` 레이어를 올렸으나, 어두운 배민 메뉴 캡처본 등에서 배경의 확대된 텍스트('알...', '신...')가 좌우로 비쳐 이중 상이 겹쳐 보이는 시각적 글리치가 발생했다.
+  2. 댓글 목록의 작성일이 `_formatCommentDate`에서 무조건 YYYY.MM.DD로 잘려 출력되어 방금 단 댓글도 '2026.09.18'로 표시되는 위화감이 있었다.
+  3. 댓글 카드 및 리포트 작성자의 카카오 프로필 사진이 클라이언트 로컬 캐시와 연동되지 않아 이니셜 원만 표시되었다.
+- **개선 및 배포 내용**:
+  1. **단일 선명 갤러리 정돈**: 불필요한 배경 `BoxFit.cover` 레이어를 걷어내고, 깔끔한 다크 슬레이트 캔버스(`#0F172A`) 위에 단일 `BoxFit.contain` 이미지만 선명하게 배치하여 위아래 텍스트 잘림도 없고 겹침도 없는 원본 100% 렌더링을 구현했다.
+  2. **댓글 상대시간 전환**: `_formatCommentDate`를 45초 미만 '방금 전', 60분 미만 'n분 전', 24시간 미만 'n시간 전' 상대시간 로직으로 전면 교체하여 방금 작성한 댓글이 즉시 '방금 전'으로 체감되도록 개선했다.
+  3. **댓글/게시글 프로필 사진 및 캐시 연동**: `CommentResponse` DTO에 `authorProfileImageUrl`을 추가하고, 클라이언트에서는 로그인 세션의 `kakao_profile_image_url`을 본인 작성 글/댓글에 즉시 자동 매핑하여 내 프로필 사진이 이름 옆 아바타에 원형으로 깨끗하게 출력되도록 연동했다 (미등록 시 이니셜 안전 유지).
+- **검증 및 배포**: 백엔드 233개 테스트 전원 통과, Flutter 312개 테스트 전원 통과, Dart 정적 분석 0 결함, Vercel 프로덕션 배포(`dpl_4XrwHg2sNkvFyrVA2xQVmyqRgN2e`) 후 `howmuch-zeta.vercel.app` 연결 및 공개 자산 13종 SHA-256 일치 확인.
+
 ## 5-118. 9/18 게시글 상세 페이지 디자인 리뉴얼 및 휑한 레이아웃 전면 개선 배포
 
 - **기존 문제점**:
