@@ -129,6 +129,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           activityPublic: profile['activityPublic'] as bool?,
         );
       }
+      if (!mounted) return;
 
       _applyAuthenticatedProfile(
         profile,
