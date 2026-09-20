@@ -56,9 +56,10 @@ class MyReportsApprovedTab extends ConsumerWidget {
           padding: EdgeInsets.only(bottom: 16),
           child: TopBanner(
             icon: Icons.auto_awesome,
-            text: '고마워요!\n내 제보가 동네 가격 정보를\n더 풍성하게 만들었어요.',
+            text: '내 제보가 동네 가격 정보를 더 풍성하게 만들었어요.',
             color: MyReportsV2Screen.green,
-            backgroundColor: Color(0xFFECFDF5),
+            backgroundColor: Color(0xFFF1FBF5),
+            singleLine: true,
           ),
         ),
         ...visibleReports.map((report) {

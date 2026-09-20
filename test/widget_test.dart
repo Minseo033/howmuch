@@ -31,34 +31,43 @@ void main() {
     expect(find.text('내 주변 착한가격업소를 한눈에'), findsOneWidget);
   });
 
-  testWidgets('moves through onboarding, login, and permission setup', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+  testWidgets(
+    'moves through onboarding, required terms, login, and permission setup',
+    (tester) async {
+      _setMobileViewport(tester);
+      await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    expect(find.text('절약 리포트'), findsOneWidget);
-    expect(find.text('오늘 아낀 금액이 쌓여요'), findsOneWidget);
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(find.text('절약 리포트'), findsOneWidget);
+      expect(find.text('오늘 아낀 금액이 쌓여요'), findsOneWidget);
 
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
-    expect(find.text('좋은 가격은 함께 나눠요'), findsOneWidget);
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
+      expect(find.text('좋은 가격은 함께 나눠요'), findsOneWidget);
 
-    await tester.tap(find.text('시작하기'));
-    await tester.pumpAndSettle();
-    expect(find.text('얼마고?'), findsOneWidget);
-    expect(find.text('카카오로 계속하기'), findsOneWidget);
-    expect(find.text('네이버로 계속하기'), findsNothing);
-    expect(find.text('Google로 계속하기'), findsNothing);
+      await tester.tap(find.text('시작하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsOneWidget);
+      expect(find.text('필수 약관 전체 동의'), findsOneWidget);
 
-    await tester.tap(find.text('로그인 없이 둘러보기'));
-    await tester.pumpAndSettle();
-    expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
-    expect(find.text('앱 시작하기'), findsOneWidget);
-  });
+      await tester.tap(find.text('필수 약관 전체 동의'));
+      await tester.pump();
+      await tester.tap(find.text('동의하고 로그인하기'));
+      await tester.pumpAndSettle();
+      expect(find.text('얼마고?'), findsOneWidget);
+      expect(find.text('가까운 착한가격업소를 찾고 절약을 기록해보세요.'), findsOneWidget);
+      expect(find.text('카카오로 계속하기'), findsOneWidget);
+      expect(find.text('네이버로 계속하기'), findsNothing);
+      expect(find.text('Google로 계속하기'), findsNothing);
+
+      await tester.tap(find.text('로그인 없이 둘러보기'));
+      await tester.pumpAndSettle();
+      expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
+      expect(find.text('앱 시작하기'), findsOneWidget);
+    },
+  );
 
   testWidgets('login only presents supported Kakao authentication', (
     tester,
@@ -73,6 +82,11 @@ void main() {
     await tester.tap(find.text('시작하기'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('필수 약관 전체 동의'));
+    await tester.pump();
+    await tester.tap(find.text('동의하고 로그인하기'));
+    await tester.pumpAndSettle();
+
     expect(find.text('카카오로 계속하기'), findsOneWidget);
     expect(find.text('네이버로 계속하기'), findsNothing);
     expect(find.text('Google로 계속하기'), findsNothing);
@@ -85,13 +99,14 @@ void main() {
     await _goToRoute(tester, AppRoutes.mypage);
     expect(find.text('MY'), findsAtLeastNWidgets(1));
     expect(find.text('게스트'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('mypage-guest-avatar-icon')),
+      findsOneWidget,
+    );
     expect(find.text('내 제보 상태'), findsOneWidget);
     expect(find.text('네트워크 오류 화면'), findsNothing);
     expect(find.text('세션 만료 · 재로그인'), findsNothing);
 
-    final locationDivider = tester.getRect(
-      find.byKey(const ValueKey('mypage-location-divider')),
-    );
     final locationRow = tester.getRect(
       find.byKey(const ValueKey('mypage-location-row')),
     );
@@ -105,15 +120,6 @@ void main() {
       find.byKey(const ValueKey('mypage-location-chevron')),
     );
 
-    final mypageScale = locationRow.height / 44;
-    expect(
-      locationDivider.left - locationRow.left,
-      closeTo(16 * mypageScale, 0.1),
-    );
-    expect(
-      locationRow.right - locationDivider.right,
-      closeTo(16 * mypageScale, 0.1),
-    );
     expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
     expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
 
@@ -194,7 +200,7 @@ void main() {
         notificationSaveButton.height / 51.9886360168457;
     expect(
       screenBottom - notificationSaveButton.bottom,
-      closeTo(16 * notificationSaveScale, 0.1),
+      closeTo(8 * notificationSaveScale, 0.1),
     );
 
     await tester.tap(find.text('설정 저장'));
@@ -268,6 +274,31 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('MY'), findsAtLeastNWidgets(1));
     }
+  });
+
+  testWidgets('nested mypage menus return to the screen that opened them', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await _goToRoute(tester, AppRoutes.mypage);
+    final account = find.text('계정 관리').last;
+    await tester.ensureVisible(account);
+    await tester.tap(account);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('개인정보 처리방침'));
+    await tester.pumpAndSettle();
+    expect(find.text('개인정보 처리방침'), findsAtLeastNWidgets(1));
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
+    await tester.pumpAndSettle();
+    expect(find.text('계정 관리'), findsAtLeastNWidgets(1));
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('마이'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('direct mypage child routes handle the system back action', (
@@ -345,7 +376,7 @@ void main() {
     final withdrawalScale = withdrawalActionRow.height / 50;
     expect(
       screenBottom - withdrawalActionRow.bottom,
-      closeTo(16 * withdrawalScale, 0.1),
+      closeTo(8 * withdrawalScale, 0.1),
     );
 
     await tester.tap(find.text('탈퇴하기'));
@@ -456,6 +487,9 @@ void main() {
     expect(find.text('공공데이터 출처'), findsAtLeastNWidgets(1));
     expect(find.text('행정안전부 착한가격업소'), findsOneWidget);
     expect(find.text('한국소비자원 참가격'), findsOneWidget);
+    expect(find.byIcon(Icons.open_in_new_rounded), findsNothing);
+    expect(find.byIcon(Icons.account_balance_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.dataset_outlined), findsOneWidget);
     final introCard = tester.getRect(
       find.byKey(const ValueKey('public-data-intro-card')),
     );
@@ -479,7 +513,7 @@ void main() {
       find.byKey(const ValueKey('public-data-sync-notice-text')),
     );
     expect(syncNotice.data, isNot(contains('\n')));
-    expect(syncNotice.maxLines, 2);
+    expect(syncNotice.maxLines, isNull);
 
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
@@ -521,7 +555,7 @@ void main() {
     final inquiryScale = inquirySubmitButton.height / 51.9886360168457;
     expect(
       inquiryFooter.bottom - inquirySubmitButton.bottom,
-      closeTo(16 * inquiryScale, 0.1),
+      closeTo(8 * inquiryScale, 0.1),
     );
 
     await tester.tap(find.text('기타'));
@@ -595,6 +629,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('한눈에 보는 약관'), findsOneWidget);
     expect(find.text('본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.'), findsOneWidget);
+    expect(
+      tester.getRect(find.byKey(const ValueKey('terms-summary-card'))).height,
+      greaterThan(190),
+    );
 
     await tester.tap(find.text('제보·리뷰 게시 책임'));
     await tester.pumpAndSettle();

@@ -22,7 +22,7 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
   static const surface = AppColors.surface;
   static const border = AppColors.border;
   static const disabled = AppColors.disabled;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -40,6 +40,7 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
 class _NotificationSettingsScreenState
     extends ConsumerState<NotificationSettingsScreen> {
   bool _isSaving = false;
+  bool _isLeaving = false;
   NotificationSettings? _savedSettings;
 
   bool _dirty(NotificationSettings? current) =>
@@ -64,7 +65,17 @@ class _NotificationSettingsScreenState
       );
       if (!mounted || discard != true) return;
     }
-    context.go(AppRoutes.mypage);
+    await _closeOrGoToMypage();
+  }
+
+  Future<void> _closeOrGoToMypage() async {
+    if (!context.canPop()) {
+      context.go(AppRoutes.mypage);
+      return;
+    }
+    setState(() => _isLeaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) context.pop();
   }
 
   @override
@@ -147,7 +158,7 @@ class _NotificationSettingsScreenState
             clipBehavior: Clip.antiAlias,
             decoration: const BoxDecoration(
               color: AppColors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
             ),
             padding: EdgeInsets.only(
               bottom: MediaQuery.paddingOf(modalContext).bottom + 16,
@@ -252,9 +263,12 @@ class _NotificationSettingsScreenState
     }
 
     return PopScope(
-      canPop: false,
+      canPop:
+          Navigator.of(context).canPop() &&
+          !_isSaving &&
+          (!_dirty(settingsAsync.valueOrNull) || _isLeaving),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) goBack();
+        if (!didPop && !_isLeaving) goBack();
       },
       child: FigmaMobileCanvas(
         backgroundColor: NotificationSettingsScreen.surface,
@@ -281,7 +295,7 @@ class _NotificationSettingsScreenState
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF1F5F9),
+                              color: Color(0xFFF6F7F2),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -294,10 +308,10 @@ class _NotificationSettingsScreenState
                           Text(
                             unauthorized ? '로그인이 필요해요' : '설정을 불러오지 못했어요',
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF243E35),
                               fontSize: 16,
                             ),
                           ),
@@ -308,9 +322,9 @@ class _NotificationSettingsScreenState
                                 : '잠시 후 다시 시도해 주세요.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF748078),
                               fontSize: 12,
                             ),
                           ),
@@ -326,7 +340,7 @@ class _NotificationSettingsScreenState
                                 backgroundColor:
                                     NotificationSettingsScreen.blue,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: const Text(
@@ -411,8 +425,9 @@ class _NotificationSettingsScreenState
                             top: 463.28125 + topOffset,
                             height: 67.76988220214844,
                             child: _PriceAlertEntryCard(
-                              onTap: () =>
-                                  context.go(AppRoutes.priceAlertSubscription),
+                              onTap: () => context.push(
+                                AppRoutes.priceAlertSubscription,
+                              ),
                             ),
                           ),
                           Positioned(
@@ -451,7 +466,7 @@ class _NotificationSettingsScreenState
             ),
             _Header(topOffset: topOffset, title: '알림 설정', onBack: goBack),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: saveFooterHeight,
@@ -485,7 +500,13 @@ class _NotificationSettingsScreenState
                       messenger.clearSnackBars();
                       if (success) {
                         _savedSettings = settings;
-                        router.go(AppRoutes.mypage);
+                        if (router.canPop()) {
+                          setState(() => _isLeaving = true);
+                          await WidgetsBinding.instance.endOfFrame;
+                          if (mounted) router.pop();
+                        } else {
+                          router.go(AppRoutes.mypage);
+                        }
                         messenger.showSnackBar(
                           const SnackBar(content: Text('알림 설정을 저장했어요.')),
                         );
@@ -560,16 +581,18 @@ class _Header extends StatelessWidget {
             Positioned(
               left: 0,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -643,7 +666,6 @@ class _AllNotificationCard extends StatelessWidget {
                   trackKey: const ValueKey('all-notification-toggle'),
                   semanticLabel: '전체 알림',
                   value: value,
-                  activeColor: NotificationSettingsScreen.blue,
                   onTap: onTap,
                 ),
               ),
@@ -681,7 +703,6 @@ class _NotificationTypeCard extends StatelessWidget {
             title: '가격 변동 알림',
             subtitle: '찜한 매장의 가격 변동 제보를 알려드려요.',
             value: settings.price,
-            activeColor: NotificationSettingsScreen.orange,
             onTap: onPriceTap,
           ),
           const _CardDivider(lineKey: ValueKey('notification-type-divider')),
@@ -689,7 +710,6 @@ class _NotificationTypeCard extends StatelessWidget {
             title: '제보 상태 알림',
             subtitle: '내 제보가 승인되거나 보완 요청되면 알려드려요.',
             value: settings.report,
-            activeColor: NotificationSettingsScreen.blue,
             onTap: onReportTap,
           ),
           const _CardDivider(),
@@ -697,7 +717,6 @@ class _NotificationTypeCard extends StatelessWidget {
             title: '오늘의 픽 추천',
             subtitle: '날씨와 위치에 맞는 추천 매장을 알려드려요.',
             value: settings.todayPick,
-            activeColor: NotificationSettingsScreen.green,
             onTap: onTodayPickTap,
           ),
           const _CardDivider(),
@@ -705,7 +724,6 @@ class _NotificationTypeCard extends StatelessWidget {
             title: '리뷰 반응 알림',
             subtitle: '내 리뷰에 반응이 있을 때 알려드려요.',
             value: settings.review,
-            activeColor: NotificationSettingsScreen.blue,
             onTap: onReviewTap,
           ),
         ],
@@ -719,14 +737,12 @@ class _NotificationRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.value,
-    required this.activeColor,
     required this.onTap,
   });
 
   final String title;
   final String subtitle;
   final bool value;
-  final Color activeColor;
   final VoidCallback onTap;
 
   @override
@@ -749,12 +765,7 @@ class _NotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _HowmuchToggle(
-                semanticLabel: title,
-                value: value,
-                activeColor: activeColor,
-                onTap: onTap,
-              ),
+              _HowmuchToggle(semanticLabel: title, value: value, onTap: onTap),
             ],
           ),
         ),
@@ -786,7 +797,7 @@ class _PriceAlertEntryCard extends ConsumerWidget {
       child: Material(
         color: AppColors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -852,7 +863,6 @@ class _QuietHoursCard extends StatelessWidget {
                     _HowmuchToggle(
                       semanticLabel: '방해 금지 시간 설정 사용',
                       value: settings.quietHours,
-                      activeColor: NotificationSettingsScreen.blue,
                       onTap: onToggle,
                     ),
                   ],
@@ -974,8 +984,8 @@ class _StickySaveButton extends StatelessWidget {
   });
 
   static const buttonHeight = 51.9886360168457;
-  static const topGap = 12.89794921875;
-  static const bottomGap = 16.0;
+  static const topGap = 8.0;
+  static const bottomGap = 8.0;
 
   final double safeBottom;
   final VoidCallback onPressed;
@@ -1019,7 +1029,7 @@ class _StickySaveButton extends StatelessWidget {
                   foregroundColor: AppColors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                   textStyle: const TextStyle(
                     fontFamily: NotificationSettingsScreen.fontFamily,
@@ -1054,14 +1064,12 @@ class _HowmuchToggle extends StatelessWidget {
     this.trackKey,
     this.semanticLabel,
     required this.value,
-    required this.activeColor,
     required this.onTap,
   });
 
   final Key? trackKey;
   final String? semanticLabel;
   final bool value;
-  final Color activeColor;
   final VoidCallback onTap;
 
   @override
@@ -1085,7 +1093,7 @@ class _HowmuchToggle extends StatelessWidget {
               height: 23.99147605895996,
               decoration: BoxDecoration(
                 color: value
-                    ? activeColor
+                    ? NotificationSettingsScreen.blue
                     : NotificationSettingsScreen.disabled,
                 borderRadius: BorderRadius.circular(999),
               ),
@@ -1136,7 +1144,7 @@ class _RoundedPanel extends StatelessWidget {
           color: NotificationSettingsScreen.border,
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

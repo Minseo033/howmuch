@@ -328,7 +328,7 @@ class _DirectionsExternalAppScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -433,7 +433,7 @@ class _DirectionsExternalAppScreenState
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 color: selected ? AppColors.primarySubtle : AppColors.white,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                   color: selected ? AppColors.primary : Colors.grey.shade200,
                   width: selected ? 2 : 1,

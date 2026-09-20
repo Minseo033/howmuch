@@ -20,7 +20,7 @@ class ProfileEditScreen extends ConsumerStatefulWidget {
   static const surface = AppColors.surface;
   static const border = AppColors.border;
   static const disabled = AppColors.disabled;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -40,6 +40,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
   bool _loaded = false;
   bool _identityRefreshStarted = false;
   bool _isSaving = false;
+  bool _isLeaving = false;
   Future<({String email, String profileImageUrl})>? _identityRefresh;
 
   Future<void> _saveProfile() async {
@@ -79,10 +80,9 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     _savedNickname = _nickname;
     setState(() => _isSaving = false);
     if (!context.mounted) return;
-    context.go(AppRoutes.mypage);
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('프로필을 저장했어요.')));
+    final messenger = ScaffoldMessenger.of(context);
+    await _closeOrGoToMypage();
+    messenger.showSnackBar(const SnackBar(content: Text('프로필을 저장했어요.')));
   }
 
   @override
@@ -120,9 +120,12 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final footerHeight = _StickyButton.heightFor(bottomOffset);
 
     return PopScope(
-      canPop: false,
+      canPop:
+          Navigator.of(context).canPop() &&
+          !_isSaving &&
+          (_nickname == _savedNickname || _isLeaving),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _leave();
+        if (!didPop && !_isLeaving) _leave();
       },
       child: FigmaMobileCanvas(
         backgroundColor: ProfileEditScreen.surface,
@@ -176,7 +179,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
             _Header(topOffset: topOffset, title: '프로필 수정', onBack: _leave),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: footerHeight,
@@ -213,7 +216,17 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
       );
       if (!mounted || discard != true) return;
     }
-    context.canPop() ? context.pop() : context.go(AppRoutes.mypage);
+    await _closeOrGoToMypage();
+  }
+
+  Future<void> _closeOrGoToMypage() async {
+    if (!context.canPop()) {
+      context.go(AppRoutes.mypage);
+      return;
+    }
+    setState(() => _isLeaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) context.pop();
   }
 
   void _showUnavailablePrivacySetting() {
@@ -304,14 +317,14 @@ class _NicknameDialogState extends State<_NicknameDialog> {
                 vertical: 18,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(color: AppColors.border),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 borderSide: const BorderSide(
                   color: AppColors.primary,
                   width: 2,
@@ -376,16 +389,18 @@ class _Header extends StatelessWidget {
             Positioned(
               left: 0,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -761,7 +776,7 @@ class _StickyButton extends StatelessWidget {
   });
 
   static const buttonHeight = 51.9886360168457;
-  static const topGap = 12.89794921875;
+  static const topGap = 8.0;
   static const bottomGap = 8.0;
   static const minimumSafeBottom = 12.0;
 
@@ -801,7 +816,7 @@ class _StickyButton extends StatelessWidget {
                 foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(22),
                 ),
                 textStyle: const TextStyle(
                   fontFamily: ProfileEditScreen.fontFamily,
@@ -832,7 +847,7 @@ class _RoundedCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: ProfileEditScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

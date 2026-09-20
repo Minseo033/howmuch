@@ -145,10 +145,7 @@ class StoreDetailScreen extends ConsumerWidget {
                   shadowColor: Colors.black12,
                   elevation: 0.5,
                   leading: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 20,
-                    ),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 20),
                     onPressed: () => context.pop(),
                   ),
                   actions: [
@@ -344,20 +341,20 @@ class StoreDetailScreen extends ConsumerWidget {
                                             null)
                                           const _BenefitBadge(
                                             label: '지역화폐',
-                                            color: Color(0xFF2563EB),
-                                            bgColor: Color(0xFFEFF6FF),
+                                            color: Color(0xFF359A6B),
+                                            bgColor: Color(0xFFDDF4E5),
                                           ),
                                         if (store.openingHours!.packingYn)
                                           const _BenefitBadge(
                                             label: '포장 가능',
-                                            color: Color(0xFF059669),
-                                            bgColor: Color(0xFFECFDF5),
+                                            color: Color(0xFF4D9D75),
+                                            bgColor: Color(0xFFF1FBF5),
                                           ),
                                         if (store.openingHours!.parkingYn)
                                           const _BenefitBadge(
                                             label: '주차 가능',
-                                            color: Color(0xFFD97706),
-                                            bgColor: Color(0xFFFFFBEB),
+                                            color: Color(0xFFB97852),
+                                            bgColor: Color(0xFFFCF1EA),
                                           ),
                                       ],
                                     ),
@@ -648,7 +645,7 @@ class StoreDetailScreen extends ConsumerWidget {
                               height: 48,
                               decoration: BoxDecoration(
                                 color: _blue,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -910,7 +907,7 @@ class _BottomIconBtn extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: AppColors.bgLight,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(

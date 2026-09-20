@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class HowmuchBottomActionBar extends StatelessWidget {
   const HowmuchBottomActionBar({
     super.key,
     required this.safeBottom,
     required this.child,
-    this.backgroundColor = Colors.white,
+    this.backgroundColor = AppColors.white,
     this.showTopBorder = true,
-    this.topPadding = 12,
-    this.bottomPadding = 20,
+    this.topPadding = 8,
+    this.bottomPadding = 8,
   });
 
   static const double buttonHeight = 46.0;
 
   static double heightFor(
     double safeBottom, {
-    double topPadding = 12,
-    double bottomPadding = 20,
+    double topPadding = 8,
+    double bottomPadding = 8,
     double contentHeight = buttonHeight,
   }) {
     return topPadding + contentHeight + bottomPadding + safeBottom;
@@ -43,7 +44,7 @@ class HowmuchBottomActionBar extends StatelessWidget {
         color: backgroundColor,
         border: showTopBorder
             ? const Border(
-                top: BorderSide(color: Color(0xFFE5E7EB), width: .909),
+                top: BorderSide(color: AppColors.border, width: .909),
               )
             : null,
       ),

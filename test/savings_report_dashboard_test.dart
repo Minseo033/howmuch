@@ -3,11 +3,22 @@ import 'dart:convert';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/savings/presentation/screens/savings_report_dashboard_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await ApiClient.setSessionToken('test-session-token');
+  });
+
+  tearDown(() async {
+    await ApiClient.setSessionToken(null);
+  });
+
   test('formats monthly chart amounts without overflowing narrow cells', () {
     expect(formatSavingsChartAmount(0), '0');
     expect(formatSavingsChartAmount(950), '950');
@@ -45,6 +56,33 @@ void main() {
       expect(find.text('0'), findsNothing);
     }, () => MockClient(_dashboardResponseWithCurrentPeriodFailure));
   });
+
+  testWidgets(
+    'shows a login prompt without requesting savings data when logged out',
+    (tester) async {
+      await ApiClient.setSessionToken(null);
+      var requestCount = 0;
+
+      await http.runWithClient(
+        () async {
+          await tester.pumpWidget(
+            const MaterialApp(home: SavingsReportDashboardScreen()),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text('로그인이 필요해요'), findsOneWidget);
+          expect(find.text('절약 리포트를 보려면 로그인해주세요'), findsOneWidget);
+          expect(find.text('로그인하기'), findsOneWidget);
+          expect(find.text('절약 데이터를 불러오지 못했어요'), findsNothing);
+          expect(requestCount, 0);
+        },
+        () => MockClient((request) async {
+          requestCount++;
+          return http.Response('', 500);
+        }),
+      );
+    },
+  );
 
   testWidgets('marks a failed auxiliary count as unavailable', (tester) async {
     await http.runWithClient(() async {
@@ -134,11 +172,15 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        final chartFinder = find.byKey(const ValueKey('savings-weekly-line-chart'));
+        final chartFinder = find.byKey(
+          const ValueKey('savings-weekly-line-chart'),
+        );
         expect(chartFinder, findsOneWidget);
 
         // 1. Mouse hover interaction (웹/데스크톱 마우스 커서 올릴 때)
-        final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
         await gesture.addPointer(location: Offset.zero);
         await gesture.moveTo(tester.getCenter(chartFinder));
         await tester.pump();
@@ -193,20 +235,22 @@ Future<http.Response> _dashboardResponseWithWeeklyAndYearlyChart(
     if (period == 'this_year') {
       return _statsResponse(
         chartTitle: '월별 절약 금액',
-        chartItems: List.generate(12, (i) => {
-          'label': '${i + 1}월',
-          'amount': 1000,
-          'isMax': i == 7,
-        }),
+        chartItems: List.generate(
+          12,
+          (i) => {'label': '${i + 1}월', 'amount': 1000, 'isMax': i == 7},
+        ),
       );
     }
     return _statsResponse(
       chartTitle: '주차별 절약 금액',
-      chartItems: List.generate(5, (i) => {
-        'label': '${i + 1}주',
-        'amount': (i + 1) * 2000,
-        'isMax': i == 4,
-      }),
+      chartItems: List.generate(
+        5,
+        (i) => {
+          'label': '${i + 1}주',
+          'amount': (i + 1) * 2000,
+          'isMax': i == 4,
+        },
+      ),
     );
   }
   return _auxiliaryResponse(request);

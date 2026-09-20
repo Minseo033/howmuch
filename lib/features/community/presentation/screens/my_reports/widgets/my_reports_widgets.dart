@@ -9,12 +9,14 @@ class TopBanner extends StatelessWidget {
     required this.text,
     required this.color,
     required this.backgroundColor,
+    this.singleLine = false,
   });
 
   final IconData icon;
   final String text;
   final Color color;
   final Color backgroundColor;
+  final bool singleLine;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,7 @@ class TopBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -30,30 +32,35 @@ class TopBanner extends StatelessWidget {
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: color,
-                fontFamily: "Inter",
-                fontFamilyFallback: [
-                  "Noto Sans KR",
-                  "Apple SD Gothic Neo",
-                  "AppleGothic",
-                  "Arial Unicode MS",
-                  "Malgun Gothic",
-                  "sans-serif",
-                ],
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.5,
-              ),
-            ),
+            child: singleLine
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(text, style: _bannerTextStyle(color)),
+                  )
+                : Text(text, style: _bannerTextStyle(color)),
           ),
         ],
       ),
     );
   }
 }
+
+TextStyle _bannerTextStyle(Color color) => TextStyle(
+  color: color,
+  fontFamily: 'Inter',
+  fontFamilyFallback: const [
+    'Noto Sans KR',
+    'Apple SD Gothic Neo',
+    'AppleGothic',
+    'Arial Unicode MS',
+    'Malgun Gothic',
+    'sans-serif',
+  ],
+  fontSize: 12,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
 
 class EmptyStateBox extends StatelessWidget {
   const EmptyStateBox({super.key});
@@ -65,8 +72,8 @@ class EmptyStateBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 32),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Color(0xFFE5E7EB), width: 0.909),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Color(0xFFD8E7DB), width: 0.909),
       ),
       child: Column(
         children: [
@@ -74,12 +81,12 @@ class EmptyStateBox extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              color: Color(0xFFF4F6FA),
+              color: Color(0xFFFCFBF7),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.description_outlined,
-              color: Color(0xFF94A3B8),
+              color: Color(0xFFAAB3AA),
               size: 20,
             ),
           ),
@@ -87,7 +94,7 @@ class EmptyStateBox extends StatelessWidget {
           const Text(
             '검토 중인 제보가 없어요',
             style: TextStyle(
-              color: Color(0xFF0A0A0A),
+              color: Color(0xFF243E35),
               fontFamily: "Inter",
               fontFamilyFallback: [
                 "Noto Sans KR",
@@ -106,7 +113,7 @@ class EmptyStateBox extends StatelessWidget {
           const Text(
             '새 제보를 등록해보세요',
             style: TextStyle(
-              color: Color(0xFF64748B),
+              color: Color(0xFF748078),
               fontFamily: "Inter",
               fontFamilyFallback: [
                 "Noto Sans KR",
@@ -145,15 +152,15 @@ class ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Color(0xFFE5E7EB), width: .909),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Color(0xFFD8E7DB), width: .909),
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -166,7 +173,7 @@ class ReportCard extends StatelessWidget {
                   Text(
                     report.date,
                     style: const TextStyle(
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF748078),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -187,7 +194,7 @@ class ReportCard extends StatelessWidget {
               Text(
                 report.title,
                 style: const TextStyle(
-                  color: Color(0xFF0A0A0A),
+                  color: Color(0xFF243E35),
                   fontFamily: "Inter",
                   fontFamilyFallback: [
                     "Noto Sans KR",
@@ -209,7 +216,7 @@ class ReportCard extends StatelessWidget {
                   const Text(
                     '대표 메뉴',
                     style: TextStyle(
-                      color: Color(0xFF64748B),
+                      color: Color(0xFF748078),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -227,7 +234,7 @@ class ReportCard extends StatelessWidget {
                   Text(
                     report.menu,
                     style: const TextStyle(
-                      color: Color(0xFF0A0A0A),
+                      color: Color(0xFF243E35),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -256,14 +263,14 @@ class ReportCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3EA),
+                    color: const Color(0xFFFCF1EA),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.warning_amber_rounded,
-                        color: Color(0xFFF97316),
+                        color: Color(0xFFC47A53),
                         size: 13,
                       ),
                       const SizedBox(width: 5),
@@ -273,7 +280,7 @@ class ReportCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF9A3412),
+                            color: Color(0xFF925B3C),
                             fontFamily: "Inter",
                             fontFamilyFallback: [
                               "Noto Sans KR",
@@ -299,7 +306,7 @@ class ReportCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFECFDF5),
+                    color: const Color(0xFFF1FBF5),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -307,7 +314,7 @@ class ReportCard extends StatelessWidget {
                     children: const [
                       Icon(
                         Icons.location_on,
-                        color: Color(0xFF10B981),
+                        color: Color(0xFF65B489),
                         size: 14,
                       ),
                       SizedBox(width: 4),
@@ -318,7 +325,7 @@ class ReportCard extends StatelessWidget {
                             '지도에 사용자 제보 매장으로 표시 중',
                             maxLines: 1,
                             style: TextStyle(
-                              color: Color(0xFF047857),
+                              color: Color(0xFF4D9D75),
                               fontFamily: "Inter",
                               fontFamilyFallback: [
                                 "Noto Sans KR",
@@ -349,12 +356,12 @@ class ReportCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          side: const BorderSide(color: Color(0xFFD8E7DB)),
                         ),
                         child: const Text(
                           '상세보기',
                           style: TextStyle(
-                            color: Color(0xFF0F172A),
+                            color: Color(0xFF243E35),
                             fontFamily: "Inter",
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -376,7 +383,7 @@ class ReportCard extends StatelessWidget {
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
+                          backgroundColor: const Color(0xFF359A6B),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -527,9 +534,9 @@ class MiniProgressSteps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      StepData('접수 완료', 0, Color(0xFF10B981), true),
-      StepData('정보 확인 중', 1, Color(0xFFF97316), false),
-      StepData('승인 대기', 2, Color(0xFFCBD5E1), false),
+      StepData('접수 완료', 0, Color(0xFF65B489), true),
+      StepData('정보 확인 중', 1, Color(0xFFC47A53), false),
+      StepData('승인 대기', 2, Color(0xFFD8E7DB), false),
     ];
 
     return LayoutBuilder(
@@ -557,8 +564,8 @@ class MiniProgressSteps extends StatelessWidget {
                 height: connectorHeight,
                 child: ColoredBox(
                   color: index < 1
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFE2E8F0),
+                      ? const Color(0xFF65B489)
+                      : const Color(0xFFD8E7DB),
                 ),
               ),
             for (var index = 0; index < items.length; index++)
@@ -602,10 +609,10 @@ class MiniProgressSteps extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: index == 1
-                        ? const Color(0xFFF97316)
+                        ? const Color(0xFFC47A53)
                         : (items[index].done
-                              ? Color(0xFF0F172A)
-                              : Color(0xFF64748B)),
+                              ? Color(0xFF243E35)
+                              : Color(0xFF748078)),
                     fontSize: 9.5,
                     fontWeight: index == 1 ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -646,7 +653,7 @@ class MyReportData {
     required this.height,
     this.notice,
     this.actionLabel,
-    this.actionColor = const Color(0xFF2563EB),
+    this.actionColor = const Color(0xFF359A6B),
     this.actionIcon = Icons.location_on_outlined,
     this.actionTop = 102.95,
     this.actionWidth = 120.185,
@@ -724,8 +731,8 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
           ? '지도에서 보기'
           : (filter == ReportFilter.needsEdit ? '수정하기' : null),
       actionColor: filter == ReportFilter.needsEdit
-          ? const Color(0xFFF97316)
-          : const Color(0xFF2563EB),
+          ? const Color(0xFFC47A53)
+          : const Color(0xFF359A6B),
       actionIcon: filter == ReportFilter.needsEdit
           ? Icons.edit_outlined
           : Icons.location_on_outlined,

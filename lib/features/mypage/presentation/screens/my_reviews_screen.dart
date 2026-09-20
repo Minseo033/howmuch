@@ -286,7 +286,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.borderLight),
       ),
       child: Column(
@@ -383,7 +383,7 @@ class _StatsCard extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.borderLight),
       ),
       child: child,

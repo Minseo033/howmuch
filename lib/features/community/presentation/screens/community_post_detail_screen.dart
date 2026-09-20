@@ -24,19 +24,19 @@ class CommunityPostDetailScreen extends ConsumerStatefulWidget {
   final String postId;
   const CommunityPostDetailScreen({super.key, this.postId = ''});
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const border = Color(0xFFE5E7EB);
-  static const surface = Color(0xFFF4F6FA);
-  static const commentSurface = Color(0xFFF8FAFC);
-  static const softBlue = Color(0xFFEFF4FF);
-  static const softOrange = Color(0xFFFFF3EA);
+  static const blue = Color(0xFF359A6B);
+  static const orange = Color(0xFFC47A53);
+  static const ink = Color(0xFF243E35);
+  static const black = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const border = Color(0xFFD8E7DB);
+  static const surface = Color(0xFFFCFBF7);
+  static const commentSurface = Color(0xFFFCFBF7);
+  static const softBlue = Color(0xFFDDF4E5);
+  static const softOrange = Color(0xFFFCF1EA);
   static const contentLeft = 20.0;
   static const contentRight = 20.0;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -453,16 +453,14 @@ class _CommunityPostDetailScreenState
     final myNickname = profile.nickname;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    final bottomOffset = safePadding.bottom > 24 ? safePadding.bottom : 24.0;
+    final bottomOffset = safePadding.bottom > 12 ? safePadding.bottom : 12.0;
     final designScale = FigmaMobileCanvas.designScaleFor(context);
     final keyboardInset = designScale <= 0
         ? 0.0
         : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    final composerBottomGap = keyboardInset > 0
-        ? keyboardInset
-        : (bottomOffset + 12);
-    const composerTopPadding = 10.0;
-    const composerHeight = 43.991;
+    final composerBottomGap = keyboardInset > 0 ? keyboardInset : bottomOffset;
+    const composerTopPadding = 14.0;
+    const composerHeight = 52.0;
     final replyTarget = _replyTarget;
     final replyBannerHeight = replyTarget == null ? 0.0 : 24.0;
     final bottomBarHeight =
@@ -485,7 +483,7 @@ class _CommunityPostDetailScreenState
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFCFBF7),
         child: Stack(
           children: [
             Positioned(
@@ -510,7 +508,7 @@ class _CommunityPostDetailScreenState
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFF359A6B),
                       ),
                     )
                   : _hasError
@@ -588,7 +586,7 @@ class _CommunityPostDetailScreenState
               height: bottomBarHeight,
               child: DecoratedBox(
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: CommunityPostDetailScreen.surface,
                   border: Border(
                     top: BorderSide(
                       color: CommunityPostDetailScreen.border,
@@ -644,7 +642,7 @@ class _CommunityPostDetailScreenState
                                 decoration: BoxDecoration(
                                   color:
                                       CommunityPostDetailScreen.commentSurface,
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
                                     color: CommunityPostDetailScreen.border,
                                     width: .909,
@@ -652,7 +650,7 @@ class _CommunityPostDetailScreenState
                                 ),
                                 alignment: Alignment.centerLeft,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12.909,
+                                  horizontal: 16,
                                 ),
                                 child: Theme(
                                   data: Theme.of(context).copyWith(
@@ -695,7 +693,7 @@ class _CommunityPostDetailScreenState
                                       focusedBorder: InputBorder.none,
                                       hintText: inputHint,
                                       hintStyle: const TextStyle(
-                                        color: Color(0xFF94A3B8),
+                                        color: Color(0xFFAAB3AA),
                                         fontFamily: CommunityPostDetailScreen
                                             .fontFamily,
                                         fontFamilyFallback:
@@ -713,9 +711,9 @@ class _CommunityPostDetailScreenState
                               ),
                             ),
                           ),
-                          const SizedBox(width: 7.997),
+                          const SizedBox(width: 10),
                           SizedBox(
-                            width: 43.991,
+                            width: 52,
                             height: composerHeight,
                             child: FilledButton(
                               onPressed: _isSubmitting ? null : _submitComment,
@@ -725,7 +723,7 @@ class _CommunityPostDetailScreenState
                                 disabledBackgroundColor:
                                     CommunityPostDetailScreen.muted,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: _isSubmitting
@@ -881,7 +879,7 @@ class _PostCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1F5F9), width: 1.0),
+        border: Border.all(color: const Color(0xFFF1FAF4), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -950,9 +948,9 @@ class _PostCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFFBFAF5),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFEDF2F7)),
+                border: Border.all(color: const Color(0xFFDDF4E5)),
               ),
               child: Row(
                 children: [
@@ -960,7 +958,7 @@ class _PostCard extends StatelessWidget {
                     width: 36,
                     height: 36,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: const Color(0xFFDDF4E5),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(
@@ -997,7 +995,7 @@ class _PostCard extends StatelessWidget {
                           Text(
                             phoneNumber,
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: Color(0xFFAAB3AA),
                               fontSize: 11,
                             ),
                           ),
@@ -1015,9 +1013,9 @@ class _PostCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFFBFAF5),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFEDF2F7)),
+                border: Border.all(color: const Color(0xFFDDF4E5)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1044,15 +1042,15 @@ class _PostCard extends StatelessWidget {
                   const SizedBox(height: 10),
                   _buildMenuRow(menu1, price1),
                   if (menu2.isNotEmpty) ...[
-                    const Divider(color: Color(0xFFEDF2F7), height: 16),
+                    const Divider(color: Color(0xFFDDF4E5), height: 16),
                     _buildMenuRow(menu2, price2),
                   ],
                   if (menu3.isNotEmpty) ...[
-                    const Divider(color: Color(0xFFEDF2F7), height: 16),
+                    const Divider(color: Color(0xFFDDF4E5), height: 16),
                     _buildMenuRow(menu3, price3),
                   ],
                   if (menu4.isNotEmpty) ...[
-                    const Divider(color: Color(0xFFEDF2F7), height: 16),
+                    const Divider(color: Color(0xFFDDF4E5), height: 16),
                     _buildMenuRow(menu4, price4),
                   ],
                 ],
@@ -1073,16 +1071,16 @@ class _PostCard extends StatelessWidget {
                       vertical: 4.5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: const Color(0xFFF1FBF5),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                      border: Border.all(color: const Color(0xFFE5F7EB)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.check_circle_rounded,
-                          color: Color(0xFF10B981),
+                          color: Color(0xFF4D9D75),
                           size: 13,
                         ),
                         SizedBox(width: 4),
@@ -1090,7 +1088,7 @@ class _PostCard extends StatelessWidget {
                           '최근 방문 인증',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF4D9D75),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1104,16 +1102,16 @@ class _PostCard extends StatelessWidget {
                       vertical: 4.5,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: const Color(0xFFF1FBF5),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFA7F3D0)),
+                      border: Border.all(color: const Color(0xFFE5F7EB)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.receipt_long_rounded,
-                          color: Color(0xFF10B981),
+                          color: Color(0xFF4D9D75),
                           size: 13,
                         ),
                         SizedBox(width: 4),
@@ -1121,7 +1119,7 @@ class _PostCard extends StatelessWidget {
                           '메뉴판 직접 확인',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: Color(0xFF047857),
+                            color: Color(0xFF4D9D75),
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -1133,7 +1131,7 @@ class _PostCard extends StatelessWidget {
             const SizedBox(height: 12),
           ],
 
-          const Divider(color: Color(0xFFF1F5F9), height: 16),
+          const Divider(color: Color(0xFFF1FAF4), height: 16),
           const SizedBox(height: 4),
           Row(
             children: [
@@ -1162,13 +1160,13 @@ class _PostCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: notificationEnabled
-                        ? const Color(0xFFEFF6FF)
-                        : const Color(0xFFF8FAFC),
+                        ? const Color(0xFFDDF4E5)
+                        : const Color(0xFFFBFAF5),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: notificationEnabled
-                          ? const Color(0xFFBFDBFE)
-                          : const Color(0xFFE2E8F0),
+                          ? const Color(0xFFE5F5EA)
+                          : const Color(0xFFD8E7DB),
                     ),
                   ),
                   child: Row(
@@ -1215,7 +1213,7 @@ class _PostCard extends StatelessWidget {
         Text(
           name,
           style: const TextStyle(
-            color: Color(0xFF334155),
+            color: Color(0xFF53645B),
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -1278,18 +1276,18 @@ class _PostImageGalleryState extends State<_PostImageGallery> {
                 itemBuilder: (context, index) => GestureDetector(
                   onTap: () => _openFullScreen(context, index),
                   child: Container(
-                    color: const Color(0xFF0F172A),
+                    color: const Color(0xFF243E35),
                     alignment: Alignment.center,
                     child: Image.network(
                       widget.imageUrls[index],
                       fit: BoxFit.contain,
                       semanticLabel: '게시글 사진 ${index + 1} / $count',
                       errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFF1F5F9),
+                        color: const Color(0xFFF1FAF4),
                         child: const Center(
                           child: Icon(
                             Icons.broken_image_outlined,
-                            color: Color(0xFF94A3B8),
+                            color: Color(0xFFAAB3AA),
                             size: 28,
                           ),
                         ),
@@ -1540,13 +1538,13 @@ class _PostStatusBadge extends StatelessWidget {
     };
 
     final Color color = switch (status.toUpperCase()) {
-      'PENDING' => const Color(0xFFCA8A04),
+      'PENDING' => const Color(0xFFB97852),
       _ => CommunityPostDetailScreen.orange,
     };
 
     final Color bgColor = switch (status.toUpperCase()) {
-      'PENDING' => const Color(0xFFFEFCE8),
-      _ => const Color(0xFFFFF7ED),
+      'PENDING' => const Color(0xFFFCF1EA),
+      _ => const Color(0xFFFCF1EA),
     };
 
     return Container(
@@ -1556,8 +1554,8 @@ class _PostStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: status.toUpperCase() == 'PENDING'
-              ? const Color(0xFFFEF08A)
-              : const Color(0xFFFFEDD5),
+              ? const Color(0xFFF0D7C3)
+              : const Color(0xFFFCF1EA),
         ),
       ),
       child: Text(
@@ -1703,7 +1701,7 @@ class _CommentCard extends StatelessWidget {
           color: CommunityPostDetailScreen.border,
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1946,7 +1944,7 @@ class _CommentEmptyState extends StatelessWidget {
           color: CommunityPostDetailScreen.border,
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Text(
         text,
@@ -2022,7 +2020,7 @@ class _AvatarBadge extends StatelessWidget {
         decoration: BoxDecoration(
           color: backgroundColor,
           shape: BoxShape.circle,
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+          border: Border.all(color: const Color(0xFFD8E7DB), width: 1.0),
         ),
         clipBehavior: Clip.antiAlias,
         child: Image.network(

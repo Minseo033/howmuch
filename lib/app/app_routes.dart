@@ -7,6 +7,7 @@ class AppRoutes {
   static const onboardingNearby = '/onboarding/nearby';
   static const onboardingSavingsReport = '/onboarding/savings-report';
   static const onboardingStoreReport = '/onboarding/store-report';
+  static const authTerms = '/auth/terms';
   static const login = '/login';
   static const permissionSetup = '/permissions';
   static const profileSetup = '/auth/profile-setup';

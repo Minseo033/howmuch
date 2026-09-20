@@ -7,14 +7,14 @@
 <title>얼마고? 어드민</title>
 <style>
   :root {
-    --bg: #F4F6FA;
+    --bg: #F7F5EE;
     --card: #FFFFFF;
-    --border: #E5E7EB;
-    --text: #0F172A;
-    --muted: #64748B;
-    --primary: #2563EB;
-    --primary-dark: #1D4ED8;
-    --primary-soft: #EFF4FF;
+    --border: #D9DDD2;
+    --text: #1F342D;
+    --muted: #707A70;
+    --primary: #315F52;
+    --primary-dark: #193E31;
+    --primary-soft: #EDF2E3;
     --green: #047857;
     --green-fill: #059669;
     --green-soft: #E8F8F1;
@@ -44,7 +44,7 @@
   /* ── 로그인 오버레이 ─────────────── */
   #loginOverlay {
     position: fixed; inset: 0; z-index: 100;
-    background: linear-gradient(135deg, #1E3A8A 0%, #2563EB 45%, #0EA5E9 100%);
+    background: linear-gradient(135deg, #274C42 0%, #315F52 45%, #AABF96 100%);
     display: flex; align-items: center; justify-content: center; padding: 24px;
   }
   #loginOverlay.hidden { display: none; }
@@ -56,7 +56,7 @@
   }
   .login-logo {
     width: 64px; height: 64px; margin: 0 auto; border-radius: 18px; object-fit: cover;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, .4); display: block;
+    box-shadow: 0 8px 20px rgba(36, 88, 70, .4); display: block;
   }
   .login-card h1 { font-size: 22px; font-weight: 800; margin-top: 18px; letter-spacing: -.5px; }
   .login-card p { font-size: 13px; color: var(--muted); margin-top: 8px; line-height: 1.6; }
@@ -74,18 +74,18 @@
 
   aside {
     width: 232px; flex-shrink: 0; position: sticky; top: 0; height: 100vh;
-    background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);
+    background: linear-gradient(180deg, #1F342D 0%, #274C42 100%);
     color: #E2E8F0; display: flex; flex-direction: column;
     padding: 22px 14px; gap: 4px;
   }
   .side-brand { display: flex; align-items: center; gap: 11px; padding: 4px 10px 20px; }
   .side-logo {
     width: 40px; height: 40px; border-radius: 11px; object-fit: cover;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, .35); display: block;
+    box-shadow: 0 4px 12px rgba(36, 88, 70, .35); display: block;
   }
   .side-brand h1 { font-size:15px; font-weight: 800; letter-spacing: -.3px; color: #fff; }
   .side-brand span { display: block; font-size:11px; color: #94A3B8; font-weight: 600; margin-top: 1px; }
-  .nav-label { font-size:11px; font-weight: 700; color: #64748B; letter-spacing: .08em; padding: 14px 12px 6px; }
+  .nav-label { font-size:11px; font-weight: 700; color: #707A70; letter-spacing: .08em; padding: 14px 12px 6px; }
   .nav-item {
     display: flex; align-items: center; gap: 10px; width: 100%;
     padding: 10px 12px; border: none; border-radius: 10px; background: transparent;
@@ -95,9 +95,9 @@
   .nav-item .ico { width: 18px; height: 18px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
   .nav-item .ico svg { width: 18px; height: 18px; display: block; }
   .nav-item:hover { background: rgba(255,255,255,.07); color: #fff; }
-  .nav-item.active { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 14px rgba(37,99,235,.4); }
+  .nav-item.active { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; box-shadow: 0 4px 14px rgba(36,88,70,.4); }
   .nav-item .pill {
-    margin-left: auto; background: var(--amber-fill); color: #0F172A;
+    margin-left: auto; background: var(--amber-fill); color: #1F342D;
     font-size:11px; font-weight: 800; padding: 2px 7px; border-radius: 99px;
   }
   [data-open-image]:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
@@ -169,7 +169,7 @@
     cursor: pointer; transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s; font-family: inherit;
   }
   .tab:hover { border-color: var(--primary); color: var(--primary); }
-  .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+  .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(36,88,70,.3); }
   .tab .count { opacity: .75; font-weight: 600; margin-left: 4px; }
 
   /* ── 검색 ─────────────────────── */
@@ -239,7 +239,7 @@
   .notice-guide {
     display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px;
     padding: 12px 14px; border: 1px solid #BFDBFE; border-radius: 12px;
-    background: var(--primary-soft); color: #1E3A8A; font-size: 12px; line-height: 1.6;
+    background: var(--primary-soft); color: #193E31; font-size: 12px; line-height: 1.6;
   }
   .notice-guide svg { width: 18px; height: 18px; flex: 0 0 auto; margin-top: 1px; }
   .field-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -252,7 +252,7 @@
   }
   .notice-preview-head {
     position: relative; overflow: hidden; min-height: 126px; padding: 22px 22px 24px;
-    background: #0F172A; color: #fff;
+    background: #1F342D; color: #fffdf8;
   }
   .notice-preview-mark {
     position: absolute; right: -5px; top: -35px; color: rgba(255,255,255,.06);
@@ -293,7 +293,7 @@
   .btn-sm { padding: 6px 12px; font-size:13px; border-radius: 8px; }
   .btn-approve { background: var(--green-fill); color: #fff; }
   .btn-approve:hover:not(:disabled) { filter: brightness(1.08); }
-  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(37,99,235,.3); }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(36,88,70,.3); }
   .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
   .btn-reject { background: var(--red-soft); color: var(--red); border: 1px solid #FECACA; }
   .btn-reject:hover:not(:disabled) { background: #FEE2E2; }
@@ -459,6 +459,13 @@
     .stats, .stats.cols3 { grid-template-columns: repeat(2, 1fr); }
     .login-card { padding: 30px 22px; }
   }
+
+  /* Neighborhood editorial theme: styling only. */
+  .nav-item.active { background: #E7EEE7; color: #1F342D; box-shadow: none; }
+  .card, .stat-card, .login-card { border-radius: 24px; }
+  .topbar h2 { font-size: 28px; letter-spacing: -1px; }
+  .stat-card .value { font-size: 34px; }
+  .login-card { background: #F7F5EE; }
 </style>
 </head>
 <body>
@@ -826,7 +833,7 @@
   const shortUidText = (uid) => uid ? String(uid).slice(0, 8) + '…' : '-';
   const shortUid = (uid) => esc(shortUidText(uid));
   const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려' };
-  const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
+  const AVATAR_COLORS = ['#315F52','#527A6C','#39705C','#A76546','#A64B4B','#AABF96','#707A70'];
 
   const avatarColor = (seed) => {
     let h = 0;

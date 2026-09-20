@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 class CustomBottomButton extends StatelessWidget {
   final String text;
@@ -10,21 +11,21 @@ class CustomBottomButton extends StatelessWidget {
     super.key,
     required this.text,
     required this.onPressed,
-    this.backgroundColor = const Color(0xFFF27E22), // 주황색 기본
-    this.textColor = Colors.white,
+    this.backgroundColor = AppColors.primary,
+    this.textColor = AppColors.white,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: AppColors.white,
       padding: EdgeInsets.only(
         left: 20,
         right: 20,
         top: 10,
         bottom: MediaQuery.of(context).padding.bottom > 0
             ? MediaQuery.of(context).padding.bottom
-            : 20,
+            : 8,
       ),
       child: SizedBox(
         width: double.infinity,
@@ -35,7 +36,7 @@ class CustomBottomButton extends StatelessWidget {
             foregroundColor: textColor,
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
           onPressed: onPressed,

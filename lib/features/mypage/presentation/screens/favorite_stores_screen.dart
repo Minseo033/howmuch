@@ -107,14 +107,14 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                             vertical: 14,
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(22),
                             borderSide: const BorderSide(
                               color: AppColors.border,
                               width: 0.909,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(22),
                             borderSide: const BorderSide(
                               color: AppColors.primary,
                               width: 1.2,
@@ -122,7 +122,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                           ),
                         ),
                         style: const TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: ['Noto Sans KR'],
                           color: AppColors.ink,
                           fontSize: 13,
@@ -141,7 +141,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                         RichText(
                           text: TextSpan(
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontSize: 12,
                               height: 18 / 12,
@@ -190,7 +190,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                                 Text(
                                   _sort.label,
                                   style: const TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.primary,
@@ -269,7 +269,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.white,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(22),
                       ),
                       child: Row(
                         children: [
@@ -296,7 +296,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                                 Text(
                                   '자주 가는 매장을 더 저장해보세요',
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.bold,
                                     color: AppColors.ink,
@@ -308,7 +308,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                                 Text(
                                   '가격 변동 알림을 받을 수 있어요',
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     color: AppColors.muted,
                                     fontSize: 11,
@@ -343,13 +343,14 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
               child: Stack(
                 children: [
                   Positioned(
-                    left: 20,
-                    top: 13.98,
-                    child: GestureDetector(
-                      onTap: () => context.pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
+                    left: 8,
+                    top: 0,
+                    width: 48,
+                    height: 48,
+                    child: IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
                         size: 20,
                         color: AppColors.black,
                       ),
@@ -360,7 +361,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                       child: Text(
                         '찜한 매장',
                         style: TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: ['Noto Sans KR'],
                           fontWeight: FontWeight.bold,
                           color: AppColors.black,
@@ -390,7 +391,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: AppColors.border, width: 0.909),
       ),
       child: Column(
@@ -401,7 +402,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Inter',
+              fontFamily: 'Noto Sans KR',
               fontFamilyFallback: ['Noto Sans KR'],
               fontWeight: FontWeight.bold,
               color: AppColors.black,
@@ -414,7 +415,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
             message,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontFamily: 'Inter',
+              fontFamily: 'Noto Sans KR',
               fontFamilyFallback: ['Noto Sans KR'],
               color: AppColors.muted,
               fontSize: 12,

@@ -19,8 +19,8 @@ class RouteStepCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFD8E7DB)),
       ),
       child: Row(
         children: [
@@ -28,7 +28,7 @@ class RouteStepCard extends StatelessWidget {
             width: 28,
             height: 28,
             decoration: const BoxDecoration(
-              color: Color(0xFF2563EB),
+              color: Color(0xFF359A6B),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
@@ -51,7 +51,7 @@ class RouteStepCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF0F172A),
+                    color: Color(0xFF243E35),
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -62,7 +62,7 @@ class RouteStepCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF64748B),
+                    color: Color(0xFF748078),
                     fontSize: 12,
                   ),
                 ),

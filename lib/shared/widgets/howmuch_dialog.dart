@@ -46,7 +46,7 @@ class HowmuchDialog extends StatelessWidget {
         backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         scrollable: true,
         titlePadding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
@@ -90,7 +90,7 @@ class HowmuchDialog extends StatelessWidget {
                     foregroundColor: AppColors.textBody,
                     backgroundColor: AppColors.surface,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   onPressed: () => Navigator.of(context).pop(),
@@ -106,15 +106,13 @@ class HowmuchDialog extends StatelessWidget {
                     minimumSize: const Size(0, 48),
                     backgroundColor:
                         confirmColor ??
-                        (destructive
-                            ? const Color(0xFFB91C1C)
-                            : AppColors.primary),
+                        (destructive ? AppColors.error : AppColors.primary),
                     foregroundColor: confirmForeground ?? AppColors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     textStyle: const TextStyle(
-                      fontFamily: 'Inter',
+                      fontFamily: 'Noto Sans KR',
                       fontFamilyFallback: ['Noto Sans KR'],
                       fontSize: 15,
                       fontWeight: FontWeight.w600,

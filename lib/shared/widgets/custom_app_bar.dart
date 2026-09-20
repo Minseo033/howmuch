@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -14,19 +16,37 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
     return AppBar(
-      backgroundColor: Colors.white,
+      toolbarHeight: HowmuchTopBar.height,
+      backgroundColor: AppColors.white,
       elevation: 0,
       centerTitle: true,
       scrolledUnderElevation: 0,
-      iconTheme: const IconThemeData(color: Colors.black),
-      leading: leading,
+      iconTheme: const IconThemeData(color: AppColors.ink),
+      leadingWidth: 64,
+      shape: const Border(bottom: BorderSide(color: AppColors.border)),
+      leading:
+          leading ??
+          (canPop
+              ? IconButton(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.center,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: HowmuchTopBar.iconSize,
+                  ),
+                )
+              : null),
       title: Text(
         title,
         style: const TextStyle(
-          color: Colors.black,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+          color: AppColors.ink,
+          fontFamily: 'Noto Sans KR',
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          height: 1.5,
         ),
       ),
       actions: actions,
@@ -34,5 +54,5 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(HowmuchTopBar.height);
 }

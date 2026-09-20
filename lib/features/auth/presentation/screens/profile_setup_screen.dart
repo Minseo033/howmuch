@@ -20,18 +20,18 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
 class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   // ── 색상 상수
-  static const _blue = Color(0xFF2563EB);
-  static const _ink = Color(0xFF0F172A);
-  static const _muted = Color(0xFF64748B);
+  static const _blue = Color(0xFF359A6B);
+  static const _ink = Color(0xFF243E35);
+  static const _muted = Color(0xFF748078);
   // #94A3B8 on white is too faint for helper text (about 2.4:1). Use the
   // secondary text token so setup guidance remains readable at small sizes.
-  static const _hint = Color(0xFF64748B);
-  static const _border = Color(0xFFE2E8F0);
-  static const _chipSelected = Color(0xFF2563EB);
+  static const _hint = Color(0xFF748078);
+  static const _border = Color(0xFFD8E7DB);
+  static const _chipSelected = Color(0xFF359A6B);
   static const _chipSelectedText = Colors.white;
   static const _chipUnselected = Colors.white;
-  static const _chipUnselectedBorder = Color(0xFFCBD5E1);
-  static const _chipUnselectedText = Color(0xFF475569);
+  static const _chipUnselectedBorder = Color(0xFFC9DDCE);
+  static const _chipUnselectedText = Color(0xFF53645B);
 
   // ── 폰트
   static const _font = 'Inter';
@@ -277,7 +277,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
     return FigmaMobileCanvas(
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFCFBF7),
         appBar: _buildAppBar(),
         body: SafeArea(
           child: Column(
@@ -323,7 +323,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
   // ─── AppBar
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFFCFBF7),
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: true,
@@ -331,11 +331,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         onPressed: () {
           if (context.canPop()) context.pop();
         },
-        icon: const Icon(
-          Icons.arrow_back_ios_new_rounded,
-          size: 18,
-          color: _ink,
-        ),
+        icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
         splashRadius: 20,
       ),
       title: const Text(
@@ -351,7 +347,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       ),
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: const Color(0xFFF1F5F9)),
+        child: Container(height: 1, color: const Color(0xFFF6F7F2)),
       ),
     );
   }
@@ -366,7 +362,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
+            color: const Color(0xFFDDF4E5),
             borderRadius: BorderRadius.circular(99),
           ),
           child: const Text(
@@ -468,7 +464,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                             width: 6,
                             height: 6,
                             decoration: BoxDecoration(
-                              color: isValid ? const Color(0xFF10B981) : _hint,
+                              color: isValid ? const Color(0xFF4D9D75) : _hint,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -480,7 +476,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                               fontFamilyFallback: _fontFallback,
                               fontSize: 11.5,
                               fontWeight: FontWeight.w500,
-                              color: isValid ? const Color(0xFF10B981) : _hint,
+                              color: isValid ? const Color(0xFF4D9D75) : _hint,
                             ),
                           ),
                         ],
@@ -493,7 +489,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _nicknameFocused ? _blue : _border,
                   width: _nicknameFocused ? 1.5 : 1,
@@ -628,7 +624,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _regionFocused ? _blue : _border,
               width: _regionFocused ? 1.5 : 1,
@@ -681,7 +677,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             margin: const EdgeInsets.only(top: 4),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: _border),
               boxShadow: [
                 BoxShadow(
@@ -881,7 +877,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: _border),
           ),
           child: Row(

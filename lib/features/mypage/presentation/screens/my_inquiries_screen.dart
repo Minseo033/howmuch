@@ -10,7 +10,7 @@ class MyInquiriesScreen extends ConsumerWidget {
   const MyInquiriesScreen({super.key});
 
   static const _headerHeight = 48.877838134765625;
-  static const _fontFamily = 'Inter';
+  static const _fontFamily = 'Noto Sans KR';
   static const _fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -56,7 +56,7 @@ class MyInquiriesScreen extends ConsumerWidget {
                 context.go(AppRoutes.mypage);
               }
             },
-            onCreate: () => context.go(AppRoutes.inquiry),
+            onCreate: () => context.push(AppRoutes.inquiry),
           ),
         ],
       ),
@@ -92,18 +92,20 @@ class _InquiriesHeader extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              left: 0,
+              left: 8,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: MyInquiriesScreen._headerHeight,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
