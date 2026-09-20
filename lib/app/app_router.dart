@@ -30,6 +30,7 @@ import 'package:howmuch/features/onboarding/presentation/screens/onboarding_near
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_savings_report_screen.dart';
 import 'package:howmuch/features/onboarding/presentation/screens/onboarding_store_report_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/system/presentation/screens/network_error_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/report_delete_confirm_screen.dart';
 import 'package:howmuch/features/system/presentation/screens/session_expired_screen.dart';
@@ -212,7 +213,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.login, const LoginScreen()),
       _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
       _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
-      _tabRoute(AppRoutes.home, const HomeMapScreen()),
+      GoRoute(
+        path: AppRoutes.home,
+        pageBuilder: (_, state) => NoTransitionPage<void>(
+          key: state.pageKey,
+          child: HomeMapScreen(
+            initialRecommendation: state.extra is AiMapRecommendationResult
+                ? state.extra as AiMapRecommendationResult
+                : null,
+          ),
+        ),
+      ),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
       _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),

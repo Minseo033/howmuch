@@ -84,25 +84,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         mark: const _KakaoMark(),
                         onPressed: () => _loginWithKakao(context),
                       ),
-                      const SizedBox(height: 10),
-                      _SocialLoginButton(
-                        label: '네이버로 계속하기',
-                        backgroundColor: const Color(0xFF03C75A),
-                        foregroundColor: Colors.white,
-                        mark: const _NaverMark(),
-                        statusLabel: '준비 중',
-                        onPressed: () => _showComingSoon(context, '네이버'),
-                      ),
-                      const SizedBox(height: 10),
-                      _SocialLoginButton(
-                        label: 'Google로 계속하기',
-                        backgroundColor: Colors.white,
-                        foregroundColor: const Color(0xFF1F2937),
-                        borderColor: const Color(0xFFD1D5DB),
-                        mark: const _GoogleMark(),
-                        statusLabel: '준비 중',
-                        onPressed: () => _showComingSoon(context, 'Google'),
-                      ),
                     ],
                   ),
                   SizedBox(height: isCompact ? 22 : 32),
@@ -165,12 +146,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         messenger.showSnackBar(SnackBar(content: Text('로그인 실패: $errorMsg')));
       }
     }
-  }
-
-  void _showComingSoon(BuildContext context, String provider) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$provider 로그인은 준비 중이에요.')));
   }
 }
 
@@ -326,100 +301,6 @@ class _KakaoMarkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_KakaoMarkPainter oldDelegate) => false;
-}
-
-class _NaverMark extends StatelessWidget {
-  const _NaverMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 20,
-      height: 20,
-      child: CustomPaint(painter: _NaverMarkPainter()),
-    );
-  }
-}
-
-class _NaverMarkPainter extends CustomPainter {
-  const _NaverMarkPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white;
-    final path = Path()
-      ..moveTo(2, 2)
-      ..lineTo(size.width * 0.39, 2)
-      ..lineTo(size.width - 2, size.height - 2)
-      ..lineTo(size.width * 0.61, size.height - 2)
-      ..lineTo(2, 2)
-      ..close();
-    canvas.drawPath(path, paint);
-    canvas.drawRect(
-      Rect.fromLTWH(2, 2, size.width * 0.29, size.height - 4),
-      paint,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.69, 2, size.width * 0.21, size.height - 4),
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_NaverMarkPainter oldDelegate) => false;
-}
-
-class _GoogleMark extends StatelessWidget {
-  const _GoogleMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return const SizedBox(
-      width: 21,
-      height: 21,
-      child: CustomPaint(painter: _GoogleMarkPainter()),
-    );
-  }
-}
-
-class _GoogleMarkPainter extends CustomPainter {
-  const _GoogleMarkPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
-    final strokeWidth = size.width * 0.22;
-    void arc(Color color, double start, double sweep) {
-      canvas.drawArc(
-        rect,
-        start,
-        sweep,
-        false,
-        Paint()
-          ..color = color
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.butt
-          ..strokeWidth = strokeWidth,
-      );
-    }
-
-    arc(const Color(0xFF4285F4), -0.13, 1.72);
-    arc(const Color(0xFF34A853), 1.59, 1.12);
-    arc(const Color(0xFFFBBC05), 2.71, 0.86);
-    arc(const Color(0xFFEA4335), 3.57, 1.52);
-    canvas.drawRect(
-      Rect.fromLTWH(
-        size.width * 0.52,
-        size.height * 0.46,
-        size.width * 0.43,
-        strokeWidth,
-      ),
-      Paint()..color = const Color(0xFF4285F4),
-    );
-  }
-
-  @override
-  bool shouldRepaint(_GoogleMarkPainter oldDelegate) => false;
 }
 
 class _DividerLabel extends StatelessWidget {

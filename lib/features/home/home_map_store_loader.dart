@@ -7,6 +7,12 @@ import 'package:http/http.dart' as http;
 const homeMapStoreCacheKey = 'howmuch.home_map_cache.v1';
 const maxCachedHomeMapStores = 250;
 
+/// QA/시연용으로 입력된 의미 없는 이름은 공개 지도에 노출하지 않는다.
+bool isHomeMapStoreVisible(Store store) {
+  if (!store.hasValidCoordinates) return false;
+  return store.storeName.trim() != '아무거나';
+}
+
 List<Store> decodeHomeMapStoreCache(String? raw) {
   if (raw == null || raw.isEmpty) return const [];
   try {
@@ -15,7 +21,7 @@ List<Store> decodeHomeMapStoreCache(String? raw) {
     return decoded
         .whereType<Map>()
         .map((item) => Store.fromJson(Map<String, dynamic>.from(item)))
-        .where((store) => store.hasValidCoordinates)
+        .where(isHomeMapStoreVisible)
         .take(maxCachedHomeMapStores)
         .toList(growable: false);
   } catch (_) {
@@ -26,7 +32,7 @@ List<Store> decodeHomeMapStoreCache(String? raw) {
 String encodeHomeMapStoreCache(List<Store> stores) {
   return jsonEncode(
     stores
-        .where((store) => store.hasValidCoordinates)
+        .where(isHomeMapStoreVisible)
         .take(maxCachedHomeMapStores)
         .map((store) => store.toJson())
         .toList(growable: false),
@@ -80,7 +86,7 @@ Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
       if (decoded is! List) throw const FormatException('Invalid store list');
       final stores = decoded
           .map((item) => Store.fromJson(Map<String, dynamic>.from(item as Map)))
-          .where((store) => store.hasValidCoordinates)
+          .where(isHomeMapStoreVisible)
           .toList();
       return HomeMapStoreLoadResult(stores: stores, hasFreshResponse: true);
     }
@@ -89,7 +95,7 @@ Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
     // fallback as HTTP errors. A valid empty list above remains empty.
   }
   return HomeMapStoreLoadResult(
-    stores: cachedStores.where((store) => store.hasValidCoordinates).toList(),
+    stores: cachedStores.where(isHomeMapStoreVisible).toList(),
     hasFreshResponse: false,
   );
 }

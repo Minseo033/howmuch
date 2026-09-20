@@ -98,6 +98,40 @@ void main() {
   });
 
   test(
+    'placeholder store name is removed from fresh and cached map data',
+    () async {
+      final placeholder = Store.fromJson({
+        'storeName': '아무거나',
+        'latitude': 37.55,
+        'longitude': 126.91,
+      });
+      final fresh = await loadHomeMapStores(
+        bounds: bounds,
+        cachedStores: [placeholder, cached],
+        request: (_) async => http.Response(
+          jsonEncode([placeholder.toJson(), cached.toJson()]),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        ),
+      );
+      final fallback = await loadHomeMapStores(
+        bounds: bounds,
+        cachedStores: [placeholder, cached],
+        request: (_) async => throw http.ClientException('offline'),
+      );
+
+      expect(fresh.map((store) => store.storeName), ['기존 매장']);
+      expect(fallback.map((store) => store.storeName), ['기존 매장']);
+      expect(
+        decodeHomeMapStoreCache(
+          encodeHomeMapStoreCache([placeholder, cached]),
+        ).map((store) => store.storeName),
+        ['기존 매장'],
+      );
+    },
+  );
+
+  test(
     'status result distinguishes fresh data from an offline fallback',
     () async {
       final fresh = await loadHomeMapStoresWithStatus(

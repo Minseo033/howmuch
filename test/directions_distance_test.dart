@@ -90,6 +90,39 @@ void main() {
       expect(find.text('56m'), findsOneWidget);
     });
 
+    testWidgets('화면 진입 시 현재 위치를 출발지로 초기화한다', (tester) async {
+      final position = Position(
+        latitude: 37.5665,
+        longitude: 126.9780,
+        timestamp: DateTime(2026, 9, 20),
+        accuracy: 5,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DirectionsExternalAppScreen(
+            storeName: '착한식당',
+            address: '서울시 중구 세종대로 110',
+            distanceLabel: '거리 정보 확인 중',
+            latitude: 37.5670,
+            longitude: 126.9780,
+            positionLookup: () async => position,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('출발지 · 현재 위치'), findsOneWidget);
+      expect(find.text('56m'), findsOneWidget);
+      expect(HomeMapScreen.globalUserPosition?.latitude, position.latitude);
+    });
+
     testWidgets(
       'preserves already computed distance label if coordinates are missing',
       (tester) async {

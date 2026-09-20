@@ -25,9 +25,14 @@ out/
 .env
 .env.*
 .vercel/
+node_modules/
 
 # Logs
 *.log
+
+# Local Jev quality-gate inputs and outputs
+tools/jev-quality-gate/quality-signals*.json
+tools/jev-quality-gate/result*.json
 
 
 # Firebase Service Account Key

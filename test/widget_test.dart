@@ -51,9 +51,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('얼마고?'), findsOneWidget);
     expect(find.text('카카오로 계속하기'), findsOneWidget);
-    expect(find.text('네이버로 계속하기'), findsOneWidget);
-    expect(find.text('Google로 계속하기'), findsOneWidget);
-    expect(find.text('준비 중'), findsNWidgets(2));
+    expect(find.text('네이버로 계속하기'), findsNothing);
+    expect(find.text('Google로 계속하기'), findsNothing);
 
     await tester.tap(find.text('로그인 없이 둘러보기'));
     await tester.pumpAndSettle();
@@ -61,7 +60,9 @@ void main() {
     expect(find.text('앱 시작하기'), findsOneWidget);
   });
 
-  testWidgets('unavailable social login explains its status', (tester) async {
+  testWidgets('login only presents supported Kakao authentication', (
+    tester,
+  ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
@@ -72,13 +73,9 @@ void main() {
     await tester.tap(find.text('시작하기'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('네이버로 계속하기'));
-    await tester.pump();
-    expect(find.text('네이버 로그인은 준비 중이에요.'), findsOneWidget);
-
-    await tester.tap(find.text('Google로 계속하기'));
-    await tester.pump();
-    expect(find.text('Google 로그인은 준비 중이에요.'), findsOneWidget);
+    expect(find.text('카카오로 계속하기'), findsOneWidget);
+    expect(find.text('네이버로 계속하기'), findsNothing);
+    expect(find.text('Google로 계속하기'), findsNothing);
   });
 
   testWidgets('opens mypage', (tester) async {
@@ -86,7 +83,7 @@ void main() {
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.mypage);
-    expect(find.text('마이'), findsAtLeastNWidgets(1));
+    expect(find.text('MY'), findsAtLeastNWidgets(1));
     expect(find.text('게스트'), findsOneWidget);
     expect(find.text('내 제보 상태'), findsOneWidget);
     expect(find.text('네트워크 오류 화면'), findsNothing);
@@ -202,7 +199,7 @@ void main() {
 
     await tester.tap(find.text('설정 저장'));
     await tester.pumpAndSettle();
-    expect(find.text('마이'), findsAtLeastNWidgets(1));
+    expect(find.text('MY'), findsAtLeastNWidgets(1));
     expect(find.text('알림 설정을 저장했어요.'), findsOneWidget);
 
     await _goToRoute(tester, AppRoutes.accountManagement);
@@ -269,7 +266,7 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
       await tester.pumpAndSettle();
-      expect(find.text('마이'), findsAtLeastNWidgets(1));
+      expect(find.text('MY'), findsAtLeastNWidgets(1));
     }
   });
 
@@ -287,7 +284,7 @@ void main() {
       await _goToRoute(tester, route);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('마이'), findsAtLeastNWidgets(1));
+      expect(find.text('MY'), findsAtLeastNWidgets(1));
     }
   });
 
@@ -534,7 +531,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('문의 보내기'));
     await tester.pumpAndSettle();
-    expect(find.text('마이'), findsAtLeastNWidgets(1));
+    expect(find.text('MY'), findsAtLeastNWidgets(1));
     expect(find.text('문의가 접수되었어요.'), findsOneWidget);
   });
 

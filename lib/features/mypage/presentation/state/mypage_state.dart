@@ -231,8 +231,11 @@ class UserReportStatus {
     required this.statusColor,
     required this.statusBg,
     required this.textColor,
+    this.storeId = '',
     this.category = '',
     this.address = '',
+    this.latitude = 0,
+    this.longitude = 0,
     this.menuPrices = const [],
     this.imageUrls = const [],
     this.visitedRecently = false,
@@ -248,8 +251,11 @@ class UserReportStatus {
   final int statusColor;
   final int statusBg;
   final int textColor;
+  final String storeId;
   final String category;
   final String address;
+  final double latitude;
+  final double longitude;
   final List<UserReportMenuPrice> menuPrices;
   final List<String> imageUrls;
   final bool visitedRecently;
@@ -271,8 +277,11 @@ class UserReportStatus {
       statusColor: colors.statusColor,
       statusBg: colors.statusBg,
       textColor: colors.textColor,
+      storeId: json['storeId']?.toString() ?? '',
       category: json['industry']?.toString() ?? '',
       address: json['address']?.toString() ?? '',
+      latitude: _coordinate(json['latitude']),
+      longitude: _coordinate(json['longitude']),
       menuPrices: menuPrices,
       imageUrls: _stringList(json['imageUrls']),
       visitedRecently: json['visitedRecently'] is bool
@@ -294,8 +303,11 @@ class UserReportStatus {
     int? statusColor,
     int? statusBg,
     int? textColor,
+    String? storeId,
     String? category,
     String? address,
+    double? latitude,
+    double? longitude,
     List<UserReportMenuPrice>? menuPrices,
     List<String>? imageUrls,
     bool? visitedRecently,
@@ -311,8 +323,11 @@ class UserReportStatus {
       statusColor: statusColor ?? this.statusColor,
       statusBg: statusBg ?? this.statusBg,
       textColor: textColor ?? this.textColor,
+      storeId: storeId ?? this.storeId,
       category: category ?? this.category,
       address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
       menuPrices: menuPrices ?? this.menuPrices,
       imageUrls: imageUrls ?? this.imageUrls,
       visitedRecently: visitedRecently ?? this.visitedRecently,
@@ -325,6 +340,11 @@ class UserReportStatus {
   static List<String> _stringList(Object? value) {
     if (value is! List) return const [];
     return value.map((item) => item.toString()).toList();
+  }
+
+  static double _coordinate(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '') ?? 0;
   }
 
   static List<UserReportMenuPrice> _menuPricesFromJson(

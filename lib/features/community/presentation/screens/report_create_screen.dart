@@ -1052,10 +1052,15 @@ class _BasicInfoCard extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _EditableFormRow(label: '매장명 *', controller: storeController),
+          _EditableFormRow(
+            label: '매장명',
+            required: true,
+            controller: storeController,
+          ),
           const SizedBox(height: 10),
           _EditableFormRow(
-            label: '업종 *',
+            label: '업종',
+            required: true,
             controller: categoryController,
             readOnly: true,
             onTap: onCategoryTap,
@@ -1067,7 +1072,8 @@ class _BasicInfoCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           _EditableFormRow(
-            label: '주소 *',
+            label: '주소',
+            required: true,
             controller: addressController,
             hintText: '도로명 또는 지번 주소 검색',
             readOnly: true,
@@ -1546,14 +1552,16 @@ class _MenuPriceRow extends StatelessWidget {
         children: [
           Expanded(
             child: _EditableFormRow(
-              label: '대표 메뉴 *',
+              label: '대표 메뉴',
+              required: true,
               controller: menuPrice.menu,
             ),
           ),
           const SizedBox(width: 7.997),
           Expanded(
             child: _EditableFormRow(
-              label: '가격 *',
+              label: '가격',
+              required: true,
               controller: menuPrice.price,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -1618,6 +1626,7 @@ class _EditableFormRow extends StatelessWidget {
     this.readOnly = false,
     this.onTap,
     this.hintText,
+    this.required = false,
   });
 
   final String label;
@@ -1628,6 +1637,7 @@ class _EditableFormRow extends StatelessWidget {
   final bool readOnly;
   final VoidCallback? onTap;
   final String? hintText;
+  final bool required;
 
   @override
   Widget build(BuildContext context) {
@@ -1636,8 +1646,20 @@ class _EditableFormRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
+          Text.rich(
+            TextSpan(
+              text: label,
+              children: [
+                if (required)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
+                      color: ReportCreateStyle.orange,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+              ],
+            ),
             style: const TextStyle(
               color: ReportCreateStyle.muted,
               fontFamily: ReportCreateStyle.fontFamily,

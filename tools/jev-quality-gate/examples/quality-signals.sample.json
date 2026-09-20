@@ -1,0 +1,26 @@
+{
+  "changeSummary": "커뮤니티 피드의 좋아요와 댓글 수 위치를 사진 유무와 관계없이 통일했다.",
+  "scope": [
+    "Flutter community feed UI",
+    "responsive layout"
+  ],
+  "automatedChecks": {
+    "flutterAnalyze": "passed",
+    "flutterTests": {
+      "status": "passed",
+      "count": 310
+    },
+    "backendTests": {
+      "status": "not_applicable"
+    }
+  },
+  "manualChecks": [
+    "사진이 있는 카드 확인",
+    "사진이 없는 카드 확인",
+    "모바일 너비 확인"
+  ],
+  "knownRisks": [
+    "데스크톱에서는 모바일 컨테이너로 표시된다."
+  ],
+  "rollback": "직전 검증된 Vercel 배포 URL로 별칭을 되돌릴 수 있다."
+}

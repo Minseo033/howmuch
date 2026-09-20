@@ -18,6 +18,15 @@ void main() {
 
       expect(find.text('사진 및 확인'), findsOneWidget);
       expect(find.text('메뉴판 사진 첨부'), findsOneWidget);
+      expect(find.text('매장명 *'), findsOneWidget);
+      expect(find.text('업종 *'), findsOneWidget);
+      expect(find.text('주소 *'), findsOneWidget);
+      expect(find.text('대표 메뉴 *'), findsOneWidget);
+      expect(find.text('가격 *'), findsOneWidget);
+      final storeLabel = tester.widget<Text>(find.text('매장명 *'));
+      final labelSpan = storeLabel.textSpan! as TextSpan;
+      final requiredSpan = labelSpan.children!.last as TextSpan;
+      expect(requiredSpan.style?.color, const Color(0xFFF97316));
     },
   );
 

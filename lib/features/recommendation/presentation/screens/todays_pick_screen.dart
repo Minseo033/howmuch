@@ -9,7 +9,26 @@ import 'package:howmuch/features/recommendation/presentation/state/recommendatio
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:geolocator/geolocator.dart';
+
+AiMapRecommendationResult buildTodaysPickMapResult(
+  Iterable<TodaysPickItem> items,
+) {
+  final stores = items
+      .map((item) => item.store)
+      .whereType<Store>()
+      .where((store) => store.hasValidCoordinates)
+      .toList(growable: false);
+  return AiMapRecommendationResult(
+    storeIds: stores
+        .map((store) => store.id)
+        .where((id) => id.isNotEmpty)
+        .toList(),
+    stores: stores,
+    queryText: stores.map((store) => store.storeName).join(' '),
+  );
+}
 
 class TodaysPickItem {
   final String id;
@@ -334,16 +353,23 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    if (_errorMessage?.contains('위치') == true) ...[
+                                    if (_errorMessage?.contains('위치') ==
+                                        true) ...[
                                       SizedBox(
                                         height: 40,
                                         child: OutlinedButton(
-                                          onPressed: () => Geolocator.openAppSettings(),
+                                          onPressed: () =>
+                                              Geolocator.openAppSettings(),
                                           style: OutlinedButton.styleFrom(
-                                            foregroundColor: const Color(0xFF2563EB),
-                                            side: const BorderSide(color: Color(0xFF2563EB)),
+                                            foregroundColor: const Color(
+                                              0xFF2563EB,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFF2563EB),
+                                            ),
                                             shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(12),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
                                             ),
                                           ),
                                           child: const Text(
@@ -363,9 +389,13 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                       child: FilledButton(
                                         onPressed: _loadTodaysPick,
                                         style: FilledButton.styleFrom(
-                                          backgroundColor: const Color(0xFF2563EB),
+                                          backgroundColor: const Color(
+                                            0xFF2563EB,
+                                          ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                         ),
                                         child: const Text(
@@ -667,8 +697,28 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
-                                            onTap: () =>
-                                                context.go(AppRoutes.home),
+                                            onTap: () {
+                                              final result =
+                                                  buildTodaysPickMapResult(
+                                                    filteredItems,
+                                                  );
+                                              if (result.stores.isEmpty) {
+                                                ScaffoldMessenger.of(context)
+                                                  ..clearSnackBars()
+                                                  ..showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        '지도에 표시할 매장 위치 정보가 없어요.',
+                                                      ),
+                                                    ),
+                                                  );
+                                                return;
+                                              }
+                                              context.go(
+                                                AppRoutes.home,
+                                                extra: result,
+                                              );
+                                            },
                                             child: Container(
                                               height: 48,
                                               decoration: BoxDecoration(

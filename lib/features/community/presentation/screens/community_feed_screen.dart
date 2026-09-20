@@ -9,6 +9,25 @@ import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:geolocator/geolocator.dart';
 
+bool communityLocationMatches(
+  String itemLocation,
+  Iterable<String> selectedLocations,
+) {
+  String normalize(String value) => value.replaceAll(RegExp(r'\s+'), '').trim();
+
+  final item = normalize(itemLocation);
+  if (item.isEmpty || item == '알수없음') return false;
+  return selectedLocations.any((location) {
+    final selected = normalize(location);
+    return selected.isNotEmpty &&
+        (item == selected ||
+            item.contains(selected) ||
+            selected.contains(item));
+  });
+}
+
+enum _CommunityLocationScope { all, current }
+
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
 
@@ -45,6 +64,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
 
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
+  List<String> _locationFilterKeys = const [];
+  bool _isLoadingLocation = false;
+  bool _showLocationPicker = false;
 
   @override
   void initState() {
@@ -66,12 +88,30 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     }
   }
 
-  /// 현위치 → 서버 역지오코딩으로 행정동명 조회.
-  /// 권한 거부·실패 시 조용히 '전체'로 폼백 (피드 목록은 항상 전체 표시라 UX 영향 없음).
+  void _showLocationFilterPicker() {
+    setState(() => _showLocationPicker = true);
+  }
+
+  Future<void> _selectLocationScope(_CommunityLocationScope selected) async {
+    setState(() => _showLocationPicker = false);
+    if (selected == _CommunityLocationScope.all) {
+      setState(() {
+        _locationLabel = '전체';
+        _locationFilterKeys = const [];
+      });
+      return;
+    }
+    await _loadCurrentLocationLabel();
+  }
+
+  /// 현위치 → 서버 역지오코딩으로 행정구·동을 함께 확보한다.
   Future<void> _loadCurrentLocationLabel() async {
+    if (_isLoadingLocation) return;
+    setState(() => _isLoadingLocation = true);
     try {
       if (!await Geolocator.isLocationServiceEnabled()) {
-        return _setLocationFallback();
+        _setLocationFallback('현재 위치를 보려면 위치 서비스를 켜주세요.');
+        return;
       }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -79,7 +119,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       }
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
-        return _setLocationFallback();
+        _setLocationFallback('현재 위치를 보려면 위치 권한을 허용해주세요.');
+        return;
       }
 
       final position = await Geolocator.getCurrentPosition(
@@ -93,23 +134,55 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         }),
         headers: ApiClient.authHeaders(),
       ).timeout(ApiClient.defaultTimeout);
-      if (response.statusCode != 200) return _setLocationFallback();
+      if (response.statusCode != 200) {
+        _setLocationFallback('현재 지역을 확인하지 못했어요.');
+        return;
+      }
 
       final data = ApiClient.decodeJson(response);
+      final address = data['address']?.toString().trim() ?? '';
       final dong = data['label']?.toString().trim() ?? '';
+      final addressParts = address
+          .split(RegExp(r'\s+'))
+          .where((part) => part.isNotEmpty)
+          .toList(growable: false);
+      String? district;
+      for (final part in addressParts) {
+        if (part.endsWith('구') || part.endsWith('군')) {
+          district = part;
+          break;
+        }
+      }
+      final keys = <String>{
+        if (address.isNotEmpty) address,
+        if (dong.isNotEmpty) dong,
+        ...addressParts.where(
+          (part) =>
+              part.endsWith('구') ||
+              part.endsWith('군') ||
+              part.endsWith('동') ||
+              part.endsWith('읍') ||
+              part.endsWith('면'),
+        ),
+      }.toList(growable: false);
       if (!mounted) return;
       setState(() {
-        _locationLabel = dong.isNotEmpty ? dong : '전체';
+        _locationLabel = district ?? (dong.isNotEmpty ? dong : '전체');
+        _locationFilterKeys = keys;
+        _isLoadingLocation = false;
       });
     } catch (e) {
       debugPrint('커뮤니티 현위치 조회 실패: $e');
-      _setLocationFallback();
+      _setLocationFallback('현재 지역을 확인하지 못했어요. 잠시 후 다시 시도해주세요.');
     }
   }
 
-  void _setLocationFallback() {
+  void _setLocationFallback(String message) {
     if (!mounted) return;
-    setState(() => _locationLabel = '전체');
+    setState(() => _isLoadingLocation = false);
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _fetchFeeds({bool silent = false}) async {
@@ -233,12 +306,16 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       );
     }).toList();
 
-    // 현위치 라벨과 일치하는 제보가 있으면 그 지역만, 없으면 전체 표시.
-    // (실데이터 location은 '구로구' 등 다양한 형식이라 정확 일치가 거의 없을 수 있음)
-    final matched = items
-        .where((item) => item.location == _locationLabel)
-        .toList();
-    final List<_FeedItem> scoped = matched.isNotEmpty ? matched : items;
+    final List<_FeedItem> scoped = _locationLabel == '전체'
+        ? items
+        : items
+              .where(
+                (item) => communityLocationMatches(
+                  item.location,
+                  _locationFilterKeys,
+                ),
+              )
+              .toList();
 
     return switch (_selectedFilterIndex) {
       1 => scoped.where((item) => item.status == '가격 변동').toList(),
@@ -307,10 +384,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     }
     final items = _visibleFeedItems;
     if (items.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          '아직 제보가 없어요. 첫 제보를 남겨보세요!',
-          style: TextStyle(
+          _locationLabel == '전체'
+              ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
+              : '$_locationLabel에 등록된 제보가 아직 없어요.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
             color: CommunityFeedScreen.muted,
             fontFamily: CommunityFeedScreen.fontFamily,
             fontFamilyFallback: CommunityFeedScreen.fontFallback,
@@ -385,7 +465,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
                   height: 32,
                   child: _LocationRow(
                     location: _locationLabel,
-                    onTap: _loadCurrentLocationLabel,
+                    isLoading: _isLoadingLocation,
+                    onTap: _showLocationFilterPicker,
                   ),
                 ),
                 Positioned(
@@ -425,6 +506,15 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
                           activeTab: HowmuchBottomTab.explore,
                         ),
                 ),
+                if (_showLocationPicker)
+                  Positioned.fill(
+                    child: _CommunityLocationPicker(
+                      currentLocation: _locationLabel,
+                      onClose: () =>
+                          setState(() => _showLocationPicker = false),
+                      onSelected: _selectLocationScope,
+                    ),
+                  ),
               ],
             ),
           );
@@ -452,16 +542,21 @@ class _Header extends StatelessWidget {
 }
 
 class _LocationRow extends StatelessWidget {
-  const _LocationRow({required this.location, required this.onTap});
+  const _LocationRow({
+    required this.location,
+    required this.isLoading,
+    required this.onTap,
+  });
 
   final String location;
+  final bool isLoading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _LocationChip(location: location, onTap: onTap),
+        _LocationChip(location: location, isLoading: isLoading, onTap: onTap),
         const Spacer(),
         Text(
           '우리 동네 실시간 절약 제보',
@@ -480,16 +575,22 @@ class _LocationRow extends StatelessWidget {
 }
 
 class _LocationChip extends StatelessWidget {
-  const _LocationChip({required this.location, required this.onTap});
+  const _LocationChip({
+    required this.location,
+    required this.isLoading,
+    required this.onTap,
+  });
 
   final String location;
+  final bool isLoading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      key: const ValueKey('community-location-filter'),
       button: true,
-      label: '현재 위치로 동네 설정',
+      label: '제보 지역 선택, 현재 $location',
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(999),
@@ -507,11 +608,21 @@ class _LocationChip extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.my_location_rounded,
-                  size: 13,
-                  color: CommunityFeedScreen.blue,
-                ),
+                if (isLoading)
+                  const SizedBox(
+                    width: 13,
+                    height: 13,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: CommunityFeedScreen.blue,
+                    ),
+                  )
+                else
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 13,
+                    color: CommunityFeedScreen.blue,
+                  ),
                 const SizedBox(width: 5),
                 Text(
                   location,
@@ -534,6 +645,175 @@ class _LocationChip extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LocationScopeTile extends StatelessWidget {
+  const _LocationScopeTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? CommunityFeedScreen.blue
+                  : CommunityFeedScreen.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 19, color: CommunityFeedScreen.blue),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: CommunityFeedScreen.ink,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: CommunityFeedScreen.muted,
+                        fontSize: 11,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                selected
+                    ? Icons.check_circle_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 20,
+                color: selected
+                    ? CommunityFeedScreen.blue
+                    : CommunityFeedScreen.hint,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CommunityLocationPicker extends StatelessWidget {
+  const _CommunityLocationPicker({
+    required this.currentLocation,
+    required this.onClose,
+    required this.onSelected,
+  });
+
+  final String currentLocation;
+  final VoidCallback onClose;
+  final ValueChanged<_CommunityLocationScope> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.35),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onClose,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              key: const ValueKey('community-location-picker'),
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    '어느 지역의 제보를 볼까요?',
+                    style: TextStyle(
+                      color: CommunityFeedScreen.ink,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _LocationScopeTile(
+                    icon: Icons.public_rounded,
+                    title: '전체 제보',
+                    subtitle: '모든 지역의 최신 제보를 보여드려요.',
+                    selected: currentLocation == '전체',
+                    onTap: () => onSelected(_CommunityLocationScope.all),
+                  ),
+                  const SizedBox(height: 8),
+                  _LocationScopeTile(
+                    icon: Icons.my_location_rounded,
+                    title: '현재 위치',
+                    subtitle: '내 위치의 구·군 기준으로 제보를 골라보여요.',
+                    selected: currentLocation != '전체',
+                    onTap: () => onSelected(_CommunityLocationScope.current),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

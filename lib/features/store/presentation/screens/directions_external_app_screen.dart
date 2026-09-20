@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,6 +11,8 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
+typedef DirectionsPositionLookup = Future<Position?> Function();
+
 class DirectionsExternalAppScreen extends StatefulWidget {
   const DirectionsExternalAppScreen({
     super.key,
@@ -19,6 +23,7 @@ class DirectionsExternalAppScreen extends StatefulWidget {
     this.longitude,
     this.startLatitude,
     this.startLongitude,
+    this.positionLookup,
   });
 
   final String storeName;
@@ -28,6 +33,7 @@ class DirectionsExternalAppScreen extends StatefulWidget {
   final double? longitude;
   final double? startLatitude;
   final double? startLongitude;
+  final DirectionsPositionLookup? positionLookup;
 
   @override
   State<DirectionsExternalAppScreen> createState() =>
@@ -37,6 +43,10 @@ class DirectionsExternalAppScreen extends StatefulWidget {
 class _DirectionsExternalAppScreenState
     extends State<DirectionsExternalAppScreen> {
   int _selectedTransport = 0;
+  double? _resolvedStartLat;
+  double? _resolvedStartLng;
+  bool _isResolvingStart = false;
+  Future<void>? _positionRequest;
 
   final List<Map<String, dynamic>> _transports = [
     {'icon': Icons.directions_walk, 'label': '도보', 'mode': 'FOOT'},
@@ -45,10 +55,12 @@ class _DirectionsExternalAppScreenState
   ];
 
   double? get _effectiveStartLat =>
+      _resolvedStartLat ??
       widget.startLatitude ??
       howmuch_home.HomeMapScreen.globalUserPosition?.latitude;
 
   double? get _effectiveStartLng =>
+      _resolvedStartLng ??
       widget.startLongitude ??
       howmuch_home.HomeMapScreen.globalUserPosition?.longitude;
 
@@ -83,7 +95,74 @@ class _DirectionsExternalAppScreenState
       latitude.abs() <= 90 &&
       longitude.abs() <= 180;
 
+  @override
+  void initState() {
+    super.initState();
+    final globalPosition = howmuch_home.HomeMapScreen.globalUserPosition;
+    _resolvedStartLat = widget.startLatitude ?? globalPosition?.latitude;
+    _resolvedStartLng = widget.startLongitude ?? globalPosition?.longitude;
+    if (_isValidCoordinate(widget.latitude, widget.longitude) &&
+        !_isValidCoordinate(_effectiveStartLat, _effectiveStartLng)) {
+      unawaited(_resolveStartLocation());
+    }
+  }
+
+  Future<Position?> _loadCurrentPosition() async {
+    if (!await Geolocator.isLocationServiceEnabled()) return null;
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    final cached = await Geolocator.getLastKnownPosition();
+    if (cached != null &&
+        _isValidCoordinate(cached.latitude, cached.longitude)) {
+      return cached;
+    }
+    return Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 8),
+    ).timeout(const Duration(seconds: 10));
+  }
+
+  Future<void> _resolveStartLocation() {
+    final pending = _positionRequest;
+    if (pending != null) return pending;
+
+    final request = _resolveStartLocationOnce();
+    _positionRequest = request;
+    return request.whenComplete(() => _positionRequest = null);
+  }
+
+  Future<void> _resolveStartLocationOnce() async {
+    if (_isValidCoordinate(_effectiveStartLat, _effectiveStartLng)) return;
+    if (mounted) setState(() => _isResolvingStart = true);
+    try {
+      final position = await (widget.positionLookup ?? _loadCurrentPosition)();
+      if (position == null ||
+          !_isValidCoordinate(position.latitude, position.longitude)) {
+        return;
+      }
+      _resolvedStartLat = position.latitude;
+      _resolvedStartLng = position.longitude;
+      howmuch_home.HomeMapScreen.globalUserPosition = position;
+    } catch (error) {
+      debugPrint('길찾기 출발지 위치 확인 실패: $error');
+    } finally {
+      if (mounted) setState(() => _isResolvingStart = false);
+    }
+  }
+
+  Future<void> _ensureStartLocation() async {
+    if (_isValidCoordinate(_effectiveStartLat, _effectiveStartLng)) return;
+    await _resolveStartLocation();
+  }
+
   Future<void> _launchKakaoMap() async {
+    await _ensureStartLocation();
     final storeQuery = Uri.encodeComponent(widget.storeName);
     final mode = _transports[_selectedTransport]['mode'] as String;
     final hasDestCoords = _isValidCoordinate(widget.latitude, widget.longitude);
@@ -111,9 +190,9 @@ class _DirectionsExternalAppScreenState
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
       }
-      if (!_hasRouteCoordinates && !hasDestCoords && mounted) {
+      if (!_hasRouteCoordinates && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
+          const SnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
         );
       }
     } catch (e) {
@@ -122,6 +201,7 @@ class _DirectionsExternalAppScreenState
   }
 
   Future<void> _launchNaverMap() async {
+    await _ensureStartLocation();
     final storeQuery = Uri.encodeComponent(widget.storeName);
     final mode = switch (_selectedTransport) {
       0 => 'walk',
@@ -170,9 +250,9 @@ class _DirectionsExternalAppScreenState
       } else {
         await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
       }
-      if (!_hasRouteCoordinates && !hasDestCoords && mounted) {
+      if (!_hasRouteCoordinates && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 위치를 확인할 수 없어 매장 검색으로 열었어요.')),
+          const SnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
         );
       }
     } catch (e) {
@@ -298,6 +378,37 @@ class _DirectionsExternalAppScreenState
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+                const SizedBox(height: 7),
+                Row(
+                  children: [
+                    Icon(
+                      _hasRouteCoordinates
+                          ? Icons.my_location_rounded
+                          : Icons.location_searching_rounded,
+                      size: 13,
+                      color: _hasRouteCoordinates
+                          ? AppColors.primary
+                          : AppColors.muted,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        _isResolvingStart
+                            ? '출발지 · 현재 위치 확인 중'
+                            : _hasRouteCoordinates
+                            ? '출발지 · 현재 위치'
+                            : '출발지 · 지도 앱에서 선택',
+                        style: TextStyle(
+                          color: _hasRouteCoordinates
+                              ? AppColors.primary
+                              : AppColors.muted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

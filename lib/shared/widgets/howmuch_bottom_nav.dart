@@ -87,7 +87,7 @@ class HowmuchBottomNav extends StatelessWidget {
                     ),
                     _NavItem(
                       icon: Icons.person_outline_rounded,
-                      label: '마이',
+                      label: 'MY',
                       active: activeTab == HowmuchBottomTab.mypage,
                       onTap: () => context.go(AppRoutes.mypage),
                     ),

@@ -99,7 +99,11 @@ Future<bool> openLocationSettingsForStatus({
 }
 
 class HomeMapScreen extends StatefulWidget {
-  const HomeMapScreen({super.key, this.showAiSpotlight = false});
+  const HomeMapScreen({
+    super.key,
+    this.showAiSpotlight = false,
+    this.initialRecommendation,
+  });
 
   // `globalAllStores` is the current map/viewport result. It must not be used
   // as the nationwide search catalog: the bounds endpoint intentionally
@@ -123,6 +127,7 @@ class HomeMapScreen extends StatefulWidget {
   static bool hasDismissedLocationNotice = false;
 
   final bool showAiSpotlight;
+  final AiMapRecommendationResult? initialRecommendation;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -177,7 +182,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   SearchFilter _searchFilter = const SearchFilter();
   bool _isAiRecommendationActive = false;
   List<Store> _aiRecommendedStores = [];
-  AiMapRecommendationResult? _lastAppliedAiResult;
+  AiMapRecommendationResult? _pendingAiResult;
 
   Future<void> _openAiRecommend() async {
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);
@@ -187,21 +192,33 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _applyAiRecommendationResult(AiMapRecommendationResult result) {
+    if (!_isMapReady) {
+      _pendingAiResult = result;
+      return;
+    }
+
     List<Store> matchingStores = [];
     if (result.stores.isNotEmpty) {
-      matchingStores = result.stores;
-    } else if (result.storeIds.isNotEmpty) {
+      matchingStores = result.stores
+          .where((store) => store.hasValidCoordinates)
+          .toList();
+    }
+    if (matchingStores.isEmpty && result.storeIds.isNotEmpty) {
       matchingStores = _allStores
-          .where((s) => result.storeIds.contains(s.id))
+          .where(
+            (store) =>
+                store.hasValidCoordinates && result.storeIds.contains(store.id),
+          )
           .toList();
     }
 
     if (matchingStores.isEmpty && result.queryText.isNotEmpty) {
       matchingStores = _allStores
           .where(
-            (s) =>
-                s.storeName.trim().length >= 2 &&
-                result.queryText.contains(s.storeName.trim()),
+            (store) =>
+                store.hasValidCoordinates &&
+                store.storeName.trim().length >= 2 &&
+                result.queryText.contains(store.storeName.trim()),
           )
           .toList();
     }
@@ -210,7 +227,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('지도에 표시할 추천 매장 위치 정보를 찾을 수 없습니다.'),
+            content: Text('지도에 표시할 매장 위치 정보를 찾을 수 없어요.'),
             duration: Duration(seconds: 2),
           ),
         );
@@ -322,6 +339,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void initState() {
     super.initState();
+    _pendingAiResult = widget.initialRecommendation;
     unawaited(_restoreCachedStores());
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
@@ -339,20 +357,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } else {
       _initMobileController();
     }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    try {
-      final extra = GoRouterState.of(context).extra;
-      if (extra is AiMapRecommendationResult && extra != _lastAppliedAiResult) {
-        _lastAppliedAiResult = extra;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _applyAiRecommendationResult(extra);
-        });
-      }
-    } catch (_) {}
   }
 
   Future<void> _restoreCachedStores() async {
@@ -1046,6 +1050,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _flushPendingMapPosition();
 
     // 최초 진입도 지도 준비 이벤트에서 바로 현재 영역을 조회한다.
+    final pendingAiResult = _pendingAiResult;
+    if (pendingAiResult != null) {
+      _pendingAiResult = null;
+      _applyAiRecommendationResult(pendingAiResult);
+    }
     _searchInCurrentArea();
     if (kIsWeb) {
       Future.delayed(const Duration(milliseconds: 300), () {
@@ -1424,6 +1433,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (oldWidget.showAiSpotlight != widget.showAiSpotlight) {
       _showAiSpotlight = widget.showAiSpotlight;
     }
+    if (oldWidget.initialRecommendation != widget.initialRecommendation &&
+        widget.initialRecommendation != null) {
+      _pendingAiResult = widget.initialRecommendation;
+      if (_isMapReady) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final pending = _pendingAiResult;
+          if (mounted && pending != null) {
+            _pendingAiResult = null;
+            _applyAiRecommendationResult(pending);
+          }
+        });
+      }
+    }
   }
 
   void _hideStore() {
@@ -1741,12 +1763,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   label: '내 위치로 이동',
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                    onPointerDown: (_) => _suppressMarkerClicks(
+                      const Duration(milliseconds: 1000),
+                    ),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                      onTapDown: (_) => _suppressMarkerClicks(
+                        const Duration(milliseconds: 1000),
+                      ),
                       onTap: () {
-                        _suppressMarkerClicks(const Duration(milliseconds: 1000));
+                        _suppressMarkerClicks(
+                          const Duration(milliseconds: 1000),
+                        );
                         _moveToCurrentLocation();
                       },
                       child: _RoundIconButton(
@@ -1769,10 +1797,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               opacity: homeChromeOpacity,
               child: Listener(
                 behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                onPointerDown: (_) =>
+                    _suppressMarkerClicks(const Duration(milliseconds: 800)),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                  onTapDown: (_) =>
+                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
                   child: _AiRecommendControl(onTap: _openAiRecommend),
