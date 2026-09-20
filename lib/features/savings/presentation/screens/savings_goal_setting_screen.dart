@@ -121,7 +121,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     final bottomOffset = safePadding.bottom;
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       child: Stack(
         children: [
           // Content Scroll
@@ -149,7 +149,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(22),
                         border: Border.all(
-                          color: const Color(0xFFD9DDD2),
+                          color: const Color(0xFFD8E7DB),
                           width: 0.909,
                         ),
                       ),
@@ -165,7 +165,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   fontFamily: 'Noto Sans KR',
                                   fontFamilyFallback: ['Noto Sans KR'],
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF707A70),
+                                  color: Color(0xFF748078),
                                   fontSize: 14,
                                   height: 1.5,
                                 ),
@@ -182,7 +182,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   textInputAction: TextInputAction.done,
                                   onSubmitted: (_) =>
                                       FocusScope.of(context).unfocus(),
-                                  cursorColor: const Color(0xFF315F52),
+                                  cursorColor: const Color(0xFF359A6B),
                                   keyboardType: TextInputType.number,
                                   textAlignVertical: TextAlignVertical.center,
                                   inputFormatters: [
@@ -192,14 +192,14 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.w800,
-                                    color: Color(0xFF1F342D),
+                                    color: Color(0xFF243E35),
                                     fontSize: 22,
                                     height: 1.2,
                                   ),
                                   decoration: InputDecoration(
                                     hintText: '예: 50000',
                                     hintStyle: const TextStyle(
-                                      color: Color(0xFFA8AEA4),
+                                      color: Color(0xFFAAB3AA),
                                       fontSize: 16,
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -207,12 +207,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                     suffixStyle: const TextStyle(
                                       fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF707A70),
+                                      color: Color(0xFF748078),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     filled: true,
-                                    fillColor: const Color(0xFFF7F5EE),
+                                    fillColor: const Color(0xFFFCFBF7),
                                     isDense: true,
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14,
@@ -221,14 +221,14 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFFD9DDD2),
+                                        color: Color(0xFFD8E7DB),
                                         width: 0.909,
                                       ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(14),
                                       borderSide: const BorderSide(
-                                        color: Color(0xFF315F52),
+                                        color: Color(0xFF359A6B),
                                         width: 1.4,
                                       ),
                                     ),
@@ -260,7 +260,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE7F0E8),
+                        color: const Color(0xFFE5F7EB),
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Row(
@@ -269,7 +269,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           const Icon(
                             Icons.info_outline_rounded,
                             size: 18,
-                            color: Color(0xFF39705C),
+                            color: Color(0xFF4D9D75),
                           ),
                           SizedBox(width: AppSizes.smallSpacing),
                           Expanded(
@@ -278,7 +278,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                               style: TextStyle(
                                 fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF39705C),
+                                color: Color(0xFF4D9D75),
                                 fontSize: 13,
                                 height: 1.5,
                               ),
@@ -303,7 +303,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
+                  bottom: BorderSide(color: Color(0xFFD8E7DB), width: 0.909),
                 ),
               ),
               child: Stack(
@@ -315,9 +315,9 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                       tooltip: '뒤로가기',
                       onPressed: () => context.pop(),
                       icon: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
+                        Icons.arrow_back_rounded,
                         size: 20,
-                        color: Color(0xFF1F342D),
+                        color: Color(0xFF243E35),
                       ),
                     ),
                   ),
@@ -329,7 +329,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                           fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: ['Noto Sans KR'],
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1F342D),
+                          color: Color(0xFF243E35),
                           fontSize: 16,
                           height: 24 / 16,
                         ),
@@ -349,7 +349,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(
-                  top: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
+                  top: BorderSide(color: Color(0xFFD8E7DB), width: 0.909),
                 ),
               ),
               child: SafeArea(
@@ -367,7 +367,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                         : _saveGoal,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size.fromHeight(48),
-                      backgroundColor: const Color(0xFF39705C),
+                      backgroundColor: const Color(0xFF4D9D75),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(22),
@@ -422,14 +422,14 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD9DDD2), width: 0.909),
+        border: Border.all(color: const Color(0xFFD8E7DB), width: 0.909),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.savings_outlined, size: 18, color: Color(0xFF39705C)),
+              Icon(Icons.savings_outlined, size: 18, color: Color(0xFF4D9D75)),
               SizedBox(width: AppSizes.smallSpacing),
               Expanded(
                 child: Text(
@@ -438,7 +438,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                     fontFamily: 'Noto Sans KR',
                     fontFamilyFallback: ['Noto Sans KR'],
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F342D),
+                    color: Color(0xFF243E35),
                     fontSize: 13,
                     height: 19.5 / 13,
                   ),
@@ -457,7 +457,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                 style: const TextStyle(
                   fontFamily: 'Noto Sans KR',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF1F342D),
+                  color: Color(0xFF243E35),
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
                   fontFeatures: [FontFeature.tabularFigures()],
@@ -465,7 +465,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               ),
               Text(
                 '${_state.visitCount.value}회 방문',
-                style: const TextStyle(fontSize: 13, color: Color(0xFF707A70)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF748078)),
               ),
             ],
           ),
@@ -473,7 +473,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
           Container(
             height: 6,
             decoration: BoxDecoration(
-              color: const Color(0xFFD9DDD2),
+              color: const Color(0xFFD8E7DB),
               borderRadius: BorderRadius.circular(99),
             ),
             alignment: Alignment.centerLeft,
@@ -481,7 +481,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
               widthFactor: progress,
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF527A6C),
+                  color: const Color(0xFF65B489),
                   borderRadius: BorderRadius.circular(99),
                 ),
               ),
@@ -492,7 +492,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
             goal > 0
                 ? '현재 목표 ${_formatWon(goal)}원 기준'
                 : '목표를 저장하면 달성률을 확인할 수 있어요.',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF707A70)),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF748078)),
           ),
         ],
       ),

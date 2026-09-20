@@ -146,7 +146,7 @@ class StoreDetailScreen extends ConsumerWidget {
                   elevation: 0.5,
                   leading: IconButton(
                     icon: const Icon(
-                      Icons.arrow_back_ios_new_rounded,
+                      Icons.arrow_back_rounded,
                       size: 20,
                     ),
                     onPressed: () => context.pop(),
@@ -344,20 +344,20 @@ class StoreDetailScreen extends ConsumerWidget {
                                             null)
                                           const _BenefitBadge(
                                             label: '지역화폐',
-                                            color: Color(0xFF315F52),
-                                            bgColor: Color(0xFFE7EEE7),
+                                            color: Color(0xFF359A6B),
+                                            bgColor: Color(0xFFDDF4E5),
                                           ),
                                         if (store.openingHours!.packingYn)
                                           const _BenefitBadge(
                                             label: '포장 가능',
-                                            color: Color(0xFF39705C),
-                                            bgColor: Color(0xFFEEF5EF),
+                                            color: Color(0xFF4D9D75),
+                                            bgColor: Color(0xFFF1FBF5),
                                           ),
                                         if (store.openingHours!.parkingYn)
                                           const _BenefitBadge(
                                             label: '주차 가능',
-                                            color: Color(0xFF9B6541),
-                                            bgColor: Color(0xFFF6EDE4),
+                                            color: Color(0xFFB97852),
+                                            bgColor: Color(0xFFFCF1EA),
                                           ),
                                       ],
                                     ),

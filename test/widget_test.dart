@@ -56,7 +56,7 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('동의하고 로그인하기'));
       await tester.pumpAndSettle();
-      expect(find.text('동네를 알아가는\n가장 알뜰한 방법'), findsOneWidget);
+      expect(find.text('얼마고?'), findsOneWidget);
       expect(find.text('가까운 착한가격업소를 찾고 절약을 기록해보세요.'), findsOneWidget);
       expect(find.text('카카오로 계속하기'), findsOneWidget);
       expect(find.text('네이버로 계속하기'), findsOneWidget);
@@ -110,9 +110,6 @@ void main() {
     expect(find.text('네트워크 오류 화면'), findsNothing);
     expect(find.text('세션 만료 · 재로그인'), findsNothing);
 
-    final locationDivider = tester.getRect(
-      find.byKey(const ValueKey('mypage-location-divider')),
-    );
     final locationRow = tester.getRect(
       find.byKey(const ValueKey('mypage-location-row')),
     );
@@ -126,15 +123,6 @@ void main() {
       find.byKey(const ValueKey('mypage-location-chevron')),
     );
 
-    final mypageScale = locationRow.height / 44;
-    expect(
-      locationDivider.left - locationRow.left,
-      closeTo(16 * mypageScale, 0.1),
-    );
-    expect(
-      locationRow.right - locationDivider.right,
-      closeTo(16 * mypageScale, 0.1),
-    );
     expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
     expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
 
@@ -215,7 +203,7 @@ void main() {
         notificationSaveButton.height / 51.9886360168457;
     expect(
       screenBottom - notificationSaveButton.bottom,
-      closeTo(16 * notificationSaveScale, 0.1),
+      closeTo(8 * notificationSaveScale, 0.1),
     );
 
     await tester.tap(find.text('설정 저장'));
@@ -391,7 +379,7 @@ void main() {
     final withdrawalScale = withdrawalActionRow.height / 50;
     expect(
       screenBottom - withdrawalActionRow.bottom,
-      closeTo(16 * withdrawalScale, 0.1),
+      closeTo(8 * withdrawalScale, 0.1),
     );
 
     await tester.tap(find.text('탈퇴하기'));
@@ -528,7 +516,7 @@ void main() {
       find.byKey(const ValueKey('public-data-sync-notice-text')),
     );
     expect(syncNotice.data, isNot(contains('\n')));
-    expect(syncNotice.maxLines, 2);
+    expect(syncNotice.maxLines, isNull);
 
     await tester.tap(find.text('문의하기'));
     await tester.pumpAndSettle();
@@ -570,7 +558,7 @@ void main() {
     final inquiryScale = inquirySubmitButton.height / 51.9886360168457;
     expect(
       inquiryFooter.bottom - inquirySubmitButton.bottom,
-      closeTo(16 * inquiryScale, 0.1),
+      closeTo(8 * inquiryScale, 0.1),
     );
 
     await tester.tap(find.text('기타'));

@@ -9,9 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
-  static const blue = Color(0xFF315F52);
-  static const ink = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
+  static const blue = Color(0xFF359A6B);
+  static const ink = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -51,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       child: !_termsCheckComplete
           ? const Center(
               child: CircularProgressIndicator(color: LoginScreen.blue),
@@ -89,7 +89,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         SizedBox(height: isCompact ? 14 : 22),
                         const Text(
-                          '동네를 알아가는\n가장 알뜰한 방법',
+                          '얼마고?',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: LoginScreen.ink,
@@ -137,9 +137,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             const SizedBox(height: 10),
                             _SocialLoginButton(
                               label: 'Google로 계속하기',
-                              backgroundColor: const Color(0xFFF7F5EE),
-                              foregroundColor: const Color(0xFF1F342D),
-                              borderColor: const Color(0xFFC9D0C5),
+                              backgroundColor: const Color(0xFFFCFBF7),
+                              foregroundColor: const Color(0xFF243E35),
+                              borderColor: const Color(0xFFC9DDCE),
                               mark: const _GoogleMark(),
                               statusLabel: '준비 중',
                               onPressed: () =>
@@ -157,7 +157,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: () =>
                                 context.go(AppRoutes.permissionSetup),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF0F0E9),
+                              backgroundColor: const Color(0xFFF6F7F2),
                               foregroundColor: LoginScreen.ink,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(22),
@@ -312,7 +312,7 @@ class _KakaoMarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF1F342D);
+    final paint = Paint()..color = const Color(0xFF243E35);
     final bubble = Rect.fromLTWH(1, 2, size.width - 2, size.height * 0.70);
     canvas.drawOval(bubble, paint);
     final tail = Path()
@@ -428,7 +428,7 @@ class _DividerLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: const [
-        Expanded(child: Divider(color: Color(0xFFD9DDD2), height: 1)),
+        Expanded(child: Divider(color: Color(0xFFD8E7DB), height: 1)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 11.988636016845703),
           child: Text(
@@ -443,7 +443,7 @@ class _DividerLabel extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(child: Divider(color: Color(0xFFD9DDD2), height: 1)),
+        Expanded(child: Divider(color: Color(0xFFD8E7DB), height: 1)),
       ],
     );
   }
@@ -456,26 +456,17 @@ class _LoginNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFE7EEE7),
+        color: const Color(0xFFDDF4E5),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Stack(
-        children: const [
-          Positioned(
-            left: 11.9886474609375,
-            top: 13.977294921875,
-            child: Icon(
-              Icons.info_outline_rounded,
-              color: LoginScreen.blue,
-              size: 14,
-            ),
-          ),
-          Positioned(
-            left: 33.977294921875,
-            top: 11.9886474609375,
-            width: 163.28125,
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
             child: Text(
-              '로그인하면 찜한 매장, 제보 내역,\n절약 리포트를 저장할 수 있어요.',
+              '로그인하면 찜한 매장, 제보 내역, 절약 리포트를 저장할 수 있어요.',
+              maxLines: 1,
               style: TextStyle(
                 color: LoginScreen.blue,
                 fontFamily: LoginScreen.fontFamily,
@@ -486,7 +477,7 @@ class _LoginNotice extends StatelessWidget {
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }

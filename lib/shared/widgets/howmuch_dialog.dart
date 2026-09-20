@@ -46,7 +46,7 @@ class HowmuchDialog extends StatelessWidget {
         backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
         scrollable: true,
         titlePadding: const EdgeInsets.fromLTRB(24, 28, 24, 0),
         contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 8),

@@ -217,7 +217,7 @@ class _PriceAlertSubscriptionScreenState
               onBack: () => _leave(settings),
             ),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: footerHeight,
@@ -358,7 +358,7 @@ class _Header extends StatelessWidget {
             Positioned(
               left: 0,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -367,9 +367,9 @@ class _Header extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -634,9 +634,8 @@ class _StickyButton extends StatelessWidget {
   });
 
   static const buttonHeight = 50.48295211791992;
-  static const topGap = 12.8974609375;
-  static const bottomGap = 26.0;
-  static const minimumSafeBottom = 34.0;
+  static const topGap = 8.0;
+  static const bottomGap = 8.0;
   final bool compact;
 
   final double safeBottom;
@@ -644,7 +643,7 @@ class _StickyButton extends StatelessWidget {
   final VoidCallback onPressed;
 
   static double effectiveSafeBottom(double safeBottom) {
-    return safeBottom > minimumSafeBottom ? safeBottom : minimumSafeBottom;
+    return safeBottom;
   }
 
   static double heightFor(double safeBottom, {bool compact = false}) {

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
@@ -336,8 +337,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         menu: '$menu1 $price1원',
         status: '검토 중',
         statusColor: 0xFFF59E0B,
-        statusBg: 0xFFF6EDE4,
-        textColor: 0xFF7A4D30,
+        statusBg: 0xFFFCF1EA,
+        textColor: 0xFF925B3C,
         category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         menuPrices: savedMenuPrices,
@@ -480,13 +481,24 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
   Future<void> _pickAddress() async {
     FocusManager.instance.primaryFocus?.unfocus();
+    final mediaQuery = MediaQuery.of(context);
     final selected = await showModalBottomSheet<ReportPlaceSuggestion>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      constraints: BoxConstraints(
+        maxWidth: math.min(
+          FigmaMobileCanvas.maxWebWidth,
+          mediaQuery.size.width,
+        ),
+        maxHeight: math.max(
+          0,
+          mediaQuery.size.height - mediaQuery.padding.top - 8,
+        ),
       ),
       builder: (context) =>
           _AddressSearchSheet(search: _searchPlaces, locate: _lookupLocation),
@@ -503,12 +515,23 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     required String initialValue,
   }) async {
     FocusManager.instance.primaryFocus?.unfocus();
+    final mediaQuery = MediaQuery.of(context);
 
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      constraints: BoxConstraints(
+        maxWidth: math.min(
+          FigmaMobileCanvas.maxWebWidth,
+          mediaQuery.size.width,
+        ),
+        maxHeight: math.max(
+          0,
+          mediaQuery.size.height - mediaQuery.padding.top - 8,
+        ),
       ),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(AppSizes.horizontalPadding),
@@ -609,7 +632,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF7F5EE),
+        backgroundColor: const Color(0xFFFCFBF7),
         child: Stack(
           children: [
             Positioned(
@@ -715,14 +738,14 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 class ReportCreateStyle {
   const ReportCreateStyle._();
 
-  static const blue = Color(0xFF315F52);
-  static const orange = Color(0xFFA76546);
-  static const red = Color(0xFFA64B4B);
-  static const ink = Color(0xFF1F342D);
-  static const black = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const border = Color(0xFFD9DDD2);
-  static const line = Color(0xFFD9DDD2);
+  static const blue = Color(0xFF359A6B);
+  static const orange = Color(0xFFC47A53);
+  static const red = Color(0xFFC05A5A);
+  static const ink = Color(0xFF243E35);
+  static const black = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const border = Color(0xFFD8E7DB);
+  static const line = Color(0xFFD8E7DB);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -952,7 +975,7 @@ class _TipBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF6EDE4),
+        color: const Color(0xFFFCF1EA),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Center(
@@ -960,7 +983,7 @@ class _TipBox extends StatelessWidget {
           '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF7A4D30),
+            color: Color(0xFF925B3C),
             fontFamily: ReportCreateStyle.fontFamily,
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
@@ -1301,7 +1324,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                           icon: const Icon(Icons.close_rounded, size: 19),
                         ),
                   filled: true,
-                  fillColor: const Color(0xFFF7F5EE),
+                  fillColor: const Color(0xFFFCFBF7),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1507,7 +1530,7 @@ class _PriceInfoCard extends StatelessWidget {
               label: const Text('메뉴 추가'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: ReportCreateStyle.orange,
-                side: const BorderSide(color: Color(0xFFE7CDAF), width: .909),
+                side: const BorderSide(color: Color(0xFFF0D7C3), width: .909),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -1654,7 +1677,7 @@ class _EditableFormRow extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: ReportCreateStyle.border, width: .909),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               children: [
@@ -1687,6 +1710,7 @@ class _EditableFormRow extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       filled: true,
                       fillColor: Colors.white,
+                      hoverColor: Colors.transparent,
                       hintText: hintText,
                       hintStyle: const TextStyle(
                         color: ReportCreateStyle.muted,
@@ -1813,7 +1837,7 @@ class _PhotoUploadBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(
-            color: const Color(0xFFD9DDD2),
+            color: const Color(0xFFD8E7DB),
             width: 1.818,
             style: BorderStyle.solid,
           ),
@@ -1931,8 +1955,8 @@ class _PhotoThumbnailSlot extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: photo == null ? const Color(0xFFF7F5EE) : Colors.white,
-          border: Border.all(color: const Color(0xFFD9DDD2), width: .909),
+          color: photo == null ? const Color(0xFFFCFBF7) : Colors.white,
+          border: Border.all(color: const Color(0xFFD8E7DB), width: .909),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Stack(
@@ -2035,7 +2059,7 @@ class _PhotoThumbnailLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFF6EDE4),
+      color: Color(0xFFFCF1EA),
       child: Center(
         child: SizedBox(
           width: 16,
@@ -2056,7 +2080,7 @@ class _PhotoThumbnailFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFF6EDE4),
+      color: Color(0xFFFCF1EA),
       child: Center(
         child: Icon(
           Icons.camera_alt_outlined,
@@ -2077,7 +2101,7 @@ class _PhotoIconBox extends StatelessWidget {
       width: 43.991,
       height: 43.991,
       decoration: BoxDecoration(
-        color: const Color(0xFFF6EDE4),
+        color: const Color(0xFFFCF1EA),
         borderRadius: BorderRadius.circular(10),
       ),
       child: const Icon(

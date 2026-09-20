@@ -17,15 +17,15 @@ class ReportDetailV2Screen extends ConsumerStatefulWidget {
   final String? reportId;
   final UserReportStatus? initialReport;
 
-  static const _blue = Color(0xFF315F52);
-  static const _orange = Color(0xFFA76546);
-  static const _green = Color(0xFF527A6C);
-  static const _ink = Color(0xFF1F342D);
-  static const _black = Color(0xFF1F342D);
-  static const _muted = Color(0xFF707A70);
-  static const _border = Color(0xFFD9DDD2);
-  static const _hint = Color(0xFFA8AEA4);
-  static const _surface = Color(0xFFF7F5EE);
+  static const _blue = Color(0xFF359A6B);
+  static const _orange = Color(0xFFC47A53);
+  static const _green = Color(0xFF65B489);
+  static const _ink = Color(0xFF243E35);
+  static const _black = Color(0xFF243E35);
+  static const _muted = Color(0xFF748078);
+  static const _border = Color(0xFFD8E7DB);
+  static const _hint = Color(0xFFAAB3AA);
+  static const _surface = Color(0xFFFCFBF7);
   static const _contentLeft = 20.0;
   static const _contentRight = 20.0;
   static const _fontFamily = 'Noto Sans KR';
@@ -237,7 +237,7 @@ class _RejectReasonDialog extends StatelessWidget {
                         height: 56,
                         alignment: Alignment.center,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFF6EDE4),
+                          color: Color(0xFFFCF1EA),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -282,10 +282,10 @@ class _RejectReasonDialog extends StatelessWidget {
                         constraints: const BoxConstraints(maxHeight: 132),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF6EDE4),
+                          color: const Color(0xFFFCF1EA),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: const Color(0xFFE7CDAF),
+                            color: const Color(0xFFF0D7C3),
                             width: .909,
                           ),
                         ),
@@ -646,10 +646,10 @@ class _InfoMessageCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSizes.horizontalPadding),
       decoration: BoxDecoration(
-        color: hasNotice ? const Color(0xFFF6EDE4) : const Color(0xFFEEF2EC),
+        color: hasNotice ? const Color(0xFFFCF1EA) : const Color(0xFFF1FAF4),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: hasNotice ? const Color(0xFFE7CDAF) : const Color(0xFFE7EEE7),
+          color: hasNotice ? const Color(0xFFF0D7C3) : const Color(0xFFDDF4E5),
           width: .909,
         ),
       ),
@@ -719,7 +719,7 @@ class _ProgressSteps extends StatelessWidget {
 
   Color get _currentColor {
     if (report.status.contains('승인')) return ReportDetailV2Screen._green;
-    if (report.status.contains('반려')) return const Color(0xFFA64B4B);
+    if (report.status.contains('반려')) return const Color(0xFFC05A5A);
     return ReportDetailV2Screen._orange;
   }
 
@@ -740,13 +740,13 @@ class _ProgressSteps extends StatelessWidget {
         1,
         currentIndex >= 1
             ? ReportDetailV2Screen._green
-            : const Color(0xFFD9DDD2),
+            : const Color(0xFFD8E7DB),
         currentIndex > 1,
       ),
       _StepData(
         _reviewResultLabel,
         2,
-        currentIndex >= 2 ? _currentColor : const Color(0xFFD9DDD2),
+        currentIndex >= 2 ? _currentColor : const Color(0xFFD8E7DB),
         currentIndex > 2,
       ),
       _StepData(
@@ -754,7 +754,7 @@ class _ProgressSteps extends StatelessWidget {
         3,
         currentIndex >= 3
             ? ReportDetailV2Screen._green
-            : const Color(0xFFD9DDD2),
+            : const Color(0xFFD8E7DB),
         currentIndex >= 3,
       ),
     ];
@@ -787,7 +787,7 @@ class _ProgressSteps extends StatelessWidget {
                   child: ColoredBox(
                     color: index < currentIndex
                         ? ReportDetailV2Screen._green
-                        : const Color(0xFFD9DDD2),
+                        : const Color(0xFFD8E7DB),
                   ),
                 ),
               for (var index = 0; index < items.length; index++)
@@ -961,7 +961,7 @@ class _PhotoThumb extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: const Color(0xFFD9DDD2),
+            color: const Color(0xFFD8E7DB),
             border: Border.all(color: ReportDetailV2Screen._border),
             borderRadius: BorderRadius.circular(14),
           ),
@@ -1030,13 +1030,13 @@ class _OutlineActionButton extends StatelessWidget {
               const Icon(
                 Icons.delete_outline_rounded,
                 size: 14,
-                color: Color(0xFFA64B4B),
+                color: Color(0xFFC05A5A),
               ),
               const SizedBox(width: 6),
               const Text(
                 '삭제하기',
                 style: TextStyle(
-                  color: Color(0xFFA64B4B),
+                  color: Color(0xFFC05A5A),
                   fontFamily: ReportDetailV2Screen._fontFamily,
                   fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                   fontSize: 13,

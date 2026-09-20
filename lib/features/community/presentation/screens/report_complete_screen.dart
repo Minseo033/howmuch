@@ -8,13 +8,13 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 class ReportCompleteScreen extends StatelessWidget {
   const ReportCompleteScreen({super.key});
 
-  static const blue = Color(0xFF315F52);
-  static const orange = Color(0xFFA76546);
-  static const green = Color(0xFF527A6C);
-  static const ink = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const border = Color(0xFFD9DDD2);
-  static const surface = Color(0xFFF7F5EE);
+  static const blue = Color(0xFF359A6B);
+  static const orange = Color(0xFFC47A53);
+  static const green = Color(0xFF65B489);
+  static const ink = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const border = Color(0xFFD8E7DB);
+  static const surface = Color(0xFFFCFBF7);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -60,7 +60,7 @@ class ReportCompleteScreen extends StatelessWidget {
                             height: 44,
                           ),
                           icon: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
+                            Icons.arrow_back_rounded,
                             color: ink,
                             size: 21.989,
                           ),
@@ -120,7 +120,7 @@ class ReportCompleteScreen extends StatelessWidget {
                     const SizedBox(height: 10),
                     _BottomActionButton(
                       label: '내 제보 내역 확인',
-                      backgroundColor: const Color(0xFFEEF2EC),
+                      backgroundColor: const Color(0xFFF1FAF4),
                       foregroundColor: ink,
                       onTap: () => context.go(AppRoutes.myReportsV2),
                     ),
@@ -146,7 +146,7 @@ class _SuccessMark extends StatelessWidget {
       children: [
         Container(
           decoration: const BoxDecoration(
-            color: Color(0xFFE7F0E8),
+            color: Color(0xFFE5F7EB),
             shape: BoxShape.circle,
           ),
         ),
@@ -157,7 +157,7 @@ class _SuccessMark extends StatelessWidget {
             width: 100,
             height: 100,
             decoration: const BoxDecoration(
-              color: Color(0xFFE7F0E8),
+              color: Color(0xFFE5F7EB),
               shape: BoxShape.circle,
             ),
           ),
@@ -249,7 +249,7 @@ class _SubmittedReportCard extends ConsumerWidget {
               children: [
                 _PillBadge(
                   label: '사용자 제보',
-                  backgroundColor: Color(0xFFF6EDE4),
+                  backgroundColor: Color(0xFFFCF1EA),
                   color: ReportCompleteScreen.orange,
                   width: 79.503,
                 ),
@@ -260,7 +260,7 @@ class _SubmittedReportCard extends ConsumerWidget {
             Text(
               storeName,
               style: const TextStyle(
-                color: Color(0xFF1F342D),
+                color: Color(0xFF243E35),
                 fontFamily: ReportCompleteScreen.fontFamily,
                 fontFamilyFallback: ReportCompleteScreen.fontFallback,
                 fontSize: 16,
@@ -368,13 +368,13 @@ class _StatusBadge extends StatelessWidget {
       height: 22.983,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFF6EDE4),
+        color: const Color(0xFFFCF1EA),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         '● $status',
         style: const TextStyle(
-          color: Color(0xFF7A4D30),
+          color: Color(0xFF925B3C),
           fontFamily: ReportCompleteScreen.fontFamily,
           fontFamilyFallback: ReportCompleteScreen.fontFallback,
           fontSize: 10,

@@ -87,7 +87,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: Scaffold(
             backgroundColor: Colors.white,
             body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF315F52)),
+              child: CircularProgressIndicator(color: Color(0xFF359A6B)),
             ),
           ),
         ),

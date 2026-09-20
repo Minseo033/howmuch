@@ -6,6 +6,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
@@ -152,7 +153,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             ),
             _Header(topOffset: topOffset, title: '회원 탈퇴', onBack: _leave),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: footerHeight,
@@ -250,53 +251,10 @@ class _Header extends StatelessWidget {
       left: 0,
       top: 0,
       right: 0,
-      height: 48.877838134765625 + topOffset,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.white,
-          border: Border(
-            bottom: BorderSide(color: WithdrawalScreen.border, width: .909),
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: topOffset,
-              width: 68,
-              height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        color: WithdrawalScreen.ink,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 11.98876953125 + topOffset,
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: _titleText,
-              ),
-            ),
-          ],
-        ),
+      height: HowmuchTopBar.height + topOffset,
+      child: Padding(
+        padding: EdgeInsets.only(top: topOffset),
+        child: HowmuchTopBar(title: title, onBack: onBack),
       ),
     );
   }
@@ -607,8 +565,8 @@ class _StickyActions extends StatelessWidget {
   });
 
   static const buttonHeight = 50.0;
-  static const topGap = 12.89794921875;
-  static const bottomGap = 16.0;
+  static const topGap = 8.0;
+  static const bottomGap = 8.0;
 
   final double safeBottom;
   final VoidCallback onCancel;
@@ -850,15 +808,6 @@ class _SectionLabel extends StatelessWidget {
     return Text(text, style: _sectionText);
   }
 }
-
-const _titleText = TextStyle(
-  color: WithdrawalScreen.black,
-  fontFamily: WithdrawalScreen.fontFamily,
-  fontFamilyFallback: WithdrawalScreen.fontFallback,
-  fontSize: 16,
-  fontWeight: FontWeight.w700,
-  height: 1.5,
-);
 
 const _warningTitleText = TextStyle(
   color: WithdrawalScreen.red,

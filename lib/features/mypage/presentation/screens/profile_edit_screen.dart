@@ -179,7 +179,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
             ),
             _Header(topOffset: topOffset, title: '프로필 수정', onBack: _leave),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: footerHeight,
@@ -389,7 +389,7 @@ class _Header extends StatelessWidget {
             Positioned(
               left: 0,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -398,9 +398,9 @@ class _Header extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -776,7 +776,7 @@ class _StickyButton extends StatelessWidget {
   });
 
   static const buttonHeight = 51.9886360168457;
-  static const topGap = 12.89794921875;
+  static const topGap = 8.0;
   static const bottomGap = 8.0;
   static const minimumSafeBottom = 12.0;
 

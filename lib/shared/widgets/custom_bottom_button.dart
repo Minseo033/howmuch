@@ -25,7 +25,7 @@ class CustomBottomButton extends StatelessWidget {
         top: 10,
         bottom: MediaQuery.of(context).padding.bottom > 0
             ? MediaQuery.of(context).padding.bottom
-            : 20,
+            : 8,
       ),
       child: SizedBox(
         width: double.infinity,

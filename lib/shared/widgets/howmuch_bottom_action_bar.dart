@@ -9,16 +9,16 @@ class HowmuchBottomActionBar extends StatelessWidget {
     required this.child,
     this.backgroundColor = AppColors.white,
     this.showTopBorder = true,
-    this.topPadding = 12,
-    this.bottomPadding = 20,
+    this.topPadding = 8,
+    this.bottomPadding = 8,
   });
 
   static const double buttonHeight = 46.0;
 
   static double heightFor(
     double safeBottom, {
-    double topPadding = 12,
-    double bottomPadding = 20,
+    double topPadding = 8,
+    double bottomPadding = 8,
     double contentHeight = buttonHeight,
   }) {
     return topPadding + contentHeight + bottomPadding + safeBottom;

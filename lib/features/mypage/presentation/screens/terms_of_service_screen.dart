@@ -114,7 +114,7 @@ class TermsOfServiceScreen extends StatelessWidget {
         ),
       ),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (sheetContext) {
         return SafeArea(
@@ -178,9 +178,9 @@ class _TermsHeader extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              left: 0,
+              left: 8,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -189,9 +189,9 @@ class _TermsHeader extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         key: ValueKey('terms-of-service-back-icon'),
                         Icons.arrow_back_rounded,
@@ -216,24 +216,23 @@ class _TermsHeader extends StatelessWidget {
               ),
             ),
             Positioned(
-              right: 0,
+              right: 8,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onAction,
-                  child: const Padding(
-                    padding: EdgeInsets.only(right: 20),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Icon(
-                        key: ValueKey('terms-of-service-action-icon'),
-                        Icons.open_in_new_rounded,
-                        size: 24,
-                        color: TermsOfServiceScreen.ink,
-                      ),
+                  child: const Align(
+                    alignment: Alignment.center,
+                    child: Icon(
+                      key: ValueKey('terms-of-service-action-icon'),
+                      Icons.content_copy_rounded,
+                      size: 22,
+                      color: TermsOfServiceScreen.ink,
                     ),
                   ),
                 ),
@@ -254,31 +253,36 @@ class _TermsSummaryCard extends StatelessWidget {
     return DecoratedBox(
       key: const ValueKey('terms-summary-card'),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppColors.primarySubtle, AppColors.backgroundLight],
-        ),
-        border: Border.all(color: AppColors.primaryAlpha, width: .909),
+        color: TermsOfServiceScreen.blue,
+        border: Border.all(color: TermsOfServiceScreen.blue, width: .909),
         borderRadius: BorderRadius.circular(22),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.903),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(
-                  Icons.description_outlined,
-                  size: 15,
-                  color: TermsOfServiceScreen.blue,
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: const BoxDecoration(
+                    color: Color(0x33FFFFFF),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: const Icon(
+                    Icons.description_outlined,
+                    size: 16,
+                    color: AppColors.white,
+                  ),
                 ),
-                SizedBox(width: 7.997),
-                Text('한눈에 보는 약관', style: _blueLabelText),
+                SizedBox(width: 9),
+                Text('한눈에 보는 약관', style: _summaryTitleText),
               ],
             ),
-            const SizedBox(height: 7.997),
+            const SizedBox(height: 16),
             Column(
               children: [
                 Row(
@@ -329,17 +333,17 @@ class _SummaryMetric extends StatelessWidget {
       height: 66,
       padding: const EdgeInsets.symmetric(horizontal: 12.897),
       decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: TermsOfServiceScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.white.withValues(alpha: .12),
+        border: Border.all(color: AppColors.white.withValues(alpha: .22)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: _metricLabelText),
+          Text(label, style: _metricOnPrimaryLabelText),
           const SizedBox(height: .994),
-          Text(value, style: _metricValueText),
+          Text(value, style: _metricOnPrimaryValueText),
         ],
       ),
     );
@@ -404,38 +408,68 @@ class _TermsListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _RoundedPanel(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.903, 16, 16.903, 8),
-        child: Column(
-          children: [
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('제 1조 (목적)', style: _termTitleText),
-                  SizedBox(height: 2.998),
-                  Text(
-                    '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
-                    style: _termBodyText,
-                  ),
-                ],
-              ),
+    return Column(
+      children: [
+        const _PurposeCard(),
+        const SizedBox(height: 18),
+        for (var index = 0; index < items.length; index++) ...[
+          _TermsRow(
+            item: items[index],
+            showDivider: index < items.length - 1,
+            onTap: () => onOpen(items[index]),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PurposeCard extends StatelessWidget {
+  const _PurposeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 4,
+          height: 72,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: TermsOfServiceScreen.blue,
+              borderRadius: BorderRadius.all(Radius.circular(4)),
             ),
-            for (final item in items)
-              _TermsRow(item: item, onTap: () => onOpen(item)),
-          ],
+          ),
         ),
-      ),
+        SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('제 1조 (목적)', style: _termTitleText),
+              SizedBox(height: 4),
+              Text(
+                '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
+                style: _termBodyText,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _TermsRow extends StatelessWidget {
-  const _TermsRow({required this.item, required this.onTap});
+  const _TermsRow({
+    required this.item,
+    required this.showDivider,
+    required this.onTap,
+  });
 
   final _TermsItem item;
+  final bool showDivider;
   final VoidCallback onTap;
 
   @override
@@ -452,79 +486,83 @@ class _TermsRow extends StatelessWidget {
         ? TermsOfServiceScreen.red
         : TermsOfServiceScreen.ink;
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(minHeight: rowHeight),
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: TermsOfServiceScreen.border, width: .909),
-          ),
-        ),
-        child: Material(
-          color: AppColors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11.988),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 21.988636016845703,
-                    height: 21.988636016845703,
-                    decoration: BoxDecoration(
-                      color: badgeColor,
-                      borderRadius: BorderRadius.circular(8),
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        hoverColor: AppColors.primaryLight,
+        onTap: onTap,
+        child: Column(
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: rowHeight),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: badgeColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        item.number,
+                        style: _termNumberText.copyWith(color: badgeTextColor),
+                      ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      item.number,
-                      style: _termNumberText.copyWith(color: badgeTextColor),
-                    ),
-                  ),
-                  const SizedBox(width: 11.988),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(item.title, style: _termTitleText),
-                            ),
-                            if (item.important) ...[
-                              const SizedBox(width: 5.994),
-                              const _ImportantBadge(),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(item.title, style: _termTitleText),
+                              ),
+                              if (item.important) ...[
+                                const SizedBox(width: 5.994),
+                                const _ImportantBadge(),
+                              ],
                             ],
-                          ],
-                        ),
-                        const SizedBox(height: 2.997),
-                        Text(
-                          item.body,
-                          style: _termBodyText,
-                          maxLines: item.compact
-                              ? 1
-                              : item.important || item.number == '6'
-                              ? 3
-                              : 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                          ),
+                          const SizedBox(height: 2.997),
+                          Text(
+                            item.body,
+                            style: _termBodyText,
+                            maxLines: item.compact
+                                ? 1
+                                : item.important || item.number == '6'
+                                ? 3
+                                : 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Padding(
-                    padding: EdgeInsets.only(top: 3.991),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 15,
-                      color: TermsOfServiceScreen.muted,
+                    const SizedBox(width: 8),
+                    const Padding(
+                      padding: EdgeInsets.only(top: 3.991),
+                      child: Icon(
+                        Icons.chevron_right_rounded,
+                        size: 15,
+                        color: TermsOfServiceScreen.muted,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
+            if (showDivider)
+              const Padding(
+                padding: EdgeInsets.only(left: 42),
+                child: Divider(height: 1, color: TermsOfServiceScreen.border),
+              ),
+          ],
         ),
       ),
     );
@@ -557,10 +595,10 @@ class _TermsNotice extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.warningLight,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Icon(
@@ -600,24 +638,6 @@ class _TermsItem {
   final bool compact;
 }
 
-class _RoundedPanel extends StatelessWidget {
-  const _RoundedPanel({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: TermsOfServiceScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: child,
-    );
-  }
-}
-
 const _headerText = TextStyle(
   color: TermsOfServiceScreen.black,
   fontFamily: TermsOfServiceScreen.fontFamily,
@@ -627,14 +647,31 @@ const _headerText = TextStyle(
   height: 1.5,
 );
 
-const _blueLabelText = TextStyle(
-  color: TermsOfServiceScreen.blue,
+const _summaryTitleText = TextStyle(
+  color: AppColors.white,
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
-  fontSize: 12,
+  fontSize: 14,
   fontWeight: FontWeight.w800,
   height: 1.5,
-  letterSpacing: .3,
+);
+
+const _metricOnPrimaryLabelText = TextStyle(
+  color: Color(0xCCFFFFFF),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10,
+  fontWeight: FontWeight.w600,
+  height: 1.5,
+);
+
+const _metricOnPrimaryValueText = TextStyle(
+  color: AppColors.white,
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 12.5,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
 );
 
 const _sectionText = TextStyle(
@@ -645,24 +682,6 @@ const _sectionText = TextStyle(
   fontWeight: FontWeight.w700,
   height: 1.5,
   letterSpacing: .3,
-);
-
-const _metricLabelText = TextStyle(
-  color: TermsOfServiceScreen.muted,
-  fontFamily: TermsOfServiceScreen.fontFamily,
-  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
-  fontSize: 10,
-  fontWeight: FontWeight.w600,
-  height: 1.5,
-);
-
-const _metricValueText = TextStyle(
-  color: TermsOfServiceScreen.ink,
-  fontFamily: TermsOfServiceScreen.fontFamily,
-  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
-  fontSize: 12.5,
-  fontWeight: FontWeight.w700,
-  height: 1.5,
 );
 
 const _termTitleText = TextStyle(

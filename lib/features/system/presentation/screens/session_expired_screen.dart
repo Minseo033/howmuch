@@ -9,13 +9,13 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 class SessionExpiredScreen extends ConsumerWidget {
   const SessionExpiredScreen({super.key});
 
-  static const blue = Color(0xFF315F52);
-  static const ink = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const surface = Color(0xFFF7F5EE);
+  static const blue = Color(0xFF359A6B);
+  static const ink = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const surface = Color(0xFFFCFBF7);
   static const kakao = Color(0xFFFEE500);
   static const kakaoInk = Color(0xFF191600);
-  static const green = Color(0xFF527A6C);
+  static const green = Color(0xFF65B489);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -79,7 +79,7 @@ class SessionExpiredScreen extends ConsumerWidget {
                         onTap: () => close(),
                         child: const Icon(
                           Icons.close_rounded,
-                          color: Color(0xFF707A70),
+                          color: Color(0xFF748078),
                           size: 16,
                         ),
                       ),
@@ -166,7 +166,7 @@ class _StateIcon extends StatelessWidget {
         color: SessionExpiredScreen.surface,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Color(0xFF707A70), size: size),
+      child: Icon(icon, color: Color(0xFF748078), size: size),
     );
   }
 }

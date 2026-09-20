@@ -117,17 +117,19 @@ class PublicDataSourceScreen extends StatelessWidget {
                         left: 20,
                         top: 522.087890625 - introHeightReduction + topOffset,
                         right: 20,
-                        height: 56.96022415161133,
+                        height: 40.46875,
                         child: const _NoticeBox(
                           color: AppColors.warningLight,
                           iconColor: AppColors.warningDark,
                           icon: Icons.warning_amber_rounded,
                           text: '공공데이터는 주기적으로 동기화되며, 실제 매장 정보와 차이가 있을 수 있어요.',
+                          singleLine: true,
+                          isSyncNotice: true,
                         ),
                       ),
                       Positioned(
                         left: 20,
-                        top: 587.04541015625 - introHeightReduction + topOffset,
+                        top: 570.5546875 - introHeightReduction + topOffset,
                         right: 20,
                         height: 40.46875,
                         child: const _NoticeBox(
@@ -145,7 +147,7 @@ class PublicDataSourceScreen extends StatelessWidget {
             ),
             _Header(topOffset: topOffset, title: '공공데이터 출처', onBack: goBack),
             Positioned(
-              left: 0,
+              left: 8,
               bottom: 0,
               right: 0,
               height: footerHeight,
@@ -196,7 +198,7 @@ class _Header extends StatelessWidget {
             Positioned(
               left: 0,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -205,9 +207,9 @@ class _Header extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -373,6 +375,7 @@ class _NoticeBox extends StatelessWidget {
     required this.icon,
     required this.text,
     this.singleLine = false,
+    this.isSyncNotice = false,
   });
 
   final Color color;
@@ -380,13 +383,14 @@ class _NoticeBox extends StatelessWidget {
   final IconData icon;
   final String text;
   final bool singleLine;
+  final bool isSyncNotice;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Stack(
         children: [
@@ -399,22 +403,27 @@ class _NoticeBox extends StatelessWidget {
             left: 32.98291015625,
             right: 11.9886474609375,
             top: 11.98876953125,
-            child: Text(
-              text,
-              key: singleLine
-                  ? null
-                  : const ValueKey('public-data-sync-notice-text'),
-              maxLines: singleLine ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: iconColor,
-                fontFamily: PublicDataSourceScreen.fontFamily,
-                fontFamilyFallback: PublicDataSourceScreen.fontFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
-              ),
-            ),
+            child: singleLine
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      text,
+                      key: isSyncNotice
+                          ? const ValueKey('public-data-sync-notice-text')
+                          : null,
+                      style: _noticeText(iconColor),
+                    ),
+                  )
+                : Text(
+                    text,
+                    key: isSyncNotice
+                        ? const ValueKey('public-data-sync-notice-text')
+                        : null,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: _noticeText(iconColor),
+                  ),
           ),
         ],
       ),
@@ -442,8 +451,8 @@ class _StickyButton extends StatelessWidget {
   });
 
   static const buttonHeight = 51.9886360168457;
-  static const topGap = 12.89794921875;
-  static const bottomGap = 16.0;
+  static const topGap = 8.0;
+  static const bottomGap = 8.0;
 
   final double safeBottom;
   final String label;
@@ -541,6 +550,15 @@ const _sourceTitleText = TextStyle(
 
 const _captionText = TextStyle(
   color: PublicDataSourceScreen.muted,
+  fontFamily: PublicDataSourceScreen.fontFamily,
+  fontFamilyFallback: PublicDataSourceScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+TextStyle _noticeText(Color color) => TextStyle(
+  color: color,
   fontFamily: PublicDataSourceScreen.fontFamily,
   fontFamilyFallback: PublicDataSourceScreen.fontFallback,
   fontSize: 11,

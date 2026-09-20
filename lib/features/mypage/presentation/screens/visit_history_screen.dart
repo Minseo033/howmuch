@@ -5,15 +5,15 @@ import '../../../../core/network/api_client.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 
 abstract class _Colors {
-  static const backgroundDark = Color(0xFFF7F5EE);
-  static const muted = Color(0xFF707A70);
-  static const black = Color(0xFF1F342D);
-  static const primary = Color(0xFF315F52);
-  static const primarySubtle = Color(0xFFEEF2EC);
-  static const orangeTheme = Color(0xFFA76546);
-  static const orangeLight = Color(0xFFF6EDE4);
-  static const success = Color(0xFF39705C);
-  static const successSubtle = Color(0xFFEEF5EF);
+  static const backgroundDark = Color(0xFFFCFBF7);
+  static const muted = Color(0xFF748078);
+  static const black = Color(0xFF243E35);
+  static const primary = Color(0xFF359A6B);
+  static const primarySubtle = Color(0xFFF1FAF4);
+  static const orangeTheme = Color(0xFFC47A53);
+  static const orangeLight = Color(0xFFFCF1EA);
+  static const success = Color(0xFF4D9D75);
+  static const successSubtle = Color(0xFFF1FBF5);
   static const white = Colors.white;
 }
 
@@ -176,7 +176,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             elevation: 0,
             leading: IconButton(
               icon: const Icon(
-                Icons.arrow_back_ios_new_rounded,
+                Icons.arrow_back_rounded,
                 color: _Colors.black,
                 size: 20,
               ),

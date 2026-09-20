@@ -37,14 +37,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         if (!didPop) context.go(AppRoutes.home);
       },
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF7F5EE),
+        backgroundColor: const Color(0xFFFCFBF7),
         child: Stack(
           children: [
             // Content Scroll
             Positioned.fill(
               child: notificationsAsync.when(
                 loading: () => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF315F52)),
+                  child: CircularProgressIndicator(color: Color(0xFF359A6B)),
                 ),
                 error: (err, stack) {
                   final unauthorized =
@@ -59,12 +59,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFD9DDD2),
+                              color: Color(0xFFD8E7DB),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.error_outline_rounded,
-                              color: Color(0xFF707A70),
+                              color: Color(0xFF748078),
                               size: 30,
                             ),
                           ),
@@ -75,7 +75,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF1F342D),
+                              color: Color(0xFF243E35),
                               fontSize: 16,
                             ),
                           ),
@@ -88,7 +88,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF707A70),
+                              color: Color(0xFF748078),
                               fontSize: 12,
                             ),
                           ),
@@ -101,7 +101,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   .read(notificationsProvider.notifier)
                                   .loadNotifications(),
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF315F52),
+                                backgroundColor: const Color(0xFF359A6B),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -144,12 +144,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               width: 60,
                               height: 60,
                               decoration: const BoxDecoration(
-                                color: Color(0xFFD9DDD2),
+                                color: Color(0xFFD8E7DB),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.notifications_off_outlined,
-                                color: Color(0xFF707A70),
+                                color: Color(0xFF748078),
                                 size: 28,
                               ),
                             ),
@@ -160,7 +160,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F342D),
+                                color: Color(0xFF243E35),
                                 fontSize: 15,
                               ),
                             ),
@@ -189,7 +189,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF707A70),
+                                color: Color(0xFF748078),
                                 fontSize: 11,
                                 height: 16.5 / 11,
                               ),
@@ -218,7 +218,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF707A70),
+                                color: Color(0xFF748078),
                                 fontSize: 11,
                                 height: 16.5 / 11,
                               ),
@@ -253,7 +253,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
+                    bottom: BorderSide(color: Color(0xFFD8E7DB), width: 0.909),
                   ),
                 ),
                 child: Row(
@@ -277,7 +277,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
+                    bottom: BorderSide(color: Color(0xFFD8E7DB), width: 0.909),
                   ),
                 ),
                 child: Stack(
@@ -289,9 +289,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         onPressed: () => _closeNotificationInbox(context),
                         tooltip: '뒤로가기',
                         icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
+                          Icons.arrow_back_rounded,
                           size: 20,
-                          color: Color(0xFF1F342D),
+                          color: Color(0xFF243E35),
                         ),
                       ),
                     ),
@@ -303,7 +303,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F342D),
+                            color: Color(0xFF243E35),
                             fontSize: 16,
                             height: 24 / 16,
                           ),
@@ -329,8 +329,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.w600,
                             color: _markingAllRead || !hasUnread
-                                ? const Color(0xFFA8AEA4)
-                                : const Color(0xFF315F52),
+                                ? const Color(0xFFAAB3AA)
+                                : const Color(0xFF359A6B),
                             fontSize: 11,
                             height: 16.5 / 11,
                           ),
@@ -378,8 +378,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   fontFamilyFallback: const ['Noto Sans KR'],
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
-                      ? const Color(0xFF315F52)
-                      : const Color(0xFF707A70),
+                      ? const Color(0xFF359A6B)
+                      : const Color(0xFF748078),
                   fontSize: 13,
                   height: 19.5 / 13,
                 ),
@@ -393,7 +393,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 child: Container(
                   height: 1.989,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF315F52),
+                    color: const Color(0xFF359A6B),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
@@ -460,7 +460,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           style: const TextStyle(
                             fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF707A70),
+                            color: Color(0xFF748078),
                             fontSize: 10,
                             height: 15 / 10,
                           ),
@@ -479,7 +479,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         fontFamily: 'Noto Sans KR',
                         fontFamilyFallback: ['Noto Sans KR'],
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1F342D),
+                        color: Color(0xFF243E35),
                         fontSize: 13,
                         height: 18.85 / 13,
                       ),
@@ -494,7 +494,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       fontFamily: 'Noto Sans KR',
                       fontFamilyFallback: ['Noto Sans KR'],
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF1F342D),
+                      color: Color(0xFF243E35),
                       fontSize: 13,
                       height: 18.85 / 13,
                     ),
@@ -508,7 +508,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 width: 7,
                 height: 7,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFA76546),
+                  color: Color(0xFFC47A53),
                   shape: BoxShape.circle,
                 ),
               ),

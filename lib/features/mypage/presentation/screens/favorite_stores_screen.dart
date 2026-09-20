@@ -343,13 +343,14 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
               child: Stack(
                 children: [
                   Positioned(
-                    left: 20,
-                    top: 13.98,
-                    child: GestureDetector(
-                      onTap: () => context.pop(),
-                      behavior: HitTestBehavior.opaque,
-                      child: const Icon(
-                        Icons.arrow_back_ios_new_rounded,
+                    left: 8,
+                    top: 0,
+                    width: 48,
+                    height: 48,
+                    child: IconButton(
+                      onPressed: () => context.pop(),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
                         size: 20,
                         color: AppColors.black,
                       ),

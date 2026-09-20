@@ -100,11 +100,11 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
           final isGov = item['isGov'] == true;
           final String badgeText = isGov ? '정부 인증' : '사용자 제보';
           final Color badgeColor = isGov
-              ? const Color(0xFF315F52)
-              : const Color(0xFFA76546);
+              ? const Color(0xFF359A6B)
+              : const Color(0xFFC47A53);
           final Color badgeBg = isGov
-              ? const Color(0xFFE7EEE7)
-              : const Color(0xFFF6EDE4);
+              ? const Color(0xFFDDF4E5)
+              : const Color(0xFFFCF1EA);
 
           final int priceVal = (item['price'] as num?)?.toInt() ?? 0;
           final int savedVal = (item['savedAmount'] as num?)?.toInt() ?? 0;
@@ -224,10 +224,10 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     }).toList();
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       child: Stack(
         children: [
-          Positioned.fill(child: const ColoredBox(color: Color(0xFFF7F5EE))),
+          Positioned.fill(child: const ColoredBox(color: Color(0xFFFCFBF7))),
           Positioned.fill(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -245,7 +245,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                     children: [
                       IconButton(
                         icon: const Icon(
-                          Icons.arrow_back_ios,
+                          Icons.arrow_back_rounded,
                           color: Colors.black,
                           size: 20,
                         ),
@@ -258,7 +258,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                           style: TextStyle(
                             fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF1F342D),
+                            color: Color(0xFF243E35),
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                           ),
@@ -293,14 +293,14 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                             ),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFFE7F0E8), Color(0xFFF6EDE4)],
+                                colors: [Color(0xFFE5F7EB), Color(0xFFFCF1EA)],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                               borderRadius: BorderRadius.circular(22),
                               border: Border.all(
                                 color: const Color(
-                                  0xFF527A6C,
+                                  0xFF65B489,
                                 ).withValues(alpha: 0.2),
                               ),
                             ),
@@ -312,7 +312,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF707A70),
+                                    color: Color(0xFF748078),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -328,7 +328,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                       style: const TextStyle(
                                         fontFamily: 'Noto Sans KR',
                                         fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF527A6C),
+                                        color: Color(0xFF65B489),
                                         fontSize: 30,
                                         fontWeight: FontWeight.w800,
                                         letterSpacing: -0.5,
@@ -340,7 +340,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                       style: TextStyle(
                                         fontFamily: 'Noto Sans KR',
                                         fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF527A6C),
+                                        color: Color(0xFF65B489),
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -355,7 +355,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                       style: const TextStyle(
                                         fontFamily: 'Noto Sans KR',
                                         fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF707A70),
+                                        color: Color(0xFF748078),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -365,7 +365,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                       style: const TextStyle(
                                         fontFamily: 'Noto Sans KR',
                                         fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF707A70),
+                                        color: Color(0xFF748078),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -401,7 +401,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               child: Padding(
                                 padding: EdgeInsets.symmetric(vertical: 40),
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF315F52),
+                                  color: Color(0xFF359A6B),
                                 ),
                               ),
                             )
@@ -419,7 +419,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                       style: const TextStyle(
                                         fontFamily: 'Noto Sans KR',
                                         fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF707A70),
+                                        color: Color(0xFF748078),
                                         fontSize: 13,
                                       ),
                                     ),
@@ -441,7 +441,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                   style: TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF707A70),
+                                    color: Color(0xFF748078),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -468,7 +468,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0F0E9),
+                              color: const Color(0xFFF6F7F2),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Row(
@@ -476,7 +476,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               children: [
                                 Icon(
                                   Icons.info_outline,
-                                  color: Color(0xFF707A70),
+                                  color: Color(0xFF748078),
                                   size: 14,
                                 ),
                                 SizedBox(width: AppSizes.smallSpacing),
@@ -486,7 +486,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                                     style: TextStyle(
                                       fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF707A70),
+                                      color: Color(0xFF748078),
                                       fontSize: 11,
                                     ),
                                   ),
@@ -521,18 +521,18 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF315F52) : Colors.white,
+          color: isSelected ? const Color(0xFF359A6B) : Colors.white,
           borderRadius: BorderRadius.circular(30),
           border: isSelected
               ? null
-              : Border.all(color: const Color(0xFFD9DDD2)),
+              : Border.all(color: const Color(0xFFD8E7DB)),
         ),
         child: Text(
           text,
           style: TextStyle(
             fontFamily: 'Noto Sans KR',
             fontFamilyFallback: const ['Noto Sans KR'],
-            color: isSelected ? Colors.white : const Color(0xFF46564D),
+            color: isSelected ? Colors.white : const Color(0xFF53645B),
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -556,7 +556,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD9DDD2)),
+        border: Border.all(color: const Color(0xFFD8E7DB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -605,7 +605,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                     style: const TextStyle(
                       fontFamily: 'Noto Sans KR',
                       fontFamilyFallback: ['Noto Sans KR'],
-                      color: Color(0xFF707A70),
+                      color: Color(0xFF748078),
                       fontSize: 11,
                     ),
                   ),
@@ -619,7 +619,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
             style: const TextStyle(
               fontFamily: 'Noto Sans KR',
               fontFamilyFallback: ['Noto Sans KR'],
-              color: Color(0xFF1F342D),
+              color: Color(0xFF243E35),
               fontSize: 15,
               fontWeight: FontWeight.bold,
             ),
@@ -633,7 +633,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                 style: const TextStyle(
                   fontFamily: 'Noto Sans KR',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF707A70),
+                  color: Color(0xFF748078),
                   fontSize: 12,
                 ),
               ),
@@ -642,7 +642,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                 style: const TextStyle(
                   fontFamily: 'Noto Sans KR',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF1F342D),
+                  color: Color(0xFF243E35),
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),
@@ -653,14 +653,14 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFE7F0E8),
+              color: const Color(0xFFE5F7EB),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.check_circle,
-                  color: Color(0xFF527A6C),
+                  color: Color(0xFF65B489),
                   size: 12,
                 ),
                 const SizedBox(width: 4),
@@ -669,7 +669,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                   style: const TextStyle(
                     fontFamily: 'Noto Sans KR',
                     fontFamilyFallback: ['Noto Sans KR'],
-                    color: Color(0xFF527A6C),
+                    color: Color(0xFF65B489),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),

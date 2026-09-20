@@ -29,7 +29,7 @@ void main() {
       );
       final reportLabel = tester.widget<Text>(find.text('리포트'));
 
-      expect(reportIcon.color, AppColors.lime);
+      expect(reportIcon.color, AppColors.primary);
       expect(reportLabel.style?.color, HowmuchBottomNav.blue);
       final reportSemantics = tester.widget<Semantics>(
         find.byWidgetPredicate(

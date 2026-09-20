@@ -31,12 +31,12 @@ class SearchResultScreen extends StatefulWidget {
   final StoreCatalogLoader? storeCatalogLoader;
   final SearchHistoryStore? searchHistoryStore;
 
-  static const blue = Color(0xFF315F52);
-  static const ink = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const hint = Color(0xFFA8AEA4);
-  static const surface = Color(0xFFF7F5EE);
-  static const border = Color(0xFFD9DDD2);
+  static const blue = Color(0xFF359A6B);
+  static const ink = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const hint = Color(0xFFAAB3AA);
+  static const surface = Color(0xFFFCFBF7);
+  static const border = Color(0xFFD8E7DB);
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -427,7 +427,6 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final activeFilters = _filter.activeLabels;
 
     return FigmaMobileCanvas(
-      wideWebLayout: true,
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
@@ -674,15 +673,12 @@ class _SearchHeader extends StatelessWidget {
             child: Row(
               children: [
                 // 뒤로가기
-                GestureDetector(
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(
-                      Icons.arrow_back_ios_new_rounded,
-                      size: 20,
-                      color: SearchResultScreen.ink,
-                    ),
+                IconButton(
+                  onPressed: onBack,
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 20,
+                    color: SearchResultScreen.ink,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -820,7 +816,7 @@ class _SearchHeader extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2EC),
+                          color: const Color(0xFFF1FAF4),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: SearchResultScreen.blue,
@@ -950,7 +946,7 @@ class _StoreCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2EC),
+                  color: const Color(0xFFF1FAF4),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
@@ -1024,10 +1020,10 @@ class _StoreCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE7EEE7),
+                              color: const Color(0xFFDDF4E5),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(0xFFE0EBE1),
+                                color: const Color(0xFFE5F5EA),
                                 width: 0.8,
                               ),
                             ),
@@ -1099,7 +1095,7 @@ class _IndustryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5EE),
+        color: const Color(0xFFFCFBF7),
         border: Border.all(color: SearchResultScreen.border, width: 0.8),
         borderRadius: BorderRadius.circular(6),
       ),
@@ -1399,7 +1395,7 @@ class _EmptyResult extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
-                  color: Color(0xFF707A70),
+                  color: Color(0xFF748078),
                   size: 32,
                 ),
               ),

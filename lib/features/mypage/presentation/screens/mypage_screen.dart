@@ -318,7 +318,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const settingsCardHeight = 316.0;
     final scrollContentHeight =
-        707.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
+        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
 
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,
@@ -344,21 +344,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 65 + topOffset,
-                      child: const Text(
-                        '나의 알뜰한 일상',
-                        style: TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 23,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -.8,
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 114.96044921875 + topOffset,
+                      top: 66.96044921875 + topOffset,
                       height: 163.23863220214844,
                       child: _ProfileCard(
                         profile: profile,
@@ -374,7 +360,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 294.193359375 + topOffset,
+                      top: 246.193359375 + topOffset,
                       height: 90,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -416,7 +402,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 396.47998046875 + topOffset,
+                      top: 348.47998046875 + topOffset,
                       height: 90,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -460,7 +446,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 506.76416015625 + topOffset,
+                      top: 458.76416015625 + topOffset,
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
@@ -474,7 +460,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 707.98583984375 + topOffset,
+                      top: 659.98583984375 + topOffset,
                       height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
@@ -602,13 +588,13 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(22),
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.primary, const Color(0xFF274C42)],
+            colors: [AppColors.primary, const Color(0xFF287D55)],
           ),
         ),
         child: Padding(
@@ -1137,55 +1123,69 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _PermissionRow(
-            access: location,
-            onTap: () => _location(location ?? DeviceAccess.unknown),
-          ),
-          const _DividerLine(lineKey: ValueKey('mypage-location-divider')),
-
-          _ToggleRow(
-            icon: Icons.notifications_active_outlined,
-            title: '푸시 알림',
-            value: push == DeviceAccess.allowed,
-            onToggle: () => _push(push ?? DeviceAccess.unknown),
-          ),
-          const _DividerLine(),
-          _ToggleRow(
-            icon: Icons.campaign_outlined,
-            title: '마케팅 정보 수신 동의',
-            value: false,
-            onToggle: () => _message('마케팅 알림은 현재 제공하지 않아요.'),
-          ),
-          const _DividerLine(),
-
-          _SettingRow(
-            icon: Icons.notifications_none_rounded,
-            title: '알림 설정',
-            onTap: widget.onNotificationTap,
-          ),
-          const _DividerLine(),
-          _SettingRow(
-            icon: Icons.manage_accounts_outlined,
-            title: '계정 관리',
-            onTap: widget.onAccountTap,
-          ),
-          const _DividerLine(),
-          _SettingRow(
-            icon: Icons.dataset_outlined,
-            title: '공공데이터 출처 안내',
-            onTap: widget.onPublicDataTap,
-          ),
-          const _DividerLine(),
-          _SettingRow(
-            icon: Icons.support_agent_outlined,
-            title: '문의하기',
-            onTap: widget.onInquiryTap,
-          ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _PermissionRow(
+              access: location,
+              onTap: () => _location(location ?? DeviceAccess.unknown),
+            ),
+            const _SettingsDivider(),
+            _ToggleRow(
+              icon: Icons.notifications_active_outlined,
+              title: '푸시 알림',
+              value: push == DeviceAccess.allowed,
+              onToggle: () => _push(push ?? DeviceAccess.unknown),
+            ),
+            const _SettingsDivider(),
+            _ToggleRow(
+              icon: Icons.campaign_outlined,
+              title: '마케팅 정보 수신 동의',
+              value: false,
+              onToggle: () => _message('마케팅 알림은 현재 제공하지 않아요.'),
+            ),
+            const _SettingsDivider(),
+            _SettingRow(
+              icon: Icons.notifications_none_rounded,
+              title: '알림 설정',
+              onTap: widget.onNotificationTap,
+            ),
+            const _SettingsDivider(),
+            _SettingRow(
+              icon: Icons.manage_accounts_outlined,
+              title: '계정 관리',
+              onTap: widget.onAccountTap,
+            ),
+            const _SettingsDivider(),
+            _SettingRow(
+              icon: Icons.dataset_outlined,
+              title: '공공데이터 출처 안내',
+              onTap: widget.onPublicDataTap,
+            ),
+            const _SettingsDivider(),
+            _SettingRow(
+              icon: Icons.support_agent_outlined,
+              title: '문의하기',
+              onTap: widget.onInquiryTap,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _SettingsDivider extends StatelessWidget {
+  const _SettingsDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16),
+      child: Divider(height: 1, color: MypageScreen.border),
     );
   }
 }
@@ -1218,11 +1218,8 @@ class _ToggleRow extends StatelessWidget {
             child: Row(
               children: [
                 const SizedBox(width: 16),
-                SizedBox(
-                  width: 17,
-                  child: Icon(icon, color: MypageScreen.muted, size: 17),
-                ),
-                const SizedBox(width: 12),
+                _SettingsIcon(icon: icon),
+                const SizedBox(width: 10),
                 Text(title, style: _settingText),
                 const Spacer(),
                 _AdminModeSwitch(value: value),
@@ -1305,15 +1302,8 @@ class _PermissionRow extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 16),
-              const SizedBox(
-                width: 17,
-                child: Icon(
-                  Icons.location_on_outlined,
-                  color: MypageScreen.muted,
-                  size: 17,
-                ),
-              ),
-              const SizedBox(width: 12),
+              const _SettingsIcon(icon: Icons.location_on_outlined),
+              const SizedBox(width: 10),
               const Text('위치 권한 설정', style: _settingText),
               const Spacer(),
               SizedBox(
@@ -1373,11 +1363,8 @@ class _SettingRow extends StatelessWidget {
           child: Row(
             children: [
               const SizedBox(width: 16),
-              SizedBox(
-                width: 17,
-                child: Icon(icon, color: MypageScreen.muted, size: 17),
-              ),
-              const SizedBox(width: 12),
+              _SettingsIcon(icon: icon),
+              const SizedBox(width: 10),
               Text(title, style: _settingText),
               const Spacer(),
               const Icon(
@@ -1394,20 +1381,22 @@ class _SettingRow extends StatelessWidget {
   }
 }
 
-class _DividerLine extends StatelessWidget {
-  const _DividerLine({this.lineKey});
+class _SettingsIcon extends StatelessWidget {
+  const _SettingsIcon({required this.icon});
 
-  final Key? lineKey;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 1,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: ColoredBox(key: lineKey, color: MypageScreen.border),
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(10),
       ),
+      alignment: Alignment.center,
+      child: Icon(icon, color: MypageScreen.muted, size: 16),
     );
   }
 }

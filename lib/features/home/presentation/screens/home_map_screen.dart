@@ -124,12 +124,12 @@ class HomeMapScreen extends StatefulWidget {
 
   final bool showAiSpotlight;
 
-  static const blue = Color(0xFF315F52);
-  static const orange = Color(0xFFA76546);
-  static const green = Color(0xFF527A6C);
-  static const ink = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const hint = Color(0xFFA8AEA4);
+  static const blue = Color(0xFF359A6B);
+  static const orange = Color(0xFFC47A53);
+  static const green = Color(0xFF65B489);
+  static const ink = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const hint = Color(0xFFAAB3AA);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -1496,7 +1496,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFE7EEE7),
+      backgroundColor: const Color(0xFFDDF4E5),
       child: Stack(
         children: [
           Positioned.fill(
@@ -1510,7 +1510,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (_mapErrorMessage != null)
             Positioned.fill(
               child: ColoredBox(
-                color: const Color(0xFFF7F5EE),
+                color: const Color(0xFFFCFBF7),
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -1583,7 +1583,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         style: TextStyle(
                           color: _hasLoadError
                               ? Colors.red
-                              : const Color(0xFF315F52),
+                              : const Color(0xFF359A6B),
                           fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: const [
                             'Apple SD Gothic Neo',
@@ -1607,7 +1607,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         )
                       else
                         const CircularProgressIndicator(
-                          color: Color(0xFF315F52),
+                          color: Color(0xFF359A6B),
                         ),
                     ],
                   ),
@@ -1661,7 +1661,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(
-                          color: const Color(0xFF315F52),
+                          color: const Color(0xFF359A6B),
                           width: 1.2,
                         ),
                         borderRadius: BorderRadius.circular(999),
@@ -1672,7 +1672,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           Text(
                             label,
                             style: const TextStyle(
-                              color: Color(0xFF315F52),
+                              color: Color(0xFF359A6B),
                               fontFamily: HomeMapScreen.fontFamily,
                               fontFamilyFallback: HomeMapScreen.fontFallback,
                               fontSize: 13,
@@ -1691,7 +1691,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             child: const Icon(
                               Icons.close_rounded,
                               size: 14,
-                              color: Color(0xFF315F52),
+                              color: Color(0xFF359A6B),
                             ),
                           ),
                         ],
@@ -2140,7 +2140,7 @@ class _SearchBar extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.search_rounded,
-                        color: Color(0xFF707A70),
+                        color: Color(0xFF748078),
                         size: 19,
                       ),
                       const SizedBox(width: 7.997158050537109),
@@ -2195,11 +2195,11 @@ class _SquareButton extends StatelessWidget {
       label: label,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        elevation: 7,
+        borderRadius: BorderRadius.circular(22),
+        elevation: 0,
         shadowColor: const Color(0x140F172A),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: SizedBox(
             width: 52,
@@ -2221,7 +2221,7 @@ class _SourceLegend extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFD9DDD2), width: 0.8),
+        border: Border.all(color: const Color(0xFFD8E7DB), width: 0.8),
         boxShadow: const [
           BoxShadow(
             color: Color(0x140F172A),
@@ -2241,7 +2241,7 @@ class _SourceLegend extends StatelessWidget {
             SizedBox(width: 10),
             SizedBox(
               height: 10,
-              child: VerticalDivider(color: Color(0xFFD9DDD2), width: 1),
+              child: VerticalDivider(color: Color(0xFFD8E7DB), width: 1),
             ),
             SizedBox(width: 10),
             _Dot(color: HomeMapScreen.orange),
@@ -2264,11 +2264,12 @@ class _TodayPickCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => context.push(AppRoutes.todaysPick),
-      child: DecoratedBox(
+      child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: const Color(0xFFD9DDD2), width: .909),
-          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFD8E7DB), width: .909),
+          borderRadius: BorderRadius.circular(22),
           boxShadow: const [
             BoxShadow(
               color: Color(0x1A0F172A),
@@ -2290,7 +2291,7 @@ class _TodayPickCard extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0xFFE7EEE7), Color(0xFFE0EBE1)],
+                        colors: [Color(0xFFDDF4E5), Color(0xFFE5F5EA)],
                       ),
                     ),
                     child: Column(
@@ -2355,7 +2356,7 @@ class _TodayPickText extends StatelessWidget {
             const Text(
               '오늘의 픽',
               style: TextStyle(
-                color: Color(0xFFAABF96),
+                color: Color(0xFFC7DFAA),
                 fontFamily: HomeMapScreen.fontFamily,
                 fontFamilyFallback: HomeMapScreen.fontFallback,
                 fontSize: 9.5,
@@ -2447,24 +2448,43 @@ class _StoreSummaryCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(AppSizes.horizontalPadding),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              height: 76,
+              height: 24,
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SourceBadge(isUserReported: store.isUserReported),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      store.address.split(' ').take(3).join(' '),
+                      style: _muted11,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 3),
+            SizedBox(
+              height: 52,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: _StoreInfo(store: store)),
+                  const SizedBox(width: 12),
                   _StorePrice(store: store),
                 ],
               ),
             ),
-            const SizedBox(height: 11.5),
-            Align(
-              alignment: Alignment.centerRight,
-              child: _DetailButton(store: store),
+            const Divider(height: 1, color: Color(0xFFE7E9E2)),
+            SizedBox(
+              height: 62,
+              child: Center(child: _DetailButton(store: store)),
             ),
           ],
         ),
@@ -2479,49 +2499,25 @@ class _StoreInfo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Positioned(
-          left: 0,
-          right: 8,
-          top: 0,
-          child: Row(
-            children: [
-              _SourceBadge(isUserReported: store.isUserReported),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '· ${store.address.split(' ').take(3).join(' ')}',
-                  style: _muted11,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+        Text(
+          store.storeName,
+          style: const TextStyle(
+            color: HomeMapScreen.ink,
+            fontFamily: HomeMapScreen.fontFamily,
+            fontFamilyFallback: HomeMapScreen.fontFallback,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        Positioned(
-          left: 0,
-          top: 28.991455078125,
-          child: Text(
-            store.storeName,
-            style: const TextStyle(
-              color: HomeMapScreen.ink,
-              fontFamily: HomeMapScreen.fontFamily,
-              fontFamilyFallback: HomeMapScreen.fontFallback,
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Positioned(
-          left: 0,
-          top: 58.4801025390625,
-          child: Text(store.industry, style: _muted12),
-        ),
+        const SizedBox(height: 4),
+        Text(store.industry, style: _muted12),
       ],
     );
   }
@@ -2542,21 +2538,28 @@ class _StorePrice extends StatelessWidget {
           );
     final menuStr = store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴';
 
-    return SizedBox(
-      width: 72,
+    return Container(
+      width: 112,
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F6F1),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             menuStr,
-            style: _muted10,
+            style: _muted10.copyWith(fontSize: 10),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           Text.rich(
             TextSpan(
               children: [
-                TextSpan(text: priceStr, style: const TextStyle(fontSize: 17)),
+                TextSpan(text: priceStr, style: const TextStyle(fontSize: 18)),
                 if (p.isNotEmpty)
                   const TextSpan(text: '원', style: TextStyle(fontSize: 12)),
               ],
@@ -2585,11 +2588,11 @@ class _DetailButton extends StatelessWidget {
     return GestureDetector(
       onTap: () => context.push(AppRoutes.storeDetail, extra: store),
       child: Container(
-        width: 88.9772720336914,
-        height: 29.985794067382812,
+        width: double.infinity,
+        height: 30,
         decoration: BoxDecoration(
           color: HomeMapScreen.blue,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -2714,7 +2717,7 @@ class _AiRecommendControl extends StatelessWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [HomeMapScreen.blue, Color(0xFF527A6C)],
+                        colors: [HomeMapScreen.blue, Color(0xFF65B489)],
                       ),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
@@ -2788,7 +2791,7 @@ class _AiRecommendControl extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [HomeMapScreen.blue, Color(0xFF527A6C)],
+                colors: [HomeMapScreen.blue, Color(0xFF65B489)],
               ),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.818),
@@ -2842,7 +2845,7 @@ class _AiCoachTip extends StatelessWidget {
           children: [
             Icon(
               Icons.auto_awesome_rounded,
-              color: Color(0xFF315F52),
+              color: Color(0xFF359A6B),
               size: 14,
             ),
             SizedBox(width: 7),
@@ -2915,8 +2918,8 @@ class _SourceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isUserReported ? HomeMapScreen.orange : HomeMapScreen.blue;
     final background = isUserReported
-        ? const Color(0xFFF6EDE4)
-        : const Color(0xFFE7EEE7);
+        ? const Color(0xFFFCF1EA)
+        : const Color(0xFFDDF4E5);
 
     return Container(
       height: 20.99431800842285,
@@ -3018,8 +3021,8 @@ class _FloatingSearchSummary extends StatelessWidget {
           Icon(
             title != null ? Icons.auto_awesome : Icons.location_on,
             color: title != null
-                ? const Color(0xFF527A6C)
-                : const Color(0xFFA64B4B),
+                ? const Color(0xFF65B489)
+                : const Color(0xFFC05A5A),
             size: 14,
           ),
           const SizedBox(width: 6),
@@ -3070,7 +3073,7 @@ class _AiRecommendationBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F342D),
+        color: const Color(0xFF243E35),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -3083,7 +3086,7 @@ class _AiRecommendationBanner extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome, color: Color(0xFF527A6C), size: 16),
+          const Icon(Icons.auto_awesome, color: Color(0xFF65B489), size: 16),
           const SizedBox(width: 6),
           Text(
             'AI 추천 매장 $count곳',

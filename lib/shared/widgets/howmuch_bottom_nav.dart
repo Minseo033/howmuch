@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -15,7 +17,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   static const blue = AppColors.primary;
   static const orange = AppColors.orangeTheme;
-  static const hint = Color(0xFFA8AEA4);
+  static const hint = Color(0xFFAAB3AA);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -43,60 +45,80 @@ class HowmuchBottomNav extends StatelessWidget {
     final bottomReserve = safeBottom > 8.0 ? safeBottom : 8.0;
 
     return Material(
-      color: AppColors.cream,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.cream,
-          border: Border(
-            top: BorderSide(color: Color(0xFFD9DDD2), width: .909),
-          ),
-        ),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomReserve + contentLift,
-              height: contentHeight,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 8, right: 8, top: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _NavItem(
-                      icon: Icons.home_outlined,
-                      label: '홈',
-                      active: activeTab == HowmuchBottomTab.home,
-                      onTap: () => context.go(AppRoutes.home),
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: bottomReserve + contentLift,
+            height: contentHeight,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.white.withValues(alpha: .82),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: .94),
                     ),
-                    _NavItem(
-                      icon: Icons.explore_outlined,
-                      label: '탐색',
-                      active: activeTab == HowmuchBottomTab.explore,
-                      onTap: () => context.go(AppRoutes.communityFeed),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x241F342D),
+                        blurRadius: 20,
+                        offset: Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 5,
                     ),
-                    _ReportNavItem(
-                      active: activeTab == HowmuchBottomTab.report,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _NavItem(
+                          icon: Icons.home_outlined,
+                          label: '홈',
+                          active: activeTab == HowmuchBottomTab.home,
+                          onTap: () => context.go(AppRoutes.home),
+                        ),
+                        _NavItem(
+                          icon: Icons.explore_outlined,
+                          label: '탐색',
+                          active: activeTab == HowmuchBottomTab.explore,
+                          onTap: () => context.go(AppRoutes.communityFeed),
+                        ),
+                        _NavItem(
+                          icon: Icons.add_rounded,
+                          label: '제보',
+                          active: activeTab == HowmuchBottomTab.report,
+                          onTap: () => context.push(AppRoutes.reportCreate),
+                        ),
+                        _NavItem(
+                          icon: Icons.bar_chart_rounded,
+                          label: '리포트',
+                          active: activeTab == HowmuchBottomTab.savings,
+                          onTap: () =>
+                              context.go(AppRoutes.savingsReportDashboard),
+                        ),
+                        _NavItem(
+                          icon: Icons.person_outline_rounded,
+                          label: '마이',
+                          active: activeTab == HowmuchBottomTab.mypage,
+                          onTap: () => context.go(AppRoutes.mypage),
+                        ),
+                      ],
                     ),
-                    _NavItem(
-                      icon: Icons.bar_chart_rounded,
-                      label: '리포트',
-                      active: activeTab == HowmuchBottomTab.savings,
-                      onTap: () => context.go(AppRoutes.savingsReportDashboard),
-                    ),
-                    _NavItem(
-                      icon: Icons.person_outline_rounded,
-                      label: '마이',
-                      active: activeTab == HowmuchBottomTab.mypage,
-                      onTap: () => context.go(AppRoutes.mypage),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -125,112 +147,53 @@ class _NavItem extends StatelessWidget {
       label: '$label 탭',
       child: InkResponse(
         onTap: onTap,
-        radius: 30,
+        radius: 26,
         containedInkWell: true,
-        highlightShape: BoxShape.rectangle,
+        highlightShape: BoxShape.circle,
         child: SizedBox(
           width: AppSizes.bottomNavItemWidth,
-          height: 54,
-          child: Column(
-            children: [
-              AnimatedContainer(
-                duration: AppMotion.fast,
-                curve: AppMotion.standard,
-                width: 48,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: active ? AppColors.primary : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppRadii.pill),
-                ),
-                child: Icon(
-                  icon,
-                  color: active ? AppColors.lime : color,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontFamily: HowmuchBottomNav.fontFamily,
-                  fontFamilyFallback: HowmuchBottomNav.fontFallback,
-                  fontSize: 11,
-                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                  height: 1.35,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReportNavItem extends StatelessWidget {
-  const _ReportNavItem({required this.active});
-
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final labelColor = active ? HowmuchBottomNav.orange : HowmuchBottomNav.hint;
-
-    return Semantics(
-      button: true,
-      selected: active,
-      label: '제보 탭',
-      child: InkResponse(
-        onTap: () => context.push(AppRoutes.reportCreate),
-        radius: 30,
-        containedInkWell: true,
-        highlightShape: BoxShape.rectangle,
-        child: SizedBox(
-          width: AppSizes.bottomNavItemWidth,
-          height: 50.002838134765625,
-          child: Stack(
-            alignment: Alignment.topCenter,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                top: 0,
-                child: Container(
-                  width: 40,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: AppColors.lime,
-                    borderRadius: BorderRadius.all(Radius.circular(13)),
-                    boxShadow: [
+          height: 50,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            curve: AppMotion.standard,
+            width: 54,
+            height: 50,
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.primary.withValues(alpha: .13)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+              border: active
+                  ? Border.all(color: AppColors.white.withValues(alpha: .9))
+                  : null,
+              boxShadow: active
+                  ? const [
                       BoxShadow(
-                        color: Color(0x16245846),
-                        blurRadius: 5,
+                        color: Color(0x18315F52),
+                        blurRadius: 10,
                         offset: Offset(0, 4),
                       ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: AppColors.primary,
-                    size: 26,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 39,
-                child: Text(
-                  '제보',
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(height: 1),
+                Text(
+                  label,
                   style: TextStyle(
-                    color: labelColor,
+                    color: color,
                     fontFamily: HowmuchBottomNav.fontFamily,
                     fontFamilyFallback: HowmuchBottomNav.fontFallback,
                     fontSize: 11,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                    height: 1.5,
+                    height: 1.35,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

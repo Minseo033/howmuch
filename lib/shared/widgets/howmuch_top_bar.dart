@@ -27,9 +27,9 @@ class HowmuchTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F5EE),
+        color: const Color(0xFFFCFBF7),
         border: showBorder
-            ? const Border(bottom: BorderSide(color: Color(0xFFD9DDD2)))
+            ? const Border(bottom: BorderSide(color: Color(0xFFD8E7DB)))
             : null,
       ),
       child: Stack(
@@ -41,11 +41,13 @@ class HowmuchTopBar extends StatelessWidget {
               width: actionSize,
               height: height,
               child: IconButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
                 onPressed: onBack,
                 icon: const Icon(
                   Icons.arrow_back_rounded,
                   size: iconSize,
-                  color: Color(0xFF1F342D),
+                  color: Color(0xFF243E35),
                 ),
               ),
             ),
@@ -54,7 +56,7 @@ class HowmuchTopBar extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xFF1F342D),
+                color: const Color(0xFF243E35),
                 fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: const [
                   'Noto Sans KR',
@@ -78,11 +80,13 @@ class HowmuchTopBar extends StatelessWidget {
               width: actionSize,
               height: height,
               child: IconButton(
+                padding: EdgeInsets.zero,
+                alignment: Alignment.center,
                 onPressed: onTrailingTap,
                 icon: Icon(
                   trailingIcon,
                   size: iconSize,
-                  color: const Color(0xFF1F342D),
+                  color: const Color(0xFF243E35),
                 ),
               ),
             ),

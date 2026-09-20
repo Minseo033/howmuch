@@ -71,6 +71,7 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surface,
+        hoverColor: Colors.transparent,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: colorScheme.outlineVariant),

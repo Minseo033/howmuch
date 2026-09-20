@@ -37,7 +37,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF7F5EE),
+      backgroundColor: const Color(0xFFFCFBF7),
       child: SafeArea(
         bottom: false,
         child: LayoutBuilder(
@@ -57,12 +57,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFAABF96),
-                    borderRadius: BorderRadius.circular(18),
+                    color: const Color(0xFFC7DFAA),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: const Icon(
                     Icons.verified_user_outlined,
-                    color: Color(0xFF315F52),
+                    color: Color(0xFF359A6B),
                     size: 30,
                   ),
                 ),
@@ -70,7 +70,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 const Text(
                   '서비스 이용 전\n약관을 확인해주세요',
                   style: TextStyle(
-                    color: Color(0xFF1F342D),
+                    color: Color(0xFF243E35),
                     fontFamily: 'Noto Sans KR',
                     fontSize: 27,
                     fontWeight: FontWeight.w800,
@@ -82,7 +82,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 const Text(
                   '안전한 서비스 이용을 위해 필수 약관에 동의해 주세요.',
                   style: TextStyle(
-                    color: Color(0xFF707A70),
+                    color: Color(0xFF748078),
                     fontFamily: 'Noto Sans KR',
                     fontSize: 13,
                     height: 1.6,
@@ -113,12 +113,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                   child: FilledButton(
                     onPressed: _allAccepted ? _continueToLogin : null,
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF315F52),
-                      disabledBackgroundColor: const Color(0xFFD9DDD2),
+                      backgroundColor: const Color(0xFF359A6B),
+                      disabledBackgroundColor: const Color(0xFFD8E7DB),
                       foregroundColor: Colors.white,
-                      disabledForegroundColor: const Color(0xFFA8AEA4),
+                      disabledForegroundColor: const Color(0xFFAAB3AA),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: Text(
@@ -135,7 +135,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                   child: Text(
                     '필수 약관에 동의해야 서비스를 이용할 수 있어요.',
                     style: TextStyle(
-                      color: Color(0xFF707A70),
+                      color: Color(0xFF748078),
                       fontFamily: 'Noto Sans KR',
                       fontSize: 11,
                     ),
@@ -161,7 +161,7 @@ class _ProgressLabel extends StatelessWidget {
         Text(
           '얼마고?',
           style: TextStyle(
-            color: Color(0xFF315F52),
+            color: Color(0xFF359A6B),
             fontFamily: 'Noto Sans KR',
             fontSize: 20,
             fontWeight: FontWeight.w900,
@@ -171,7 +171,7 @@ class _ProgressLabel extends StatelessWidget {
         Text(
           '1 / 3',
           style: TextStyle(
-            color: Color(0xFF707A70),
+            color: Color(0xFF748078),
             fontFamily: 'Noto Sans KR',
             fontSize: 12,
             letterSpacing: 1.5,
@@ -191,10 +191,10 @@ class _AllTermsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFFE7EEE7),
-      borderRadius: BorderRadius.circular(18),
+      color: const Color(0xFFDDF4E5),
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => onChanged(!value),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -203,13 +203,13 @@ class _AllTermsTile extends StatelessWidget {
               Checkbox(
                 value: value,
                 onChanged: (next) => onChanged(next ?? false),
-                activeColor: const Color(0xFF315F52),
+                activeColor: const Color(0xFF359A6B),
               ),
               const SizedBox(width: 4),
               const Text(
                 '필수 약관 전체 동의',
                 style: TextStyle(
-                  color: Color(0xFF1F342D),
+                  color: Color(0xFF243E35),
                   fontFamily: 'Noto Sans KR',
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
@@ -242,20 +242,20 @@ class _RequiredTermsTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD9DDD2)),
+        border: Border.all(color: const Color(0xFFD8E7DB)),
       ),
       child: Row(
         children: [
           Checkbox(
             value: value,
             onChanged: (next) => onChanged(next ?? false),
-            activeColor: const Color(0xFF315F52),
+            activeColor: const Color(0xFF359A6B),
           ),
           Expanded(
             child: Text(
               '[필수] $title',
               style: const TextStyle(
-                color: Color(0xFF46564D),
+                color: Color(0xFF53645B),
                 fontFamily: 'Noto Sans KR',
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -266,7 +266,7 @@ class _RequiredTermsTile extends StatelessWidget {
             onPressed: onOpen,
             icon: const Icon(
               Icons.chevron_right_rounded,
-              color: Color(0xFF707A70),
+              color: Color(0xFF748078),
             ),
           ),
         ],

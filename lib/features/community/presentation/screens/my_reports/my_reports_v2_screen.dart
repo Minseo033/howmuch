@@ -17,15 +17,15 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
 class MyReportsV2Screen extends ConsumerStatefulWidget {
   const MyReportsV2Screen({super.key});
 
-  static const blue = Color(0xFF315F52);
-  static const orange = Color(0xFFA76546);
-  static const green = Color(0xFF527A6C);
-  static const ink = Color(0xFF1F342D);
-  static const black = Color(0xFF1F342D);
-  static const muted = Color(0xFF707A70);
-  static const hint = Color(0xFFA8AEA4);
-  static const border = Color(0xFFD9DDD2);
-  static const surface = Color(0xFFF7F5EE);
+  static const blue = Color(0xFF359A6B);
+  static const orange = Color(0xFFC47A53);
+  static const green = Color(0xFF65B489);
+  static const ink = Color(0xFF243E35);
+  static const black = Color(0xFF243E35);
+  static const muted = Color(0xFF748078);
+  static const hint = Color(0xFFAAB3AA);
+  static const border = Color(0xFFD8E7DB);
+  static const surface = Color(0xFFFCFBF7);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',

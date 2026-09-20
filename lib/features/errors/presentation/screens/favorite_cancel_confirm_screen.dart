@@ -44,11 +44,11 @@ class _FavoriteCancelConfirmScreenState
   Widget build(BuildContext context) {
     return FigmaMobileCanvas(
       child: Scaffold(
-        backgroundColor: const Color(0xFFF7F5EE),
+        backgroundColor: const Color(0xFFFCFBF7),
         body: Center(
           child: Dialog(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Padding(
               padding: const EdgeInsets.all(24),
@@ -57,7 +57,7 @@ class _FavoriteCancelConfirmScreenState
                 children: [
                   const Icon(
                     Icons.favorite_border,
-                    color: Color(0xFFA76546),
+                    color: Color(0xFFC47A53),
                     size: 32,
                   ),
                   const SizedBox(height: 20),
@@ -69,7 +69,7 @@ class _FavoriteCancelConfirmScreenState
                   Text(
                     widget.storeName,
                     style: const TextStyle(
-                      color: Color(0xFF527A6C),
+                      color: Color(0xFF65B489),
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

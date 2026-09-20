@@ -367,9 +367,9 @@ class _Header extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              left: 0,
+              left: 8,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -378,9 +378,9 @@ class _Header extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         Icons.arrow_back_rounded,
                         size: 24,
@@ -832,8 +832,8 @@ class _StickyButton extends StatelessWidget {
   });
 
   static const buttonHeight = 51.9886360168457;
-  static const topGap = 12.89794921875;
-  static const bottomGap = 16.0;
+  static const topGap = 8.0;
+  static const bottomGap = 8.0;
 
   final double safeBottom;
   final String label;

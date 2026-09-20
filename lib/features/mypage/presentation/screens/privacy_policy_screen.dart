@@ -283,9 +283,9 @@ class _LegalHeader extends StatelessWidget {
         child: Stack(
           children: [
             Positioned(
-              left: 0,
+              left: 8,
               top: topOffset,
-              width: 72,
+              width: 48,
               height: 48.877838134765625,
               child: Material(
                 color: AppColors.transparent,
@@ -294,9 +294,9 @@ class _LegalHeader extends StatelessWidget {
                   hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
-                    padding: EdgeInsets.only(left: 20),
+                    padding: EdgeInsets.zero,
                     child: Align(
-                      alignment: Alignment.centerLeft,
+                      alignment: Alignment.center,
                       child: Icon(
                         key: ValueKey('privacy-policy-back-icon'),
                         Icons.arrow_back_rounded,
