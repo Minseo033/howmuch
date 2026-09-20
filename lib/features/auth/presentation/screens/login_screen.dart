@@ -187,8 +187,6 @@ class _SocialLoginButton extends StatelessWidget {
     required this.foregroundColor,
     required this.onPressed,
     required this.mark,
-    this.borderColor,
-    this.statusLabel,
   });
 
   final String label;
@@ -196,15 +194,12 @@ class _SocialLoginButton extends StatelessWidget {
   final Color foregroundColor;
   final VoidCallback onPressed;
   final Widget mark;
-  final Color? borderColor;
-  final String? statusLabel;
 
   @override
   Widget build(BuildContext context) {
-    final semanticLabel = statusLabel == null ? label : '$label, $statusLabel';
     return Semantics(
       button: true,
-      label: semanticLabel,
+      label: label,
       excludeSemantics: true,
       child: SizedBox(
         width: double.infinity,
@@ -213,9 +208,7 @@ class _SocialLoginButton extends StatelessWidget {
           color: backgroundColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-            side: borderColor == null
-                ? BorderSide.none
-                : BorderSide(color: borderColor!),
+            side: BorderSide.none,
           ),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
@@ -235,30 +228,6 @@ class _SocialLoginButton extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                if (statusLabel != null)
-                  Positioned(
-                    right: 14,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: foregroundColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        statusLabel!,
-                        style: TextStyle(
-                          color: foregroundColor.withValues(alpha: 0.72),
-                          fontFamily: LoginScreen.fontFamily,
-                          fontFamilyFallback: LoginScreen.fontFallback,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
