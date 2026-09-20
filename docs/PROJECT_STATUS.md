@@ -2081,11 +2081,12 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **검증 결과**: 새 회귀 테스트로 테스트성 지도 매장 제거, 지역 문자열 매칭 및 모바일 위치 선택 UI, 필수 입력 표시 색상, 승인 제보·오늘의 픽 지도 전달값, 길찾기 현재 위치 출발지를 검증했다. 관련 묶음 43개 및 Flutter 전체 319개 테스트가 모두 통과했고 `git diff --check`와 웹 릴리스 빌드(`build/web`)도 성공했다. 정적 분석은 Flutter 3.44 분석 서버가 초기화 JSON을 끝까지 읽지 못하는 SDK 도구 오류로 별도 완료하지 못했으나, 전체 테스트와 웹 컴파일 단계에서 수정 파일 전체를 컴파일했다.
 - **운영 반영**: 배포 기준 커밋 `1270ea4`를 기능 브랜치와 `main`에 푸시했다. Vercel 프로덕션 배포 `dpl_HfReo7R23DjR3b6wXyMUJQZeBRr5` (`https://howmuch-a30p61dwh-minseo033s-projects.vercel.app`)를 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다. 공개 파일 10개와 `/`, `/home`, `/login`의 로컬 빌드 SHA-256 정합성 검사 13/13이 모두 통과했고, 운영 루트의 HTTP 200, HSTS, CSP, `nosniff`, frame deny, referrer/permissions policy 헤더를 확인했다. 백엔드·DB 변경은 없어 Render 배포와 데이터 마이그레이션은 수행하지 않았다. 직전 검증 배포 `dpl_A44dqx4eoh4ABF4QpU1cJbTWLRpu`를 롤백 기준으로 유지한다.
 
-## 5-125. 9/20 태관 UI·필수 약관 브랜치 통합 검증 (main 반영 전)
+## 5-125. 9/20 태관 UI·필수 약관 브랜치 통합 및 운영 배포 완료
 
 - **대상**: 원격 `origin/taegwan-2`의 `b196ead`, `c58d8fa` 두 커밋. 자연색 기반 전역 테마 정돈, 인증·마이페이지·추천·리포트 등 다수 화면의 UI 수정, 로그인 전 필수 약관 동의 화면과 회귀 테스트가 포함됐다.
-- **통합 방식**: 전역 디자인 변경이 79개 파일에 연결되어 있어 일부 파일만 떼면 색상·공통 위젯·화면 간 일관성이 깨지는 구조였다. 따라서 `integration/taegwan-2-20260920` 격리 브랜치에서 전체 차이를 합친 뒤 충돌 5곳을 수동 검토했다. `main`과 운영 배포에는 아직 반영하지 않았다.
+- **통합 방식**: 전역 디자인 변경이 79개 파일에 연결되어 있어 일부 파일만 떼면 색상·공통 위젯·화면 간 일관성이 깨지는 구조였다. 따라서 `integration/taegwan-2-20260920` 격리 브랜치에서 전체 차이를 합친 뒤 충돌 5곳을 수동 검토하고 `main`에 반영했다.
 - **기존 기능 보존**: 로그인은 지원 중인 카카오·비로그인만 유지하면서 필수 약관 게이트를 추가했고, 탐색 현재 위치 필터, 오늘의 픽 지도 전달값, 하단 `MY` 표기, 관련 위젯 테스트를 기존 QA 수정과 결합했다.
 - **통합 중 추가 보완**: 팀원 테마 변경으로 흐려진 제보 필수 입력 `*`를 요청된 브랜드 주황색으로 복구했고, 새 플로팅 하단 내비게이션의 고정 폭 때문에 320px 모바일에서 발생한 16px 오버플로우를 균등 가변 폭으로 수정했다.
-- **검증 결과**: Flutter 전체 323개 테스트 통과, `git diff --check` 통과, 웹 배포 빌드(`build/web`) 성공. `flutter analyze --no-pub`는 코드 진단 전 Flutter 3.44 분석 서버가 초기화 JSON을 끝까지 읽지 못하는 기존 SDK 도구 오류로 중단됐으며, 전체 테스트와 웹 컴파일에서 변경 파일을 실제 컴파일했다.
-- **다음 단계**: 통합 브랜치를 원격에 올린 뒤 변경 화면을 검토하고, 승인 시에만 `main`에 병합하여 자동 품질 게이트와 Vercel 배포를 진행한다.
+- **품질 게이트 보완**: 최초 `main` 실행에서 로그인 버튼 컴포넌트의 미사용 선택 인자 2개가 CI 정적 분석 경고로 검출됐다. 실제 사용하지 않는 상태 뱃지 분기까지 제거한 `2466fce`를 추가 반영했고, GitHub Actions 실행 `35514591920`에서 백엔드 테스트·Dart 정적 분석·Flutter 전체 테스트·브라우저 위치 권한 테스트·웹 릴리스 빌드·관리자 스크립트·배포 검증 도구·iOS 시뮬레이터 빌드가 모두 통과했다.
+- **운영 배포**: GitHub Actions의 기존 `VERCEL_TOKEN`이 Vercel에서 거부되어 자동 배포의 운영 별칭 검증이 건너뛰어졌다. 검증된 최신 `build/web`을 로컬 인증으로 Vercel 프로덕션 배포 `dpl_BdTNHhb9kYRu3dv8uQ7EMt5az83m` (`https://howmuch-q3yg880sq-minseo033s-projects.vercel.app`)에 올리고 운영 주소 `https://howmuch-zeta.vercel.app`를 명시적으로 연결했다. 공개 파일 10개와 `/`, `/home`, `/login` 정합성 검사는 13/13 PASS했고 HTTP 200, HSTS, CSP, `nosniff`, frame deny, COOP, referrer/permissions policy를 확인했다. 직전 정상 배포 `dpl_HfReo7R23DjR3b6wXyMUJQZeBRr5`를 롤백 기준으로 유지한다.
+- **남은 운영 조치**: 다음 자동 웹 배포 전에 GitHub Actions 암호화 비밀값 `VERCEL_TOKEN`을 새 토큰으로 교체해야 한다. 이번 변경에는 백엔드 코드·DB 마이그레이션이 없으며 운영 백엔드 `/healthz`는 `status: ok`를 반환했다.
