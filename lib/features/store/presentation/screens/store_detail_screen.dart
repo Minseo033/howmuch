@@ -344,20 +344,20 @@ class StoreDetailScreen extends ConsumerWidget {
                                             null)
                                           const _BenefitBadge(
                                             label: '지역화폐',
-                                            color: Color(0xFF2563EB),
-                                            bgColor: Color(0xFFEFF6FF),
+                                            color: Color(0xFF315F52),
+                                            bgColor: Color(0xFFE7EEE7),
                                           ),
                                         if (store.openingHours!.packingYn)
                                           const _BenefitBadge(
                                             label: '포장 가능',
-                                            color: Color(0xFF059669),
-                                            bgColor: Color(0xFFECFDF5),
+                                            color: Color(0xFF39705C),
+                                            bgColor: Color(0xFFEEF5EF),
                                           ),
                                         if (store.openingHours!.parkingYn)
                                           const _BenefitBadge(
                                             label: '주차 가능',
-                                            color: Color(0xFFD97706),
-                                            bgColor: Color(0xFFFFFBEB),
+                                            color: Color(0xFF9B6541),
+                                            bgColor: Color(0xFFF6EDE4),
                                           ),
                                       ],
                                     ),
@@ -648,7 +648,7 @@ class StoreDetailScreen extends ConsumerWidget {
                               height: 48,
                               decoration: BoxDecoration(
                                 color: _blue,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(16),
                               ),
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -910,7 +910,7 @@ class _BottomIconBtn extends StatelessWidget {
         height: 48,
         decoration: BoxDecoration(
           color: AppColors.bgLight,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
         child: Column(

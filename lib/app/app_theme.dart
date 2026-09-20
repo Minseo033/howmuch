@@ -10,6 +10,11 @@ class AppTheme {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: Brightness.light,
+      primary: AppColors.primary,
+      secondary: AppColors.lime,
+      surface: AppColors.cream,
+      onSurface: AppColors.ink,
+      outlineVariant: AppColors.border,
     );
 
     return ThemeData(
@@ -30,7 +35,7 @@ class AppTheme {
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 22,
+          fontSize: 26,
           fontWeight: FontWeight.w800,
           height: 1.3,
         ),
@@ -83,6 +88,15 @@ class AppTheme {
         backgroundColor: colorScheme.surface,
         foregroundColor: colorScheme.onSurface,
         centerTitle: false,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          shape: const CircleBorder(),
+          hoverColor: AppColors.primaryLight,
+          highlightColor: AppColors.primaryLight,
+        ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(

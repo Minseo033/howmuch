@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/neighborhood_brand.dart';
 import 'package:flutter/services.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
@@ -52,6 +53,7 @@ class _SavingsReportDashboardScreenState
   String _selectedTab = '이번 달';
   bool _isLoading = false;
   bool _loadFailed = false;
+  bool _requiresLogin = false;
   Map<String, dynamic>? _statsData;
 
   /// 탭 라벨 → 백엔드 period 파라미터 매핑
@@ -70,9 +72,18 @@ class _SavingsReportDashboardScreenState
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
   Future<void> _fetchAll() async {
     if (_isLoading) return;
+    if (!ApiClient.isAuthenticated) {
+      setState(() {
+        _requiresLogin = true;
+        _loadFailed = false;
+        _statsData = null;
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _loadFailed = false;
+      _requiresLogin = false;
     });
 
     try {
@@ -254,16 +265,16 @@ class _SavingsReportDashboardScreenState
           children: [
             const Icon(
               Icons.cloud_off_rounded,
-              color: Color(0xFF64748B),
+              color: Color(0xFF707A70),
               size: 40,
             ),
             const SizedBox(height: 12),
             const Text(
               '절약 데이터를 불러오지 못했어요',
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: ['Noto Sans KR'],
-                color: Color(0xFF0F172A),
+                color: Color(0xFF1F342D),
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),
@@ -272,9 +283,9 @@ class _SavingsReportDashboardScreenState
             const Text(
               '네트워크 상태를 확인하고 다시 시도해주세요',
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: ['Noto Sans KR'],
-                color: Color(0xFF64748B),
+                color: Color(0xFF707A70),
                 fontSize: 12,
               ),
             ),
@@ -287,13 +298,77 @@ class _SavingsReportDashboardScreenState
                   vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
+                  color: const Color(0xFF315F52),
                   borderRadius: BorderRadius.circular(99),
                 ),
                 child: const Text(
                   '다시 시도',
                   style: TextStyle(
-                    fontFamily: 'Inter',
+                    fontFamily: 'Noto Sans KR',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginRequiredState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.lock_outline_rounded,
+              color: Color(0xFF707A70),
+              size: 40,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '로그인이 필요해요',
+              style: TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Color(0xFF1F342D),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '절약 리포트를 보려면 로그인해주세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                color: Color(0xFF707A70),
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => context.go(AppRoutes.login),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF315F52),
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: const Text(
+                  '로그인하기',
+                  style: TextStyle(
+                    fontFamily: 'Noto Sans KR',
                     fontFamilyFallback: ['Noto Sans KR'],
                     color: Colors.white,
                     fontSize: 13,
@@ -316,10 +391,10 @@ class _SavingsReportDashboardScreenState
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: const Color(0xFFF7F5EE),
       child: Stack(
         children: [
-          Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
+          Positioned.fill(child: const ColoredBox(color: Color(0xFFF7F5EE))),
 
           Positioned.fill(
             child: Column(
@@ -340,9 +415,9 @@ class _SavingsReportDashboardScreenState
                       const Text(
                         '절약 리포트',
                         style: TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF0A0A0A),
+                          color: Color(0xFF1F342D),
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -358,23 +433,23 @@ class _SavingsReportDashboardScreenState
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE8F8F1),
+                                color: const Color(0xFFE7F0E8),
                                 borderRadius: BorderRadius.circular(30),
                               ),
                               child: const Row(
                                 children: [
                                   Icon(
                                     Icons.flag,
-                                    color: Color(0xFF10B981),
+                                    color: Color(0xFF527A6C),
                                     size: 12,
                                   ),
                                   SizedBox(width: 4),
                                   Text(
                                     '목표 설정',
                                     style: TextStyle(
-                                      fontFamily: 'Inter',
+                                      fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF10B981),
+                                      color: Color(0xFF527A6C),
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -388,13 +463,22 @@ class _SavingsReportDashboardScreenState
                             onTap: () => context.push(AppRoutes.notifications),
                             child: const Icon(
                               Icons.notifications_none_rounded,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF1F342D),
                               size: 24,
                             ),
                           ),
                         ],
                       ),
                     ],
+                  ),
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 8, 20, 18),
+                  child: NeighborhoodIntro(
+                    eyebrow: 'SMALL SAVINGS, BIG DAYS',
+                    title: '작은 절약이 쌓이는 곳',
+                    description: '나의 방문이 만든 변화를 살펴보세요.',
                   ),
                 ),
 
@@ -422,7 +506,7 @@ class _SavingsReportDashboardScreenState
                       const Divider(
                         height: 1,
                         thickness: 0.909,
-                        color: Color(0xFFE5E7EB),
+                        color: Color(0xFFD9DDD2),
                       ),
                     ],
                   ),
@@ -433,8 +517,15 @@ class _SavingsReportDashboardScreenState
                   child: _isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
-                            color: Color(0xFF2563EB),
+                            color: Color(0xFF315F52),
                           ),
+                        )
+                      : _requiresLogin
+                      ? SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom: bottomNavHeight + 20,
+                          ),
+                          child: _buildLoginRequiredState(context),
                         )
                       : _loadFailed
                       ? SingleChildScrollView(
@@ -544,7 +635,7 @@ class _SavingsReportDashboardScreenState
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    border: Border.all(color: const Color(0xFFD9DDD2)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.03),
@@ -564,7 +655,7 @@ class _SavingsReportDashboardScreenState
                               style: const TextStyle(
                                 fontFamily: 'Inter',
                                 fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF0A0A0A),
+                                color: Color(0xFF1F342D),
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -574,9 +665,9 @@ class _SavingsReportDashboardScreenState
                           Text(
                             chartDate,
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                             ),
@@ -597,16 +688,16 @@ class _SavingsReportDashboardScreenState
               // Stats Row
               Row(
                 children: [
-                  _buildStatCard('$visits', '방문 매장', const Color(0xFF2563EB)),
+                  _buildStatCard('$visits', '방문 매장', const Color(0xFF315F52)),
                   _buildStatCard(
                     favorites?.toString() ?? '—',
                     '찜한 매장',
-                    const Color(0xFFF97316),
+                    const Color(0xFFA76546),
                   ),
                   _buildStatCard(
                     reports?.toString() ?? '—',
                     '제보 매장',
-                    const Color(0xFF10B981),
+                    const Color(0xFF527A6C),
                   ),
                 ],
               ),
@@ -616,9 +707,9 @@ class _SavingsReportDashboardScreenState
               Container(
                 padding: const EdgeInsets.all(AppSizes.horizontalPadding),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
+                  color: const Color(0xFFF6EDE4),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFFEDD5)),
+                  border: Border.all(color: const Color(0xFFF6EDE4)),
                 ),
                 child: Row(
                   children: [
@@ -630,7 +721,7 @@ class _SavingsReportDashboardScreenState
                       ),
                       child: const Icon(
                         Icons.restaurant,
-                        color: Color(0xFFF97316),
+                        color: Color(0xFFA76546),
                         size: 16,
                       ),
                     ),
@@ -642,9 +733,9 @@ class _SavingsReportDashboardScreenState
                           const Text(
                             '기록 요약',
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF92400E),
+                              color: Color(0xFF7A4D30),
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
@@ -653,9 +744,9 @@ class _SavingsReportDashboardScreenState
                           Text(
                             recommendationSub,
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF1F342D),
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
@@ -685,25 +776,25 @@ class _SavingsReportDashboardScreenState
 
     if (_selectedTab == '지난 달') {
       gradient = const LinearGradient(
-        colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)],
+        colors: [Color(0xFF315F52), Color(0xFF1F342D)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
-      shadowColor = const Color(0xFF1E3A8A).withValues(alpha: 0.28);
+      shadowColor = const Color(0xFF315F52).withValues(alpha: 0.28);
     } else if (_selectedTab == '올해') {
       gradient = const LinearGradient(
-        colors: [Color(0xFF2563EB), Color(0xFF1E40AF)],
+        colors: [Color(0xFF315F52), Color(0xFF315F52)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
-      shadowColor = const Color(0xFF2563EB).withValues(alpha: 0.25);
+      shadowColor = const Color(0xFF315F52).withValues(alpha: 0.25);
     } else {
       gradient = const LinearGradient(
-        colors: [Color(0xFF059669), Color(0xFF064E3B)],
+        colors: [Color(0xFF39705C), Color(0xFF315F52)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
-      shadowColor = const Color(0xFF059669).withValues(alpha: 0.25);
+      shadowColor = const Color(0xFF39705C).withValues(alpha: 0.25);
     }
 
     return GestureDetector(
@@ -832,10 +923,10 @@ class _SavingsReportDashboardScreenState
                       child: Text(
                         _selectedTab == '이번 달'
                             ? goalAmount == null
-                              ? '목표 정보를 불러오지 못했어요'
-                              : goalAmount > 0
-                              ? '목표 대비 $percentage% 달성'
-                              : '이번 달 목표가 아직 없어요'
+                                  ? '목표 정보를 불러오지 못했어요'
+                                  : goalAmount > 0
+                                  ? '목표 대비 $percentage% 달성'
+                                  : '이번 달 목표가 아직 없어요'
                             : '$visits회 방문 기록 기준',
                         style: const TextStyle(
                           fontFamily: 'Inter',
@@ -898,11 +989,11 @@ class _SavingsReportDashboardScreenState
     );
   }
 
-  Widget _buildSavingsLineChart(List<dynamic> savings, {bool isYearly = false}) {
-    return _InteractiveSavingsLineChart(
-      savings: savings,
-      isYearly: isYearly,
-    );
+  Widget _buildSavingsLineChart(
+    List<dynamic> savings, {
+    bool isYearly = false,
+  }) {
+    return _InteractiveSavingsLineChart(savings: savings, isYearly: isYearly);
   }
 
   Widget _buildTab(String text) {
@@ -919,15 +1010,15 @@ class _SavingsReportDashboardScreenState
           vertical: 8,
         ),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF2563EB) : Colors.transparent,
+          color: isSelected ? const Color(0xFF315F52) : Colors.transparent,
           borderRadius: BorderRadius.circular(99),
         ),
         child: Text(
           text,
           style: TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: 'Noto Sans KR',
             fontFamilyFallback: const ['Noto Sans KR'],
-            color: isSelected ? Colors.white : const Color(0xFF64748B),
+            color: isSelected ? Colors.white : const Color(0xFF707A70),
             fontSize: 14,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
           ),
@@ -943,15 +1034,15 @@ class _SavingsReportDashboardScreenState
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFFD9DDD2)),
         ),
         child: Column(
           children: [
             Text(
               value,
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: const ['Noto Sans KR'],
                 color: color,
                 fontSize: 20,
@@ -962,9 +1053,9 @@ class _SavingsReportDashboardScreenState
             Text(
               label,
               style: const TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: ['Noto Sans KR'],
-                color: Color(0xFF64748B),
+                color: Color(0xFF707A70),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -1014,8 +1105,10 @@ class _InteractiveSavingsLineChartState
     final plotWidth = width - (horizontalPadding * 2);
     if (plotWidth <= 0) return;
 
-    final ratio = ((localPosition.dx - horizontalPadding) / plotWidth)
-        .clamp(0.0, 1.0);
+    final ratio = ((localPosition.dx - horizontalPadding) / plotWidth).clamp(
+      0.0,
+      1.0,
+    );
     final index = (ratio * (count - 1)).round().clamp(0, count - 1);
 
     if (_hoveredIndex != index) {
@@ -1062,7 +1155,7 @@ class _InteractiveSavingsLineChartState
             style: TextStyle(
               fontFamily: 'Inter',
               fontFamilyFallback: ['Noto Sans KR'],
-              color: Color(0xFF94A3B8),
+              color: Color(0xFFA8AEA4),
               fontSize: 13,
             ),
           ),
@@ -1099,14 +1192,23 @@ class _InteractiveSavingsLineChartState
             onExit: (_) => _clearHover(immediate: true),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onHorizontalDragDown: (details) =>
-                  _updatePosition(details.localPosition, chartWidth, points.length),
-              onHorizontalDragUpdate: (details) =>
-                  _updatePosition(details.localPosition, chartWidth, points.length),
+              onHorizontalDragDown: (details) => _updatePosition(
+                details.localPosition,
+                chartWidth,
+                points.length,
+              ),
+              onHorizontalDragUpdate: (details) => _updatePosition(
+                details.localPosition,
+                chartWidth,
+                points.length,
+              ),
               onHorizontalDragEnd: (_) => _clearHover(),
               onHorizontalDragCancel: () => _clearHover(immediate: true),
-              onTapDown: (details) =>
-                  _updatePosition(details.localPosition, chartWidth, points.length),
+              onTapDown: (details) => _updatePosition(
+                details.localPosition,
+                chartWidth,
+                points.length,
+              ),
               onTapUp: (_) => _clearHover(),
               onTapCancel: () => _clearHover(immediate: true),
               child: SizedBox(
@@ -1179,15 +1281,16 @@ class _SavingsLineChartPainter extends CustomPainter {
       final x = n == 1
           ? size.width / 2
           : horizontalPadding + (i / (n - 1)) * plotWidth;
-      final ratio =
-          maxAmt > 0 ? (points[i].amount / maxAmt).clamp(0.0, 1.0) : 0.0;
+      final ratio = maxAmt > 0
+          ? (points[i].amount / maxAmt).clamp(0.0, 1.0)
+          : 0.0;
       final y = baselineY - (ratio * (plotHeight - 8.0));
       offsets.add(Offset(x, y));
     }
 
     // 1. 은은한 가로 그리드선 (베이스라인, 50%, 100%)
     final gridPaint = Paint()
-      ..color = const Color(0xFFF1F5F9)
+      ..color = const Color(0xFFEEF2EC)
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -1228,16 +1331,13 @@ class _SavingsLineChartPainter extends CustomPainter {
         ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0x382563EB),
-            Color(0x002563EB),
-          ],
+          colors: [Color(0x382563EB), Color(0x002563EB)],
         ).createShader(Rect.fromLTWH(0, topPadding, size.width, plotHeight));
 
       canvas.drawPath(fillPath, fillPaint);
 
       final linePaint = Paint()
-        ..color = const Color(0xFF2563EB)
+        ..color = const Color(0xFF315F52)
         ..strokeWidth = 3.0
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round
@@ -1258,20 +1358,20 @@ class _SavingsLineChartPainter extends CustomPainter {
           final glowPaint = Paint()..color = const Color(0x2E2563EB);
           canvas.drawCircle(pos, isYearly ? 8.0 : 10.0, glowPaint);
 
-          final maxOuterPaint = Paint()..color = const Color(0xFF2563EB);
+          final maxOuterPaint = Paint()..color = const Color(0xFF315F52);
           canvas.drawCircle(pos, isYearly ? 4.5 : 5.5, maxOuterPaint);
 
           final maxInnerPaint = Paint()..color = Colors.white;
           canvas.drawCircle(pos, isYearly ? 2.0 : 2.5, maxInnerPaint);
         } else {
-          final dotOuterPaint = Paint()..color = const Color(0xFF2563EB);
+          final dotOuterPaint = Paint()..color = const Color(0xFF315F52);
           canvas.drawCircle(pos, isYearly ? 3.5 : 4.5, dotOuterPaint);
 
           final dotInnerPaint = Paint()..color = Colors.white;
           canvas.drawCircle(pos, isYearly ? 1.5 : 2.0, dotInnerPaint);
         }
       } else {
-        final zeroDotPaint = Paint()..color = const Color(0xFFCBD5E1);
+        final zeroDotPaint = Paint()..color = const Color(0xFFC9D0C5);
         canvas.drawCircle(pos, isYearly ? 2.5 : 3.0, zeroDotPaint);
       }
 
@@ -1286,7 +1386,7 @@ class _SavingsLineChartPainter extends CustomPainter {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF2563EB),
+                  color: Color(0xFF315F52),
                   fontSize: 10.0,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1296,7 +1396,7 @@ class _SavingsLineChartPainter extends CustomPainter {
                 style: const TextStyle(
                   fontFamily: 'Inter',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF1D4ED8),
+                  color: Color(0xFF315F52),
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1328,11 +1428,11 @@ class _SavingsLineChartPainter extends CustomPainter {
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
         canvas.drawRRect(badgeRect.shift(const Offset(0, 2)), shadowPaint);
 
-        final badgeBgPaint = Paint()..color = const Color(0xFFEFF6FF);
+        final badgeBgPaint = Paint()..color = const Color(0xFFE7EEE7);
         canvas.drawRRect(badgeRect, badgeBgPaint);
 
         final badgeBorderPaint = Paint()
-          ..color = const Color(0xFFBFDBFE)
+          ..color = const Color(0xFFE0EBE1)
           ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke;
         canvas.drawRRect(badgeRect, badgeBorderPaint);
@@ -1352,7 +1452,7 @@ class _SavingsLineChartPainter extends CustomPainter {
             style: TextStyle(
               fontFamily: 'Inter',
               fontFamilyFallback: const ['Noto Sans KR'],
-              color: const Color(0xFF0F172A),
+              color: const Color(0xFF1F342D),
               fontSize: isYearly ? 9.5 : 10.5,
               fontWeight: FontWeight.w700,
             ),
@@ -1397,7 +1497,7 @@ class _SavingsLineChartPainter extends CustomPainter {
         canvas.drawRRect(badgeRect, bgPaint);
 
         final borderPaint = Paint()
-          ..color = const Color(0xFFE2E8F0)
+          ..color = const Color(0xFFD9DDD2)
           ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke;
         canvas.drawRRect(badgeRect, borderPaint);
@@ -1417,7 +1517,7 @@ class _SavingsLineChartPainter extends CustomPainter {
             style: TextStyle(
               fontFamily: 'Inter',
               fontFamilyFallback: ['Noto Sans KR'],
-              color: Color(0xFF94A3B8),
+              color: Color(0xFFA8AEA4),
               fontSize: 10.5,
               fontWeight: FontWeight.w500,
             ),
@@ -1444,10 +1544,12 @@ class _SavingsLineChartPainter extends CustomPainter {
             fontFamily: 'Inter',
             fontFamilyFallback: const ['Noto Sans KR'],
             color: isHovered
-                ? const Color(0xFF2563EB)
-                : (isMax ? const Color(0xFF2563EB) : const Color(0xFF64748B)),
+                ? const Color(0xFF315F52)
+                : (isMax ? const Color(0xFF315F52) : const Color(0xFF707A70)),
             fontSize: isYearly ? 9.5 : 11.5,
-            fontWeight: (isHovered || isMax) ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: (isHovered || isMax)
+                ? FontWeight.w700
+                : FontWeight.w500,
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -1467,7 +1569,7 @@ class _SavingsLineChartPainter extends CustomPainter {
 
       // 세로 가이드 점선 (크로스헤어 라인)
       final crosshairPaint = Paint()
-        ..color = const Color(0xFF2563EB).withValues(alpha: 0.35)
+        ..color = const Color(0xFF315F52).withValues(alpha: 0.35)
         ..strokeWidth = 1.2
         ..style = PaintingStyle.stroke;
 
@@ -1492,7 +1594,7 @@ class _SavingsLineChartPainter extends CustomPainter {
       canvas.drawCircle(
         hPos,
         isYearly ? 5.0 : 6.0,
-        Paint()..color = const Color(0xFF2563EB),
+        Paint()..color = const Color(0xFF315F52),
       );
       canvas.drawCircle(
         hPos,
@@ -1509,7 +1611,7 @@ class _SavingsLineChartPainter extends CustomPainter {
               style: const TextStyle(
                 fontFamily: 'Inter',
                 fontFamilyFallback: ['Noto Sans KR'],
-                color: Color(0xFF94A3B8),
+                color: Color(0xFFA8AEA4),
                 fontSize: 11.0,
                 fontWeight: FontWeight.w600,
               ),
@@ -1530,7 +1632,7 @@ class _SavingsLineChartPainter extends CustomPainter {
                 style: TextStyle(
                   fontFamily: 'Inter',
                   fontFamilyFallback: ['Noto Sans KR'],
-                  color: Color(0xFF60A5FA),
+                  color: Color(0xFF527A6C),
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                 ),
@@ -1572,16 +1674,13 @@ class _SavingsLineChartPainter extends CustomPainter {
       );
 
       // 다크 슬레이트 배경
-      canvas.drawRRect(
-        tipRect,
-        Paint()..color = const Color(0xFF0F172A),
-      );
+      canvas.drawRRect(tipRect, Paint()..color = const Color(0xFF1F342D));
 
       // 미세한 림 테두리
       canvas.drawRRect(
         tipRect,
         Paint()
-          ..color = const Color(0xFF334155)
+          ..color = const Color(0xFF46564D)
           ..strokeWidth = 0.8
           ..style = PaintingStyle.stroke,
       );

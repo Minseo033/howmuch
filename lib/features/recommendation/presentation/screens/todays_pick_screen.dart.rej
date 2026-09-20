@@ -1,0 +1,13 @@
+diff a/lib/features/recommendation/presentation/screens/todays_pick_screen.dart b/lib/features/recommendation/presentation/screens/todays_pick_screen.dart	(rejected hunks)
+@@ -337,9 +337,9 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
+                                   child: FilledButton(
+                                     onPressed: _loadTodaysPick,
+                                     style: FilledButton.styleFrom(
+-                                      backgroundColor: const Color(0xFF2563EB),
++                                      backgroundColor: const Color(0xFF245846),
+                                       shape: RoundedRectangleBorder(
+-                                        borderRadius: BorderRadius.circular(12),
++                                        borderRadius: BorderRadius.circular(16),
+                                       ),
+                                     ),
+                                     child: const Text(

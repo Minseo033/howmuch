@@ -20,7 +20,7 @@ class AccountManagementScreen extends ConsumerWidget {
   static const muted = AppColors.muted;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -77,7 +77,7 @@ class AccountManagementScreen extends ConsumerWidget {
                   child: _ProfileAccountCard(
                     profile: profile,
                     email: email,
-                    onEdit: () => context.go(AppRoutes.profileEdit),
+                    onEdit: () => context.push(AppRoutes.profileEdit),
                   ),
                 ),
                 Positioned(
@@ -95,7 +95,7 @@ class AccountManagementScreen extends ConsumerWidget {
                     provider: provider,
                     locationAccess: location.valueOrNull,
                     onSocialAccounts: () =>
-                        context.go(AppRoutes.connectedSocialAccounts),
+                        context.push(AppRoutes.connectedSocialAccounts),
                     onLocationTap: () async {
                       final service = ref.read(devicePermissionServiceProvider);
                       final access =
@@ -148,7 +148,7 @@ class AccountManagementScreen extends ConsumerWidget {
                   top: 585.38330078125 + topOffset,
                   height: 66.0227279663086,
                   child: _WithdrawalCard(
-                    onTap: () => context.go(AppRoutes.withdrawal),
+                    onTap: () => context.push(AppRoutes.withdrawal),
                   ),
                 ),
               ],
@@ -317,7 +317,11 @@ class _AccountInfoCard extends StatelessWidget {
     return _RoundedPanel(
       child: Column(
         children: [
-          _AccountRow(title: '닉네임 변경', value: profile.nickname),
+          _AccountRow(
+            title: '닉네임 변경',
+            value: profile.nickname,
+            showChevron: false,
+          ),
           const _CardDivider(),
           _AccountRow(
             title: '로그인 계정',
@@ -356,12 +360,12 @@ class _PolicyCard extends StatelessWidget {
         children: [
           _SimpleRow(
             title: '개인정보 처리방침',
-            onTap: () => context.go(AppRoutes.privacyPolicy),
+            onTap: () => context.push(AppRoutes.privacyPolicy),
           ),
           const _CardDivider(),
           _SimpleRow(
             title: '서비스 이용약관',
-            onTap: () => context.go(AppRoutes.termsOfService),
+            onTap: () => context.push(AppRoutes.termsOfService),
           ),
         ],
       ),
@@ -380,7 +384,7 @@ class _LogoutCard extends StatelessWidget {
       child: Material(
         color: AppColors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 16.9034423828125),
@@ -412,13 +416,13 @@ class _WithdrawalCard extends StatelessWidget {
     return Material(
       color: AppColors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
             color: AppColors.white,
             border: Border.all(color: AppColors.errorAlpha, width: .909),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Stack(
             children: const [
@@ -472,6 +476,7 @@ class _AccountRow extends StatelessWidget {
     this.valueColor = AccountManagementScreen.ink,
     this.boldValue = false,
     this.onTap,
+    this.showChevron = true,
   });
 
   final String title;
@@ -479,6 +484,7 @@ class _AccountRow extends StatelessWidget {
   final Color valueColor;
   final bool boldValue;
   final VoidCallback? onTap;
+  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -501,12 +507,14 @@ class _AccountRow extends StatelessWidget {
                 height: 1.5,
               ),
             ),
-            const SizedBox(width: 7.997),
-            const Icon(
-              Icons.chevron_right_rounded,
-              size: 15,
-              color: AccountManagementScreen.muted,
-            ),
+            if (showChevron) ...[
+              const SizedBox(width: 7.997),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 15,
+                color: AccountManagementScreen.muted,
+              ),
+            ],
           ],
         ),
       ),
@@ -668,7 +676,7 @@ class _RoundedPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: AccountManagementScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );
@@ -681,9 +689,12 @@ class _CardDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      width: 301.647705078125,
-      height: .9943181276321411,
-      child: ColoredBox(color: AccountManagementScreen.border),
+      width: double.infinity,
+      height: 1,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: ColoredBox(color: AccountManagementScreen.border),
+      ),
     );
   }
 }

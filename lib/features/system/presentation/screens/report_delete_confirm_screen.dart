@@ -13,14 +13,14 @@ class ReportDeleteConfirmScreen extends ConsumerStatefulWidget {
 
   final UserReportStatus? report;
 
-  static const red = Color(0xFFE53935);
-  static const redBg = Color(0xFFFEE2E2);
-  static const redInk = Color(0xFF7F1D1D);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const fontFamily = 'Inter';
+  static const red = Color(0xFFA64B4B);
+  static const redBg = Color(0xFFF8EAEA);
+  static const redInk = Color(0xFFA64B4B);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const surface = Color(0xFFF7F5EE);
+  static const border = Color(0xFFD9DDD2);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -53,7 +53,7 @@ class _ReportDeleteConfirmScreenState
     }
 
     return FigmaMobileCanvas(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7F5EE),
       child: Stack(
         children: [
           Positioned(
@@ -138,7 +138,7 @@ class _DeleteDialog extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
             color: Color(0x38000000),
@@ -148,7 +148,7 @@ class _DeleteDialog extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: Stack(
           children: [
             const Positioned(

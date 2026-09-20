@@ -1,0 +1,19 @@
+diff a/lib/features/community/presentation/screens/report_complete_screen.dart b/lib/features/community/presentation/screens/report_complete_screen.dart	(rejected hunks)
+@@ -32,7 +32,7 @@ class ReportCompleteScreen extends StatelessWidget {
+     final bottomOffset = safePadding.bottom + 24;
+ 
+     return FigmaMobileCanvas(
+-      backgroundColor: Colors.white,
++      backgroundColor: const Color(0xFFF6F4EB),
+       child: LayoutBuilder(
+         builder: (context, constraints) {
+           return SizedBox(
+@@ -136,7 +136,7 @@ class ReportCompleteScreen extends StatelessWidget {
+                   height: 50,
+                   child: _BottomActionButton(
+                     label: '내 제보 내역 확인',
+-                    backgroundColor: const Color(0xFFF1F5F9),
++                    backgroundColor: const Color(0xFFEEEEE3),
+                     foregroundColor: ink,
+                     onTap: () => context.go(AppRoutes.myReportsV2),
+                   ),

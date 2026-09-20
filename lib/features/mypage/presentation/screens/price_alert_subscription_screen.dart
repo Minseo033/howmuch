@@ -19,7 +19,7 @@ class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   static const surface = AppColors.surface;
   static const border = AppColors.border;
   static const disabled = AppColors.disabled;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -37,6 +37,7 @@ class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
 class _PriceAlertSubscriptionScreenState
     extends ConsumerState<PriceAlertSubscriptionScreen> {
   bool _isSaving = false;
+  bool _isLeaving = false;
   PriceAlertSettings? _savedSettings;
 
   Future<void> _leave(PriceAlertSettings settings) async {
@@ -56,7 +57,17 @@ class _PriceAlertSubscriptionScreenState
       );
       if (!mounted || discard != true) return;
     }
-    context.go(AppRoutes.notificationSettings);
+    await _closeOrGoToNotificationSettings();
+  }
+
+  Future<void> _closeOrGoToNotificationSettings() async {
+    if (!context.canPop()) {
+      context.go(AppRoutes.notificationSettings);
+      return;
+    }
+    setState(() => _isLeaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) context.pop();
   }
 
   @override
@@ -113,9 +124,14 @@ class _PriceAlertSubscriptionScreenState
     }
 
     return PopScope(
-      canPop: false,
+      canPop:
+          Navigator.of(context).canPop() &&
+          !_isSaving &&
+          (_savedSettings == null ||
+              settings.sameAs(_savedSettings!) ||
+              _isLeaving),
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) _leave(settings);
+        if (!didPop && !_isLeaving) _leave(settings);
       },
       child: FigmaMobileCanvas(
         backgroundColor: AppColors.white,
@@ -229,7 +245,7 @@ class _PriceAlertSubscriptionScreenState
                   }
                   _savedSettings = settings;
                   setState(() => _isSaving = false);
-                  context.go(AppRoutes.notificationSettings);
+                  await _closeOrGoToNotificationSettings();
                   messenger.showSnackBar(
                     const SnackBar(content: Text('가격 알림을 저장했어요.')),
                   );
@@ -347,6 +363,8 @@ class _Header extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -698,7 +716,7 @@ class _RoundedCard extends StatelessWidget {
           color: PriceAlertSubscriptionScreen.border,
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

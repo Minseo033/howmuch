@@ -199,7 +199,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     final bottomOffset = safePadding.bottom;
 
     return FigmaMobileCanvas(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7F5EE),
       child: Stack(
         children: [
           Positioned(
@@ -229,7 +229,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                       '추천 루트',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Color(0xFF0A0A0A),
+                        color: Color(0xFF1F342D),
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -244,7 +244,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
             top: topOffset + 50.96590805053711,
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                    child: CircularProgressIndicator(color: Color(0xFF315F52)),
                   )
                 : _errorMessage != null
                 ? Center(
@@ -257,12 +257,12 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFE2E8F0),
+                              color: Color(0xFFD9DDD2),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.error_outline_rounded,
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               size: 30,
                             ),
                           ),
@@ -270,10 +270,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           const Text(
                             '추천 경로를 불러오지 못했어요',
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF1F342D),
                               fontSize: 16,
                             ),
                           ),
@@ -282,9 +282,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             _errorMessage!,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 12,
                             ),
                           ),
@@ -295,9 +295,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             child: FilledButton(
                               onPressed: _loadRoute,
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF2563EB),
+                                backgroundColor: const Color(0xFF315F52),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: const Text(
@@ -324,12 +324,12 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFE2E8F0),
+                              color: Color(0xFFD9DDD2),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.alt_route_rounded,
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               size: 28,
                             ),
                           ),
@@ -337,10 +337,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           const Text(
                             '추천 동선 매장이 없어요',
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF1F342D),
                               fontSize: 15,
                             ),
                           ),
@@ -349,9 +349,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             '근처에 연속 탐방할 수 있는 착한가격업소가 부족하거나 위치 권한이 켜져 있지 않아요.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 12,
                             ),
                           ),
@@ -369,7 +369,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           const Text(
                             '식사부터 카페까지 저렴한 동선을 추천해요',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 13,
                             ),
                           ),
@@ -384,10 +384,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                 width: double.infinity,
                                 child: DecoratedBox(
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFE8EEF6),
-                                    borderRadius: BorderRadius.circular(16),
+                                    color: const Color(0xFFE7EEE7),
+                                    borderRadius: BorderRadius.circular(22),
                                     border: Border.all(
-                                      color: const Color(0xFFE5E7EB),
+                                      color: const Color(0xFFD9DDD2),
                                     ),
                                   ),
                                   child: _routeMapPoints.isEmpty
@@ -409,7 +409,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           const Text(
                             '추천 동선',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.5,
@@ -458,8 +458,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFE8F8F1),
-                              borderRadius: BorderRadius.circular(16),
+                              color: const Color(0xFFE7F0E8),
+                              borderRadius: BorderRadius.circular(22),
                             ),
                             child: Column(
                               children: [
@@ -470,14 +470,14 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                     const Text(
                                       '총 예상 비용',
                                       style: TextStyle(
-                                        color: Color(0xFF64748B),
+                                        color: Color(0xFF707A70),
                                         fontSize: 12,
                                       ),
                                     ),
                                     Text(
                                       formatRecommendationPrice(_totalCost),
                                       style: const TextStyle(
-                                        color: Color(0xFF0F172A),
+                                        color: Color(0xFF1F342D),
                                         fontSize: 16,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -492,14 +492,14 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                     const Text(
                                       '총 거리',
                                       style: TextStyle(
-                                        color: Color(0xFF64748B),
+                                        color: Color(0xFF707A70),
                                         fontSize: 12,
                                       ),
                                     ),
                                     Text(
                                       _totalDistanceLabel,
                                       style: const TextStyle(
-                                        color: Color(0xFF0F172A),
+                                        color: Color(0xFF1F342D),
                                         fontSize: 14,
                                         fontWeight: FontWeight.w800,
                                       ),
@@ -510,7 +510,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                 Container(
                                   height: 1,
                                   color: const Color(
-                                    0xFF10B981,
+                                    0xFF527A6C,
                                   ).withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(height: 12),
@@ -518,14 +518,14 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   children: [
                                     Icon(
                                       Icons.directions_walk,
-                                      color: Color(0xFF64748B),
+                                      color: Color(0xFF707A70),
                                       size: 12,
                                     ),
                                     SizedBox(width: 4),
                                     Text(
                                       'AI 추천 동선',
                                       style: TextStyle(
-                                        color: Color(0xFF64748B),
+                                        color: Color(0xFF707A70),
                                         fontSize: 11,
                                       ),
                                     ),
@@ -540,9 +540,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(22),
                                 border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
+                                  color: const Color(0xFFD9DDD2),
                                 ),
                               ),
                               child: Column(
@@ -551,7 +551,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   const Text(
                                     'AI 추천 이유',
                                     style: TextStyle(
-                                      color: Color(0xFF0F172A),
+                                      color: Color(0xFF1F342D),
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -560,7 +560,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   Text(
                                     _routeData!['route'].toString(),
                                     style: const TextStyle(
-                                      color: Color(0xFF475569),
+                                      color: Color(0xFF46564D),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -587,7 +587,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                 ),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+                  border: Border(top: BorderSide(color: Color(0xFFD9DDD2))),
                 ),
                 child: GestureDetector(
                   onTap: () {
@@ -616,7 +616,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                   child: Container(
                     height: 50,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
+                      color: const Color(0xFF315F52),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     alignment: Alignment.center,
@@ -647,7 +647,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
             const Text(
               '순서',
               style: TextStyle(
-                color: Color(0xFF64748B),
+                color: Color(0xFF707A70),
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
@@ -663,7 +663,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                       width: 20,
                       height: 20,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFF315F52),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
@@ -684,7 +684,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Color(0xFF334155),
+                          color: Color(0xFF46564D),
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -705,11 +705,11 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          const Icon(Icons.more_vert, color: Color(0xFFE5E7EB), size: 20),
+          const Icon(Icons.more_vert, color: Color(0xFFD9DDD2), size: 20),
           const SizedBox(width: 12),
           Text(
             timeText,
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
+            style: const TextStyle(color: Color(0xFF707A70), fontSize: 11),
           ),
         ],
       ),
@@ -728,12 +728,12 @@ class _RouteMapUnavailable extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.location_off_outlined, color: Color(0xFF64748B)),
+            Icon(Icons.location_off_outlined, color: Color(0xFF707A70)),
             SizedBox(height: 8),
             Text(
               '매장 좌표가 없어 지도를 표시할 수 없어요.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF475569), fontSize: 12),
+              style: TextStyle(color: Color(0xFF46564D), fontSize: 12),
             ),
           ],
         ),

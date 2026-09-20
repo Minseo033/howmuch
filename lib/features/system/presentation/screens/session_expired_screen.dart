@@ -9,14 +9,14 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 class SessionExpiredScreen extends ConsumerWidget {
   const SessionExpiredScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
+  static const blue = Color(0xFF315F52);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const surface = Color(0xFFF7F5EE);
   static const kakao = Color(0xFFFEE500);
   static const kakaoInk = Color(0xFF191600);
-  static const green = Color(0xFF10B981);
-  static const fontFamily = 'Inter';
+  static const green = Color(0xFF527A6C);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -79,7 +79,7 @@ class SessionExpiredScreen extends ConsumerWidget {
                         onTap: () => close(),
                         child: const Icon(
                           Icons.close_rounded,
-                          color: Color(0xFF5F708A),
+                          color: Color(0xFF707A70),
                           size: 16,
                         ),
                       ),
@@ -166,7 +166,7 @@ class _StateIcon extends StatelessWidget {
         color: SessionExpiredScreen.surface,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Color(0xFF5F708A), size: size),
+      child: Icon(icon, color: Color(0xFF707A70), size: size),
     );
   }
 }
@@ -246,9 +246,9 @@ class _KakaoButton extends StatelessWidget {
       height: 51.9886360168457,
       child: Material(
         color: SessionExpiredScreen.kakao,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           onTap: onPressed,
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -285,7 +285,7 @@ class _LaterButton extends StatelessWidget {
           backgroundColor: SessionExpiredScreen.surface,
           foregroundColor: SessionExpiredScreen.muted,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
           ),
           textStyle: const TextStyle(
             fontFamily: SessionExpiredScreen.fontFamily,

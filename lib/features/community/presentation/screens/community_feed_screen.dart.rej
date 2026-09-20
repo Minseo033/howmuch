@@ -1,0 +1,68 @@
+diff a/lib/features/community/presentation/screens/community_feed_screen.dart b/lib/features/community/presentation/screens/community_feed_screen.dart	(rejected hunks)
+@@ -342,7 +343,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
+     final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
+ 
+     return FigmaMobileCanvas(
+-      backgroundColor: Colors.white,
++      backgroundColor: const Color(0xFFF6F4EB),
+       child: Stack(
+         children: [
+           Positioned(
+@@ -358,9 +359,20 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
+               ),
+             ),
+           ),
++          Positioned(
++            left: 20,
++            right: 20,
++            top: topOffset + 62,
++            child: const NeighborhoodIntro(
++              eyebrow: 'THE LOCAL EDIT',
++              title: '우리 동네, 좋은 발견',
++              description: '이웃이 직접 전하는 가격과 가게 이야기',
++              dark: true,
++            ),
++          ),
+           Positioned(
+             left: AppSizes.horizontalPadding,
+-            top: topOffset + 60.87,
++            top: topOffset + 196,
+             right: 20,
+             height: 28,
+             child: _LocationRow(
+@@ -370,7 +382,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
+           ),
+           Positioned(
+             left: AppSizes.horizontalPadding,
+-            top: topOffset + 100.85,
++            top: topOffset + 238,
+             right: 20,
+             height: 33.793,
+             child: _FilterRow(
+@@ -381,7 +393,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
+           ),
+           Positioned(
+             left: AppSizes.horizontalPadding,
+-            top: topOffset + 150.64,
++            top: topOffset + 288,
+             right: 20,
+             bottom: bottomNavHeight + 85,
+             child: _buildContent(),
+@@ -477,7 +489,7 @@ class _LocationChip extends StatelessWidget {
+             height: 28,
+             padding: const EdgeInsets.only(left: 10, right: 12),
+             decoration: BoxDecoration(
+-              color: const Color(0xFFEFF4FF),
++              color: const Color(0xFFEAF0E4),
+               borderRadius: BorderRadius.circular(999),
+             ),
+             child: Row(
+@@ -624,7 +636,7 @@ class _FeedCard extends StatelessWidget {
+         decoration: BoxDecoration(
+           color: Colors.white,
+           border: Border.all(color: CommunityFeedScreen.border, width: .909),
+-          borderRadius: BorderRadius.circular(16),
++          borderRadius: BorderRadius.circular(22),
+         ),
+         clipBehavior: Clip.antiAlias,
+         child: Row(

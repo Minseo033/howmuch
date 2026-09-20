@@ -213,7 +213,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -369,7 +369,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: verified ? AppColors.primarySubtle : AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: verified ? AppColors.primary : Colors.grey.shade200,
           width: verified ? 2 : 1,
@@ -384,7 +384,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
                   Icons.location_on_rounded,
@@ -448,7 +448,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -662,7 +662,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
@@ -815,15 +815,15 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       hintStyle: const TextStyle(color: AppColors.muted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: AppColors.primary),
       ),
     );
@@ -982,7 +982,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.successSubtle,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

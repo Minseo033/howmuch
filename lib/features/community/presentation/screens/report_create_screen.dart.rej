@@ -1,0 +1,10 @@
+diff a/lib/features/community/presentation/screens/report_create_screen.dart b/lib/features/community/presentation/screens/report_create_screen.dart	(rejected hunks)
+@@ -953,7 +953,7 @@ class _TipBox extends StatelessWidget {
+       height: 54.744,
+       padding: const EdgeInsets.fromLTRB(12, 11.989, 12, 12),
+       decoration: BoxDecoration(
+-        color: const Color(0xFFFFF3EA),
++        color: const Color(0xFFF7EADD),
+         borderRadius: BorderRadius.circular(14),
+       ),
+       child: const Center(

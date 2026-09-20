@@ -17,10 +17,10 @@ abstract final class AppSpacing {
 }
 
 abstract final class AppRadii {
-  static const double input = 10;
-  static const double button = 12;
-  static const double card = 16;
-  static const double overlay = 20;
+  static const double input = 16;
+  static const double button = 18;
+  static const double card = 24;
+  static const double overlay = 28;
   static const double pill = 999;
 }
 

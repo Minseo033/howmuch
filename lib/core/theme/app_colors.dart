@@ -3,24 +3,29 @@ import 'package:flutter/material.dart';
 class AppColors {
   const AppColors._();
 
-  static const Color primary = Color(0xFF2563EB); // blue
-  static const Color primaryLight = Color(0xFFEFF4FF);
-  static const Color primaryAlpha = Color(0x212563EB);
-  static const Color primarySubtle = Color(0xFFEEF2FF);
+  // Low-saturation woodland palette: calm over long sessions while retaining
+  // the warmth and trust expected from a neighbourhood savings service.
+  static const Color primary = Color(0xFF315F52);
+  static const Color primaryPressed = Color(0xFF274C42);
+  static const Color lime = Color(0xFFAABF96);
+  static const Color cream = Color(0xFFF7F5EE);
+  static const Color primaryLight = Color(0xFFE7EEE7);
+  static const Color primaryAlpha = Color(0x22315F52);
+  static const Color primarySubtle = Color(0xFFEEF2EC);
 
   // Text-capable status tokens meet WCAG AA contrast on white backgrounds.
-  static const Color success = Color(0xFF047857); // green
-  static const Color successLight = Color(0xFFE8F8F1);
-  static const Color successSubtle = Color(0xFFE8F5E9);
+  static const Color success = Color(0xFF39705C);
+  static const Color successLight = Color(0xFFE7F0E8);
+  static const Color successSubtle = Color(0xFFEEF5EF);
 
-  static const Color warning = Color(0xFFC2410C); // orange
-  static const Color warningLight = Color(0xFFFFF3EA);
-  static const Color warningDark = Color(0xFF92400E);
-  static const Color warningBorder = Color(0xFFFDE68A);
+  static const Color warning = Color(0xFF9B6541);
+  static const Color warningLight = Color(0xFFF6EDE4);
+  static const Color warningDark = Color(0xFF7A4D30);
+  static const Color warningBorder = Color(0xFFE7CDAF);
 
-  static const Color error = Color(0xFFEF4444); // red
-  static const Color errorLight = Color(0xFFFEE2E2);
-  static const Color errorAlpha = Color(0x26EF4444);
+  static const Color error = Color(0xFFA64B4B);
+  static const Color errorLight = Color(0xFFF8EAEA);
+  static const Color errorAlpha = Color(0x26A64B4B);
 
   static const Color kakaoYellow = Color(0xFFFEE500);
   static const Color kakaoBrown = Color(0xFF191600);
@@ -29,31 +34,32 @@ class AppColors {
   static const Color star = Color(0xFFFFC107);
   static const Color starAlt = Color(0xFFF59E0B);
 
-  static const Color orangeTheme = Color(0xFFF27E22);
-  static const Color orangeLight = Color(0xFFFFF0E6);
-  static const Color tealLight = Color(0xFFB2DFDB);
+  static const Color orangeTheme = Color(0xFFA76546);
+  static const Color orangeLight = warningLight;
+  static const Color tealLight = Color(0xFFE0EBE1);
 
-  static const Color ink = Color(0xFF0F172A);
-  static const Color textDark = Color(0xFF111827);
-  static const Color textBody = Color(0xFF374151);
-  static const Color textMuted = Color(0xFF6B7280);
-  static const Color textLight = Color(0xFF6B7280);
+  static const Color ink = Color(0xFF1F342D);
+  static const Color textDark = Color(0xFF2C443A);
+  static const Color textBody = Color(0xFF46564D);
+  static const Color textMuted = Color(0xFF707A70);
+  static const Color textLight = Color(0xFF707A70);
 
-  static const Color black = Color(0xFF0A0A0A);
-  static const Color muted = Color(0xFF64748B);
-  static const Color disabled = Color(0xFFCBD5E1);
-  static const Color border = Color(0xFFE5E7EB);
-  static const Color borderLight = Color(0xFFE9ECEF);
-  static const Color borderMedium = Color(0xFFD1D5DB);
-  static const Color borderSubtle = Color(0xFFF3F4F6);
+  static const Color black = ink;
+  static const Color muted = Color(0xFF707A70);
+  static const Color disabled = Color(0xFFA8AEA4);
+  static const Color disabledSurface = Color(0xFFD9DDD2);
+  static const Color border = Color(0xFFD9DDD2);
+  static const Color borderLight = Color(0xFFE7E9E1);
+  static const Color borderMedium = Color(0xFFC9D0C5);
+  static const Color borderSubtle = Color(0xFFF0F1EB);
 
-  static const Color surface = Color(0xFFF4F6FA);
-  static const Color background = Color(0xFFF1F5F9);
-  static const Color backgroundLight = Color(0xFFF3F6FA);
-  static const Color backgroundDark = Color(0xFFF8F9FA);
-  static const Color bgLight = Color(0xFFF9FAFB);
+  static const Color surface = cream;
+  static const Color background = Color(0xFFF0F0E9);
+  static const Color backgroundLight = Color(0xFFF5F3EC);
+  static const Color backgroundDark = Color(0xFFFBFAF5);
+  static const Color bgLight = backgroundDark;
 
-  static const Color white = Colors.white;
+  static const Color white = Color(0xFFFFFDF8);
   static const Color transparent = Colors.transparent;
 
   // Semantic surface and content roles. New shared components should prefer
@@ -67,4 +73,6 @@ class AppColors {
   static const Color textDisabled = disabled;
   static const Color accent = primary;
   static const Color reportAccent = orangeTheme;
+  static const Color focus = Color(0xFF527A6C);
+  static const Color modalScrim = Color(0x6B1F342D);
 }

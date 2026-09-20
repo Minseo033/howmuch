@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
@@ -86,7 +87,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           child: Scaffold(
             backgroundColor: Colors.white,
             body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+              child: CircularProgressIndicator(color: Color(0xFF315F52)),
             ),
           ),
         ),
@@ -209,6 +210,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AppRoutes.onboardingStoreReport,
         const OnboardingStoreReportScreen(),
       ),
+      _route(AppRoutes.authTerms, const AuthTermsScreen()),
       _route(AppRoutes.login, const LoginScreen()),
       _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
       _route(AppRoutes.profileSetup, const ProfileSetupScreen()),

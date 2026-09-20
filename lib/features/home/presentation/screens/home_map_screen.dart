@@ -124,13 +124,13 @@ class HomeMapScreen extends StatefulWidget {
 
   final bool showAiSpotlight;
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const hint = Color(0xFF94A3B8);
-  static const fontFamily = 'Inter';
+  static const blue = Color(0xFF315F52);
+  static const orange = Color(0xFFA76546);
+  static const green = Color(0xFF527A6C);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const hint = Color(0xFFA8AEA4);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -464,7 +464,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         .my-location-dot {
           width: 16px;
           height: 16px;
-          background-color: #2563EB;
+          background-color: #315F52;
           border: 3px solid #FFFFFF;
           border-radius: 50%;
           box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
@@ -476,7 +476,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           height: 0;
           border-left: 8px solid transparent;
           border-right: 8px solid transparent;
-          border-bottom: 20px solid rgba(37, 99, 235, 0.4);
+          border-bottom: 20px solid rgba(36, 88, 70, 0.4);
           top: 0px;
           z-index: 1;
         }
@@ -574,7 +574,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
               var bubble = document.createElement('div');
-              var bgColor = item.source === 'USER' ? '#F97316' : '#1D4ED8';
+              var bgColor = item.source === 'USER' ? '#A76546' : '#315F52';
               bubble.style.cssText = [
                 'cursor:pointer',
                 'background:' + bgColor,
@@ -640,13 +640,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             var tail = wrapper.children[1];
             
             if (i === selectedIndex) {
-              bubble.style.background = '#EF4444'; // Red
-              tail.style.borderTopColor = '#EF4444';
+              bubble.style.background = '#A64B4B'; // Error
+              tail.style.borderTopColor = '#A64B4B';
               wrapper.style.transform = 'scale(1.2)';
               if (customOverlays[i]) customOverlays[i].setZIndex(10);
             } else {
-              bubble.style.background = '#1D4ED8'; // Blue
-              tail.style.borderTopColor = '#1D4ED8';
+              bubble.style.background = '#315F52'; // Primary
+              tail.style.borderTopColor = '#315F52';
               wrapper.style.transform = 'scale(1.0)';
               if (customOverlays[i]) customOverlays[i].setZIndex(3);
             }
@@ -1496,7 +1496,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFDDE6F0),
+      backgroundColor: const Color(0xFFE7EEE7),
       child: Stack(
         children: [
           Positioned.fill(
@@ -1510,7 +1510,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (_mapErrorMessage != null)
             Positioned.fill(
               child: ColoredBox(
-                color: const Color(0xFFF4F6FA),
+                color: const Color(0xFFF7F5EE),
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -1583,8 +1583,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         style: TextStyle(
                           color: _hasLoadError
                               ? Colors.red
-                              : const Color(0xFF2563EB),
-                          fontFamily: 'Inter',
+                              : const Color(0xFF315F52),
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: const [
                             'Apple SD Gothic Neo',
                             'Noto Sans KR',
@@ -1607,7 +1607,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         )
                       else
                         const CircularProgressIndicator(
-                          color: Color(0xFF2563EB),
+                          color: Color(0xFF315F52),
                         ),
                     ],
                   ),
@@ -1640,7 +1640,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             Positioned(
               left: 0,
               right: 0,
-              top: 10 + topOffset + 52 + 10, // _SearchBar below
+              top: 86 + topOffset + 52 + 10, // _SearchBar below
               height: 32,
               child: Opacity(
                 opacity: homeChromeOpacity,
@@ -1661,7 +1661,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(
-                          color: const Color(0xFF2563EB),
+                          color: const Color(0xFF315F52),
                           width: 1.2,
                         ),
                         borderRadius: BorderRadius.circular(999),
@@ -1672,7 +1672,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                           Text(
                             label,
                             style: const TextStyle(
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFF315F52),
                               fontFamily: HomeMapScreen.fontFamily,
                               fontFamilyFallback: HomeMapScreen.fontFallback,
                               fontSize: 13,
@@ -1691,7 +1691,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             child: const Icon(
                               Icons.close_rounded,
                               size: 14,
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFF315F52),
                             ),
                           ),
                         ],
@@ -1741,12 +1741,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   label: '내 위치로 이동',
                   child: Listener(
                     behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                    onPointerDown: (_) => _suppressMarkerClicks(
+                      const Duration(milliseconds: 1000),
+                    ),
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 1000)),
+                      onTapDown: (_) => _suppressMarkerClicks(
+                        const Duration(milliseconds: 1000),
+                      ),
                       onTap: () {
-                        _suppressMarkerClicks(const Duration(milliseconds: 1000));
+                        _suppressMarkerClicks(
+                          const Duration(milliseconds: 1000),
+                        );
                         _moveToCurrentLocation();
                       },
                       child: _RoundIconButton(
@@ -1769,10 +1775,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               opacity: homeChromeOpacity,
               child: Listener(
                 behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                onPointerDown: (_) =>
+                    _suppressMarkerClicks(const Duration(milliseconds: 800)),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) => _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                  onTapDown: (_) =>
+                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
                   child: _AiRecommendControl(onTap: _openAiRecommend),
@@ -2079,7 +2087,7 @@ class _LocationPermissionModal extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor: HomeMapScreen.muted,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     textStyle: const TextStyle(
                       fontFamily: HomeMapScreen.fontFamily,
@@ -2118,11 +2126,11 @@ class _SearchBar extends StatelessWidget {
             height: 52,
             child: Material(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              elevation: 7,
+              borderRadius: BorderRadius.circular(22),
+              elevation: 0,
               shadowColor: const Color(0x140F172A),
               child: InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(22),
                 onTap: onTap,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -2132,7 +2140,7 @@ class _SearchBar extends StatelessWidget {
                     children: [
                       const Icon(
                         Icons.search_rounded,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF707A70),
                         size: 19,
                       ),
                       const SizedBox(width: 7.997158050537109),
@@ -2213,7 +2221,7 @@ class _SourceLegend extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: 0.8),
+        border: Border.all(color: const Color(0xFFD9DDD2), width: 0.8),
         boxShadow: const [
           BoxShadow(
             color: Color(0x140F172A),
@@ -2233,7 +2241,7 @@ class _SourceLegend extends StatelessWidget {
             SizedBox(width: 10),
             SizedBox(
               height: 10,
-              child: VerticalDivider(color: Color(0xFFE5E7EB), width: 1),
+              child: VerticalDivider(color: Color(0xFFD9DDD2), width: 1),
             ),
             SizedBox(width: 10),
             _Dot(color: HomeMapScreen.orange),
@@ -2259,7 +2267,7 @@ class _TodayPickCard extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
+          border: Border.all(color: const Color(0xFFD9DDD2), width: .909),
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
@@ -2282,7 +2290,7 @@ class _TodayPickCard extends StatelessWidget {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0xFFDBEAFE), Color(0xFFBFDBFE)],
+                        colors: [Color(0xFFE7EEE7), Color(0xFFE0EBE1)],
                       ),
                     ),
                     child: Column(
@@ -2347,7 +2355,7 @@ class _TodayPickText extends StatelessWidget {
             const Text(
               '오늘의 픽',
               style: TextStyle(
-                color: HomeMapScreen.blue,
+                color: Color(0xFFAABF96),
                 fontFamily: HomeMapScreen.fontFamily,
                 fontFamilyFallback: HomeMapScreen.fontFallback,
                 fontSize: 9.5,
@@ -2394,6 +2402,32 @@ class _TodayPickText extends StatelessWidget {
   }
 }
 
+class _RankDot extends StatelessWidget {
+  const _RankDot({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      margin: const EdgeInsets.only(left: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 9,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
 class _StoreSummaryCard extends StatelessWidget {
   final Store store;
   const _StoreSummaryCard({required this.store});
@@ -2403,7 +2437,7 @@ class _StoreSummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: const [
           BoxShadow(
             color: Color(0x240F172A),
@@ -2680,7 +2714,7 @@ class _AiRecommendControl extends StatelessWidget {
                       gradient: const LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
-                        colors: [HomeMapScreen.blue, Color(0xFF7C3AED)],
+                        colors: [HomeMapScreen.blue, Color(0xFF527A6C)],
                       ),
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.white, width: 2),
@@ -2754,7 +2788,7 @@ class _AiRecommendControl extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [HomeMapScreen.blue, Color(0xFF7C3AED)],
+                colors: [HomeMapScreen.blue, Color(0xFF527A6C)],
               ),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white, width: 1.818),
@@ -2808,7 +2842,7 @@ class _AiCoachTip extends StatelessWidget {
           children: [
             Icon(
               Icons.auto_awesome_rounded,
-              color: Color(0xFF2563EB),
+              color: Color(0xFF315F52),
               size: 14,
             ),
             SizedBox(width: 7),
@@ -2872,38 +2906,6 @@ class _DashedCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-class _RankDot extends StatelessWidget {
-  const _RankDot({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 21.988636016845703,
-      height: 21.988636016845703,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 1.818),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontFamily: HomeMapScreen.fontFamily,
-          fontFamilyFallback: HomeMapScreen.fontFallback,
-          fontSize: 10,
-          fontWeight: FontWeight.w800,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-}
-
 class _SourceBadge extends StatelessWidget {
   const _SourceBadge({required this.isUserReported});
 
@@ -2913,8 +2915,8 @@ class _SourceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = isUserReported ? HomeMapScreen.orange : HomeMapScreen.blue;
     final background = isUserReported
-        ? const Color(0xFFFFF1E8)
-        : const Color(0xFFEFF4FF);
+        ? const Color(0xFFF6EDE4)
+        : const Color(0xFFE7EEE7);
 
     return Container(
       height: 20.99431800842285,
@@ -3016,8 +3018,8 @@ class _FloatingSearchSummary extends StatelessWidget {
           Icon(
             title != null ? Icons.auto_awesome : Icons.location_on,
             color: title != null
-                ? const Color(0xFF38BDF8)
-                : const Color(0xFFEF4444),
+                ? const Color(0xFF527A6C)
+                : const Color(0xFFA64B4B),
             size: 14,
           ),
           const SizedBox(width: 6),
@@ -3068,7 +3070,7 @@ class _AiRecommendationBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: const Color(0xFF1F342D),
         borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
@@ -3081,7 +3083,7 @@ class _AiRecommendationBanner extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.auto_awesome, color: Color(0xFF38BDF8), size: 16),
+          const Icon(Icons.auto_awesome, color: Color(0xFF527A6C), size: 16),
           const SizedBox(width: 6),
           Text(
             'AI 추천 매장 $count곳',

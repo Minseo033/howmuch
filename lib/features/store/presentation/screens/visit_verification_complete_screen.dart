@@ -158,7 +158,7 @@ class _VisitVerificationCompleteScreenState
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: AppColors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: Column(

@@ -15,7 +15,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   static const blue = AppColors.primary;
   static const orange = AppColors.orangeTheme;
-  static const hint = Color(0xFF94A3B8);
+  static const hint = Color(0xFFA8AEA4);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -43,12 +43,12 @@ class HowmuchBottomNav extends StatelessWidget {
     final bottomReserve = safeBottom > 8.0 ? safeBottom : 8.0;
 
     return Material(
-      color: AppColors.white,
+      color: AppColors.cream,
       child: DecoratedBox(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cream,
           border: Border(
-            top: BorderSide(color: Color(0xFFE5E7EB), width: .909),
+            top: BorderSide(color: Color(0xFFD9DDD2), width: .909),
           ),
         ),
         child: Stack(
@@ -136,13 +136,17 @@ class _NavItem extends StatelessWidget {
               AnimatedContainer(
                 duration: AppMotion.fast,
                 curve: AppMotion.standard,
-                width: 40,
+                width: 48,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: active ? AppColors.primaryLight : Colors.transparent,
+                  color: active ? AppColors.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(AppRadii.pill),
                 ),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(
+                  icon,
+                  color: active ? AppColors.lime : color,
+                  size: 22,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
@@ -190,16 +194,16 @@ class _ReportNavItem extends StatelessWidget {
             clipBehavior: Clip.none,
             children: [
               Positioned(
-                top: -13.991455078125,
+                top: 0,
                 child: Container(
                   width: 40,
-                  height: 40,
+                  height: 36,
                   decoration: const BoxDecoration(
-                    color: HowmuchBottomNav.orange,
-                    shape: BoxShape.circle,
+                    color: AppColors.lime,
+                    borderRadius: BorderRadius.all(Radius.circular(13)),
                     boxShadow: [
                       BoxShadow(
-                        color: Color(0x47F97316),
+                        color: Color(0x16245846),
                         blurRadius: 5,
                         offset: Offset(0, 4),
                       ),
@@ -207,13 +211,13 @@ class _ReportNavItem extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.add_rounded,
-                    color: Colors.white,
-                    size: 29,
+                    color: AppColors.primary,
+                    size: 26,
                   ),
                 ),
               ),
               Positioned(
-                top: 32.0028076171875,
+                top: 39,
                 child: Text(
                   '제보',
                   style: TextStyle(

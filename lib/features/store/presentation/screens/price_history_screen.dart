@@ -195,7 +195,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -258,7 +258,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -302,7 +302,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(color: Colors.grey.shade100),
           ),
           child: Row(
@@ -368,7 +368,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Text(

@@ -18,7 +18,7 @@ class TermsOfServiceScreen extends StatelessWidget {
   static const muted = AppColors.muted;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -185,6 +185,8 @@ class _TermsHeader extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -250,6 +252,7 @@ class _TermsSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
+      key: const ValueKey('terms-summary-card'),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -257,10 +260,10 @@ class _TermsSummaryCard extends StatelessWidget {
           colors: [AppColors.primarySubtle, AppColors.backgroundLight],
         ),
         border: Border.all(color: AppColors.primaryAlpha, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.903, 0.909),
+        padding: const EdgeInsets.all(16.903),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -324,7 +327,7 @@ class _SummaryMetric extends StatelessWidget {
     return Container(
       width: double.infinity,
       height: 66,
-      padding: const EdgeInsets.fromLTRB(12.897, 8.906, 12.897, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12.897),
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: TermsOfServiceScreen.border, width: .909),
@@ -332,6 +335,7 @@ class _SummaryMetric extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(label, style: _metricLabelText),
           const SizedBox(height: .994),
@@ -555,25 +559,26 @@ class _TermsNotice extends StatelessWidget {
         color: AppColors.warningLight,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Row(
-        children: [
-          SizedBox(width: 11.988),
-          Icon(
-            Icons.info_outline_rounded,
-            size: 13,
-            color: TermsOfServiceScreen.amber,
-          ),
-          SizedBox(width: 7.997),
-          Expanded(
-            child: Text(
-              '본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.',
-              style: _noticeText,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 13,
+              color: TermsOfServiceScreen.amber,
             ),
-          ),
-          SizedBox(width: 11.988),
-        ],
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.',
+                style: _noticeText,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -606,7 +611,7 @@ class _RoundedPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: TermsOfServiceScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

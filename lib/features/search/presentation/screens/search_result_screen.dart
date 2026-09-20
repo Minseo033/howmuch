@@ -31,12 +31,12 @@ class SearchResultScreen extends StatefulWidget {
   final StoreCatalogLoader? storeCatalogLoader;
   final SearchHistoryStore? searchHistoryStore;
 
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const hint = Color(0xFF94A3B8);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
+  static const blue = Color(0xFF315F52);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const hint = Color(0xFFA8AEA4);
+  static const surface = Color(0xFFF7F5EE);
+  static const border = Color(0xFFD9DDD2);
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -467,7 +467,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         textStyle: const TextStyle(
                           fontSize: 16,
@@ -696,7 +696,7 @@ class _SearchHeader extends StatelessWidget {
                         color: SearchResultScreen.blue,
                         width: 0.9,
                       ),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(22),
                     ),
                     child: Row(
                       children: [
@@ -779,7 +779,7 @@ class _SearchHeader extends StatelessWidget {
                               : SearchResultScreen.border,
                           width: 0.9,
                         ),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(22),
                       ),
                       child: Icon(
                         Icons.tune_rounded,
@@ -820,7 +820,7 @@ class _SearchHeader extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: const Color(0xFFEEF2EC),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: SearchResultScreen.blue,
@@ -933,15 +933,15 @@ class _StoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(color: SearchResultScreen.border, width: 0.9),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Row(
             children: [
@@ -950,7 +950,7 @@ class _StoreCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: const Color(0xFFEEF2EC),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
@@ -1024,10 +1024,10 @@ class _StoreCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
+                              color: const Color(0xFFE7EEE7),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(0xFFBFDBFE),
+                                color: const Color(0xFFE0EBE1),
                                 width: 0.8,
                               ),
                             ),
@@ -1099,7 +1099,7 @@ class _IndustryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: const Color(0xFFF7F5EE),
         border: Border.all(color: SearchResultScreen.border, width: 0.8),
         borderRadius: BorderRadius.circular(6),
       ),
@@ -1399,7 +1399,7 @@ class _EmptyResult extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
-                  color: Color(0xFF5F708A),
+                  color: Color(0xFF707A70),
                   size: 32,
                 ),
               ),
@@ -1550,9 +1550,9 @@ class _ActionButton extends StatelessWidget {
       height: 47.99715805053711,
       child: Material(
         color: primary ? SearchResultScreen.blue : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Container(
             alignment: Alignment.center,
@@ -1560,7 +1560,7 @@ class _ActionButton extends StatelessWidget {
               border: primary
                   ? null
                   : Border.all(color: SearchResultScreen.border, width: .909),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Text(
               label,

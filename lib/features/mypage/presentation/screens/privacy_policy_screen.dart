@@ -19,7 +19,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   static const muted = AppColors.muted;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -169,7 +169,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   ),
                   const SizedBox(height: 16),
                   _PrivacyManagerCard(
-                    onInquiry: () => context.go(AppRoutes.inquiry),
+                    onInquiry: () => context.push(AppRoutes.inquiry),
                   ),
                   const SizedBox(height: 16),
                   const Center(
@@ -290,6 +290,8 @@ class _LegalHeader extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -358,37 +360,41 @@ class _PrivacyIntroCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         border: Border.all(color: AppColors.primaryAlpha, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
-      child: Row(
-        children: [
-          const SizedBox(width: 16.903),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: AppColors.white,
-              shape: BoxShape.circle,
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.privacy_tip_outlined,
+                  size: 18,
+                  color: _PrivacyPolicyScreenState.blue,
+                ),
+              ),
             ),
-            child: const Icon(
-              Icons.privacy_tip_outlined,
-              size: 18,
-              color: _PrivacyPolicyScreenState.blue,
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('얼마고? 개인정보 처리방침', style: _blueLabelText),
+                  SizedBox(height: 4),
+                  Text('버전 2.4   ·   시행 2026.04.01', style: _captionText),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 11.989),
-          const Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('얼마고? 개인정보 처리방침', style: _blueLabelText),
-                SizedBox(height: 3.992),
-                Text('버전 2.4   ·   시행 2026.04.01', style: _captionText),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -573,7 +579,7 @@ class _PrivacyManagerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.903, 16.903, 16.903, 0),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -647,7 +653,7 @@ class _RoundedPanel extends StatelessWidget {
           color: _PrivacyPolicyScreenState.border,
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

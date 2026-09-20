@@ -20,7 +20,7 @@ class InquiryScreen extends ConsumerStatefulWidget {
   static const surface = AppColors.surface;
   static const border = AppColors.border;
   static const disabled = AppColors.disabled;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -374,6 +374,8 @@ class _Header extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -872,7 +874,7 @@ class _StickyButton extends StatelessWidget {
                 foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(22),
                 ),
                 textStyle: const TextStyle(
                   fontFamily: InquiryScreen.fontFamily,

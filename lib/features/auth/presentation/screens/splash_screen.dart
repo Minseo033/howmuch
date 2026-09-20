@@ -76,7 +76,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!ApiClient.isAuthenticated) {
       _markLoggedOut();
       _startupInFlight = false;
-      context.go(AppRoutes.login);
+      context.go(
+        prefs.getBool('auth_terms_accepted_v1') == true
+            ? AppRoutes.login
+            : AppRoutes.authTerms,
+      );
       return;
     }
 
@@ -292,7 +296,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       const Text(
                         '얼마고?',
                         style: TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: [
                             'Apple SD Gothic Neo',
                             'Noto Sans KR',
@@ -307,7 +311,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       const Text(
                         '동네 가성비 매장 지도',
                         style: TextStyle(
-                          fontFamily: 'Inter',
+                          fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: [
                             'Apple SD Gothic Neo',
                             'Noto Sans KR',

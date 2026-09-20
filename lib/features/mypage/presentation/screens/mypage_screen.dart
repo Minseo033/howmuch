@@ -35,7 +35,7 @@ class MypageScreen extends ConsumerStatefulWidget {
   static const hint = AppColors.textLight;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -318,7 +318,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const settingsCardHeight = 316.0;
     final scrollContentHeight =
-        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
+        707.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
 
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,
@@ -344,12 +344,26 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 66.96044921875 + topOffset,
+                      top: 65 + topOffset,
+                      child: const Text(
+                        '나의 알뜰한 일상',
+                        style: TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 23,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -.8,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      left: 20,
+                      right: 20,
+                      top: 114.96044921875 + topOffset,
                       height: 163.23863220214844,
                       child: _ProfileCard(
                         profile: profile,
                         email: displayEmail,
-                        onEdit: () => context.go(AppRoutes.profileEdit),
+                        onEdit: () => context.push(AppRoutes.profileEdit),
                         isLoadingMetrics:
                             auth.isLoggedIn &&
                             (!_hasLoadedSummary ||
@@ -360,7 +374,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 246.193359375 + topOffset,
+                      top: 294.193359375 + topOffset,
                       height: 90,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -402,7 +416,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 0,
                       right: 0,
-                      top: 348.47998046875 + topOffset,
+                      top: 396.47998046875 + topOffset,
                       height: 90,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -434,8 +448,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                 label: '알림 설정',
                                 icon: Icons.notifications_none_rounded,
                                 color: MypageScreen.blue,
-                                onTap: () =>
-                                    context.go(AppRoutes.notificationSettings),
+                                onTap: () => context.push(
+                                  AppRoutes.notificationSettings,
+                                ),
                               ),
                             ),
                           ],
@@ -445,7 +460,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 458.76416015625 + topOffset,
+                      top: 506.76416015625 + topOffset,
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
@@ -459,7 +474,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     Positioned(
                       left: 20,
                       right: 20,
-                      top: 659.98583984375 + topOffset,
+                      top: 707.98583984375 + topOffset,
                       height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
@@ -593,7 +608,7 @@ class _ProfileCard extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [MypageScreen.blue, AppColors.primary],
+            colors: [AppColors.primary, const Color(0xFF274C42)],
           ),
         ),
         child: Padding(
@@ -613,6 +628,7 @@ class _ProfileCard extends StatelessWidget {
                       child: ClipOval(
                         child: _ProfileAvatarImage(
                           imageUrl: profile.profileImageUrl,
+                          isGuest: profile.nickname == '게스트',
                         ),
                       ),
                     ),
@@ -732,14 +748,20 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _ProfileAvatarImage extends StatelessWidget {
-  const _ProfileAvatarImage({required this.imageUrl});
+  const _ProfileAvatarImage({required this.imageUrl, required this.isGuest});
 
   final String imageUrl;
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
-    Widget fallback() => const Center(
-      child: Text('👑', style: TextStyle(fontSize: 24, height: 1.5)),
+    Widget fallback() => Center(
+      child: Icon(
+        Icons.person_rounded,
+        key: isGuest ? const ValueKey('mypage-guest-avatar-icon') : null,
+        color: AppColors.white.withValues(alpha: .92),
+        size: 30,
+      ),
     );
 
     if (imageUrl.isEmpty) return fallback();
@@ -845,14 +867,14 @@ class _QuickMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Container(
           height: 94.2897720336914,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
             border: Border.all(color: MypageScreen.border, width: .909),
           ),
           child: Column(
@@ -903,7 +925,7 @@ class _ReportStatusCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
       child: Column(
@@ -1112,7 +1134,7 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: MypageScreen.border, width: .909),
       ),
       child: Column(

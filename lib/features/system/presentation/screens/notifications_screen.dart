@@ -37,14 +37,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         if (!didPop) context.go(AppRoutes.home);
       },
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF4F6FA),
+        backgroundColor: const Color(0xFFF7F5EE),
         child: Stack(
           children: [
             // Content Scroll
             Positioned.fill(
               child: notificationsAsync.when(
                 loading: () => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF2563EB)),
+                  child: CircularProgressIndicator(color: Color(0xFF315F52)),
                 ),
                 error: (err, stack) {
                   final unauthorized =
@@ -59,12 +59,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFE2E8F0),
+                              color: Color(0xFFD9DDD2),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.error_outline_rounded,
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               size: 30,
                             ),
                           ),
@@ -72,10 +72,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           Text(
                             unauthorized ? '로그인이 필요해요' : '알림을 불러오지 못했어요',
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
+                              color: Color(0xFF1F342D),
                               fontSize: 16,
                             ),
                           ),
@@ -86,9 +86,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                 : '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontFamily: 'Inter',
+                              fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
+                              color: Color(0xFF707A70),
                               fontSize: 12,
                             ),
                           ),
@@ -101,9 +101,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                                   .read(notificationsProvider.notifier)
                                   .loadNotifications(),
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF2563EB),
+                                backgroundColor: const Color(0xFF315F52),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
                               child: const Text(
@@ -144,12 +144,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               width: 60,
                               height: 60,
                               decoration: const BoxDecoration(
-                                color: Color(0xFFE2E8F0),
+                                color: Color(0xFFD9DDD2),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
                                 Icons.notifications_off_outlined,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF707A70),
                                 size: 28,
                               ),
                             ),
@@ -157,10 +157,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             const Text(
                               '받은 알림이 없어요',
                               style: TextStyle(
-                                fontFamily: 'Inter',
+                                fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
+                                color: Color(0xFF1F342D),
                                 fontSize: 15,
                               ),
                             ),
@@ -186,10 +186,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             child: Text(
                               '오늘',
                               style: TextStyle(
-                                fontFamily: 'Inter',
+                                fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF707A70),
                                 fontSize: 11,
                                 height: 16.5 / 11,
                               ),
@@ -215,10 +215,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             child: Text(
                               '이전',
                               style: TextStyle(
-                                fontFamily: 'Inter',
+                                fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF707A70),
                                 fontSize: 11,
                                 height: 16.5 / 11,
                               ),
@@ -253,7 +253,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.909),
+                    bottom: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
                   ),
                 ),
                 child: Row(
@@ -277,7 +277,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   border: Border(
-                    bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.909),
+                    bottom: BorderSide(color: Color(0xFFD9DDD2), width: 0.909),
                   ),
                 ),
                 child: Stack(
@@ -291,7 +291,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         icon: const Icon(
                           Icons.arrow_back_ios_new_rounded,
                           size: 20,
-                          color: Color(0xFF0A0A0A),
+                          color: Color(0xFF1F342D),
                         ),
                       ),
                     ),
@@ -300,10 +300,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         child: Text(
                           '알림',
                           style: TextStyle(
-                            fontFamily: 'Inter',
+                            fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF0A0A0A),
+                            color: Color(0xFF1F342D),
                             fontSize: 16,
                             height: 24 / 16,
                           ),
@@ -325,12 +325,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         child: Text(
                           _markingAllRead ? '처리 중…' : '모두 읽음',
                           style: TextStyle(
-                            fontFamily: 'Inter',
+                            fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
                             fontWeight: FontWeight.w600,
                             color: _markingAllRead || !hasUnread
-                                ? const Color(0xFF94A3B8)
-                                : const Color(0xFF2563EB),
+                                ? const Color(0xFFA8AEA4)
+                                : const Color(0xFF315F52),
                             fontSize: 11,
                             height: 16.5 / 11,
                           ),
@@ -374,12 +374,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
               child: Text(
                 label,
                 style: TextStyle(
-                  fontFamily: 'Inter',
+                  fontFamily: 'Noto Sans KR',
                   fontFamilyFallback: const ['Noto Sans KR'],
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   color: isSelected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF64748B),
+                      ? const Color(0xFF315F52)
+                      : const Color(0xFF707A70),
                   fontSize: 13,
                   height: 19.5 / 13,
                 ),
@@ -393,7 +393,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 child: Container(
                   height: 1.989,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
+                    color: const Color(0xFF315F52),
                     borderRadius: BorderRadius.circular(99),
                   ),
                 ),
@@ -412,7 +412,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: notif.bgColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(color: notif.borderColor, width: 0.909),
         ),
         child: Row(
@@ -443,7 +443,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontFamily: 'Inter',
+                            fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: const ['Noto Sans KR'],
                             fontWeight: FontWeight.bold,
                             color: notif.categoryColor,
@@ -458,9 +458,9 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           notif.timeText,
                           maxLines: 1,
                           style: const TextStyle(
-                            fontFamily: 'Inter',
+                            fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF64748B),
+                            color: Color(0xFF707A70),
                             fontSize: 10,
                             height: 15 / 10,
                           ),
@@ -476,10 +476,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontFamily: 'Inter',
+                        fontFamily: 'Noto Sans KR',
                         fontFamilyFallback: ['Noto Sans KR'],
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF1F342D),
                         fontSize: 13,
                         height: 18.85 / 13,
                       ),
@@ -491,10 +491,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontFamily: 'Inter',
+                      fontFamily: 'Noto Sans KR',
                       fontFamilyFallback: ['Noto Sans KR'],
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF0F172A),
+                      color: Color(0xFF1F342D),
                       fontSize: 13,
                       height: 18.85 / 13,
                     ),
@@ -508,7 +508,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 width: 7,
                 height: 7,
                 decoration: const BoxDecoration(
-                  color: Color(0xFFF97316),
+                  color: Color(0xFFA76546),
                   shape: BoxShape.circle,
                 ),
               ),

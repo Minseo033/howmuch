@@ -16,11 +16,11 @@ class SearchFilterSheet extends StatefulWidget {
 }
 
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
-  static const blue = Color(0xFF2563EB);
-  static const ink = Color(0xFF0F172A);
-  static const surface = Color(0xFFF4F6FA);
-  static const border = Color(0xFFE5E7EB);
-  static const fontFamily = 'Inter';
+  static const blue = Color(0xFF315F52);
+  static const ink = Color(0xFF1F342D);
+  static const surface = Color(0xFFF7F5EE);
+  static const border = Color(0xFFD9DDD2);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -286,7 +286,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         backgroundColor: surface,
                         foregroundColor: ink,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         elevation: 0,
                       ),
@@ -313,7 +313,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                         backgroundColor: blue,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         elevation: 0,
                       ),
@@ -431,7 +431,7 @@ class _Handle extends StatelessWidget {
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: const Color(0xFFD1D5DB),
+          color: const Color(0xFFC9D0C5),
           borderRadius: BorderRadius.circular(999),
         ),
       ),

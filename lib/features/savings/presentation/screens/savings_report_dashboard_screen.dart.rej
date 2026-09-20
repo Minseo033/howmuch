@@ -1,0 +1,133 @@
+diff a/lib/features/savings/presentation/screens/savings_report_dashboard_screen.dart b/lib/features/savings/presentation/screens/savings_report_dashboard_screen.dart	(rejected hunks)
+@@ -1,3 +1,4 @@
++import 'package:howmuch/shared/widgets/neighborhood_brand.dart';
+ import 'package:flutter/material.dart';
+ import 'package:howmuch/core/constants/app_sizes.dart';
+ import 'package:go_router/go_router.dart';
+@@ -565,7 +575,7 @@ class _SavingsReportDashboardScreenState
+                           Text(
+                             '$titlePrefix 절약 금액',
+                             style: const TextStyle(
+-                              fontFamily: 'Inter',
++                              fontFamily: 'Noto Sans KR',
+                               fontFamilyFallback: ['Noto Sans KR'],
+                               color: Colors.white,
+                               fontSize: 12,
+@@ -582,7 +592,7 @@ class _SavingsReportDashboardScreenState
+                           Text(
+                             formattedSaved,
+                             style: const TextStyle(
+-                              fontFamily: 'Inter',
++                              fontFamily: 'Noto Sans KR',
+                               fontFamilyFallback: ['Noto Sans KR'],
+                               color: Colors.white,
+                               fontSize: 42,
+@@ -594,7 +604,7 @@ class _SavingsReportDashboardScreenState
+                           const Text(
+                             '원',
+                             style: TextStyle(
+-                              fontFamily: 'Inter',
++                              fontFamily: 'Noto Sans KR',
+                               fontFamilyFallback: ['Noto Sans KR'],
+                               color: Colors.white,
+                               fontSize: 18,
+@@ -622,7 +632,7 @@ class _SavingsReportDashboardScreenState
+                                     : '이번 달 목표가 아직 없어요'
+                               : '$visits회 방문 기록 기준',
+                           style: const TextStyle(
+-                            fontFamily: 'Inter',
++                            fontFamily: 'Noto Sans KR',
+                             fontFamilyFallback: ['Noto Sans KR'],
+                             color: Colors.white,
+                             fontSize: 12,
+@@ -639,7 +649,7 @@ class _SavingsReportDashboardScreenState
+                         ),
+                         decoration: BoxDecoration(
+                           color: Colors.white,
+-                          borderRadius: BorderRadius.circular(16),
++                          borderRadius: BorderRadius.circular(22),
+                         ),
+                         child: Row(
+                           children: [
+@@ -654,9 +664,9 @@ class _SavingsReportDashboardScreenState
+                                   ? '$visits번의 방문 인증으로 계산했어요'
+                                   : '방문 인증을 완료하면 절약액이 기록돼요',
+                               style: const TextStyle(
+-                                fontFamily: 'Inter',
++                                fontFamily: 'Noto Sans KR',
+                                 fontFamilyFallback: ['Noto Sans KR'],
+-                                color: Color(0xFF0F172A),
++                                color: Color(0xFF203D32),
+                                 fontSize: 13,
+                                 fontWeight: FontWeight.w600,
+                               ),
+@@ -679,7 +689,7 @@ class _SavingsReportDashboardScreenState
+                   decoration: BoxDecoration(
+                     color: Colors.white,
+                     borderRadius: BorderRadius.circular(24),
+-                    border: Border.all(color: const Color(0xFFE5E7EB)),
++                    border: Border.all(color: const Color(0xFFE0E2D5)),
+                   ),
+                   child: Column(
+                     children: [
+@@ -689,7 +699,7 @@ class _SavingsReportDashboardScreenState
+                           Text(
+                             chartTitle,
+                             style: const TextStyle(
+-                              fontFamily: 'Inter',
++                              fontFamily: 'Noto Sans KR',
+                               fontFamilyFallback: ['Noto Sans KR'],
+                               color: Color(0xFF0A0A0A),
+                               fontSize: 15,
+@@ -842,15 +852,15 @@ class _SavingsReportDashboardScreenState
+           Container(
+             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+             decoration: BoxDecoration(
+-              color: const Color(0xFFEFF4FF),
++              color: const Color(0xFFEAF0E4),
+               borderRadius: BorderRadius.circular(4),
+             ),
+             child: const Text(
+               '최대',
+               style: TextStyle(
+-                fontFamily: 'Inter',
++                fontFamily: 'Noto Sans KR',
+                 fontFamilyFallback: ['Noto Sans KR'],
+-                color: Color(0xFF2563EB),
++                color: Color(0xFF245846),
+                 fontSize: 10,
+                 fontWeight: FontWeight.bold,
+               ),
+@@ -861,7 +871,7 @@ class _SavingsReportDashboardScreenState
+           width: 32,
+           height: height,
+           decoration: BoxDecoration(
+-            color: isMax ? const Color(0xFF3B82F6) : const Color(0xFFE2E8F0),
++            color: isMax ? const Color(0xFF36755C) : const Color(0xFFE2E8F0),
+             borderRadius: BorderRadius.circular(6),
+           ),
+         ),
+@@ -869,9 +879,9 @@ class _SavingsReportDashboardScreenState
+         Text(
+           label,
+           style: const TextStyle(
+-            fontFamily: 'Inter',
++            fontFamily: 'Noto Sans KR',
+             fontFamilyFallback: ['Noto Sans KR'],
+-            color: Color(0xFF64748B),
++            color: Color(0xFF697369),
+             fontSize: 12,
+             fontWeight: FontWeight.w500,
+           ),
+@@ -880,9 +890,9 @@ class _SavingsReportDashboardScreenState
+         Text(
+           amount,
+           style: TextStyle(
+-            fontFamily: 'Inter',
++            fontFamily: 'Noto Sans KR',
+             fontFamilyFallback: const ['Noto Sans KR'],
+-            color: isMax ? const Color(0xFF2563EB) : const Color(0xFF0F172A),
++            color: isMax ? const Color(0xFF245846) : const Color(0xFF203D32),
+             fontSize: 11,
+             fontWeight: isMax ? FontWeight.bold : FontWeight.w600,
+           ),

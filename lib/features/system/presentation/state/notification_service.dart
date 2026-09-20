@@ -226,11 +226,11 @@ class NotificationApiService {
         label: '문의 답변',
         tabCategory: '전체',
         iconData: Icons.support_agent_outlined,
-        iconColor: Color(0xFF7C3AED),
+        iconColor: Color(0xFF527A6C),
         iconBgColor: Color.fromRGBO(124, 58, 237, 0.09),
         borderColor: Color.fromRGBO(124, 58, 237, 0.2),
         bgColor: Colors.white,
-        categoryColor: Color(0xFF7C3AED),
+        categoryColor: Color(0xFF527A6C),
       );
     }
 
@@ -242,11 +242,11 @@ class NotificationApiService {
         label: '가격 변동',
         tabCategory: '가격 변동',
         iconData: Icons.trending_up_rounded,
-        iconColor: Color(0xFFF97316),
+        iconColor: Color(0xFFA76546),
         iconBgColor: Color.fromRGBO(249, 115, 22, 0.09),
         borderColor: Color.fromRGBO(249, 115, 22, 0.2),
         bgColor: Colors.white,
-        categoryColor: Color(0xFFF97316),
+        categoryColor: Color(0xFFA76546),
       );
     }
     if (type == 'feed_comment') {
@@ -254,11 +254,11 @@ class NotificationApiService {
         label: '새 댓글',
         tabCategory: '전체',
         iconData: Icons.chat_bubble_outline_rounded,
-        iconColor: Color(0xFF2563EB),
+        iconColor: Color(0xFF315F52),
         iconBgColor: Color.fromRGBO(37, 99, 235, 0.09),
-        borderColor: Color(0xFFE5E7EB),
-        bgColor: Color(0xFFFAFBFC),
-        categoryColor: Color(0xFF2563EB),
+        borderColor: Color(0xFFD9DDD2),
+        bgColor: Color(0xFFFBFAF5),
+        categoryColor: Color(0xFF315F52),
       );
     }
     if (rawType == '제보 승인' ||
@@ -271,11 +271,11 @@ class NotificationApiService {
         label: rawType == '제보 반려' || type == 'report_rejected' ? '제보 반려' : '제보',
         tabCategory: '제보',
         iconData: Icons.check_circle_outline_rounded,
-        iconColor: const Color(0xFF10B981),
+        iconColor: const Color(0xFF39705C),
         iconBgColor: const Color.fromRGBO(16, 185, 129, 0.09),
         borderColor: const Color.fromRGBO(16, 185, 129, 0.2),
         bgColor: Colors.white,
-        categoryColor: const Color(0xFF10B981),
+        categoryColor: const Color(0xFF39705C),
       );
     }
     if (rawType == '오늘의 픽' ||
@@ -290,11 +290,11 @@ class NotificationApiService {
         iconData: rawType == '리뷰 반응' || type == 'review_reaction'
             ? Icons.thumb_up_outlined
             : Icons.lightbulb_outline_rounded,
-        iconColor: const Color(0xFF2563EB),
+        iconColor: const Color(0xFF315F52),
         iconBgColor: const Color.fromRGBO(37, 99, 235, 0.09),
-        borderColor: const Color(0xFFE5E7EB),
-        bgColor: const Color(0xFFFAFBFC),
-        categoryColor: const Color(0xFF2563EB),
+        borderColor: const Color(0xFFD9DDD2),
+        bgColor: const Color(0xFFFBFAF5),
+        categoryColor: const Color(0xFF315F52),
       );
     }
 
@@ -314,15 +314,15 @@ class NotificationApiService {
       iconData: isNotice
           ? Icons.campaign_outlined
           : Icons.notifications_none_rounded,
-      iconColor: isGeneral ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+      iconColor: isGeneral ? const Color(0xFF315F52) : const Color(0xFF707A70),
       iconBgColor: isGeneral
           ? const Color.fromRGBO(37, 99, 235, 0.09)
           : const Color.fromRGBO(100, 116, 139, 0.09),
-      borderColor: const Color(0xFFE5E7EB),
-      bgColor: const Color(0xFFFAFBFC),
+      borderColor: const Color(0xFFD9DDD2),
+      bgColor: const Color(0xFFFBFAF5),
       categoryColor: isGeneral
-          ? const Color(0xFF2563EB)
-          : const Color(0xFF64748B),
+          ? const Color(0xFF315F52)
+          : const Color(0xFF707A70),
     );
   }
 

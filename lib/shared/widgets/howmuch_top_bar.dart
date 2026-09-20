@@ -27,9 +27,9 @@ class HowmuchTopBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF7F5EE),
         border: showBorder
-            ? const Border(bottom: BorderSide(color: Color(0xFFE5E7EB)))
+            ? const Border(bottom: BorderSide(color: Color(0xFFD9DDD2)))
             : null,
       ),
       child: Stack(
@@ -45,7 +45,7 @@ class HowmuchTopBar extends StatelessWidget {
                 icon: const Icon(
                   Icons.arrow_back_rounded,
                   size: iconSize,
-                  color: Color(0xFF0F172A),
+                  color: Color(0xFF1F342D),
                 ),
               ),
             ),
@@ -54,8 +54,8 @@ class HowmuchTopBar extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: const Color(0xFF0A0A0A),
-                fontFamily: 'Inter',
+                color: const Color(0xFF1F342D),
+                fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: const [
                   'Noto Sans KR',
                   'Apple SD Gothic Neo',
@@ -65,7 +65,8 @@ class HowmuchTopBar extends StatelessWidget {
                   'sans-serif',
                 ],
                 fontSize: titleFontSize,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -.5,
                 height: 1.5,
               ),
             ),
@@ -81,7 +82,7 @@ class HowmuchTopBar extends StatelessWidget {
                 icon: Icon(
                   trailingIcon,
                   size: iconSize,
-                  color: const Color(0xFF0F172A),
+                  color: const Color(0xFF1F342D),
                 ),
               ),
             ),

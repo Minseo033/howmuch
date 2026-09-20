@@ -336,8 +336,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         menu: '$menu1 $price1원',
         status: '검토 중',
         statusColor: 0xFFF59E0B,
-        statusBg: 0xFFFEF3C7,
-        textColor: 0xFF92400E,
+        statusBg: 0xFFF6EDE4,
+        textColor: 0xFF7A4D30,
         category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         menuPrices: savedMenuPrices,
@@ -484,7 +484,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7F5EE),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -506,7 +506,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF7F5EE),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -609,7 +609,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF4F6FA),
+        backgroundColor: const Color(0xFFF7F5EE),
         child: Stack(
           children: [
             Positioned(
@@ -715,15 +715,15 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 class ReportCreateStyle {
   const ReportCreateStyle._();
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const red = Color(0xFFE53935);
-  static const ink = Color(0xFF0F172A);
-  static const black = Color(0xFF0A0A0A);
-  static const muted = Color(0xFF64748B);
-  static const border = Color(0xFFE5E7EB);
-  static const line = Color(0xFFE2E8F0);
-  static const fontFamily = 'Inter';
+  static const blue = Color(0xFF315F52);
+  static const orange = Color(0xFFA76546);
+  static const red = Color(0xFFA64B4B);
+  static const ink = Color(0xFF1F342D);
+  static const black = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const border = Color(0xFFD9DDD2);
+  static const line = Color(0xFFD9DDD2);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -952,7 +952,7 @@ class _TipBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3EA),
+        color: const Color(0xFFF6EDE4),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Center(
@@ -960,7 +960,7 @@ class _TipBox extends StatelessWidget {
           '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF9A3412),
+            color: Color(0xFF7A4D30),
             fontFamily: ReportCreateStyle.fontFamily,
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
@@ -1301,22 +1301,22 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                           icon: const Icon(Icons.close_rounded, size: 19),
                         ),
                   filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
+                  fillColor: const Color(0xFFF7F5EE),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(
                       color: ReportCreateStyle.border,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(
                       color: ReportCreateStyle.border,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                     borderSide: const BorderSide(
                       color: ReportCreateStyle.blue,
                       width: 1.5,
@@ -1507,9 +1507,9 @@ class _PriceInfoCard extends StatelessWidget {
               label: const Text('메뉴 추가'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: ReportCreateStyle.orange,
-                side: const BorderSide(color: Color(0xFFFFD7BD), width: .909),
+                side: const BorderSide(color: Color(0xFFE7CDAF), width: .909),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 textStyle: const TextStyle(
                   fontFamily: ReportCreateStyle.fontFamily,
@@ -1813,7 +1813,7 @@ class _PhotoUploadBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(
-            color: const Color(0xFFCBD5E1),
+            color: const Color(0xFFD9DDD2),
             width: 1.818,
             style: BorderStyle.solid,
           ),
@@ -1931,8 +1931,8 @@ class _PhotoThumbnailSlot extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: photo == null ? const Color(0xFFF8FAFC) : Colors.white,
-          border: Border.all(color: const Color(0xFFCBD5E1), width: .909),
+          color: photo == null ? const Color(0xFFF7F5EE) : Colors.white,
+          border: Border.all(color: const Color(0xFFD9DDD2), width: .909),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Stack(
@@ -2035,7 +2035,7 @@ class _PhotoThumbnailLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFFFF3EA),
+      color: Color(0xFFF6EDE4),
       child: Center(
         child: SizedBox(
           width: 16,
@@ -2056,7 +2056,7 @@ class _PhotoThumbnailFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFFFF3EA),
+      color: Color(0xFFF6EDE4),
       child: Center(
         child: Icon(
           Icons.camera_alt_outlined,
@@ -2077,7 +2077,7 @@ class _PhotoIconBox extends StatelessWidget {
       width: 43.991,
       height: 43.991,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3EA),
+        color: const Color(0xFFF6EDE4),
         borderRadius: BorderRadius.circular(10),
       ),
       child: const Icon(
@@ -2167,7 +2167,7 @@ class _SubmitFooter extends StatelessWidget {
           shadowColor: const Color(0x4D2563EB),
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
           ),
         ),
         child: isSubmitting
@@ -2198,5 +2198,5 @@ class _SubmitFooter extends StatelessWidget {
 final _cardDecoration = BoxDecoration(
   color: Colors.white,
   border: Border.all(color: ReportCreateStyle.border, width: .909),
-  borderRadius: BorderRadius.circular(16),
+  borderRadius: BorderRadius.circular(22),
 );

@@ -17,7 +17,7 @@ class WithdrawalScreen extends ConsumerStatefulWidget {
   static const muted = AppColors.muted;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -44,6 +44,15 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   bool _asking = false;
   bool _isWithdrawing = false;
 
+  void _leave() {
+    if (_asking || _isWithdrawing) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.accountManagement);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
@@ -53,10 +62,10 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     final contentHeight = 876 + topOffset + footerHeight + 24;
 
     return PopScope(
-      canPop: false,
+      canPop: Navigator.of(context).canPop() && !_asking && !_isWithdrawing,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop && !_asking && !_isWithdrawing) {
-          context.go(AppRoutes.accountManagement);
+          _leave();
         }
       },
       child: FigmaMobileCanvas(
@@ -141,15 +150,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                 ),
               ),
             ),
-            _Header(
-              topOffset: topOffset,
-              title: '회원 탈퇴',
-              onBack: () {
-                if (!_asking && !_isWithdrawing) {
-                  context.go(AppRoutes.accountManagement);
-                }
-              },
-            ),
+            _Header(topOffset: topOffset, title: '회원 탈퇴', onBack: _leave),
             Positioned(
               left: 0,
               bottom: 0,
@@ -157,11 +158,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
               height: footerHeight,
               child: _StickyActions(
                 safeBottom: bottomOffset,
-                onCancel: () {
-                  if (!_asking && !_isWithdrawing) {
-                    context.go(AppRoutes.accountManagement);
-                  }
-                },
+                onCancel: _leave,
                 onWithdraw: _withdraw,
               ),
             ),
@@ -271,6 +268,8 @@ class _Header extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -315,7 +314,7 @@ class _WarningCard extends StatelessWidget {
           color: AppColors.error.withValues(alpha: .2),
           width: .909,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Stack(
         children: [
@@ -554,7 +553,7 @@ class _ConsentCard extends StatelessWidget {
       color: AppColors.transparent,
       child: InkWell(
         key: const ValueKey('withdrawal-consent'),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onTap,
         child: Ink(
           decoration: BoxDecoration(
@@ -563,7 +562,7 @@ class _ConsentCard extends StatelessWidget {
               color: AppColors.error.withValues(alpha: .2),
               width: .909,
             ),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
           ),
           child: Stack(
             children: [
@@ -821,7 +820,7 @@ class _RoundedPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         border: Border.all(color: WithdrawalScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: child,
     );

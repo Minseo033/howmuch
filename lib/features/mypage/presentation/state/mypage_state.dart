@@ -360,29 +360,29 @@ class UserReportStatus {
   ) {
     if (status.contains('승인')) {
       return (
-        statusColor: 0xFF10B981,
-        statusBg: 0xFFE8F8F1,
-        textColor: 0xFF047857,
+        statusColor: 0xFF39705C,
+        statusBg: 0xFFE7F0E8,
+        textColor: 0xFF39705C,
       );
     }
     if (status.contains('보완')) {
       return (
-        statusColor: 0xFFF97316,
-        statusBg: 0xFFFEF3C7,
-        textColor: 0xFF92400E,
+        statusColor: 0xFFA76546,
+        statusBg: 0xFFF6EDE4,
+        textColor: 0xFF7A4D30,
       );
     }
     if (status.contains('반려')) {
       return (
-        statusColor: 0xFFEF4444,
-        statusBg: 0xFFFEE2E2,
-        textColor: 0xFF991B1B,
+        statusColor: 0xFFA64B4B,
+        statusBg: 0xFFF8EAEA,
+        textColor: 0xFFA64B4B,
       );
     }
     return (
       statusColor: 0xFFF59E0B,
-      statusBg: 0xFFFEF3C7,
-      textColor: 0xFF92400E,
+      statusBg: 0xFFF6EDE4,
+      textColor: 0xFF7A4D30,
     );
   }
 }
@@ -552,20 +552,20 @@ class FavoriteStoreModel {
       id: storeId.isNotEmpty ? storeId : json['id']?.toString() ?? '',
       category: hasMeta ? industry : '전체',
       iconEmoji: _emojiForStore(industry, storeName ?? ''),
-      iconBgColor: 0xFFDBEAFE,
+      iconBgColor: 0xFFE7EEE7,
       badgeText: hasMeta ? '착한가격업소' : '찜한 매장',
-      badgeColor: 0xFF2563EB,
-      badgeBgColor: 0xFFDBEAFE,
+      badgeColor: 0xFF315F52,
+      badgeBgColor: 0xFFE7EEE7,
       distance: '저장됨',
       storeName: storeName?.isNotEmpty == true ? storeName! : '매장명 없음',
       menu: (menu1 != null && menu1.isNotEmpty)
           ? menu1
           : '상세 정보는 매장 화면에서 확인해 주세요',
       price: _formatPrice(price1),
-      priceColor: 0xFF2563EB,
+      priceColor: 0xFF315F52,
       buttonText: '찜 해제',
-      buttonColor: 0xFFFEE2E2,
-      buttonTextColor: 0xFFDC2626,
+      buttonColor: 0xFFF8EAEA,
+      buttonTextColor: 0xFFA64B4B,
       createdAt: createdAtText == null
           ? null
           : DateTime.tryParse(createdAtText),

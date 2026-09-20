@@ -39,13 +39,13 @@ class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
   final VoidCallback? onSkipPressed;
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const track = Color(0xFFCBD5E1);
-  static const fontFamily = 'Inter';
+  static const blue = Color(0xFF315F52);
+  static const orange = Color(0xFFA76546);
+  static const green = Color(0xFF527A6C);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const track = Color(0xFFD9DDD2);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -143,8 +143,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFF0F9FF), // Very soft light blue at top
-              Color(0xFFFFFFFF), // White at bottom
+              Color(0xFFF7F5EE), // Very soft light blue at top
+              Color(0xFFF7F5EE), // Warm ivory canvas
             ],
           ),
         ),
@@ -199,7 +199,7 @@ class _OnboardingSlideView extends StatelessWidget {
         final bottomGap = safeBottom > 0 ? safeBottom / 2 : 20.0;
         // Keep the artwork fluid on short phones. The previous 240px minimum
         // made the copy and CTA extend below a 320x568 viewport.
-        final fixedHeight = 64 + 34 + 153 + 28 + 6 + 20 + 52 + 30 + bottomGap;
+        final fixedHeight = 64 + 34 + 180 + 28 + 6 + 20 + 52 + 30 + bottomGap;
         final artworkHeight = (constraints.maxHeight - fixedHeight).clamp(
           140.0,
           320.0,
@@ -225,7 +225,7 @@ class _OnboardingSlideView extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 34),
-                  SizedBox(height: 153, child: _SlideCopy(slide: slide)),
+                  SizedBox(height: 180, child: _SlideCopy(slide: slide)),
                   const SizedBox(height: 28),
                   _StepIndicator(step: step, totalSteps: totalSteps),
                   const SizedBox(height: 20),
@@ -306,50 +306,29 @@ class _SlideCopy extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          height: 25,
-          child: Center(child: _Eyebrow(slide: slide)),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 62,
-          child: Center(
-            child: Text(
-              slide.title,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: OnboardingPage.ink,
-                fontFamily: OnboardingPage.fontFamily,
-                fontFamilyFallback: OnboardingPage.fontFallback,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                height: 1.3,
-              ),
-            ),
+        _Eyebrow(slide: slide),
+        const SizedBox(height: 14),
+        Text(
+          slide.title,
+          style: const TextStyle(
+            color: OnboardingPage.ink,
+            fontFamily: OnboardingPage.fontFamily,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            height: 1.4,
+            letterSpacing: -1.2,
           ),
         ),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 42,
-          child: Center(
-            child: Text(
-              slide.description,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: OnboardingPage.muted,
-                fontFamily: OnboardingPage.fontFamily,
-                fontFamilyFallback: OnboardingPage.fontFallback,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.6,
-              ),
-            ),
+        Text(
+          slide.description,
+          style: const TextStyle(
+            color: OnboardingPage.muted,
+            fontFamily: OnboardingPage.fontFamily,
+            fontSize: 13,
+            height: 1.8,
           ),
         ),
       ],
@@ -423,11 +402,11 @@ class _PrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: OnboardingPage.blue,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(22),
       elevation: 8,
       shadowColor: const Color(0x4D2563EB),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         onTap: onPressed,
         child: Center(
           child: Text(
@@ -459,7 +438,7 @@ class _NearbyArtwork extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
+              colors: [Color(0xFFE7EEE7), Color(0xFFE7EEE7)],
             ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
@@ -521,9 +500,9 @@ class _SavingsArtwork extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF059669),
-                  Color(0xFF10B981),
-                  Color(0xFF34D399),
+                  Color(0xFF39705C),
+                  Color(0xFF527A6C),
+                  Color(0xFF39705C),
                 ],
               ),
               borderRadius: BorderRadius.circular(24),
@@ -629,8 +608,8 @@ class _SavingsArtwork extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7EB), width: .9),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: const Color(0xFFD9DDD2), width: .9),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x140F172A),
@@ -659,7 +638,7 @@ class _StoreReportArtwork extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFE8EEF6), Color(0xFFDDE6F0)],
+              colors: [Color(0xFFE7EEE7), Color(0xFFE7EEE7)],
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [
@@ -690,7 +669,7 @@ class _StoreReportArtwork extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x33F97316), width: .9),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x2E0F172A),
@@ -723,7 +702,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   child: Text(
                     '제보 매장',
                     style: TextStyle(
-                      color: Color(0xFF0A0A0A),
+                      color: Color(0xFF1F342D),
                       fontFamily: OnboardingPage.fontFamily,
                       fontFamilyFallback: OnboardingPage.fontFallback,
                       fontSize: 14,
@@ -798,7 +777,7 @@ class _MapLegendPill extends StatelessWidget {
           Text(
             '정부 인증',
             style: TextStyle(
-              color: Color(0xFF0A0A0A),
+              color: Color(0xFF1F342D),
               fontFamily: OnboardingPage.fontFamily,
               fontFamilyFallback: OnboardingPage.fontFallback,
               fontSize: 10,
@@ -812,7 +791,7 @@ class _MapLegendPill extends StatelessWidget {
           Text(
             '사용자 제보',
             style: TextStyle(
-              color: Color(0xFF0A0A0A),
+              color: Color(0xFF1F342D),
               fontFamily: OnboardingPage.fontFamily,
               fontFamilyFallback: OnboardingPage.fontFallback,
               fontSize: 10,
@@ -984,9 +963,9 @@ class _SavingsBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const bars = [
-      (40.0, '1주', Color(0xFFBFDBFE)),
-      (65.0, '2주', Color(0xFFBFDBFE)),
-      (50.0, '3주', Color(0xFFBFDBFE)),
+      (40.0, '1주', Color(0xFFAABF96)),
+      (65.0, '2주', Color(0xFFAABF96)),
+      (50.0, '3주', Color(0xFFAABF96)),
       (80.0, '4주', OnboardingPage.green),
     ];
 
@@ -1048,7 +1027,7 @@ class _ReportBadge extends StatelessWidget {
       height: 20.99431800842285,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3EA),
+        color: const Color(0xFFF6EDE4),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -1082,7 +1061,7 @@ class _FigmaMapPainter extends CustomPainter {
       ..color = Colors.white
       ..strokeWidth = 12
       ..strokeCap = StrokeCap.square;
-    final park = Paint()..color = const Color(0xFFD8F0D7);
+    final park = Paint()..color = const Color(0xFFE7F0E8);
 
     canvas.drawLine(Offset(0, 116), Offset(size.width, 105), road);
     canvas.drawLine(Offset(0, 210), Offset(size.width, 194), road);

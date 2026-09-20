@@ -121,7 +121,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFF7F5EE),
           appBar: const CustomAppBar(
             title: '정보 신고',
             actions: [
@@ -153,7 +153,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                       children: [
                         TextSpan(
                           text: '*',
-                          style: TextStyle(color: Color(0xFFF27E22)),
+                          style: TextStyle(color: Color(0xFFA76546)),
                         ),
                       ],
                     ),
@@ -198,7 +198,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           ),
           bottomNavigationBar: CustomBottomButton(
             text: _isSubmitting ? '접수 중...' : '신고 접수하기',
-            backgroundColor: const Color(0xFFF27E22),
+            backgroundColor: const Color(0xFFA76546),
             onPressed: _isSubmitting ? null : _submit,
           ),
         ),
@@ -210,8 +210,8 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFFBFAF5),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
         children: [
@@ -253,7 +253,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
@@ -280,7 +280,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: selected
-                            ? const Color(0xFF4A68F6)
+                            ? const Color(0xFF527A6C)
                             : Colors.grey.shade400,
                         size: 22,
                       ),
@@ -333,16 +333,16 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           vertical: 16,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF527A6C)),
         ),
       ),
     );
@@ -356,16 +356,16 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
         hintStyle: const TextStyle(color: Colors.grey),
         contentPadding: const EdgeInsets.all(16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: Colors.grey.shade200),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF527A6C)),
         ),
       ),
     );
@@ -375,8 +375,8 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(12),
+        color: const Color(0xFFF6EDE4),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

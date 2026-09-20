@@ -13,13 +13,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PermissionSetupScreen extends ConsumerWidget {
   const PermissionSetupScreen({super.key});
 
-  static const blue = Color(0xFF2563EB);
-  static const orange = Color(0xFFF97316);
-  static const green = Color(0xFF10B981);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const surface = Color(0xFFF4F6FA);
-  static const fontFamily = 'Inter';
+  static const blue = Color(0xFF315F52);
+  static const orange = Color(0xFFA76546);
+  static const green = Color(0xFF527A6C);
+  static const ink = Color(0xFF1F342D);
+  static const muted = Color(0xFF707A70);
+  static const surface = Color(0xFFF7F5EE);
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -46,7 +46,7 @@ class PermissionSetupScreen extends ConsumerWidget {
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
+                bottom: BorderSide(color: Color(0xFFD9DDD2), width: .909),
               ),
             ),
             child: Row(
@@ -125,7 +125,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.location_on_outlined,
                             iconColor: blue,
-                            iconBackground: Color(0xFFEFF4FF),
+                            iconBackground: Color(0xFFE7EEE7),
                             title: '위치 권한 (필수)',
                             description: '현재 위치 주변의 착한가격업소를 보여드려요.',
                             status: '앱 시작 시 요청',
@@ -135,7 +135,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.notifications_none_rounded,
                             iconColor: orange,
-                            iconBackground: Color(0xFFFFF3EA),
+                            iconBackground: Color(0xFFF6EDE4),
                             title: '알림 권한',
                             description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
                             status: '앱 시작 시 요청',
@@ -145,7 +145,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.photo_camera_outlined,
                             iconColor: muted,
-                            iconBackground: Color(0xFFF1F5F9),
+                            iconBackground: Color(0xFFF0F0E9),
                             title: '사진 접근',
                             description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
                             status: '나중에',
@@ -259,7 +259,7 @@ class _PermissionHeroIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Color(0xFFEFF4FF),
+        color: Color(0xFFE7EEE7),
         shape: BoxShape.circle,
       ),
       child: const Icon(
@@ -301,8 +301,8 @@ class _PermissionCard extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFD9DDD2), width: .909),
       ),
       child: Row(
         children: [
@@ -311,7 +311,7 @@ class _PermissionCard extends StatelessWidget {
             height: 47.99715805053711,
             decoration: BoxDecoration(
               color: iconBackground,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Icon(icon, color: iconColor, size: 22),
           ),
@@ -357,8 +357,8 @@ class _PermissionCard extends StatelessWidget {
             height: 30.468748092651367,
             decoration: BoxDecoration(
               color: allowed
-                  ? const Color(0xFFE8F8F1)
-                  : const Color(0xFFF1F5F9),
+                  ? const Color(0xFFE7F0E8)
+                  : const Color(0xFFF0F0E9),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(

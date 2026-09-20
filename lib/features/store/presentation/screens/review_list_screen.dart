@@ -250,7 +250,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: Colors.grey.shade100),
       ),
       child: Column(

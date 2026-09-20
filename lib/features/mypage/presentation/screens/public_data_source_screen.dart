@@ -15,7 +15,7 @@ class PublicDataSourceScreen extends StatelessWidget {
   static const muted = AppColors.muted;
   static const surface = AppColors.surface;
   static const border = AppColors.border;
-  static const fontFamily = 'Inter';
+  static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
     'Apple SD Gothic Neo',
@@ -84,28 +84,28 @@ class PublicDataSourceScreen extends StatelessWidget {
                         child: const Column(
                           children: [
                             _SourceCard(
-                              icon: Icons.verified_user_outlined,
+                              icon: Icons.account_balance_rounded,
                               color: PublicDataSourceScreen.blue,
                               title: '행정안전부 착한가격업소',
                               subtitle: '인증 매장 · 가격 정보',
                             ),
                             SizedBox(height: 7.997),
                             _SourceCard(
-                              icon: Icons.price_check_rounded,
+                              icon: Icons.receipt_long_rounded,
                               color: PublicDataSourceScreen.green,
                               title: '한국소비자원 참가격',
                               subtitle: '지역별 외식비 · 개인서비스요금',
                             ),
                             SizedBox(height: 7.997),
                             _SourceCard(
-                              icon: Icons.auto_awesome_rounded,
+                              icon: Icons.cloud_outlined,
                               color: PublicDataSourceScreen.orange,
                               title: '기상청 날씨 API',
                               subtitle: '오늘의 픽 추천에 활용',
                             ),
                             SizedBox(height: 7.997),
                             _SourceCard(
-                              icon: Icons.place_outlined,
+                              icon: Icons.map_outlined,
                               color: PublicDataSourceScreen.muted,
                               title: '지도 API',
                               subtitle: '위치 표시 및 길찾기',
@@ -201,6 +201,8 @@ class _Header extends StatelessWidget {
               child: Material(
                 color: AppColors.transparent,
                 child: InkWell(
+                  customBorder: const CircleBorder(),
+                  hoverColor: AppColors.primaryLight,
                   onTap: onBack,
                   child: const Padding(
                     padding: EdgeInsets.only(left: 20),
@@ -245,7 +247,7 @@ class _IntroCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.primaryLight,
         border: Border.all(color: AppColors.primaryAlpha, width: .909),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Stack(
         children: [
@@ -262,7 +264,7 @@ class _IntroCard extends StatelessWidget {
               ),
               alignment: Alignment.center,
               child: const Icon(
-                Icons.verified_user_outlined,
+                Icons.dataset_outlined,
                 size: 18,
                 color: PublicDataSourceScreen.blue,
               ),
@@ -325,7 +327,7 @@ class _SourceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.white,
           border: Border.all(color: PublicDataSourceScreen.border, width: .909),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Stack(
           children: [
@@ -346,7 +348,7 @@ class _SourceCard extends StatelessWidget {
             Positioned(
               left: 68.8778076171875,
               top: 16.40087890625,
-              width: 225.69601440429688,
+              right: 16,
               height: 40,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,15 +357,6 @@ class _SourceCard extends StatelessWidget {
                   const SizedBox(height: .994),
                   Text(subtitle, style: _captionText),
                 ],
-              ),
-            ),
-            const Positioned(
-              right: 14.9005126953125,
-              top: 28.89208984375,
-              child: Icon(
-                Icons.open_in_new_rounded,
-                size: 14,
-                color: PublicDataSourceScreen.muted,
               ),
             ),
           ],
@@ -491,7 +484,7 @@ class _StickyButton extends StatelessWidget {
                 foregroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(22),
                 ),
                 textStyle: const TextStyle(
                   fontFamily: PublicDataSourceScreen.fontFamily,

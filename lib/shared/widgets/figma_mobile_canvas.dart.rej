@@ -1,0 +1,57 @@
+diff a/lib/shared/widgets/figma_mobile_canvas.dart b/lib/shared/widgets/figma_mobile_canvas.dart	(rejected hunks)
+@@ -13,7 +14,7 @@ class FigmaMobileCanvas extends StatelessWidget {
+     super.key,
+     required this.child,
+     this.backgroundColor = Colors.white,
+-    this.outerBackgroundColor = const Color(0xFFF4F6FA),
++    this.outerBackgroundColor = const Color(0xFFF6F4EB),
+   });
+ 
+   /// Design reference width from Figma (375px)
+@@ -129,7 +130,7 @@ class FigmaMobileCanvas extends StatelessWidget {
+     final contentWidth = webContentWidthFor(viewportWidth);
+     final showDesktopFrame = viewportWidth > maxWebWidth;
+ 
+-    return Align(
++    final canvas = Align(
+       alignment: Alignment.topCenter,
+       child: DecoratedBox(
+         decoration: BoxDecoration(
+@@ -161,6 +162,37 @@ class FigmaMobileCanvas extends StatelessWidget {
+         ),
+       ),
+     );
++    return Stack(
++      children: [
++        if (viewportWidth >= 1120)
++          Positioned(
++            left: 0,
++            top: 0,
++            bottom: 0,
++            width: (viewportWidth - contentWidth) / 2,
++            child: const NeighborhoodDesktopEditorial(),
++          ),
++        canvas,
++        if (viewportWidth >= 1120)
++          Positioned(
++            right: 32,
++            bottom: 32,
++            child: IgnorePointer(
++              child: RotatedBox(
++                quarterTurns: 3,
++                child: Text(
++                  'A GOOD DAY STARTS NEARBY',
++                  style: TextStyle(
++                    color: Color(0xFF8A9385),
++                    fontSize: 10,
++                    letterSpacing: 3,
++                  ),
++                ),
++              ),
++            ),
++          ),
++      ],
++    );
+   }
+ 
+   /// Native app layout: scales the 375px design to fill screen width.

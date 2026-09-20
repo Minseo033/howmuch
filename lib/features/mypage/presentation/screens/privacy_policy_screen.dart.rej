@@ -1,0 +1,76 @@
+diff a/lib/features/mypage/presentation/screens/privacy_policy_screen.dart b/lib/features/mypage/presentation/screens/privacy_policy_screen.dart	(rejected hunks)
+@@ -42,7 +42,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
+     final topOffset = safePadding.top;
+     final bottomOffset = safePadding.bottom;
+-    final contentHeight = 1236 + topOffset + bottomOffset;
++    final contentHeight = 1292 + topOffset + bottomOffset;
+ 
+     return FigmaMobileCanvas(
+       backgroundColor: surface,
+@@ -63,13 +63,13 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+                       left: 20,
+                       right: 20,
+                       top: 64.8720703125 + topOffset,
+-                      height: 73.80681610107422,
++                      height: 86,
+                       child: const _PrivacyIntroCard(),
+                     ),
+                     Positioned(
+                       left: 20,
+                       right: 20,
+-                      top: 150.66748046875 + topOffset,
++                      top: 162.66748046875 + topOffset,
+                       height: 253.0113525390625,
+                       child: _TableOfContents(
+                         onItemTap: _scrollToPolicyChapter,
+@@ -78,7 +78,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+                     Positioned(
+                       left: 20,
+                       right: 20,
+-                      top: 415.66748046875 + topOffset,
++                      top: 427.66748046875 + topOffset,
+                       height: 709,
+                       child: const Column(
+                         children: [
+@@ -159,8 +159,8 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+                     Positioned(
+                       left: 20,
+                       right: 20,
+-                      top: 1140.66748046875 + topOffset,
+-                      height: 93.26704406738281,
++                      top: 1152.66748046875 + topOffset,
++                      height: 105.26704406738281,
+                       child: _PrivacyManagerCard(
+                         onInquiry: () => context.go(AppRoutes.inquiry),
+                       ),
+@@ -168,7 +168,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+                     Positioned(
+                       left: 20,
+                       right: 20,
+-                      top: 1249.9287109375 + topOffset,
++                      top: 1273.9287109375 + topOffset,
+                       height: 16.789772033691406,
+                       child: const Center(
+                         child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
+@@ -207,13 +207,13 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
+ 
+   void _scrollToPolicyChapter(int index) {
+     const chapterTops = [
+-      415.66748046875,
+-      564.66748046875,
+-      719.66748046875,
+-      874.66748046875,
+-      874.66748046875,
+-      1012.66748046875,
+-      1012.66748046875,
++      427.66748046875,
++      576.66748046875,
++      731.66748046875,
++      886.66748046875,
++      886.66748046875,
++      1024.66748046875,
++      1024.66748046875,
+     ];
+ 
+     if (!_scrollController.hasClients) {
