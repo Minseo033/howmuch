@@ -58,7 +58,7 @@ class MyReportsApprovedTab extends ConsumerWidget {
             icon: Icons.auto_awesome,
             text: '내 제보가 동네 가격 정보를 더 풍성하게 만들었어요.',
             color: MyReportsV2Screen.green,
-            backgroundColor: Color(0xFFF1FBF5),
+            backgroundColor: Color(0xFFE8F5E9),
             singleLine: true,
           ),
         ),

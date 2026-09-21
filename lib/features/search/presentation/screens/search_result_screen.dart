@@ -32,12 +32,12 @@ class SearchResultScreen extends StatefulWidget {
   final StoreCatalogLoader? storeCatalogLoader;
   final SearchHistoryStore? searchHistoryStore;
 
-  static const blue = Color(0xFF359A6B);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const hint = Color(0xFFAAB3AA);
-  static const surface = Color(0xFFFCFBF7);
-  static const border = Color(0xFFD8E7DB);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const hint = Color(0xFF94A3B8);
+  static const surface = Color(0xFFF4F6FA);
+  static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Inter';
   static const fontFallback = [
     'Noto Sans KR',
@@ -817,7 +817,7 @@ class _SearchHeader extends StatelessWidget {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1FAF4),
+                          color: const Color(0xFFEEF2FF),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: SearchResultScreen.blue,
@@ -947,7 +947,7 @@ class _StoreCard extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF1FAF4),
+                  color: const Color(0xFFEEF2FF),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
@@ -1021,10 +1021,10 @@ class _StoreCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFDDF4E5),
+                              color: const Color(0xFFEFF4FF),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: const Color(0xFFE5F5EA),
+                                color: const Color(0xFFB2DFDB),
                                 width: 0.8,
                               ),
                             ),
@@ -1096,7 +1096,7 @@ class _IndustryChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCFBF7),
+        color: const Color(0xFFF4F6FA),
         border: Border.all(color: SearchResultScreen.border, width: 0.8),
         borderRadius: BorderRadius.circular(6),
       ),
@@ -1396,7 +1396,7 @@ class _EmptyResult extends StatelessWidget {
                 ),
                 child: const Icon(
                   Icons.search_off_rounded,
-                  color: Color(0xFF748078),
+                  color: Color(0xFF64748B),
                   size: 32,
                 ),
               ),

@@ -17,7 +17,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   static const blue = AppColors.primary;
   static const orange = AppColors.orangeTheme;
-  static const hint = Color(0xFFAAB3AA);
+  static const hint = Color(0xFF94A3B8);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -66,7 +66,7 @@ class HowmuchBottomNav extends StatelessWidget {
                     ),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x241F342D),
+                        color: Color(0x240F172A),
                         blurRadius: 20,
                         offset: Offset(0, 8),
                       ),
@@ -179,7 +179,7 @@ class _NavItem extends StatelessWidget {
               boxShadow: active
                   ? const [
                       BoxShadow(
-                        color: Color(0x18315F52),
+                        color: Color(0x182563EB),
                         blurRadius: 10,
                         offset: Offset(0, 4),
                       ),

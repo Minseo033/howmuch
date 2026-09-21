@@ -17,7 +17,7 @@ class FigmaMobileCanvas extends StatelessWidget {
     super.key,
     required this.child,
     this.backgroundColor = Colors.white,
-    this.outerBackgroundColor = const Color(0xFFFCFBF7),
+    this.outerBackgroundColor = const Color(0xFFF4F6FA),
     this.wideWebLayout = false,
   });
 

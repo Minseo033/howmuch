@@ -295,7 +295,7 @@ class _NotificationSettingsScreenState
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF6F7F2),
+                              color: Color(0xFFF1F5F9),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -311,7 +311,7 @@ class _NotificationSettingsScreenState
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF243E35),
+                              color: Color(0xFF0F172A),
                               fontSize: 16,
                             ),
                           ),
@@ -324,7 +324,7 @@ class _NotificationSettingsScreenState
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF748078),
+                              color: Color(0xFF64748B),
                               fontSize: 12,
                             ),
                           ),

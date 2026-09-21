@@ -31,8 +31,8 @@ const _slides = [
   OnboardingSlideData(
     figmaId: '1-1',
     eyebrow: '정부 인증 · 공공데이터',
-    eyebrowColor: Color(0xFF359A6B),
-    eyebrowBackgroundColor: Color(0xFFDDF4E5),
+    eyebrowColor: Color(0xFF2563EB),
+    eyebrowBackgroundColor: Color(0xFFEFF4FF),
     artwork: OnboardingArtwork.nearby,
     title: '내 주변 착한가격업소를 한눈에',
     description: '공공데이터 기반으로 인증된 저렴한 매장을 지도에서 쉽게 찾아보세요.',
@@ -41,8 +41,8 @@ const _slides = [
   OnboardingSlideData(
     figmaId: '1-2',
     eyebrow: '절약 리포트',
-    eyebrowColor: Color(0xFF65B489),
-    eyebrowBackgroundColor: Color(0xFFE5F7EB),
+    eyebrowColor: Color(0xFF10B981),
+    eyebrowBackgroundColor: Color(0xFFE8F8F1),
     artwork: OnboardingArtwork.savings,
     title: '오늘 아낀 금액이 쌓여요',
     description: '공공 가격 데이터와 비교해 얼마나 절약했는지 월별 리포트로 확인할 수 있어요.',
@@ -51,8 +51,8 @@ const _slides = [
   OnboardingSlideData(
     figmaId: '1-3',
     eyebrow: '사용자 제보',
-    eyebrowColor: Color(0xFFC47A53),
-    eyebrowBackgroundColor: Color(0xFFFCF1EA),
+    eyebrowColor: Color(0xFFF97316),
+    eyebrowBackgroundColor: Color(0xFFFFF3EA),
     artwork: OnboardingArtwork.storeReport,
     title: '좋은 가격은 함께 나눠요',
     description: '지도에 없는 동네 가성비 매장을 제보하고, 더 정확한 가격 정보를 만들어보세요.',

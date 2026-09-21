@@ -121,7 +121,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: const Color(0xFFFCFBF7),
+          backgroundColor: const Color(0xFFF4F6FA),
           appBar: const CustomAppBar(
             title: '정보 신고',
             actions: [
@@ -153,7 +153,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                       children: [
                         TextSpan(
                           text: '*',
-                          style: TextStyle(color: Color(0xFFC47A53)),
+                          style: TextStyle(color: Color(0xFFF97316)),
                         ),
                       ],
                     ),
@@ -198,7 +198,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           ),
           bottomNavigationBar: CustomBottomButton(
             text: _isSubmitting ? '접수 중...' : '신고 접수하기',
-            backgroundColor: const Color(0xFFC47A53),
+            backgroundColor: const Color(0xFFF97316),
             onPressed: _isSubmitting ? null : _submit,
           ),
         ),
@@ -210,7 +210,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFBFAF5),
+        color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
@@ -280,7 +280,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                             ? Icons.radio_button_checked
                             : Icons.radio_button_unchecked,
                         color: selected
-                            ? const Color(0xFF65B489)
+                            ? const Color(0xFF4A68F6)
                             : Colors.grey.shade400,
                         size: 22,
                       ),
@@ -342,7 +342,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF65B489)),
+          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
         ),
       ),
     );
@@ -365,7 +365,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF65B489)),
+          borderSide: const BorderSide(color: Color(0xFF4A68F6)),
         ),
       ),
     );
@@ -375,7 +375,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCF1EA),
+        color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(

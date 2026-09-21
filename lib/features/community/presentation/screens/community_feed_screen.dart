@@ -31,16 +31,16 @@ enum _CommunityLocationScope { all, current }
 class CommunityFeedScreen extends StatefulWidget {
   const CommunityFeedScreen({super.key});
 
-  static const blue = Color(0xFF359A6B);
-  static const orange = Color(0xFFC47A53);
-  static const green = Color(0xFF65B489);
+  static const blue = Color(0xFF2563EB);
+  static const orange = Color(0xFFF97316);
+  static const green = Color(0xFF10B981);
   static const amber = Color(0xFFF59E0B);
-  static const ink = Color(0xFF243E35);
-  static const black = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const hint = Color(0xFFAAB3AA);
-  static const border = Color(0xFFD8E7DB);
-  static const commentSurface = Color(0xFFFCFBF7);
+  static const ink = Color(0xFF0F172A);
+  static const black = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const hint = Color(0xFF94A3B8);
+  static const border = Color(0xFFE5E7EB);
+  static const commentSurface = Color(0xFFF4F6FA);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -269,14 +269,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
 
       final Color statusColor = switch (rawStatus.toUpperCase()) {
         'APPROVED' => CommunityFeedScreen.green,
-        'PENDING' => const Color(0xFF925B3C),
+        'PENDING' => const Color(0xFF92400E),
         _ => CommunityFeedScreen.orange,
       };
 
       final Color statusBackground = switch (rawStatus.toUpperCase()) {
-        'APPROVED' => const Color(0xFFE5F7EB),
-        'PENDING' => const Color(0xFFFCF1EA),
-        _ => const Color(0xFFFCF1EA),
+        'APPROVED' => const Color(0xFFE8F8F1),
+        'PENDING' => const Color(0xFFFFF3EA),
+        _ => const Color(0xFFFFF3EA),
       };
 
       final Color? dotColor = rawStatus.toUpperCase() == 'PENDING'
@@ -330,7 +330,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircularProgressIndicator(color: Color(0xFF359A6B)),
+            CircularProgressIndicator(color: Color(0xFF2563EB)),
             SizedBox(height: 12),
             Text(
               '주변 제보를 불러오고 있어요',
@@ -432,7 +432,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     final bottomNavHeight = HowmuchBottomNav.heightFor(safePadding.bottom);
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFFBFAF5),
+      backgroundColor: const Color(0xFFF8F9FA),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compactLandscape = constraints.maxHeight < 400;
@@ -601,9 +601,9 @@ class _LocationChip extends StatelessWidget {
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFDDF4E5),
+              color: const Color(0xFFEFF4FF),
               borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFDDF4E5)),
+              border: Border.all(color: const Color(0xFFEFF4FF)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -882,14 +882,14 @@ class _FilterChip extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? CommunityFeedScreen.blue
-                : const Color(0xFFD8E7DB),
+                : const Color(0xFFE5E7EB),
             width: 1.0,
           ),
           borderRadius: BorderRadius.circular(999),
           boxShadow: selected
               ? [
                   BoxShadow(
-                    color: const Color(0xFF359A6B).withValues(alpha: 0.2),
+                    color: const Color(0xFF2563EB).withValues(alpha: 0.2),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -900,7 +900,7 @@ class _FilterChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF53645B),
+            color: selected ? Colors.white : const Color(0xFF374151),
             fontFamily: CommunityFeedScreen.fontFamily,
             fontFamilyFallback: CommunityFeedScreen.fontFallback,
             fontSize: 12.5,
@@ -929,7 +929,7 @@ class _FeedCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFF1FAF4), width: 1.0),
+        border: Border.all(color: const Color(0xFFEEF2FF), width: 1.0),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -966,7 +966,7 @@ class _FeedCard extends StatelessWidget {
                                   vertical: 3.5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF1FAF4),
+                                  color: const Color(0xFFEEF2FF),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -975,7 +975,7 @@ class _FeedCard extends StatelessWidget {
                                     const Icon(
                                       Icons.place_rounded,
                                       size: 11,
-                                      color: Color(0xFF748078),
+                                      color: Color(0xFF64748B),
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
@@ -987,7 +987,7 @@ class _FeedCard extends StatelessWidget {
                                             CommunityFeedScreen.fontFallback,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF748078),
+                                        color: Color(0xFF64748B),
                                       ),
                                     ),
                                   ],
@@ -1001,10 +1001,10 @@ class _FeedCard extends StatelessWidget {
                                     vertical: 3.5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFCF1EA),
+                                    color: const Color(0xFFFFF3EA),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: const Color(0xFFFCF1EA),
+                                      color: const Color(0xFFFFF3EA),
                                     ),
                                   ),
                                   child: const Text(
@@ -1016,7 +1016,7 @@ class _FeedCard extends StatelessWidget {
                                           CommunityFeedScreen.fontFallback,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFFC47A53),
+                                      color: Color(0xFFF97316),
                                     ),
                                   ),
                                 ),
@@ -1028,10 +1028,10 @@ class _FeedCard extends StatelessWidget {
                                     vertical: 3.5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFCF1EA),
+                                    color: const Color(0xFFFFF3EA),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: const Color(0xFFF0D7C3),
+                                      color: const Color(0xFFFDE68A),
                                     ),
                                   ),
                                   child: const Text(
@@ -1043,7 +1043,7 @@ class _FeedCard extends StatelessWidget {
                                           CommunityFeedScreen.fontFallback,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFFB97852),
+                                      color: Color(0xFFC2410C),
                                     ),
                                   ),
                                 ),
@@ -1065,7 +1065,7 @@ class _FeedCard extends StatelessWidget {
                                   CommunityFeedScreen.fontFallback,
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF243E35),
+                              color: Color(0xFF0F172A),
                               letterSpacing: -0.3,
                               height: 1.3,
                             ),
@@ -1089,7 +1089,7 @@ class _FeedCard extends StatelessWidget {
                                             CommunityFeedScreen.fontFallback,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: Color(0xFF53645B),
+                                        color: Color(0xFF374151),
                                       ),
                                     ),
                                   ),
@@ -1102,7 +1102,7 @@ class _FeedCard extends StatelessWidget {
                                     child: Text(
                                       '·',
                                       style: TextStyle(
-                                        color: Color(0xFFC9DDCE),
+                                        color: Color(0xFFD1D5DB),
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -1117,7 +1117,7 @@ class _FeedCard extends StatelessWidget {
                                           CommunityFeedScreen.fontFallback,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF359A6B),
+                                      color: Color(0xFF2563EB),
                                       letterSpacing: -0.2,
                                     ),
                                   ),
@@ -1136,7 +1136,7 @@ class _FeedCard extends StatelessWidget {
                                       CommunityFeedScreen.fontFallback,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF748078),
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                               if (item.relativeTime.isNotEmpty) ...[
@@ -1144,7 +1144,7 @@ class _FeedCard extends StatelessWidget {
                                 const Text(
                                   '·',
                                   style: TextStyle(
-                                    color: Color(0xFFC9DDCE),
+                                    color: Color(0xFFD1D5DB),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -1156,7 +1156,7 @@ class _FeedCard extends StatelessWidget {
                                     fontFamilyFallback:
                                         CommunityFeedScreen.fontFallback,
                                     fontSize: 12,
-                                    color: Color(0xFFAAB3AA),
+                                    color: Color(0xFF94A3B8),
                                   ),
                                 ),
                               ],
@@ -1185,12 +1185,12 @@ class _FeedCard extends StatelessWidget {
                                 width: 84,
                                 height: 84,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF1FAF4),
+                                  color: const Color(0xFFEEF2FF),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                                 child: const Icon(
                                   Icons.storefront_rounded,
-                                  color: Color(0xFFAAB3AA),
+                                  color: Color(0xFF94A3B8),
                                   size: 28,
                                 ),
                               ),
@@ -1248,8 +1248,8 @@ class _FeedCard extends StatelessWidget {
                             : Icons.favorite_border_rounded,
                         size: 13,
                         color: item.likes > 0
-                            ? const Color(0xFFC05A5A)
-                            : const Color(0xFFAAB3AA),
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFF94A3B8),
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1260,15 +1260,15 @@ class _FeedCard extends StatelessWidget {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: item.likes > 0
-                              ? const Color(0xFFC05A5A)
-                              : const Color(0xFF748078),
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF64748B),
                         ),
                       ),
                       const SizedBox(width: 10),
                       const Icon(
                         Icons.chat_bubble_outline_rounded,
                         size: 13,
-                        color: Color(0xFFAAB3AA),
+                        color: Color(0xFF94A3B8),
                       ),
                       const SizedBox(width: 3),
                       Text(
@@ -1278,7 +1278,7 @@ class _FeedCard extends StatelessWidget {
                           fontFamilyFallback: CommunityFeedScreen.fontFallback,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF748078),
+                          color: Color(0xFF64748B),
                         ),
                       ),
                     ],
@@ -1309,14 +1309,14 @@ class _NewReportButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFFC47A53), Color(0xFFC47A53)],
+              colors: [Color(0xFFF97316), Color(0xFFF97316)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFC47A53).withValues(alpha: 0.35),
+                color: const Color(0xFFF97316).withValues(alpha: 0.35),
                 blurRadius: 14,
                 offset: const Offset(0, 4),
               ),

@@ -148,7 +148,7 @@ void _injectRouteMapJs() {
           linePath.push(position);
 
           var label = document.createElement('div');
-          label.style.cssText = 'display:flex;align-items:center;justify-content:center;width:28px;height:28px;box-sizing:border-box;background:#315F52;color:#fffdf8;border:2px solid #fffdf8;border-radius:50%;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(31,52,45,.18);';
+          label.style.cssText = 'display:flex;align-items:center;justify-content:center;width:28px;height:28px;box-sizing:border-box;background:#2563EB;color:#ffffff;border:2px solid #ffffff;border-radius:50%;font-size:12px;font-weight:800;box-shadow:0 2px 8px rgba(31,52,45,.18);';
           label.innerText = point.order;
           var overlay = new kakao.maps.CustomOverlay({
             position: position,
@@ -178,7 +178,7 @@ void _injectRouteMapJs() {
           var polyline = new kakao.maps.Polyline({
             path: linePath,
             strokeWeight: 5,
-            strokeColor: '#315F52',
+            strokeColor: '#2563EB',
             strokeOpacity: 0.82,
             strokeStyle: 'solid'
           });

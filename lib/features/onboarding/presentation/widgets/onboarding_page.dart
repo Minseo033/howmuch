@@ -39,12 +39,12 @@ class OnboardingPage extends StatefulWidget {
   final VoidCallback onComplete;
   final VoidCallback? onSkipPressed;
 
-  static const blue = Color(0xFF359A6B);
-  static const orange = Color(0xFFC47A53);
-  static const green = Color(0xFF65B489);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const track = Color(0xFFD8E7DB);
+  static const blue = Color(0xFF2563EB);
+  static const orange = Color(0xFFF97316);
+  static const green = Color(0xFF10B981);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const track = Color(0xFFE5E7EB);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -143,8 +143,8 @@ class _OnboardingPageState extends State<OnboardingPage> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFFCFBF7), // Very soft light blue at top
-              Color(0xFFFCFBF7), // Warm ivory canvas
+              Color(0xFFF4F6FA), // Very soft light blue at top
+              Color(0xFFF4F6FA), // Warm ivory canvas
             ],
           ),
         ),
@@ -438,7 +438,7 @@ class _NearbyArtwork extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFDDF4E5), Color(0xFFDDF4E5)],
+              colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
             ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
@@ -500,9 +500,9 @@ class _SavingsArtwork extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color(0xFF4D9D75),
-                  Color(0xFF65B489),
-                  Color(0xFF4D9D75),
+                  Color(0xFF047857),
+                  Color(0xFF10B981),
+                  Color(0xFF047857),
                 ],
               ),
               borderRadius: BorderRadius.circular(24),
@@ -594,7 +594,7 @@ class _SavingsArtwork extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(22),
-              border: Border.all(color: const Color(0xFFD8E7DB), width: .9),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: .9),
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x140F172A),
@@ -623,7 +623,7 @@ class _StoreReportArtwork extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFDDF4E5), Color(0xFFDDF4E5)],
+              colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [
@@ -682,7 +682,7 @@ class _StoreReportArtwork extends StatelessWidget {
                   child: Text(
                     '제보 매장',
                     style: TextStyle(
-                      color: Color(0xFF243E35),
+                      color: Color(0xFF0F172A),
                       fontFamily: OnboardingPage.fontFamily,
                       fontFamilyFallback: OnboardingPage.fontFallback,
                       fontSize: 14,
@@ -757,7 +757,7 @@ class _MapLegendPill extends StatelessWidget {
           Text(
             '정부 인증',
             style: TextStyle(
-              color: Color(0xFF243E35),
+              color: Color(0xFF0F172A),
               fontFamily: OnboardingPage.fontFamily,
               fontFamilyFallback: OnboardingPage.fontFallback,
               fontSize: 10,
@@ -771,7 +771,7 @@ class _MapLegendPill extends StatelessWidget {
           Text(
             '사용자 제보',
             style: TextStyle(
-              color: Color(0xFF243E35),
+              color: Color(0xFF0F172A),
               fontFamily: OnboardingPage.fontFamily,
               fontFamilyFallback: OnboardingPage.fontFallback,
               fontSize: 10,
@@ -943,9 +943,9 @@ class _SavingsBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const bars = [
-      (40.0, '1주', Color(0xFFC7DFAA)),
-      (65.0, '2주', Color(0xFFC7DFAA)),
-      (50.0, '3주', Color(0xFFC7DFAA)),
+      (40.0, '1주', Color(0xFFBFDBFE)),
+      (65.0, '2주', Color(0xFFBFDBFE)),
+      (50.0, '3주', Color(0xFFBFDBFE)),
       (80.0, '4주', OnboardingPage.green),
     ];
 
@@ -1007,7 +1007,7 @@ class _ReportBadge extends StatelessWidget {
       height: 20.99431800842285,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCF1EA),
+        color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -1041,7 +1041,7 @@ class _FigmaMapPainter extends CustomPainter {
       ..color = Colors.white
       ..strokeWidth = 12
       ..strokeCap = StrokeCap.square;
-    final park = Paint()..color = const Color(0xFFE5F7EB);
+    final park = Paint()..color = const Color(0xFFE8F8F1);
 
     canvas.drawLine(Offset(0, 116), Offset(size.width, 105), road);
     canvas.drawLine(Offset(0, 210), Offset(size.width, 194), road);

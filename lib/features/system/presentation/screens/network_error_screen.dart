@@ -6,10 +6,10 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 class NetworkErrorScreen extends StatelessWidget {
   const NetworkErrorScreen({super.key});
 
-  static const blue = Color(0xFF359A6B);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const surface = Color(0xFFFCFBF7);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const surface = Color(0xFFF4F6FA);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -108,7 +108,7 @@ class _StateIcon extends StatelessWidget {
         color: NetworkErrorScreen.surface,
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, color: Color(0xFF748078), size: size),
+      child: Icon(icon, color: Color(0xFF64748B), size: size),
     );
   }
 }

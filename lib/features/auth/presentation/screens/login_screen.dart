@@ -9,9 +9,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
-  static const blue = Color(0xFF359A6B);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -51,7 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final safeBottom = FigmaMobileCanvas.designSafePaddingOf(context).bottom;
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFFCFBF7),
+      backgroundColor: const Color(0xFFF4F6FA),
       child: !_termsCheckComplete
           ? const Center(
               child: CircularProgressIndicator(color: LoginScreen.blue),
@@ -137,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             onPressed: () =>
                                 context.go(AppRoutes.permissionSetup),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF6F7F2),
+                              backgroundColor: const Color(0xFFF1F5F9),
                               foregroundColor: LoginScreen.ink,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(22),
@@ -255,7 +255,7 @@ class _KakaoMarkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF243E35);
+    final paint = Paint()..color = const Color(0xFF0F172A);
     final bubble = Rect.fromLTWH(1, 2, size.width - 2, size.height * 0.70);
     canvas.drawOval(bubble, paint);
     final tail = Path()
@@ -277,7 +277,7 @@ class _DividerLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: const [
-        Expanded(child: Divider(color: Color(0xFFD8E7DB), height: 1)),
+        Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 11.988636016845703),
           child: Text(
@@ -292,7 +292,7 @@ class _DividerLabel extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(child: Divider(color: Color(0xFFD8E7DB), height: 1)),
+        Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
       ],
     );
   }
@@ -305,7 +305,7 @@ class _LoginNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFDDF4E5),
+        color: const Color(0xFFEFF4FF),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Padding(

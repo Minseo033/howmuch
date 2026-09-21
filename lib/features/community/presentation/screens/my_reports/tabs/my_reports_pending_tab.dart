@@ -24,7 +24,7 @@ class MyReportsPendingTab extends ConsumerWidget {
             icon: Icons.access_time,
             text: '보통 1~3일 안에 검토가 완료돼요.',
             color: MyReportsV2Screen.blue,
-            backgroundColor: Color(0xFFF1FAF4),
+            backgroundColor: Color(0xFFEEF2FF),
           ),
         ),
         ...visibleReports.map((report) {

@@ -5,15 +5,15 @@ import '../../../../core/network/api_client.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 
 abstract class _Colors {
-  static const backgroundDark = Color(0xFFFCFBF7);
-  static const muted = Color(0xFF748078);
-  static const black = Color(0xFF243E35);
-  static const primary = Color(0xFF359A6B);
-  static const primarySubtle = Color(0xFFF1FAF4);
-  static const orangeTheme = Color(0xFFC47A53);
-  static const orangeLight = Color(0xFFFCF1EA);
-  static const success = Color(0xFF4D9D75);
-  static const successSubtle = Color(0xFFF1FBF5);
+  static const backgroundDark = Color(0xFFF4F6FA);
+  static const muted = Color(0xFF64748B);
+  static const black = Color(0xFF0F172A);
+  static const primary = Color(0xFF2563EB);
+  static const primarySubtle = Color(0xFFEEF2FF);
+  static const orangeTheme = Color(0xFFF97316);
+  static const orangeLight = Color(0xFFFFF3EA);
+  static const success = Color(0xFF047857);
+  static const successSubtle = Color(0xFFE8F5E9);
   static const white = Colors.white;
 }
 

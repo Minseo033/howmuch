@@ -251,7 +251,7 @@ void _injectJsBypass() {
             wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
             var bubble = document.createElement('div');
-            var bgColor = item.source === 'USER' ? '#A76546' : '#315F52';
+            var bgColor = item.source === 'USER' ? '#F97316' : '#1D4ED8';
             bubble.style.cssText = [
               'cursor:pointer',
               'background:' + bgColor,
