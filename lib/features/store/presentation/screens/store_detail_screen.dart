@@ -737,13 +737,27 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: AppColors.textLight),
+          SizedBox(
+            width: 16,
+            height: 20,
+            child: Center(
+              child: Icon(icon, size: 16, color: AppColors.textLight),
+            ),
+          ),
           const SizedBox(width: 12),
           SizedBox(
             width: 68,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+            height: 20,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  height: 1.5,
+                  color: AppColors.textMuted,
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -757,6 +771,7 @@ class _InfoRow extends StatelessWidget {
                         value,
                         style: const TextStyle(
                           fontSize: 13,
+                          height: 1.5,
                           color: AppColors.textDark,
                         ),
                       ),
@@ -775,10 +790,15 @@ class _InfoRow extends StatelessWidget {
                   ),
                 ),
                 if (onTap != null)
-                  const Icon(
-                    Icons.copy_outlined,
-                    size: 14,
-                    color: AppColors.borderMedium,
+                  const SizedBox(
+                    height: 20,
+                    child: Center(
+                      child: Icon(
+                        Icons.copy_outlined,
+                        size: 14,
+                        color: AppColors.borderMedium,
+                      ),
+                    ),
                   ),
               ],
             ),
