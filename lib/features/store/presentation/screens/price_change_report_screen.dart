@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -119,7 +120,7 @@ class _PriceChangeReportScreenState
       await reportService.submitReport(report);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+        HowmuchSnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
       );
       context.pop();
     } on ReportServiceException catch (error) {
@@ -145,7 +146,7 @@ class _PriceChangeReportScreenState
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   Future<void> _pickImages() async {

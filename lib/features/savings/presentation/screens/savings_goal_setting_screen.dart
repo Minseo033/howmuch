@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -87,7 +88,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     if (newGoal == null || newGoal <= 0) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('목표 금액을 입력해주세요.')));
+      ).showSnackBar(HowmuchSnackBar(content: Text('목표 금액을 입력해주세요.')));
       return;
     }
     setState(() => _isSaving = true);
@@ -106,7 +107,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       debugPrint('절약 목표 저장 실패: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('목표를 저장하지 못했어요. 다시 시도해주세요.')),
+          HowmuchSnackBar(content: Text('목표를 저장하지 못했어요. 다시 시도해주세요.')),
         );
       }
     } finally {

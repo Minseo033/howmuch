@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -70,7 +71,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (!saved) {
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('프로필 저장에 실패했어요. 다시 시도해주세요.')),
+        HowmuchSnackBar(content: Text('프로필 저장에 실패했어요. 다시 시도해주세요.')),
       );
       return;
     }
@@ -82,7 +83,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     await _closeOrGoToMypage();
-    messenger.showSnackBar(const SnackBar(content: Text('프로필을 저장했어요.')));
+    messenger.showSnackBar(HowmuchSnackBar(content: Text('프로필을 저장했어요.')));
   }
 
   @override
@@ -234,7 +235,7 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..clearSnackBars()
-      ..showSnackBar(const SnackBar(content: Text('프로필 공개 설정은 현재 제공하지 않아요.')));
+      ..showSnackBar(HowmuchSnackBar(content: Text('프로필 공개 설정은 현재 제공하지 않아요.')));
   }
 
   Future<void> _editNickname() async {

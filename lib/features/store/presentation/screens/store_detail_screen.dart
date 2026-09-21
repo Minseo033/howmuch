@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter/services.dart';
@@ -105,8 +106,9 @@ class StoreDetailScreen extends ConsumerWidget {
     );
   }
 
-  void _snack(BuildContext ctx, String msg) =>
-      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text(msg)));
+  void _snack(BuildContext ctx, String msg) => ScaffoldMessenger.of(
+    ctx,
+  ).showSnackBar(HowmuchSnackBar(content: Text(msg)));
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -981,7 +983,7 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
     if (!ApiClient.isAuthenticated) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('로그인이 필요해요.')));
+      ).showSnackBar(HowmuchSnackBar(content: Text('로그인이 필요해요.')));
       return;
     }
     setState(() => _busy = true);
@@ -1000,13 +1002,15 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(wasFavorite ? '찜을 해제했어요.' : '찜한 매장에 추가했어요.')),
+        HowmuchSnackBar(
+          content: Text(wasFavorite ? '찜을 해제했어요.' : '찜한 매장에 추가했어요.'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('찜 처리에 실패했어요. 다시 시도해 주세요.')),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }

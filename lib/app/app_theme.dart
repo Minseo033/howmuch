@@ -148,6 +148,26 @@ class AppTheme {
           side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
+      // Fallback styling for third-party or not-yet-migrated snack bars.
+      // Product code uses HowmuchSnackBar for semantic icons and hierarchy.
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.surfaceOverlay,
+        contentTextStyle: const TextStyle(
+          color: AppColors.textBody,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          height: 1.45,
+        ),
+        behavior: SnackBarBehavior.floating,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.overlay),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        insetPadding: const EdgeInsets.all(AppSpacing.sm),
+        closeIconColor: AppColors.textSecondary,
+        showCloseIcon: true,
+      ),
     );
   }
 }

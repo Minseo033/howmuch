@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -543,7 +544,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
+            HowmuchSnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
           );
         return;
       }
@@ -567,7 +568,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          SnackBar(
+          HowmuchSnackBar(
             content: Text(
               error is NotificationBatchReadException
                   ? error.toString()

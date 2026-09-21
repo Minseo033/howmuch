@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -623,9 +624,9 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
       extra: {'storeId': store.id, 'storeName': store.storeName},
     );
     if (removed == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('${store.storeName} 찜을 해제했어요.')),
+      );
     }
   }
 }

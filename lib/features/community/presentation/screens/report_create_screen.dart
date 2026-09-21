@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -224,7 +225,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   Future<void> _submit() async {

@@ -9,6 +9,7 @@ import 'kakao_web_helper_stub.dart'
     as web_helper;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
@@ -227,8 +228,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (matchingStores.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          HowmuchSnackBar(
             content: Text('지도에 표시할 매장 위치 정보를 찾을 수 없어요.'),
+            aboveNavigation: true,
             duration: Duration(seconds: 2),
           ),
         );

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -104,16 +105,16 @@ class _ReportDeleteConfirmScreenState
 
       context.go(AppRoutes.myReportsV2);
       messenger.showSnackBar(
-        SnackBar(content: Text('${report.store} 제보를 삭제했어요.')),
+        HowmuchSnackBar(content: Text('${report.store} 제보를 삭제했어요.')),
       );
     } on ReportServiceException catch (error) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text(error.message)));
+      messenger.showSnackBar(HowmuchSnackBar(content: Text(error.message)));
       setState(() => _isDeleting = false);
     } catch (_) {
       if (!mounted) return;
       messenger.showSnackBar(
-        const SnackBar(content: Text('제보 삭제 중 오류가 발생했습니다.')),
+        HowmuchSnackBar(content: Text('제보 삭제 중 오류가 발생했습니다.')),
       );
       setState(() => _isDeleting = false);
     }

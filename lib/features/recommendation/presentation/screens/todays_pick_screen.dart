@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -687,7 +688,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 ScaffoldMessenger.of(context)
                                                   ..clearSnackBars()
                                                   ..showSnackBar(
-                                                    const SnackBar(
+                                                    HowmuchSnackBar(
                                                       content: Text(
                                                         '지도에 표시할 매장 위치 정보가 없어요.',
                                                       ),

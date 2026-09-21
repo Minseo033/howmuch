@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -89,7 +90,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('정보 신고가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+        HowmuchSnackBar(content: Text('정보 신고가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
       );
       context.pop();
     } on ReportServiceException catch (error) {
@@ -105,7 +106,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -92,7 +93,7 @@ class TermsOfServiceScreen extends StatelessWidget {
     );
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('서비스 이용약관 링크를 복사했어요.')));
+      ..showSnackBar(HowmuchSnackBar(content: Text('서비스 이용약관 링크를 복사했어요.')));
   }
 
   void _showTermsDetail(BuildContext context, _TermsItem item) {

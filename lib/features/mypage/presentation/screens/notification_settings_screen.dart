@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -491,7 +492,7 @@ class _NotificationSettingsScreenState
                     if (settings.quietHours &&
                         settings.quietStart == settings.quietEnd) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        HowmuchSnackBar(
                           content: Text('방해 금지 시작·종료 시간을 다르게 선택해 주세요.'),
                         ),
                       );
@@ -520,13 +521,14 @@ class _NotificationSettingsScreenState
                           router.go(AppRoutes.mypage);
                         }
                         messenger.showSnackBar(
-                          const SnackBar(content: Text('알림 설정을 저장했어요.')),
+                          HowmuchSnackBar(content: Text('알림 설정을 저장했어요.')),
                         );
                       } else {
                         messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('설정 저장 중 오류가 발생했습니다. 다시 시도해 주세요.'),
-                            backgroundColor: Colors.redAccent,
+                          HowmuchSnackBar.error(
+                            content: const Text(
+                              '설정 저장 중 오류가 발생했습니다. 다시 시도해 주세요.',
+                            ),
                           ),
                         );
                       }
