@@ -34,4 +34,8 @@ void main() {
 
     expect(stores.map((item) => item.storeName), ['저렴', '비쌈', '미상']);
   });
+
+  test('여러 가격이 들어온 공공데이터는 첫 대표 가격만 사용한다', () {
+    expect(SearchFilterPolicy.parsePrice('일반: 10,000원 / 노인: 8,000원'), 10000);
+  });
 }

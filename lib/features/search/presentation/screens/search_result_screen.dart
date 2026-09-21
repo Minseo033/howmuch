@@ -381,7 +381,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   //  가격 포맷
   // ────────────────────────────────────────────────
   String _fmt(String raw) {
-    final n = int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), ''));
+    final n = SearchFilterPolicy.parsePrice(raw);
     if (n == null) return raw;
     return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
   }

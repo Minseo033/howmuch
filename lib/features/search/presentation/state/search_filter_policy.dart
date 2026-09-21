@@ -40,9 +40,8 @@ class SearchFilterPolicy {
   }
 
   static int? parsePrice(String rawPrice) {
-    final digits = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return null;
-    final price = int.tryParse(digits);
+    final match = RegExp(r'\d{1,3}(?:,\d{3})+|\d{3,}').firstMatch(rawPrice);
+    final price = int.tryParse(match?.group(0)?.replaceAll(',', '') ?? '');
     return price != null && price > 0 ? price : null;
   }
 

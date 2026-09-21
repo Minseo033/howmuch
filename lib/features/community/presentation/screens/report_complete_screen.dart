@@ -35,7 +35,7 @@ class ReportCompleteScreen extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
-            physics: const ClampingScrollPhysics(),
+            physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.only(
               top: topOffset,
               bottom: safePadding.bottom + 24,
@@ -443,28 +443,31 @@ class _BottomActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(22),
-      elevation: 0,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(22),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            boxShadow: shadow,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: foregroundColor,
-                fontFamily: ReportCompleteScreen.fontFamily,
-                fontFamilyFallback: ReportCompleteScreen.fontFallback,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
+    return SizedBox(
+      height: 52,
+      child: Material(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(16),
+        elevation: 0,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: shadow,
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: foregroundColor,
+                  fontFamily: ReportCompleteScreen.fontFamily,
+                  fontFamilyFallback: ReportCompleteScreen.fontFallback,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
               ),
             ),
           ),

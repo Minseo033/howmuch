@@ -1107,7 +1107,7 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
           .read(pushNotificationServiceProvider)
           .registerForCurrentSession();
       _busy = false;
-      if (mounted && !registered) _message('알림 권한과 연결 상태를 확인해 주세요.');
+      if (!registered) return;
     }
     if (!mounted) return;
     ref.invalidate(pushAccessProvider);

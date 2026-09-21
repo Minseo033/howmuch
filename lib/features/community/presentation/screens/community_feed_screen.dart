@@ -235,6 +235,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       final String title = data['title']?.toString() ?? '';
       final String author = data['author']?.toString() ?? '알 수 없음';
       final int likes = (data['likes'] as num?)?.toInt() ?? 0;
+      final likedValue = data['likedByMe'] ?? data['liked'];
+      final bool likedByMe =
+          likedValue == true || likedValue?.toString().toLowerCase() == 'true';
       final int comments = (data['comments'] as num?)?.toInt() ?? 0;
       final String rawStatus = data['status']?.toString() ?? 'PENDING';
       final String createdAt = data['createdAt']?.toString() ?? '';
@@ -295,6 +298,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         author: author,
         relativeTime: _formatRelativeTime(createdAt),
         likes: likes,
+        likedByMe: likedByMe,
         comments: comments,
         status: status,
         statusColor: statusColor,
@@ -1209,11 +1213,11 @@ class _FeedCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        item.likes > 0
+                        item.likedByMe
                             ? Icons.favorite_rounded
                             : Icons.favorite_border_rounded,
                         size: 13,
-                        color: item.likes > 0
+                        color: item.likedByMe
                             ? const Color(0xFFEF4444)
                             : const Color(0xFFCBD5E1),
                       ),
@@ -1225,7 +1229,7 @@ class _FeedCard extends StatelessWidget {
                           fontFamilyFallback: CommunityFeedScreen.fontFallback,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: item.likes > 0
+                          color: item.likedByMe
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF64748B),
                         ),
@@ -1323,6 +1327,7 @@ class _FeedItem {
     required this.author,
     required this.relativeTime,
     required this.likes,
+    required this.likedByMe,
     required this.comments,
     required this.status,
     required this.statusColor,
@@ -1342,6 +1347,7 @@ class _FeedItem {
   final String author;
   final String relativeTime;
   final int likes;
+  final bool likedByMe;
   final int comments;
   final String status;
   final Color statusColor;
