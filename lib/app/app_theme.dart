@@ -166,7 +166,9 @@ class AppTheme {
         ),
         insetPadding: const EdgeInsets.all(AppSpacing.sm),
         closeIconColor: AppColors.textSecondary,
-        showCloseIcon: true,
+        // Product snack bars provide their own labeled 44px dismiss control.
+        // Keep the fallback off to avoid a duplicate close button.
+        showCloseIcon: false,
       ),
     );
   }

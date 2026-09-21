@@ -47,6 +47,11 @@ class HowmuchSnackBar extends SnackBar {
          backgroundColor: Colors.transparent,
          elevation: 0,
          behavior: SnackBarBehavior.floating,
+         // The app theme also defines fallback SnackBar chrome. Override it
+         // here so HowmuchSnackBar renders exactly one surface and one close
+         // control instead of nesting both implementations.
+         shape: const RoundedRectangleBorder(),
+         showCloseIcon: false,
          padding: EdgeInsets.zero,
          margin: EdgeInsets.fromLTRB(
            AppSpacing.sm,
@@ -192,6 +197,7 @@ class _HowmuchSnackBarSurface extends StatelessWidget {
           container: true,
           liveRegion: true,
           child: DecoratedBox(
+            key: const ValueKey('howmuch-snack-bar-surface'),
             decoration: BoxDecoration(
               color: AppColors.surfaceOverlay,
               borderRadius: BorderRadius.circular(AppRadii.overlay),

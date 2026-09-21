@@ -33,6 +33,7 @@ void main() {
     expect(find.text('프로필을 저장했어요.'), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
     expect(find.byTooltip('알림 닫기'), findsOneWidget);
+    expect(find.byIcon(Icons.close), findsNothing);
   });
 
   testWidgets('오류 피드백은 긴 메시지와 닫기 동작을 지원한다', (tester) async {
@@ -63,6 +64,30 @@ void main() {
     );
 
     expect(snackBar.margin, const EdgeInsets.fromLTRB(12, 0, 12, 112));
+  });
+
+  testWidgets('좁은 화면에서도 단일 표면이 좌우 안전 여백 안에 표시된다', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final snackBar = HowmuchSnackBar(
+      content: const Text('브라우저 푸시는 지원하지 않아요. 앱의 알림함을 이용해 주세요.'),
+    );
+    expect(snackBar.showCloseIcon, isFalse);
+
+    await tester.pumpWidget(buildHarness(snackBar));
+    await tester.tap(find.text('알림 표시'));
+    await tester.pumpAndSettle();
+
+    final surface = tester.getRect(
+      find.byKey(const ValueKey('howmuch-snack-bar-surface')),
+    );
+    expect(surface.left, greaterThanOrEqualTo(12));
+    expect(surface.right, lessThanOrEqualTo(308));
+    expect(find.byTooltip('알림 닫기'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   test('마이그레이션된 기존 메시지는 문구에 맞는 상태를 선택한다', () {
