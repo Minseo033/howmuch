@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
@@ -215,7 +216,7 @@ class UserReportMenuPrice {
 
   String get displayText {
     if (menu.isEmpty && price.isEmpty) return '';
-    final displayPrice = price.endsWith('원') ? price : '$price원';
+    final displayPrice = formatWon(price);
     if (menu.isEmpty) return displayPrice;
     if (price.isEmpty) return menu;
     return '$menu $displayPrice';
@@ -641,13 +642,7 @@ class FavoriteStoreModel {
     if (digits.isEmpty) return price1;
     final value = int.tryParse(digits);
     if (value == null) return price1;
-    final s = value.toString();
-    final buffer = StringBuffer();
-    for (var i = 0; i < s.length; i++) {
-      if (i > 0 && (s.length - i) % 3 == 0) buffer.write(',');
-      buffer.write(s[i]);
-    }
-    return '$buffer원';
+    return formatWon(value);
   }
 }
 
@@ -868,7 +863,7 @@ class PriceAlertApiService {
               ? '가격 변동 알림'
               : price.isEmpty
               ? menu
-              : '$menu $price${price.endsWith('원') ? '' : '원'}';
+              : '$menu ${formatWon(price)}';
           return PriceAlertStore(
             storeId: json['storeId']?.toString() ?? '',
             storeName: json['storeName']?.toString() ?? '매장명 없음',

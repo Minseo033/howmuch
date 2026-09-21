@@ -21,7 +21,7 @@ class ReviewFormValidator {
 
     final price = int.tryParse(normalized);
     if (price == null || price <= 0 || price > maxPrice) {
-      return '결제 가격은 1원 이상 1,000만원 이하로 입력해주세요.';
+      return '결제 가격은 1원 이상 10,000,000원 이하로 입력해주세요.';
     }
     return null;
   }

@@ -1,3 +1,5 @@
+import 'package:howmuch/core/utils/price_formatter.dart';
+
 Object? recommendationMenuPrice(Map<String, dynamic> pick) {
   final matchedMenu = pick['matchedMenu']?.toString().trim() ?? '';
   if (matchedMenu.isEmpty) return pick['price1'];
@@ -27,12 +29,5 @@ String formatRecommendationPrice(
 }) {
   final price = parseRecommendationPrice(value);
   if (price == null) return unavailable;
-  final digits = price.toString();
-  final buffer = StringBuffer();
-  for (var index = 0; index < digits.length; index++) {
-    if (index > 0 && (digits.length - index) % 3 == 0) buffer.write(',');
-    buffer.write(digits[index]);
-  }
-  buffer.write('원');
-  return buffer.toString();
+  return formatWon(price, fallback: unavailable);
 }

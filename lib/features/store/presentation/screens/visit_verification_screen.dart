@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/utils/latest_request_tracker.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/store/presentation/state/visit_verification_policy.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
@@ -702,7 +703,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                       label: Text(
                         item.price.isEmpty
                             ? item.menu
-                            : '${item.menu} (${item.price}원)',
+                            : '${item.menu} (${formatWon(item.price)})',
                         style: const TextStyle(fontSize: 12),
                       ),
                       backgroundColor: AppColors.primarySubtle,
@@ -745,11 +746,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildQuickPriceChip('+1천원', 1000),
+              _buildQuickPriceChip('+1,000원', 1000),
               const SizedBox(width: 6),
-              _buildQuickPriceChip('+5천원', 5000),
+              _buildQuickPriceChip('+5,000원', 5000),
               const SizedBox(width: 6),
-              _buildQuickPriceChip('+1만원', 10000),
+              _buildQuickPriceChip('+10,000원', 10000),
               const Spacer(),
               if (_priceValue > 0)
                 GestureDetector(

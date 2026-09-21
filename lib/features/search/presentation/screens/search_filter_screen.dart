@@ -35,9 +35,9 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
 
   // ── 최대 가격
   static const _prices = [
-    (label: '5천원 이하', value: 5000),
-    (label: '1만원 이하', value: 10000),
-    (label: '2만원 이하', value: 20000),
+    (label: '5,000원 이하', value: 5000),
+    (label: '10,000원 이하', value: 10000),
+    (label: '20,000원 이하', value: 20000),
   ];
 
   // ── 거리

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/features/search/presentation/state/search_history_store.dart';
@@ -1602,8 +1603,7 @@ class SearchFilter {
   List<String> get activeLabels {
     return [
       ...industries,
-      if (maxPrice != null)
-        maxPrice == 5000 ? '5천원 이하' : '${(maxPrice! ~/ 10000)}만원 이하',
+      if (maxPrice != null) '${formatWon(maxPrice)} 이하',
       if (distance != null && distance!.isNotEmpty) distance!,
       if (sortOrder != null && sortOrder!.isNotEmpty) sortOrder!,
       if (govCertified) '정부 인증',
@@ -1694,9 +1694,7 @@ class SearchFilter {
       newIndustries.remove(label);
     }
     if (maxPrice != null) {
-      final priceLabel = maxPrice == 5000
-          ? '5천원 이하'
-          : '${(maxPrice! ~/ 10000)}만원 이하';
+      final priceLabel = '${formatWon(maxPrice)} 이하';
       if (label == priceLabel) newMaxPrice = null;
     }
     if (label == distance) newDistance = null;

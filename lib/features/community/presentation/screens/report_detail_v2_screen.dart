@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -521,9 +522,7 @@ class _PriceLine extends StatelessWidget {
   List<(String, String)> get _items {
     if (report.menuPrices.isNotEmpty) {
       return report.menuPrices.map((item) {
-        final price = item.price.isEmpty
-            ? ''
-            : (item.price.endsWith('원') ? item.price : '${item.price}원');
+        final price = formatWon(item.price);
         return (item.menu, price);
       }).toList();
     }

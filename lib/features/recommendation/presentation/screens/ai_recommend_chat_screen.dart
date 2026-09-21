@@ -61,7 +61,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   static const _quickPrompts = [
     _QuickPrompt(
       icon: Icons.account_balance_wallet_outlined,
-      label: '만원 이하 점심 추천',
+      label: '10,000원 이하 점심 추천',
     ),
     _QuickPrompt(icon: Icons.umbrella_outlined, label: '비 오는 날 따뜻한 국물'),
     _QuickPrompt(icon: Icons.restaurant_outlined, label: '혼밥하기 좋은 분식'),
