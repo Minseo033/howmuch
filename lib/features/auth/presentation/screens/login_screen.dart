@@ -59,104 +59,117 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           : LayoutBuilder(
               builder: (context, constraints) {
                 final isCompact = constraints.maxHeight < 700;
+                final bottomPadding = safeBottom > 0 ? safeBottom / 2 : 20.0;
 
                 return SingleChildScrollView(
-                  padding: EdgeInsets.only(
-                    bottom: safeBottom > 0 ? safeBottom / 2 : 20,
-                  ),
+                  padding: EdgeInsets.only(bottom: bottomPadding),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 28),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(height: isCompact ? 48 : 120),
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x14203D32),
-                                blurRadius: 20,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.all(8),
-                          child: Image.asset('assets/images/app_logo.png'),
-                        ),
-                        SizedBox(height: isCompact ? 14 : 22),
-                        const Text(
-                          '얼마고?',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: LoginScreen.ink,
-                            fontFamily: LoginScreen.fontFamily,
-                            fontFamilyFallback: LoginScreen.fontFallback,
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800,
-                            height: 1.5,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          '가까운 착한가격업소를 찾고 절약을 기록해보세요.',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: LoginScreen.muted,
-                            fontFamily: LoginScreen.fontFamily,
-                            fontFamilyFallback: LoginScreen.fontFallback,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            height: 1.5,
-                          ),
-                        ),
-                        SizedBox(height: isCompact ? 20 : 36),
-                        Column(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight - bottomPadding,
+                      ),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            _SocialLoginButton(
-                              label: '카카오로 계속하기',
-                              backgroundColor: const Color(0xFFFEE500),
-                              foregroundColor: const Color(0xFF191600),
-                              mark: const _KakaoMark(),
-                              onPressed: () => _loginWithKakao(context),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: isCompact ? 22 : 32),
-                        const SizedBox(height: 16.5, child: _DividerLabel()),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: TextButton(
-                            onPressed: () =>
-                                context.go(AppRoutes.permissionSetup),
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF4F6FA),
-                              foregroundColor: LoginScreen.ink,
-                              shape: RoundedRectangleBorder(
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
                                 borderRadius: BorderRadius.circular(22),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x14203D32),
+                                    blurRadius: 20,
+                                    offset: Offset(0, 8),
+                                  ),
+                                ],
                               ),
-                              textStyle: const TextStyle(
+                              padding: const EdgeInsets.all(8),
+                              child: Image.asset('assets/images/app_logo.png'),
+                            ),
+                            SizedBox(height: isCompact ? 14 : 22),
+                            const Text(
+                              '얼마고?',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: LoginScreen.ink,
                                 fontFamily: LoginScreen.fontFamily,
                                 fontFamilyFallback: LoginScreen.fontFallback,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                                fontSize: 30,
+                                fontWeight: FontWeight.w800,
                                 height: 1.5,
                               ),
                             ),
-                            child: const Text('로그인 없이 둘러보기'),
-                          ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              '가까운 착한가격업소를 찾고 절약을 기록해보세요.',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: LoginScreen.muted,
+                                fontFamily: LoginScreen.fontFamily,
+                                fontFamilyFallback: LoginScreen.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                height: 1.5,
+                              ),
+                            ),
+                            SizedBox(height: isCompact ? 20 : 36),
+                            Column(
+                              children: [
+                                _SocialLoginButton(
+                                  label: '카카오로 계속하기',
+                                  backgroundColor: const Color(0xFFFEE500),
+                                  foregroundColor: const Color(0xFF191600),
+                                  mark: const _KakaoMark(),
+                                  onPressed: () => _loginWithKakao(context),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: isCompact ? 22 : 32),
+                            const SizedBox(
+                              height: 16.5,
+                              child: _DividerLabel(),
+                            ),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: TextButton(
+                                onPressed: () =>
+                                    context.go(AppRoutes.permissionSetup),
+                                style: TextButton.styleFrom(
+                                  backgroundColor: const Color(0xFFF4F6FA),
+                                  foregroundColor: LoginScreen.ink,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(22),
+                                  ),
+                                  textStyle: const TextStyle(
+                                    fontFamily: LoginScreen.fontFamily,
+                                    fontFamilyFallback:
+                                        LoginScreen.fontFallback,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.5,
+                                  ),
+                                ),
+                                child: const Text('로그인 없이 둘러보기'),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            const SizedBox(
+                              height: 56.96,
+                              child: _LoginNotice(),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        const SizedBox(height: 56.96, child: _LoginNotice()),
-                        const SizedBox(height: 16),
-                      ],
+                      ),
                     ),
                   ),
                 );
