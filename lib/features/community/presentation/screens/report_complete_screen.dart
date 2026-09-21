@@ -117,7 +117,7 @@ class ReportCompleteScreen extends StatelessWidget {
                       ],
                       onTap: () => context.go(AppRoutes.home),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 18),
                     _BottomActionButton(
                       label: '내 제보 내역 확인',
                       backgroundColor: const Color(0xFFEEF2FF),
