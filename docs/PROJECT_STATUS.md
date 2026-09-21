@@ -2114,4 +2114,5 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **적용 범위**: Flutter 전역 테마와 40여 개 사용자 화면, 공통 상·하단 바, 지도 마커·웹 로딩 화면·PWA 메타 색상, 관리자 화면까지 동일 기준으로 맞췄다. AI 추천의 보라/하늘색 보조 강조와 카카오·네이버 고유 색상은 원래 역할을 유지했다.
 - **회귀 방지**: 핵심 브랜드 토큰을 고정 검증하는 `brand_palette_test.dart`를 추가했다.
 - **검증 상태**: 신규 팔레트 회귀 테스트와 Flutter 전체 328개 테스트가 모두 통과했고 웹 릴리스 빌드도 성공했다. 로컬 정적 분석은 코드 진단이 아니라 Flutter 3.44 분석 서버의 기존 초기화 JSON 파싱 오류로 중단되어 GitHub Actions의 별도 정적 분석 결과로 최종 확인한다.
-- **배포 상태**: 진행 중.
+- **운영 배포**: 기능 커밋 `c50deba`를 통합 브랜치와 `main`에 푸시했다. GitHub Actions 실행 `35554807886`에서 백엔드 테스트, Dart 정적 분석, Flutter 전체 테스트, 브라우저 위치 권한, 웹 릴리스와 iOS 시뮬레이터 빌드가 모두 통과했다. Vercel 프로덕션 배포 `https://howmuch-73pnr89uz-minseo033s-projects.vercel.app`을 운영 주소 `https://howmuch-zeta.vercel.app`에 연결했다.
+- **배포 검증**: 별칭 연결 직후 캐시 전파 시점에 자동 검증이 구버전 `index.html`과 `main.dart.js`를 받아 한 차례 실패했으나, 전파 후 CI가 실제 배포한 아티팩트를 기준으로 공개 파일 10개와 `/`, `/home`, `/login`을 다시 대조해 13/13 SHA-256 일치를 확인했다. 직전 정상 배포 `https://howmuch-pedbv96cy-minseo033s-projects.vercel.app`을 롤백 기준으로 유지한다.
