@@ -151,7 +151,7 @@ void main() {
         expect(stores, hasLength(1));
         expect(stores.single.storeId, 'store_abc123');
         expect(stores.single.storeName, 'test-store');
-        expect(stores.single.menuName, 'kimchi 7000원');
+        expect(stores.single.menuName, 'kimchi 7,000원');
         expect(stores.single.enabled, isFalse);
         expect(settings.notifyOnDrop, isFalse);
         expect(settings.notifyOnNewMenu, isTrue);
