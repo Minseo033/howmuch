@@ -173,6 +173,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Store? _selectedStore;
   bool _isFetching = false;
   String? _pendingBoundsJson;
+  int _boundsRequestGeneration = 0;
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -307,7 +308,33 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Timer? _boundsDebouncer;
+  Timer? _webBoundsRetryTimer;
+  int _webBoundsRetryCount = 0;
   int _suppressMarkerClicksUntil = 0;
+
+  void _onWebMapIdle() {
+    _webBoundsRetryTimer?.cancel();
+    _webBoundsRetryCount = 0;
+    unawaited(_searchInCurrentArea());
+  }
+
+  void _invalidatePendingMapRequest() {
+    _boundsRequestGeneration++;
+    _pendingBoundsJson = null;
+    _webBoundsRetryTimer?.cancel();
+  }
+
+  void _scheduleWebBoundsRetry() {
+    if (!mounted || _webBoundsRetryCount >= 5) return;
+    _webBoundsRetryCount++;
+    _webBoundsRetryTimer?.cancel();
+    _webBoundsRetryTimer = Timer(
+      Duration(milliseconds: 120 * _webBoundsRetryCount),
+      () {
+        if (mounted) unawaited(_searchInCurrentArea());
+      },
+    );
+  }
 
   void _suppressMarkerClicks([
     Duration duration = const Duration(milliseconds: 700),
@@ -348,7 +375,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       web_helper.registerWebCallbacks(
-        _searchInCurrentArea,
+        _onWebMapIdle,
+        _invalidatePendingMapRequest,
         _onMarkerClicked,
         _onMapReady,
         _onMapError,
@@ -399,6 +427,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _compassStream?.cancel();
     _pageController.dispose();
     _boundsDebouncer?.cancel();
+    _webBoundsRetryTimer?.cancel();
     super.dispose();
   }
 
@@ -427,6 +456,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 _fetchAndAddMarkersForMobile(message.message.substring(7));
               }
             });
+          }
+          if (message.message == 'MOVE_START') {
+            _invalidatePendingMapRequest();
           }
           if (message.message.startsWith('CLICK:')) {
             final indexStr = message.message.substring(6);
@@ -531,6 +563,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             boundsTimer = setTimeout(function() {
               requestBounds();
             }, 600);
+          });
+          kakao.maps.event.addListener(map, 'dragstart', function() {
+            Print.postMessage('MOVE_START');
+          });
+          kakao.maps.event.addListener(map, 'zoom_start', function() {
+            Print.postMessage('MOVE_START');
           });
 
           kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
@@ -1184,9 +1222,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       try {
         final String? boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
-        if (boundsJson != null) {
-          _fetchAndAddMarkersWeb(boundsJson);
+        if (boundsJson == null || parseKakaoMapBounds(boundsJson) == null) {
+          _scheduleWebBoundsRetry();
+          return;
         }
+        _webBoundsRetryTimer?.cancel();
+        _webBoundsRetryCount = 0;
+        await _fetchAndAddMarkersWeb(boundsJson);
       } catch (e) {
         debugPrint('웹 범위 검색 에러: $e');
       }
@@ -1205,15 +1247,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
     if (!mounted || parseKakaoMapBounds(boundsJson) == null) return;
+    _boundsRequestGeneration++;
     _pendingBoundsJson = boundsJson;
     if (_isFetching) return;
     _isFetching = true;
     try {
       while (mounted && _pendingBoundsJson != null) {
+        final requestGeneration = _boundsRequestGeneration;
         final bounds = parseKakaoMapBounds(_pendingBoundsJson!)!;
         _pendingBoundsJson = null;
-        final markerList = await _fetchStoresFromBackend(bounds);
+        final markerList = await _fetchStoresFromBackend(
+          bounds,
+          isCurrent: () => requestGeneration == _boundsRequestGeneration,
+        );
         if (!mounted) return;
+        if (requestGeneration != _boundsRequestGeneration) continue;
         if (kIsWeb) {
           web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
         } else if (_webViewController != null) {
@@ -1227,8 +1275,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
-    Map<String, double> bounds,
-  ) async {
+    Map<String, double> bounds, {
+    required bool Function() isCurrent,
+  }) async {
     final minLat = bounds['minLat']!;
     final maxLat = bounds['maxLat']!;
     final minLng = bounds['minLng']!;
@@ -1239,6 +1288,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         bounds: bounds,
         cachedStores: _allStores,
       );
+      if (!mounted || !isCurrent()) return const [];
       final fetchedStores = loadResult.stores;
 
       if (mounted) {

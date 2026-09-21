@@ -3,6 +3,7 @@ void initKakaoWebMap(String viewId) {}
 String? getKakaoMapBoundsWeb(String viewId) => null;
 void registerWebCallbacks(
   void Function() onIdle,
+  void Function() onMoveStart,
   void Function(int) onClick,
   void Function() onMapReady,
   void Function(String) onMapError,

@@ -14,11 +14,13 @@ external void _addMobileMarkers(JSString viewId, JSString jsonString);
 
 void registerWebCallbacks(
   void Function() onIdle,
+  void Function() onMoveStart,
   void Function(int) onClick,
   void Function() onMapReady,
   void Function(String) onMapError,
 ) {
   globalContext.setProperty('onKakaoMapIdle'.toJS, onIdle.toJS);
+  globalContext.setProperty('onKakaoMapMoveStart'.toJS, onMoveStart.toJS);
   globalContext.setProperty('onKakaoMarkerClick'.toJS, onClick.toJS);
   globalContext.setProperty('onKakaoMapReady'.toJS, onMapReady.toJS);
   globalContext.setProperty(
@@ -139,6 +141,12 @@ void _injectJsBypass() {
             if (window.onKakaoMapIdle) window.onKakaoMapIdle();
           }, 600);
         });
+        kakao.maps.event.addListener(map, 'dragstart', function() {
+          if (window.onKakaoMapMoveStart) window.onKakaoMapMoveStart();
+        });
+        kakao.maps.event.addListener(map, 'zoom_start', function() {
+          if (window.onKakaoMapMoveStart) window.onKakaoMapMoveStart();
+        });
         
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
           if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
@@ -174,17 +182,29 @@ void _injectJsBypass() {
     window.getKakaoMapBounds = function(containerId) {
       var map = window.kakaoMapObjects[containerId];
       if (!map) return null;
-      var bounds = map.getBounds();
-      if (!bounds) return null;
-      var sw = bounds.getSouthWest();
-      var ne = bounds.getNorthEast();
-      if (!sw || !ne) return null;
-      var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
-      if (!values.every(Number.isFinite) ||
-          values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
-          values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
-        return null;
+
+      function readValues() {
+        var bounds = map.getBounds();
+        if (!bounds) return null;
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        if (!sw || !ne) return null;
+        return [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
       }
+
+      function areValid(values) {
+        return values && values.every(Number.isFinite) &&
+          values[0] >= -90 && values[1] <= 90 && values[0] < values[1] &&
+          values[2] >= -180 && values[3] <= 180 && values[2] < values[3];
+      }
+
+      var values = readValues();
+      if (!areValid(values) && typeof map.relayout === 'function') {
+        map.relayout();
+        values = readValues();
+      }
+      if (!areValid(values)) return null;
+
       return JSON.stringify({
         minLat: values[0],
         maxLat: values[1],
