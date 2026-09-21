@@ -204,8 +204,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         distanceMeters: distanceNumber,
         priceValue: parseRecommendationPrice(recommendationMenuPrice(p)),
         badgeText: store.isUserReported ? '사용자 제보' : '착한가격업소',
-        badgeColor: const Color(0xFF359A6B),
-        badgeBg: const Color(0xFFDDF4E5),
+        badgeColor: const Color(0xFF2563EB),
+        badgeBg: const Color(0xFFEFF4FF),
         tags: const ['날씨 기반'],
         theme: backendTheme,
         reason: backendReason,
@@ -248,10 +248,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFFCFBF7),
+      backgroundColor: const Color(0xFFF4F6FA),
       child: Stack(
         children: [
-          Positioned.fill(child: const ColoredBox(color: Color(0xFFFCFBF7))),
+          Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
           Positioned.fill(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -273,7 +273,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               CircularProgressIndicator(
-                                color: Color(0xFF359A6B),
+                                color: Color(0xFF2563EB),
                               ),
                               SizedBox(height: 12),
                               Text(
@@ -281,7 +281,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 style: TextStyle(
                                   fontFamily: 'Noto Sans KR',
                                   fontFamilyFallback: ['Noto Sans KR'],
-                                  color: Color(0xFF748078),
+                                  color: Color(0xFF64748B),
                                   fontSize: 12,
                                 ),
                               ),
@@ -299,12 +299,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                   width: 60,
                                   height: 60,
                                   decoration: const BoxDecoration(
-                                    color: Color(0xFFD8E7DB),
+                                    color: Color(0xFFE5E7EB),
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     Icons.error_outline_rounded,
-                                    color: Color(0xFF748078),
+                                    color: Color(0xFF64748B),
                                     size: 30,
                                   ),
                                 ),
@@ -315,7 +315,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF243E35),
+                                    color: Color(0xFF0F172A),
                                     fontSize: 16,
                                   ),
                                 ),
@@ -326,7 +326,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF748078),
+                                    color: Color(0xFF64748B),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -343,10 +343,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               Geolocator.openAppSettings(),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: const Color(
-                                              0xFF359A6B,
+                                              0xFF2563EB,
                                             ),
                                             side: const BorderSide(
-                                              color: Color(0xFF359A6B),
+                                              color: Color(0xFF2563EB),
                                             ),
                                             shape: RoundedRectangleBorder(
                                               borderRadius:
@@ -371,7 +371,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                         onPressed: _loadTodaysPick,
                                         style: FilledButton.styleFrom(
                                           backgroundColor: const Color(
-                                            0xFF359A6B,
+                                            0xFF2563EB,
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(
@@ -413,8 +413,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                   decoration: BoxDecoration(
                                     gradient: const LinearGradient(
                                       colors: [
-                                        Color(0xFF359A6B),
-                                        Color(0xFF4D9D75),
+                                        Color(0xFF2563EB),
+                                        Color(0xFF2563EB),
                                       ],
                                       begin: Alignment.topLeft,
                                       end: Alignment.bottomRight,
@@ -550,17 +550,17 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                   children: [
                                     _buildFilterChip(
                                       '날씨 기반',
-                                      const Color(0xFF359A6B),
+                                      const Color(0xFF2563EB),
                                     ),
                                     const SizedBox(width: 6),
                                     _buildFilterChip(
                                       '가까운 거리',
-                                      const Color(0xFF65B489),
+                                      const Color(0xFF10B981),
                                     ),
                                     const SizedBox(width: 6),
                                     _buildFilterChip(
                                       '저렴한 가격',
-                                      const Color(0xFFC47A53),
+                                      const Color(0xFFF97316),
                                     ),
                                   ],
                                 ),
@@ -579,12 +579,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                             width: 60,
                                             height: 60,
                                             decoration: const BoxDecoration(
-                                              color: Color(0xFFD8E7DB),
+                                              color: Color(0xFFE5E7EB),
                                               shape: BoxShape.circle,
                                             ),
                                             child: const Icon(
                                               Icons.lightbulb_outline_rounded,
-                                              color: Color(0xFF748078),
+                                              color: Color(0xFF64748B),
                                               size: 28,
                                             ),
                                           ),
@@ -597,7 +597,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 'Noto Sans KR',
                                               ],
                                               fontWeight: FontWeight.bold,
-                                              color: Color(0xFF243E35),
+                                              color: Color(0xFF0F172A),
                                               fontSize: 15,
                                             ),
                                           ),
@@ -610,7 +610,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                               fontFamilyFallback: [
                                                 'Noto Sans KR',
                                               ],
-                                              color: Color(0xFF748078),
+                                              color: Color(0xFF64748B),
                                               fontSize: 12,
                                             ),
                                           ),
@@ -626,14 +626,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     Color indexBg;
                                     Color indexText;
                                     if (idx == 0) {
-                                      indexBg = const Color(0xFFDDF4E5);
-                                      indexText = const Color(0xFF359A6B);
+                                      indexBg = const Color(0xFFEFF4FF);
+                                      indexText = const Color(0xFF2563EB);
                                     } else if (idx == 1) {
-                                      indexBg = const Color(0xFFFCF1EA);
-                                      indexText = const Color(0xFFC47A53);
+                                      indexBg = const Color(0xFFFFF3EA);
+                                      indexText = const Color(0xFFF97316);
                                     } else {
-                                      indexBg = const Color(0xFFE5F7EB);
-                                      indexText = const Color(0xFF65B489);
+                                      indexBg = const Color(0xFFEFF4FF);
+                                      indexText = const Color(0xFF10B981);
                                     }
 
                                     return Padding(
@@ -707,7 +707,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                     BorderRadius.circular(22),
                                                 border: Border.all(
                                                   color: const Color(
-                                                    0xFFD8E7DB,
+                                                    0xFFE5E7EB,
                                                   ),
                                                 ),
                                               ),
@@ -718,7 +718,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 children: [
                                                   Icon(
                                                     Icons.map_outlined,
-                                                    color: Color(0xFF243E35),
+                                                    color: Color(0xFF0F172A),
                                                     size: 16,
                                                   ),
                                                   SizedBox(width: 8),
@@ -730,7 +730,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                       fontFamilyFallback: [
                                                         'Noto Sans KR',
                                                       ],
-                                                      color: Color(0xFF243E35),
+                                                      color: Color(0xFF0F172A),
                                                       fontSize: 13,
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -752,14 +752,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                         child: Container(
                                           height: 48,
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFF359A6B),
+                                            color: const Color(0xFF2563EB),
                                             borderRadius: BorderRadius.circular(
                                               16,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
                                                 color: const Color(
-                                                  0xFF359A6B,
+                                                  0xFF2563EB,
                                                 ).withValues(alpha: 0.3),
                                                 blurRadius: 8,
                                                 offset: const Offset(0, 6),
@@ -825,13 +825,13 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           borderRadius: BorderRadius.circular(30),
           border: isSelected
               ? Border.all(color: baseColor)
-              : Border.all(color: const Color(0xFFD8E7DB)),
+              : Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Row(
           children: [
             Icon(
               Icons.circle,
-              color: isSelected ? baseColor : const Color(0xFFAAB3AA),
+              color: isSelected ? baseColor : const Color(0xFFCBD5E1),
               size: 6,
             ),
             const SizedBox(width: 4),
@@ -840,7 +840,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
               style: TextStyle(
                 fontFamily: 'Noto Sans KR',
                 fontFamilyFallback: const ['Noto Sans KR'],
-                color: isSelected ? baseColor : const Color(0xFF53645B),
+                color: isSelected ? baseColor : const Color(0xFF374151),
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
               ),
@@ -874,7 +874,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFD8E7DB)),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: IntrinsicHeight(
           child: Row(
@@ -896,7 +896,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                         style: TextStyle(
                           fontFamily: 'Noto Sans KR',
                           fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF748078),
+                          color: Color(0xFF64748B),
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
@@ -971,7 +971,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFCF1EA),
+                                    color: const Color(0xFFFFF3EA),
                                     borderRadius: BorderRadius.circular(30),
                                   ),
                                   child: Text(
@@ -979,7 +979,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     style: const TextStyle(
                                       fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFFC47A53),
+                                      color: Color(0xFFF97316),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -995,7 +995,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                           style: const TextStyle(
                             fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF748078),
+                            color: Color(0xFF64748B),
                             fontSize: 11,
                           ),
                         ),
@@ -1009,7 +1009,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                       style: const TextStyle(
                         fontFamily: 'Noto Sans KR',
                         fontFamilyFallback: ['Noto Sans KR'],
-                        color: Color(0xFF243E35),
+                        color: Color(0xFF0F172A),
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1025,7 +1025,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF748078),
+                              color: Color(0xFF64748B),
                               fontSize: 12,
                             ),
                           ),
@@ -1036,7 +1036,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                           style: const TextStyle(
                             fontFamily: 'Noto Sans KR',
                             fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF243E35),
+                            color: Color(0xFF0F172A),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1050,7 +1050,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF6F7F2),
+                        color: const Color(0xFFF4F6FA),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
@@ -1063,7 +1063,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                               style: const TextStyle(
                                 fontFamily: 'Noto Sans KR',
                                 fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF53645B),
+                                color: Color(0xFF374151),
                                 fontSize: 11,
                               ),
                             ),

@@ -17,7 +17,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   static const blue = AppColors.primary;
   static const orange = AppColors.orangeTheme;
-  static const hint = Color(0xFFAAB3AA);
+  static const hint = Color(0xFFCBD5E1);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',

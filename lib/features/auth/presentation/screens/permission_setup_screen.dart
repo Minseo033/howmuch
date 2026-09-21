@@ -13,12 +13,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PermissionSetupScreen extends ConsumerWidget {
   const PermissionSetupScreen({super.key});
 
-  static const blue = Color(0xFF359A6B);
-  static const orange = Color(0xFFC47A53);
-  static const green = Color(0xFF65B489);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const surface = Color(0xFFFCFBF7);
+  static const blue = Color(0xFF2563EB);
+  static const orange = Color(0xFFF97316);
+  static const green = Color(0xFF10B981);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const surface = Color(0xFFF4F6FA);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -46,7 +46,7 @@ class PermissionSetupScreen extends ConsumerWidget {
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(
-                bottom: BorderSide(color: Color(0xFFD8E7DB), width: .909),
+                bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
               ),
             ),
             child: Row(
@@ -125,7 +125,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.location_on_outlined,
                             iconColor: blue,
-                            iconBackground: Color(0xFFDDF4E5),
+                            iconBackground: Color(0xFFEFF4FF),
                             title: '위치 권한 (필수)',
                             description: '현재 위치 주변의 착한가격업소를 보여드려요.',
                             status: '앱 시작 시 요청',
@@ -135,7 +135,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.notifications_none_rounded,
                             iconColor: orange,
-                            iconBackground: Color(0xFFFCF1EA),
+                            iconBackground: Color(0xFFFFF3EA),
                             title: '알림 권한',
                             description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
                             status: '앱 시작 시 요청',
@@ -145,7 +145,7 @@ class PermissionSetupScreen extends ConsumerWidget {
                           _PermissionCard(
                             icon: Icons.photo_camera_outlined,
                             iconColor: muted,
-                            iconBackground: Color(0xFFF6F7F2),
+                            iconBackground: Color(0xFFF4F6FA),
                             title: '사진 접근',
                             description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
                             status: '나중에',
@@ -259,7 +259,7 @@ class _PermissionHeroIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Color(0xFFDDF4E5),
+        color: Color(0xFFEFF4FF),
         shape: BoxShape.circle,
       ),
       child: const Icon(
@@ -302,7 +302,7 @@ class _PermissionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFD8E7DB), width: .909),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
       ),
       child: Row(
         children: [
@@ -357,8 +357,8 @@ class _PermissionCard extends StatelessWidget {
             height: 30.468748092651367,
             decoration: BoxDecoration(
               color: allowed
-                  ? const Color(0xFFE5F7EB)
-                  : const Color(0xFFF6F7F2),
+                  ? const Color(0xFFEFF4FF)
+                  : const Color(0xFFF4F6FA),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(

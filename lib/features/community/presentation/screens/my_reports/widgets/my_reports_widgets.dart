@@ -27,7 +27,7 @@ class TopBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
@@ -73,7 +73,7 @@ class EmptyStateBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Color(0xFFD8E7DB), width: 0.909),
+        border: Border.all(color: Color(0xFFE5E7EB), width: 0.909),
       ),
       child: Column(
         children: [
@@ -81,12 +81,12 @@ class EmptyStateBox extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: const BoxDecoration(
-              color: Color(0xFFFCFBF7),
+              color: Color(0xFFF4F6FA),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.description_outlined,
-              color: Color(0xFFAAB3AA),
+              color: Color(0xFFCBD5E1),
               size: 20,
             ),
           ),
@@ -94,7 +94,7 @@ class EmptyStateBox extends StatelessWidget {
           const Text(
             '검토 중인 제보가 없어요',
             style: TextStyle(
-              color: Color(0xFF243E35),
+              color: Color(0xFF0F172A),
               fontFamily: "Inter",
               fontFamilyFallback: [
                 "Noto Sans KR",
@@ -113,7 +113,7 @@ class EmptyStateBox extends StatelessWidget {
           const Text(
             '새 제보를 등록해보세요',
             style: TextStyle(
-              color: Color(0xFF748078),
+              color: Color(0xFF64748B),
               fontFamily: "Inter",
               fontFamilyFallback: [
                 "Noto Sans KR",
@@ -160,7 +160,7 @@ class ReportCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Color(0xFFD8E7DB), width: .909),
+            border: Border.all(color: Color(0xFFE5E7EB), width: .909),
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -173,7 +173,7 @@ class ReportCard extends StatelessWidget {
                   Text(
                     report.date,
                     style: const TextStyle(
-                      color: Color(0xFF748078),
+                      color: Color(0xFF64748B),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -194,7 +194,7 @@ class ReportCard extends StatelessWidget {
               Text(
                 report.title,
                 style: const TextStyle(
-                  color: Color(0xFF243E35),
+                  color: Color(0xFF0F172A),
                   fontFamily: "Inter",
                   fontFamilyFallback: [
                     "Noto Sans KR",
@@ -216,7 +216,7 @@ class ReportCard extends StatelessWidget {
                   const Text(
                     '대표 메뉴',
                     style: TextStyle(
-                      color: Color(0xFF748078),
+                      color: Color(0xFF64748B),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -234,7 +234,7 @@ class ReportCard extends StatelessWidget {
                   Text(
                     report.menu,
                     style: const TextStyle(
-                      color: Color(0xFF243E35),
+                      color: Color(0xFF0F172A),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
                         "Noto Sans KR",
@@ -263,14 +263,14 @@ class ReportCard extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFCF1EA),
+                    color: const Color(0xFFFFF3EA),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.warning_amber_rounded,
-                        color: Color(0xFFC47A53),
+                        color: Color(0xFFF97316),
                         size: 13,
                       ),
                       const SizedBox(width: 5),
@@ -280,7 +280,7 @@ class ReportCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF925B3C),
+                            color: Color(0xFF92400E),
                             fontFamily: "Inter",
                             fontFamilyFallback: [
                               "Noto Sans KR",
@@ -306,7 +306,7 @@ class ReportCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1FBF5),
+                    color: const Color(0xFFFFF0E6),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -314,7 +314,7 @@ class ReportCard extends StatelessWidget {
                     children: const [
                       Icon(
                         Icons.location_on,
-                        color: Color(0xFF65B489),
+                        color: Color(0xFF10B981),
                         size: 14,
                       ),
                       SizedBox(width: 4),
@@ -325,7 +325,7 @@ class ReportCard extends StatelessWidget {
                             '지도에 사용자 제보 매장으로 표시 중',
                             maxLines: 1,
                             style: TextStyle(
-                              color: Color(0xFF4D9D75),
+                              color: Color(0xFF2563EB),
                               fontFamily: "Inter",
                               fontFamilyFallback: [
                                 "Noto Sans KR",
@@ -356,12 +356,12 @@ class ReportCard extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          side: const BorderSide(color: Color(0xFFD8E7DB)),
+                          side: const BorderSide(color: Color(0xFFE5E7EB)),
                         ),
                         child: const Text(
                           '상세보기',
                           style: TextStyle(
-                            color: Color(0xFF243E35),
+                            color: Color(0xFF0F172A),
                             fontFamily: "Inter",
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -383,7 +383,7 @@ class ReportCard extends StatelessWidget {
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF359A6B),
+                          backgroundColor: const Color(0xFF2563EB),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -534,9 +534,9 @@ class MiniProgressSteps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const items = [
-      StepData('접수 완료', 0, Color(0xFF65B489), true),
-      StepData('정보 확인 중', 1, Color(0xFFC47A53), false),
-      StepData('승인 대기', 2, Color(0xFFD8E7DB), false),
+      StepData('접수 완료', 0, Color(0xFF10B981), true),
+      StepData('정보 확인 중', 1, Color(0xFFF97316), false),
+      StepData('승인 대기', 2, Color(0xFFE5E7EB), false),
     ];
 
     return LayoutBuilder(
@@ -564,8 +564,8 @@ class MiniProgressSteps extends StatelessWidget {
                 height: connectorHeight,
                 child: ColoredBox(
                   color: index < 1
-                      ? const Color(0xFF65B489)
-                      : const Color(0xFFD8E7DB),
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFE5E7EB),
                 ),
               ),
             for (var index = 0; index < items.length; index++)
@@ -609,10 +609,10 @@ class MiniProgressSteps extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: index == 1
-                        ? const Color(0xFFC47A53)
+                        ? const Color(0xFFF97316)
                         : (items[index].done
-                              ? Color(0xFF243E35)
-                              : Color(0xFF748078)),
+                              ? Color(0xFF0F172A)
+                              : Color(0xFF64748B)),
                     fontSize: 9.5,
                     fontWeight: index == 1 ? FontWeight.w700 : FontWeight.w500,
                   ),
@@ -653,7 +653,7 @@ class MyReportData {
     required this.height,
     this.notice,
     this.actionLabel,
-    this.actionColor = const Color(0xFF359A6B),
+    this.actionColor = const Color(0xFF2563EB),
     this.actionIcon = Icons.location_on_outlined,
     this.actionTop = 102.95,
     this.actionWidth = 120.185,
@@ -731,8 +731,8 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
           ? '지도에서 보기'
           : (filter == ReportFilter.needsEdit ? '수정하기' : null),
       actionColor: filter == ReportFilter.needsEdit
-          ? const Color(0xFFC47A53)
-          : const Color(0xFF359A6B),
+          ? const Color(0xFFF97316)
+          : const Color(0xFF2563EB),
       actionIcon: filter == ReportFilter.needsEdit
           ? Icons.edit_outlined
           : Icons.location_on_outlined,

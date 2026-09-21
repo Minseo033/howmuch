@@ -341,20 +341,20 @@ class StoreDetailScreen extends ConsumerWidget {
                                             null)
                                           const _BenefitBadge(
                                             label: '지역화폐',
-                                            color: Color(0xFF359A6B),
-                                            bgColor: Color(0xFFDDF4E5),
+                                            color: Color(0xFF2563EB),
+                                            bgColor: Color(0xFFEFF4FF),
                                           ),
                                         if (store.openingHours!.packingYn)
                                           const _BenefitBadge(
                                             label: '포장 가능',
-                                            color: Color(0xFF4D9D75),
-                                            bgColor: Color(0xFFF1FBF5),
+                                            color: Color(0xFF2563EB),
+                                            bgColor: Color(0xFFFFF0E6),
                                           ),
                                         if (store.openingHours!.parkingYn)
                                           const _BenefitBadge(
                                             label: '주차 가능',
-                                            color: Color(0xFFB97852),
-                                            bgColor: Color(0xFFFCF1EA),
+                                            color: Color(0xFFC2410C),
+                                            bgColor: Color(0xFFFFF3EA),
                                           ),
                                       ],
                                     ),

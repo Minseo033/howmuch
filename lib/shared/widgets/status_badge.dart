@@ -14,12 +14,12 @@ class StatusBadge extends StatelessWidget {
     String text;
 
     if (type == BadgeType.government) {
-      bgColor = const Color(0xFFF1FAF4); // 연한 파란색
-      textColor = const Color(0xFF65B489); // 짙은 파란색
+      bgColor = const Color(0xFFEEF2FF); // 연한 파란색
+      textColor = const Color(0xFF10B981); // 짙은 파란색
       text = '정부 인증';
     } else {
-      bgColor = const Color(0xFFFCF1EA); // 연한 주황색
-      textColor = const Color(0xFFC47A53); // 주황색
+      bgColor = const Color(0xFFFFF3EA); // 연한 주황색
+      textColor = const Color(0xFFF97316); // 주황색
       text = '사용자 제보';
     }
 

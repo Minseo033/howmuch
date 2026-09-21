@@ -13,13 +13,13 @@ class ReportDeleteConfirmScreen extends ConsumerStatefulWidget {
 
   final UserReportStatus? report;
 
-  static const red = Color(0xFFC05A5A);
-  static const redBg = Color(0xFFFCEDEE);
-  static const redInk = Color(0xFFC05A5A);
-  static const ink = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const surface = Color(0xFFFCFBF7);
-  static const border = Color(0xFFD8E7DB);
+  static const red = Color(0xFFEF4444);
+  static const redBg = Color(0xFFFEE2E2);
+  static const redInk = Color(0xFFEF4444);
+  static const ink = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const surface = Color(0xFFF4F6FA);
+  static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -53,7 +53,7 @@ class _ReportDeleteConfirmScreenState
     }
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFFCFBF7),
+      backgroundColor: const Color(0xFFF4F6FA),
       child: Stack(
         children: [
           Positioned(

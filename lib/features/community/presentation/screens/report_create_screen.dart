@@ -337,8 +337,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         menu: '$menu1 $price1원',
         status: '검토 중',
         statusColor: 0xFFF59E0B,
-        statusBg: 0xFFFCF1EA,
-        textColor: 0xFF925B3C,
+        statusBg: 0xFFFFF3EA,
+        textColor: 0xFF92400E,
         category: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         menuPrices: savedMenuPrices,
@@ -486,7 +486,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFFFCFBF7),
+      backgroundColor: const Color(0xFFF4F6FA),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -519,7 +519,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
     return showModalBottomSheet<String>(
       context: context,
-      backgroundColor: const Color(0xFFFCFBF7),
+      backgroundColor: const Color(0xFFF4F6FA),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -632,7 +632,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFFCFBF7),
+        backgroundColor: const Color(0xFFF4F6FA),
         child: Stack(
           children: [
             Positioned(
@@ -738,15 +738,14 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 class ReportCreateStyle {
   const ReportCreateStyle._();
 
-  static const blue = Color(0xFF359A6B);
-  // 필수 입력과 제보 액션은 브랜드 주황색으로 즉시 구분되어야 한다.
+  static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
-  static const red = Color(0xFFC05A5A);
-  static const ink = Color(0xFF243E35);
-  static const black = Color(0xFF243E35);
-  static const muted = Color(0xFF748078);
-  static const border = Color(0xFFD8E7DB);
-  static const line = Color(0xFFD8E7DB);
+  static const red = Color(0xFFEF4444);
+  static const ink = Color(0xFF0F172A);
+  static const black = Color(0xFF0F172A);
+  static const muted = Color(0xFF64748B);
+  static const border = Color(0xFFE5E7EB);
+  static const line = Color(0xFFE5E7EB);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -976,7 +975,7 @@ class _TipBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFCF1EA),
+        color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(14),
       ),
       child: const Center(
@@ -984,7 +983,7 @@ class _TipBox extends StatelessWidget {
           '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF925B3C),
+            color: Color(0xFF92400E),
             fontFamily: ReportCreateStyle.fontFamily,
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
@@ -1331,7 +1330,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                           icon: const Icon(Icons.close_rounded, size: 19),
                         ),
                   filled: true,
-                  fillColor: const Color(0xFFFCFBF7),
+                  fillColor: const Color(0xFFF4F6FA),
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1537,7 +1536,7 @@ class _PriceInfoCard extends StatelessWidget {
               label: const Text('메뉴 추가'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: ReportCreateStyle.orange,
-                side: const BorderSide(color: Color(0xFFF0D7C3), width: .909),
+                side: const BorderSide(color: Color(0xFFFDE68A), width: .909),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -1860,7 +1859,7 @@ class _PhotoUploadBox extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(
-            color: const Color(0xFFD8E7DB),
+            color: const Color(0xFFE5E7EB),
             width: 1.818,
             style: BorderStyle.solid,
           ),
@@ -1978,8 +1977,8 @@ class _PhotoThumbnailSlot extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: photo == null ? const Color(0xFFFCFBF7) : Colors.white,
-          border: Border.all(color: const Color(0xFFD8E7DB), width: .909),
+          color: photo == null ? const Color(0xFFF4F6FA) : Colors.white,
+          border: Border.all(color: const Color(0xFFE5E7EB), width: .909),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Stack(
@@ -2082,7 +2081,7 @@ class _PhotoThumbnailLoading extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFFCF1EA),
+      color: Color(0xFFFFF3EA),
       child: Center(
         child: SizedBox(
           width: 16,
@@ -2103,7 +2102,7 @@ class _PhotoThumbnailFallback extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ColoredBox(
-      color: Color(0xFFFCF1EA),
+      color: Color(0xFFFFF3EA),
       child: Center(
         child: Icon(
           Icons.camera_alt_outlined,
@@ -2124,7 +2123,7 @@ class _PhotoIconBox extends StatelessWidget {
       width: 43.991,
       height: 43.991,
       decoration: BoxDecoration(
-        color: const Color(0xFFFCF1EA),
+        color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(10),
       ),
       child: const Icon(

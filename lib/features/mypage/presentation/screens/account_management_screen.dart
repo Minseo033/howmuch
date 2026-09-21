@@ -133,7 +133,7 @@ class AccountManagementScreen extends ConsumerWidget {
                   left: 20,
                   right: 20,
                   top: 520.09912109375 + topOffset,
-                  height: 115.3125,
+                  height: 99,
                   child: _AccountActionCard(
                     onLogout: () async {
                       await ref.read(kakaoLoginServiceProvider).logout();
@@ -417,17 +417,7 @@ class _AccountActionCard extends StatelessWidget {
                     children: [
                       _DangerIcon(),
                       SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('회원 탈퇴', style: _dangerTitle),
-                            SizedBox(height: 1),
-                            Text('제보·리포트가 모두 삭제돼요', style: _muted105),
-                          ],
-                        ),
-                      ),
+                      Expanded(child: Text('회원 탈퇴', style: _dangerTitle)),
                       Icon(
                         Icons.chevron_right_rounded,
                         size: 18,
@@ -667,17 +657,17 @@ class _DangerIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 35.99431610107422,
-      height: 35.99431610107422,
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
         color: AppColors.errorLight,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       alignment: Alignment.center,
       child: const Icon(
         Icons.delete_outline_rounded,
         color: AccountManagementScreen.red,
-        size: 15,
+        size: 16,
       ),
     );
   }
@@ -761,15 +751,6 @@ const _muted11 = TextStyle(
   fontFamily: AccountManagementScreen.fontFamily,
   fontFamilyFallback: AccountManagementScreen.fontFallback,
   fontSize: 11,
-  fontWeight: FontWeight.w400,
-  height: 1.5,
-);
-
-const _muted105 = TextStyle(
-  color: AccountManagementScreen.muted,
-  fontFamily: AccountManagementScreen.fontFamily,
-  fontFamilyFallback: AccountManagementScreen.fontFallback,
-  fontSize: 10.5,
   fontWeight: FontWeight.w400,
   height: 1.5,
 );

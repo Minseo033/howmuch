@@ -248,7 +248,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFFAFAF6),
+        backgroundColor: const Color(0xFFF9FAFB),
         child: Stack(
           children: [
             Positioned(
@@ -272,7 +272,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
               top: topOffset + 57,
               right: 0,
               height: 1,
-              child: const ColoredBox(color: Color(0xFFF1FAF4)),
+              child: const ColoredBox(color: Color(0xFFEEF2FF)),
             ),
             Positioned(
               left: 0,
@@ -297,7 +297,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                   const Text(
                     '이렇게 물어보세요',
                     style: TextStyle(
-                      color: Color(0xFF748078),
+                      color: Color(0xFF64748B),
                       fontFamily: _AiUi.fontFamily,
                       fontFamilyFallback: _AiUi.fontFallback,
                       fontSize: 12,
@@ -473,7 +473,7 @@ class _OnlineCaption extends StatelessWidget {
           width: 6,
           height: 6,
           decoration: const BoxDecoration(
-            color: Color(0xFF65B489),
+            color: Color(0xFF10B981),
             shape: BoxShape.circle,
           ),
         ),
@@ -481,7 +481,7 @@ class _OnlineCaption extends StatelessWidget {
         const Text(
           '공공데이터 + 내 활동 기반',
           style: TextStyle(
-            color: Color(0xFF748078),
+            color: Color(0xFF64748B),
             fontFamily: _AiUi.fontFamily,
             fontFamilyFallback: _AiUi.fontFallback,
             fontSize: 11,
@@ -506,7 +506,7 @@ class _BotAvatar extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF359A6B), Color(0xFF65B489)],
+          colors: [Color(0xFF2563EB), Color(0xFF10B981)],
         ),
         shape: BoxShape.circle,
       ),
@@ -527,9 +527,9 @@ class _HeroCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(23, 21, 23, 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1FAF4),
+        color: const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: const Color(0xFFF1FAF4)),
+        border: Border.all(color: const Color(0xFFEEF2FF)),
       ),
       child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -538,14 +538,14 @@ class _HeroCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.auto_awesome_rounded,
-                color: Color(0xFF359A6B),
+                color: Color(0xFF2563EB),
                 size: 18,
               ),
               SizedBox(width: 8),
               Text(
                 'AI 추천',
                 style: TextStyle(
-                  color: Color(0xFF359A6B),
+                  color: Color(0xFF2563EB),
                   fontFamily: _AiUi.fontFamily,
                   fontFamilyFallback: _AiUi.fontFallback,
                   fontSize: 14,
@@ -571,7 +571,7 @@ class _HeroCard extends StatelessWidget {
           Text(
             '현재 위치의 실제 매장과 가격을 바탕으로\n합리적인 한 끼를 추천해드려요.',
             style: TextStyle(
-              color: Color(0xFF748078),
+              color: Color(0xFF64748B),
               fontFamily: _AiUi.fontFamily,
               fontFamilyFallback: _AiUi.fontFallback,
               fontSize: 13,
@@ -595,7 +595,7 @@ class _GreetingBubble extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF1FAF4)),
+        border: Border.all(color: const Color(0xFFEEF2FF)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A0F172A),
@@ -640,13 +640,13 @@ class _PromptChip extends StatelessWidget {
           child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFF1FAF4)),
+              border: Border.all(color: const Color(0xFFEEF2FF)),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(prompt.icon, color: const Color(0xFF359A6B), size: 16),
+                Icon(prompt.icon, color: const Color(0xFF2563EB), size: 16),
                 const SizedBox(width: 7),
                 Flexible(
                   child: Text(
@@ -690,7 +690,7 @@ class _Composer extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFF1FAF4))),
+        border: Border(top: BorderSide(color: Color(0xFFEEF2FF))),
         boxShadow: [
           BoxShadow(
             color: Color(0x0A000000),
@@ -705,11 +705,11 @@ class _Composer extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
-              cursorColor: const Color(0xFF359A6B),
+              cursorColor: const Color(0xFF2563EB),
               decoration: InputDecoration(
                 hintText: '메시지를 입력하세요',
                 hintStyle: const TextStyle(
-                  color: Color(0xFFAAB3AA),
+                  color: Color(0xFFCBD5E1),
                   fontFamily: _AiUi.fontFamily,
                   fontFamilyFallback: _AiUi.fontFallback,
                   fontSize: 14,
@@ -723,15 +723,15 @@ class _Composer extends StatelessWidget {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFF1FAF4)),
+                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFF1FAF4)),
+                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFF359A6B)),
+                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
                 ),
               ),
               style: const TextStyle(
@@ -751,9 +751,9 @@ class _Composer extends StatelessWidget {
               onPressed: hasText ? onSend : null,
               style: FilledButton.styleFrom(
                 backgroundColor: hasText
-                    ? const Color(0xFF359A6B)
-                    : const Color(0xFFD8E7DB),
-                disabledBackgroundColor: const Color(0xFFD8E7DB),
+                    ? const Color(0xFF2563EB)
+                    : const Color(0xFFE5E7EB),
+                disabledBackgroundColor: const Color(0xFFE5E7EB),
                 padding: EdgeInsets.zero,
                 shape: const CircleBorder(),
               ),
@@ -784,7 +784,7 @@ class _UserMessageBubble extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF359A6B),
+            color: const Color(0xFF2563EB),
             borderRadius: BorderRadius.circular(18),
             boxShadow: const [
               BoxShadow(
@@ -829,7 +829,7 @@ class _BotMessageBubble extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFF1FAF4)),
+            border: Border.all(color: const Color(0xFFEEF2FF)),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0A0F172A),
@@ -931,18 +931,18 @@ class _MessageActionChip extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0xFFF1FAF4)),
+            border: Border.all(color: const Color(0xFFEEF2FF)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 12, color: const Color(0xFF748078)),
+              Icon(icon, size: 12, color: const Color(0xFF64748B)),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: const TextStyle(
-                  color: Color(0xFF748078),
+                  color: Color(0xFF64748B),
                   fontFamily: _AiUi.fontFamily,
                   fontFamilyFallback: _AiUi.fontFallback,
                   fontSize: 11,
@@ -967,7 +967,7 @@ class _TypingIndicator extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFF1FAF4)),
+        border: Border.all(color: const Color(0xFFEEF2FF)),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
@@ -977,14 +977,14 @@ class _TypingIndicator extends StatelessWidget {
             height: 14,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF359A6B)),
+              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
             ),
           ),
           SizedBox(width: 8),
           Text(
             '고미가 착한가격 매장을 찾고 있어요...',
             style: TextStyle(
-              color: Color(0xFF748078),
+              color: Color(0xFF64748B),
               fontFamily: _AiUi.fontFamily,
               fontFamilyFallback: _AiUi.fontFallback,
               fontSize: 12,
@@ -1009,7 +1009,7 @@ class _QuickPrompt {
 class _AiUi {
   const _AiUi._();
 
-  static const ink = Color(0xFF243E35);
+  static const ink = Color(0xFF0F172A);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',

@@ -9,6 +9,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -196,7 +197,7 @@ class _NotificationSettingsScreenState
                       ),
                       Text(
                         title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: NotificationSettingsScreen.ink,
@@ -285,6 +286,19 @@ class _NotificationSettingsScreenState
                   final unauthorized =
                       err is NotificationSettingsApiException &&
                       err.isUnauthorized;
+                  if (unauthorized) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        top: 48.877838134765625 + topOffset,
+                        bottom: saveFooterHeight,
+                      ),
+                      child: LoginRequiredState(
+                        description: '로그인한 뒤 알림 설정을 변경할 수 있어요.',
+                        actionLabel: '로그인하기',
+                        onAction: () => context.go(AppRoutes.login),
+                      ),
+                    );
+                  }
                   return Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -295,7 +309,7 @@ class _NotificationSettingsScreenState
                             width: 60,
                             height: 60,
                             decoration: const BoxDecoration(
-                              color: Color(0xFFF6F7F2),
+                              color: Color(0xFFF4F6FA),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
@@ -305,26 +319,24 @@ class _NotificationSettingsScreenState
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            unauthorized ? '로그인이 필요해요' : '설정을 불러오지 못했어요',
-                            style: const TextStyle(
+                          const Text(
+                            '설정을 불러오지 못했어요',
+                            style: TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF243E35),
+                              color: Color(0xFF0F172A),
                               fontSize: 16,
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            unauthorized
-                                ? '로그인한 뒤 알림 설정을 변경할 수 있어요.'
-                                : '잠시 후 다시 시도해 주세요.',
+                          const Text(
+                            '잠시 후 다시 시도해 주세요.',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF748078),
+                              color: Color(0xFF64748B),
                               fontSize: 12,
                             ),
                           ),
@@ -611,7 +623,7 @@ class _Header extends StatelessWidget {
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: NotificationSettingsScreen.black,
                     fontFamily: NotificationSettingsScreen.fontFamily,
                     fontFamilyFallback: NotificationSettingsScreen.fontFallback,

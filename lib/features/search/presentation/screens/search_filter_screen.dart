@@ -16,10 +16,10 @@ class SearchFilterSheet extends StatefulWidget {
 }
 
 class _SearchFilterSheetState extends State<SearchFilterSheet> {
-  static const blue = Color(0xFF359A6B);
-  static const ink = Color(0xFF243E35);
-  static const surface = Color(0xFFFCFBF7);
-  static const border = Color(0xFFD8E7DB);
+  static const blue = Color(0xFF2563EB);
+  static const ink = Color(0xFF0F172A);
+  static const surface = Color(0xFFF4F6FA);
+  static const border = Color(0xFFE5E7EB);
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -431,7 +431,7 @@ class _Handle extends StatelessWidget {
         width: 40,
         height: 4,
         decoration: BoxDecoration(
-          color: const Color(0xFFC9DDCE),
+          color: const Color(0xFFD1D5DB),
           borderRadius: BorderRadius.circular(999),
         ),
       ),

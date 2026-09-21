@@ -182,7 +182,7 @@ class _ConnectedSocialAccountsScreenState
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.info_outline_rounded,
