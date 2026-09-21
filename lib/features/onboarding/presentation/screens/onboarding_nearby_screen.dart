@@ -21,7 +21,7 @@ class OnboardingNearbyScreen extends ConsumerWidget {
       },
       onSkipPressed: () {
         ref.read(onboardingCompletedProvider.notifier).state = true;
-        context.go(AppRoutes.permissionSetup);
+        context.go(AppRoutes.authTerms);
       },
     );
   }

@@ -260,74 +260,72 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return ServicePreparationScreen.delayed(onRetry: _retryConnection);
     }
     return FigmaMobileCanvas(
-      child: Scaffold(
-        backgroundColor: AppColors.white, // 바뀐 로고 이미지 배경에 맞춤
-        body: Center(
-          child: AnimatedBuilder(
-            animation: _ctrl,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _fade.value,
-                child: Transform.scale(
-                  scale: _scale.value,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 140,
-                        height: 140,
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(36),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x1A000000),
-                              blurRadius: 30,
-                              offset: Offset(0, 15),
-                            ),
-                          ],
-                          image: const DecorationImage(
-                            image: AssetImage('assets/images/app_logo_ui.png'),
-                            fit: BoxFit.cover,
+      backgroundColor: AppColors.white,
+      child: Center(
+        child: AnimatedBuilder(
+          animation: _ctrl,
+          builder: (context, child) {
+            return Opacity(
+              opacity: _fade.value,
+              child: Transform.scale(
+                scale: _scale.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 140,
+                      height: 140,
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(36),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x1A000000),
+                            blurRadius: 30,
+                            offset: Offset(0, 15),
                           ),
+                        ],
+                        image: const DecorationImage(
+                          image: AssetImage('assets/images/app_logo_ui.png'),
+                          fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        '얼마고?',
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: [
-                            'Apple SD Gothic Neo',
-                            'Noto Sans KR',
-                          ],
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.primary, // 브랜드 블루
-                          letterSpacing: -1,
-                        ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      '얼마고?',
+                      style: TextStyle(
+                        fontFamily: 'Noto Sans KR',
+                        fontFamilyFallback: [
+                          'Apple SD Gothic Neo',
+                          'Noto Sans KR',
+                        ],
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary, // 브랜드 블루
+                        letterSpacing: -1,
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '동네 가성비 매장 지도',
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: [
-                            'Apple SD Gothic Neo',
-                            'Noto Sans KR',
-                          ],
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.muted, // 슬레이트 색상
-                          letterSpacing: -0.5,
-                        ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '동네 가성비 매장 지도',
+                      style: TextStyle(
+                        fontFamily: 'Noto Sans KR',
+                        fontFamilyFallback: [
+                          'Apple SD Gothic Neo',
+                          'Noto Sans KR',
+                        ],
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.muted, // 슬레이트 색상
+                        letterSpacing: -0.5,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          },
         ),
       ),
     );
