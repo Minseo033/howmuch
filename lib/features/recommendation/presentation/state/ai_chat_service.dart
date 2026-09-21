@@ -126,6 +126,7 @@ List<String> buildNearbyStoreIds({
     lat: lat,
     lng: lng,
     limit: limit,
+    balanceDessert: false,
   );
   final picks = (data['picks'] as List).whereType<Map>().toList();
   return picks

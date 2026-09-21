@@ -2767,25 +2767,24 @@ public class FirebaseService {
 
     /** 추천 대상 요식업 업종 (공공데이터의 미용업·이용업·세탁업·숙박업·목욕업·기타비요식업 제외) */
     private static final Set<String> FOOD_INDUSTRIES =
-            Set.of("한식", "중식", "일식", "양식", "기타요식업");
+            Set.of("한식", "중식", "일식", "양식", "기타요식업", "카페", "제과점", "제과업", "휴게음식점");
+
+    private static final List<String> DESSERT_KEYWORDS = List.of(
+            "카페", "커피", "아메리카노", "라떼", "에이드", "주스", "스무디", "녹차", "홍차", "밀크티",
+            "디저트", "베이커리", "제과", "빵", "케이크", "쿠키", "도넛", "꽈배기",
+            "크로플", "와플", "아이스크림", "빙수", "마카롱", "샌드위치");
 
     /** 최종 추천 개수 */
-    private static final int MAX_PICKS = 4;
+    private static final int MAX_PICKS = 3;
 
-   /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 4곳 선정) */
+   /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 최대 3곳 선정) */
    private static final int CANDIDATE_POOL_SIZE = 20;
 
     /**
      * 추천 허용 기본 최대 반경 (미터).
-     * 로컬 도보/대중교통 이동 코스에 20km 이상 원거리 매장이 혼입되는 것을 방지한다.
+     * 가까운 동네 추천에 원거리 매장이 혼입되는 것을 방지한다.
      */
-    public static final double MAX_RECOMMENDATION_RADIUS_METERS = 5000.0;
-
-    /**
-     * 추천 허용 확장 최대 반경 (미터).
-     * 기본 반경 내 매장이 부족할 때 허용하는 절대 상한 반경 (10km).
-     */
-    public static final double MAX_FALLBACK_RADIUS_METERS = 10000.0;
+    public static final double MAX_RECOMMENDATION_RADIUS_METERS = 3000.0;
 
    /**
      * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
@@ -2795,7 +2794,7 @@ public class FirebaseService {
      * @param temp    기온 (섭씨, null 가능)
      * @param lat     사용자 위도 (거리 계산용, null 가능)
      * @param lng     사용자 경도 (거리 계산용, null 가능)
-     * @return 추천 매장 리스트 (최대 4개)
+     * @return 추천 매장 리스트 (최대 3개)
      */
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
         boolean locationAvailable = isValidCoordinate(lat, lng);
@@ -2840,27 +2839,30 @@ public class FirebaseService {
        List<Map<String, Object>> altCandidates = nearestShuffled(
                 altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, MAX_RECOMMENDATION_RADIUS_METERS);
 
-       // 메인 3곳 + 대안 테마 1곳 (대안이 없으면 메인으로 채움)
+       // 날씨 테마 후보를 먼저 유지하되, 3km 안에서 식사 2곳 + 디저트/카페 1곳을
+       // 우선 구성한다. 한쪽이 부족하면 다른 쪽으로만 채우고, 먼 매장까지 범위를
+       // 확장하지 않는다.
+       List<Map<String, Object>> nearbyFood = nearestShuffled(
+               foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE,
+               dailySeed + 2, MAX_RECOMMENDATION_RADIUS_METERS);
+       List<Map<String, Object>> preferred = new ArrayList<>();
+       Set<String> preferredNames = new HashSet<>();
+       addUnique(preferred, mainCandidates, CANDIDATE_POOL_SIZE, preferredNames);
+       addUnique(preferred, altCandidates, CANDIDATE_POOL_SIZE, preferredNames);
+       addUnique(preferred, nearbyFood, CANDIDATE_POOL_SIZE, preferredNames);
+
+       List<Map<String, Object>> mealCandidates = preferred.stream()
+               .filter(store -> !isDessertStore(store))
+               .toList();
+       List<Map<String, Object>> dessertCandidates = preferred.stream()
+               .filter(this::isDessertStore)
+               .toList();
+
        Set<String> seenNames = new HashSet<>();
        List<Map<String, Object>> chosen = new ArrayList<>();
-       addUnique(chosen, mainCandidates, MAIN_PICKS, seenNames);
-       addUnique(chosen, altCandidates, ALT_PICKS, seenNames);
-       if (chosen.size() < MAX_PICKS) {
-           addUnique(chosen, mainCandidates, MAX_PICKS - chosen.size(), seenNames);
-       }
-        if (chosen.size() < MAX_PICKS && locationAvailable) {
-            List<Map<String, Object>> nearbyFood = nearestShuffled(
-                    foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed + 2, MAX_RECOMMENDATION_RADIUS_METERS);
-            addUnique(chosen, nearbyFood, MAX_PICKS - chosen.size(), seenNames);
-        }
-        if (chosen.size() < MAX_PICKS && locationAvailable) {
-            List<Map<String, Object>> extendedFood = nearestShuffled(
-                    foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed + 3, MAX_FALLBACK_RADIUS_METERS);
-            addUnique(chosen, extendedFood, MAX_PICKS - chosen.size(), seenNames);
-        }
-        if (chosen.size() < MAX_PICKS && !locationAvailable) {
-            addUnique(chosen, foodStores, MAX_PICKS - chosen.size(), seenNames);
-        }
+       addUnique(chosen, mealCandidates, Math.min(2, MAX_PICKS), seenNames);
+       addUnique(chosen, dessertCandidates, MAX_PICKS - chosen.size(), seenNames);
+       addUnique(chosen, preferred, MAX_PICKS - chosen.size(), seenNames);
 
        if (locationAvailable) {
            chosen.sort(java.util.Comparator.comparingDouble(
@@ -2910,14 +2912,18 @@ public class FirebaseService {
        return picks;
     }
 
-    /** 메인 테마 추천 개수 (나머지 1개는 대안 테마) */
-    private static final int MAIN_PICKS = 3;
-
-    /** 대안 테마 추천 개수 */
-    private static final int ALT_PICKS = 1;
-
     /** 대안 테마 후보군 크기 */
     private static final int ALT_CANDIDATE_POOL_SIZE = 10;
+
+    private boolean isDessertStore(Map<String, Object> store) {
+        StringBuilder searchable = new StringBuilder();
+        for (String key : new String[]{"industry", "storeName", "menu1", "menu2", "menu3", "menu4"}) {
+            String value = strOrNull(store.get(key));
+            if (value != null) searchable.append(' ').append(value.toLowerCase(java.util.Locale.ROOT));
+        }
+        String text = searchable.toString();
+        return DESSERT_KEYWORDS.stream().anyMatch(text::contains);
+    }
 
     /** 추천 테마 — 라벨(칩 표시용) + 이유 멘트 + 매칭 키워드 */
     private record PickTheme(String label, String reason, List<String> keywords) { }

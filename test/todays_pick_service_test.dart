@@ -116,6 +116,38 @@ void main() {
     expect((picks.first as Map)['storeName'], '가까운 매장');
   });
 
+  test('local fallback limits picks to three and mixes in dessert', () {
+    final data = buildLocalTodaysPickData(
+      stores: [
+        _store('식당 1', 37.5666, 126.9781),
+        _store('식당 2', 37.5667, 126.9782),
+        _store('식당 3', 37.5668, 126.9783),
+        _store('동네 카페', 37.5669, 126.9784, industry: '기타요식업', menu: '아메리카노'),
+      ],
+      lat: 37.5665,
+      lng: 126.978,
+    );
+
+    final picks = (data['picks'] as List).cast<Map<String, dynamic>>();
+    expect(picks, hasLength(3));
+    expect(picks.map((pick) => pick['storeName']), contains('동네 카페'));
+    expect(picks.where((pick) => pick['industry'] == '한식'), hasLength(2));
+  });
+
+  test('local fallback does not fill empty slots with distant stores', () {
+    final data = buildLocalTodaysPickData(
+      stores: [
+        _store('근처 식당', 37.5666, 126.9781),
+        _store('먼 식당', 37.61, 126.978),
+      ],
+      lat: 37.5665,
+      lng: 126.978,
+    );
+
+    final picks = (data['picks'] as List).cast<Map<String, dynamic>>();
+    expect(picks.map((pick) => pick['storeName']), ['근처 식당']);
+  });
+
   test(
     'local fallback never substitutes a default city for missing location',
     () {
@@ -153,7 +185,7 @@ void main() {
     expect(isAiUnavailableResponse('로그인이 필요한 기능입니다.'), isFalse);
   });
 
-  test('AI request context contains only nearby server store IDs', () {
+  test('AI request context excludes stores outside the nearby radius', () {
     final ids = buildNearbyStoreIds(
       stores: [
         _store('먼 매장', 37.58, 127.02),
@@ -163,17 +195,23 @@ void main() {
       lng: 126.978,
     );
 
-    expect(ids, ['가까운 매장', '먼 매장']);
+    expect(ids, ['가까운 매장']);
   });
 }
 
-Store _store(String name, double lat, double lng) => Store(
+Store _store(
+  String name,
+  double lat,
+  double lng, {
+  String industry = '한식',
+  String menu = '비빔밥',
+}) => Store(
   id: name,
   storeName: name,
   address: '서울',
   phoneNumber: '',
-  industry: '한식',
-  menu1: '비빔밥',
+  industry: industry,
+  menu1: menu,
   price1: '7000',
   menu2: '',
   price2: '',

@@ -138,7 +138,7 @@ class FirebaseServiceStoreCoordinatesTest {
     }
 
     @Test
-    void constrainsRecommendationRadiusAndGuaranteesFourthPickReason() {
+    void constrainsRecommendationRadiusAndLimitsPicksToThree() {
         // User is at Seoul City Hall (37.5665, 126.9780)
         // 4 nearby stores within 500m
         var near1 = Map.of("storeName", "근처 국수집", "industry", "한식",
@@ -167,16 +167,68 @@ class FirebaseServiceStoreCoordinatesTest {
         // Far store (29km) cannot enter the local recommendation picks
         assertThat(picks).extracting(p -> p.get("storeName"))
                 .doesNotContain("29km 원거리 파전집")
-                .hasSize(4);
+                .hasSize(3);
 
         // Every pick must have distance <= 5000m, and non-empty theme and reason
         assertThat(picks).allSatisfy(pick -> {
             int dist = (Integer) pick.get("distanceMeters");
-            assertThat(dist).isLessThanOrEqualTo(5000);
+            assertThat(dist).isLessThanOrEqualTo(3000);
             assertThat(pick.get("theme")).isNotNull();
             assertThat(pick.get("theme").toString()).isNotBlank();
             assertThat(pick.get("reason")).isNotNull();
             assertThat(pick.get("reason").toString()).isNotBlank();
         });
+    }
+
+    @Test
+    void balancesMealsWithNearbyDessertAndNeverExpandsPastThreeKilometers() {
+        var meal1 = Map.of("storeName", "가까운 국밥집", "industry", "한식",
+                "menu1", "국밥", "price1", "6000",
+                "latitude", 37.5670, "longitude", 126.9780);
+        var meal2 = Map.of("storeName", "가까운 백반집", "industry", "한식",
+                "menu1", "백반", "price1", "6500",
+                "latitude", 37.5680, "longitude", 126.9780);
+        var meal3 = Map.of("storeName", "가까운 덮밥집", "industry", "한식",
+                "menu1", "덮밥", "price1", "7000",
+                "latitude", 37.5690, "longitude", 126.9780);
+        var dessert = Map.of("storeName", "가까운 카페", "industry", "기타요식업",
+                "menu1", "아메리카노", "price1", "2500",
+                "latitude", 37.5700, "longitude", 126.9780);
+        var tooFarDessert = Map.of("storeName", "4km 밖 카페", "industry", "기타요식업",
+                "menu1", "카페라떼", "price1", "3000",
+                "latitude", 37.6030, "longitude", 126.9780);
+
+        ReflectionTestUtils.setField(service, "cachedStores",
+                List.of(meal1, meal2, meal3, dessert, tooFarDessert));
+
+        List<Map<String, Object>> picks = service.getTodaysPicks(
+                "맑음", 20, 37.5665, 126.9780);
+
+        assertThat(picks).hasSize(3);
+        assertThat(picks).extracting(pick -> pick.get("storeName"))
+                .contains("가까운 카페")
+                .doesNotContain("4km 밖 카페");
+        assertThat(picks.stream().filter(pick ->
+                "가까운 국밥집".equals(pick.get("storeName"))
+                        || "가까운 백반집".equals(pick.get("storeName"))
+                        || "가까운 덮밥집".equals(pick.get("storeName"))).count())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void returnsFewerPicksInsteadOfPullingInDistantStores() {
+        var near = Map.of("storeName", "유일한 근처 식당", "industry", "한식",
+                "menu1", "백반", "price1", "6500",
+                "latitude", 37.5670, "longitude", 126.9780);
+        var far = Map.of("storeName", "멀리 있는 식당", "industry", "한식",
+                "menu1", "백반", "price1", "6500",
+                "latitude", 37.6030, "longitude", 126.9780);
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(near, far));
+
+        List<Map<String, Object>> picks = service.getTodaysPicks(
+                "맑음", 20, 37.5665, 126.9780);
+
+        assertThat(picks).extracting(pick -> pick.get("storeName"))
+                .containsExactly("유일한 근처 식당");
     }
 }

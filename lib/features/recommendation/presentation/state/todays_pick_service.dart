@@ -15,6 +15,8 @@ final todaysPickServiceProvider = Provider(
   (ref) => TodaysPickService(ref.watch(todaysPickHttpClientProvider)),
 );
 
+const todaysPickMaxDistanceMeters = 3000.0;
+
 class TodaysPickService {
   TodaysPickService([
     http.Client? client,
@@ -114,7 +116,9 @@ Map<String, dynamic> buildLocalTodaysPickData({
   required List<Store> stores,
   double? lat,
   double? lng,
-  int limit = 5,
+  int limit = 3,
+  double maxDistanceMeters = todaysPickMaxDistanceMeters,
+  bool balanceDessert = true,
 }) {
   if (lat == null || lng == null) {
     return const {
@@ -127,7 +131,7 @@ Map<String, dynamic> buildLocalTodaysPickData({
   final originLng = lng;
   final ranked =
       stores
-          .where((store) => store.hasValidCoordinates)
+          .where((store) => store.hasValidCoordinates && _isFoodStore(store))
           .map(
             (store) => (
               store: store,
@@ -139,13 +143,26 @@ Map<String, dynamic> buildLocalTodaysPickData({
               ),
             ),
           )
+          .where((entry) => entry.distance <= maxDistanceMeters)
           .toList()
         ..sort((a, b) => a.distance.compareTo(b.distance));
+
+  final selected = <({Store store, double distance})>[];
+  if (balanceDessert) {
+    final meals = ranked.where((entry) => !_isDessertStore(entry.store));
+    final desserts = ranked.where((entry) => _isDessertStore(entry.store));
+    selected.addAll(meals.take(limit < 2 ? limit : 2));
+    selected.addAll(desserts.take(limit - selected.length));
+  }
+  for (final entry in ranked) {
+    if (selected.length >= limit) break;
+    if (!selected.contains(entry)) selected.add(entry);
+  }
 
   return {
     'weather': '위치 기반',
     'fallback': true,
-    'picks': ranked.take(limit).map((entry) {
+    'picks': selected.map((entry) {
       return {
         ...entry.store.toJson(),
         'distanceMeters': entry.distance.round(),
@@ -155,6 +172,59 @@ Map<String, dynamic> buildLocalTodaysPickData({
       };
     }).toList(),
   };
+}
+
+bool _isFoodStore(Store store) {
+  const foodIndustries = {
+    '한식',
+    '중식',
+    '일식',
+    '양식',
+    '기타요식업',
+    '카페',
+    '제과점',
+    '제과업',
+    '휴게음식점',
+  };
+  return foodIndustries.contains(store.industry.trim());
+}
+
+bool _isDessertStore(Store store) {
+  const keywords = [
+    '카페',
+    '커피',
+    '아메리카노',
+    '라떼',
+    '에이드',
+    '주스',
+    '스무디',
+    '녹차',
+    '홍차',
+    '밀크티',
+    '디저트',
+    '베이커리',
+    '제과',
+    '빵',
+    '케이크',
+    '쿠키',
+    '도넛',
+    '꽈배기',
+    '크로플',
+    '와플',
+    '아이스크림',
+    '빙수',
+    '마카롱',
+    '샌드위치',
+  ];
+  final text = [
+    store.industry,
+    store.storeName,
+    store.menu1,
+    store.menu2,
+    store.menu3,
+    store.menu4,
+  ].join(' ').toLowerCase();
+  return keywords.any(text.contains);
 }
 
 double _distanceMeters(double lat1, double lng1, double lat2, double lng2) {

@@ -38,6 +38,19 @@ void main() {
       );
       expect(reportSemantics.properties.button, isTrue);
       expect(reportSemantics.properties.selected, isTrue);
+
+      final navigationSurface = tester.widget<DecoratedBox>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DecoratedBox &&
+              widget.decoration is BoxDecoration &&
+              (widget.decoration as BoxDecoration).borderRadius ==
+                  BorderRadius.circular(28),
+        ),
+      );
+      final decoration = navigationSurface.decoration as BoxDecoration;
+
+      expect(decoration.color, AppColors.white.withValues(alpha: .95));
     },
   );
 }

@@ -160,6 +160,11 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     final picks = rawPicks
         .whereType<Map>()
         .map((pick) => Map<String, dynamic>.from(pick))
+        .where((pick) {
+          final distance = _asDouble(pick['distanceMeters']);
+          return distance == null || distance <= todaysPickMaxDistanceMeters;
+        })
+        .take(3)
         .toList(growable: false);
     final weather = _pickData!['weather'] ?? '알 수 없음';
     final temp = _pickData!['temp'];

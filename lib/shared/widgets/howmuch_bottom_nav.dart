@@ -59,10 +59,10 @@ class HowmuchBottomNav extends StatelessWidget {
                 filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.white.withValues(alpha: .82),
+                    color: AppColors.white.withValues(alpha: .95),
                     borderRadius: BorderRadius.circular(28),
                     border: Border.all(
-                      color: AppColors.white.withValues(alpha: .94),
+                      color: AppColors.white.withValues(alpha: .98),
                     ),
                     boxShadow: const [
                       BoxShadow(
