@@ -32,6 +32,18 @@ void main() {
         ),
         isNull,
       );
+      expect(
+        parseKakaoMapBounds(
+          '{"minLat":37.5,"maxLat":37.5,"minLng":126,"maxLng":127}',
+        ),
+        isNull,
+      );
+      expect(
+        parseKakaoMapBounds(
+          '{"minLat":37,"maxLat":38,"minLng":126.9,"maxLng":126.9}',
+        ),
+        isNull,
+      );
     },
   );
 }

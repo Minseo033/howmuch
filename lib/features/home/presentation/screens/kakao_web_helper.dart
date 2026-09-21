@@ -179,11 +179,17 @@ void _injectJsBypass() {
       var sw = bounds.getSouthWest();
       var ne = bounds.getNorthEast();
       if (!sw || !ne) return null;
+      var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
+      if (!values.every(Number.isFinite) ||
+          values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
+          values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
+        return null;
+      }
       return JSON.stringify({
-        minLat: sw.getLat(),
-        maxLat: ne.getLat(),
-        minLng: sw.getLng(),
-        maxLng: ne.getLng()
+        minLat: values[0],
+        maxLat: values[1],
+        minLng: values[2],
+        maxLng: values[3]
       });
     };
 

@@ -56,8 +56,8 @@ Map<String, double>? parseKakaoMapBounds(String raw) {
     if (values.any((value) => value == null || !value.isFinite)) {
       return null;
     }
-    if (minLat! < -90 || maxLat! > 90 || minLat > maxLat) return null;
-    if (minLng! < -180 || maxLng! > 180 || minLng > maxLng) return null;
+    if (minLat! < -90 || maxLat! > 90 || minLat >= maxLat) return null;
+    if (minLng! < -180 || maxLng! > 180 || minLng >= maxLng) return null;
 
     return {
       'minLat': minLat,
@@ -723,8 +723,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var ne = bounds.getNorthEast();
           var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
           if (!values.every(Number.isFinite) ||
-              values[0] < -90 || values[1] > 90 || values[0] > values[1] ||
-              values[2] < -180 || values[3] > 180 || values[2] > values[3]) {
+              values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
+              values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
             return;
           }
           var boundsData = JSON.stringify({
