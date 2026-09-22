@@ -24,12 +24,71 @@ class ReportPlaceSuggestion {
   const ReportPlaceSuggestion({
     required this.name,
     required this.address,
+    this.category = '',
     this.distanceMeters = -1,
   });
 
   final String name;
   final String address;
+  final String category;
   final int distanceMeters;
+}
+
+String? normalizeReportIndustry(String rawCategory, {String placeName = ''}) {
+  final value = '$rawCategory $placeName'.toLowerCase().replaceAll(' ', '');
+  if (value.isEmpty) return null;
+
+  if (_containsCategory(value, const ['베이커리', '제과', '빵집', '제빵'])) {
+    return '카페·디저트 · 베이커리';
+  }
+  if (_containsCategory(value, const ['디저트', '아이스크림', '빙수', '도넛', '떡집'])) {
+    return '카페·디저트 · 디저트·아이스크림';
+  }
+  if (_containsCategory(value, const ['카페', '커피', 'coffee'])) {
+    return '카페·디저트 · 카페·커피';
+  }
+  if (_containsCategory(value, const ['치킨', '닭강정'])) return '음식점 · 치킨';
+  if (_containsCategory(value, const ['패스트푸드', '햄버거'])) {
+    return '음식점 · 패스트푸드';
+  }
+  if (_containsCategory(value, const ['육류', '고기', '갈비', '구이'])) {
+    return '음식점 · 고기·구이';
+  }
+  if (_containsCategory(value, const ['한식'])) return '음식점 · 한식';
+  if (_containsCategory(value, const ['중식', '중화요리'])) return '음식점 · 중식';
+  if (_containsCategory(value, const ['일식', '초밥', '스시'])) return '음식점 · 일식';
+  if (_containsCategory(value, const ['양식'])) return '음식점 · 양식';
+  if (_containsCategory(value, const ['분식'])) return '음식점 · 분식';
+  if (_containsCategory(value, const ['미용실', '미용업', '헤어샵'])) {
+    return '생활서비스 · 미용실';
+  }
+  if (_containsCategory(value, const ['이발소', '이용원', '이용업'])) {
+    return '생활서비스 · 이발소';
+  }
+  if (_containsCategory(value, const ['세탁'])) return '생활서비스 · 세탁소';
+  if (_containsCategory(value, const ['수선', '수리'])) {
+    return '생활서비스 · 수선·수리';
+  }
+  if (_containsCategory(value, const ['목욕', '사우나'])) {
+    return '생활서비스 · 목욕·사우나';
+  }
+  if (_containsCategory(value, const ['펜션', '게스트하우스', '민박'])) {
+    return '숙박 · 펜션·게스트하우스';
+  }
+  if (_containsCategory(value, const ['호텔', '모텔', '숙박'])) {
+    return '숙박 · 호텔·모텔';
+  }
+  if (_containsCategory(value, const ['음식점', '요식업', '술집'])) {
+    return '음식점 · 기타';
+  }
+  if (_containsCategory(value, const ['서비스', '비요식업'])) {
+    return '기타 · 생활서비스';
+  }
+  return null;
+}
+
+bool _containsCategory(String value, List<String> candidates) {
+  return candidates.any(value.contains);
 }
 
 typedef PlaceSearch =
@@ -63,9 +122,25 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   static const _basePriceCardHeight = 91.776;
   static const _categoryOptions = [
     '음식점 · 한식',
-    '음식점 · 카페',
+    '음식점 · 중식',
+    '음식점 · 일식',
+    '음식점 · 양식',
     '음식점 · 분식',
-    '서비스 · 미용',
+    '음식점 · 고기·구이',
+    '음식점 · 치킨',
+    '음식점 · 패스트푸드',
+    '음식점 · 기타',
+    '카페·디저트 · 카페·커피',
+    '카페·디저트 · 베이커리',
+    '카페·디저트 · 디저트·아이스크림',
+    '생활서비스 · 미용실',
+    '생활서비스 · 이발소',
+    '생활서비스 · 세탁소',
+    '생활서비스 · 수선·수리',
+    '생활서비스 · 목욕·사우나',
+    '숙박 · 호텔·모텔',
+    '숙박 · 펜션·게스트하우스',
+    '기타 · 생활서비스',
   ];
   final _scrollController = ScrollController();
   final _imagePicker = ImagePicker();
@@ -430,6 +505,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
           return ReportPlaceSuggestion(
             name: place['name']?.toString().trim() ?? '',
             address: place['address']?.toString().trim() ?? '',
+            category: place['category']?.toString().trim() ?? '',
             distanceMeters: distance is num
                 ? distance.toInt()
                 : int.tryParse(distance?.toString() ?? '') ?? -1,
@@ -480,7 +556,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  Future<void> _pickAddress() async {
+  Future<void> _pickPlace({String initialQuery = ''}) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final mediaQuery = MediaQuery.of(context);
     final selected = await showModalBottomSheet<ReportPlaceSuggestion>(
@@ -501,14 +577,30 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
           mediaQuery.size.height - mediaQuery.padding.top - 8,
         ),
       ),
-      builder: (context) =>
-          _AddressSearchSheet(search: _searchPlaces, locate: _lookupLocation),
+      builder: (context) => _AddressSearchSheet(
+        search: _searchPlaces,
+        locate: _lookupLocation,
+        initialQuery: initialQuery,
+      ),
     );
     if (selected != null && mounted) {
       _addressController.text = selected.address;
-      if (selected.name.isNotEmpty) _storeController.text = selected.name;
+      if (selected.name.isNotEmpty) {
+        _storeController.text = selected.name;
+        final industry = normalizeReportIndustry(
+          selected.category,
+          placeName: selected.name,
+        );
+        _categoryController.text = industry ?? '';
+      }
     }
   }
+
+  Future<void> _pickStore() =>
+      _pickPlace(initialQuery: _storeController.text.trim());
+
+  Future<void> _pickAddress() =>
+      _pickPlace(initialQuery: _addressController.text.trim());
 
   Future<String?> _showOptionPicker({
     required String title,
@@ -688,6 +780,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                     storeController: _storeController,
                     categoryController: _categoryController,
                     addressController: _addressController,
+                    onStoreSearch: _pickStore,
                     onCategoryTap: _pickCategory,
                     onAddressTap: _pickAddress,
                   ),
@@ -1058,6 +1151,7 @@ class _BasicInfoCard extends StatelessWidget {
     required this.storeController,
     required this.categoryController,
     required this.addressController,
+    required this.onStoreSearch,
     required this.onCategoryTap,
     required this.onAddressTap,
   });
@@ -1065,6 +1159,7 @@ class _BasicInfoCard extends StatelessWidget {
   final TextEditingController storeController;
   final TextEditingController categoryController;
   final TextEditingController addressController;
+  final VoidCallback onStoreSearch;
   final VoidCallback onCategoryTap;
   final VoidCallback onAddressTap;
 
@@ -1080,6 +1175,14 @@ class _BasicInfoCard extends StatelessWidget {
             label: '매장명',
             required: true,
             controller: storeController,
+            hintText: '매장명을 입력하거나 검색',
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => onStoreSearch(),
+            trailing: _SuffixAction(
+              icon: Icons.search_rounded,
+              semanticLabel: '매장 검색',
+              onTap: onStoreSearch,
+            ),
           ),
           const SizedBox(height: 10),
           _EditableFormRow(
@@ -1115,17 +1218,22 @@ class _BasicInfoCard extends StatelessWidget {
 }
 
 class _AddressSearchSheet extends StatefulWidget {
-  const _AddressSearchSheet({required this.search, required this.locate});
+  const _AddressSearchSheet({
+    required this.search,
+    required this.locate,
+    this.initialQuery = '',
+  });
 
   final PlaceSearch search;
   final LocationLookup locate;
+  final String initialQuery;
 
   @override
   State<_AddressSearchSheet> createState() => _AddressSearchSheetState();
 }
 
 class _AddressSearchSheetState extends State<_AddressSearchSheet> {
-  final _controller = TextEditingController();
+  late final TextEditingController _controller;
   Timer? _debounce;
   List<ReportPlaceSuggestion> _results = const [];
   bool _isLoading = false;
@@ -1138,6 +1246,8 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
   @override
   void initState() {
     super.initState();
+    _controller = TextEditingController(text: widget.initialQuery);
+    _isLoading = widget.initialQuery.trim().length >= 2;
     _loadLocation();
   }
 
@@ -1149,7 +1259,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
       _isLocating = false;
     });
     final query = _controller.text.trim();
-    if (location != null && query.length >= 2) {
+    if (query.length >= 2) {
       _debounce?.cancel();
       setState(() => _isLoading = true);
       _search(query);
@@ -1646,9 +1756,11 @@ class _EditableFormRow extends StatelessWidget {
     required this.controller,
     this.trailing,
     this.keyboardType,
+    this.textInputAction,
     this.inputFormatters,
     this.readOnly = false,
     this.onTap,
+    this.onSubmitted,
     this.hintText,
     this.required = false,
   });
@@ -1657,9 +1769,11 @@ class _EditableFormRow extends StatelessWidget {
   final TextEditingController controller;
   final Widget? trailing;
   final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
   final List<TextInputFormatter>? inputFormatters;
   final bool readOnly;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onSubmitted;
   final String? hintText;
   final bool required;
 
@@ -1711,6 +1825,7 @@ class _EditableFormRow extends StatelessWidget {
                     showCursor: !readOnly,
                     enableInteractiveSelection: !readOnly,
                     keyboardType: keyboardType,
+                    textInputAction: textInputAction,
                     inputFormatters: inputFormatters,
                     autocorrect: false,
                     enableSuggestions: false,
@@ -1718,6 +1833,7 @@ class _EditableFormRow extends StatelessWidget {
                     cursorColor: ReportCreateStyle.blue,
                     textAlignVertical: TextAlignVertical.center,
                     onTap: onTap,
+                    onSubmitted: onSubmitted,
                     onTapOutside: (_) =>
                         FocusManager.instance.primaryFocus?.unfocus(),
                     style: const TextStyle(

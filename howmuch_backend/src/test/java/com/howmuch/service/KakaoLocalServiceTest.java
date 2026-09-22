@@ -79,6 +79,7 @@ class KakaoLocalServiceTest {
                           "place_name":"롯데리아 역삼점",
                           "road_address_name":"서울 강남구 테헤란로 123",
                           "address_name":"서울 강남구 역삼동 123",
+                          "category_name":"음식점 > 패스트푸드 > 햄버거",
                           "distance":"418"
                         }]}
                         """, MediaType.APPLICATION_JSON));
@@ -90,6 +91,7 @@ class KakaoLocalServiceTest {
         assertThat(places).containsExactly(Map.of(
                 "name", "롯데리아 역삼점",
                 "address", "서울 강남구 테헤란로 123",
+                "category", "음식점 > 패스트푸드 > 햄버거",
                 "distanceMeters", 418));
         server.verify();
     }

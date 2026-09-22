@@ -185,6 +185,7 @@ public class KakaoLocalService {
                 String name = document.path("place_name").asText("").trim();
                 String roadAddress = document.path("road_address_name").asText("").trim();
                 String address = document.path("address_name").asText("").trim();
+                String category = document.path("category_name").asText("").trim();
                 String selectedAddress = roadAddress.isBlank() ? address : roadAddress;
                 if (name.isBlank() || selectedAddress.isBlank()) continue;
 
@@ -200,6 +201,7 @@ public class KakaoLocalService {
                 places.add(Map.of(
                         "name", name,
                         "address", selectedAddress,
+                        "category", category,
                         "distanceMeters", distanceMeters));
             }
             return places;

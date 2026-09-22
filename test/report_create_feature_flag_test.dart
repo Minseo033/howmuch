@@ -41,6 +41,7 @@ void main() {
                 const ReportPlaceSuggestion(
                   name: '롯데리아 역삼점',
                   address: '서울 강남구 테헤란로 123',
+                  category: '음식점 > 패스트푸드 > 햄버거',
                   distanceMeters: 418,
                 ),
             ],
@@ -67,5 +68,88 @@ void main() {
 
     expect(find.text('롯데리아 역삼점'), findsOneWidget);
     expect(find.text('서울 강남구 테헤란로 123'), findsOneWidget);
+    expect(find.text('음식점 · 패스트푸드'), findsOneWidget);
+  });
+
+  testWidgets('keeps the place category hidden in search results', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: ReportCreateScreen(
+            locationLookup: () async => null,
+            placeSearch: (query, latitude, longitude) async => const [
+              ReportPlaceSuggestion(
+                name: '동네 카페',
+                address: '서울 구로구 중앙로 1',
+                category: '음식점 > 카페 > 커피전문점',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byTooltip('매장 검색'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('report-address-search-input')),
+      '동네 카페',
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    final resultTitle = find.descendant(
+      of: find.byType(ListTile),
+      matching: find.text('동네 카페'),
+    );
+    expect(resultTitle, findsOneWidget);
+    expect(find.text('서울 구로구 중앙로 1'), findsOneWidget);
+    expect(find.text('음식점 > 카페 > 커피전문점'), findsNothing);
+
+    await tester.tap(resultTitle);
+    await tester.pumpAndSettle();
+    expect(find.text('카페·디저트 · 카페·커피'), findsOneWidget);
+  });
+
+  testWidgets('offers and selects detailed report industries', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: ReportCreateScreen())),
+    );
+    await tester.tap(find.byTooltip('업종 선택'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('음식점 · 한식'), findsOneWidget);
+    final categoryList = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(
+      find.text('카페·디저트 · 카페·커피'),
+      180,
+      scrollable: categoryList,
+    );
+    expect(find.text('카페·디저트 · 카페·커피'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('숙박 · 호텔·모텔'),
+      220,
+      scrollable: categoryList,
+    );
+    await tester.tap(find.text('숙박 · 호텔·모텔'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('숙박 · 호텔·모텔'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('normalizes detailed Kakao and operating industries', () {
+    expect(normalizeReportIndustry('음식점 > 한식 > 육류, 고기요리'), '음식점 · 고기·구이');
+    expect(normalizeReportIndustry('음식점 > 카페 > 제과,베이커리'), '카페·디저트 · 베이커리');
+    expect(normalizeReportIndustry('미용업'), '생활서비스 · 미용실');
+    expect(normalizeReportIndustry('세탁업'), '생활서비스 · 세탁소');
+    expect(normalizeReportIndustry(''), isNull);
   });
 }
