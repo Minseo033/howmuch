@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.queryParam;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class KakaoLocalServiceTest {
@@ -93,6 +94,138 @@ class KakaoLocalServiceTest {
                 "address", "서울 강남구 테헤란로 123",
                 "category", "음식점 > 패스트푸드 > 햄버거",
                 "distanceMeters", 418));
+        server.verify();
+    }
+
+    @Test
+    void cachesAddressSuggestionsForRepeatedQueries() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EC%84%9C%EC%9A%B8%EC%8B%9C"))
+                .andRespond(withSuccess("""
+                        {"documents":[{"address_name":"서울특별시 중구"}]}
+                        """, MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
+
+        assertThat(service.searchAddressSuggestions("서울시")).containsExactly("서울특별시 중구");
+        assertThat(service.searchAddressSuggestions(" 서울시 ")).containsExactly("서울특별시 중구");
+        server.verify();
+    }
+
+    @Test
+    void cachesPlaceSuggestionsForRepeatedQueries() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EB%A1%AF%EB%8D%B0%EB%A6%AC%EC%95%84"))
+                .andRespond(withSuccess("""
+                        {"documents":[{
+                          "place_name":"롯데리아 역삼점",
+                          "road_address_name":"서울 강남구 테헤란로 123",
+                          "address_name":"서울 강남구 역삼동 123",
+                          "category_name":"음식점 > 패스트푸드 > 햄버거",
+                          "distance":"418"
+                        }]}
+                        """, MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
+
+        assertThat(service.searchPlaceSuggestions("롯데리아", null, null)).hasSize(1);
+        assertThat(service.searchPlaceSuggestions(" 롯데리아 ", null, null)).hasSize(1);
+        server.verify();
+    }
+
+    @Test
+    void keepsNearbyPlaceCachesSeparateByRoundedCoordinates() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("x", "127.0"))
+                .andExpect(queryParam("y", "37.5"))
+                .andRespond(withSuccess("""
+                        {"documents":[{
+                          "place_name":"롯데리아 역삼점",
+                          "road_address_name":"서울 강남구 테헤란로 123",
+                          "address_name":"서울 강남구 역삼동 123"
+                        }]}
+                        """, MediaType.APPLICATION_JSON));
+        server.expect(once(), queryParam("x", "127.01"))
+                .andExpect(queryParam("y", "37.51"))
+                .andRespond(withSuccess("""
+                        {"documents":[{
+                          "place_name":"롯데리아 선릉점",
+                          "road_address_name":"서울 강남구 선릉로 123",
+                          "address_name":"서울 강남구 대치동 123"
+                        }]}
+                        """, MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
+
+        assertThat(service.searchPlaceSuggestions("롯데리아", 37.5, 127.0))
+                .extracting(place -> place.get("name"))
+                .containsExactly("롯데리아 역삼점");
+        assertThat(service.searchPlaceSuggestions("롯데리아", 37.500001, 127.000001))
+                .extracting(place -> place.get("name"))
+                .containsExactly("롯데리아 역삼점");
+        assertThat(service.searchPlaceSuggestions("롯데리아", 37.51, 127.01))
+                .extracting(place -> place.get("name"))
+                .containsExactly("롯데리아 선릉점");
+        server.verify();
+    }
+
+    @Test
+    void doesNotCacheFailedPlaceSuggestionResponses() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EB%A1%AF%EB%8D%B0%EB%A6%AC%EC%95%84"))
+                .andRespond(withServerError());
+        server.expect(once(), queryParam("query", "%EB%A1%AF%EB%8D%B0%EB%A6%AC%EC%95%84"))
+                .andRespond(withSuccess("""
+                        {"documents":[{
+                          "place_name":"롯데리아 역삼점",
+                          "road_address_name":"서울 강남구 테헤란로 123",
+                          "address_name":"서울 강남구 역삼동 123"
+                        }]}
+                        """, MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate);
+
+        assertThat(service.searchPlaceSuggestions("롯데리아", null, null)).isEmpty();
+        assertThat(service.searchPlaceSuggestions("롯데리아", null, null)).hasSize(1);
+        server.verify();
+    }
+
+    @Test
+    void evictsOldestCachedSuggestionsWhenCapacityIsReached() {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EA%B0%80%EB%82%98"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"가나동\"}]}", MediaType.APPLICATION_JSON));
+        server.expect(once(), queryParam("query", "%EB%8B%A4%EB%9D%BC"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"다라동\"}]}", MediaType.APPLICATION_JSON));
+        server.expect(once(), queryParam("query", "%EA%B0%80%EB%82%98"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"가나동\"}]}", MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate, 300_000L, 1);
+
+        assertThat(service.searchAddressSuggestions("가나")).containsExactly("가나동");
+        assertThat(service.searchAddressSuggestions("다라")).containsExactly("다라동");
+        assertThat(service.cachedResponseCount()).isEqualTo(1);
+        assertThat(service.searchAddressSuggestions("가나")).containsExactly("가나동");
+        server.verify();
+    }
+
+    @Test
+    void removesExpiredSuggestionsBeforeAddingNewCacheEntries() throws Exception {
+        RestTemplate restTemplate = new RestTemplate();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(restTemplate).build();
+        server.expect(once(), queryParam("query", "%EA%B0%80%EB%82%98"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"가나동\"}]}", MediaType.APPLICATION_JSON));
+        server.expect(once(), queryParam("query", "%EB%8B%A4%EB%9D%BC"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"다라동\"}]}", MediaType.APPLICATION_JSON));
+        server.expect(once(), queryParam("query", "%EA%B0%80%EB%82%98"))
+                .andRespond(withSuccess("{\"documents\":[{\"address_name\":\"가나동\"}]}", MediaType.APPLICATION_JSON));
+        KakaoLocalService service = new KakaoLocalService("test-key", restTemplate, 1L, 10);
+
+        assertThat(service.searchAddressSuggestions("가나")).containsExactly("가나동");
+        Thread.sleep(25);
+        assertThat(service.searchAddressSuggestions("다라")).containsExactly("다라동");
+        assertThat(service.cachedResponseCount()).isEqualTo(1);
+        assertThat(service.searchAddressSuggestions("가나")).containsExactly("가나동");
         server.verify();
     }
 }

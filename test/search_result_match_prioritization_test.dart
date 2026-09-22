@@ -52,6 +52,30 @@ void main() {
       expect(SearchFilterPolicy.findMatchingMenu(testStore, '피자'), isNull);
       expect(SearchFilterPolicy.findMatchingMenu(testStore, ''), isNull);
     });
+
+    test('price filter considers all menu prices, not only menu1', () {
+      final store = Store(
+        id: 's-price',
+        storeName: '가격 식당',
+        address: '서울시 역삼동',
+        phoneNumber: '',
+        industry: '한식',
+        menu1: '비싼 정식',
+        price1: '12000',
+        menu2: '착한 국밥',
+        price2: '5,000원',
+        menu3: '',
+        price3: '',
+        menu4: '',
+        price4: '',
+        latitude: 37.5,
+        longitude: 127.0,
+        source: 'GOV',
+      );
+
+      expect(SearchFilterPolicy.matchesMaxPrice(store, 6000), isTrue);
+      expect(SearchFilterPolicy.lowestMenuPrice(store), 5000);
+    });
   });
 
   group('SearchResultScreen match prioritization widget tests', () {

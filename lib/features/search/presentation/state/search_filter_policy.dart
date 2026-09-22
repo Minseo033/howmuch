@@ -5,6 +5,7 @@ class SearchFilterPolicy {
 
   static bool matchesQuery(Store store, String query) {
     final normalized = query.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
     return [
       store.storeName,
       store.menu1,
@@ -46,13 +47,17 @@ class SearchFilterPolicy {
   }
 
   static bool matchesMaxPrice(Store store, int maxPrice) {
-    final price = parsePrice(store.price1);
-    return price != null && price <= maxPrice;
+    return [
+      store.price1,
+      store.price2,
+      store.price3,
+      store.price4,
+    ].map(parsePrice).whereType<int>().any((price) => price <= maxPrice);
   }
 
   static int compareByPrice(Store a, Store b) {
-    final aPrice = parsePrice(a.price1);
-    final bPrice = parsePrice(b.price1);
+    final aPrice = lowestMenuPrice(a);
+    final bPrice = lowestMenuPrice(b);
     if (aPrice == null && bPrice == null) {
       return a.storeName.compareTo(b.storeName);
     }
@@ -62,5 +67,16 @@ class SearchFilterPolicy {
     return priceComparison != 0
         ? priceComparison
         : a.storeName.compareTo(b.storeName);
+  }
+
+  static int? lowestMenuPrice(Store store) {
+    final prices = [
+      store.price1,
+      store.price2,
+      store.price3,
+      store.price4,
+    ].map(parsePrice).whereType<int>();
+    if (prices.isEmpty) return null;
+    return prices.reduce((a, b) => a < b ? a : b);
   }
 }

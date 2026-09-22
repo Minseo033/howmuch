@@ -19,7 +19,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -29,20 +32,87 @@ public class KakaoLocalService {
     private final String kakaoRestApiKey;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final long cacheTtlMillis;
+    private final int cacheMaxEntries;
+    private final Map<String, CacheEntry<?>> responseCache = new ConcurrentHashMap<>();
+    private final AtomicLong cacheSequence = new AtomicLong();
 
     @Autowired
     public KakaoLocalService(
             @Value("${kakao.rest-api-key:}") String kakaoRestApiKey,
-            @Value("${kakao.local.timeout-ms:5000}") long timeoutMillis) {
+            @Value("${kakao.local.timeout-ms:5000}") long timeoutMillis,
+            @Value("${kakao.local.cache-ttl-ms:300000}") long cacheTtlMillis,
+            @Value("${kakao.local.cache-max-entries:256}") int cacheMaxEntries) {
         this(kakaoRestApiKey, new RestTemplateBuilder()
                 .connectTimeout(Duration.ofMillis(Math.max(1_000L, timeoutMillis)))
                 .readTimeout(Duration.ofMillis(Math.max(1_000L, timeoutMillis)))
-                .build());
+                .build(), cacheTtlMillis, cacheMaxEntries);
     }
 
     KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate) {
+        this(kakaoRestApiKey, restTemplate, 300_000L, 256);
+    }
+
+    KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate, long cacheTtlMillis) {
+        this(kakaoRestApiKey, restTemplate, cacheTtlMillis, 256);
+    }
+
+    KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate, long cacheTtlMillis, int cacheMaxEntries) {
         this.kakaoRestApiKey = kakaoRestApiKey;
         this.restTemplate = restTemplate;
+        this.cacheTtlMillis = Math.max(0L, cacheTtlMillis);
+        this.cacheMaxEntries = Math.max(1, cacheMaxEntries);
+    }
+
+    private record CacheEntry<T>(long expiresAtMillis, long sequence, T value) {}
+
+    @SuppressWarnings("unchecked")
+    private <T> T getCached(String key) {
+        CacheEntry<?> entry = responseCache.get(key);
+        if (entry == null) return null;
+        if (System.currentTimeMillis() >= entry.expiresAtMillis()) {
+            responseCache.remove(key, entry);
+            return null;
+        }
+        return (T) entry.value();
+    }
+
+    private synchronized void putCached(String key, Object value) {
+        if (cacheTtlMillis <= 0) return;
+        long now = System.currentTimeMillis();
+        evictExpiredEntries(now);
+        if (!responseCache.containsKey(key) && responseCache.size() >= cacheMaxEntries) {
+            evictOldestEntry();
+        }
+        responseCache.put(key, new CacheEntry<>(
+                now + cacheTtlMillis, cacheSequence.incrementAndGet(), value));
+    }
+
+    int cachedResponseCount() {
+        return responseCache.size();
+    }
+
+    private void evictExpiredEntries(long now) {
+        responseCache.entrySet().removeIf(entry -> now >= entry.getValue().expiresAtMillis());
+    }
+
+    private void evictOldestEntry() {
+        String oldestKey = null;
+        long oldestSequence = Long.MAX_VALUE;
+        for (Map.Entry<String, CacheEntry<?>> entry : responseCache.entrySet()) {
+            long sequence = entry.getValue().sequence();
+            if (sequence < oldestSequence) {
+                oldestSequence = sequence;
+                oldestKey = entry.getKey();
+            }
+        }
+        if (oldestKey != null) {
+            responseCache.remove(oldestKey);
+        }
+    }
+
+    private String coordinateCacheValue(double coordinate) {
+        return String.format(Locale.ROOT, "%.5f", coordinate);
     }
 
     public Map<String, Object> getCoordinatesFromAddress(String address) {
@@ -118,10 +188,14 @@ public class KakaoLocalService {
                 || query == null || query.trim().length() < 2 || query.trim().length() > 100) {
             return List.of();
         }
+        String normalizedQuery = query.trim();
+        String cacheKey = "address:" + normalizedQuery;
+        List<String> cached = getCached(cacheKey);
+        if (cached != null) return cached;
         try {
             URI uri = UriComponentsBuilder
                     .fromHttpUrl("https://dapi.kakao.com/v2/local/search/address.json")
-                    .queryParam("query", query.trim())
+                    .queryParam("query", normalizedQuery)
                     .queryParam("size", 8)
                     .build()
                     .encode()
@@ -140,7 +214,9 @@ public class KakaoLocalService {
                 String address = document.path("address_name").asText("").trim();
                 if (!address.isBlank()) addresses.add(address);
             }
-            return new ArrayList<>(addresses);
+            List<String> result = List.copyOf(addresses);
+            putCached(cacheKey, result);
+            return result;
         } catch (Exception e) {
             log.warn("주소 자동완성 요청에 실패했습니다: {}", e.getClass().getSimpleName());
             return List.of();
@@ -154,14 +230,21 @@ public class KakaoLocalService {
                 || query == null || query.trim().length() < 2 || query.trim().length() > 100) {
             return List.of();
         }
+        String normalizedQuery = query.trim();
         boolean hasCoordinates = latitude != null && longitude != null
                 && Double.isFinite(latitude) && Double.isFinite(longitude)
                 && latitude >= -90 && latitude <= 90
                 && longitude >= -180 && longitude <= 180;
+        String cacheKey = hasCoordinates
+                ? "place:" + normalizedQuery + ":"
+                        + coordinateCacheValue(latitude) + ":" + coordinateCacheValue(longitude)
+                : "place:" + normalizedQuery;
+        List<Map<String, Object>> cached = getCached(cacheKey);
+        if (cached != null) return cached;
         try {
             UriComponentsBuilder builder = UriComponentsBuilder
                     .fromHttpUrl("https://dapi.kakao.com/v2/local/search/keyword.json")
-                    .queryParam("query", query.trim())
+                    .queryParam("query", normalizedQuery)
                     .queryParam("size", 10);
             if (hasCoordinates) {
                 builder.queryParam("x", longitude)
@@ -204,7 +287,9 @@ public class KakaoLocalService {
                         "category", category,
                         "distanceMeters", distanceMeters));
             }
-            return places;
+            List<Map<String, Object>> result = List.copyOf(places);
+            putCached(cacheKey, result);
+            return result;
         } catch (Exception e) {
             log.warn("장소 자동완성 요청에 실패했습니다: {}", e.getClass().getSimpleName());
             return List.of();
@@ -218,6 +303,10 @@ public class KakaoLocalService {
                 || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
             return null;
         }
+        String cacheKey = "region:"
+                + coordinateCacheValue(latitude) + ":" + coordinateCacheValue(longitude);
+        Map<String, String> cached = getCached(cacheKey);
+        if (cached != null) return cached;
         try {
             URI uri = UriComponentsBuilder
                     .fromHttpUrl("https://dapi.kakao.com/v2/local/geo/coord2regioncode.json")
@@ -245,7 +334,11 @@ public class KakaoLocalService {
             String address = chosen.path("address_name").asText("").trim();
             String label = chosen.path("region_3depth_name").asText("").trim();
             if (address.isBlank()) return null;
-            return Map.of("address", address, "label", label.isBlank() ? address : label);
+            Map<String, String> result = Map.of(
+                    "address", address,
+                    "label", label.isBlank() ? address : label);
+            putCached(cacheKey, result);
+            return result;
         } catch (Exception e) {
             log.warn("좌표 행정동 변환 요청에 실패했습니다: {}", e.getClass().getSimpleName());
             return null;

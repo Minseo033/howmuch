@@ -99,6 +99,13 @@ Future<bool> openLocationSettingsForStatus({
   return tryOpen(fallbackLauncher);
 }
 
+class _StoreWithDistance {
+  const _StoreWithDistance(this.store, this.distanceMeters);
+
+  final Store store;
+  final double? distanceMeters;
+}
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({
     super.key,
@@ -175,6 +182,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _isFetching = false;
   String? _pendingBoundsJson;
   int _boundsRequestGeneration = 0;
+  String _lastRenderedMarkerSignature = '';
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -430,6 +438,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _pageController.dispose();
     _boundsDebouncer?.cancel();
     _webBoundsRetryTimer?.cancel();
+    if (kIsWeb) {
+      web_helper.disposeKakaoWebMap(_viewId);
+    }
     super.dispose();
   }
 
@@ -1081,6 +1092,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
 
     _isMapReady = true;
+    _lastRenderedMarkerSignature = '';
     if (kIsWeb && (!_isMapInitialized || _mapErrorMessage != null)) {
       setState(() {
         _isMapInitialized = true;
@@ -1264,11 +1276,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
         if (!mounted) return;
         if (requestGeneration != _boundsRequestGeneration) continue;
+        final markerSignature = _markerListSignature(markerList);
+        if (markerSignature == _lastRenderedMarkerSignature) continue;
         if (kIsWeb) {
           web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
+          _lastRenderedMarkerSignature = markerSignature;
         } else if (_webViewController != null) {
           final jsStringLiteral = jsonEncode(jsonEncode(markerList));
           _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
+          _lastRenderedMarkerSignature = markerSignature;
         }
       }
     } finally {
@@ -1339,35 +1355,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 s.longitude >= minLng &&
                 s.longitude <= maxLng,
           )
+          .map((store) => _StoreWithDistance(store, _distanceFromUser(store)))
           .toList();
 
       // ─── 검색 및 필터 적용 ───
       if (_searchQuery.trim().isNotEmpty) {
         stores = stores
-            .where((s) => SearchFilterPolicy.matchesQuery(s, _searchQuery))
+            .where(
+              (item) =>
+                  SearchFilterPolicy.matchesQuery(item.store, _searchQuery),
+            )
             .toList();
       }
 
       if (_searchFilter.maxPrice != null) {
-        stores = stores.where((s) {
-          return SearchFilterPolicy.matchesMaxPrice(s, _searchFilter.maxPrice!);
+        stores = stores.where((item) {
+          return SearchFilterPolicy.matchesMaxPrice(
+            item.store,
+            _searchFilter.maxPrice!,
+          );
         }).toList();
       }
 
       if (_searchFilter.industries.isNotEmpty) {
         stores = stores
             .where(
-              (s) => _searchFilter.industries.any(
-                (ind) => SearchFilter.matchesIndustry(s, ind),
+              (item) => _searchFilter.industries.any(
+                (ind) => SearchFilter.matchesIndustry(item.store, ind),
               ),
             )
             .toList();
       }
 
       if (_searchFilter.govCertified) {
-        stores = stores.where((s) => s.source == 'GOV').toList();
+        stores = stores.where((item) => item.store.source == 'GOV').toList();
       } else if (!_searchFilter.userReported) {
-        stores = stores.where((s) => s.source != 'USER').toList();
+        stores = stores.where((item) => item.store.source != 'USER').toList();
       }
 
       if (_searchFilter.distance != null && _lastKnownPosition != null) {
@@ -1381,37 +1404,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         if (maxDist > 0) {
-          stores = stores.where((s) {
-            final d = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              s.latitude,
-              s.longitude,
-            );
-            return d <= maxDist;
-          }).toList();
+          stores = stores
+              .where(
+                (item) => (item.distanceMeters ?? double.infinity) <= maxDist,
+              )
+              .toList();
         }
       }
 
       if (_searchFilter.sortOrder == '저렴한순') {
-        stores.sort(SearchFilterPolicy.compareByPrice);
+        stores.sort(
+          (a, b) => SearchFilterPolicy.compareByPrice(a.store, b.store),
+        );
       } else {
         if (_lastKnownPosition != null) {
-          stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              a.latitude,
-              a.longitude,
-            );
-            final db = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              b.latitude,
-              b.longitude,
-            );
-            return da.compareTo(db);
-          });
+          stores.sort(
+            (a, b) => (a.distanceMeters ?? double.infinity).compareTo(
+              b.distanceMeters ?? double.infinity,
+            ),
+          );
         }
       }
 
@@ -1420,7 +1431,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         stores = stores.take(100).toList();
       }
 
-      _currentStores = stores;
+      _currentStores = stores.map((item) => item.store).toList(growable: false);
 
       return _currentStores.map((s) {
         final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
@@ -1452,6 +1463,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (error) {
       debugPrint('지도 매장 캐시 저장 실패: $error');
     }
+  }
+
+  double? _distanceFromUser(Store store) {
+    final position = _lastKnownPosition;
+    if (position == null) return null;
+    return Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      store.latitude,
+      store.longitude,
+    );
+  }
+
+  String _markerListSignature(List<Map<String, dynamic>> markers) {
+    return markers
+        .map(
+          (marker) =>
+              '${marker['title']}|${marker['lat']}|${marker['lng']}|${marker['menu']}|${marker['price']}|${marker['source']}',
+        )
+        .join('\n');
   }
 
   Widget _buildWebMap() {

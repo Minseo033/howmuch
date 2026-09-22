@@ -12,6 +12,8 @@ const storeCatalogCacheMaxAge = Duration(hours: 6);
 
 typedef StoreCatalogLoader = Future<List<Store>> Function();
 
+Future<List<Store>>? _storeCatalogInFlight;
+
 Future<List<Store>> loadStoreCatalog({
   Future<http.Response> Function(Uri)? request,
   SharedPreferences? preferences,
@@ -41,12 +43,46 @@ Future<List<Store>> loadStoreCatalog({
     prefs = null;
   }
 
+  if (preferences == null && now == null) {
+    final activeRequest = _storeCatalogInFlight;
+    if (activeRequest != null) return activeRequest;
+    final future = _fetchAndCacheStoreCatalog(
+      request: request,
+      preferences: prefs,
+      currentTime: currentTime,
+    );
+    _storeCatalogInFlight = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_storeCatalogInFlight, future)) {
+        _storeCatalogInFlight = null;
+      }
+    }
+  }
+
+  return _fetchAndCacheStoreCatalog(
+    request: request,
+    preferences: prefs,
+    currentTime: currentTime,
+  );
+}
+
+Future<List<Store>> _fetchAndCacheStoreCatalog({
+  required Future<http.Response> Function(Uri)? request,
+  required SharedPreferences? preferences,
+  required DateTime currentTime,
+}) async {
   final uri = ApiClient.uri('/api/stores/all');
+  const catalogTimeout = Duration(seconds: 45);
   final response =
       await (request ??
-              (uri) =>
-                  ApiClient.get(uri, headers: ApiClient.jsonHeaders()))(uri)
-          .timeout(const Duration(seconds: 45));
+              (uri) => ApiClient.get(
+                uri,
+                headers: ApiClient.jsonHeaders(),
+                timeout: catalogTimeout,
+              ))(uri)
+          .timeout(catalogTimeout);
   if (response.statusCode != 200) {
     throw http.ClientException(
       'Store catalog request failed (${response.statusCode})',
@@ -60,11 +96,11 @@ Future<List<Store>> loadStoreCatalog({
   }
 
   try {
-    await prefs?.setString(
+    await preferences?.setString(
       storeCatalogCacheKey,
       jsonEncode(stores.map((store) => store.toJson()).toList()),
     );
-    await prefs?.setInt(
+    await preferences?.setInt(
       storeCatalogCachedAtKey,
       currentTime.millisecondsSinceEpoch,
     );

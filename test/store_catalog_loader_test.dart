@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/store/store_catalog_loader.dart';
@@ -76,6 +77,74 @@ void main() {
       );
 
       expect(stores.single.storeName, '캐시 식당');
+    },
+  );
+
+  test('shares an in-flight default catalog request across callers', () async {
+    SharedPreferences.setMockInitialValues({});
+    final pending = Completer<http.Response>();
+    var requestCount = 0;
+
+    Future<http.Response> request(Uri uri) {
+      requestCount++;
+      expect(uri.path, '/api/stores/all');
+      return pending.future;
+    }
+
+    final first = loadStoreCatalog(request: request);
+    final second = loadStoreCatalog(request: request);
+
+    await Future<void>.delayed(Duration.zero);
+    pending.complete(
+      http.Response.bytes(
+        utf8.encode(
+          jsonEncode([
+            {'storeName': '동시 요청 식당', 'latitude': 37.5, 'longitude': 127.0},
+          ]),
+        ),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      ),
+    );
+
+    final results = await Future.wait([first, second]);
+    expect(requestCount, 1);
+    expect(results.first.single.storeName, '동시 요청 식당');
+    expect(results.last.single.storeName, '동시 요청 식당');
+  });
+
+  test(
+    'starts a new catalog request after the shared request settles',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      var requestCount = 0;
+
+      Future<http.Response> request(Uri uri) async {
+        requestCount++;
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode([
+              {
+                'storeName': '주입 요청 $requestCount',
+                'latitude': 37.5,
+                'longitude': 127.0,
+              },
+            ]),
+          ),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+
+      final first = await loadStoreCatalog(request: request);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(storeCatalogCacheKey);
+      await prefs.remove(storeCatalogCachedAtKey);
+      final second = await loadStoreCatalog(request: request);
+
+      expect(requestCount, 2);
+      expect(first.single.storeName, '주입 요청 1');
+      expect(second.single.storeName, '주입 요청 2');
     },
   );
 

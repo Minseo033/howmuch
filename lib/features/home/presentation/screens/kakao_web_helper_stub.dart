@@ -1,5 +1,6 @@
 void registerKakaoWebViewFactory(String viewId) {}
 void initKakaoWebMap(String viewId) {}
+void disposeKakaoWebMap(String viewId) {}
 String? getKakaoMapBoundsWeb(String viewId) => null;
 void registerWebCallbacks(
   void Function() onIdle,

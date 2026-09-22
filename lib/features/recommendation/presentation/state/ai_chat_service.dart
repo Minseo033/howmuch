@@ -41,6 +41,7 @@ class AiChatService {
         url,
         headers: ApiClient.jsonHeaders(auth: true),
         body: jsonEncode(payload),
+        timeout: requestTimeout,
       ).timeout(requestTimeout);
 
       if (response.statusCode == 200) {

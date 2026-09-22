@@ -54,7 +54,7 @@ jobs:
       - name: Check administrator page scripts
         run: node scripts/check_admin_html.mjs
       - name: Test deployment verification guards
-        run: node --test scripts/verify_web_deployment.test.mjs
+        run: node --test scripts/*.test.mjs
 
   ios-simulator:
     name: iOS Simulator build
@@ -73,7 +73,7 @@ jobs:
   deploy-web:
     name: Deploy verified web release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, flutter-web]
+    needs: [backend, flutter-web, ios-simulator]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -85,7 +85,6 @@ jobs:
           path: build/web
       - name: Deploy to Vercel production
         id: vercel_deploy
-        continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}

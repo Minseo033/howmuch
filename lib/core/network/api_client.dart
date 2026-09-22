@@ -94,8 +94,9 @@ class ApiClient {
   static Future<http.Response> get(
     Uri url, {
     Map<String, String>? headers,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.get(url, headers: headers);
+    final response = await http.get(url, headers: headers).timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -105,13 +106,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .post(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -121,13 +120,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.put(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .put(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -137,13 +134,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.patch(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .patch(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -153,13 +148,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.delete(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .delete(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }

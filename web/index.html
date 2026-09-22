@@ -117,6 +117,115 @@
     window.kakaoMapObjects = {};
     window.kakaoMapLoadAttempts = {};
     window.userLocationMarkers = {};
+    window.kakaoMapLifecycles = {};
+    window.kakaoMarkerRequestGenerations = {};
+
+    function getKakaoMapLifecycle(containerId) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (!lifecycle) {
+        lifecycle = { generation: 0, resizeObserver: null, timers: [], listeners: [] };
+        window.kakaoMapLifecycles[containerId] = lifecycle;
+      }
+      return lifecycle;
+    }
+
+    function clearKakaoMapTimers(lifecycle) {
+      for (var i = 0; i < lifecycle.timers.length; i++) {
+        clearTimeout(lifecycle.timers[i]);
+      }
+      lifecycle.timers.length = 0;
+    }
+
+    function scheduleKakaoMapTask(lifecycle, callback, delay) {
+      var timer = setTimeout(function() {
+        var index = lifecycle.timers.indexOf(timer);
+        if (index !== -1) lifecycle.timers.splice(index, 1);
+        callback();
+      }, delay);
+      lifecycle.timers.push(timer);
+      return timer;
+    }
+
+    function cancelKakaoMapTask(lifecycle, timer) {
+      clearTimeout(timer);
+      var index = lifecycle.timers.indexOf(timer);
+      if (index !== -1) lifecycle.timers.splice(index, 1);
+    }
+
+    function clearKakaoMapListeners(lifecycle) {
+      lifecycle.listeners.forEach(function(listener) {
+        kakao.maps.event.removeListener(listener.map, listener.type, listener.handler);
+      });
+      lifecycle.listeners.length = 0;
+    }
+
+    function bindKakaoMapEvents(containerId, map, lifecycle, generation) {
+      function listen(type, callback) {
+        var handler = function() {
+          if (isActiveKakaoMap(containerId, map, generation)) callback();
+        };
+        kakao.maps.event.addListener(map, type, handler);
+        lifecycle.listeners.push({ map: map, type: type, handler: handler });
+      }
+      var boundsTimer = null;
+      listen('idle', function() {
+        cancelKakaoMapTask(lifecycle, boundsTimer);
+        boundsTimer = scheduleKakaoMapTask(lifecycle, function() {
+          if (isActiveKakaoMap(containerId, map, generation) && window.onKakaoMapIdle) {
+            window.onKakaoMapIdle();
+          }
+        }, 600);
+      });
+      function moveStarted() {
+        cancelKakaoMapTask(lifecycle, boundsTimer);
+        if (window.onKakaoMapMoveStart) window.onKakaoMapMoveStart();
+      }
+      listen('dragstart', moveStarted);
+      listen('zoom_start', moveStarted);
+      listen('click', function() {
+        if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
+      });
+    }
+
+    function isActiveKakaoMap(containerId, map, generation) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      return lifecycle && lifecycle.generation === generation &&
+        window.kakaoMapObjects[containerId] === map;
+    }
+
+    function clearKakaoMapOverlays(containerId) {
+      var overlays = window.customOverlays && window.customOverlays[containerId];
+      if (!overlays) return;
+      for (var i = 0; i < overlays.length; i++) {
+        overlays[i].setMap(null);
+      }
+      overlays.length = 0;
+    }
+
+    // Flutter disposes the platform view independently from this page. Release
+    // DOM observers and delayed callbacks so a detached map cannot keep work alive.
+    function disposeKakaoMap(containerId) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (lifecycle) {
+        lifecycle.generation++;
+        clearKakaoMapTimers(lifecycle);
+        clearKakaoMapListeners(lifecycle);
+        if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
+        lifecycle.resizeObserver = null;
+        delete window.kakaoMapLifecycles[containerId];
+      }
+      window.kakaoMarkerRequestGenerations[containerId] =
+        (window.kakaoMarkerRequestGenerations[containerId] || 0) + 1;
+      clearKakaoMapOverlays(containerId);
+      var userMarker = window.userLocationMarkers[containerId];
+      if (userMarker) userMarker.setMap(null);
+      delete window.userLocationMarkers[containerId];
+      delete window.markerDataCache[containerId];
+      delete window.kakaoMapObjects[containerId];
+      delete window.kakaoMapLoadAttempts[containerId];
+      delete window.customOverlays[containerId];
+      delete window[containerId];
+    }
 
     function notifyKakaoMapError(message) {
       if (window.onKakaoMapError) window.onKakaoMapError(message);
@@ -124,6 +233,12 @@
     }
 
     function initKakaoMap(containerId, lat, lng) {
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      lifecycle.generation++;
+      clearKakaoMapTimers(lifecycle);
+      clearKakaoMapListeners(lifecycle);
+      var generation = lifecycle.generation;
+
       if (typeof kakao === 'undefined' || !kakao.maps) {
         var attempts = (window.kakaoMapLoadAttempts[containerId] || 0) + 1;
         window.kakaoMapLoadAttempts[containerId] = attempts;
@@ -131,24 +246,28 @@
           notifyKakaoMapError("카카오맵을 불러오지 못했어요.");
           return;
         }
-        setTimeout(function() { initKakaoMap(containerId, lat, lng); }, 200);
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (lifecycle.generation === generation) initKakaoMap(containerId, lat, lng);
+        }, 200);
         return;
       }
 
-      var loadCheckTimer = setTimeout(function() {
-        notifyKakaoMapError("지도 인증이 지연되고 있어요.");
+      var loadCheckTimer = scheduleKakaoMapTask(lifecycle, function() {
+        if (lifecycle.generation === generation) notifyKakaoMapError("지도 인증이 지연되고 있어요.");
       }, 5000);
 
      kakao.maps.load(function() {
-       clearTimeout(loadCheckTimer);
+       cancelKakaoMapTask(lifecycle, loadCheckTimer);
+       if (lifecycle.generation !== generation) return;
         var sizeWaitAttempts = 0;
 
         function renderMapWhenReady() {
+          if (lifecycle.generation !== generation) return;
           var container = window[containerId] || document.getElementById(containerId);
           if (!container) {
             sizeWaitAttempts++;
             if (sizeWaitAttempts <= 30) {
-              setTimeout(renderMapWhenReady, 50);
+              scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
             notifyKakaoMapError("지도 화면을 준비하지 못했어요.");
@@ -157,7 +276,7 @@
           if (container.offsetWidth === 0 || container.offsetHeight === 0) {
             sizeWaitAttempts++;
             if (sizeWaitAttempts <= 30) {
-              setTimeout(renderMapWhenReady, 50);
+              scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
            notifyKakaoMapError("지도 화면 크기가 올바르지 않아요.");
@@ -172,14 +291,32 @@
           } catch (_) {}
 
           if (isSameContainer) {
+            if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
+            if (typeof ResizeObserver !== 'undefined') {
+              lifecycle.resizeObserver = new ResizeObserver(function() {
+                if (isActiveKakaoMap(containerId, existingMap, generation) &&
+                    container.offsetWidth > 0 && container.offsetHeight > 0) {
+                  existingMap.relayout();
+                }
+              });
+              lifecycle.resizeObserver.observe(container);
+            }
             existingMap.relayout();
             existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
+            bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
             if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
-            setTimeout(function() {
-              if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+            scheduleKakaoMapTask(lifecycle, function() {
+              if (isActiveKakaoMap(containerId, existingMap, generation) && window.onKakaoMapIdle) {
+                window.onKakaoMapIdle();
+              }
             }, 100);
             return;
           }
+
+          if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
+          clearKakaoMapOverlays(containerId);
+          var oldUserMarker = window.userLocationMarkers[containerId];
+          if (oldUserMarker) oldUserMarker.setMap(null);
 
           var options = {
           center: new kakao.maps.LatLng(lat, lng),
@@ -192,34 +329,26 @@
         if (window.userLocationMarkers) delete window.userLocationMarkers[containerId];
 
         if (typeof ResizeObserver !== 'undefined') {
-          var ro = new ResizeObserver(function() {
-            if (map && container.offsetWidth > 0 && container.offsetHeight > 0) {
+          lifecycle.resizeObserver = new ResizeObserver(function() {
+            if (isActiveKakaoMap(containerId, map, generation) &&
+                container.offsetWidth > 0 && container.offsetHeight > 0) {
               map.relayout();
             }
           });
-          ro.observe(container);
+          lifecycle.resizeObserver.observe(container);
         }
 
-        // 💡 맵 이벤트 리스너 추가
-        var boundsTimer = null;
-        kakao.maps.event.addListener(map, 'idle', function() {
-          if (boundsTimer) clearTimeout(boundsTimer);
-          boundsTimer = setTimeout(function() {
-            if (window.onKakaoMapIdle) window.onKakaoMapIdle();
-          }, 600);
-        });
-        
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-          if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
-        });
+        bindKakaoMapEvents(containerId, map, lifecycle, generation);
         
         if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
-        setTimeout(function() {
-          if (map && typeof map.relayout === 'function') map.relayout();
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (!isActiveKakaoMap(containerId, map, generation)) return;
+          if (typeof map.relayout === 'function') map.relayout();
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
         }, 150);
-        setTimeout(function() {
-          if (map && typeof map.relayout === 'function') map.relayout();
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (!isActiveKakaoMap(containerId, map, generation)) return;
+          if (typeof map.relayout === 'function') map.relayout();
           if (window.onKakaoMapIdle) window.onKakaoMapIdle();
         }, 500);
         }
@@ -246,19 +375,55 @@
     }
 
     function addMobileMarkers(containerId, markerListJson) {
+      var markerGeneration = (window.kakaoMarkerRequestGenerations[containerId] || 0) + 1;
+      window.kakaoMarkerRequestGenerations[containerId] = markerGeneration;
+      var waitAttempts = 0;
+      var maxWaitAttempts = 25;
+
+      function isCurrentMarkerRequest() {
+        return window.kakaoMarkerRequestGenerations[containerId] === markerGeneration;
+      }
+
+      function retryWhenReady(message) {
+        waitAttempts++;
+        if (waitAttempts > maxWaitAttempts) {
+          if (isCurrentMarkerRequest()) notifyKakaoMapError(message);
+          return;
+        }
+        setTimeout(function() {
+          if (isCurrentMarkerRequest()) renderMarkersWhenReady();
+        }, 200);
+      }
+
       if (typeof kakao === 'undefined' || !kakao.maps) {
-        setTimeout(function() { addMobileMarkers(containerId, markerListJson); }, 200);
+        retryWhenReady("지도 마커를 불러오지 못했어요.");
         return;
       }
-      kakao.maps.load(function() {
+
+      renderMarkersWhenReady();
+
+      function renderMarkersWhenReady() {
+        if (!isCurrentMarkerRequest()) return;
+        if (typeof kakao === 'undefined' || !kakao.maps) {
+          retryWhenReady("지도 마커를 불러오지 못했어요.");
+          return;
+        }
+        kakao.maps.load(function() {
+        if (!isCurrentMarkerRequest()) return;
         var map = window.kakaoMapObjects[containerId];
         if (!map) {
-          setTimeout(function() { addMobileMarkers(containerId, markerListJson); }, 200);
+          retryWhenReady("지도 마커를 표시하지 못했어요.");
           return;
         }
 
-        var markerData = JSON.parse(markerListJson);
-        console.log("Adding markers to map: " + markerData.length + " items");
+        var markerData;
+        try {
+          markerData = JSON.parse(markerListJson);
+        } catch (_) {
+          notifyKakaoMapError("지도 마커 정보를 읽지 못했어요.");
+          return;
+        }
+        if (!Array.isArray(markerData) || !isCurrentMarkerRequest()) return;
         window.markerDataCache[containerId] = markerData;
         
         if (!window.customOverlays[containerId]) {
@@ -338,25 +503,28 @@
             overlays.push(customOverlay);
           })(i);
         }
-        console.log("Markers added successfully!");
-        if (map && typeof map.relayout === 'function') {
+        if (isCurrentMarkerRequest() && typeof map.relayout === 'function') {
           map.relayout();
         }
         setTimeout(function() {
-          if (map && typeof map.relayout === 'function') {
+          if (isCurrentMarkerRequest() && window.kakaoMapObjects[containerId] === map &&
+              typeof map.relayout === 'function') {
             map.relayout();
           }
         }, 60);
       });
+      }
     }
 
     function setKakaoMapCenter(containerId, lat, lng) {
       var map = window.kakaoMapObjects[containerId];
       if (map) {
+        var lifecycle = getKakaoMapLifecycle(containerId);
+        var generation = lifecycle.generation;
         map.setCenter(new kakao.maps.LatLng(lat, lng));
         if (typeof map.relayout === 'function') map.relayout();
-        setTimeout(function() {
-          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (isActiveKakaoMap(containerId, map, generation) && window.onKakaoMapIdle) window.onKakaoMapIdle();
         }, 150);
       }
     }
@@ -402,15 +570,31 @@
       var map = window.kakaoMapObjects[containerId];
       if (!map) return null;
 
-      var bounds = map.getBounds();
-      var sw = bounds.getSouthWest();
-      var ne = bounds.getNorthEast();
+      function readValues() {
+        var bounds = map.getBounds();
+        if (!bounds) return null;
+        var sw = bounds.getSouthWest();
+        var ne = bounds.getNorthEast();
+        if (!sw || !ne) return null;
+        return [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
+      }
+      function areValid(values) {
+        return values && values.every(Number.isFinite) &&
+          values[0] >= -90 && values[1] <= 90 && values[0] < values[1] &&
+          values[2] >= -180 && values[3] <= 180 && values[2] < values[3];
+      }
+      var values = readValues();
+      if (!areValid(values) && typeof map.relayout === 'function') {
+        map.relayout();
+        values = readValues();
+      }
+      if (!areValid(values)) return null;
 
       return JSON.stringify({
-        minLat: sw.getLat(),
-        maxLat: ne.getLat(),
-        minLng: sw.getLng(),
-        maxLng: ne.getLng()
+        minLat: values[0],
+        maxLat: values[1],
+        minLng: values[2],
+        maxLng: values[3]
       });
     }
   </script>

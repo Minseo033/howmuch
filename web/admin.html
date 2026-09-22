@@ -700,6 +700,8 @@
   let selectedNotificationUid = '';
   let keyExpiryTimer = null;
   let adminSessionGeneration = 0;
+  let viewLoadGeneration = 0;
+  let userActivityGeneration = 0;
   const inFlightControllers = new Set();
 
   const VIEW_META = {
@@ -867,11 +869,17 @@
     inFlightControllers.add(controller);
     const forwardAbort = () => controller.abort();
     options.signal?.addEventListener('abort', forwardAbort, { once: true });
+    if (options.signal?.aborted) controller.abort();
     const timeout = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-    let res;
+    const checkSession = () => {
+      if (requestGeneration !== adminSessionGeneration) {
+        throw Object.assign(new Error('이전 관리자 요청이 취소되었습니다.'), { code: 'STALE_REQUEST' });
+      }
+      if (!getKey()) throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
+    };
     try {
       // ui-craft-detect-ignore-next-line -- 화면별 호출부에서 로딩·빈 상태·오류 상태를 렌더링한다.
-      res = await fetch(API_BASE + path, {
+      const res = await fetch(API_BASE + path, {
         ...options,
         signal: controller.signal,
         headers: {
@@ -880,11 +888,23 @@
           ...(options.headers || {}),
         },
       });
+      checkSession();
+      if (res.status === 401) throw Object.assign(new Error('비밀번호 불일치'), { code: 401 });
+      if (res.status === 403) throw Object.assign(new Error('서버 키 미설정'), { code: 403 });
+      let body;
+      try {
+        body = await res.json();
+      } catch (error) {
+        if (res.ok || error?.name === 'AbortError') throw error;
+      }
+      checkSession();
+      if (!res.ok) {
+        throw Object.assign(new Error(body?.message || 'HTTP ' + res.status), { code: res.status });
+      }
+      return body;
     } catch (error) {
+      checkSession();
       if (error?.name === 'AbortError') {
-        if (requestGeneration !== adminSessionGeneration || !getKey()) {
-          throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
-        }
         throw Object.assign(
           new Error('응답이 지연되고 있어요. 잠시 후 다시 시도해주세요.'),
           { code: 408 },
@@ -896,17 +916,6 @@
       inFlightControllers.delete(controller);
       options.signal?.removeEventListener('abort', forwardAbort);
     }
-    if (requestGeneration !== adminSessionGeneration || !getKey()) {
-      throw Object.assign(new Error('관리자 세션 만료'), { code: 401 });
-    }
-    if (res.status === 401) throw Object.assign(new Error('비밀번호 불일치'), { code: 401 });
-    if (res.status === 403) throw Object.assign(new Error('서버 키 미설정'), { code: 403 });
-    if (!res.ok) {
-      let msg = 'HTTP ' + res.status;
-      try { const b = await res.json(); if (b.message) msg = b.message; } catch (_) {}
-      throw Object.assign(new Error(msg), { code: res.status });
-    }
-    return res.json();
   }
 
   const modalTriggers = new WeakMap();
@@ -921,6 +930,7 @@
     });
   };
   const closeModal = (id) => {
+    if (id === 'userModal') userActivityGeneration += 1;
     const dialog = $(id);
     dialog.classList.remove('show');
     if (dialog.open) dialog.close();
@@ -1001,6 +1011,7 @@
 
   /* ══ 뷰 1: 대시보드 ══ */
   function renderDashboard() {
+    if (currentView !== 'dashboard') return;
     const o = overview;
     const us = o.userStores || {};
     const cards = [
@@ -1059,6 +1070,7 @@
   }
 
   function renderReportsView() {
+    if (currentView !== 'reports') return;
     const c = reportCounts();
     const pill = $('pendingPill');
     if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
@@ -1180,6 +1192,7 @@
   }
 
   function renderReceiptsView() {
+    if (currentView !== 'receipts') return;
     const c = receiptCounts();
     const pill = $('pendingReceiptPill');
     if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
@@ -1208,6 +1221,7 @@
 
   /* ══ 뷰 3: 리뷰 관리 ══ */
   function renderReviewsView() {
+    if (currentView !== 'reviews') return;
     const rows = allReviews.map((r) => {
       const stars = '★★★★★'.slice(0, Number(r.stars) || 0) + '☆☆☆☆☆'.slice(0, 5 - (Number(r.stars) || 0));
       const contentText = String(r.content || '');
@@ -1242,6 +1256,7 @@
 
   /* ══ 뷰 4: 회원 관리 ══ */
   function renderUsersView() {
+    if (currentView !== 'users') return;
     const q = userSearch.trim().toLowerCase();
     const filtered = !q ? users : users.filter((u) =>
       String(u.nickname || '').toLowerCase().includes(q) ||
@@ -1302,12 +1317,14 @@
   }
 
   async function openUserActivity(uid, name) {
+    const generation = ++userActivityGeneration;
     $('userModalName').textContent = name;
     $('userModalSub').textContent = '활동 내역을 불러오는 중…';
     $('userModalActs').innerHTML = '';
     openModal('userModal');
     try {
       const a = await api(`/api/admin/users/${encodeURIComponent(uid)}/activity`);
+      if (generation !== userActivityGeneration || !$('userModal').open) return;
       $('userModalSub').textContent = shortUid(uid) + ' · 활동 요약';
       $('userModalActs').innerHTML = [
         ['제보', a.reports, 'var(--amber)'],
@@ -1316,12 +1333,14 @@
         ['찜', a.favorites, 'var(--red)'],
       ].map(([t, n, c]) => `<div class="act-cell"><div class="n" style="color:${c}">${Number(n ?? 0)}</div><div class="t">${t}</div></div>`).join('');
     } catch (e) {
+      if (generation !== userActivityGeneration || !$('userModal').open || e.code === 'STALE_REQUEST') return;
       $('userModalSub').textContent = '활동 내역을 불러오지 못했습니다: ' + e.message;
     }
   }
 
   /* ══ 뷰 5: 댓글 관리 ══ */
   function renderCommentsView() {
+    if (currentView !== 'comments') return;
     const rows = (allComments || []).map((c) => {
       const contentText = String(c.content || '');
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
@@ -1357,6 +1376,7 @@
 
   /* ══ 뷰 6: 문의 관리 ══ */
   function renderInquiriesView() {
+    if (currentView !== 'inquiries') return;
     const rows = (allInquiries || []).map((q) => {
       const contentText = String(q.content || '');
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
@@ -1410,6 +1430,7 @@
   }
 
   function renderNoticesView() {
+    if (currentView !== 'notices') return;
     content.innerHTML = `
       <div class="notice-layout">
         <div class="card notice-compose-card">
@@ -1468,9 +1489,11 @@
         body: JSON.stringify({ title, body }),
       });
       toast(`공지 등록 완료 — ${res.sent}명의 알림함에 반영됨`);
-      $('noticeTitle').value = '';
-      $('noticeBody').value = '';
-      updateNoticePreview();
+      if (button.isConnected) {
+        $('noticeTitle').value = '';
+        $('noticeBody').value = '';
+        updateNoticePreview();
+      }
     } catch (e) {
       handleError(e);
     } finally {
@@ -1556,6 +1579,7 @@
   }
 
   function renderNotificationsView() {
+    if (currentView !== 'notifications') return;
     const s = communityStats || {};
     content.innerHTML = `
       <div class="stats cols3">
@@ -1653,7 +1677,8 @@
       ? `${notificationUserName(targetUser)} (${notificationUserMeta(targetUser)}) 회원에게 알림을 보낼까요?`
       : '전체 회원에게 알림을 보낼까요?';
     if (!await confirmAction(confirmation, '알림 발송 확인')) return;
-    $('notifSend').disabled = true;
+    const button = $('notifSend');
+    button.disabled = true;
     try {
       const res = await api('/api/admin/notifications', {
         method: 'POST',
@@ -1666,13 +1691,16 @@
         }),
       });
       toast(`일반 알림 발송 완료 — ${res.sent}명에게 전송됨`);
-      $('notifTitle').value = ''; $('notifBody').value = ''; selectedNotificationUid = '';
+      if (button.isConnected) {
+        $('notifTitle').value = ''; $('notifBody').value = '';
+      }
+      selectedNotificationUid = '';
       communityStats = await api('/api/admin/community/stats');
       renderNotificationsView();
     } catch (e) {
       handleError(e);
     } finally {
-      $('notifSend').disabled = false;
+      button.disabled = false;
     }
   }
 
@@ -1713,20 +1741,22 @@
     const reason = $('rejectReason').value.trim();
     if (!reason) { $('rejectReason').focus(); return; }
     $('rejectConfirm').disabled = true;
+    const targetId = rejectTargetId;
+    const targetType = rejectTargetType;
     try {
-      const endpoint = rejectTargetType === 'receipt'
-        ? `/api/admin/receipts/${rejectTargetId}/reject`
-        : `/api/admin/reports/${rejectTargetId}/reject`;
+      const endpoint = targetType === 'receipt'
+        ? `/api/admin/receipts/${encodeURIComponent(targetId)}/reject`
+        : `/api/admin/reports/${encodeURIComponent(targetId)}/reject`;
       await api(endpoint, {
         method: 'POST',
         body: JSON.stringify({ reason }),
       });
-      const collection = rejectTargetType === 'receipt' ? allReceipts : allReports;
-      const r = collection.find((x) => x.id === rejectTargetId);
+      const collection = targetType === 'receipt' ? allReceipts : allReports;
+      const r = collection.find((x) => x.id === targetId);
       if (r) { r.status = 'REJECTED'; r.rejectReason = reason; }
-      if (rejectTargetType === 'report') overview = null;
-      closeModal('rejectModal');
-      if (rejectTargetType === 'receipt') renderReceiptsView();
+      if (targetType === 'report') overview = null;
+      if (rejectTargetId === targetId && rejectTargetType === targetType) closeModal('rejectModal');
+      if (targetType === 'receipt') renderReceiptsView();
       else renderReportsView();
       toast('반려 완료');
     } catch (e) {
@@ -1768,21 +1798,24 @@
     if (!answerInquiryId) return;
 
     $('answerInquiryConfirm').disabled = true;
+    const targetId = answerInquiryId;
     try {
-      const result = await api(`/api/admin/inquiries/${encodeURIComponent(answerInquiryId)}/answer`, {
+      const result = await api(`/api/admin/inquiries/${encodeURIComponent(targetId)}/answer`, {
         method: 'POST',
         body: JSON.stringify({ answer }),
       });
-      const inquiry = (allInquiries || []).find((item) => item.id === answerInquiryId);
+      const inquiry = (allInquiries || []).find((item) => item.id === targetId);
       if (inquiry) {
         inquiry.answer = answer;
         inquiry.answeredAt = result.answeredAt;
         inquiry.status = result.status || 'ANSWERED';
       }
-      closeModal('answerInquiryModal');
+      if (answerInquiryId === targetId) {
+        closeModal('answerInquiryModal');
+        answerInquiryId = null;
+      }
       renderInquiriesView();
       toast('답변 저장 및 사용자 알림 등록 완료');
-      answerInquiryId = null;
     } catch (e) {
       handleError(e);
     } finally {
@@ -1792,16 +1825,19 @@
 
   async function doDeleteInquiry() {
     if (!deleteInquiryId) return;
+    const targetId = deleteInquiryId;
     $('deleteInquiryConfirm').disabled = true;
     try {
-      const result = await api(`/api/admin/inquiries/${encodeURIComponent(deleteInquiryId)}`, {
+      const result = await api(`/api/admin/inquiries/${encodeURIComponent(targetId)}`, {
         method: 'DELETE',
       });
-      allInquiries = (allInquiries || []).filter((item) => item.id !== deleteInquiryId);
-      closeModal('deleteInquiryModal');
+      allInquiries = (allInquiries || []).filter((item) => item.id !== targetId);
+      if (deleteInquiryId === targetId) {
+        closeModal('deleteInquiryModal');
+        deleteInquiryId = null;
+      }
       renderInquiriesView();
       toast(`문의 삭제 완료${result.deletedImages ? ` · 사진 ${result.deletedImages}장 정리` : ''}`);
-      deleteInquiryId = null;
     } catch (e) {
       handleError(e);
     } finally {
@@ -1817,17 +1853,20 @@
 
   async function doDeleteReport() {
     if (!deleteReportId) return;
+    const targetId = deleteReportId;
     $('deleteReportConfirm').disabled = true;
     try {
-      const res = await api(`/api/admin/reports/${encodeURIComponent(deleteReportId)}`, {
+      const res = await api(`/api/admin/reports/${encodeURIComponent(targetId)}`, {
         method: 'DELETE',
       });
-      allReports = allReports.filter((report) => report.id !== deleteReportId);
+      allReports = allReports.filter((report) => report.id !== targetId);
       overview = null;
-      closeModal('deleteReportModal');
+      if (deleteReportId === targetId) {
+        closeModal('deleteReportModal');
+        deleteReportId = null;
+      }
       renderReportsView();
       toast(`제보 삭제 완료 — 첨부 사진 ${res.deletedImages ?? 0}장 정리`);
-      deleteReportId = null;
     } catch (e) {
       handleError(e);
     } finally {
@@ -1836,13 +1875,14 @@
   }
 
   async function doDeleteUser() {
+    const targetId = deleteTargetUid;
     $('deleteUserConfirm').disabled = true;
     try {
-      const res = await api(`/api/admin/users/${encodeURIComponent(deleteTargetUid)}`, { method: 'DELETE' });
-      users = users.filter((u) => (u.id || u.firebaseUid) !== deleteTargetUid);
+      const res = await api(`/api/admin/users/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
+      users = users.filter((u) => (u.id || u.firebaseUid) !== targetId);
       overview = null;
       communityStats = null;
-      closeModal('deleteUserModal');
+      if (deleteTargetUid === targetId) closeModal('deleteUserModal');
       renderUsersView();
       toast(`탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
     } catch (e) {
@@ -1853,12 +1893,13 @@
   }
 
   async function doDeleteReview() {
+    const targetId = deleteReviewId;
     $('deleteReviewConfirm').disabled = true;
     try {
-      await api(`/api/admin/reviews/${encodeURIComponent(deleteReviewId)}`, { method: 'DELETE' });
-      allReviews = allReviews.filter((r) => r.id !== deleteReviewId);
+      await api(`/api/admin/reviews/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
+      allReviews = allReviews.filter((r) => r.id !== targetId);
       overview = null;
-      closeModal('deleteReviewModal');
+      if (deleteReviewId === targetId) closeModal('deleteReviewModal');
       renderReviewsView();
       toast('리뷰 삭제 완료');
     } catch (e) {
@@ -1869,12 +1910,13 @@
   }
 
   async function doDeleteComment() {
+    const targetId = deleteCommentId;
     $('deleteCommentConfirm').disabled = true;
     try {
-      await api(`/api/admin/comments/${encodeURIComponent(deleteCommentId)}`, { method: 'DELETE' });
-      allComments = (allComments || []).filter((c) => c.id !== deleteCommentId);
+      await api(`/api/admin/comments/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
+      allComments = (allComments || []).filter((c) => c.id !== targetId);
       communityStats = null;
-      closeModal('deleteCommentModal');
+      if (deleteCommentId === targetId) closeModal('deleteCommentModal');
       renderCommentsView();
       toast('댓글 삭제 완료');
     } catch (e) {
@@ -1885,6 +1927,7 @@
   }
 
   function handleError(e) {
+    if (e.code === 'STALE_REQUEST') return;
     if (e.code === 401) { invalidateAdminSession('관리자 인증을 다시 확인해주세요.'); return; }
     if (e.code === 403) { renderState('forbidden'); return; }
     toast(e.message || '오류가 발생했습니다');
@@ -1892,6 +1935,7 @@
 
   /* ── 로드 / 뷰 전환 ───────────────── */
   async function switchView(view) {
+    viewLoadGeneration += 1;
     currentView = view;
     document.querySelectorAll('.nav-item').forEach((t) => {
       const active = t.dataset.view === view;
@@ -1932,86 +1976,119 @@
     }
   }
 
+  // A response belongs to one view load and one login session. Ignore it if
+  // navigation, another refresh, or logout has superseded that request.
+  function beginViewLoad() {
+    const generation = ++viewLoadGeneration;
+    const session = adminSessionGeneration;
+    return () => generation === viewLoadGeneration && session === adminSessionGeneration;
+  }
+
   async function loadDashboard() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
       const overviewRequest = overview ?? api('/api/admin/overview');
       const reportsRequest = reportsLoaded
         ? Promise.resolve(allReports)
         : api('/api/admin/reports?status=ALL');
-      [overview, allReports, storageUsage] = await Promise.all([
+      const result = await Promise.all([
         overviewRequest,
         reportsRequest,
         api('/api/admin/storage/report-images/usage').catch(() => null),
       ]);
+      if (!isCurrent()) return;
+      [overview, allReports, storageUsage] = result;
       reportsLoaded = true;
       renderDashboard();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadReports() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      allReports = await api('/api/admin/reports?status=ALL');
+      const result = await api('/api/admin/reports?status=ALL');
+      if (!isCurrent()) return;
+      allReports = result;
       reportsLoaded = true;
       renderReportsView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadReceipts() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      allReceipts = await api('/api/admin/receipts?status=ALL');
+      const result = await api('/api/admin/receipts?status=ALL');
+      if (!isCurrent()) return;
+      allReceipts = result;
       receiptsLoaded = true;
       renderReceiptsView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadReviews() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      allReviews = await api('/api/admin/reviews');
+      const result = await api('/api/admin/reviews');
+      if (!isCurrent()) return;
+      allReviews = result;
       reviewsLoaded = true;
       renderReviewsView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadUsers() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      users = await api('/api/admin/users');
+      const result = await api('/api/admin/users');
+      if (!isCurrent()) return;
+      users = result;
       renderUsersView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadComments() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      allComments = await api('/api/admin/comments');
+      const result = await api('/api/admin/comments');
+      if (!isCurrent()) return;
+      allComments = result;
       renderCommentsView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadInquiries() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      allInquiries = await api('/api/admin/inquiries');
+      const result = await api('/api/admin/inquiries');
+      if (!isCurrent()) return;
+      allInquiries = result;
       renderInquiriesView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   async function loadCommunityStats() {
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      [communityStats, users] = await Promise.all([
+      const result = await Promise.all([
         api('/api/admin/community/stats'),
         api('/api/admin/users'),
       ]);
+      if (!isCurrent()) return;
+      [communityStats, users] = result;
       renderNotificationsView();
-    } catch (e) { handleLoadError(e); }
+    } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
 
   function handleLoadError(e) {
+    if (e.code === 'STALE_REQUEST') return;
     if (e.code === 401) invalidateAdminSession('관리자 인증을 다시 확인해주세요.');
     else if (e.code === 403) renderState('forbidden');
     else renderState('error', { message: e.message });
@@ -2058,11 +2135,15 @@
       return;
     }
     showApp();
+    const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      overview = await api('/api/admin/overview');
+      const result = await api('/api/admin/overview');
+      if (!isCurrent()) return;
+      overview = result;
       await switchView('dashboard');
     } catch (e) {
+      if (!isCurrent() || e.code === 'STALE_REQUEST') return;
       if (e.code === 401) invalidateAdminSession('관리자 인증을 다시 확인해주세요.');
       else if (e.code === 403) renderState('forbidden');
       else renderState('error', { message: e.message });

@@ -78,8 +78,11 @@ Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
     });
     final response =
         await (request ??
-                (uri) =>
-                    ApiClient.get(uri, headers: ApiClient.jsonHeaders()))(uri)
+                (uri) => ApiClient.get(
+                  uri,
+                  headers: ApiClient.jsonHeaders(),
+                  timeout: timeout,
+                ))(uri)
             .timeout(timeout);
     if (response.statusCode == 200) {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));

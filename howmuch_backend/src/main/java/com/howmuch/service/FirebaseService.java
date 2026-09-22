@@ -81,6 +81,10 @@ public class FirebaseService {
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
 
+    /** /api/stores/all 응답 캐시. 원본 캐시 참조가 바뀌면 자동으로 새로 만듭니다. */
+    private final Object allStoresCacheLock = new Object();
+    private volatile AllStoresCacheEntry allStoresCache = null;
+
     /** 커뮤니티 피드 인메모리 캐시 (60초 TTL, N+1 Firestore 읽기 및 쿼터 보호) */
     private final Object feedsCacheLock = new Object();
     private volatile List<com.howmuch.dto.FeedResponseDto> cachedFeeds = null;
@@ -217,7 +221,7 @@ public class FirebaseService {
                         return data;
                     })
                     .toList();
-            cachedUserStores = List.copyOf(userStores);
+            cachedUserStores = immutableStoreList(userStores);
             invalidateCommunityFeedCache();
             log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
         } catch (Exception e) {
@@ -266,7 +270,7 @@ public class FirebaseService {
      * 보강 목록은 classpath 파일로 독립 보존되어 Firestore/주간 스냅샷 갱신에 덮어쓰이지 않습니다.
      */
     private void installGovStores(List<Map<String, Object>> baseStores) {
-        List<Map<String, Object>> safeBase = List.copyOf(baseStores);
+        List<Map<String, Object>> safeBase = immutableStoreList(baseStores);
         cachedBaseStores = safeBase;
         cachedStores = mergeVerifiedSupplement(safeBase);
     }
@@ -317,7 +321,7 @@ public class FirebaseService {
                 identities.add(expectedId);
                 phoneNumbers.add(comparablePhone);
                 nameAddresses.add(comparableNameAddress);
-                merged.add(Collections.unmodifiableMap(new HashMap<>(store)));
+                merged.add(immutableStoreCopy(store));
                 accepted++;
             }
             log.info("행안부 상세 검증 보강 매장 {}개를 합쳤습니다.", accepted);
@@ -356,15 +360,49 @@ public class FirebaseService {
     }
 
     public List<Map<String, Object>> getAllStores() {
+        List<Map<String, Object>> govSnapshot = cachedStores;
+        List<Map<String, Object>> userSnapshot = cachedUserStores;
+        AllStoresCacheEntry cached = allStoresCache;
+        if (cached != null && cached.matches(govSnapshot, userSnapshot)) {
+            return cached.stores();
+        }
+
+        synchronized (allStoresCacheLock) {
+            govSnapshot = cachedStores;
+            userSnapshot = cachedUserStores;
+            cached = allStoresCache;
+            if (cached != null && cached.matches(govSnapshot, userSnapshot)) {
+                return cached.stores();
+            }
+            List<Map<String, Object>> stores = buildAllStores(govSnapshot, userSnapshot);
+            allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, stores);
+            return stores;
+        }
+    }
+
+    private record AllStoresCacheEntry(
+            List<Map<String, Object>> govSource,
+            List<Map<String, Object>> userSource,
+            List<Map<String, Object>> stores) {
+        boolean matches(
+                List<Map<String, Object>> currentGovSource,
+                List<Map<String, Object>> currentUserSource) {
+            return govSource == currentGovSource && userSource == currentUserSource;
+        }
+    }
+
+    private List<Map<String, Object>> buildAllStores(
+            List<Map<String, Object>> govSnapshot,
+            List<Map<String, Object>> userSnapshot) {
         Map<String, Map<String, Object>> publicStoresById = new LinkedHashMap<>();
         Set<String> publicPhones = new HashSet<>();
         Set<String> publicNamesAndAddresses = new HashSet<>();
-        for (Map<String, Object> rawStore : cachedStores) {
+        for (Map<String, Object> rawStore : govSnapshot) {
             Map<String, Object> store = toPublicStore(rawStore, "GOV");
             publicStoresById.put(String.valueOf(store.get("storeId")), store);
             addPublicStoreIdentity(store, publicPhones, publicNamesAndAddresses);
         }
-        for (Map<String, Object> rawStore : cachedUserStores) {
+        for (Map<String, Object> rawStore : userSnapshot) {
             if (!isPubliclyVisible(rawStore)) continue;
             Map<String, Object> store = toPublicStore(rawStore, "USER");
             String storeId = String.valueOf(store.get("storeId"));
@@ -379,7 +417,9 @@ public class FirebaseService {
             publicStoresById.put(storeId, store);
             addPublicStoreIdentity(store, publicPhones, publicNamesAndAddresses);
         }
-        return List.copyOf(publicStoresById.values());
+        return publicStoresById.values().stream()
+                .map(this::immutableStoreCopy)
+                .toList();
     }
 
     private Map<String, Object> toPublicStore(Map<String, Object> rawStore, String source) {
@@ -389,10 +429,43 @@ public class FirebaseService {
                 "storeId", "storeName", "address", "phoneNumber", "industry",
                 "menu1", "price1", "menu2", "price2", "menu3", "price3",
                 "menu4", "price4", "latitude", "longitude", "openingHours")) {
-            if (normalized.containsKey(field)) result.put(field, normalized.get(field));
+            if (normalized.containsKey(field)) {
+                result.put(field, immutablePublicValue(normalized.get(field)));
+            }
         }
         result.put("source", source);
         return result;
+    }
+
+    private List<Map<String, Object>> immutableStoreList(List<Map<String, Object>> stores) {
+        return stores.stream()
+                .map(this::immutableStoreCopy)
+                .toList();
+    }
+
+    private Map<String, Object> immutableStoreCopy(Map<String, Object> store) {
+        Map<String, Object> copy = new HashMap<>();
+        for (Map.Entry<String, Object> entry : store.entrySet()) {
+            copy.put(entry.getKey(), immutablePublicValue(entry.getValue()));
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
+    private Object immutablePublicValue(Object value) {
+        if (value instanceof Map<?, ?> map) {
+            Map<String, Object> copy = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() == null) continue;
+                copy.put(String.valueOf(entry.getKey()), immutablePublicValue(entry.getValue()));
+            }
+            return Collections.unmodifiableMap(copy);
+        }
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .map(this::immutablePublicValue)
+                    .toList();
+        }
+        return value;
     }
 
     private void addPublicStoreIdentity(
@@ -644,7 +717,7 @@ public class FirebaseService {
 
         data.put("id", docRef.getId());
         List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
-        updated.add(data);
+        updated.add(immutableStoreCopy(data));
         cachedUserStores = List.copyOf(updated);
         invalidateCommunityFeedCache();
 
@@ -687,7 +760,7 @@ public class FirebaseService {
         mergedData.putAll(data);
         mergedData.put("id", reportId);
         cachedUserStores = cachedUserStores.stream()
-                .map(item -> reportId.equals(item.get("id")) ? mergedData : item)
+                .map(item -> reportId.equals(item.get("id")) ? immutableStoreCopy(mergedData) : item)
                 .toList();
         invalidateCommunityFeedCache();
 
@@ -1238,7 +1311,7 @@ public class FirebaseService {
                     if (reportId.equals(item.get("id"))) {
                         Map<String, Object> copy = new HashMap<>(item);
                         copy.putAll(updates);
-                        return copy;
+                        return immutableStoreCopy(copy);
                     }
                     return item;
                 })
@@ -1398,7 +1471,7 @@ public class FirebaseService {
                 .filter(item -> !firebaseUid.equals(item.get("reporterId"))
                         || "APPROVED".equalsIgnoreCase(String.valueOf(item.get("status"))))
                 .map(item -> firebaseUid.equals(item.get("reporterId"))
-                        ? anonymizeReportData(item)
+                        ? immutableStoreCopy(anonymizeReportData(item))
                         : item)
                 .toList();
         db.collection("users").document(firebaseUid).delete().get();

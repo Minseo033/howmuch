@@ -64,6 +64,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   String? _errorMessage;
   SearchFilter _filter = const SearchFilter();
   List<String> _recentSearches = const [];
+  List<String> _suggestions = const [];
+  final Map<String, double> _distanceCache = {};
 
   // 디바운스
   Timer? _debounce;
@@ -73,34 +75,48 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   late final SearchHistoryStore _searchHistoryStore;
 
-  List<String> get _realSuggestions {
-    final stores = List<Store>.from(
-      howmuch_home.HomeMapScreen.globalSearchCatalog,
-    );
+  List<String> _buildSuggestions() {
+    final stores = howmuch_home.HomeMapScreen.globalSearchCatalog;
     final position = howmuch_home.HomeMapScreen.globalUserPosition;
-    if (position != null) {
-      stores.sort((a, b) {
-        final aDistance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          a.latitude,
-          a.longitude,
-        );
-        final bDistance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          b.latitude,
-          b.longitude,
-        );
-        return aDistance.compareTo(bDistance);
-      });
+    if (stores.isEmpty) return const [];
+    if (position == null) {
+      final seen = <String>{};
+      return stores
+          .map((store) => store.menu1.trim())
+          .where((menu) => menu.isNotEmpty && seen.add(menu))
+          .take(4)
+          .toList(growable: false);
     }
-    final seen = <String>{};
-    return stores
-        .map((store) => store.menu1.trim())
-        .where((menu) => menu.isNotEmpty && seen.add(menu))
-        .take(4)
-        .toList();
+
+    final nearestByMenu = <String, double>{};
+    for (final store in stores) {
+      final menu = store.menu1.trim();
+      if (menu.isEmpty || !store.hasValidCoordinates) {
+        continue;
+      }
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        store.latitude,
+        store.longitude,
+      );
+      final previous = nearestByMenu[menu];
+      if (previous == null || distance < previous) {
+        nearestByMenu[menu] = distance;
+      }
+    }
+    final nearest = nearestByMenu.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    return nearest.map((item) => item.key).take(4).toList(growable: false);
+  }
+
+  void _refreshSuggestions() {
+    final next = _buildSuggestions();
+    if (!mounted) {
+      _suggestions = next;
+      return;
+    }
+    setState(() => _suggestions = next);
   }
 
   @override
@@ -111,6 +127,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     _ctrl.addListener(_onSearchInputChanged);
     _searchHistoryStore = widget.searchHistoryStore ?? SearchHistoryStore();
     unawaited(_initializeSearchHistory());
+    _suggestions = _buildSuggestions();
     _doSearch(_query);
     if (widget.autoOpenFilter) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -238,6 +255,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         }
         if (!mounted || generation != _searchGeneration) return;
         howmuch_home.HomeMapScreen.setSearchCatalog(loadedStores);
+        _refreshSuggestions();
       }
 
       var stores = List<Store>.from(
@@ -258,9 +276,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         }).toList();
       }
 
+      final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+      _refreshDistanceCache(stores, pos);
+
       // 거리 필터링
       if (_filter.distance != null && _filter.distance!.isNotEmpty) {
-        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos == null) {
           if (mounted) {
             setState(() {
@@ -281,12 +301,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
         if (maxDist > 0) {
           stores = stores.where((s) {
-            final d = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              s.latitude,
-              s.longitude,
-            );
+            final d = _distanceFor(s);
             return d <= maxDist;
           }).toList();
         }
@@ -315,22 +330,14 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         stores.sort(SearchFilterPolicy.compareByPrice);
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
-        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos != null) {
           stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              a.latitude,
-              a.longitude,
-            );
-            final db = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              b.latitude,
-              b.longitude,
-            );
-            return da.compareTo(db);
+            final distanceComparison = _distanceFor(
+              a,
+            ).compareTo(_distanceFor(b));
+            return distanceComparison != 0
+                ? distanceComparison
+                : a.storeName.compareTo(b.storeName);
           });
         }
       }
@@ -407,19 +414,36 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   //  거리 계산 로직
   // ────────────────────────────────────────────────
   String _formatDistance(Store store) {
-    final pos = howmuch_home.HomeMapScreen.globalUserPosition;
-    if (pos == null) return '';
-    final d = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      store.latitude,
-      store.longitude,
-    );
+    final d = _distanceFor(store);
+    if (d.isInfinite) return '';
     if (d < 1000) {
       return '${d.toStringAsFixed(0)}m';
     } else {
       return '${(d / 1000).toStringAsFixed(1)}km';
     }
+  }
+
+  void _refreshDistanceCache(List<Store> stores, Position? position) {
+    _distanceCache.clear();
+    if (position == null) return;
+
+    for (final store in stores) {
+      _distanceCache[_distanceKey(store)] = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        store.latitude,
+        store.longitude,
+      );
+    }
+  }
+
+  double _distanceFor(Store store) {
+    return _distanceCache[_distanceKey(store)] ?? double.infinity;
+  }
+
+  String _distanceKey(Store store) {
+    if (store.id.trim().isNotEmpty) return store.id.trim();
+    return '${store.storeName}|${store.latitude}|${store.longitude}';
   }
 
   @override
@@ -538,7 +562,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     : _query.isEmpty && _filter.activeLabels.isEmpty
                     ? _SearchLanding(
                         recentSearches: _recentSearches,
-                        suggestions: _realSuggestions,
+                        suggestions: _suggestions,
                         onRecentTap: (query) {
                           _ctrl.text = query;
                           _ctrl.selection = TextSelection.collapsed(
@@ -562,7 +586,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       )
                     : _searched && _results.isEmpty
                     ? _EmptyResult(
-                        suggestions: _realSuggestions,
+                        suggestions: _suggestions,
                         hasFilters: activeFilters.isNotEmpty,
                         onShowAll: () => _returnToMap(clear: true),
                         onEditQuery: () {
