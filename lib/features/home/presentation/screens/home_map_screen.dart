@@ -29,6 +29,14 @@ import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
 
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
+const double maxHomeMapBoundsSpanDegrees = 10;
+
+bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
+  return bounds['maxLat']! - bounds['minLat']! <=
+          maxHomeMapBoundsSpanDegrees &&
+      bounds['maxLng']! - bounds['minLng']! <=
+          maxHomeMapBoundsSpanDegrees;
+}
 
 bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
   final age = now.toUtc().difference(timestamp.toUtc());
@@ -690,6 +698,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var container = document.getElementById('kakao-map-container');
           var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
           map = new kakao.maps.Map(container, options);
+          // Match the backend's maximum supported geographic query span.
+          map.setMaxLevel(10);
           
           kakao.maps.event.addListener(map, 'idle', function() {
             if (Date.now() < ignoreBoundsUntil) {
@@ -907,7 +917,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
           if (!values.every(Number.isFinite) ||
               values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
-              values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
+              values[2] < -180 || values[3] > 180 || values[2] >= values[3] ||
+              values[1] - values[0] > 10 || values[3] - values[2] > 10) {
             return;
           }
           var boundsData = JSON.stringify({
@@ -1392,7 +1403,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
-    if (!mounted || parseKakaoMapBounds(boundsJson) == null) return;
+    if (!mounted) return;
+    final parsedBounds = parseKakaoMapBounds(boundsJson);
+    if (parsedBounds == null) return;
+    if (!isHomeMapBoundsWithinBackendLimit(parsedBounds)) {
+      // Ignore unsupported zoom levels and invalidate any request started
+      // for the previous viewport so stale markers cannot replace the map.
+      _boundsRequestGeneration++;
+      _pendingBoundsJson = null;
+      return;
+    }
     _boundsRequestGeneration++;
     _pendingBoundsJson = boundsJson;
     if (_isFetching) return;

@@ -247,6 +247,7 @@ class _Header extends StatelessWidget {
       title: _title,
       onBack: onBack,
       trailingIcon: filter == ReportFilter.all ? Icons.search_rounded : null,
+      trailingTooltip: filter == ReportFilter.all ? '검색' : null,
       onTrailingTap: filter == ReportFilter.all ? onSearch : null,
     );
   }

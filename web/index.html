@@ -304,6 +304,7 @@
             }
             existingMap.relayout();
             existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
+            if (typeof existingMap.setMaxLevel === 'function') existingMap.setMaxLevel(10);
             bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
             if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
             scheduleKakaoMapTask(lifecycle, function() {
@@ -324,6 +325,8 @@
           level: 3
         };
         var map = new kakao.maps.Map(container, options);
+        // Keep the viewport within the bounds endpoint's supported query span.
+        map.setMaxLevel(10);
         window.kakaoMapObjects[containerId] = map;
         window.kakaoMapLoadAttempts[containerId] = 0;
         window.customOverlays[containerId] = [];

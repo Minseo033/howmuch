@@ -23,6 +23,10 @@ void main() {
       expect(find.text('주소 *'), findsOneWidget);
       expect(find.text('대표 메뉴 *'), findsOneWidget);
       expect(find.text('가격 *'), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      expect(find.bySemanticsLabel('대표 메뉴, 필수 입력'), findsOneWidget);
+      expect(find.bySemanticsLabel('가격, 필수 입력'), findsOneWidget);
+      semantics.dispose();
       final storeLabel = tester.widget<Text>(find.text('매장명 *'));
       final labelSpan = storeLabel.textSpan! as TextSpan;
       final requiredSpan = labelSpan.children!.last as TextSpan;

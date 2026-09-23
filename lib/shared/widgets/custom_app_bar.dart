@@ -29,13 +29,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading:
           leading ??
           (canPop
-              ? IconButton(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.center,
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    size: HowmuchTopBar.iconSize,
+              ? Semantics(
+                  button: true,
+                  label: '뒤로가기',
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.center,
+                    tooltip: '뒤로가기',
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(
+                      Icons.arrow_back_rounded,
+                      size: HowmuchTopBar.iconSize,
+                    ),
                   ),
                 )
               : null),

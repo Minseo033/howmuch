@@ -11,6 +11,36 @@ void main() {
     );
   });
 
+  test('keeps bounds within the backend maximum geographic span', () {
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 40,
+        'minLng': 120,
+        'maxLng': 130,
+      }),
+      isTrue,
+    );
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 40.01,
+        'minLng': 120,
+        'maxLng': 121,
+      }),
+      isFalse,
+    );
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 31,
+        'minLng': 120,
+        'maxLng': 130.01,
+      }),
+      isFalse,
+    );
+  });
+
   test(
     'rejects transient null, non-finite, out-of-range, and reversed bounds',
     () {

@@ -46,6 +46,7 @@ function createRuntime() {
     this.relayout = () => { this.relayoutCount += 1; };
     this.setCenter = () => {};
     this.panTo = () => {};
+    this.setMaxLevel = (level) => { this.maxLevel = level; };
   }
   function CustomOverlay(options) {
     this.options = options;
@@ -102,8 +103,12 @@ function createRuntime() {
   let idleCalls = 0;
   context.onKakaoMapIdle = () => { idleCalls += 1; };
   context.initKakaoMap('map', 37.5, 127.0);
+  assert.equal(context.kakaoMapObjects.map.maxLevel, 10,
+    'the web map limits zoom-out to the bounds endpoint supported range');
   assert.equal(observers.length, 1, 'one observer is attached for a map instance');
   context.initKakaoMap('map', 37.6, 127.1);
+  assert.equal(context.kakaoMapObjects.map.maxLevel, 10,
+    'reused maps keep the same zoom-out limit');
   assert.equal(listeners.length, 4, 'reinitializing replaces rather than accumulates event listeners');
   assert.equal(observers.length, 2, 'a reused map refreshes its observer generation');
   assert.equal(observers[0].disconnected, true, 'the prior observer is released before reuse');

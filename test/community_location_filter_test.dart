@@ -39,4 +39,28 @@ void main() {
     expect(find.text('전체 제보'), findsNothing);
     expect(find.text('전체'), findsOneWidget);
   });
+
+  testWidgets('320px 피드에서 지역·분류 칩의 탭 영역이 44px 이상이다', (tester) async {
+    tester.view.physicalSize = const Size(320, 812);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const MaterialApp(home: CommunityFeedScreen()));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('community-location-filter')))
+          .height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('community-filter-chip-최신 제보')))
+          .height,
+      greaterThanOrEqualTo(44),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
