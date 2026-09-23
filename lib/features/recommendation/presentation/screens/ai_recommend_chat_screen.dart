@@ -12,6 +12,29 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
+/// Separates numbered store recommendations from the free-form explanation.
+/// Non-list AI replies keep the original text untouched.
+@visibleForTesting
+(String, List<(String, String)>)? splitAiRecommendationText(String text) {
+  final pattern = RegExp(r'^\s*\d+[.)]\s+(.+?)\s+[—–-]\s+(.+?)\s*$');
+  final intro = <String>[];
+  final stores = <(String, String)>[];
+  String plainText(String value) => parseAiChatDisplayText(
+    value,
+  ).map((segment) => segment.text).join().trim();
+  for (final line in text.split('\n')) {
+    final match = pattern.firstMatch(line);
+    if (match == null) {
+      intro.add(line);
+    } else {
+      stores.add((plainText(match.group(1)!), plainText(match.group(2)!)));
+    }
+  }
+  if (stores.length < 2) return null;
+  final description = intro.join('\n').trim();
+  return (description.isEmpty ? '추천 매장을 확인해보세요.' : description, stores);
+}
+
 class AiRecommendChatScreen extends ConsumerStatefulWidget {
   const AiRecommendChatScreen({super.key});
 
@@ -63,11 +86,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   static const _quickPrompts = [
     _QuickPrompt(
       icon: Icons.account_balance_wallet_outlined,
-      label: '10,000원 이하 점심 추천',
+      label: '10,000원 이하 점심',
     ),
-    _QuickPrompt(icon: Icons.umbrella_outlined, label: '비 오는 날 따뜻한 국물'),
-    _QuickPrompt(icon: Icons.restaurant_outlined, label: '혼밥하기 좋은 분식'),
-    _QuickPrompt(icon: Icons.location_on_outlined, label: '이 근처 오후 코스 짜줘'),
+    _QuickPrompt(icon: Icons.umbrella_outlined, label: '비 오는 날 국물'),
+    _QuickPrompt(icon: Icons.restaurant_outlined, label: '혼밥 분식 추천'),
+    _QuickPrompt(icon: Icons.location_on_outlined, label: '근처 오후 코스'),
   ];
 
   @override
@@ -632,7 +655,7 @@ class _PromptChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: width ?? 163.5,
-      height: 42,
+      height: 52,
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(999),
@@ -653,8 +676,8 @@ class _PromptChip extends StatelessWidget {
                 Flexible(
                   child: Text(
                     prompt.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: _AiUi.ink,
                       fontFamily: _AiUi.fontFamily,
@@ -823,6 +846,7 @@ class _BotMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final structured = splitAiRecommendationText(message.text);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -840,18 +864,71 @@ class _BotMessageBubble extends StatelessWidget {
               ),
             ],
           ),
-          child: Text.rich(
-            buildAiChatDisplayTextSpan(
-              message.text,
-              const TextStyle(
-                color: _AiUi.ink,
-                fontFamily: _AiUi.fontFamily,
-                fontFamilyFallback: _AiUi.fontFallback,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: 1.55,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text.rich(
+                buildAiChatDisplayTextSpan(
+                  structured == null ? message.text : structured.$1,
+                  const TextStyle(
+                    color: _AiUi.ink,
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.55,
+                  ),
+                ),
               ),
-            ),
+              if (structured != null) ...[
+                const SizedBox(height: 12),
+                for (final item in structured.$2) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6F8FC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.$1,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: _AiUi.ink,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 7,
+                          runSpacing: 5,
+                          children: [
+                            for (final detail
+                                in item.$2
+                                    .split(' · ')
+                                    .where((value) => value.isNotEmpty))
+                              Text(
+                                detail,
+                                style: const TextStyle(
+                                  color: Color(0xFF475569),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 6),

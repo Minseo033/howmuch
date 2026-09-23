@@ -147,6 +147,7 @@ class StoreDetailScreen extends ConsumerWidget {
                   shadowColor: Colors.black12,
                   elevation: 0.5,
                   leading: IconButton(
+                    tooltip: '뒤로가기',
                     icon: const Icon(Icons.arrow_back_rounded, size: 20),
                     onPressed: () => context.pop(),
                   ),
@@ -1023,6 +1024,7 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
         favorites.valueOrNull?.any((store) => store.id == _storeId) ?? false;
 
     return IconButton(
+      tooltip: isFavorite ? '찜 해제' : '찜하기',
       icon: _busy
           ? const SizedBox(
               width: 18,

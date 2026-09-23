@@ -12,7 +12,6 @@ class AiChatTextSegment {
   final bool isBold;
 }
 
-@visibleForTesting
 List<AiChatTextSegment> parseAiChatDisplayText(String text) {
   final segments = <AiChatTextSegment>[];
   final lines = text.split('\n');

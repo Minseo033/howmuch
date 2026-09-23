@@ -38,6 +38,19 @@ String? normalizeReportIndustry(String rawCategory, {String placeName = ''}) {
   final value = '$rawCategory $placeName'.toLowerCase().replaceAll(' ', '');
   if (value.isEmpty) return null;
 
+  if (_containsCategory(value, const [
+    '주차장',
+    '주차타워',
+    '주차시설',
+    '주차서비스',
+    'parking',
+  ])) {
+    return '교통·주차 · 주차장';
+  }
+  if (_containsCategory(value, const ['버스', '지하철', '택시', '교통'])) {
+    return '교통·주차 · 교통서비스';
+  }
+
   if (_containsCategory(value, const ['베이커리', '제과', '빵집', '제빵'])) {
     return '카페·디저트 · 베이커리';
   }
@@ -140,6 +153,8 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     '생활서비스 · 목욕·사우나',
     '숙박 · 호텔·모텔',
     '숙박 · 펜션·게스트하우스',
+    '교통·주차 · 주차장',
+    '교통·주차 · 교통서비스',
     '기타 · 생활서비스',
   ];
   final _scrollController = ScrollController();

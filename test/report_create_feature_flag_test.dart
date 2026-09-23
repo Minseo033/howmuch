@@ -150,6 +150,11 @@ void main() {
     expect(normalizeReportIndustry('음식점 > 카페 > 제과,베이커리'), '카페·디저트 · 베이커리');
     expect(normalizeReportIndustry('미용업'), '생활서비스 · 미용실');
     expect(normalizeReportIndustry('세탁업'), '생활서비스 · 세탁소');
+    expect(
+      normalizeReportIndustry('교통시설 > 주차장', placeName: '동양미래대학 주차장'),
+      '교통·주차 · 주차장',
+    );
+    expect(normalizeReportIndustry('대중교통 > 택시'), '교통·주차 · 교통서비스');
     expect(normalizeReportIndustry(''), isNull);
   });
 }

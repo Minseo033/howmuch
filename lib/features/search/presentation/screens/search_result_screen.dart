@@ -1005,26 +1005,23 @@ class _StoreCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 가게명 + 업종
+                    // Keep the full card width for identifying long store names.
+                    Text(
+                      store.storeName,
+                      style: const TextStyle(
+                        fontFamily: SearchResultScreen.fontFamily,
+                        fontFamilyFallback: SearchResultScreen.fontFallback,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: SearchResultScreen.ink,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            store.storeName,
-                            style: const TextStyle(
-                              fontFamily: SearchResultScreen.fontFamily,
-                              fontFamilyFallback:
-                                  SearchResultScreen.fontFallback,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: SearchResultScreen.ink,
-                              letterSpacing: -0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         if (distance.isNotEmpty) ...[
                           Text(
                             distance,

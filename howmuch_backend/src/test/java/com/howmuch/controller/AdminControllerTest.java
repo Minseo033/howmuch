@@ -69,6 +69,14 @@ class AdminControllerTest {
     }
 
     @Test
+    void updatesAReportIndustryWithoutChangingItsStatus() throws Exception {
+        ResponseEntity<?> response = controller.updateReportIndustry(
+                "report-1", Map.of("industry", "교통·주차 · 주차장"), request);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(firebaseService).updateReportIndustryAsAdmin("report-1", "교통·주차 · 주차장");
+    }
+
+    @Test
     void returnsTheSanitizedStorageUsage() throws Exception {
         Map<String, Object> usage = Map.of(
                 "plan", "Free",

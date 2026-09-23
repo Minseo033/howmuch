@@ -15,6 +15,36 @@ import 'package:howmuch/features/community/presentation/state/user_report_model.
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
+String? validatePriceChange({
+  required String changeType,
+  required String menu,
+  required String price,
+  required List<({String menu, String price})> registeredMenus,
+}) {
+  final existing = registeredMenus.where((item) => item.menu == menu.trim());
+  final currentPrice = existing.isEmpty
+      ? null
+      : int.tryParse(existing.first.price.replaceAll(RegExp(r'[^0-9]'), ''));
+  final newPrice = int.tryParse(price.replaceAll(RegExp(r'[^0-9]'), ''));
+  if (changeType == 'new') {
+    if (existing.isNotEmpty) return '이미 등록된 메뉴예요. 기존 메뉴의 가격 변동을 선택해주세요.';
+    return null;
+  }
+  if (existing.isEmpty) return '등록된 메뉴를 선택해주세요. 새 메뉴라면 신규 메뉴를 선택해주세요.';
+  if (changeType == 'delete') return null;
+  if (currentPrice == null || currentPrice <= 0) {
+    return '현재 가격을 확인할 수 없어 가격 변동을 제보할 수 없어요.';
+  }
+  if (newPrice == currentPrice) return '기존 가격과 새 가격이 같아요.';
+  if (changeType == 'rise' && newPrice != null && newPrice < currentPrice) {
+    return '기존 가격보다 낮아요. 가격 인하를 선택해주세요.';
+  }
+  if (changeType == 'drop' && newPrice != null && newPrice > currentPrice) {
+    return '기존 가격보다 높아요. 가격 인상을 선택해주세요.';
+  }
+  return null;
+}
+
 class PriceChangeReportScreen extends ConsumerStatefulWidget {
   final String storeName;
   final Store? store;
@@ -81,8 +111,21 @@ class _PriceChangeReportScreenState
       _showMessage('변경된 메뉴를 입력해주세요.');
       return;
     }
-    if (_selectedType != 2 && (price.isEmpty || int.tryParse(price) == 0)) {
+    if (_selectedType != 2 &&
+        (price.isEmpty ||
+            int.tryParse(price) == null ||
+            int.parse(price) <= 0)) {
       _showMessage('변경된 가격을 입력해주세요.');
+      return;
+    }
+    final priceError = validatePriceChange(
+      changeType: _changeType,
+      menu: menu,
+      price: price,
+      registeredMenus: _registeredMenus,
+    );
+    if (priceError != null) {
+      _showMessage(priceError);
       return;
     }
     if (!_isConfirmed) {
@@ -166,13 +209,12 @@ class _PriceChangeReportScreenState
   @override
   void initState() {
     super.initState();
+    _menuController.addListener(() {
+      if (mounted) setState(() {});
+    });
     final menus = _registeredMenus;
     if (menus.isNotEmpty) {
       _menuController.text = menus.first.menu;
-      final cleanPrice = menus.first.price.replaceAll(RegExp(r'[^0-9]'), '');
-      if (cleanPrice.isNotEmpty) {
-        _priceController.text = cleanPrice;
-      }
     }
   }
 
@@ -181,6 +223,7 @@ class _PriceChangeReportScreenState
     setState(() {
       final prev = _selectedType;
       _selectedType = i;
+      _priceController.clear();
       if (i == 3) {
         if (_registeredMenus.any(
           (m) => m.menu == _menuController.text.trim(),
@@ -192,13 +235,6 @@ class _PriceChangeReportScreenState
         final menus = _registeredMenus;
         if (menus.isNotEmpty) {
           _menuController.text = menus.first.menu;
-          final cleanPrice = menus.first.price.replaceAll(
-            RegExp(r'[^0-9]'),
-            '',
-          );
-          if (cleanPrice.isNotEmpty) {
-            _priceController.text = cleanPrice;
-          }
         }
       }
     });
@@ -221,6 +257,9 @@ class _PriceChangeReportScreenState
 
   @override
   Widget build(BuildContext context) {
+    final selectedMenus = _registeredMenus.where(
+      (item) => item.menu == _menuController.text.trim(),
+    );
     return FigmaMobileCanvas(
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -292,14 +331,7 @@ class _PriceChangeReportScreenState
                                 setState(() {
                                   if (selected) {
                                     _menuController.text = item.menu;
-                                    final cleanPrice = item.price.replaceAll(
-                                      RegExp(r'[^0-9]'),
-                                      '',
-                                    );
-                                    if (cleanPrice.isNotEmpty &&
-                                        _selectedType != 2) {
-                                      _priceController.text = cleanPrice;
-                                    }
+                                    _priceController.clear();
                                   } else {
                                     _menuController.clear();
                                   }
@@ -356,6 +388,18 @@ class _PriceChangeReportScreenState
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (_selectedType != 3 &&
+                        selectedMenus.isNotEmpty &&
+                        selectedMenus.first.price.isNotEmpty) ...[
+                      Text(
+                        '기존 가격 ${_formatWon(selectedMenus.first.price)}',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                    ],
                     _buildPriceField(),
                     const SizedBox(height: 20),
                   ],
@@ -493,6 +537,7 @@ class _PriceChangeReportScreenState
     return TextField(
       controller: controller,
       decoration: InputDecoration(
+        labelText: '변경된 메뉴',
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.symmetric(
@@ -525,6 +570,8 @@ class _PriceChangeReportScreenState
         color: AppColors.orangeTheme,
       ),
       decoration: InputDecoration(
+        labelText: '변경된 가격',
+        hintText: '새 가격을 입력해주세요',
         suffixText: '원',
         suffixStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.symmetric(

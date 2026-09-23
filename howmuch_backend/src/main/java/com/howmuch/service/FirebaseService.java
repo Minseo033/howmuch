@@ -675,6 +675,21 @@ public class FirebaseService {
         return "";
     }
 
+    /** Price-change validation must use the server catalog, not the client-supplied price. */
+    public String getCurrentMenuPrice(String storeId, String storeName, String menuName) {
+        if (menuName == null || menuName.isBlank()) return null;
+        return Stream.concat(cachedStores.stream(), cachedUserStores.stream())
+                .map(this::withStableStoreId)
+                .filter(item -> (storeId != null && !storeId.isBlank()
+                        && storeId.equals(String.valueOf(item.get("storeId"))))
+                        || ((storeId == null || storeId.isBlank()) && storeName != null
+                        && storeName.equals(String.valueOf(item.get("storeName")))))
+                .map(item -> findMenuPrice(item, menuName))
+                .filter(price -> !price.isBlank())
+                .findFirst()
+                .orElse(null);
+    }
+
     /**
      * 사용자 제보 매장이 공개 지도에 노출 가능한지 판별.
      * APPROVED(어드민 승인) 또는 status 필드가 없는 레거시 제볼만 true.
@@ -1246,6 +1261,20 @@ public class FirebaseService {
                 .toList();
     }
 
+    /** Correct a report classification without changing its review status. */
+    public void updateReportIndustryAsAdmin(String reportId, String industry) throws Exception {
+        DocumentReference document = db.collection("stores_user").document(reportId);
+        if (!document.get().get().exists()) throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+        document.update("industry", industry).get();
+        cachedUserStores = cachedUserStores.stream().map(item -> {
+            if (!reportId.equals(String.valueOf(item.get("id")))) return item;
+            Map<String, Object> updated = new HashMap<>(item);
+            updated.put("industry", industry);
+            return immutableStoreCopy(updated);
+        }).toList();
+        allStoresCache = null;
+    }
+
     // 💡 [어드민] 제보 승인 — status를 APPROVED로 변경 (승인 매장의 공식 stores 반영은 별도 작업)
     public void approveReport(String reportId) throws Exception {
         updateReportStatus(reportId, "APPROVED", null);
@@ -1420,19 +1449,20 @@ public class FirebaseService {
 
     // 💡 [어드민] 대시보드 개요 지표 (매장 수는 인메모리 캐시 사용 — Firestore 읽기 0)
     public Map<String, Object> getAdminOverview() throws Exception {
-        long pending = 0, approved = 0, rejected = 0;
+        long pending = 0, approved = 0, rejected = 0, legacy = 0;
         for (Map<String, Object> store : cachedUserStores) {
             switch (String.valueOf(store.getOrDefault("status", ""))) {
                 case "PENDING" -> pending++;
                 case "APPROVED" -> approved++;
                 case "REJECTED" -> rejected++;
-                default -> { }
+                default -> legacy++;
             }
         }
         Map<String, Object> userStores = new HashMap<>();
         userStores.put("pending", pending);
         userStores.put("approved", approved);
         userStores.put("rejected", rejected);
+        userStores.put("legacy", legacy);
         userStores.put("total", cachedUserStores.size());
 
         Map<String, Object> overview = new HashMap<>();

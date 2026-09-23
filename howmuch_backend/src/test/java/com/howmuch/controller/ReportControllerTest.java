@@ -16,6 +16,7 @@ import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -146,6 +147,60 @@ class ReportControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
+    }
+
+    @Test
+    void rejectsUnchangedOrWrongDirectionPriceAgainstServerCatalog() {
+        authenticate("user-1");
+        UserReportRequest report = priceReport("rise", "3000");
+        when(firebaseService.getCurrentMenuPrice("store-1", "실제 매장", "김치찌개"))
+                .thenReturn("3,000원");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        report.setPrice1("2500");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        report.setChangeType("drop");
+        report.setPrice1("3500");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void acceptsCorrectPriceDirectionAndNewMenu() throws Exception {
+        authenticate("user-1");
+        UserReportRequest report = priceReport("rise", "3500");
+        when(firebaseService.getCurrentMenuPrice("store-1", "실제 매장", "김치찌개"))
+                .thenReturn("3000");
+        when(firebaseService.saveUserReport(report)).thenReturn("report-1");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        report.setChangeType("drop");
+        report.setPrice1("2500");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        report.setChangeType("new");
+        report.setMenu1("새 메뉴");
+        report.setPrice1("4000");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    void rejectsExistingMenuReportedAsNew() throws Exception {
+        authenticate("user-1");
+        UserReportRequest report = priceReport("new", "4000");
+        when(firebaseService.getCurrentMenuPrice("store-1", "실제 매장", "김치찌개"))
+                .thenReturn("3000");
+        assertThat(controller.submitStoreReport(request, report).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(firebaseService, never()).saveUserReport(report);
+    }
+
+    private UserReportRequest priceReport(String type, String price) {
+        UserReportRequest report = validReport();
+        report.setStoreId("store-1");
+        report.setMenu1("김치찌개");
+        report.setPrice1(price);
+        report.setChangeType(type);
+        report.setCheckedMenuPrice(true);
+        return report;
     }
 
     @Test

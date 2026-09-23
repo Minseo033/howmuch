@@ -49,6 +49,7 @@ function harness(fetchImpl) {
     renderReviewsView = () => rendered.push('reviews');
     renderNoticesView = () => rendered.push('notices');
     globalThis.admin = { api, switchView, loadReports, handleError, rendered,
+      reportCounts,
       openUserActivity, openDeleteReportModal, doDeleteReport,
       setReports: (reports) => { allReports = reports; },
       invalidateAdminSession,
@@ -74,6 +75,17 @@ test('slow report response cannot replace a newly selected view or populate its 
   assert.deepEqual([...admin.rendered], ['notices']);
   assert.equal(admin.state().reportsLoaded, false);
   assert.equal(admin.state().allReports.length, 0);
+});
+
+test('legacy report count closes the gap between status tabs and total', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  admin.setReports([
+    { status: 'PENDING' }, { status: 'APPROVED' }, { status: 'REJECTED' },
+    { status: null }, {}, { status: '__proto__' },
+  ]);
+  const counts = admin.reportCounts();
+  assert.equal(counts.LEGACY, 3);
+  assert.equal(Object.values(counts).reduce((total, count) => total + count, 0), 6);
 });
 
 test('overlapping refreshes retain only the latest response', async () => {

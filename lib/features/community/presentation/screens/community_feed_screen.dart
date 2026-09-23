@@ -393,7 +393,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     if (items.isEmpty) {
       return Center(
         child: Text(
-          _locationLabel == '전체'
+          _selectedFilterIndex == 1
+              ? '아직 가격 변동 제보가 없어요.'
+              : _locationLabel == '전체'
               ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
               : '$_locationLabel에 등록된 제보가 아직 없어요.',
           textAlign: TextAlign.center,
