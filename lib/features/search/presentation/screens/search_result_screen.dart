@@ -247,7 +247,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
             (widget.storeCatalogLoader ?? loadStoreCatalog)();
         late final List<Store> loadedStores;
         try {
-          loadedStores = await request;
+          // Bound the whole loader, including browser storage and injected
+          // loaders, rather than relying only on the HTTP request timeout.
+          loadedStores = await request.timeout(storeCatalogLoadTimeout);
         } finally {
           if (identical(_catalogRequest, request)) {
             _catalogRequest = null;
@@ -272,7 +274,11 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 가격 필터링
       if (_filter.maxPrice != null) {
         stores = stores.where((s) {
-          return SearchFilterPolicy.matchesMaxPrice(s, _filter.maxPrice!);
+          return SearchFilterPolicy.matchesMaxPrice(
+            s,
+            _filter.maxPrice!,
+            query: query,
+          );
         }).toList();
       }
 
@@ -327,7 +333,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
-        stores.sort(SearchFilterPolicy.compareByPrice);
+        stores.sort(
+          (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: query),
+        );
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
         if (pos != null) {
@@ -355,7 +363,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       if (mounted && generation == _searchGeneration) {
         setState(() {
           _results = [];
-          _errorMessage = '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
+          _errorMessage = e is TimeoutException
+              ? '매장 정보를 불러오는 데 시간이 오래 걸리고 있어요. 연결 상태를 확인하고 다시 시도해 주세요.'
+              : '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
         });
       }
     } finally {
@@ -549,9 +559,20 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       )
                     : _loading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                          color: SearchResultScreen.blue,
-                          strokeWidth: 2.5,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: SearchResultScreen.blue,
+                              strokeWidth: 2.5,
+                              semanticsLabel: '매장 정보 불러오는 중',
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              '매장 정보를 불러오고 있어요',
+                              style: TextStyle(color: SearchResultScreen.muted),
+                            ),
+                          ],
                         ),
                       )
                     : _errorMessage != null
@@ -620,13 +641,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                             s,
                             _query,
                           );
+                          final displayMenu = SearchFilterPolicy.displayMenuFor(
+                            s,
+                            _query,
+                          );
                           final hasMenuMatch = match != null;
-                          final displayedMenu = hasMenuMatch
-                              ? match.name
-                              : s.menu1;
-                          final displayedPrice = hasMenuMatch
-                              ? match.price
-                              : s.price1;
+                          final displayedMenu = displayMenu?.name ?? '';
+                          final displayedPrice = displayMenu?.price ?? '';
                           final priceLabel = displayedMenu.isNotEmpty
                               ? (displayedPrice.isNotEmpty
                                     ? '$displayedMenu  ${_fmt(displayedPrice)}'

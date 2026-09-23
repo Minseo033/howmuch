@@ -16,6 +16,7 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -192,6 +193,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   SearchFilter _searchFilter = const SearchFilter();
   bool _isAiRecommendationActive = false;
   List<Store> _aiRecommendedStores = [];
+  AiMapRecommendationResult? _activeAiRecommendation;
   AiMapRecommendationResult? _pendingAiResult;
 
   Future<void> _openAiRecommend() async {
@@ -248,6 +250,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     setState(() {
       _isAiRecommendationActive = true;
+      _activeAiRecommendation = result;
       _aiRecommendedStores = matchingStores;
       _currentStores = matchingStores;
       _selectedStore = matchingStores.first;
@@ -267,20 +270,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       );
     }
 
-    final markerList = matchingStores.map((s) {
-      final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-      final priceStr = p.isEmpty
-          ? s.price1
-          : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
-      return {
-        'lat': s.latitude,
-        'lng': s.longitude,
-        'title': s.storeName,
-        'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-        'price': priceStr,
-        'source': s.source,
-      };
-    }).toList();
+    final markerList = matchingStores
+        .map((store) => _storeMarker(store, result.selectionFor(store)))
+        .toList();
 
     if (kIsWeb) {
       web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
@@ -293,11 +285,44 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _clearAiRecommendation() {
     setState(() {
       _isAiRecommendationActive = false;
+      _activeAiRecommendation = null;
       _aiRecommendedStores = [];
       _showStoreSummary = false;
       _selectedStore = null;
     });
     _searchInCurrentArea();
+  }
+
+  Map<String, dynamic> _storeMarker(
+    Store store,
+    RecommendationMenuSelection? selection,
+  ) {
+    // A selected menu with an unknown price must not borrow another menu's price.
+    final price = selection == null ? store.price1 : selection.price;
+    return {
+      'lat': store.latitude,
+      'lng': store.longitude,
+      'title': store.storeName,
+      'menu': selection?.menu.isNotEmpty == true
+          ? selection!.menu
+          : (store.menu1.isNotEmpty ? store.menu1 : store.industry),
+      'price': formatRecommendationPrice(price, unavailable: ''),
+      'source': store.source,
+    };
+  }
+
+  RecommendationMenuSelection? _selectionFor(Store store) =>
+      _activeAiRecommendation?.selectionFor(store);
+
+  RecommendationMenuSelection? _searchSelectionFor(Store store) {
+    final menu = SearchFilterPolicy.displayMenuFor(store, _searchQuery);
+    if (menu == null) return null;
+    return RecommendationMenuSelection(
+      storeId: store.id,
+      storeName: store.storeName,
+      menu: menu.name,
+      price: menu.price,
+    );
   }
 
   Future<void> _openSearch({bool openFilter = false}) async {
@@ -309,6 +334,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (mounted && result != null) {
       setState(() {
         _isAiRecommendationActive = false;
+        _activeAiRecommendation = null;
         _aiRecommendedStores = [];
         _searchQuery = result['query'] as String? ?? _searchQuery;
         _searchFilter = result['filter'] as SearchFilter? ?? _searchFilter;
@@ -1331,20 +1357,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_isAiRecommendationActive && _aiRecommendedStores.isNotEmpty) {
         _currentStores = _aiRecommendedStores;
-        return _currentStores.map((s) {
-          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-          final priceStr = p.isEmpty
-              ? s.price1
-              : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
-          return {
-            'lat': s.latitude,
-            'lng': s.longitude,
-            'title': s.storeName,
-            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-            'price': priceStr,
-            'source': s.source,
-          };
-        }).toList();
+        return _currentStores
+            .map((store) => _storeMarker(store, _selectionFor(store)))
+            .toList();
       }
 
       var stores = fetchedStores
@@ -1373,6 +1388,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           return SearchFilterPolicy.matchesMaxPrice(
             item.store,
             _searchFilter.maxPrice!,
+            query: _searchQuery,
           );
         }).toList();
       }
@@ -1414,7 +1430,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_searchFilter.sortOrder == '저렴한순') {
         stores.sort(
-          (a, b) => SearchFilterPolicy.compareByPrice(a.store, b.store),
+          (a, b) => SearchFilterPolicy.compareByPrice(
+            a.store,
+            b.store,
+            query: _searchQuery,
+          ),
         );
       } else {
         if (_lastKnownPosition != null) {
@@ -1433,20 +1453,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       _currentStores = stores.map((item) => item.store).toList(growable: false);
 
-      return _currentStores.map((s) {
-        final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-        final priceStr = p.isEmpty
-            ? s.price1
-            : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
-        return {
-          'lat': s.latitude,
-          'lng': s.longitude,
-          'title': s.storeName,
-          'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-          'price': priceStr,
-          'source': s.source,
-        };
-      }).toList();
+      return _currentStores
+          .map(
+            (store) => _storeMarker(
+              store,
+              _searchQuery.isNotEmpty || _searchFilter.activeLabels.isNotEmpty
+                  ? _searchSelectionFor(store)
+                  : null,
+            ),
+          )
+          .toList();
     } catch (e) {
       debugPrint('필터링 에러: $e');
       return [];
@@ -1961,7 +1977,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         behavior: HitTestBehavior.opaque,
                         onVerticalDragUpdate: (_) {},
                         onHorizontalDragUpdate: (_) {},
-                        child: _StoreSummaryCard(store: _currentStores[index]),
+                        child: _StoreSummaryCard(
+                          store: _currentStores[index],
+                          selection: isAiActive
+                              ? _selectionFor(_currentStores[index])
+                              : (isSearching
+                                    ? _searchSelectionFor(_currentStores[index])
+                                    : null),
+                        ),
                       ),
                     );
                   },
@@ -1990,7 +2013,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: _StoreSummaryCard(store: _selectedStore!),
+                  child: _StoreSummaryCard(
+                    store: _selectedStore!,
+                    selection: isAiActive
+                        ? _selectionFor(_selectedStore!)
+                        : (isSearching
+                              ? _searchSelectionFor(_selectedStore!)
+                              : null),
+                  ),
                 ),
               ),
             ),
@@ -2536,7 +2566,8 @@ class _RankDot extends StatelessWidget {
 
 class _StoreSummaryCard extends StatelessWidget {
   final Store store;
-  const _StoreSummaryCard({required this.store});
+  final RecommendationMenuSelection? selection;
+  const _StoreSummaryCard({required this.store, this.selection});
 
   @override
   Widget build(BuildContext context) {
@@ -2582,7 +2613,7 @@ class _StoreSummaryCard extends StatelessWidget {
                 children: [
                   Expanded(child: _StoreInfo(store: store)),
                   const SizedBox(width: 12),
-                  _StorePrice(store: store),
+                  _StorePrice(store: store, selection: selection),
                 ],
               ),
             ),
@@ -2630,18 +2661,24 @@ class _StoreInfo extends StatelessWidget {
 
 class _StorePrice extends StatelessWidget {
   final Store store;
-  const _StorePrice({required this.store});
+  final RecommendationMenuSelection? selection;
+  const _StorePrice({required this.store, this.selection});
 
   @override
   Widget build(BuildContext context) {
-    final p = store.price1.replaceAll(RegExp(r'[^0-9]'), '');
+    final selectedPrice = selection == null ? store.price1 : selection!.price;
+    final rawPrice = selectedPrice?.toString() ?? '';
+    final p = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
     final priceStr = p.isEmpty
-        ? store.price1
+        ? rawPrice
         : p.replaceAllMapped(
             RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
             (Match m) => '${m[1]},',
           );
-    final menuStr = store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴';
+    final selectedMenu = selection?.menu.trim() ?? '';
+    final menuStr = selectedMenu.isNotEmpty
+        ? selectedMenu
+        : (store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴');
 
     return SizedBox(
       width: 144,

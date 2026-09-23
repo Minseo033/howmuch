@@ -3,6 +3,7 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
@@ -18,6 +19,7 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   String _selectedTab = '전체';
   bool _markingAllRead = false;
+  bool _openingNotification = false;
 
   @override
   Widget build(BuildContext context) {
@@ -415,147 +417,249 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   }
 
   Widget _buildNotificationItem(NotificationModel notif) {
-    return GestureDetector(
-      onTap: () => _handleNotificationTap(notif),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: notif.bgColor,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: notif.borderColor, width: 0.909),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center, // Vertically center!
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: notif.iconBgColor,
-                shape: BoxShape.circle,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _handleNotificationTap(notif),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: notif.bgColor,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: notif.borderColor, width: 0.909),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center, // Vertically center!
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: notif.iconBgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(notif.iconData, color: notif.iconColor, size: 17),
+                ),
               ),
-              child: Center(
-                child: Icon(notif.iconData, color: notif.iconColor, size: 17),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          notif.type,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: const ['Noto Sans KR'],
-                            fontWeight: FontWeight.bold,
-                            color: notif.categoryColor,
-                            fontSize: 11,
-                            height: 16.5 / 11,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            notif.type,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Noto Sans KR',
+                              fontFamilyFallback: const ['Noto Sans KR'],
+                              fontWeight: FontWeight.bold,
+                              color: notif.categoryColor,
+                              fontSize: 11,
+                              height: 16.5 / 11,
+                            ),
                           ),
+                        ),
+                        if (notif.timeText.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            notif.timeText,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontFamily: 'Noto Sans KR',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF64748B),
+                              fontSize: 10,
+                              height: 15 / 10,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 2.997),
+                    if (notif.title.isNotEmpty &&
+                        notif.title != notif.messageText) ...[
+                      Text(
+                        notif.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Noto Sans KR',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                          fontSize: 13,
+                          height: 18.85 / 13,
                         ),
                       ),
-                      if (notif.timeText.isNotEmpty) ...[
-                        const SizedBox(width: 4),
-                        Text(
-                          notif.timeText,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF64748B),
-                            fontSize: 10,
-                            height: 15 / 10,
-                          ),
-                        ),
-                      ],
+                      const SizedBox(height: 2),
                     ],
-                  ),
-                  const SizedBox(height: 2.997),
-                  if (notif.title.isNotEmpty &&
-                      notif.title != notif.messageText) ...[
                     Text(
-                      notif.title,
-                      maxLines: 2,
+                      notif.messageText,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontFamily: 'Noto Sans KR',
                         fontFamilyFallback: ['Noto Sans KR'],
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                         color: Color(0xFF0F172A),
                         fontSize: 13,
                         height: 18.85 / 13,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    if (notificationRouteForType(notif.type) == null) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      const Text(
+                        '전체 내용 보기',
+                        style: TextStyle(
+                          color: Color(0xFF2563EB),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
-                  Text(
-                    notif.messageText,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: 'Noto Sans KR',
-                      fontFamilyFallback: ['Noto Sans KR'],
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF0F172A),
-                      fontSize: 13,
-                      height: 18.85 / 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (notif.isUnread) ...[
-              const SizedBox(width: 12),
-              Container(
-                width: 7,
-                height: 7,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF97316),
-                  shape: BoxShape.circle,
                 ),
               ),
-            ] else ...[
-              // Placeholder to keep spacing the same when read
-              const SizedBox(width: 12),
-              const SizedBox(width: 7, height: 7),
+              if (notif.isUnread) ...[
+                const SizedBox(width: 12),
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF97316),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ] else ...[
+                // Placeholder to keep spacing the same when read
+                const SizedBox(width: 12),
+                const SizedBox(width: 7, height: 7),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   Future<void> _handleNotificationTap(NotificationModel notification) async {
-    if (notification.isUnread) {
-      try {
-        await ref
-            .read(notificationsProvider.notifier)
-            .markRead(notification.id);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-          ..clearSnackBars()
-          ..showSnackBar(
-            HowmuchSnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
-          );
-        return;
+    if (_openingNotification) return;
+    _openingNotification = true;
+    try {
+      if (notification.isUnread) {
+        try {
+          await ref
+              .read(notificationsProvider.notifier)
+              .markRead(notification.id);
+        } catch (_) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              HowmuchSnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
+            );
+          return;
+        }
       }
-    }
 
-    if (!mounted) return;
+      if (!mounted) return;
 
-    final route = notificationRouteForType(notification.type);
-    if (route != null) {
-      context.push(route);
+      final route = notificationRouteForType(notification.type);
+      if (route != null) {
+        await context.push<void>(route);
+      } else {
+        await _showNotificationDetail(notification);
+      }
+    } finally {
+      _openingNotification = false;
     }
+  }
+
+  Future<void> _showNotificationDetail(NotificationModel notification) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.white,
+      constraints: BoxConstraints(
+        maxWidth: FigmaMobileCanvas.maxWebWidth,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+      ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.overlay),
+        ),
+      ),
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            key: const ValueKey('notification-detail'),
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      notification.type.isEmpty ? '알림' : notification.type,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '알림 상세 닫기',
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: SelectionArea(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (notification.title.isNotEmpty &&
+                            notification.title != notification.messageText) ...[
+                          Text(
+                            notification.title,
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
+                        Text(
+                          notification.messageText.isEmpty
+                              ? '추가 안내 내용이 없어요.'
+                              : notification.messageText,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyLarge?.copyWith(height: 1.6),
+                        ),
+                        if (notification.timeText.isNotEmpty) ...[
+                          const SizedBox(height: AppSpacing.xl),
+                          Text(
+                            notification.timeText,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _markAllRead() async {

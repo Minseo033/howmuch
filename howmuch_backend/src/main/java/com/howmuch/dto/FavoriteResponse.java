@@ -18,9 +18,21 @@ public class FavoriteResponse {
     private String storeId;     // 매장 ID
     private String storeName;   // 매장명
     private String createdAt;   // 찜한 일시 (ISO 8601 String)
-    // ↓ 공공데이터 인메모리 캐시에서 매장명으로 매칭된 매장 메타 (제보 매장 등 캐시 미스 시 null)
+    // ↓ 공개 매장 카탈로그에서 stable storeId로 매칭한 메타. 찜 목록에서
+    // 상세 화면으로 바로 이동해도 전체 카탈로그를 다시 내려받을 필요가 없도록
+    // 상세 화면에 쓰이는 필드를 함께 전달한다. 매장이 삭제됐거나 비공개인 경우 null.
     private String industry;    // 업종 (예: 미용업, 음식점)
     private String menu1;       // 대표 메뉴
     private String price1;      // 대표 가격 (문자열, 예: "5000")
+    private String menu2;
+    private String price2;
+    private String menu3;
+    private String price3;
+    private String menu4;
+    private String price4;
     private String address;     // 매장 주소
+    private String phoneNumber;
+    private Double latitude;
+    private Double longitude;
+    private String source;      // GOV 또는 USER. 추측해서 GOV로 채우지 않는다.
 }

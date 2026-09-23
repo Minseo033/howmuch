@@ -110,7 +110,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   int get _totalCost {
     int sum = 0;
     for (var p in _picks) {
-      final parsed = parseRecommendationPrice(p['price1']);
+      final parsed = parseRecommendationPrice(recommendationMenuPrice(p));
       if (parsed != null) sum += parsed;
     }
     return sum;
@@ -404,9 +404,13 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final idx = entry.key;
                               final p = entry.value;
                               final storeName = p['storeName'] ?? '알 수 없음';
-                              final menu = p['menu1'] ?? '';
+                              final matchedMenu =
+                                  p['matchedMenu']?.toString().trim() ?? '';
+                              final menu = matchedMenu.isNotEmpty
+                                  ? matchedMenu
+                                  : p['menu1']?.toString() ?? '';
                               final price = formatRecommendationPrice(
-                                p['price1'],
+                                recommendationMenuPrice(p),
                                 unavailable: '',
                               );
                               final distance = _distanceText(

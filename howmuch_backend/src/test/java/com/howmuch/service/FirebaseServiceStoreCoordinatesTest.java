@@ -47,6 +47,65 @@ class FirebaseServiceStoreCoordinatesTest {
     }
 
     @Test
+    void enrichesFavoriteDetailsFromThePublicCatalogByStableId() {
+        ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.ofEntries(
+                Map.entry("storeId", "store_detail_id"),
+                Map.entry("storeName", "동명 식당"),
+                Map.entry("address", "서울시 중구 1"),
+                Map.entry("phoneNumber", "02-1234-5678"),
+                Map.entry("industry", "한식"),
+                Map.entry("menu1", "백반"),
+                Map.entry("price1", "6500"),
+                Map.entry("menu2", "냉면"),
+                Map.entry("price2", "8000"),
+                Map.entry("latitude", 37.5665),
+                Map.entry("longitude", 126.9780))));
+
+        var favorite = service.favoriteResponse("favorite-doc", Map.of(
+                "storeId", "store_detail_id",
+                "storeName", "동명 식당",
+                "createdAt", "2026-09-23T00:00:00Z"));
+
+        assertThat(favorite.getStoreId()).isEqualTo("store_detail_id");
+        assertThat(favorite.getPhoneNumber()).isEqualTo("02-1234-5678");
+        assertThat(favorite.getMenu2()).isEqualTo("냉면");
+        assertThat(favorite.getPrice2()).isEqualTo("8000");
+        assertThat(favorite.getLatitude()).isEqualTo(37.5665);
+        assertThat(favorite.getLongitude()).isEqualTo(126.9780);
+        assertThat(favorite.getSource()).isEqualTo("GOV");
+    }
+
+    @Test
+    void keepsDeletedFavoriteLightweightInsteadOfInventingCoordinates() {
+        var favorite = service.favoriteResponse("favorite-doc", Map.of(
+                "storeId", "deleted-store-id",
+                "storeName", "삭제된 매장"));
+
+        assertThat(favorite.getLatitude()).isNull();
+        assertThat(favorite.getLongitude()).isNull();
+        assertThat(favorite.getPhoneNumber()).isNull();
+        assertThat(favorite.getSource()).isNull();
+    }
+
+    @Test
+    void preservesUserSourceWhenAnApprovedUserStoreIsFavorited() {
+        ReflectionTestUtils.setField(service, "cachedUserStores", List.of(Map.of(
+                "storeId", "store_user_detail",
+                "storeName", "사용자 제보 매장",
+                "status", "APPROVED",
+                "industry", "카페",
+                "latitude", 37.5665,
+                "longitude", 126.9780)));
+
+        var favorite = service.favoriteResponse("favorite-doc", Map.of(
+                "storeId", "store_user_detail",
+                "storeName", "사용자 제보 매장"));
+
+        assertThat(favorite.getSource()).isEqualTo("USER");
+        assertThat(favorite.getLatitude()).isEqualTo(37.5665);
+    }
+
+    @Test
     void fallsBackToAUniqueExactStoreNameOnlyWhenTheClientHasNoStoreId() {
         ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
                 "storeId", "current-id",

@@ -2236,18 +2236,9 @@ public class FirebaseService {
 
         db.collection("favorites").document(docId).set(data).get();
 
-        // 공공데이터 캐시에 매장이 있으면 메타(업종/대표메뉴/가격/주소) 동봉 — 없으면 null (Firestore 읽기 0)
-        Map<String, Object> store = findGovStoreByName(request.getStoreName());
-        return com.howmuch.dto.FavoriteResponse.builder()
-                .id(docId)
-                .storeId(request.getStoreId())
-                .storeName(request.getStoreName())
-                .createdAt(createdAt)
-                .industry(store != null ? strOrNull(store.get("industry")) : null)
-                .menu1(store != null ? strOrNull(store.get("menu1")) : null)
-                .price1(store != null ? strOrNull(store.get("price1")) : null)
-                .address(store != null ? strOrNull(store.get("address")) : null)
-                .build();
+        // 서버의 공개 카탈로그는 이미 메모리에 있으므로, 상세 화면에 필요한
+        // 정보도 함께 보낸다. 클라이언트가 전체 카탈로그를 다시 받을 필요가 없다.
+        return favoriteResponse(docId, data);
     }
 
     // 💡 찜 해제 (존재하지 않아도 에러 없이 성공 처리 — 멱등)
@@ -2260,24 +2251,14 @@ public class FirebaseService {
 
     // 💡 내 찜 목록 조회 (최신순)
     public List<com.howmuch.dto.FavoriteResponse> getFavorites(String firebaseUid) throws Exception {
+        // 한 번의 목록 응답 안에서 같은 공개 카탈로그를 찜 건수만큼 선형 탐색하지 않는다.
+        Map<String, Map<String, Object>> publicStoresById = publicStoreIndex();
         List<com.howmuch.dto.FavoriteResponse> favorites = new ArrayList<>(db.collection("favorites")
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = doc.getData();
-                    String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
-                    // 공공데이터 캐시 매장 메타 동봉 (Firestore 읽기 0) — 제보 매장 등 캐시에 없으면 null
-                    Map<String, Object> store = findGovStoreByName(storeName);
-                    return com.howmuch.dto.FavoriteResponse.builder()
-                            .id(doc.getId())
-                            .storeId(canonicalStoreIdForFavorite(data))
-                            .storeName(storeName)
-                            .createdAt(data.get("createdAt") != null ? data.get("createdAt").toString() : null)
-                            .industry(store != null ? strOrNull(store.get("industry")) : null)
-                            .menu1(store != null ? strOrNull(store.get("menu1")) : null)
-                            .price1(store != null ? strOrNull(store.get("price1")) : null)
-                            .address(store != null ? strOrNull(store.get("address")) : null)
-                            .build();
+                    return favoriteResponseFromCatalog(doc.getId(), data, publicStoresById);
                 })
                 .toList());
         // 복합 인덱스 없이 동작하도록 메모리에서 최신순 정렬
@@ -2287,6 +2268,70 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
         return favorites;
+    }
+
+    /**
+     * 찜 목록의 lightweight 문서와 공개 매장 카탈로그를 stable storeId로 결합한다.
+     *
+     * 이 경로는 서버에 이미 적재된 불변 카탈로그만 조회한다. 클라이언트에서
+     * /api/stores/all을 다시 내려받거나, 동명이점의 이름만으로 잘못 매칭하지 않는다.
+     * 매장이 삭제됐거나 비공개가 된 경우에는 찜 문서 정보만 반환한다.
+     */
+    com.howmuch.dto.FavoriteResponse favoriteResponse(
+            String documentId, Map<String, Object> favorite) {
+        return favoriteResponseFromCatalog(documentId, favorite, publicStoreIndex());
+    }
+
+    private com.howmuch.dto.FavoriteResponse favoriteResponseFromCatalog(
+            String documentId,
+            Map<String, Object> favorite,
+            Map<String, Map<String, Object>> publicStoresById) {
+        String storeId = canonicalStoreIdForFavorite(favorite);
+        String storeName = strOrNull(favorite.get("storeName"));
+        Map<String, Object> store = publicStoresById.get(storeId);
+
+        return com.howmuch.dto.FavoriteResponse.builder()
+                .id(documentId)
+                .storeId(storeId)
+                .storeName(storeName)
+                .createdAt(strOrNull(favorite.get("createdAt")))
+                .industry(store != null ? strOrNull(store.get("industry")) : null)
+                .menu1(store != null ? strOrNull(store.get("menu1")) : null)
+                .price1(store != null ? strOrNull(store.get("price1")) : null)
+                .menu2(store != null ? strOrNull(store.get("menu2")) : null)
+                .price2(store != null ? strOrNull(store.get("price2")) : null)
+                .menu3(store != null ? strOrNull(store.get("menu3")) : null)
+                .price3(store != null ? strOrNull(store.get("price3")) : null)
+                .menu4(store != null ? strOrNull(store.get("menu4")) : null)
+                .price4(store != null ? strOrNull(store.get("price4")) : null)
+                .address(store != null ? strOrNull(store.get("address")) : null)
+                .phoneNumber(store != null ? strOrNull(store.get("phoneNumber")) : null)
+                .latitude(store != null ? finiteNumberOrNull(store.get("latitude")) : null)
+                .longitude(store != null ? finiteNumberOrNull(store.get("longitude")) : null)
+                .source(store != null ? strOrNull(store.get("source")) : null)
+                .build();
+    }
+
+    /** 공개 상태의 정부·사용자 제보 매장을 stable ID로 인덱싱한다. */
+    private Map<String, Map<String, Object>> publicStoreIndex() {
+        Map<String, Map<String, Object>> storesById = new HashMap<>();
+        for (Map<String, Object> store : getAllStores()) {
+            String storeId = strOrNull(store.get("storeId"));
+            if (storeId != null && !storeId.isBlank()) {
+                storesById.putIfAbsent(storeId, store);
+            }
+        }
+        return storesById;
+    }
+
+    private static Double finiteNumberOrNull(Object value) {
+        if (value == null) return null;
+        try {
+            double parsed = Double.parseDouble(value.toString());
+            return Double.isFinite(parsed) ? parsed : null;
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String canonicalStoreIdForFavorite(Map<String, Object> data) {

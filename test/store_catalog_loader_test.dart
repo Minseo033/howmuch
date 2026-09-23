@@ -7,6 +7,64 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('stalled preferences initialization falls back to network', () async {
+    final pendingPreferences = Completer<SharedPreferences>();
+    final stores = await loadStoreCatalog(
+      preferencesLoader: () => pendingPreferences.future,
+      storageTimeout: const Duration(milliseconds: 10),
+      request: (_) async => http.Response(
+        '[{"storeName":"network","latitude":37.5,"longitude":127.0}]',
+        200,
+      ),
+    );
+    expect(stores.single.storeName, 'network');
+  });
+
+  test('stalled cache write cannot block downloaded results', () async {
+    final preferences = _WriteControlledPreferences(Completer<bool>().future);
+    final stores = await loadStoreCatalog(
+      preferences: preferences,
+      storageTimeout: const Duration(milliseconds: 10),
+      request: (_) async => http.Response(
+        '[{"storeName":"downloaded","latitude":37.5,"longitude":127.0}]',
+        200,
+      ),
+    );
+    expect(stores.single.storeName, 'downloaded');
+    expect(preferences.timestampWrites, 0);
+  });
+
+  test('unsuccessful cache write does not mark the cache fresh', () async {
+    final preferences = _WriteControlledPreferences(Future.value(false));
+    final stores = await loadStoreCatalog(
+      preferences: preferences,
+      request: (_) async => http.Response(
+        '[{"storeName":"downloaded","latitude":37.5,"longitude":127.0}]',
+        200,
+      ),
+    );
+    expect(stores, hasLength(1));
+    expect(preferences.timestampWrites, 0);
+  });
+
+  test('timed out shared network request can be retried', () async {
+    SharedPreferences.setMockInitialValues({});
+    await expectLater(
+      loadStoreCatalog(
+        request: (_) => Completer<http.Response>().future,
+        requestTimeout: const Duration(milliseconds: 10),
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    final recovered = await loadStoreCatalog(
+      request: (_) async => http.Response(
+        '[{"storeName":"retry","latitude":37.5,"longitude":127.0}]',
+        200,
+      ),
+    );
+    expect(recovered.single.storeName, 'retry');
+  });
+
   test(
     'invalid browser cache metadata does not block the network catalog',
     () async {
@@ -196,4 +254,29 @@ void main() {
       expect(prefs.getString(storeCatalogCacheKey), isNull);
     },
   );
+}
+
+class _WriteControlledPreferences implements SharedPreferences {
+  _WriteControlledPreferences(this.writeResult);
+
+  final Future<bool> writeResult;
+  int timestampWrites = 0;
+
+  @override
+  int? getInt(String key) => null;
+
+  @override
+  String? getString(String key) => null;
+
+  @override
+  Future<bool> setString(String key, String value) => writeResult;
+
+  @override
+  Future<bool> setInt(String key, int value) async {
+    timestampWrites++;
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

@@ -509,6 +509,16 @@ class FavoriteStoreModel {
     this.createdAt,
     this.isFavorite = true,
     this.address = '',
+    this.phoneNumber = '',
+    this.menu2 = '',
+    this.price2 = '',
+    this.menu3 = '',
+    this.price3 = '',
+    this.menu4 = '',
+    this.price4 = '',
+    this.latitude = 0,
+    this.longitude = 0,
+    this.source = 'UNKNOWN',
   });
 
   final String id;
@@ -531,30 +541,48 @@ class FavoriteStoreModel {
   final DateTime? createdAt;
   final bool isFavorite;
   final String address;
+  final String phoneNumber;
+  final String menu2;
+  final String price2;
+  final String menu3;
+  final String price3;
+  final String menu4;
+  final String price4;
+  final double latitude;
+  final double longitude;
+  final String source;
 
-  /// Converts the lightweight favorite response into the detail route model.
+  bool get hasDetailMetadata =>
+      phoneNumber.isNotEmpty ||
+      latitude != 0 ||
+      longitude != 0 ||
+      menu2.isNotEmpty ||
+      menu3.isNotEmpty ||
+      menu4.isNotEmpty;
+
+  /// Converts the favorite response into the detail route model.
   ///
-  /// The favorites endpoint intentionally returns only the metadata needed by
-  /// the list. Detail can still be opened immediately, with richer catalog
-  /// fields filled in when they are available from that response.
+  /// The API enriches favorites from its server-side catalog. A legacy or
+  /// deleted store can still be lightweight; in that case directions remain
+  /// unavailable instead of using made-up coordinates.
   Store toStore() {
     return Store(
       id: id,
       storeName: storeName,
       address: address.isNotEmpty ? address : '주소 정보 없음',
-      phoneNumber: '전화번호 없음',
+      phoneNumber: phoneNumber.isNotEmpty ? phoneNumber : '전화번호 없음',
       industry: category,
       menu1: menu,
       price1: price,
-      menu2: '',
-      price2: '',
-      menu3: '',
-      price3: '',
-      menu4: '',
-      price4: '',
-      latitude: 0,
-      longitude: 0,
-      source: 'GOV',
+      menu2: menu2,
+      price2: price2,
+      menu3: menu3,
+      price3: price3,
+      menu4: menu4,
+      price4: price4,
+      latitude: latitude,
+      longitude: longitude,
+      source: source,
     );
   }
 
@@ -562,8 +590,8 @@ class FavoriteStoreModel {
     final storeName = json['storeName']?.toString().trim();
     final storeId = json['storeId']?.toString().trim() ?? '';
     final createdAtText = json['createdAt']?.toString();
-    // 8/7: 백엔드가 공공데이터 인메모리 캐시에서 매칭한 매장 메타(업종/대표메뉴/가격/주소)를 동봉.
-    //      제보 매장 등 캐시 미스 시 null → 기존 placeholder 유지.
+    // 백엔드가 stable storeId로 매칭한 공개 카탈로그 메타를 동봉한다.
+    // 삭제·비공개·레거시 매장 캐시 미스 시 null → 기존 placeholder를 유지한다.
     final industry = json['industry']?.toString().trim();
     final menu1 = json['menu1']?.toString().trim();
     final price1 = json['price1']?.toString().trim();
@@ -591,6 +619,16 @@ class FavoriteStoreModel {
           ? null
           : DateTime.tryParse(createdAtText),
       address: json['address']?.toString().trim() ?? '',
+      phoneNumber: json['phoneNumber']?.toString().trim() ?? '',
+      menu2: json['menu2']?.toString().trim() ?? '',
+      price2: json['price2']?.toString().trim() ?? '',
+      menu3: json['menu3']?.toString().trim() ?? '',
+      price3: json['price3']?.toString().trim() ?? '',
+      menu4: json['menu4']?.toString().trim() ?? '',
+      price4: json['price4']?.toString().trim() ?? '',
+      latitude: _coordinate(json['latitude']),
+      longitude: _coordinate(json['longitude']),
+      source: _source(json['source']),
     );
   }
 
@@ -616,6 +654,16 @@ class FavoriteStoreModel {
       createdAt: createdAt,
       isFavorite: isFavorite ?? this.isFavorite,
       address: address,
+      phoneNumber: phoneNumber,
+      menu2: menu2,
+      price2: price2,
+      menu3: menu3,
+      price3: price3,
+      menu4: menu4,
+      price4: price4,
+      latitude: latitude,
+      longitude: longitude,
+      source: source,
     );
   }
 
@@ -643,6 +691,16 @@ class FavoriteStoreModel {
     final value = int.tryParse(digits);
     if (value == null) return price1;
     return formatWon(value);
+  }
+
+  static double _coordinate(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString().trim() ?? '') ?? 0;
+  }
+
+  static String _source(Object? value) {
+    final normalized = value?.toString().trim().toUpperCase() ?? '';
+    return normalized.isEmpty ? 'UNKNOWN' : normalized;
   }
 }
 

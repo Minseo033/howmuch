@@ -17,17 +17,26 @@ import 'package:geolocator/geolocator.dart';
 AiMapRecommendationResult buildTodaysPickMapResult(
   Iterable<TodaysPickItem> items,
 ) {
-  final stores = items
-      .map((item) => item.store)
-      .whereType<Store>()
-      .where((store) => store.hasValidCoordinates)
+  final mapItems = items
+      .where((item) => item.store?.hasValidCoordinates == true)
       .toList(growable: false);
+  final stores = mapItems.map((item) => item.store!).toList(growable: false);
   return AiMapRecommendationResult(
     storeIds: stores
         .map((store) => store.id)
         .where((id) => id.isNotEmpty)
         .toList(),
     stores: stores,
+    menuSelections: mapItems
+        .map(
+          (item) => RecommendationMenuSelection(
+            storeId: item.store!.id,
+            storeName: item.storeName,
+            menu: item.menuName,
+            price: item.priceValue ?? item.price,
+          ),
+        )
+        .toList(growable: false),
     queryText: stores.map((store) => store.storeName).join(' '),
   );
 }

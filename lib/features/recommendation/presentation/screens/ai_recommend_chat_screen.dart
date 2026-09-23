@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_text_formatter.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
@@ -839,15 +840,17 @@ class _BotMessageBubble extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(
-            message.text,
-            style: const TextStyle(
-              color: _AiUi.ink,
-              fontFamily: _AiUi.fontFamily,
-              fontFamilyFallback: _AiUi.fontFallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              height: 1.55,
+          child: Text.rich(
+            buildAiChatDisplayTextSpan(
+              message.text,
+              const TextStyle(
+                color: _AiUi.ink,
+                fontFamily: _AiUi.fontFamily,
+                fontFamilyFallback: _AiUi.fontFallback,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.55,
+              ),
             ),
           ),
         ),
