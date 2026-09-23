@@ -224,6 +224,7 @@
       delete window.kakaoMapObjects[containerId];
       delete window.kakaoMapLoadAttempts[containerId];
       delete window.customOverlays[containerId];
+      delete window.highlightedKakaoMarkerIndices[containerId];
       delete window[containerId];
     }
 
@@ -359,7 +360,36 @@
 
     window.customOverlays = {};
     window.markerDataCache = {};
+    window.highlightedKakaoMarkerIndices = {};
     window.suppressMarkerClicks = false;
+
+    function applyKakaoMapMarkerHighlight(containerId, selectedIndex) {
+      var overlays = window.customOverlays[containerId] || [];
+      var markerData = window.markerDataCache[containerId] || [];
+      for (var i = 0; i < overlays.length; i++) {
+        var overlay = overlays[i];
+        if (!overlay) continue;
+        var item = markerData[i] || {};
+        var wrapper = overlay._howmuchWrapper;
+        var bubble = wrapper && wrapper.children ? wrapper.children[0] : null;
+        var tail = wrapper && wrapper.children ? wrapper.children[1] : null;
+        var isSelected = i === selectedIndex;
+        var baseColor = overlay._howmuchBaseColor ||
+          (item.source === 'USER' ? '#F97316' : '#2563EB');
+        var color = isSelected ? '#C2410C' : baseColor;
+        if (bubble) bubble.style.background = color;
+        if (tail) tail.style.borderTopColor = color;
+        if (wrapper) wrapper.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)';
+        if (typeof overlay.setZIndex === 'function') overlay.setZIndex(isSelected ? 10 : 3);
+      }
+    }
+
+    window.highlightKakaoMapMarker = function(containerId, selectedIndex) {
+      var index = Number(selectedIndex);
+      var normalizedIndex = Number.isInteger(index) && index >= 0 ? index : -1;
+      window.highlightedKakaoMarkerIndices[containerId] = normalizedIndex;
+      applyKakaoMapMarkerHighlight(containerId, normalizedIndex);
+    };
 
     function setSuppressMarkerClicks(durationMs) {
       window.suppressMarkerClicks = true;
@@ -369,8 +399,9 @@
       }, durationMs || 600);
     }
 
-    window.onMarkerClickWeb = function(index) {
+    window.onMarkerClickWeb = function(containerId, index) {
       if (window.suppressMarkerClicks) return;
+      window.highlightKakaoMapMarker(containerId, index);
       if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
     }
 
@@ -425,6 +456,14 @@
         }
         if (!Array.isArray(markerData) || !isCurrentMarkerRequest()) return;
         window.markerDataCache[containerId] = markerData;
+        var selectedIndex = -1;
+        for (var selectedItemIndex = 0; selectedItemIndex < markerData.length; selectedItemIndex++) {
+          if (markerData[selectedItemIndex] && markerData[selectedItemIndex].selected === true) {
+            selectedIndex = selectedItemIndex;
+            break;
+          }
+        }
+        window.highlightedKakaoMarkerIndices[containerId] = selectedIndex;
         
         if (!window.customOverlays[containerId]) {
           window.customOverlays[containerId] = [];
@@ -488,7 +527,7 @@
             bubble.onclick = function(e) {
               if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
               if (window.suppressMarkerClicks) return;
-              window.onMarkerClickWeb(idx);
+              window.onMarkerClickWeb(containerId, idx);
             };
             wrapper.appendChild(bubble);
             wrapper.appendChild(tail);
@@ -497,12 +536,18 @@
                 position: new kakao.maps.LatLng(item.lat, item.lng),
                 content: wrapper,
                 yAnchor: 1.0,
-                zIndex: 3
+                zIndex: item.selected === true ? 10 : 3
             });
+            customOverlay._howmuchWrapper = wrapper;
+            customOverlay._howmuchBaseColor = bgColor;
             customOverlay.setMap(map);
             overlays.push(customOverlay);
           })(i);
         }
+        applyKakaoMapMarkerHighlight(
+          containerId,
+          window.highlightedKakaoMarkerIndices[containerId]
+        );
         if (isCurrentMarkerRequest() && typeof map.relayout === 'function') {
           map.relayout();
         }

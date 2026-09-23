@@ -12,6 +12,9 @@ external JSString? _getKakaoMapBounds(JSString viewId);
 @JS('addMobileMarkers')
 external void _addMobileMarkers(JSString viewId, JSString jsonString);
 
+@JS('highlightKakaoMapMarker')
+external void _highlightKakaoMapMarker(JSString viewId, JSNumber markerIndex);
+
 void registerWebCallbacks(
   void Function() onIdle,
   void Function() onMoveStart,
@@ -77,6 +80,10 @@ String? getKakaoMapBoundsWeb(String viewId) {
 
 void addMobileMarkersWeb(String viewId, String jsonString) {
   _addMobileMarkers(viewId.toJS, jsonString.toJS);
+}
+
+void highlightKakaoMapMarkerWeb(String viewId, int markerIndex) {
+  _highlightKakaoMapMarker(viewId.toJS, markerIndex.toJS);
 }
 
 void suppressMarkerClicksWeb(int durationMs) {

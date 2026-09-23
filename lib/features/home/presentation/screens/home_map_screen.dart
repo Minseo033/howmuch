@@ -107,6 +107,42 @@ class _StoreWithDistance {
   final double? distanceMeters;
 }
 
+/// Horizontally swipeable store cards. The card wrapper intentionally claims
+/// vertical drags only, leaving horizontal gestures to [PageView].
+class HomeMapStoreCarousel extends StatelessWidget {
+  const HomeMapStoreCarousel({
+    super.key,
+    required this.controller,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.onPageChanged,
+  });
+
+  final PageController controller;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      key: const ValueKey('home-store-card-pages'),
+      controller: controller,
+      physics: const BouncingScrollPhysics(),
+      itemCount: itemCount,
+      onPageChanged: onPageChanged,
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragUpdate: (_) {},
+          child: itemBuilder(context, index),
+        ),
+      ),
+    );
+  }
+}
+
 class HomeMapScreen extends StatefulWidget {
   const HomeMapScreen({
     super.key,
@@ -256,6 +292,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _selectedStore = matchingStores.first;
       _showStoreSummary = true;
     });
+    _resetStoreCarouselToFirst();
 
     final first = matchingStores.first;
     if (kIsWeb) {
@@ -308,6 +345,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           : (store.menu1.isNotEmpty ? store.menu1 : store.industry),
       'price': formatRecommendationPrice(price, unavailable: ''),
       'source': store.source,
+      'selected':
+          _selectedStore != null &&
+          (_selectedStore!.id.isNotEmpty
+              ? _selectedStore!.id == store.id
+              : identical(_selectedStore, store)),
     };
   }
 
@@ -392,11 +434,71 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _showStoreSummary = false;
       });
     } else if (index >= 0 && index < _currentStores.length) {
+      final store = _currentStores[index];
       setState(() {
-        _selectedStore = _currentStores[index];
+        _selectedStore = store;
         _showStoreSummary = true;
       });
+      _highlightMapMarker(index);
+
+      final hasStoreCarousel =
+          _isAiRecommendationActive ||
+          _searchQuery.trim().isNotEmpty ||
+          _searchFilter.activeLabels.isNotEmpty;
+      if (hasStoreCarousel &&
+          _pageController.hasClients &&
+          _pageController.page?.round() != index) {
+        unawaited(
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      }
     }
+  }
+
+  void _highlightMapMarker(int index) {
+    if (kIsWeb) {
+      web_helper.highlightKakaoMapMarkerWeb(_viewId, index);
+    } else if (_webViewController != null) {
+      _safeRunJavaScript('highlightMarker($index);');
+    }
+  }
+
+  void _centerMapOnStore(Store store, int index) {
+    if (!store.hasValidCoordinates) return;
+    if (kIsWeb) {
+      web_helper.setKakaoMapCenterFromSwipeWeb(
+        _viewId,
+        store.latitude,
+        store.longitude,
+      );
+      _highlightMapMarker(index);
+    } else if (_webViewController != null) {
+      _safeRunJavaScript(
+        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
+      );
+    }
+  }
+
+  void _onStorePageChanged(int index) {
+    if (index < 0 || index >= _currentStores.length) return;
+    final store = _currentStores[index];
+    if (!identical(_selectedStore, store)) {
+      setState(() => _selectedStore = store);
+    }
+    _centerMapOnStore(store, index);
+  }
+
+  void _resetStoreCarouselToFirst() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      if (_pageController.page?.round() != 0) {
+        _pageController.jumpToPage(0);
+      }
+    });
   }
 
   @override
@@ -502,12 +604,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (message.message.startsWith('CLICK:')) {
             final indexStr = message.message.substring(6);
             final index = int.tryParse(indexStr);
-            if (index != null && index < _currentStores.length) {
-              setState(() {
-                _selectedStore = _currentStores[index];
-                _showStoreSummary = true;
-              });
-            }
+            if (index != null) _onMarkerClicked(index);
           }
           if (message.message == 'MAP_CLICK') {
             _hideStore();
@@ -632,14 +729,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         var customOverlays = [];
         var markerDataCache = [];
+        var selectedMarkerIndex = -1;
 
         function onMarkerClick(index) {
+          highlightMarker(index);
           Print.postMessage('CLICK:' + index);
         }
 
         function addMobileMarkers(markerListJson) {
           var markerData = JSON.parse(markerListJson);
           markerDataCache = markerData;
+          selectedMarkerIndex = markerData.findIndex(function(item) {
+            return item.selected === true;
+          });
           
           for (var i = 0; i < customOverlays.length; i++) {
             customOverlays[i].setMap(null);
@@ -704,30 +806,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   position: new kakao.maps.LatLng(item.lat, item.lng),
                   content: wrapper,
                   yAnchor: 1.0,
-                  zIndex: 3
+                  zIndex: idx === selectedMarkerIndex ? 10 : 3
               });
               customOverlay.setMap(map);
               customOverlays.push(customOverlay);
             })(i);
           }
+          highlightMarker(selectedMarkerIndex);
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
         function highlightMarker(selectedIndex) {
+          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
           for (var i = 0; i < markerDataCache.length; i++) {
             var wrapper = document.getElementById('marker-wrapper-' + i);
             if (!wrapper) continue;
             var bubble = wrapper.children[0];
             var tail = wrapper.children[1];
-            
-            if (i === selectedIndex) {
-              bubble.style.background = '#C2410C'; // Error
+
+            var isSelected = i === selectedMarkerIndex;
+            var baseColor = markerDataCache[i].source === 'USER' ? '#F97316' : '#2563EB';
+            if (isSelected) {
+              bubble.style.background = '#C2410C'; // Selected
               tail.style.borderTopColor = '#C2410C';
               wrapper.style.transform = 'scale(1.2)';
               if (customOverlays[i]) customOverlays[i].setZIndex(10);
             } else {
-              bubble.style.background = '#2563EB'; // Primary
-              tail.style.borderTopColor = '#2563EB';
+              bubble.style.background = baseColor;
+              tail.style.borderTopColor = baseColor;
               wrapper.style.transform = 'scale(1.0)';
               if (customOverlays[i]) customOverlays[i].setZIndex(3);
             }
@@ -1947,45 +2053,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: PageView.builder(
+                child: HomeMapStoreCarousel(
                   controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
                   itemCount: _currentStores.length,
-                  onPageChanged: (index) {
-                    if (index < _currentStores.length) {
-                      final store = _currentStores[index];
-                      if (kIsWeb) {
-                        web_helper.setKakaoMapCenterFromSwipeWeb(
-                          _viewId,
-                          store.latitude,
-                          store.longitude,
-                        );
-                      } else {
-                        _safeRunJavaScript(
-                          'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
-                        );
-                      }
-                    }
-                  },
+                  onPageChanged: _onStorePageChanged,
                   itemBuilder: (context, index) {
-                    if (index >= _currentStores.length) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onVerticalDragUpdate: (_) {},
-                        onHorizontalDragUpdate: (_) {},
-                        child: _StoreSummaryCard(
-                          store: _currentStores[index],
-                          selection: isAiActive
-                              ? _selectionFor(_currentStores[index])
-                              : (isSearching
-                                    ? _searchSelectionFor(_currentStores[index])
-                                    : null),
-                        ),
-                      ),
+                    final store = _currentStores[index];
+                    return _StoreSummaryCard(
+                      store: store,
+                      selection: isAiActive
+                          ? _selectionFor(store)
+                          : (isSearching ? _searchSelectionFor(store) : null),
                     );
                   },
                 ),

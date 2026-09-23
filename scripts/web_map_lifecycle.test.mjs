@@ -50,8 +50,10 @@ function createRuntime() {
   function CustomOverlay(options) {
     this.options = options;
     this.map = options.map || null;
+    this.zIndex = options.zIndex || 0;
     this.setMap = (map) => { this.map = map; };
     this.setPosition = () => {};
+    this.setZIndex = (zIndex) => { this.zIndex = zIndex; };
     overlays.push(this);
   }
   const context = {
@@ -164,6 +166,41 @@ function createRuntime() {
   assert.equal(context.markerDataCache.map[0].title, 'new',
     'a delayed older marker request cannot overwrite the latest marker payload');
   assert.equal(overlays.length, 1, 'only the current marker set creates overlays');
+}
+
+{
+  const { context, overlays } = createRuntime();
+  let centeredOn = null;
+  context.kakaoMapObjects.map = {
+    relayout() {},
+    panTo(position) { centeredOn = position; },
+  };
+  const clicked = [];
+  context.onKakaoMarkerClick = (index) => clicked.push(index);
+  context.addMobileMarkers('map', JSON.stringify([
+    { lat: 37.5, lng: 127, title: '앞 매장', menu: '메뉴 A', price: '5,000원', source: 'API' },
+    { lat: 37.5, lng: 127, title: '뒤 매장', menu: '메뉴 B', price: '6,000원', source: 'USER', selected: true },
+  ]));
+
+  assert.deepEqual(overlays.map((overlay) => overlay.zIndex), [3, 10],
+    'the selected overlapping marker starts in front of other markers');
+  assert.equal(overlays[1].options.content.style.transform, 'scale(1.2)',
+    'selected marker receives the visual selected treatment');
+
+  context.highlightKakaoMapMarker('map', 0);
+  assert.deepEqual(overlays.map((overlay) => overlay.zIndex), [10, 3],
+    'selecting a marker raises it above overlapping markers');
+  overlays[1].options.content.children[0].onclick({ stopPropagation() {} });
+  assert.deepEqual(clicked, [1], 'marker click forwards the clicked store index');
+  assert.deepEqual(overlays.map((overlay) => overlay.zIndex), [3, 10],
+    'clicking a marker immediately raises that marker before Flutter responds');
+
+  context.setKakaoMapCenterFromSwipe('map', 37.501, 127.002);
+  assert.deepEqual(
+    { lat: centeredOn.lat, lng: centeredOn.lng },
+    { lat: 37.501, lng: 127.002 },
+    'swiping to another store can pan the map to that store coordinates',
+  );
 }
 
 console.log('web map lifecycle tests passed');
