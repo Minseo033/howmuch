@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -91,5 +93,23 @@ void main() {
       requestHeaders: const {'authorization': 'Bearer new-session'},
     );
     expect(expirationCount, 1);
+  });
+
+  test('GET은 Content-Type 사전 요청 헤더를 제거하고 인증 헤더는 유지한다', () async {
+    late http.Request capturedRequest;
+    await http.runWithClient(
+      () => ApiClient.get(
+        Uri.https('example.test', '/api/stores/all'),
+        headers: ApiClient.jsonHeaders(auth: true),
+      ),
+      () => MockClient((request) async {
+        capturedRequest = request;
+        return http.Response('{}', 200);
+      }),
+    );
+
+    expect(capturedRequest.headers.containsKey('content-type'), isFalse);
+    expect(capturedRequest.headers['accept'], 'application/json');
+    expect(capturedRequest.headers['authorization'], 'Bearer session-token');
   });
 }

@@ -25,6 +25,17 @@ void main() {
     );
   });
 
+  test('가격 필터 상한은 포함하고 1원 초과는 제외한다', () {
+    expect(
+      SearchFilterPolicy.matchesMaxPrice(store('상한과 같음', '5,000원'), 5000),
+      isTrue,
+    );
+    expect(
+      SearchFilterPolicy.matchesMaxPrice(store('상한보다 1원 비쌈', '5,001원'), 5000),
+      isFalse,
+    );
+  });
+
   test('저렴한순 정렬은 유효 가격을 앞에 두고 가격 미상은 마지막에 둔다', () {
     final stores = [
       store('미상', ''),
