@@ -2195,4 +2195,5 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 - **지도 줌 아웃 오류**: 운영 화면의 `/api/stores/bounds` 반복 `400`은 프런트가 서버가 허용하지 않는 10도 초과 범위를 계속 요청하는 문제다. 지도 줌 아웃을 Kakao Map level 10으로 제한하고, 웹·모바일 공통 요청 경계에서도 10도 초과 범위를 차단하며 이전 범위의 늦은 응답을 폐기한다.
 - **검증**: 접근성 이름·터치 영역 및 지도 범위 단위 테스트, 웹 지도 런타임 테스트와 웹 release 빌드를 확인했다. 로컬 Flutter analyze는 분석 서버의 JSON `FormatException`으로 종료되어 결과를 얻지 못했으며, CI 분석 결과를 배포 게이트로 확인한다.
 - **잔여 사항**: Safari가 페이지를 반복 종료한 현상은 앱 코드의 명시적 새로고침 호출과 일치하지 않는다. 화면 직접 재현을 하지 못해 브라우저 렌더러 종료의 근본 원인은 미확정이며, 이번 수정이 Safari 충돌까지 해결했는지는 운영·기기 QA가 필요하다.
-- **배포 상태**: 이 항목은 접근성·지도 범위 수정의 운영 배포 기록이며, 최종 CI·공개 파일 검증 결과는 배포 완료 후 추가한다.
+- **배포 결과**: 커밋 `2c6e712c8b8b437dcb001bcf4ea5c19926b69f3b`에서 GitHub Actions [Quality gates 35885626690](https://github.com/Minseo033/howmuch/actions/runs/35885626690)의 분석·전체 테스트·웹 빌드·iOS 시뮬레이터·백엔드 테스트가 통과했다. Vercel 배포 `https://howmuch-6f1kj4a4p-minseo033s-projects.vercel.app` 생성과 운영 별칭 연결은 성공했다.
+- **공개 검증 정정**: 자동 검증 첫 시도는 별칭 갱신 직후 `index.html`·`main.dart.js`의 SHA-256 불일치로 실패했다. CI의 동일 release artifact를 사용해 재검증한 결과 정적 파일 및 `/`, `/home`, `/login` 경로 13/13이 모두 일치했다. 따라서 운영 배포는 반영 완료로 기록한다. 자동 워크플로 자체의 최종 결론은 첫 검증 실패로 `failure`이며, 수동 재검증 성공과 구분한다.
