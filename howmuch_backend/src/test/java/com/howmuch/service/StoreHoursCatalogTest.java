@@ -65,6 +65,21 @@ class StoreHoursCatalogTest {
     }
 
     @Test
+    void acceptsOnlyTheReviewedRegionalDatasetWithItsOwnSourceName() {
+        var regional = new StoreHoursCatalog.Entry(ID, "같은이름식당", "서울특별시 강동구 천중로 73", "02-123-4567",
+                "SOURCE_VERIFIED", "11:00~20:00", "부산광역시 서구 착한가격업소",
+                "https://www.data.go.kr/data/15051967/fileData.do", "2026-06-11", null, null, null, List.of());
+        assertThat(regional.valid()).isTrue();
+        assertThat(new StoreHoursCatalog.Entry(ID, regional.storeName(), regional.address(), regional.phoneNumber(),
+                regional.status(), regional.text(), "행정안전부 착한가격업소", regional.sourceUrl(),
+                regional.checkedAt(), null, null, null, List.of()).valid()).isFalse();
+        assertThat(new StoreHoursCatalog.Entry(ID, regional.storeName(), regional.address(), regional.phoneNumber(),
+                regional.status(), regional.text(), regional.sourceName(),
+                "https://www.data.go.kr/data/15051967/fileData.do?redirect=other",
+                regional.checkedAt(), null, null, null, List.of()).valid()).isFalse();
+    }
+
+    @Test
     void bundledRecordsHaveValidSourcesUniqueIdsAndAnExactCatalogIdentity() throws Exception {
         var mapper = new ObjectMapper();
         List<StoreHoursCatalog.Entry> records;
@@ -86,7 +101,7 @@ class StoreHoursCatalogTest {
         assertThat(records).hasSizeGreaterThanOrEqualTo(10_600);
         assertThat(records.stream()
                 .filter(entry -> !"등록된 영업시간이 없어요.".equals(entry.text()))
-                .count()).isGreaterThanOrEqualTo(230);
+                .count()).isGreaterThanOrEqualTo(289);
         assertThat(records.stream()
                 .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
                 .count()).isGreaterThanOrEqualTo(10_300);

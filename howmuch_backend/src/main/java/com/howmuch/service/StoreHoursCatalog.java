@@ -36,11 +36,16 @@ public class StoreHoursCatalog {
                         && "SOURCE_VERIFIED".equals(status)
                         && text != null && !text.isBlank() && text.length() <= 1000
                         && !text.contains("<") && !text.contains(">")
-                        && "행정안전부 착한가격업소".equals(sourceName)
                         && "https".equals(uri.getScheme()) && uri.getUserInfo() == null
-                        && "www.goodprice.go.kr".equals(uri.getHost()) && uri.getPort() == -1
-                        && "/bssh/bsshInfo.do".equals(uri.getPath())
-                        && uri.getQuery() != null && uri.getQuery().matches("bsshSn=\\d+")
+                        && uri.getPort() == -1
+                        && (("행정안전부 착한가격업소".equals(sourceName)
+                                && "www.goodprice.go.kr".equals(uri.getHost())
+                                && "/bssh/bsshInfo.do".equals(uri.getPath())
+                                && uri.getQuery() != null && uri.getQuery().matches("bsshSn=\\d+"))
+                            || ("부산광역시 서구 착한가격업소".equals(sourceName)
+                                && "www.data.go.kr".equals(uri.getHost())
+                                && "/data/15051967/fileData.do".equals(uri.getPath())
+                                && uri.getQuery() == null))
                         && checkedAt.matches("\\d{4}-\\d{2}-\\d{2}")
                         && !LocalDate.parse(checkedAt).isAfter(LocalDate.now(ZoneId.of("Asia/Seoul")));
             } catch (RuntimeException e) {
