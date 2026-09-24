@@ -80,6 +80,18 @@ class StoreHoursCatalogTest {
     }
 
     @Test
+    void acceptsOnlyTheExactMunicipalSourcePage() {
+        var municipal = new StoreHoursCatalog.Entry(ID, "같은이름식당", "서울특별시 강동구 천중로 73", "02-123-4567",
+                "SOURCE_VERIFIED", "09:00~20:00", "강원특별자치도 철원군 착한가격업소",
+                "https://www.cwg.go.kr/www/contents.do?key=360", "2026-06-22", null, null, null, List.of());
+        assertThat(municipal.valid()).isTrue();
+        assertThat(new StoreHoursCatalog.Entry(ID, municipal.storeName(), municipal.address(), municipal.phoneNumber(),
+                municipal.status(), municipal.text(), municipal.sourceName(),
+                "https://www.cwg.go.kr/www/contents.do?key=361",
+                municipal.checkedAt(), null, null, null, List.of()).valid()).isFalse();
+    }
+
+    @Test
     void bundledRecordsHaveValidSourcesUniqueIdsAndAnExactCatalogIdentity() throws Exception {
         var mapper = new ObjectMapper();
         List<StoreHoursCatalog.Entry> records;
@@ -101,7 +113,7 @@ class StoreHoursCatalogTest {
         assertThat(records).hasSizeGreaterThanOrEqualTo(10_600);
         assertThat(records.stream()
                 .filter(entry -> !"등록된 영업시간이 없어요.".equals(entry.text()))
-                .count()).isGreaterThanOrEqualTo(470);
+                .count()).isGreaterThanOrEqualTo(525);
         assertThat(records.stream()
                 .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
                 .count()).isGreaterThanOrEqualTo(10_300);

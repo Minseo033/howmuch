@@ -28,6 +28,12 @@ public class StoreHoursCatalog {
             "경상남도 산청군 착한가격업소", "/data/15089937/fileData.do",
             "경기도 동두천시 착한가격업소", "/data/3072002/fileData.do"
     );
+    private static final Map<String, String> MUNICIPAL_SOURCES = Map.of(
+            "울산광역시 북구 착한가격업소", "https://www.bukgu.ulsan.kr/lay1/S1T229C445/contents.do",
+            "강원특별자치도 철원군 착한가격업소", "https://www.cwg.go.kr/www/contents.do?key=360",
+            "전라남도 진도군 착한가격업소", "https://www.jindo.go.kr/home/sub.cs?m=243",
+            "전라남도 목포시 착한가격업소", "https://biz.mokpo.go.kr/www/life_welfare/industry_economy/regional_economy/good_price"
+    );
     private final Map<String, Entry> entries;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -53,7 +59,9 @@ public class StoreHoursCatalog {
                             || (REGIONAL_SOURCES.containsKey(sourceName)
                                 && "www.data.go.kr".equals(uri.getHost())
                                 && REGIONAL_SOURCES.get(sourceName).equals(uri.getPath())
-                                && uri.getQuery() == null))
+                                && uri.getQuery() == null)
+                            || (MUNICIPAL_SOURCES.containsKey(sourceName)
+                                && uri.equals(URI.create(MUNICIPAL_SOURCES.get(sourceName)))))
                         && checkedAt.matches("\\d{4}-\\d{2}-\\d{2}")
                         && !LocalDate.parse(checkedAt).isAfter(LocalDate.now(ZoneId.of("Asia/Seoul")));
             } catch (RuntimeException e) {
