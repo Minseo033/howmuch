@@ -20,6 +20,14 @@ import java.util.Objects;
 @Service
 @Slf4j
 public class StoreHoursCatalog {
+    private static final Map<String, String> REGIONAL_SOURCES = Map.of(
+            "부산광역시 서구 착한가격업소", "/data/15051967/fileData.do",
+            "울산광역시 착한가격업소", "/data/15083262/fileData.do",
+            "울산광역시 남구 착한가격업소", "/data/3069400/fileData.do",
+            "강원특별자치도 동해시 착한가격업소", "/data/3077962/fileData.do",
+            "경상남도 산청군 착한가격업소", "/data/15089937/fileData.do",
+            "경기도 동두천시 착한가격업소", "/data/3072002/fileData.do"
+    );
     private final Map<String, Entry> entries;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -42,9 +50,9 @@ public class StoreHoursCatalog {
                                 && "www.goodprice.go.kr".equals(uri.getHost())
                                 && "/bssh/bsshInfo.do".equals(uri.getPath())
                                 && uri.getQuery() != null && uri.getQuery().matches("bsshSn=\\d+"))
-                            || ("부산광역시 서구 착한가격업소".equals(sourceName)
+                            || (REGIONAL_SOURCES.containsKey(sourceName)
                                 && "www.data.go.kr".equals(uri.getHost())
-                                && "/data/15051967/fileData.do".equals(uri.getPath())
+                                && REGIONAL_SOURCES.get(sourceName).equals(uri.getPath())
                                 && uri.getQuery() == null))
                         && checkedAt.matches("\\d{4}-\\d{2}-\\d{2}")
                         && !LocalDate.parse(checkedAt).isAfter(LocalDate.now(ZoneId.of("Asia/Seoul")));

@@ -107,4 +107,16 @@ jobs:
             --token "$VERCEL_TOKEN"
       - name: Verify the public production alias
         if: steps.vercel_deploy.outcome == 'success'
-        run: node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web
+        run: |
+          # Alias/CDN propagation is asynchronous: keep the strict hash check,
+          # but allow it to settle before treating a stale edge as a failure.
+          for attempt in {1..12}; do
+            if node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Public alias did not converge after 12 checks" >&2
+              exit 1
+            fi
+            sleep 10
+          done

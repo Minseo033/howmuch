@@ -101,7 +101,7 @@ class StoreHoursCatalogTest {
         assertThat(records).hasSizeGreaterThanOrEqualTo(10_600);
         assertThat(records.stream()
                 .filter(entry -> !"등록된 영업시간이 없어요.".equals(entry.text()))
-                .count()).isGreaterThanOrEqualTo(289);
+                .count()).isGreaterThanOrEqualTo(470);
         assertThat(records.stream()
                 .filter(entry -> entry.imageUrls() != null && !entry.imageUrls().isEmpty())
                 .count()).isGreaterThanOrEqualTo(10_300);
