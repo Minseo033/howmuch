@@ -148,6 +148,32 @@ function createRuntime() {
 }
 
 {
+  const { context, listeners, runTimers } = createRuntime();
+  let idleCalls = 0;
+  let maxLat = 38;
+  context.onKakaoMapIdle = () => { idleCalls++; };
+  context.initKakaoMap('map', 37.5, 127);
+  context.kakaoMapObjects.map.getBounds = () => ({
+    getSouthWest: () => ({ getLat: () => 37, getLng: () => 126 }),
+    getNorthEast: () => ({ getLat: () => maxLat, getLng: () => 127 }),
+  });
+  runTimers();
+  assert.equal(idleCalls, 1, 'initial relayout callbacks request identical bounds once');
+  const idle = listeners.find((item) => item.type === 'idle').handler;
+  idle();
+  runTimers();
+  assert.equal(idleCalls, 1, 'marker relayout does not immediately re-request the same bounds');
+  maxLat = 38.1;
+  idle();
+  runTimers();
+  assert.equal(idleCalls, 2, 'a changed map viewport still requests new stores');
+  context.kakaoMapLifecycles.map.lastIdleAt = Date.now() - 2000;
+  idle();
+  runTimers();
+  assert.equal(idleCalls, 3, 'the same viewport can retry after the short deduplication window');
+}
+
+{
   const { context, overlays, runTimers } = createRuntime();
   delete context.kakao;
   context.addMobileMarkers('map', JSON.stringify([{ lat: 1, lng: 2, title: 'old', menu: '', price: '' }]));

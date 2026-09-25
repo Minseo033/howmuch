@@ -123,7 +123,7 @@
     function getKakaoMapLifecycle(containerId) {
       var lifecycle = window.kakaoMapLifecycles[containerId];
       if (!lifecycle) {
-        lifecycle = { generation: 0, resizeObserver: null, timers: [], listeners: [] };
+        lifecycle = { generation: 0, resizeObserver: null, timers: [], listeners: [], lastIdleBounds: null, lastIdleAt: 0 };
         window.kakaoMapLifecycles[containerId] = lifecycle;
       }
       return lifecycle;
@@ -159,6 +159,23 @@
       lifecycle.listeners.length = 0;
     }
 
+    function notifyKakaoMapIdle(containerId, lifecycle) {
+      if (!window.onKakaoMapIdle) return;
+      var bounds = getKakaoMapBounds(containerId);
+      if (bounds) {
+        var values = JSON.parse(bounds);
+        // Relayout and marker updates can emit an identical idle event. Do
+        // not repeat the same request immediately, but permit later retries.
+        var key = [values.minLat, values.maxLat, values.minLng, values.maxLng]
+          .map(function(value) { return Number(value).toFixed(5); }).join(':');
+        var now = Date.now();
+        if (key === lifecycle.lastIdleBounds && now - lifecycle.lastIdleAt < 1500) return;
+        lifecycle.lastIdleBounds = key;
+        lifecycle.lastIdleAt = now;
+      }
+      window.onKakaoMapIdle();
+    }
+
     function bindKakaoMapEvents(containerId, map, lifecycle, generation) {
       function listen(type, callback) {
         var handler = function() {
@@ -171,8 +188,8 @@
       listen('idle', function() {
         cancelKakaoMapTask(lifecycle, boundsTimer);
         boundsTimer = scheduleKakaoMapTask(lifecycle, function() {
-          if (isActiveKakaoMap(containerId, map, generation) && window.onKakaoMapIdle) {
-            window.onKakaoMapIdle();
+          if (isActiveKakaoMap(containerId, map, generation)) {
+            notifyKakaoMapIdle(containerId, lifecycle);
           }
         }, 600);
       });
@@ -238,6 +255,8 @@
       lifecycle.generation++;
       clearKakaoMapTimers(lifecycle);
       clearKakaoMapListeners(lifecycle);
+      lifecycle.lastIdleBounds = null;
+      lifecycle.lastIdleAt = 0;
       var generation = lifecycle.generation;
 
       if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -308,8 +327,8 @@
             bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
             if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
             scheduleKakaoMapTask(lifecycle, function() {
-              if (isActiveKakaoMap(containerId, existingMap, generation) && window.onKakaoMapIdle) {
-                window.onKakaoMapIdle();
+              if (isActiveKakaoMap(containerId, existingMap, generation)) {
+                notifyKakaoMapIdle(containerId, lifecycle);
               }
             }, 100);
             return;
@@ -348,12 +367,12 @@
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
           if (typeof map.relayout === 'function') map.relayout();
-          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+          notifyKakaoMapIdle(containerId, lifecycle);
         }, 150);
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
           if (typeof map.relayout === 'function') map.relayout();
-          if (window.onKakaoMapIdle) window.onKakaoMapIdle();
+          notifyKakaoMapIdle(containerId, lifecycle);
         }, 500);
         }
 

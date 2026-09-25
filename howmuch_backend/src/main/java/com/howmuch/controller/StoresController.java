@@ -6,9 +6,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -31,7 +33,11 @@ public class StoresController {
     @GetMapping("/all")
     public ResponseEntity<?> getAllStores() {
         try {
-            return ResponseEntity.ok(firebaseService.getAllStores());
+            // The public catalog is large. Browser HTTP caching avoids a full
+            // download on every reload without relying on LocalStorage quotas.
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
+                    .body(firebaseService.getAllStores());
         } catch (Exception e) {
             log.error("[StoresController] 전체 매장 조회 오류", e);
             return ResponseEntity.status(500).body(Map.of(

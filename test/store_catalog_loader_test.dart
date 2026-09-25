@@ -7,6 +7,33 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'browser mode does not read or write the oversized local cache',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        storeCatalogCacheKey:
+            '[{"storeName":"stale","latitude":37.5,"longitude":127.0}]',
+        storeCatalogCachedAtKey: DateTime.now().millisecondsSinceEpoch,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      var requests = 0;
+      final stores = await loadStoreCatalog(
+        preferences: prefs,
+        useLocalCache: false,
+        request: (_) async {
+          requests++;
+          return http.Response(
+            '[{"storeName":"fresh","latitude":37.5,"longitude":127.0}]',
+            200,
+          );
+        },
+      );
+      expect(stores.single.storeName, 'fresh');
+      expect(requests, 1);
+      expect(prefs.getString(storeCatalogCacheKey), contains('stale'));
+    },
+  );
+
   test('stalled preferences initialization falls back to network', () async {
     final pendingPreferences = Completer<SharedPreferences>();
     final stores = await loadStoreCatalog(

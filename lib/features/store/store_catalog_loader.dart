@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
@@ -25,33 +26,39 @@ Future<List<Store>> loadStoreCatalog({
   Future<SharedPreferences> Function()? preferencesLoader,
   Duration storageTimeout = storeCatalogStorageTimeout,
   Duration requestTimeout = storeCatalogRequestTimeout,
+  bool useLocalCache = !kIsWeb,
 }) async {
   SharedPreferences? prefs;
   final currentTime = (now ?? DateTime.now()).toUtc();
-  try {
-    prefs =
-        preferences ??
-        await (preferencesLoader ?? SharedPreferences.getInstance)().timeout(
-          storageTimeout,
+  // The nationwide JSON is larger than common browser LocalStorage quotas.
+  // Web uses the server's short-lived HTTP cache instead of serializing the
+  // catalog into LocalStorage on the UI thread.
+  if (useLocalCache) {
+    try {
+      prefs =
+          preferences ??
+          await (preferencesLoader ?? SharedPreferences.getInstance)().timeout(
+            storageTimeout,
+          );
+      final cachedAtMilliseconds = prefs.getInt(storeCatalogCachedAtKey);
+      if (cachedAtMilliseconds != null) {
+        final cachedAt = DateTime.fromMillisecondsSinceEpoch(
+          cachedAtMilliseconds,
+          isUtc: true,
         );
-    final cachedAtMilliseconds = prefs.getInt(storeCatalogCachedAtKey);
-    if (cachedAtMilliseconds != null) {
-      final cachedAt = DateTime.fromMillisecondsSinceEpoch(
-        cachedAtMilliseconds,
-        isUtc: true,
-      );
-      final age = currentTime.difference(cachedAt);
-      if (!age.isNegative && age <= storeCatalogCacheMaxAge) {
-        final cachedStores = _decodeStoreCatalog(
-          prefs.getString(storeCatalogCacheKey),
-        );
-        if (cachedStores.isNotEmpty) return cachedStores;
+        final age = currentTime.difference(cachedAt);
+        if (!age.isNegative && age <= storeCatalogCacheMaxAge) {
+          final cachedStores = _decodeStoreCatalog(
+            prefs.getString(storeCatalogCacheKey),
+          );
+          if (cachedStores.isNotEmpty) return cachedStores;
+        }
       }
+    } catch (_) {
+      // Browser storage may be blocked or contain an incompatible cache value.
+      // The network catalog remains usable without local persistence.
+      prefs = null;
     }
-  } catch (_) {
-    // Browser storage may be blocked or contain an incompatible cache value.
-    // The network catalog remains usable without local persistence.
-    prefs = null;
   }
 
   if (preferences == null && now == null) {
