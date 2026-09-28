@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,30 +40,14 @@ class PermissionSetupScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 48.89204406738281 + topOffset,
-            width: double.infinity,
-            padding: EdgeInsets.only(top: topOffset, left: 8, right: 20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
+          SizedBox(
+            height: HowmuchTopBar.height + topOffset,
+            child: Padding(
+              padding: EdgeInsets.only(top: topOffset),
+              child: HowmuchTopBar(
+                title: '',
+                onBack: () => context.go(AppRoutes.login),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: ink,
-                    size: 20,
-                  ),
-                  onPressed: () => context.go(AppRoutes.login),
-                ),
-              ],
             ),
           ),
           Expanded(
