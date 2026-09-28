@@ -957,43 +957,42 @@ class _SavingsBars extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16.9, 16.9, 16.9, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.9, vertical: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: bars.map((bar) {
           return SizedBox(
             width: 43.99147415161133,
-            height: 86,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.bottomCenter,
+            child: Column(
               children: [
-                Positioned(
-                  bottom: 18,
-                  width: 21.988636016845703,
-                  height: bar.$1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: bar.$3,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SizedBox(
+                      width: 21.988636016845703,
+                      height: bar.$1 * .72,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: bar.$3,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(10),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  child: Text(
-                    bar.$2,
-                    style: const TextStyle(
-                      color: OnboardingPage.muted,
-                      fontFamily: OnboardingPage.fontFamily,
-                      fontFamilyFallback: OnboardingPage.fontFallback,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  bar.$2,
+                  style: const TextStyle(
+                    color: OnboardingPage.muted,
+                    fontFamily: OnboardingPage.fontFamily,
+                    fontFamilyFallback: OnboardingPage.fontFallback,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
               ],
