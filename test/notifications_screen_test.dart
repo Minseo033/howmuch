@@ -11,6 +11,96 @@ import 'package:howmuch/features/system/presentation/state/notification_service.
 import 'package:http/testing.dart';
 
 void main() {
+  testWidgets('notice opens a scrollable full body and closes at 320px', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final body = '공지 본문의 줄바꿈을 유지합니다.\n두 번째 문단도 읽을 수 있어야 합니다.\n' * 20;
+    final notifier = _SeededNotificationsNotifier([_notice(body: body)]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+      ),
+    );
+    await tester.tap(find.text('전체 내용 보기'));
+    await tester.pumpAndSettle();
+    final detail = find.byKey(const ValueKey('notification-detail'));
+    expect(detail, findsOneWidget);
+    final content = find.descendant(of: detail, matching: find.text(body));
+    expect(content, findsOneWidget);
+    expect(tester.widget<Text>(content).maxLines, isNull);
+    expect(
+      find.descendant(of: detail, matching: find.byType(SingleChildScrollView)),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('알림 상세 닫기'));
+    await tester.pumpAndSettle();
+    expect(detail, findsNothing);
+    expect(find.text('전체 내용 보기'), findsOneWidget);
+  });
+
+  testWidgets('unread notice is marked read before its detail opens', (
+    tester,
+  ) async {
+    var readRequests = 0;
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((request) async {
+          readRequests++;
+          return http.Response('{}', 200);
+        }),
+      ),
+    );
+    notifier.state = AsyncValue.data([_notice(body: '전체 공지 본문', unread: true)]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+      ),
+    );
+    await tester.tap(find.text('전체 내용 보기'));
+    await tester.pumpAndSettle();
+    expect(readRequests, 1);
+    expect(notifier.state.requireValue.single.isUnread, isFalse);
+    expect(find.byKey(const ValueKey('notification-detail')), findsOneWidget);
+  });
+
+  testWidgets('routed notifications keep their existing navigation', (
+    tester,
+  ) async {
+    final notifier = _SeededNotificationsNotifier([
+      _notice(type: '문의 답변', body: '답변을 확인해 주세요.'),
+    ]);
+    final router = GoRouter(
+      initialLocation: AppRoutes.notifications,
+      routes: [
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, _) => const Scaffold(body: NotificationsScreen()),
+        ),
+        GoRoute(
+          path: AppRoutes.inquiryHistory,
+          builder: (_, _) => const Scaffold(body: Text('문의 내역 화면')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    expect(find.text('전체 내용 보기'), findsNothing);
+    await tester.tap(find.text('답변을 확인해 주세요.'));
+    await tester.pumpAndSettle();
+    expect(find.text('문의 내역 화면'), findsOneWidget);
+    expect(find.byKey(const ValueKey('notification-detail')), findsNothing);
+  });
+
   testWidgets(
     'bulk button disables while pending and shows partial failure count',
     (tester) async {
@@ -223,6 +313,27 @@ void main() {
     expect(find.text('알림함 열기'), findsOneWidget);
   });
 }
+
+NotificationModel _notice({
+  required String body,
+  String type = '공지사항',
+  bool unread = false,
+}) => NotificationModel(
+  id: 'notice-qa',
+  section: '오늘',
+  type: type,
+  tabCategory: '전체',
+  iconData: Icons.notifications_none,
+  iconColor: Colors.blue,
+  iconBgColor: Colors.white,
+  borderColor: Colors.grey,
+  bgColor: Colors.white,
+  categoryColor: Colors.blue,
+  timeText: '· 1분 전',
+  title: '새로운 서비스 안내',
+  messageText: body,
+  isUnread: unread,
+);
 
 class _SeededNotificationsNotifier extends NotificationsNotifier {
   _SeededNotificationsNotifier(List<NotificationModel> notifications)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -66,7 +67,9 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     if (remainingCount <= 0) {
       messenger
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')));
+        ..showSnackBar(
+          HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
+        );
       return;
     }
 
@@ -84,7 +87,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
         messenger
           ..clearSnackBars()
           ..showSnackBar(
-            const SnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
+            HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
           );
       }
     } on PlatformException {
@@ -93,7 +96,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       }
       messenger
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('사진 접근 권한을 확인해주세요.')));
+        ..showSnackBar(HowmuchSnackBar(content: Text('사진 접근 권한을 확인해주세요.')));
     }
   }
 
@@ -275,11 +278,11 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final category = _types[_selectedType];
 
     if (title.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('제목을 입력해주세요.')));
+      messenger.showSnackBar(HowmuchSnackBar(content: Text('제목을 입력해주세요.')));
       return;
     }
     if (content.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('내용을 입력해주세요.')));
+      messenger.showSnackBar(HowmuchSnackBar(content: Text('내용을 입력해주세요.')));
       return;
     }
 
@@ -307,7 +310,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
         messenger
           ..clearSnackBars()
           ..showSnackBar(
-            SnackBar(
+            HowmuchSnackBar(
               content: Text(result['message']?.toString() ?? '문의 등록에 실패했습니다.'),
             ),
           );
@@ -318,18 +321,18 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       messenger.clearSnackBars();
       ref.invalidate(myInquiriesProvider);
       context.go(AppRoutes.mypage);
-      messenger.showSnackBar(const SnackBar(content: Text('문의가 접수되었어요.')));
+      messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
     } on ReportServiceException catch (error) {
       if (!mounted) return;
       messenger
         ..clearSnackBars()
-        ..showSnackBar(SnackBar(content: Text(error.message)));
+        ..showSnackBar(HowmuchSnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) return;
       messenger
         ..clearSnackBars()
         ..showSnackBar(
-          const SnackBar(content: Text('문의 등록에 실패했습니다. 다시 시도해주세요.')),
+          HowmuchSnackBar(content: Text('문의 등록에 실패했습니다. 다시 시도해주세요.')),
         );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

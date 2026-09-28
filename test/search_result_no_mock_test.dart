@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_history_store.dart';
@@ -311,6 +312,101 @@ void main() {
       expect(find.text('아직 검색 기록이 없어요'), findsOneWidget);
     },
   );
+
+  testWidgets('suggestions use nearest store for duplicate menu names', (
+    tester,
+  ) async {
+    final previousStores = HomeMapScreen.globalAllStores;
+    final previousCatalog = HomeMapScreen.globalSearchCatalog;
+    final previousPosition = HomeMapScreen.globalUserPosition;
+    HomeMapScreen.globalAllStores = [
+      Store(
+        id: 'far-noodle',
+        storeName: '먼 국수',
+        address: '서울특별시 강남구',
+        phoneNumber: '',
+        industry: '한식',
+        menu1: '국수',
+        price1: '7000',
+        menu2: '',
+        price2: '',
+        menu3: '',
+        price3: '',
+        menu4: '',
+        price4: '',
+        latitude: 37.7,
+        longitude: 127.2,
+        source: 'GOV',
+      ),
+      Store(
+        id: 'close-kimbap',
+        storeName: '가까운 김밥',
+        address: '서울특별시 중구',
+        phoneNumber: '',
+        industry: '분식',
+        menu1: '김밥',
+        price1: '3500',
+        menu2: '',
+        price2: '',
+        menu3: '',
+        price3: '',
+        menu4: '',
+        price4: '',
+        latitude: 37.5666,
+        longitude: 126.9781,
+        source: 'GOV',
+      ),
+      Store(
+        id: 'close-noodle',
+        storeName: '가까운 국수',
+        address: '서울특별시 중구',
+        phoneNumber: '',
+        industry: '한식',
+        menu1: '국수',
+        price1: '6500',
+        menu2: '',
+        price2: '',
+        menu3: '',
+        price3: '',
+        menu4: '',
+        price4: '',
+        latitude: 37.56651,
+        longitude: 126.97801,
+        source: 'GOV',
+      ),
+    ];
+    HomeMapScreen.setSearchCatalog(HomeMapScreen.globalAllStores);
+    HomeMapScreen.globalUserPosition = Position(
+      longitude: 126.9780,
+      latitude: 37.5665,
+      timestamp: DateTime(2026),
+      accuracy: 5,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+    addTearDown(() {
+      HomeMapScreen.globalAllStores = previousStores;
+      HomeMapScreen.setSearchCatalog(previousCatalog);
+      HomeMapScreen.globalUserPosition = previousPosition;
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(home: SearchResultScreen(initialQuery: '없는 메뉴')),
+    );
+    await tester.pumpAndSettle();
+
+    final noodleTop = tester
+        .getTopLeft(find.byKey(const ValueKey('suggestion-국수')))
+        .dy;
+    final kimbapTop = tester
+        .getTopLeft(find.byKey(const ValueKey('suggestion-김밥')))
+        .dy;
+    expect(noodleTop, lessThanOrEqualTo(kimbapTop));
+  });
 
   testWidgets('tapping a recent search runs it and moves it to the front', (
     tester,

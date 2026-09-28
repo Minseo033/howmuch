@@ -141,6 +141,7 @@ public class ReportController {
         try {
             ResponseEntity<?> validationError = validateReport(report);
             if (validationError != null) return validationError;
+            validatePriceDirection(report);
             applyCoordinates(report);
 
             String reportId = firebaseService.saveUserReport(report);
@@ -183,6 +184,7 @@ public class ReportController {
         try {
             ResponseEntity<?> validationError = validateReport(report);
             if (validationError != null) return validationError;
+            validatePriceDirection(report);
             applyCoordinates(report);
             firebaseService.updateUserReport(id, reporterUid, report);
             return ResponseEntity.ok(Map.of(
@@ -324,6 +326,40 @@ public class ReportController {
             }
         }
         return null;
+    }
+
+    private void validatePriceDirection(UserReportRequest report) {
+        String type = report.getChangeType();
+        if (reportTypeIsStoreInfo(report) || type == null || type.isBlank() || "delete".equals(type)) return;
+        long nextPrice = parseWon(report.getPrice1());
+        if (nextPrice <= 0) throw new IllegalArgumentException("변경된 가격을 올바르게 입력해주세요.");
+        String currentRaw = firebaseService.getCurrentMenuPrice(
+                report.getStoreId(), report.getStoreName(), report.getMenu1());
+        if ("new".equals(type)) {
+            if (currentRaw != null) {
+                throw new IllegalArgumentException("이미 등록된 메뉴입니다. 가격 인상 또는 인하를 선택해주세요.");
+            }
+            return;
+        }
+        long currentPrice = parseWon(currentRaw);
+        if (currentPrice <= 0) {
+            throw new IllegalArgumentException("현재 메뉴 가격을 확인할 수 없습니다. 등록된 메뉴를 선택해주세요.");
+        }
+        if (nextPrice == currentPrice) throw new IllegalArgumentException("기존 가격과 새 가격이 같습니다.");
+        if ("rise".equals(type) && nextPrice < currentPrice) {
+            throw new IllegalArgumentException("기존 가격보다 낮습니다. 가격 인하를 선택해주세요.");
+        }
+        if ("drop".equals(type) && nextPrice > currentPrice) {
+            throw new IllegalArgumentException("기존 가격보다 높습니다. 가격 인상을 선택해주세요.");
+        }
+    }
+
+    private long parseWon(String value) {
+        if (value == null) return -1;
+        String digits = value.replaceAll("[^0-9]", "");
+        if (digits.isEmpty() || digits.length() > 9) return -1;
+        try { return Long.parseLong(digits); }
+        catch (NumberFormatException ignored) { return -1; }
     }
 
     private void normalizeReport(UserReportRequest report) {

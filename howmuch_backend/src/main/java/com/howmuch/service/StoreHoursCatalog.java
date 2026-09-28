@@ -10,7 +10,8 @@ import org.springframework.stereotype.Service;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.util.Collections;import java.util.HashMap;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -19,6 +20,20 @@ import java.util.Objects;
 @Service
 @Slf4j
 public class StoreHoursCatalog {
+    private static final Map<String, String> REGIONAL_SOURCES = Map.of(
+            "부산광역시 서구 착한가격업소", "/data/15051967/fileData.do",
+            "울산광역시 착한가격업소", "/data/15083262/fileData.do",
+            "울산광역시 남구 착한가격업소", "/data/3069400/fileData.do",
+            "강원특별자치도 동해시 착한가격업소", "/data/3077962/fileData.do",
+            "경상남도 산청군 착한가격업소", "/data/15089937/fileData.do",
+            "경기도 동두천시 착한가격업소", "/data/3072002/fileData.do"
+    );
+    private static final Map<String, String> MUNICIPAL_SOURCES = Map.of(
+            "울산광역시 북구 착한가격업소", "https://www.bukgu.ulsan.kr/lay1/S1T229C445/contents.do",
+            "강원특별자치도 철원군 착한가격업소", "https://www.cwg.go.kr/www/contents.do?key=360",
+            "전라남도 진도군 착한가격업소", "https://www.jindo.go.kr/home/sub.cs?m=243",
+            "전라남도 목포시 착한가격업소", "https://biz.mokpo.go.kr/www/life_welfare/industry_economy/regional_economy/good_price"
+    );
     private final Map<String, Entry> entries;
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -35,11 +50,18 @@ public class StoreHoursCatalog {
                         && "SOURCE_VERIFIED".equals(status)
                         && text != null && !text.isBlank() && text.length() <= 1000
                         && !text.contains("<") && !text.contains(">")
-                        && "행정안전부 착한가격업소".equals(sourceName)
                         && "https".equals(uri.getScheme()) && uri.getUserInfo() == null
-                        && "www.goodprice.go.kr".equals(uri.getHost()) && uri.getPort() == -1
-                        && "/bssh/bsshInfo.do".equals(uri.getPath())
-                        && uri.getQuery() != null && uri.getQuery().matches("bsshSn=\\d+")
+                        && uri.getPort() == -1
+                        && (("행정안전부 착한가격업소".equals(sourceName)
+                                && "www.goodprice.go.kr".equals(uri.getHost())
+                                && "/bssh/bsshInfo.do".equals(uri.getPath())
+                                && uri.getQuery() != null && uri.getQuery().matches("bsshSn=\\d+"))
+                            || (REGIONAL_SOURCES.containsKey(sourceName)
+                                && "www.data.go.kr".equals(uri.getHost())
+                                && REGIONAL_SOURCES.get(sourceName).equals(uri.getPath())
+                                && uri.getQuery() == null)
+                            || (MUNICIPAL_SOURCES.containsKey(sourceName)
+                                && uri.equals(URI.create(MUNICIPAL_SOURCES.get(sourceName)))))
                         && checkedAt.matches("\\d{4}-\\d{2}-\\d{2}")
                         && !LocalDate.parse(checkedAt).isAfter(LocalDate.now(ZoneId.of("Asia/Seoul")));
             } catch (RuntimeException e) {

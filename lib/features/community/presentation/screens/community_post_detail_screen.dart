@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
@@ -758,7 +759,7 @@ class _CommunityPostDetailScreenState
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 }
 

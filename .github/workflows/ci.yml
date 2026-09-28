@@ -54,7 +54,7 @@ jobs:
       - name: Check administrator page scripts
         run: node scripts/check_admin_html.mjs
       - name: Test deployment verification guards
-        run: node --test scripts/verify_web_deployment.test.mjs
+        run: node --test scripts/*.test.mjs
 
   ios-simulator:
     name: iOS Simulator build
@@ -73,7 +73,7 @@ jobs:
   deploy-web:
     name: Deploy verified web release
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, flutter-web]
+    needs: [backend, flutter-web, ios-simulator]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -85,7 +85,6 @@ jobs:
           path: build/web
       - name: Deploy to Vercel production
         id: vercel_deploy
-        continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -108,4 +107,16 @@ jobs:
             --token "$VERCEL_TOKEN"
       - name: Verify the public production alias
         if: steps.vercel_deploy.outcome == 'success'
-        run: node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web
+        run: |
+          # Alias/CDN propagation is asynchronous: keep the strict hash check,
+          # but allow it to settle before treating a stale edge as a failure.
+          for attempt in {1..12}; do
+            if node scripts/verify_web_deployment.mjs https://howmuch-zeta.vercel.app build/web; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 12 ]; then
+              echo "Public alias did not converge after 12 checks" >&2
+              exit 1
+            fi
+            sleep 10
+          done

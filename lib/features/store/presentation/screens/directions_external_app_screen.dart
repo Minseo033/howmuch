@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
@@ -192,7 +193,7 @@ class _DirectionsExternalAppScreenState
       }
       if (!_hasRouteCoordinates && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
+          HowmuchSnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
         );
       }
     } catch (e) {
@@ -252,7 +253,7 @@ class _DirectionsExternalAppScreenState
       }
       if (!_hasRouteCoordinates && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
+          HowmuchSnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
         );
       }
     } catch (e) {

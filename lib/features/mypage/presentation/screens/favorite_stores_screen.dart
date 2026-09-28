@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -19,6 +20,7 @@ class FavoriteStoresScreen extends ConsumerStatefulWidget {
 
 class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _openingFavoriteIds = <String>{};
   String _searchQuery = '';
   FavoriteStoreSort _sort = FavoriteStoreSort.recent;
 
@@ -441,10 +443,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => context.push(
-            AppRoutes.storeDetail,
-            extra: resolveFavoriteStore(store),
-          ),
+          onTap: () => _openFavoriteStore(store),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
@@ -623,29 +622,63 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
       extra: {'storeId': store.id, 'storeName': store.storeName},
     );
     if (removed == true && mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${store.storeName} 찜을 해제했어요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('${store.storeName} 찜을 해제했어요.')),
+      );
+    }
+  }
+
+  Future<void> _openFavoriteStore(FavoriteStoreModel favorite) async {
+    final key = favorite.id.isNotEmpty ? favorite.id : favorite.storeName;
+    if (key.isEmpty || _openingFavoriteIds.contains(key)) return;
+
+    setState(() => _openingFavoriteIds.add(key));
+    try {
+      await context.push<void>(
+        AppRoutes.storeDetail,
+        extra: resolveFavoriteStore(favorite),
+      );
+    } finally {
+      if (mounted) setState(() => _openingFavoriteIds.remove(key));
     }
   }
 }
 
-/// Uses the richer catalog model when the home/search flow has already loaded
-/// it. Favorites can include legacy user stores that are not in that catalog,
-/// so the lightweight response remains a safe fallback for navigation.
+/// Favorites normally contain an API-enriched detail model, so navigation from
+/// MY does not depend on a previous home/search catalog load. Older API
+/// responses remain compatible with the in-memory catalog and then the
+/// lightweight fallback.
 @visibleForTesting
 Store resolveFavoriteStore(FavoriteStoreModel favorite) {
+  final enriched = favorite.toStore();
+  if (enriched.hasValidCoordinates) return enriched;
+
   final candidates = <Store>[
     ...HomeMapScreen.globalSearchCatalog,
     ...HomeMapScreen.globalAllStores,
   ];
   for (final store in candidates) {
-    if (favorite.id.isNotEmpty && store.id == favorite.id) return store;
+    if (favorite.id.isNotEmpty &&
+        store.id == favorite.id &&
+        store.hasValidCoordinates) {
+      return store;
+    }
   }
-  for (final store in candidates) {
-    if (store.storeName.trim() == favorite.storeName.trim()) return store;
-  }
-  return favorite.toStore();
+  // Legacy favorites can lack a stable ID. Never route to an arbitrary branch
+  // merely because two stores share a name.
+  final sameName = candidates.where(
+    (store) =>
+        store.hasValidCoordinates &&
+        store.storeName.trim() == favorite.storeName.trim(),
+  );
+  final sameAddress = favorite.address.isEmpty
+      ? <Store>[]
+      : sameName
+            .where((store) => store.address.trim() == favorite.address.trim())
+            .toList();
+  if (sameAddress.length == 1) return sameAddress.single;
+  if (favorite.address.isEmpty && sameName.length == 1) return sameName.single;
+  return enriched;
 }
 
 enum FavoriteStoreSort { recent, name }

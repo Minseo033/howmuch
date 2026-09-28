@@ -64,6 +64,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   String? _errorMessage;
   SearchFilter _filter = const SearchFilter();
   List<String> _recentSearches = const [];
+  List<String> _suggestions = const [];
+  final Map<String, double> _distanceCache = {};
 
   // 디바운스
   Timer? _debounce;
@@ -73,34 +75,48 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
   late final SearchHistoryStore _searchHistoryStore;
 
-  List<String> get _realSuggestions {
-    final stores = List<Store>.from(
-      howmuch_home.HomeMapScreen.globalSearchCatalog,
-    );
+  List<String> _buildSuggestions() {
+    final stores = howmuch_home.HomeMapScreen.globalSearchCatalog;
     final position = howmuch_home.HomeMapScreen.globalUserPosition;
-    if (position != null) {
-      stores.sort((a, b) {
-        final aDistance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          a.latitude,
-          a.longitude,
-        );
-        final bDistance = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          b.latitude,
-          b.longitude,
-        );
-        return aDistance.compareTo(bDistance);
-      });
+    if (stores.isEmpty) return const [];
+    if (position == null) {
+      final seen = <String>{};
+      return stores
+          .map((store) => store.menu1.trim())
+          .where((menu) => menu.isNotEmpty && seen.add(menu))
+          .take(4)
+          .toList(growable: false);
     }
-    final seen = <String>{};
-    return stores
-        .map((store) => store.menu1.trim())
-        .where((menu) => menu.isNotEmpty && seen.add(menu))
-        .take(4)
-        .toList();
+
+    final nearestByMenu = <String, double>{};
+    for (final store in stores) {
+      final menu = store.menu1.trim();
+      if (menu.isEmpty || !store.hasValidCoordinates) {
+        continue;
+      }
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        store.latitude,
+        store.longitude,
+      );
+      final previous = nearestByMenu[menu];
+      if (previous == null || distance < previous) {
+        nearestByMenu[menu] = distance;
+      }
+    }
+    final nearest = nearestByMenu.entries.toList()
+      ..sort((a, b) => a.value.compareTo(b.value));
+    return nearest.map((item) => item.key).take(4).toList(growable: false);
+  }
+
+  void _refreshSuggestions() {
+    final next = _buildSuggestions();
+    if (!mounted) {
+      _suggestions = next;
+      return;
+    }
+    setState(() => _suggestions = next);
   }
 
   @override
@@ -111,6 +127,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     _ctrl.addListener(_onSearchInputChanged);
     _searchHistoryStore = widget.searchHistoryStore ?? SearchHistoryStore();
     unawaited(_initializeSearchHistory());
+    _suggestions = _buildSuggestions();
     _doSearch(_query);
     if (widget.autoOpenFilter) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -230,7 +247,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
             (widget.storeCatalogLoader ?? loadStoreCatalog)();
         late final List<Store> loadedStores;
         try {
-          loadedStores = await request;
+          // Bound the whole loader, including browser storage and injected
+          // loaders, rather than relying only on the HTTP request timeout.
+          loadedStores = await request.timeout(storeCatalogLoadTimeout);
         } finally {
           if (identical(_catalogRequest, request)) {
             _catalogRequest = null;
@@ -238,6 +257,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         }
         if (!mounted || generation != _searchGeneration) return;
         howmuch_home.HomeMapScreen.setSearchCatalog(loadedStores);
+        _refreshSuggestions();
       }
 
       var stores = List<Store>.from(
@@ -254,13 +274,19 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 가격 필터링
       if (_filter.maxPrice != null) {
         stores = stores.where((s) {
-          return SearchFilterPolicy.matchesMaxPrice(s, _filter.maxPrice!);
+          return SearchFilterPolicy.matchesMaxPrice(
+            s,
+            _filter.maxPrice!,
+            query: query,
+          );
         }).toList();
       }
 
+      final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+      _refreshDistanceCache(stores, pos);
+
       // 거리 필터링
       if (_filter.distance != null && _filter.distance!.isNotEmpty) {
-        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos == null) {
           if (mounted) {
             setState(() {
@@ -281,12 +307,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
         if (maxDist > 0) {
           stores = stores.where((s) {
-            final d = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              s.latitude,
-              s.longitude,
-            );
+            final d = _distanceFor(s);
             return d <= maxDist;
           }).toList();
         }
@@ -312,25 +333,19 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
-        stores.sort(SearchFilterPolicy.compareByPrice);
+        stores.sort(
+          (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: query),
+        );
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
-        final pos = howmuch_home.HomeMapScreen.globalUserPosition;
         if (pos != null) {
           stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              a.latitude,
-              a.longitude,
-            );
-            final db = Geolocator.distanceBetween(
-              pos.latitude,
-              pos.longitude,
-              b.latitude,
-              b.longitude,
-            );
-            return da.compareTo(db);
+            final distanceComparison = _distanceFor(
+              a,
+            ).compareTo(_distanceFor(b));
+            return distanceComparison != 0
+                ? distanceComparison
+                : a.storeName.compareTo(b.storeName);
           });
         }
       }
@@ -348,7 +363,9 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       if (mounted && generation == _searchGeneration) {
         setState(() {
           _results = [];
-          _errorMessage = '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
+          _errorMessage = e is TimeoutException
+              ? '매장 정보를 불러오는 데 시간이 오래 걸리고 있어요. 연결 상태를 확인하고 다시 시도해 주세요.'
+              : '검색 결과를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
         });
       }
     } finally {
@@ -407,19 +424,36 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   //  거리 계산 로직
   // ────────────────────────────────────────────────
   String _formatDistance(Store store) {
-    final pos = howmuch_home.HomeMapScreen.globalUserPosition;
-    if (pos == null) return '';
-    final d = Geolocator.distanceBetween(
-      pos.latitude,
-      pos.longitude,
-      store.latitude,
-      store.longitude,
-    );
+    final d = _distanceFor(store);
+    if (d.isInfinite) return '';
     if (d < 1000) {
       return '${d.toStringAsFixed(0)}m';
     } else {
       return '${(d / 1000).toStringAsFixed(1)}km';
     }
+  }
+
+  void _refreshDistanceCache(List<Store> stores, Position? position) {
+    _distanceCache.clear();
+    if (position == null) return;
+
+    for (final store in stores) {
+      _distanceCache[_distanceKey(store)] = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        store.latitude,
+        store.longitude,
+      );
+    }
+  }
+
+  double _distanceFor(Store store) {
+    return _distanceCache[_distanceKey(store)] ?? double.infinity;
+  }
+
+  String _distanceKey(Store store) {
+    if (store.id.trim().isNotEmpty) return store.id.trim();
+    return '${store.storeName}|${store.latitude}|${store.longitude}';
   }
 
   @override
@@ -525,9 +559,20 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       )
                     : _loading
                     ? const Center(
-                        child: CircularProgressIndicator(
-                          color: SearchResultScreen.blue,
-                          strokeWidth: 2.5,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              color: SearchResultScreen.blue,
+                              strokeWidth: 2.5,
+                              semanticsLabel: '매장 정보 불러오는 중',
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              '매장 정보를 불러오고 있어요',
+                              style: TextStyle(color: SearchResultScreen.muted),
+                            ),
+                          ],
                         ),
                       )
                     : _errorMessage != null
@@ -538,7 +583,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                     : _query.isEmpty && _filter.activeLabels.isEmpty
                     ? _SearchLanding(
                         recentSearches: _recentSearches,
-                        suggestions: _realSuggestions,
+                        suggestions: _suggestions,
                         onRecentTap: (query) {
                           _ctrl.text = query;
                           _ctrl.selection = TextSelection.collapsed(
@@ -562,7 +607,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                       )
                     : _searched && _results.isEmpty
                     ? _EmptyResult(
-                        suggestions: _realSuggestions,
+                        suggestions: _suggestions,
                         hasFilters: activeFilters.isNotEmpty,
                         onShowAll: () => _returnToMap(clear: true),
                         onEditQuery: () {
@@ -596,13 +641,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                             s,
                             _query,
                           );
+                          final displayMenu = SearchFilterPolicy.displayMenuFor(
+                            s,
+                            _query,
+                          );
                           final hasMenuMatch = match != null;
-                          final displayedMenu = hasMenuMatch
-                              ? match.name
-                              : s.menu1;
-                          final displayedPrice = hasMenuMatch
-                              ? match.price
-                              : s.price1;
+                          final displayedMenu = displayMenu?.name ?? '';
+                          final displayedPrice = displayMenu?.price ?? '';
                           final priceLabel = displayedMenu.isNotEmpty
                               ? (displayedPrice.isNotEmpty
                                     ? '$displayedMenu  ${_fmt(displayedPrice)}'
@@ -960,26 +1005,23 @@ class _StoreCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 가게명 + 업종
+                    // Keep the full card width for identifying long store names.
+                    Text(
+                      store.storeName,
+                      style: const TextStyle(
+                        fontFamily: SearchResultScreen.fontFamily,
+                        fontFamilyFallback: SearchResultScreen.fontFallback,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: SearchResultScreen.ink,
+                        letterSpacing: -0.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            store.storeName,
-                            style: const TextStyle(
-                              fontFamily: SearchResultScreen.fontFamily,
-                              fontFamilyFallback:
-                                  SearchResultScreen.fontFallback,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: SearchResultScreen.ink,
-                              letterSpacing: -0.2,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
                         if (distance.isNotEmpty) ...[
                           Text(
                             distance,

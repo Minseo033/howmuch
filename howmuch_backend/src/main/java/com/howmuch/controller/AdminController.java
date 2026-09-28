@@ -140,6 +140,30 @@ public class AdminController {
         }
     }
 
+    /** Reclassify an existing report while preserving its moderation history. */
+    @PostMapping("/reports/{id}/industry")
+    public ResponseEntity<?> updateReportIndustry(@PathVariable String id,
+            @RequestBody(required = false) Map<String, String> body,
+            HttpServletRequest httpRequest) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
+        String industry = body == null ? null : body.get("industry");
+        if (industry == null || industry.isBlank() || industry.length() > 100) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "올바른 업종을 입력해주세요."));
+        }
+        try {
+            firebaseService.updateReportIndustryAsAdmin(id, industry.trim());
+            return ResponseEntity.ok(Map.of("success", true, "id", id, "industry", industry.trim()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "제보를 찾을 수 없습니다."));
+        } catch (Exception e) {
+            log.error("[AdminController] 제보 업종 수정 중 오류 발생: ", e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", "업종을 수정하지 못했습니다."));
+        }
+    }
+
     /** 영수증 인증 목록 조회 (GET /api/admin/receipts?status=PENDING) */
     @GetMapping("/receipts")
     public ResponseEntity<?> getReceiptVerifications(

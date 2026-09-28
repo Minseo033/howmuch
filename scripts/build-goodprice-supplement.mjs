@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { assertSafeSupplementApply } from './data_integrity.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const snapshotPath = path.join(root, 'howmuch_backend/src/main/resources/stores-snapshot.json');
@@ -307,7 +308,6 @@ const accepted = provisional.filter((row, index) => {
   return false;
 });
 const supplement = accepted.map((row) => row.store);
-const acceptedIds = new Set(supplement.map((store) => store.storeId));
 const newCatalogEntries = accepted.map((row) => ({
   storeId: row.store.storeId,
   storeName: row.store.storeName,
@@ -328,6 +328,15 @@ for (const row of accepted) {
     imageUrls: row.details.imageUrls,
   };
 }
+
+// `--apply` replaces the full supplement set. Do not let a partial source
+// verification or duplicate IDs turn a temporary upstream failure into data loss.
+if (apply) assertSafeSupplementApply({
+  fetched,
+  previousSupplement,
+  supplement,
+  nextCatalog,
+});
 
 const reasonCounts = {};
 for (const row of rejected) for (const reason of row.reasons) reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
@@ -376,5 +385,4 @@ if (apply) {
     writeFile(catalogPath, `${JSON.stringify(nextCatalog, null, 2)}\n`),
     writeFile(harvestedPath, `${JSON.stringify(nextHarvested, null, 2)}\n`),
   ]);
-  if (acceptedIds.size !== supplement.length) throw new Error('Supplement store IDs must be unique');
 }

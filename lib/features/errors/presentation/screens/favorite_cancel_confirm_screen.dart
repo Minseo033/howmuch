@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -34,9 +35,9 @@ class _FavoriteCancelConfirmScreenState
     } catch (_) {
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('찜 해제에 실패했어요. 다시 시도해 주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('찜 해제에 실패했어요. 다시 시도해 주세요.')),
+      );
     }
   }
 

@@ -53,6 +53,15 @@
     </application>
 
     <queries>
+        <!-- Required for canLaunchUrl on Android 11+ when opening directions. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="kakaomap" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nmap" />
+        </intent>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

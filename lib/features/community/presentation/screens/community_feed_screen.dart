@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -182,7 +183,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     setState(() => _isLoadingLocation = false);
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   Future<void> _fetchFeeds({bool silent = false}) async {
@@ -390,7 +393,9 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     if (items.isEmpty) {
       return Center(
         child: Text(
-          _locationLabel == '전체'
+          _selectedFilterIndex == 1
+              ? '아직 가격 변동 제보가 없어요.'
+              : _locationLabel == '전체'
               ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
               : '$_locationLabel에 등록된 제보가 아직 없어요.',
           textAlign: TextAlign.center,
@@ -464,7 +469,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
                   left: AppSizes.horizontalPadding,
                   top: topOffset + 60.0,
                   right: AppSizes.horizontalPadding,
-                  height: 34,
+                  height: 44,
                   child: Row(
                     children: [
                       _LocationChip(
@@ -539,6 +544,7 @@ class _Header extends StatelessWidget {
       title: '동네 제보',
       onBack: onBack,
       trailingIcon: Icons.search_rounded,
+      trailingTooltip: '검색',
       onTrailingTap: onSearch,
     );
   }
@@ -567,51 +573,54 @@ class _LocationChip extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
           onTap: onTap,
-          child: Container(
-            height: 32,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF4FF),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: const Color(0xFFEFF4FF)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 13,
-                    height: 13,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF4FF),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFFEFF4FF)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                      width: 13,
+                      height: 13,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: CommunityFeedScreen.blue,
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 13,
                       color: CommunityFeedScreen.blue,
                     ),
-                  )
-                else
+                  const SizedBox(width: 5),
+                  Text(
+                    location,
+                    style: const TextStyle(
+                      color: CommunityFeedScreen.blue,
+                      fontFamily: CommunityFeedScreen.fontFamily,
+                      fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(width: 2),
                   const Icon(
-                    Icons.location_on_outlined,
-                    size: 13,
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 16,
                     color: CommunityFeedScreen.blue,
                   ),
-                const SizedBox(width: 5),
-                Text(
-                  location,
-                  style: const TextStyle(
-                    color: CommunityFeedScreen.blue,
-                    fontFamily: CommunityFeedScreen.fontFamily,
-                    fontFamilyFallback: CommunityFeedScreen.fontFallback,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                const Icon(
-                  Icons.keyboard_arrow_down_rounded,
-                  size: 16,
-                  color: CommunityFeedScreen.blue,
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -841,41 +850,47 @@ class _FilterChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      key: ValueKey('community-filter-chip-$label'),
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: selected ? CommunityFeedScreen.blue : Colors.white,
-          border: Border.all(
-            color: selected
-                ? CommunityFeedScreen.blue
-                : const Color(0xFFE5E7EB),
-            width: 1.0,
-          ),
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: const Color(0xFF2563EB).withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF374151),
-            fontFamily: CommunityFeedScreen.fontFamily,
-            fontFamilyFallback: CommunityFeedScreen.fontFallback,
-            fontSize: 12.5,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            height: 1.5,
+      child: SizedBox(
+        height: 44,
+        child: Center(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            height: 34,
+            padding: const EdgeInsets.symmetric(horizontal: 14),
+            decoration: BoxDecoration(
+              color: selected ? CommunityFeedScreen.blue : Colors.white,
+              border: Border.all(
+                color: selected
+                    ? CommunityFeedScreen.blue
+                    : const Color(0xFFE5E7EB),
+                width: 1.0,
+              ),
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: selected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF374151),
+                fontFamily: CommunityFeedScreen.fontFamily,
+                fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                fontSize: 12.5,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                height: 1.5,
+              ),
+            ),
           ),
         ),
       ),

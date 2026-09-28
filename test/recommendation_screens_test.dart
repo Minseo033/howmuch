@@ -119,6 +119,36 @@ void main() {
     expect(find.text('총 예상 비용'), findsOneWidget);
     _expectNoFlutterError(tester);
   });
+
+  testWidgets('route uses the matched menu for each card and total cost', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      route: {
+        'picks': [
+          {
+            'storeName': '천이오겹살',
+            'menu1': '삼겹살',
+            'price1': '10000',
+            'menu2': '비빔국수',
+            'price2': '4000',
+            'matchedMenu': '비빔국수',
+          },
+          {'storeName': '맛양값 칼국수', 'menu1': '칼국수', 'price1': '6000'},
+        ],
+      },
+    );
+
+    await tester.pumpWidget(_app(service, const OptimalRouteScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('비빔국수 · 4,000원'), findsOneWidget);
+    expect(find.textContaining('칼국수 · 6,000원'), findsOneWidget);
+    expect(find.text('10,000원'), findsOneWidget);
+    expect(find.textContaining('삼겹살 · 10,000원'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
 }
 
 Widget _app(TodaysPickService service, Widget child) {

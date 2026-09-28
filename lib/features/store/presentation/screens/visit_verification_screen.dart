@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
@@ -561,16 +562,16 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     final store = widget.store;
     if (image == null || store == null || _isSubmittingReceipt) return;
     if (!ApiClient.isAuthenticated) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')),
+      );
       return;
     }
     final price = _priceValue;
     if (price <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('영수증 인증 전에 결제 금액을 입력해주세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('영수증 인증 전에 결제 금액을 입력해주세요.')),
+      );
       return;
     }
     setState(() => _isSubmittingReceipt = true);
@@ -618,7 +619,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (!mounted) return;
       setState(() => _receiptImage = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        HowmuchSnackBar(
           content: Text(
             status == 'APPROVED'
                 ? '영수증 인증이 완료되어 방문 기록에 반영됐어요.'
@@ -631,13 +632,13 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.message)));
+        ).showSnackBar(HowmuchSnackBar(content: Text(error.message)));
       }
     } catch (_) {
       debugPrint('영수증 인증 통신 오류');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
+          HowmuchSnackBar(content: Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
         );
       }
     } finally {
@@ -898,7 +899,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   Future<void> _submit() async {
     if (!_isLocationVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
+        HowmuchSnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
       );
       return;
     }
@@ -908,7 +909,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     if (price <= 0) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('결제 금액을 입력해주세요.')));
+      ).showSnackBar(HowmuchSnackBar(content: Text('결제 금액을 입력해주세요.')));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -950,7 +951,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          HowmuchSnackBar(
             content: Text(
               visitSubmissionErrorMessage(
                 response.statusCode,
@@ -964,7 +965,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('네트워크 오류가 발생했습니다.')));
+      ).showSnackBar(HowmuchSnackBar(content: Text('네트워크 오류가 발생했습니다.')));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

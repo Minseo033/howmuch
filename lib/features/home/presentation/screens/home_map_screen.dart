@@ -9,12 +9,14 @@ import 'kakao_web_helper_stub.dart'
     as web_helper;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -27,6 +29,14 @@ import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
 
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
+const double maxHomeMapBoundsSpanDegrees = 10;
+
+bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
+  return bounds['maxLat']! - bounds['minLat']! <=
+          maxHomeMapBoundsSpanDegrees &&
+      bounds['maxLng']! - bounds['minLng']! <=
+          maxHomeMapBoundsSpanDegrees;
+}
 
 bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
   final age = now.toUtc().difference(timestamp.toUtc());
@@ -56,8 +66,8 @@ Map<String, double>? parseKakaoMapBounds(String raw) {
     if (values.any((value) => value == null || !value.isFinite)) {
       return null;
     }
-    if (minLat! < -90 || maxLat! > 90 || minLat > maxLat) return null;
-    if (minLng! < -180 || maxLng! > 180 || minLng > maxLng) return null;
+    if (minLat! < -90 || maxLat! > 90 || minLat >= maxLat) return null;
+    if (minLng! < -180 || maxLng! > 180 || minLng >= maxLng) return null;
 
     return {
       'minLat': minLat,
@@ -96,6 +106,49 @@ Future<bool> openLocationSettingsForStatus({
   if (serviceDisabled && await tryOpen(locationServicesLauncher)) return true;
   if (await tryOpen(appPermissionsLauncher)) return true;
   return tryOpen(fallbackLauncher);
+}
+
+class _StoreWithDistance {
+  const _StoreWithDistance(this.store, this.distanceMeters);
+
+  final Store store;
+  final double? distanceMeters;
+}
+
+/// Horizontally swipeable store cards. The card wrapper intentionally claims
+/// vertical drags only, leaving horizontal gestures to [PageView].
+class HomeMapStoreCarousel extends StatelessWidget {
+  const HomeMapStoreCarousel({
+    super.key,
+    required this.controller,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.onPageChanged,
+  });
+
+  final PageController controller;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final ValueChanged<int> onPageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      key: const ValueKey('home-store-card-pages'),
+      controller: controller,
+      physics: const BouncingScrollPhysics(),
+      itemCount: itemCount,
+      onPageChanged: onPageChanged,
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onVerticalDragUpdate: (_) {},
+          child: itemBuilder(context, index),
+        ),
+      ),
+    );
+  }
 }
 
 class HomeMapScreen extends StatefulWidget {
@@ -173,6 +226,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Store? _selectedStore;
   bool _isFetching = false;
   String? _pendingBoundsJson;
+  int _boundsRequestGeneration = 0;
+  String _lastRenderedMarkerSignature = '';
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -182,6 +237,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   SearchFilter _searchFilter = const SearchFilter();
   bool _isAiRecommendationActive = false;
   List<Store> _aiRecommendedStores = [];
+  AiMapRecommendationResult? _activeAiRecommendation;
   AiMapRecommendationResult? _pendingAiResult;
 
   Future<void> _openAiRecommend() async {
@@ -226,8 +282,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (matchingStores.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          HowmuchSnackBar(
             content: Text('지도에 표시할 매장 위치 정보를 찾을 수 없어요.'),
+            aboveNavigation: true,
             duration: Duration(seconds: 2),
           ),
         );
@@ -237,11 +294,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     setState(() {
       _isAiRecommendationActive = true;
+      _activeAiRecommendation = result;
       _aiRecommendedStores = matchingStores;
       _currentStores = matchingStores;
       _selectedStore = matchingStores.first;
       _showStoreSummary = true;
     });
+    _resetStoreCarouselToFirst();
 
     final first = matchingStores.first;
     if (kIsWeb) {
@@ -256,20 +315,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       );
     }
 
-    final markerList = matchingStores.map((s) {
-      final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-      final priceStr = p.isEmpty
-          ? s.price1
-          : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
-      return {
-        'lat': s.latitude,
-        'lng': s.longitude,
-        'title': s.storeName,
-        'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-        'price': priceStr,
-        'source': s.source,
-      };
-    }).toList();
+    final markerList = matchingStores
+        .map((store) => _storeMarker(store, result.selectionFor(store)))
+        .toList();
 
     if (kIsWeb) {
       web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
@@ -282,11 +330,49 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _clearAiRecommendation() {
     setState(() {
       _isAiRecommendationActive = false;
+      _activeAiRecommendation = null;
       _aiRecommendedStores = [];
       _showStoreSummary = false;
       _selectedStore = null;
     });
     _searchInCurrentArea();
+  }
+
+  Map<String, dynamic> _storeMarker(
+    Store store,
+    RecommendationMenuSelection? selection,
+  ) {
+    // A selected menu with an unknown price must not borrow another menu's price.
+    final price = selection == null ? store.price1 : selection.price;
+    return {
+      'lat': store.latitude,
+      'lng': store.longitude,
+      'title': store.storeName,
+      'menu': selection?.menu.isNotEmpty == true
+          ? selection!.menu
+          : (store.menu1.isNotEmpty ? store.menu1 : store.industry),
+      'price': formatRecommendationPrice(price, unavailable: ''),
+      'source': store.source,
+      'selected':
+          _selectedStore != null &&
+          (_selectedStore!.id.isNotEmpty
+              ? _selectedStore!.id == store.id
+              : identical(_selectedStore, store)),
+    };
+  }
+
+  RecommendationMenuSelection? _selectionFor(Store store) =>
+      _activeAiRecommendation?.selectionFor(store);
+
+  RecommendationMenuSelection? _searchSelectionFor(Store store) {
+    final menu = SearchFilterPolicy.displayMenuFor(store, _searchQuery);
+    if (menu == null) return null;
+    return RecommendationMenuSelection(
+      storeId: store.id,
+      storeName: store.storeName,
+      menu: menu.name,
+      price: menu.price,
+    );
   }
 
   Future<void> _openSearch({bool openFilter = false}) async {
@@ -298,6 +384,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (mounted && result != null) {
       setState(() {
         _isAiRecommendationActive = false;
+        _activeAiRecommendation = null;
         _aiRecommendedStores = [];
         _searchQuery = result['query'] as String? ?? _searchQuery;
         _searchFilter = result['filter'] as SearchFilter? ?? _searchFilter;
@@ -307,7 +394,33 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Timer? _boundsDebouncer;
+  Timer? _webBoundsRetryTimer;
+  int _webBoundsRetryCount = 0;
   int _suppressMarkerClicksUntil = 0;
+
+  void _onWebMapIdle() {
+    _webBoundsRetryTimer?.cancel();
+    _webBoundsRetryCount = 0;
+    unawaited(_searchInCurrentArea());
+  }
+
+  void _invalidatePendingMapRequest() {
+    _boundsRequestGeneration++;
+    _pendingBoundsJson = null;
+    _webBoundsRetryTimer?.cancel();
+  }
+
+  void _scheduleWebBoundsRetry() {
+    if (!mounted || _webBoundsRetryCount >= 5) return;
+    _webBoundsRetryCount++;
+    _webBoundsRetryTimer?.cancel();
+    _webBoundsRetryTimer = Timer(
+      Duration(milliseconds: 120 * _webBoundsRetryCount),
+      () {
+        if (mounted) unawaited(_searchInCurrentArea());
+      },
+    );
+  }
 
   void _suppressMarkerClicks([
     Duration duration = const Duration(milliseconds: 700),
@@ -329,11 +442,71 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _showStoreSummary = false;
       });
     } else if (index >= 0 && index < _currentStores.length) {
+      final store = _currentStores[index];
       setState(() {
-        _selectedStore = _currentStores[index];
+        _selectedStore = store;
         _showStoreSummary = true;
       });
+      _highlightMapMarker(index);
+
+      final hasStoreCarousel =
+          _isAiRecommendationActive ||
+          _searchQuery.trim().isNotEmpty ||
+          _searchFilter.activeLabels.isNotEmpty;
+      if (hasStoreCarousel &&
+          _pageController.hasClients &&
+          _pageController.page?.round() != index) {
+        unawaited(
+          _pageController.animateToPage(
+            index,
+            duration: const Duration(milliseconds: 240),
+            curve: Curves.easeOutCubic,
+          ),
+        );
+      }
     }
+  }
+
+  void _highlightMapMarker(int index) {
+    if (kIsWeb) {
+      web_helper.highlightKakaoMapMarkerWeb(_viewId, index);
+    } else if (_webViewController != null) {
+      _safeRunJavaScript('highlightMarker($index);');
+    }
+  }
+
+  void _centerMapOnStore(Store store, int index) {
+    if (!store.hasValidCoordinates) return;
+    if (kIsWeb) {
+      web_helper.setKakaoMapCenterFromSwipeWeb(
+        _viewId,
+        store.latitude,
+        store.longitude,
+      );
+      _highlightMapMarker(index);
+    } else if (_webViewController != null) {
+      _safeRunJavaScript(
+        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
+      );
+    }
+  }
+
+  void _onStorePageChanged(int index) {
+    if (index < 0 || index >= _currentStores.length) return;
+    final store = _currentStores[index];
+    if (!identical(_selectedStore, store)) {
+      setState(() => _selectedStore = store);
+    }
+    _centerMapOnStore(store, index);
+  }
+
+  void _resetStoreCarouselToFirst() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      if (_pageController.page?.round() != 0) {
+        _pageController.jumpToPage(0);
+      }
+    });
   }
 
   @override
@@ -348,7 +521,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
       web_helper.registerWebCallbacks(
-        _searchInCurrentArea,
+        _onWebMapIdle,
+        _invalidatePendingMapRequest,
         _onMarkerClicked,
         _onMapReady,
         _onMapError,
@@ -399,6 +573,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _compassStream?.cancel();
     _pageController.dispose();
     _boundsDebouncer?.cancel();
+    _webBoundsRetryTimer?.cancel();
+    if (kIsWeb) {
+      web_helper.disposeKakaoWebMap(_viewId);
+    }
     super.dispose();
   }
 
@@ -428,15 +606,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               }
             });
           }
+          if (message.message == 'MOVE_START') {
+            _invalidatePendingMapRequest();
+          }
           if (message.message.startsWith('CLICK:')) {
             final indexStr = message.message.substring(6);
             final index = int.tryParse(indexStr);
-            if (index != null && index < _currentStores.length) {
-              setState(() {
-                _selectedStore = _currentStores[index];
-                _showStoreSummary = true;
-              });
-            }
+            if (index != null) _onMarkerClicked(index);
           }
           if (message.message == 'MAP_CLICK') {
             _hideStore();
@@ -522,6 +698,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var container = document.getElementById('kakao-map-container');
           var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
           map = new kakao.maps.Map(container, options);
+          // Match the backend's maximum supported geographic query span.
+          map.setMaxLevel(10);
           
           kakao.maps.event.addListener(map, 'idle', function() {
             if (Date.now() < ignoreBoundsUntil) {
@@ -531,6 +709,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             boundsTimer = setTimeout(function() {
               requestBounds();
             }, 600);
+          });
+          kakao.maps.event.addListener(map, 'dragstart', function() {
+            Print.postMessage('MOVE_START');
+          });
+          kakao.maps.event.addListener(map, 'zoom_start', function() {
+            Print.postMessage('MOVE_START');
           });
 
           kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
@@ -555,14 +739,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         var customOverlays = [];
         var markerDataCache = [];
+        var selectedMarkerIndex = -1;
 
         function onMarkerClick(index) {
+          highlightMarker(index);
           Print.postMessage('CLICK:' + index);
         }
 
         function addMobileMarkers(markerListJson) {
           var markerData = JSON.parse(markerListJson);
           markerDataCache = markerData;
+          selectedMarkerIndex = markerData.findIndex(function(item) {
+            return item.selected === true;
+          });
           
           for (var i = 0; i < customOverlays.length; i++) {
             customOverlays[i].setMap(null);
@@ -627,30 +816,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   position: new kakao.maps.LatLng(item.lat, item.lng),
                   content: wrapper,
                   yAnchor: 1.0,
-                  zIndex: 3
+                  zIndex: idx === selectedMarkerIndex ? 10 : 3
               });
               customOverlay.setMap(map);
               customOverlays.push(customOverlay);
             })(i);
           }
+          highlightMarker(selectedMarkerIndex);
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
         function highlightMarker(selectedIndex) {
+          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
           for (var i = 0; i < markerDataCache.length; i++) {
             var wrapper = document.getElementById('marker-wrapper-' + i);
             if (!wrapper) continue;
             var bubble = wrapper.children[0];
             var tail = wrapper.children[1];
-            
-            if (i === selectedIndex) {
-              bubble.style.background = '#C2410C'; // Error
+
+            var isSelected = i === selectedMarkerIndex;
+            var baseColor = markerDataCache[i].source === 'USER' ? '#F97316' : '#2563EB';
+            if (isSelected) {
+              bubble.style.background = '#C2410C'; // Selected
               tail.style.borderTopColor = '#C2410C';
               wrapper.style.transform = 'scale(1.2)';
               if (customOverlays[i]) customOverlays[i].setZIndex(10);
             } else {
-              bubble.style.background = '#2563EB'; // Primary
-              tail.style.borderTopColor = '#2563EB';
+              bubble.style.background = baseColor;
+              tail.style.borderTopColor = baseColor;
               wrapper.style.transform = 'scale(1.0)';
               if (customOverlays[i]) customOverlays[i].setZIndex(3);
             }
@@ -723,8 +916,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var ne = bounds.getNorthEast();
           var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
           if (!values.every(Number.isFinite) ||
-              values[0] < -90 || values[1] > 90 || values[0] > values[1] ||
-              values[2] < -180 || values[3] > 180 || values[2] > values[3]) {
+              values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
+              values[2] < -180 || values[3] > 180 || values[2] >= values[3] ||
+              values[1] - values[0] > 10 || values[3] - values[2] > 10) {
             return;
           }
           var boundsData = JSON.stringify({
@@ -1041,6 +1235,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
 
     _isMapReady = true;
+    _lastRenderedMarkerSignature = '';
     if (kIsWeb && (!_isMapInitialized || _mapErrorMessage != null)) {
       setState(() {
         _isMapInitialized = true;
@@ -1184,9 +1379,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       try {
         final String? boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
-        if (boundsJson != null) {
-          _fetchAndAddMarkersWeb(boundsJson);
+        if (boundsJson == null || parseKakaoMapBounds(boundsJson) == null) {
+          _scheduleWebBoundsRetry();
+          return;
         }
+        _webBoundsRetryTimer?.cancel();
+        _webBoundsRetryCount = 0;
+        await _fetchAndAddMarkersWeb(boundsJson);
       } catch (e) {
         debugPrint('웹 범위 검색 에러: $e');
       }
@@ -1204,21 +1403,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
-    if (!mounted || parseKakaoMapBounds(boundsJson) == null) return;
+    if (!mounted) return;
+    final parsedBounds = parseKakaoMapBounds(boundsJson);
+    if (parsedBounds == null) return;
+    if (!isHomeMapBoundsWithinBackendLimit(parsedBounds)) {
+      // Ignore unsupported zoom levels and invalidate any request started
+      // for the previous viewport so stale markers cannot replace the map.
+      _boundsRequestGeneration++;
+      _pendingBoundsJson = null;
+      return;
+    }
+    _boundsRequestGeneration++;
     _pendingBoundsJson = boundsJson;
     if (_isFetching) return;
     _isFetching = true;
     try {
       while (mounted && _pendingBoundsJson != null) {
+        final requestGeneration = _boundsRequestGeneration;
         final bounds = parseKakaoMapBounds(_pendingBoundsJson!)!;
         _pendingBoundsJson = null;
-        final markerList = await _fetchStoresFromBackend(bounds);
+        final markerList = await _fetchStoresFromBackend(
+          bounds,
+          isCurrent: () => requestGeneration == _boundsRequestGeneration,
+        );
         if (!mounted) return;
+        if (requestGeneration != _boundsRequestGeneration) continue;
+        final markerSignature = _markerListSignature(markerList);
+        if (markerSignature == _lastRenderedMarkerSignature) continue;
         if (kIsWeb) {
           web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
+          _lastRenderedMarkerSignature = markerSignature;
         } else if (_webViewController != null) {
           final jsStringLiteral = jsonEncode(jsonEncode(markerList));
           _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
+          _lastRenderedMarkerSignature = markerSignature;
         }
       }
     } finally {
@@ -1227,8 +1445,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
-    Map<String, double> bounds,
-  ) async {
+    Map<String, double> bounds, {
+    required bool Function() isCurrent,
+  }) async {
     final minLat = bounds['minLat']!;
     final maxLat = bounds['maxLat']!;
     final minLng = bounds['minLng']!;
@@ -1239,6 +1458,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         bounds: bounds,
         cachedStores: _allStores,
       );
+      if (!mounted || !isCurrent()) return const [];
       final fetchedStores = loadResult.stores;
 
       if (mounted) {
@@ -1263,20 +1483,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       if (_isAiRecommendationActive && _aiRecommendedStores.isNotEmpty) {
         _currentStores = _aiRecommendedStores;
-        return _currentStores.map((s) {
-          final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-          final priceStr = p.isEmpty
-              ? s.price1
-              : '${p.replaceAllMapped(RegExp(r"(\d{1,3})(?=(\d{3})+(?!\d))"), (Match m) => "${m[1]},")}원';
-          return {
-            'lat': s.latitude,
-            'lng': s.longitude,
-            'title': s.storeName,
-            'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-            'price': priceStr,
-            'source': s.source,
-          };
-        }).toList();
+        return _currentStores
+            .map((store) => _storeMarker(store, _selectionFor(store)))
+            .toList();
       }
 
       var stores = fetchedStores
@@ -1287,35 +1496,43 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 s.longitude >= minLng &&
                 s.longitude <= maxLng,
           )
+          .map((store) => _StoreWithDistance(store, _distanceFromUser(store)))
           .toList();
 
       // ─── 검색 및 필터 적용 ───
       if (_searchQuery.trim().isNotEmpty) {
         stores = stores
-            .where((s) => SearchFilterPolicy.matchesQuery(s, _searchQuery))
+            .where(
+              (item) =>
+                  SearchFilterPolicy.matchesQuery(item.store, _searchQuery),
+            )
             .toList();
       }
 
       if (_searchFilter.maxPrice != null) {
-        stores = stores.where((s) {
-          return SearchFilterPolicy.matchesMaxPrice(s, _searchFilter.maxPrice!);
+        stores = stores.where((item) {
+          return SearchFilterPolicy.matchesMaxPrice(
+            item.store,
+            _searchFilter.maxPrice!,
+            query: _searchQuery,
+          );
         }).toList();
       }
 
       if (_searchFilter.industries.isNotEmpty) {
         stores = stores
             .where(
-              (s) => _searchFilter.industries.any(
-                (ind) => SearchFilter.matchesIndustry(s, ind),
+              (item) => _searchFilter.industries.any(
+                (ind) => SearchFilter.matchesIndustry(item.store, ind),
               ),
             )
             .toList();
       }
 
       if (_searchFilter.govCertified) {
-        stores = stores.where((s) => s.source == 'GOV').toList();
+        stores = stores.where((item) => item.store.source == 'GOV').toList();
       } else if (!_searchFilter.userReported) {
-        stores = stores.where((s) => s.source != 'USER').toList();
+        stores = stores.where((item) => item.store.source != 'USER').toList();
       }
 
       if (_searchFilter.distance != null && _lastKnownPosition != null) {
@@ -1329,37 +1546,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         if (maxDist > 0) {
-          stores = stores.where((s) {
-            final d = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              s.latitude,
-              s.longitude,
-            );
-            return d <= maxDist;
-          }).toList();
+          stores = stores
+              .where(
+                (item) => (item.distanceMeters ?? double.infinity) <= maxDist,
+              )
+              .toList();
         }
       }
 
       if (_searchFilter.sortOrder == '저렴한순') {
-        stores.sort(SearchFilterPolicy.compareByPrice);
+        stores.sort(
+          (a, b) => SearchFilterPolicy.compareByPrice(
+            a.store,
+            b.store,
+            query: _searchQuery,
+          ),
+        );
       } else {
         if (_lastKnownPosition != null) {
-          stores.sort((a, b) {
-            final da = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              a.latitude,
-              a.longitude,
-            );
-            final db = Geolocator.distanceBetween(
-              _lastKnownPosition!.latitude,
-              _lastKnownPosition!.longitude,
-              b.latitude,
-              b.longitude,
-            );
-            return da.compareTo(db);
-          });
+          stores.sort(
+            (a, b) => (a.distanceMeters ?? double.infinity).compareTo(
+              b.distanceMeters ?? double.infinity,
+            ),
+          );
         }
       }
 
@@ -1368,22 +1577,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         stores = stores.take(100).toList();
       }
 
-      _currentStores = stores;
+      _currentStores = stores.map((item) => item.store).toList(growable: false);
 
-      return _currentStores.map((s) {
-        final p = s.price1.replaceAll(RegExp(r'[^0-9]'), '');
-        final priceStr = p.isEmpty
-            ? s.price1
-            : '${p.replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},')}원';
-        return {
-          'lat': s.latitude,
-          'lng': s.longitude,
-          'title': s.storeName,
-          'menu': s.menu1.isNotEmpty ? s.menu1 : s.industry,
-          'price': priceStr,
-          'source': s.source,
-        };
-      }).toList();
+      return _currentStores
+          .map(
+            (store) => _storeMarker(
+              store,
+              _searchQuery.isNotEmpty || _searchFilter.activeLabels.isNotEmpty
+                  ? _searchSelectionFor(store)
+                  : null,
+            ),
+          )
+          .toList();
     } catch (e) {
       debugPrint('필터링 에러: $e');
       return [];
@@ -1400,6 +1605,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (error) {
       debugPrint('지도 매장 캐시 저장 실패: $error');
     }
+  }
+
+  double? _distanceFromUser(Store store) {
+    final position = _lastKnownPosition;
+    if (position == null) return null;
+    return Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      store.latitude,
+      store.longitude,
+    );
+  }
+
+  String _markerListSignature(List<Map<String, dynamic>> markers) {
+    return markers
+        .map(
+          (marker) =>
+              '${marker['title']}|${marker['lat']}|${marker['lng']}|${marker['menu']}|${marker['price']}|${marker['source']}',
+        )
+        .join('\n');
   }
 
   Widget _buildWebMap() {
@@ -1848,38 +2073,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: PageView.builder(
+                child: HomeMapStoreCarousel(
                   controller: _pageController,
-                  physics: const BouncingScrollPhysics(),
                   itemCount: _currentStores.length,
-                  onPageChanged: (index) {
-                    if (index < _currentStores.length) {
-                      final store = _currentStores[index];
-                      if (kIsWeb) {
-                        web_helper.setKakaoMapCenterFromSwipeWeb(
-                          _viewId,
-                          store.latitude,
-                          store.longitude,
-                        );
-                      } else {
-                        _safeRunJavaScript(
-                          'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
-                        );
-                      }
-                    }
-                  },
+                  onPageChanged: _onStorePageChanged,
                   itemBuilder: (context, index) {
-                    if (index >= _currentStores.length) {
-                      return const SizedBox.shrink();
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onVerticalDragUpdate: (_) {},
-                        onHorizontalDragUpdate: (_) {},
-                        child: _StoreSummaryCard(store: _currentStores[index]),
-                      ),
+                    final store = _currentStores[index];
+                    return _StoreSummaryCard(
+                      store: store,
+                      selection: isAiActive
+                          ? _selectionFor(store)
+                          : (isSearching ? _searchSelectionFor(store) : null),
                     );
                   },
                 ),
@@ -1907,7 +2111,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: _StoreSummaryCard(store: _selectedStore!),
+                  child: _StoreSummaryCard(
+                    store: _selectedStore!,
+                    selection: isAiActive
+                        ? _selectionFor(_selectedStore!)
+                        : (isSearching
+                              ? _searchSelectionFor(_selectedStore!)
+                              : null),
+                  ),
                 ),
               ),
             ),
@@ -2453,7 +2664,8 @@ class _RankDot extends StatelessWidget {
 
 class _StoreSummaryCard extends StatelessWidget {
   final Store store;
-  const _StoreSummaryCard({required this.store});
+  final RecommendationMenuSelection? selection;
+  const _StoreSummaryCard({required this.store, this.selection});
 
   @override
   Widget build(BuildContext context) {
@@ -2499,7 +2711,7 @@ class _StoreSummaryCard extends StatelessWidget {
                 children: [
                   Expanded(child: _StoreInfo(store: store)),
                   const SizedBox(width: 12),
-                  _StorePrice(store: store),
+                  _StorePrice(store: store, selection: selection),
                 ],
               ),
             ),
@@ -2547,18 +2759,24 @@ class _StoreInfo extends StatelessWidget {
 
 class _StorePrice extends StatelessWidget {
   final Store store;
-  const _StorePrice({required this.store});
+  final RecommendationMenuSelection? selection;
+  const _StorePrice({required this.store, this.selection});
 
   @override
   Widget build(BuildContext context) {
-    final p = store.price1.replaceAll(RegExp(r'[^0-9]'), '');
+    final selectedPrice = selection == null ? store.price1 : selection!.price;
+    final rawPrice = selectedPrice?.toString() ?? '';
+    final p = rawPrice.replaceAll(RegExp(r'[^0-9]'), '');
     final priceStr = p.isEmpty
-        ? store.price1
+        ? rawPrice
         : p.replaceAllMapped(
             RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
             (Match m) => '${m[1]},',
           );
-    final menuStr = store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴';
+    final selectedMenu = selection?.menu.trim() ?? '';
+    final menuStr = selectedMenu.isNotEmpty
+        ? selectedMenu
+        : (store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴');
 
     return SizedBox(
       width: 144,

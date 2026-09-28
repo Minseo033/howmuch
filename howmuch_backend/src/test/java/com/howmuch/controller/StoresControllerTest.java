@@ -26,6 +26,8 @@ class StoresControllerTest {
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(stores, response.getBody());
+        assertTrue(response.getHeaders().getCacheControl().contains("max-age=300"));
+        assertTrue(response.getHeaders().getCacheControl().contains("public"));
         verify(service).getAllStores();
     }
 

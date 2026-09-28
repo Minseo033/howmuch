@@ -42,8 +42,9 @@ void main() {
     TodaysPickItem item(Store store) => TodaysPickItem(
       id: store.id,
       storeName: store.storeName,
-      menuName: '한식',
-      price: '6,500원',
+      menuName: '비빔국수',
+      price: '4,000원',
+      priceValue: 4000,
       tipText: '',
       distance: '100m',
       badgeText: '착한가격업소',
@@ -60,5 +61,7 @@ void main() {
 
     expect(result.storeIds, ['store-2']);
     expect(result.stores, [validStore]);
+    expect(result.selectionFor(validStore)!.menu, '비빔국수');
+    expect(result.selectionFor(validStore)!.price, 4000);
   });
 }

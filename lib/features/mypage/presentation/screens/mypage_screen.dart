@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -1066,7 +1067,9 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
   void _message(String text) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(text), aboveNavigation: true),
+      );
   }
 
   Future<void> _location(DeviceAccess access) async {

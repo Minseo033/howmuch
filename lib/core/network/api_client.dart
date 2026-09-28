@@ -94,9 +94,24 @@ class ApiClient {
   static Future<http.Response> get(
     Uri url, {
     Map<String, String>? headers,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.get(url, headers: headers);
-    await handleResponseStatus(response.statusCode, requestHeaders: headers);
+    // A GET has no request body. Sending Content-Type is unnecessary and
+    // forces cross-origin browsers to make a CORS preflight before every GET.
+    final requestHeaders = headers == null
+        ? null
+        : Map<String, String>.fromEntries(
+            headers.entries.where(
+              (entry) => entry.key.toLowerCase() != 'content-type',
+            ),
+          );
+    final response = await http
+        .get(url, headers: requestHeaders)
+        .timeout(timeout);
+    await handleResponseStatus(
+      response.statusCode,
+      requestHeaders: requestHeaders,
+    );
     return response;
   }
 
@@ -105,13 +120,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.post(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .post(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -121,13 +134,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.put(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .put(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -137,13 +148,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.patch(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .patch(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }
@@ -153,13 +162,11 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
     Encoding? encoding,
+    Duration timeout = defaultTimeout,
   }) async {
-    final response = await http.delete(
-      url,
-      headers: headers,
-      body: body,
-      encoding: encoding,
-    );
+    final response = await http
+        .delete(url, headers: headers, body: body, encoding: encoding)
+        .timeout(timeout);
     await handleResponseStatus(response.statusCode, requestHeaders: headers);
     return response;
   }

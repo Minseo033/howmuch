@@ -1,5 +1,43 @@
 import 'package:howmuch/core/utils/price_formatter.dart';
 
+/// The menu and price the recommendation actually refers to.
+///
+/// A store continues to retain every menu slot. This value travels with a
+/// recommendation so its selected menu never overwrites the store itself.
+class RecommendationMenuSelection {
+  const RecommendationMenuSelection({
+    required this.storeId,
+    required this.storeName,
+    required this.menu,
+    required this.price,
+  });
+
+  final String storeId;
+  final String storeName;
+  final String menu;
+  final Object? price;
+
+  factory RecommendationMenuSelection.fromPick(Map<String, dynamic> pick) {
+    final matchedMenu = pick['matchedMenu']?.toString().trim() ?? '';
+    return RecommendationMenuSelection(
+      storeId:
+          pick['storeId']?.toString().trim() ??
+          pick['id']?.toString().trim() ??
+          '',
+      storeName: pick['storeName']?.toString().trim() ?? '',
+      menu: matchedMenu.isNotEmpty
+          ? matchedMenu
+          : pick['menu1']?.toString().trim() ?? '',
+      price: recommendationMenuPrice(pick),
+    );
+  }
+
+  bool matches({required String id, required String name}) {
+    if (storeId.isNotEmpty && id.isNotEmpty) return storeId == id;
+    return storeName.isNotEmpty && name.isNotEmpty && storeName == name;
+  }
+}
+
 Object? recommendationMenuPrice(Map<String, dynamic> pick) {
   final matchedMenu = pick['matchedMenu']?.toString().trim() ?? '';
   if (matchedMenu.isEmpty) return pick['price1'];

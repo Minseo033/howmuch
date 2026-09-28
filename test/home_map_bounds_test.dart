@@ -11,6 +11,36 @@ void main() {
     );
   });
 
+  test('keeps bounds within the backend maximum geographic span', () {
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 40,
+        'minLng': 120,
+        'maxLng': 130,
+      }),
+      isTrue,
+    );
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 40.01,
+        'minLng': 120,
+        'maxLng': 121,
+      }),
+      isFalse,
+    );
+    expect(
+      isHomeMapBoundsWithinBackendLimit({
+        'minLat': 30,
+        'maxLat': 31,
+        'minLng': 120,
+        'maxLng': 130.01,
+      }),
+      isFalse,
+    );
+  });
+
   test(
     'rejects transient null, non-finite, out-of-range, and reversed bounds',
     () {
@@ -29,6 +59,18 @@ void main() {
       expect(
         parseKakaoMapBounds(
           '{"minLat":38,"maxLat":37,"minLng":126,"maxLng":127}',
+        ),
+        isNull,
+      );
+      expect(
+        parseKakaoMapBounds(
+          '{"minLat":37.5,"maxLat":37.5,"minLng":126,"maxLng":127}',
+        ),
+        isNull,
+      );
+      expect(
+        parseKakaoMapBounds(
+          '{"minLat":37,"maxLat":38,"minLng":126.9,"maxLng":126.9}',
         ),
         isNull,
       );

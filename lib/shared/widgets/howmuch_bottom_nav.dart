@@ -17,7 +17,7 @@ class HowmuchBottomNav extends StatelessWidget {
 
   static const blue = AppColors.primary;
   static const orange = AppColors.orangeTheme;
-  static const hint = Color(0xFFCBD5E1);
+  static const hint = AppColors.textMuted;
   static const fontFamily = 'Noto Sans KR';
   static const fontFallback = [
     'Noto Sans KR',
@@ -198,7 +198,7 @@ class _NavItem extends StatelessWidget {
                     fontFamily: HowmuchBottomNav.fontFamily,
                     fontFamilyFallback: HowmuchBottomNav.fontFallback,
                     fontSize: 11,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
                     height: 1.35,
                   ),
                 ),

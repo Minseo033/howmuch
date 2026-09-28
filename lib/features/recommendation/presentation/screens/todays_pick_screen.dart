@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
@@ -16,17 +17,26 @@ import 'package:geolocator/geolocator.dart';
 AiMapRecommendationResult buildTodaysPickMapResult(
   Iterable<TodaysPickItem> items,
 ) {
-  final stores = items
-      .map((item) => item.store)
-      .whereType<Store>()
-      .where((store) => store.hasValidCoordinates)
+  final mapItems = items
+      .where((item) => item.store?.hasValidCoordinates == true)
       .toList(growable: false);
+  final stores = mapItems.map((item) => item.store!).toList(growable: false);
   return AiMapRecommendationResult(
     storeIds: stores
         .map((store) => store.id)
         .where((id) => id.isNotEmpty)
         .toList(),
     stores: stores,
+    menuSelections: mapItems
+        .map(
+          (item) => RecommendationMenuSelection(
+            storeId: item.store!.id,
+            storeName: item.storeName,
+            menu: item.menuName,
+            price: item.priceValue ?? item.price,
+          ),
+        )
+        .toList(growable: false),
     queryText: stores.map((store) => store.storeName).join(' '),
   );
 }
@@ -687,7 +697,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 ScaffoldMessenger.of(context)
                                                   ..clearSnackBars()
                                                   ..showSnackBar(
-                                                    const SnackBar(
+                                                    HowmuchSnackBar(
                                                       content: Text(
                                                         '지도에 표시할 매장 위치 정보가 없어요.',
                                                       ),

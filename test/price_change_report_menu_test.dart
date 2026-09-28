@@ -69,12 +69,16 @@ void main() {
         findsOneWidget,
       );
 
-      // Tapping another registered menu chip switches the menu and price
+      // Selecting a registered menu shows the old price but never copies it as the new price.
       await tester.tap(
         find.byKey(const ValueKey('price-report-menu-chip-제육볶음')),
       );
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, '8000'), findsOneWidget);
+      expect(find.text('기존 가격 8,000원'), findsOneWidget);
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
+      expect(fields[1].controller!.text, isEmpty);
 
       // Tapping 직접 입력 clears the fields for safe manual input
       await tester.ensureVisible(
@@ -120,6 +124,40 @@ void main() {
     // The menu field is cleared so user can enter the new menu name safely
     expect(find.widgetWithText(TextField, '순두부찌개'), findsNothing);
     expect(find.text('아메리카노'), findsNothing);
+  });
+
+  test('price direction validation rejects unchanged and inverse values', () {
+    final menus = [(menu: '김치찌개', price: '3,000원')];
+    String? check(String type, String price) => validatePriceChange(
+      changeType: type,
+      menu: '김치찌개',
+      price: price,
+      registeredMenus: menus,
+    );
+    expect(check('rise', '3000'), contains('같아요'));
+    expect(check('rise', '2500'), contains('가격 인하'));
+    expect(check('drop', '3500'), contains('가격 인상'));
+    expect(check('rise', '3500'), isNull);
+    expect(check('drop', '2500'), isNull);
+    expect(check('delete', ''), isNull);
+    expect(
+      validatePriceChange(
+        changeType: 'new',
+        menu: '새 메뉴',
+        price: '4000',
+        registeredMenus: menus,
+      ),
+      isNull,
+    );
+    expect(
+      validatePriceChange(
+        changeType: 'new',
+        menu: '김치찌개',
+        price: '4000',
+        registeredMenus: menus,
+      ),
+      isNotNull,
+    );
   });
 
   testWidgets('safely defaults to blank when store has no registered menus', (

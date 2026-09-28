@@ -41,6 +41,7 @@ class AiChatService {
         url,
         headers: ApiClient.jsonHeaders(auth: true),
         body: jsonEncode(payload),
+        timeout: requestTimeout,
       ).timeout(requestTimeout);
 
       if (response.statusCode == 200) {
@@ -163,12 +164,23 @@ class AiMapRecommendationResult {
   const AiMapRecommendationResult({
     required this.storeIds,
     this.stores = const [],
+    this.menuSelections = const [],
     this.queryText = '',
   });
 
   final List<String> storeIds;
   final List<Store> stores;
+  final List<RecommendationMenuSelection> menuSelections;
   final String queryText;
+
+  RecommendationMenuSelection? selectionFor(Store store) {
+    for (final selection in menuSelections) {
+      if (selection.matches(id: store.id, name: store.storeName)) {
+        return selection;
+      }
+    }
+    return null;
+  }
 }
 
 class AiChatMessage {

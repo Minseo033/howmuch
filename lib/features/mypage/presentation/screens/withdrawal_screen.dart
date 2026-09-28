@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -175,7 +176,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     if (!_confirmed) {
       messenger
         ..clearSnackBars()
-        ..showSnackBar(const SnackBar(content: Text('탈퇴 동의 내용을 확인해주세요.')));
+        ..showSnackBar(HowmuchSnackBar(content: Text('탈퇴 동의 내용을 확인해주세요.')));
       return;
     }
 
@@ -212,14 +213,16 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       if (response.statusCode != 200) {
         setState(() => _isWithdrawing = false);
         messenger.showSnackBar(
-          const SnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
+          HowmuchSnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
         );
         return;
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _isWithdrawing = false);
-      messenger.showSnackBar(const SnackBar(content: Text('네트워크 오류가 발생했습니다.')));
+      messenger.showSnackBar(
+        HowmuchSnackBar(content: Text('네트워크 오류가 발생했습니다.')),
+      );
       return;
     }
 
@@ -230,7 +233,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
 
     messenger.clearSnackBars();
     context.go(AppRoutes.login);
-    messenger.showSnackBar(const SnackBar(content: Text('회원 탈퇴가 완료되었어요.')));
+    messenger.showSnackBar(HowmuchSnackBar(content: Text('회원 탈퇴가 완료되었어요.')));
   }
 }
 

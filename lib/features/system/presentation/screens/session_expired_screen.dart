@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -43,7 +44,9 @@ class SessionExpiredScreen extends ConsumerWidget {
       final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
       if (errorMsg != null) {
         if (context.mounted) {
-          messenger.showSnackBar(SnackBar(content: Text('재로그인 실패: $errorMsg')));
+          messenger.showSnackBar(
+            HowmuchSnackBar(content: Text('재로그인 실패: $errorMsg')),
+          );
         }
       }
     }

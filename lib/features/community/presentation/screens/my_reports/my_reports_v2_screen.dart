@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -59,7 +60,7 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   void _showSnack(String message) {
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   Widget _buildCurrentTab() {
@@ -246,6 +247,7 @@ class _Header extends StatelessWidget {
       title: _title,
       onBack: onBack,
       trailingIcon: filter == ReportFilter.all ? Icons.search_rounded : null,
+      trailingTooltip: filter == ReportFilter.all ? '검색' : null,
       onTrailingTap: filter == ReportFilter.all ? onSearch : null,
     );
   }

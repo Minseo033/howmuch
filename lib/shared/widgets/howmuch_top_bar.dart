@@ -8,6 +8,7 @@ class HowmuchTopBar extends StatelessWidget {
     this.onBack,
     this.trailingIcon,
     this.onTrailingTap,
+    this.trailingTooltip,
     this.showBorder = true,
     this.titleFontSize = 16,
   });
@@ -20,6 +21,7 @@ class HowmuchTopBar extends StatelessWidget {
   final VoidCallback? onBack;
   final IconData? trailingIcon;
   final VoidCallback? onTrailingTap;
+  final String? trailingTooltip;
   final bool showBorder;
   final double titleFontSize;
 
@@ -40,14 +42,19 @@ class HowmuchTopBar extends StatelessWidget {
               top: 0,
               width: actionSize,
               height: height,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                alignment: Alignment.center,
-                onPressed: onBack,
-                icon: const Icon(
-                  Icons.arrow_back_rounded,
-                  size: iconSize,
-                  color: Color(0xFF0F172A),
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.center,
+                  tooltip: '뒤로가기',
+                  onPressed: onBack,
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: iconSize,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ),
@@ -79,14 +86,19 @@ class HowmuchTopBar extends StatelessWidget {
               top: 0,
               width: actionSize,
               height: height,
-              child: IconButton(
-                padding: EdgeInsets.zero,
-                alignment: Alignment.center,
-                onPressed: onTrailingTap,
-                icon: Icon(
-                  trailingIcon,
-                  size: iconSize,
-                  color: const Color(0xFF0F172A),
+              child: Semantics(
+                button: true,
+                label: trailingTooltip,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.center,
+                  tooltip: trailingTooltip,
+                  onPressed: onTrailingTap,
+                  icon: Icon(
+                    trailingIcon,
+                    size: iconSize,
+                    color: const Color(0xFF0F172A),
+                  ),
                 ),
               ),
             ),

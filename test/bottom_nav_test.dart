@@ -28,9 +28,16 @@ void main() {
         find.byIcon(Icons.bar_chart_rounded),
       );
       final reportLabel = tester.widget<Text>(find.text('리포트'));
+      final exploreIcon = tester.widget<Icon>(
+        find.byIcon(Icons.explore_outlined),
+      );
+      final exploreLabel = tester.widget<Text>(find.text('탐색'));
 
       expect(reportIcon.color, AppColors.primary);
       expect(reportLabel.style?.color, HowmuchBottomNav.blue);
+      expect(exploreIcon.color, AppColors.textMuted);
+      expect(exploreLabel.style?.color, AppColors.textMuted);
+      expect(exploreLabel.style?.fontWeight, FontWeight.w600);
       final reportSemantics = tester.widget<Semantics>(
         find.byWidgetPredicate(
           (widget) => widget is Semantics && widget.properties.label == '리포트 탭',

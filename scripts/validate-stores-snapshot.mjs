@@ -1,4 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs';
+import { isValidSnapshotStore } from './data_integrity.mjs';
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
@@ -11,14 +12,9 @@ if (!Array.isArray(stores) || stores.length < 10_000) {
   throw new Error(`Snapshot must contain at least 10,000 stores (received ${receivedCount}).`);
 }
 
-const requiredFields = ['storeName', 'address', 'latitude', 'longitude'];
 let validRows = 0;
 for (const store of stores) {
-  if (!store || typeof store !== 'object' || Array.isArray(store)) continue;
-  const hasRequiredFields = requiredFields.every((field) => field in store);
-  const hasLocation = Number.isFinite(Number(store.latitude))
-    && Number.isFinite(Number(store.longitude));
-  if (hasRequiredFields && hasLocation) validRows++;
+  if (isValidSnapshotStore(store)) validRows++;
 }
 
 if (validRows / stores.length < 0.99) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -237,7 +238,7 @@ class _PriceAlertSubscriptionScreenState
                   if (!saved) {
                     setState(() => _isSaving = false);
                     messenger.showSnackBar(
-                      const SnackBar(
+                      HowmuchSnackBar(
                         content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
                       ),
                     );
@@ -247,7 +248,7 @@ class _PriceAlertSubscriptionScreenState
                   setState(() => _isSaving = false);
                   await _closeOrGoToNotificationSettings();
                   messenger.showSnackBar(
-                    const SnackBar(content: Text('가격 알림을 저장했어요.')),
+                    HowmuchSnackBar(content: Text('가격 알림을 저장했어요.')),
                   );
                 },
               ),
