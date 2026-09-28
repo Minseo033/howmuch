@@ -231,15 +231,16 @@ class _PermissionHeroIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFFEFF4FF),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(
-        Icons.shield_outlined,
-        color: PermissionSetupScreen.blue,
-        size: 27,
+    return ClipOval(
+      child: ColoredBox(
+        color: const Color(0xFFEAF2FF),
+        child: Transform.scale(
+          scale: 1.45,
+          child: Image.asset(
+            'assets/images/app_logo.png',
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
     );
   }
