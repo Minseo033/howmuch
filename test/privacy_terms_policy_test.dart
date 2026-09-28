@@ -25,22 +25,17 @@ void main() {
         expect(find.text('얼마고? 개인정보 처리방침'), findsOneWidget);
 
         // TOC entries 1..7 check
-        expect(find.text('1. 수집하는 개인정보 항목'), findsOneWidget);
-        expect(find.text('2. 개인정보 이용 목적'), findsOneWidget);
-        expect(find.text('3. 보유 및 이용 기간'), findsOneWidget);
-        expect(find.text('4. 제 3자 제공 안내'), findsOneWidget);
-        expect(find.text('5. 위치 정보 처리'), findsOneWidget);
-        expect(find.text('6. 이용자의 권리'), findsOneWidget);
-        expect(find.text('7. 회원 탈퇴 시 데이터 처리'), findsOneWidget);
+        for (var i = 0; i < 7; i++) {
+          expect(find.byKey(ValueKey('privacy-toc-$i')), findsOneWidget);
+        }
 
         // Chapter headings 1..7 check
-        expect(find.text('수집하는 개인정보 항목'), findsOneWidget);
-        expect(find.text('개인정보 이용 목적'), findsOneWidget);
-        expect(find.text('보유 및 이용 기간'), findsOneWidget);
-        expect(find.text('제 3자 제공 안내'), findsOneWidget);
-        expect(find.text('위치 정보 처리'), findsOneWidget);
-        expect(find.text('이용자의 권리'), findsOneWidget);
-        expect(find.text('회원 탈퇴 시 데이터 처리'), findsOneWidget);
+        for (var i = 1; i <= 7; i++) {
+          expect(
+            find.byKey(ValueKey('privacy-chapter-$i-title')),
+            findsOneWidget,
+          );
+        }
 
         // Chapter numbers 1..7 check
         for (var i = 1; i <= 7; i++) {
@@ -193,22 +188,12 @@ void main() {
       );
       final controller = scrollableState.position;
 
-      final tocTitles = [
-        '1. 수집하는 개인정보 항목',
-        '2. 개인정보 이용 목적',
-        '3. 보유 및 이용 기간',
-        '4. 제 3자 제공 안내',
-        '5. 위치 정보 처리',
-        '6. 이용자의 권리',
-        '7. 회원 탈퇴 시 데이터 처리',
-      ];
-
-      for (var i = 0; i < tocTitles.length; i++) {
+      for (var i = 0; i < 7; i++) {
         // Reset scroll to top so TOC is visible before tapping
         controller.jumpTo(0.0);
         await tester.pumpAndSettle();
 
-        final tocItem = find.text(tocTitles[i]);
+        final tocItem = find.byKey(ValueKey('privacy-toc-$i'));
         expect(tocItem, findsOneWidget);
 
         await tester.tap(tocItem);

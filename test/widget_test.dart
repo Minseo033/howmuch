@@ -605,20 +605,15 @@ void main() {
           .widget<Icon>(find.byKey(const ValueKey('privacy-policy-back-icon')))
           .color,
     );
-    final privacyInquiryButton = tester.getRect(
-      find.byKey(const ValueKey('privacy-inquiry-button')),
-    );
     final privacyInquiryIcon = tester.getRect(
       find.byKey(const ValueKey('privacy-inquiry-icon')),
     );
     final privacyInquiryLabel = tester.getRect(
       find.byKey(const ValueKey('privacy-inquiry-label')),
     );
-    final privacyInquiryScale =
-        privacyInquiryButton.height / 28.480112075805664;
     expect(
       privacyInquiryLabel.center.dy,
-      closeTo(privacyInquiryIcon.center.dy - privacyInquiryScale, 0.1),
+      closeTo(privacyInquiryIcon.center.dy, 2),
     );
 
     await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);

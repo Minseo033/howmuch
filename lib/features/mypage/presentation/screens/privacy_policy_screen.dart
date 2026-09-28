@@ -357,40 +357,50 @@ class _PrivacyIntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       decoration: BoxDecoration(
-        color: AppColors.primaryLight,
-        border: Border.all(color: AppColors.primaryAlpha, width: .909),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2563EB), Color(0xFF1647B8)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x332563EB),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.all(20),
         child: Row(
           children: [
             SizedBox(
-              width: 40,
-              height: 40,
+              width: 52,
+              height: 52,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.white,
-                  shape: BoxShape.circle,
+                  color: Color(0x24FFFFFF),
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
                 ),
                 child: Icon(
-                  Icons.privacy_tip_outlined,
-                  size: 18,
-                  color: _PrivacyPolicyScreenState.blue,
+                  Icons.shield_outlined,
+                  size: 26,
+                  color: AppColors.white,
                 ),
               ),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 14),
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('얼마고? 개인정보 처리방침', style: _blueLabelText),
-                  SizedBox(height: 4),
-                  Text('버전 2.4   ·   시행 2026.04.01', style: _captionText),
+                  Text('얼마고? 개인정보 처리방침', style: _introTitleText),
+                  SizedBox(height: 6),
+                  Text('버전 2.4  ·  시행 2026.04.01', style: _introCaptionText),
                 ],
               ),
             ),
@@ -420,14 +430,28 @@ class _TableOfContents extends StatelessWidget {
   Widget build(BuildContext context) {
     return _RoundedPanel(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16.903, 12.897, 16.903, 10),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('목차', style: _sectionText),
-            const SizedBox(height: 8),
+            const Row(
+              children: [
+                Icon(
+                  Icons.format_list_bulleted_rounded,
+                  size: 18,
+                  color: _PrivacyPolicyScreenState.blue,
+                ),
+                SizedBox(width: 8),
+                Text('목차', style: _tocHeadingText),
+              ],
+            ),
+            const SizedBox(height: 10),
             for (var index = 0; index < items.length; index++)
-              _TocRow(title: items[index], onTap: () => onItemTap(index)),
+              _TocRow(
+                index: index,
+                title: items[index],
+                onTap: () => onItemTap(index),
+              ),
           ],
         ),
       ),
@@ -436,26 +460,57 @@ class _TableOfContents extends StatelessWidget {
 }
 
 class _TocRow extends StatelessWidget {
-  const _TocRow({required this.title, required this.onTap});
+  const _TocRow({
+    required this.index,
+    required this.title,
+    required this.onTap,
+  });
 
+  final int index;
   final String title;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 27.4,
-      child: Material(
-        color: AppColors.transparent,
-        child: InkWell(
-          onTap: onTap,
+    return Material(
+      color: AppColors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: index == _TableOfContents.items.length - 1
+                    ? AppColors.transparent
+                    : const Color(0xFFEFF2F7),
+              ),
+            ),
+          ),
           child: Row(
             children: [
-              Text(title, style: _bodyText),
-              const Spacer(),
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                child: Text('${index + 1}', style: _tocNumberText),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title.substring(3),
+                  key: ValueKey('privacy-toc-$index'),
+                  style: _bodyText.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
               const Icon(
-                Icons.chevron_right_rounded,
-                size: 16,
+                Icons.arrow_forward_ios_rounded,
+                size: 13,
                 color: _PrivacyPolicyScreenState.muted,
               ),
             ],
@@ -482,29 +537,50 @@ class _PolicyChapter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _RoundedPanel(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        border: Border.all(color: const Color(0xFFE5E9F0)),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16.903),
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 17),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 21.988,
-                  height: 21.988,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(8),
+                    color: _PrivacyPolicyScreenState.blue,
+                    shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
                   child: Text(number, style: _numberText),
                 ),
-                const SizedBox(width: 7.997),
-                Text(title, style: _chapterTitleText),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    key: ValueKey('privacy-chapter-$number-title'),
+                    style: _chapterTitleText,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 7.997),
+            const Padding(
+              padding: EdgeInsets.only(top: 12, bottom: 10),
+              child: Divider(height: 1, color: Color(0xFFEFF2F7)),
+            ),
             if (lines != null)
               RichText(
                 text: TextSpan(
@@ -578,13 +654,17 @@ class _PrivacyManagerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _RoundedPanel(
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF172554),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('개인정보 보호 책임자', style: _sectionText),
+            const Text('개인정보 보호 책임자', style: _managerEyebrowText),
             const SizedBox(height: 5.994),
             Row(
               children: [
@@ -594,37 +674,34 @@ class _PrivacyManagerCard extends StatelessWidget {
                     children: [
                       Text('개인정보 보호 문의 담당', style: _managerNameText),
                       SizedBox(height: .994),
-                      Text('앱 내 1:1 문의로 접수', style: _captionText),
+                      Text('앱 내 1:1 문의로 접수', style: _managerCaptionText),
                     ],
                   ),
                 ),
                 Material(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(10),
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(12),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                     onTap: onInquiry,
                     child: SizedBox(
                       key: const ValueKey('privacy-inquiry-button'),
-                      width: 56.9886360168457,
-                      height: 28.480112075805664,
+                      width: 68,
+                      height: 36,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
                             Icons.chat_bubble_outline_rounded,
                             key: ValueKey('privacy-inquiry-icon'),
-                            size: 11,
+                            size: 14,
                             color: _PrivacyPolicyScreenState.blue,
                           ),
-                          const SizedBox(width: 3),
-                          Transform.translate(
-                            offset: const Offset(0, -1),
-                            child: const Text(
-                              '문의',
-                              key: ValueKey('privacy-inquiry-label'),
-                              style: _inquiryText,
-                            ),
+                          const SizedBox(width: 5),
+                          const Text(
+                            '문의',
+                            key: ValueKey('privacy-inquiry-label'),
+                            style: _inquiryText,
                           ),
                         ],
                       ),
@@ -670,23 +747,40 @@ const _titleText = TextStyle(
   height: 1.5,
 );
 
-const _blueLabelText = TextStyle(
-  color: _PrivacyPolicyScreenState.blue,
+const _introTitleText = TextStyle(
+  color: AppColors.white,
   fontFamily: _PrivacyPolicyScreenState.fontFamily,
   fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
-  fontSize: 12,
+  fontSize: 14,
+  fontWeight: FontWeight.w800,
+  height: 1.4,
+);
+
+const _introCaptionText = TextStyle(
+  color: Color(0xD9FFFFFF),
+  fontFamily: _PrivacyPolicyScreenState.fontFamily,
+  fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w500,
+  height: 1.5,
+);
+
+const _tocHeadingText = TextStyle(
+  color: _PrivacyPolicyScreenState.ink,
+  fontFamily: _PrivacyPolicyScreenState.fontFamily,
+  fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
+  fontSize: 13,
   fontWeight: FontWeight.w800,
   height: 1.5,
 );
 
-const _sectionText = TextStyle(
-  color: _PrivacyPolicyScreenState.muted,
+const _tocNumberText = TextStyle(
+  color: _PrivacyPolicyScreenState.blue,
   fontFamily: _PrivacyPolicyScreenState.fontFamily,
   fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
-  fontSize: 11,
-  fontWeight: FontWeight.w700,
+  fontSize: 10,
+  fontWeight: FontWeight.w800,
   height: 1.5,
-  letterSpacing: .3,
 );
 
 const _bodyText = TextStyle(
@@ -717,7 +811,7 @@ const _captionText = TextStyle(
 );
 
 const _numberText = TextStyle(
-  color: _PrivacyPolicyScreenState.blue,
+  color: AppColors.white,
   fontFamily: _PrivacyPolicyScreenState.fontFamily,
   fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
   fontSize: 10,
@@ -735,11 +829,30 @@ const _chapterTitleText = TextStyle(
 );
 
 const _managerNameText = TextStyle(
-  color: _PrivacyPolicyScreenState.ink,
+  color: AppColors.white,
   fontFamily: _PrivacyPolicyScreenState.fontFamily,
   fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
   fontSize: 13,
   fontWeight: FontWeight.w700,
+  height: 1.5,
+);
+
+const _managerEyebrowText = TextStyle(
+  color: Color(0xFF93C5FD),
+  fontFamily: _PrivacyPolicyScreenState.fontFamily,
+  fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+  letterSpacing: .3,
+);
+
+const _managerCaptionText = TextStyle(
+  color: Color(0xFFD7E3FF),
+  fontFamily: _PrivacyPolicyScreenState.fontFamily,
+  fontFamilyFallback: _PrivacyPolicyScreenState.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w400,
   height: 1.5,
 );
 
