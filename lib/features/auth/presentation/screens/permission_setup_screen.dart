@@ -50,7 +50,7 @@ class PermissionSetupScreen extends ConsumerWidget {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 IconButton(
@@ -61,17 +61,6 @@ class PermissionSetupScreen extends ConsumerWidget {
                     size: 20,
                   ),
                   onPressed: () => context.go(AppRoutes.login),
-                ),
-                const Text(
-                  '3 / 3',
-                  style: TextStyle(
-                    color: muted,
-                    fontFamily: fontFamily,
-                    fontFamilyFallback: fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                  ),
                 ),
               ],
             ),
