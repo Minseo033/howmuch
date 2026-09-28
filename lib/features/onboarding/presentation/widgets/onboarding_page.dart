@@ -435,11 +435,6 @@ class _NearbyArtwork extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
-            ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
               BoxShadow(
@@ -449,9 +444,21 @@ class _NearbyArtwork extends StatelessWidget {
               ),
             ],
           ),
-          child: const CustomPaint(
-            painter: _FigmaMapPainter(),
-            child: SizedBox.expand(),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                ),
+              ),
+              child: CustomPaint(
+                painter: _FigmaMapPainter(),
+                child: SizedBox.expand(),
+              ),
+            ),
           ),
         ),
         const Positioned(left: 15.99, top: 15.99, child: _MapLegendPill()),
