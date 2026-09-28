@@ -54,12 +54,12 @@ class TermsOfServiceScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _TermsSummaryCard(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 22),
                   const Padding(
                     padding: EdgeInsets.only(left: 3.99),
                     child: Text('핵심 조항', style: _sectionText),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 10),
                   _TermsListCard(
                     onOpen: (item) => _showTermsDetail(context, item),
                   ),
@@ -251,39 +251,60 @@ class _TermsSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       key: const ValueKey('terms-summary-card'),
       decoration: BoxDecoration(
-        color: TermsOfServiceScreen.blue,
-        border: Border.all(color: TermsOfServiceScreen.blue, width: .909),
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.white,
+        border: Border.all(color: const Color(0xFFE1E7F0)),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0D0F172A),
+            blurRadius: 18,
+            offset: Offset(0, 7),
+          ),
+        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
                 Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: Color(0x33FFFFFF),
-                    shape: BoxShape.circle,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: TermsOfServiceScreen.ink,
+                    borderRadius: BorderRadius.circular(13),
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
-                    Icons.description_outlined,
-                    size: 16,
+                    Icons.menu_book_outlined,
+                    size: 20,
                     color: AppColors.white,
                   ),
                 ),
-                SizedBox(width: 9),
-                Text('한눈에 보는 약관', style: _summaryTitleText),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('한눈에 보는 약관', style: _summaryTitleText),
+                      SizedBox(height: 2),
+                      Text('이용 전 꼭 확인해 주세요', style: _summaryCaptionText),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.verified_user_outlined,
+                  color: TermsOfServiceScreen.blue,
+                  size: 22,
+                ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Column(
               children: [
                 Row(
@@ -291,13 +312,13 @@ class _TermsSummaryCard extends StatelessWidget {
                     Expanded(
                       child: const _SummaryMetric(label: '버전', value: 'v2.4'),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     const Expanded(
                       child: _SummaryMetric(label: '시행일', value: '2026.04.01'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 const Row(
                   children: [
                     Expanded(
@@ -306,7 +327,7 @@ class _TermsSummaryCard extends StatelessWidget {
                         value: '만 14세 이상',
                       ),
                     ),
-                    SizedBox(width: 8),
+                    SizedBox(width: 10),
                     Expanded(
                       child: _SummaryMetric(label: '준거법', value: '대한민국 법령'),
                     ),
@@ -331,19 +352,18 @@ class _SummaryMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 66,
-      padding: const EdgeInsets.symmetric(horizontal: 12.897),
+      height: 58,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: .12),
-        border: Border.all(color: AppColors.white.withValues(alpha: .22)),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFF5F7FB),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(label, style: _metricOnPrimaryLabelText),
-          const SizedBox(height: .994),
+          const SizedBox(height: 1),
           Text(value, style: _metricOnPrimaryValueText),
         ],
       ),
@@ -412,13 +432,10 @@ class _TermsListCard extends StatelessWidget {
     return Column(
       children: [
         const _PurposeCard(),
-        const SizedBox(height: 18),
+        const SizedBox(height: 12),
         for (var index = 0; index < items.length; index++) ...[
-          _TermsRow(
-            item: items[index],
-            showDivider: index < items.length - 1,
-            onTap: () => onOpen(items[index]),
-          ),
+          _TermsRow(item: items[index], onTap: () => onOpen(items[index])),
+          if (index < items.length - 1) const SizedBox(height: 8),
         ],
       ],
     );
@@ -430,140 +447,112 @@ class _PurposeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 4,
-          height: 72,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: TermsOfServiceScreen.blue,
-              borderRadius: BorderRadius.all(Radius.circular(4)),
-            ),
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172554),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('제 1조  ·  목적', style: _purposeEyebrowText),
+          SizedBox(height: 8),
+          Text('얼마고? 서비스를 위한 약속', style: _purposeTitleText),
+          SizedBox(height: 6),
+          Text(
+            '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
+            style: _purposeBodyText,
           ),
-        ),
-        SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('제 1조 (목적)', style: _termTitleText),
-              SizedBox(height: 4),
-              Text(
-                '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
-                style: _termBodyText,
-              ),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _TermsRow extends StatelessWidget {
-  const _TermsRow({
-    required this.item,
-    required this.showDivider,
-    required this.onTap,
-  });
+  const _TermsRow({required this.item, required this.onTap});
 
   final _TermsItem item;
-  final bool showDivider;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final rowHeight = item.compact
-        ? 63.665
-        : item.important || item.number == '6'
-        ? 97.727
-        : 80.696;
-    final badgeColor = item.important
-        ? AppColors.errorLight
-        : AppColors.background;
-    final badgeTextColor = item.important
-        ? TermsOfServiceScreen.red
-        : TermsOfServiceScreen.ink;
-
     return Material(
-      color: AppColors.transparent,
+      color: AppColors.white,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         hoverColor: AppColors.primaryLight,
         onTap: onTap,
-        child: Column(
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(minHeight: rowHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: item.important
+                  ? const Color(0xFFFDD7D7)
+                  : const Color(0xFFE5EAF2),
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: item.important
+                      ? AppColors.errorLight
+                      : AppColors.primaryLight,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  item.number,
+                  style: _termNumberText.copyWith(
+                    color: item.important
+                        ? TermsOfServiceScreen.red
+                        : TermsOfServiceScreen.blue,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        item.number,
-                        style: _termNumberText.copyWith(color: badgeTextColor),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(item.title, style: _termTitleText),
-                              ),
-                              if (item.important) ...[
-                                const SizedBox(width: 5.994),
-                                const _ImportantBadge(),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 2.997),
-                          Text(
-                            item.body,
-                            style: _termBodyText,
-                            maxLines: item.compact
-                                ? 1
-                                : item.important || item.number == '6'
-                                ? 3
-                                : 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(item.title, style: _termTitleText),
+                        ),
+                        if (item.important) ...[
+                          const SizedBox(width: 5.994),
+                          const _ImportantBadge(),
                         ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 3.991),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 15,
-                        color: TermsOfServiceScreen.muted,
-                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.body,
+                      style: _termBodyText,
+                      maxLines: item.compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-            ),
-            if (showDivider)
+              const SizedBox(width: 6),
               const Padding(
-                padding: EdgeInsets.only(left: 42),
-                child: Divider(height: 1, color: TermsOfServiceScreen.border),
+                padding: EdgeInsets.only(top: 7),
+                child: Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 13,
+                  color: TermsOfServiceScreen.muted,
+                ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -595,16 +584,17 @@ class _TermsNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.warningLight,
-        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFFFFF7ED),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           children: [
             Icon(
               Icons.info_outline_rounded,
-              size: 13,
+              size: 16,
               color: TermsOfServiceScreen.amber,
             ),
             SizedBox(width: 8),
@@ -612,8 +602,7 @@ class _TermsNotice extends StatelessWidget {
               child: Text(
                 '본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.',
                 style: _noticeText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ),
           ],
@@ -649,7 +638,7 @@ const _headerText = TextStyle(
 );
 
 const _summaryTitleText = TextStyle(
-  color: AppColors.white,
+  color: TermsOfServiceScreen.ink,
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
   fontSize: 14,
@@ -657,8 +646,17 @@ const _summaryTitleText = TextStyle(
   height: 1.5,
 );
 
+const _summaryCaptionText = TextStyle(
+  color: TermsOfServiceScreen.muted,
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w500,
+  height: 1.5,
+);
+
 const _metricOnPrimaryLabelText = TextStyle(
-  color: Color(0xCCFFFFFF),
+  color: TermsOfServiceScreen.muted,
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
   fontSize: 10,
@@ -667,12 +665,40 @@ const _metricOnPrimaryLabelText = TextStyle(
 );
 
 const _metricOnPrimaryValueText = TextStyle(
-  color: AppColors.white,
+  color: TermsOfServiceScreen.ink,
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
   fontSize: 12.5,
   fontWeight: FontWeight.w700,
   height: 1.5,
+);
+
+const _purposeEyebrowText = TextStyle(
+  color: Color(0xFF93C5FD),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+  letterSpacing: .3,
+);
+
+const _purposeTitleText = TextStyle(
+  color: AppColors.white,
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 15,
+  fontWeight: FontWeight.w800,
+  height: 1.4,
+);
+
+const _purposeBodyText = TextStyle(
+  color: Color(0xFFD8E5FF),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.55,
 );
 
 const _sectionText = TextStyle(
