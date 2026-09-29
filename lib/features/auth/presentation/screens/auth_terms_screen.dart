@@ -53,17 +53,18 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
               children: [
                 const _ProgressLabel(),
                 SizedBox(height: constraints.maxHeight > 680 ? 90 : 22),
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2FF),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.description_outlined,
-                    color: Color(0xFF2563EB),
-                    size: 28,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Transform.scale(
+                      scale: 1.45,
+                      child: Image.asset(
+                        'assets/images/app_logo.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 22),
