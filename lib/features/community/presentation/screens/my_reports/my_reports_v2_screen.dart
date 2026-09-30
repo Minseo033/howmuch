@@ -276,7 +276,7 @@ class _Tabs extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: MyReportsV2Screen.surface,
         border: Border(
           bottom: BorderSide(color: MyReportsV2Screen.border, width: .909),
         ),

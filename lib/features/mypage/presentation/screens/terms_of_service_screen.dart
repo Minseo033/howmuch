@@ -54,12 +54,12 @@ class TermsOfServiceScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _TermsSummaryCard(),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 28),
                   const Padding(
-                    padding: EdgeInsets.only(left: 3.99),
-                    child: Text('핵심 조항', style: _sectionText),
+                    padding: EdgeInsets.only(left: 2),
+                    child: Text('주요 내용', style: _sectionText),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
                   _TermsListCard(
                     onOpen: (item) => _showTermsDetail(context, item),
                   ),
@@ -251,67 +251,57 @@ class _TermsSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
       key: const ValueKey('terms-summary-card'),
       decoration: BoxDecoration(
-        color: TermsOfServiceScreen.blue,
-        border: Border.all(color: TermsOfServiceScreen.blue, width: .909),
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0F172A), Color(0xFF1E3A8A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
+                const Expanded(
+                  child: Text('TERMS  ·  v2.4', style: _summaryEyebrowText),
+                ),
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: 34,
+                  height: 34,
                   decoration: const BoxDecoration(
-                    color: Color(0x33FFFFFF),
+                    color: Color(0x24FFFFFF),
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
                   child: const Icon(
-                    Icons.description_outlined,
-                    size: 16,
+                    Icons.menu_book_outlined,
                     color: AppColors.white,
+                    size: 18,
                   ),
                 ),
-                SizedBox(width: 9),
-                Text('한눈에 보는 약관', style: _summaryTitleText),
               ],
             ),
             const SizedBox(height: 16),
-            Column(
+            const Text('한눈에 보는 약관', style: _summaryTitleText),
+            const SizedBox(height: 8),
+            const Text(
+              '서비스를 이용하기 전에 알아둘 기본 약속이에요.',
+              style: _summaryCaptionText,
+            ),
+            const SizedBox(height: 20),
+            const Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: const _SummaryMetric(label: '버전', value: 'v2.4'),
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: _SummaryMetric(label: '시행일', value: '2026.04.01'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                const Row(
-                  children: [
-                    Expanded(
-                      child: _SummaryMetric(
-                        label: '최소 이용 연령',
-                        value: '만 14세 이상',
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: _SummaryMetric(label: '준거법', value: '대한민국 법령'),
-                    ),
-                  ],
-                ),
+                _SummaryMetric(label: '시행일', value: '2026.04.01'),
+                _SummaryMetric(label: '이용 연령', value: '만 14세 이상'),
+                _SummaryMetric(label: '준거법', value: '대한민국 법령'),
               ],
             ),
           ],
@@ -330,20 +320,16 @@ class _SummaryMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity,
-      height: 66,
-      padding: const EdgeInsets.symmetric(horizontal: 12.897),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: .12),
-        border: Border.all(color: AppColors.white.withValues(alpha: .22)),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0x1FFFFFFF),
+        borderRadius: BorderRadius.circular(99),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(label, style: _metricOnPrimaryLabelText),
-          const SizedBox(height: .994),
+          const SizedBox(width: 6),
           Text(value, style: _metricOnPrimaryValueText),
         ],
       ),
@@ -412,13 +398,10 @@ class _TermsListCard extends StatelessWidget {
     return Column(
       children: [
         const _PurposeCard(),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         for (var index = 0; index < items.length; index++) ...[
-          _TermsRow(
-            item: items[index],
-            showDivider: index < items.length - 1,
-            onTap: () => onOpen(items[index]),
-          ),
+          _TermsRow(item: items[index], onTap: () => onOpen(items[index])),
+          if (index < items.length - 1) const SizedBox(height: 4),
         ],
       ],
     );
@@ -430,140 +413,99 @@ class _PurposeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 4,
-          height: 72,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: TermsOfServiceScreen.blue,
-              borderRadius: BorderRadius.all(Radius.circular(4)),
-            ),
-          ),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(18, 17, 18, 18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        border: const Border(
+          left: BorderSide(color: Color(0xFFF97316), width: 4),
         ),
-        SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('제 1조 (목적)', style: _termTitleText),
-              SizedBox(height: 4),
-              Text(
-                '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
-                style: _termBodyText,
-              ),
-            ],
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('제 1조  ·  목적', style: _purposeEyebrowText),
+          SizedBox(height: 8),
+          Text('얼마고? 서비스를 위한 약속', style: _purposeTitleText),
+          SizedBox(height: 6),
+          Text(
+            '본 약관은 얼마고? 서비스 이용에 관한 회사와 회원 간의 권리·의무를 정함을 목적으로 합니다.',
+            style: _purposeBodyText,
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
 class _TermsRow extends StatelessWidget {
-  const _TermsRow({
-    required this.item,
-    required this.showDivider,
-    required this.onTap,
-  });
+  const _TermsRow({required this.item, required this.onTap});
 
   final _TermsItem item;
-  final bool showDivider;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final rowHeight = item.compact
-        ? 63.665
-        : item.important || item.number == '6'
-        ? 97.727
-        : 80.696;
-    final badgeColor = item.important
-        ? AppColors.errorLight
-        : AppColors.background;
-    final badgeTextColor = item.important
-        ? TermsOfServiceScreen.red
-        : TermsOfServiceScreen.ink;
-
     return Material(
       color: AppColors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         hoverColor: AppColors.primaryLight,
         onTap: onTap,
-        child: Column(
-          children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(minHeight: rowHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Row(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 42,
+                child: Text(
+                  item.number.padLeft(2, '0'),
+                  style: _termNumberText.copyWith(
+                    color: item.important
+                        ? TermsOfServiceScreen.red
+                        : TermsOfServiceScreen.blue,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: badgeColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        item.number,
-                        style: _termNumberText.copyWith(color: badgeTextColor),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(item.title, style: _termTitleText),
-                              ),
-                              if (item.important) ...[
-                                const SizedBox(width: 5.994),
-                                const _ImportantBadge(),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 2.997),
-                          Text(
-                            item.body,
-                            style: _termBodyText,
-                            maxLines: item.compact
-                                ? 1
-                                : item.important || item.number == '6'
-                                ? 3
-                                : 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(item.title, style: _termTitleText),
+                        ),
+                        if (item.important) ...[
+                          const SizedBox(width: 5.994),
+                          const _ImportantBadge(),
                         ],
-                      ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                    const Padding(
-                      padding: EdgeInsets.only(top: 3.991),
-                      child: Icon(
-                        Icons.chevron_right_rounded,
-                        size: 15,
-                        color: TermsOfServiceScreen.muted,
-                      ),
+                    const SizedBox(height: 5),
+                    Text(
+                      item.body,
+                      style: _termBodyText,
+                      maxLines: item.compact ? 1 : 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-            ),
-            if (showDivider)
+              const SizedBox(width: 8),
               const Padding(
-                padding: EdgeInsets.only(left: 42),
-                child: Divider(height: 1, color: TermsOfServiceScreen.border),
+                padding: EdgeInsets.only(top: 6),
+                child: Icon(
+                  Icons.north_east_rounded,
+                  size: 17,
+                  color: TermsOfServiceScreen.muted,
+                ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -595,16 +537,17 @@ class _TermsNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: AppColors.warningLight,
-        borderRadius: BorderRadius.circular(22),
+        color: const Color(0xFFFFF7ED),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           children: [
             Icon(
               Icons.info_outline_rounded,
-              size: 13,
+              size: 16,
               color: TermsOfServiceScreen.amber,
             ),
             SizedBox(width: 8),
@@ -612,8 +555,7 @@ class _TermsNotice extends StatelessWidget {
               child: Text(
                 '본 약관에 동의하지 않으시면 서비스 이용이 제한됩니다.',
                 style: _noticeText,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
             ),
           ],
@@ -652,13 +594,32 @@ const _summaryTitleText = TextStyle(
   color: AppColors.white,
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
-  fontSize: 14,
+  fontSize: 25,
   fontWeight: FontWeight.w800,
+  height: 1.2,
+);
+
+const _summaryEyebrowText = TextStyle(
+  color: Color(0xFFBFDBFE),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10,
+  fontWeight: FontWeight.w800,
+  height: 1.5,
+  letterSpacing: 1.1,
+);
+
+const _summaryCaptionText = TextStyle(
+  color: Color(0xFFD7E3FF),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w500,
   height: 1.5,
 );
 
 const _metricOnPrimaryLabelText = TextStyle(
-  color: Color(0xCCFFFFFF),
+  color: Color(0xFFBFDBFE),
   fontFamily: TermsOfServiceScreen.fontFamily,
   fontFamilyFallback: TermsOfServiceScreen.fontFallback,
   fontSize: 10,
@@ -673,6 +634,34 @@ const _metricOnPrimaryValueText = TextStyle(
   fontSize: 12.5,
   fontWeight: FontWeight.w700,
   height: 1.5,
+);
+
+const _purposeEyebrowText = TextStyle(
+  color: Color(0xFFEA580C),
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 10.5,
+  fontWeight: FontWeight.w700,
+  height: 1.5,
+  letterSpacing: .3,
+);
+
+const _purposeTitleText = TextStyle(
+  color: TermsOfServiceScreen.ink,
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 15,
+  fontWeight: FontWeight.w800,
+  height: 1.4,
+);
+
+const _purposeBodyText = TextStyle(
+  color: TermsOfServiceScreen.muted,
+  fontFamily: TermsOfServiceScreen.fontFamily,
+  fontFamilyFallback: TermsOfServiceScreen.fontFallback,
+  fontSize: 11,
+  fontWeight: FontWeight.w400,
+  height: 1.55,
 );
 
 const _sectionText = TextStyle(

@@ -19,7 +19,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final canPop = Navigator.of(context).canPop();
     return AppBar(
       toolbarHeight: HowmuchTopBar.height,
-      backgroundColor: AppColors.white,
+      // Keep Material-route headers visually identical to the mobile canvas
+      // header used by the Figma screens.
+      backgroundColor: const Color(0xFFF4F6FA),
       elevation: 0,
       centerTitle: true,
       scrolledUnderElevation: 0,

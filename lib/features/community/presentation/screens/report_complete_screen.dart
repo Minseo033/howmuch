@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
@@ -32,105 +33,100 @@ class ReportCompleteScreen extends StatelessWidget {
 
     return FigmaMobileCanvas(
       backgroundColor: Colors.white,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return SingleChildScrollView(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.only(
-              top: topOffset,
-              bottom: safePadding.bottom + 24,
-            ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SizedBox(
-                        width: 44,
-                        height: 44,
-                        child: IconButton(
-                          onPressed: () => context.go(AppRoutes.communityFeed),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints.tightFor(
-                            width: 44,
-                            height: 44,
-                          ),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: ink,
-                            size: 21.989,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    const Center(
-                      child: SizedBox(
-                        width: 140,
-                        height: 140,
-                        child: _SuccessMark(),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    const Text(
-                      '제보가 접수되었어요',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: ink,
-                        fontFamily: fontFamily,
-                        fontFamilyFallback: fontFallback,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      '검토 후 지도에 사용자 제보 매장으로 표시될 예정이에요.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: muted,
-                        fontFamily: fontFamily,
-                        fontFamilyFallback: fontFallback,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-                    const _SubmittedReportCard(),
-                    const SizedBox(height: 24),
-                    _BottomActionButton(
-                      label: '지도에서 주변 매장 더 보기',
-                      backgroundColor: blue,
-                      foregroundColor: Colors.white,
-                      shadow: const [
-                        BoxShadow(
-                          color: Color(0x4D2563EB),
-                          blurRadius: 8,
-                          offset: Offset(0, 6),
-                        ),
-                      ],
-                      onTap: () => context.go(AppRoutes.home),
-                    ),
-                    const SizedBox(height: 10),
-                    _BottomActionButton(
-                      label: '내 제보 내역 확인',
-                      backgroundColor: const Color(0xFFEEF2FF),
-                      foregroundColor: ink,
-                      onTap: () => context.go(AppRoutes.myReportsV2),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: HowmuchTopBar.height + topOffset,
+            child: Padding(
+              padding: EdgeInsets.only(top: topOffset),
+              child: HowmuchTopBar(
+                title: '',
+                onBack: () => context.go(AppRoutes.communityFeed),
               ),
             ),
-          );
-        },
+          ),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: safePadding.bottom + 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 30),
+                          const Center(
+                            child: SizedBox(
+                              width: 140,
+                              height: 140,
+                              child: _SuccessMark(),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          const Text(
+                            '제보가 접수되었어요',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: ink,
+                              fontFamily: fontFamily,
+                              fontFamilyFallback: fontFallback,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            '검토 후 지도에 사용자 제보 매장으로 표시될 예정이에요.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: muted,
+                              fontFamily: fontFamily,
+                              fontFamilyFallback: fontFallback,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+                          const _SubmittedReportCard(),
+                          const SizedBox(height: 24),
+                          _BottomActionButton(
+                            label: '지도에서 주변 매장 더 보기',
+                            backgroundColor: blue,
+                            foregroundColor: Colors.white,
+                            shadow: const [
+                              BoxShadow(
+                                color: Color(0x4D2563EB),
+                                blurRadius: 8,
+                                offset: Offset(0, 6),
+                              ),
+                            ],
+                            onTap: () => context.go(AppRoutes.home),
+                          ),
+                          const SizedBox(height: 18),
+                          _BottomActionButton(
+                            label: '내 제보 내역 확인',
+                            backgroundColor: const Color(0xFFEEF2FF),
+                            foregroundColor: ink,
+                            onTap: () => context.go(AppRoutes.myReportsV2),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

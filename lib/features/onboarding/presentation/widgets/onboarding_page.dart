@@ -435,11 +435,6 @@ class _NearbyArtwork extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
-            ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
               BoxShadow(
@@ -449,9 +444,21 @@ class _NearbyArtwork extends StatelessWidget {
               ),
             ],
           ),
-          child: const CustomPaint(
-            painter: _FigmaMapPainter(),
-            child: SizedBox.expand(),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                ),
+              ),
+              child: CustomPaint(
+                painter: _FigmaMapPainter(),
+                child: SizedBox.expand(),
+              ),
+            ),
           ),
         ),
         const Positioned(left: 15.99, top: 15.99, child: _MapLegendPill()),
@@ -620,11 +627,6 @@ class _StoreReportArtwork extends StatelessWidget {
       children: [
         DecoratedBox(
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
-            ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: const [
               BoxShadow(
@@ -634,9 +636,21 @@ class _StoreReportArtwork extends StatelessWidget {
               ),
             ],
           ),
-          child: const CustomPaint(
-            painter: _ReportMapPainter(),
-            child: SizedBox.expand(),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(24),
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                ),
+              ),
+              child: CustomPaint(
+                painter: _ReportMapPainter(),
+                child: SizedBox.expand(),
+              ),
+            ),
           ),
         ),
         const Positioned(left: 78, top: 70, child: _PulsePin()),
@@ -950,43 +964,42 @@ class _SavingsBars extends StatelessWidget {
     ];
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16.9, 16.9, 16.9, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.9, vertical: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: bars.map((bar) {
           return SizedBox(
             width: 43.99147415161133,
-            height: 86,
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.bottomCenter,
+            child: Column(
               children: [
-                Positioned(
-                  bottom: 18,
-                  width: 21.988636016845703,
-                  height: bar.$1,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: bar.$3,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(10),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: SizedBox(
+                      width: 21.988636016845703,
+                      height: bar.$1 * .72,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: bar.$3,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(10),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                Positioned(
-                  bottom: 0,
-                  child: Text(
-                    bar.$2,
-                    style: const TextStyle(
-                      color: OnboardingPage.muted,
-                      fontFamily: OnboardingPage.fontFamily,
-                      fontFamilyFallback: OnboardingPage.fontFallback,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  bar.$2,
+                  style: const TextStyle(
+                    color: OnboardingPage.muted,
+                    fontFamily: OnboardingPage.fontFamily,
+                    fontFamilyFallback: OnboardingPage.fontFallback,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
                   ),
                 ),
               ],

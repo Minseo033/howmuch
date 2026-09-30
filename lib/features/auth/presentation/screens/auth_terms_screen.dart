@@ -53,17 +53,18 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
               children: [
                 const _ProgressLabel(),
                 SizedBox(height: constraints.maxHeight > 680 ? 90 : 22),
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.verified_user_outlined,
-                    color: Color(0xFF2563EB),
-                    size: 30,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: Transform.scale(
+                      scale: 1.45,
+                      child: Image.asset(
+                        'assets/images/app_logo.png',
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 22),
@@ -244,32 +245,36 @@ class _RequiredTermsTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
-      child: Row(
-        children: [
-          Checkbox(
-            value: value,
-            onChanged: (next) => onChanged(next ?? false),
-            activeColor: const Color(0xFF2563EB),
-          ),
-          Expanded(
-            child: Text(
-              '[필수] $title',
-              style: const TextStyle(
-                color: Color(0xFF374151),
-                fontFamily: 'Noto Sans KR',
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        child: Row(
+          children: [
+            Checkbox(
+              value: value,
+              onChanged: (next) => onChanged(next ?? false),
+              activeColor: const Color(0xFF2563EB),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                '[필수] $title',
+                style: const TextStyle(
+                  color: Color(0xFF374151),
+                  fontFamily: 'Noto Sans KR',
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          IconButton(
-            onPressed: onOpen,
-            icon: const Icon(
-              Icons.chevron_right_rounded,
-              color: Color(0xFF64748B),
+            IconButton(
+              onPressed: onOpen,
+              icon: const Icon(
+                Icons.chevron_right_rounded,
+                color: Color(0xFF64748B),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

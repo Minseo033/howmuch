@@ -89,8 +89,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                 ],
                               ),
-                              padding: const EdgeInsets.all(8),
-                              child: Image.asset('assets/images/app_logo.png'),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(22),
+                                child: Transform.scale(
+                                  scale: 1.45,
+                                  child: Image.asset(
+                                    'assets/images/app_logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
                             ),
                             SizedBox(height: isCompact ? 14 : 22),
                             const Text(

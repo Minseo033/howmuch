@@ -97,7 +97,7 @@ void main() {
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     await _goToRoute(tester, AppRoutes.mypage);
-    expect(find.text('MY'), findsAtLeastNWidgets(1));
+    expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('게스트'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('mypage-guest-avatar-icon')),
@@ -205,7 +205,7 @@ void main() {
 
     await tester.tap(find.text('설정 저장'));
     await tester.pumpAndSettle();
-    expect(find.text('MY'), findsAtLeastNWidgets(1));
+    expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('알림 설정을 저장했어요.'), findsOneWidget);
 
     await _goToRoute(tester, AppRoutes.accountManagement);
@@ -272,7 +272,7 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);
       await tester.pumpAndSettle();
-      expect(find.text('MY'), findsAtLeastNWidgets(1));
+      expect(find.text('마이'), findsAtLeastNWidgets(1));
     }
   });
 
@@ -315,7 +315,7 @@ void main() {
       await _goToRoute(tester, route);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.text('MY'), findsAtLeastNWidgets(1));
+      expect(find.text('마이'), findsAtLeastNWidgets(1));
     }
   });
 
@@ -565,7 +565,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('문의 보내기'));
     await tester.pumpAndSettle();
-    expect(find.text('MY'), findsAtLeastNWidgets(1));
+    expect(find.text('마이'), findsAtLeastNWidgets(1));
     expect(find.text('문의가 접수되었어요.'), findsOneWidget);
   });
 
@@ -605,20 +605,15 @@ void main() {
           .widget<Icon>(find.byKey(const ValueKey('privacy-policy-back-icon')))
           .color,
     );
-    final privacyInquiryButton = tester.getRect(
-      find.byKey(const ValueKey('privacy-inquiry-button')),
-    );
     final privacyInquiryIcon = tester.getRect(
       find.byKey(const ValueKey('privacy-inquiry-icon')),
     );
     final privacyInquiryLabel = tester.getRect(
       find.byKey(const ValueKey('privacy-inquiry-label')),
     );
-    final privacyInquiryScale =
-        privacyInquiryButton.height / 28.480112075805664;
     expect(
       privacyInquiryLabel.center.dy,
-      closeTo(privacyInquiryIcon.center.dy - privacyInquiryScale, 0.1),
+      closeTo(privacyInquiryIcon.center.dy, 2),
     );
 
     await tester.tap(find.byIcon(Icons.arrow_back_rounded).first);

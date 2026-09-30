@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/permission_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,41 +40,14 @@ class PermissionSetupScreen extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 48.89204406738281 + topOffset,
-            width: double.infinity,
-            padding: EdgeInsets.only(top: topOffset, left: 8, right: 20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: .909),
+          SizedBox(
+            height: HowmuchTopBar.height + topOffset,
+            child: Padding(
+              padding: EdgeInsets.only(top: topOffset),
+              child: HowmuchTopBar(
+                title: '',
+                onBack: () => context.go(AppRoutes.login),
               ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  icon: const Icon(
-                    Icons.arrow_back_rounded,
-                    color: ink,
-                    size: 20,
-                  ),
-                  onPressed: () => context.go(AppRoutes.login),
-                ),
-                const Text(
-                  '3 / 3',
-                  style: TextStyle(
-                    color: muted,
-                    fontFamily: fontFamily,
-                    fontFamilyFallback: fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                  ),
-                ),
-              ],
             ),
           ),
           Expanded(
@@ -257,15 +231,16 @@ class _PermissionHeroIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(
-        color: Color(0xFFEFF4FF),
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(
-        Icons.shield_outlined,
-        color: PermissionSetupScreen.blue,
-        size: 27,
+    return ClipOval(
+      child: ColoredBox(
+        color: const Color(0xFFEAF2FF),
+        child: Transform.scale(
+          scale: 1.45,
+          child: Image.asset(
+            'assets/images/app_logo.png',
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
     );
   }

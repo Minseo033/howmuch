@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:howmuch/features/onboarding/presentation/widgets/onboarding_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingNearbyScreen extends ConsumerWidget {
   const OnboardingNearbyScreen({super.key, this.initialStep = 0});
@@ -15,12 +16,18 @@ class OnboardingNearbyScreen extends ConsumerWidget {
     return OnboardingPage(
       initialStep: initialStep,
       slides: _slides,
-      onComplete: () {
+      onComplete: () async {
         ref.read(onboardingCompletedProvider.notifier).state = true;
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setBool('onboarding_completed', true);
+        if (!context.mounted) return;
         context.go(AppRoutes.authTerms);
       },
-      onSkipPressed: () {
+      onSkipPressed: () async {
         ref.read(onboardingCompletedProvider.notifier).state = true;
+        final preferences = await SharedPreferences.getInstance();
+        await preferences.setBool('onboarding_completed', true);
+        if (!context.mounted) return;
         context.go(AppRoutes.authTerms);
       },
     );
