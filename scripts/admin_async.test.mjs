@@ -12,6 +12,15 @@ const deferred = () => {
   return { promise, resolve, reject };
 };
 
+test('report deletion warning distinguishes public new stores from information reports', () => {
+  const modal = html.match(/<dialog[^>]+id="deleteReportModal"[\s\S]*?<\/dialog>/)?.[0];
+  assert.ok(modal, 'actual report deletion dialog must exist');
+  assert.match(modal, /승인·공개된 신규 매장 제보는 지도에서도 제거됩니다/);
+  assert.match(modal, /대상 매장 원본과 승인된 수정 기록은 유지됩니다/);
+  assert.match(modal, /삭제한 제보와 첨부 사진은 복구할 수 없습니다/);
+  assert.doesNotMatch(modal, /승인된 제보는 지도에서도 즉시 제거/);
+});
+
 function harness(fetchImpl) {
   const elements = new Map();
   const timers = new Map();
