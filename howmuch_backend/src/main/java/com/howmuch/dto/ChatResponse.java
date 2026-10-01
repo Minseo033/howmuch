@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -15,4 +16,6 @@ public class ChatResponse {
     private String response;
     private boolean fallback;
     private List<String> recommendedStoreIds;
+    private List<Map<String, Object>> recommendations;
+    private Integer radiusMeters;
 }

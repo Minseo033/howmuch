@@ -6,6 +6,7 @@ import com.howmuch.dto.ChatResponse;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.GeminiService;
 import com.howmuch.service.SimpleRateLimiter;
+import com.howmuch.service.RecommendationRadius;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -59,6 +60,18 @@ public class AiController {
                     "message", "AI 대화 정보 형식이 올바르지 않습니다."
             ));
         }
+        final int radiusMeters;
+        try {
+            radiusMeters = RecommendationRadius.resolve(request.getRadiusMeters());
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", exception.getMessage()));
+        }
+        if (request.getLatitude() == null || request.getLongitude() == null
+                || request.getLatitude() == 0 || request.getLongitude() == 0) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "주변 추천을 위해 현재 위치가 필요합니다."));
+        }
 
         // 💡 레이트리밋: 로그인 유저라도 무제한 호출은 AI API 비용 악용 위험
         if (!rateLimiter.tryAcquire("ai-chat:" + uid, maxPerHour, 3_600_000L)) {
@@ -69,21 +82,39 @@ public class AiController {
         }
 
         List<Map<String, Object>> nearbyStores = firebaseService.getAiStoreContext(
-                request.getNearbyStoreIds(), request.getLatitude(), request.getLongitude());
-        String aiResponse = geminiService.getAiResponse(message, request.getHistory(), nearbyStores);
-        boolean fallback = false;
-        List<String> recommendedStoreIds = List.of();
-        if (geminiService.isAiFailureResponse(aiResponse) && !nearbyStores.isEmpty()) {
-            GeminiService.LocalChatRecommendation local =
-                    geminiService.buildLocalChatRecommendation(message, nearbyStores);
-            aiResponse = local.text();
-            fallback = true;
-            recommendedStoreIds = local.storeIds();
+                request.getNearbyStoreIds(), request.getLatitude(), request.getLongitude(), radiusMeters);
+        boolean recommendationRequest = geminiService.isRecommendationRequest(message);
+        List<Map<String, Object>> recommendations = recommendationRequest
+                ? geminiService.verifiedRecommendations(message, nearbyStores, radiusMeters) : List.of();
+        // Give the provider only the selected matching menus, not unrelated first
+        // menus from shops whose secondary menu satisfied the user's request.
+        List<Map<String, Object>> modelContext = recommendationRequest
+                ? recommendations.stream().map(item -> {
+                    Map<String, Object> context = new java.util.LinkedHashMap<String, Object>(item);
+                    context.put("menu1", item.get("matchedMenu"));
+                    context.put("price1", item.get("rawPrice"));
+                    context.put("free1", item.get("free"));
+                    return context;
+                }).toList() : List.of();
+        String aiResponse = recommendationRequest && recommendations.isEmpty() ? ""
+                : geminiService.getAiResponse(message, request.getHistory(), modelContext);
+        boolean fallback = !(recommendationRequest && recommendations.isEmpty())
+                && geminiService.isAiFailureResponse(aiResponse);
+        // Generated prose is not a source of store identity or menu facts. Both
+        // provider-success and provider-failure paths use the same validation.
+        if (recommendationRequest) {
+            aiResponse = geminiService.verifiedRecommendationText(recommendations, radiusMeters, fallback);
+        } else if (fallback) {
+            aiResponse = "현재 AI 연결이 원활하지 않아요. 찾으시는 메뉴와 예산을 말씀해 주시면 "
+                    + "선택한 거리 안의 실제 매장을 확인해 드릴게요.";
         }
         return ResponseEntity.ok(ChatResponse.builder()
                 .response(aiResponse)
                 .fallback(fallback)
-                .recommendedStoreIds(recommendedStoreIds)
+                .recommendedStoreIds(recommendations.stream()
+                        .map(item -> String.valueOf(item.get("storeId"))).toList())
+                .recommendations(recommendations)
+                .radiusMeters(radiusMeters)
                 .build());
     }
 

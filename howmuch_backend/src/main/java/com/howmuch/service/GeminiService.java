@@ -308,57 +308,138 @@ public class GeminiService {
 
     public LocalChatRecommendation buildLocalChatRecommendation(
             String userMessage, List<Map<String, Object>> nearbyStores) {
-        if (nearbyStores == null || nearbyStores.isEmpty()) {
-            return new LocalChatRecommendation(
-                    "AI 연결이 원활하지 않습니다. 지도에서 위치를 확인한 뒤 다시 요청해주세요.",
-                    List.of());
-        }
+        List<Map<String, Object>> selected = verifiedRecommendations(
+                userMessage, nearbyStores, RecommendationRadius.DEFAULT_METERS);
+        return new LocalChatRecommendation(
+                verifiedRecommendationText(selected, RecommendationRadius.DEFAULT_METERS, true),
+                selected.stream().map(store -> String.valueOf(store.get("storeId"))).toList());
+    }
 
-        int requestedCount = requestedRecommendationCount(userMessage);
-        Integer budgetWon = requestedBudgetWon(userMessage);
-        List<Map<String, Object>> distanceSorted = nearbyStores.stream()
-                .sorted(Comparator.comparingDouble(this::distanceOf))
-                .toList();
-        List<Map<String, Object>> intentMatches = storesMatchingIntent(userMessage, distanceSorted);
-        List<Map<String, Object>> candidates = intentMatches.isEmpty()
-                ? distanceSorted
-                : intentMatches;
-        List<Map<String, Object>> budgetMatches = budgetWon == null
-                ? candidates
-                : candidates.stream()
-                .filter(store -> minimumKnownPrice(store) <= budgetWon)
-                .filter(store -> minimumKnownPrice(store) > 0)
-                .toList();
-        boolean hasBudgetMatches = budgetWon == null || !budgetMatches.isEmpty();
-        List<Map<String, Object>> selected = (hasBudgetMatches ? budgetMatches : candidates)
-                .stream().limit(requestedCount).toList();
+    public boolean isRecommendationRequest(String message) {
+        String query = message == null ? "" : message.toLowerCase();
+        return List.of("추천", "찾", "어디", "주변", "근처", "가게", "매장", "식당", "가격",
+                        "예산", "원", "국물", "점심", "저녁", "아침", "식사", "카페", "커피",
+                        "메뉴", "칼국수", "국밥", "찌개", "김밥", "미용", "세탁", "우동", "라면",
+                        "짜장", "짬뽕", "돈까스", "돈가스", "삼겹살", "백반", "국수", "수제비",
+                        "날씨", "비오는", "비 오는", "비가", "비와", "더운", "추운", "뜨끈", "무료")
+                .stream().anyMatch(query::contains);
+    }
 
-        StringBuilder result = new StringBuilder();
-        if (budgetWon != null && !hasBudgetMatches) {
-            result.append("AI 연결이 원활하지 않고 요청한 예산 이하 매장을 찾지 못해, 확인된 실제 매장 대안을 안내해요.\n");
-        } else {
-            result.append("AI 연결이 원활하지 않아, 확인된 실제 매장을 거리 정보가 있는 경우 가까운 순서로 안내해요.\n");
-        }
-        for (int i = 0; i < selected.size(); i++) {
-            Map<String, Object> store = selected.get(i);
-            int menuIndex = displayMenuIndex(store, budgetWon, hasBudgetMatches);
-            result.append(i + 1).append(". ")
-                    .append(safeText(store.get("storeName"), "매장명 없음", 100))
-                    .append(" — ")
-                    .append(safeText(store.get("menu" + menuIndex), "메뉴 정보 없음", 100))
-                    .append(" · ").append(priceLabel(store.get("price" + menuIndex)));
+    /** Only stable IDs and actual matching menu slots become clickable cards. */
+    public List<Map<String, Object>> verifiedRecommendations(
+            String userMessage, List<Map<String, Object>> nearbyStores, int radiusMeters) {
+        RecommendationRadius.resolve(radiusMeters);
+        if (nearbyStores == null) return List.of();
+        Integer budget = requestedBudgetWon(userMessage);
+        List<Map<String, Object>> results = new ArrayList<>();
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (Map<String, Object> store : nearbyStores.stream()
+                .filter(java.util.Objects::nonNull)
+                .sorted(Comparator.comparingDouble(this::distanceOf)).toList()) {
+            String storeId = safeText(store.get("storeId"), "", 200);
             double distance = distanceOf(store);
-            if (Double.isFinite(distance) && distance < Double.MAX_VALUE) {
-                result.append(" · 약 ").append(Math.max(0, Math.round(distance))).append("m");
+            if (storeId.isBlank() || seen.contains(storeId) || Boolean.TRUE.equals(store.get("closed"))
+                    || Boolean.TRUE.equals(store.get("isClosed"))
+                    || !Double.isFinite(distance) || distance < 0 || distance > radiusMeters) continue;
+            for (int slot = 1; slot <= 4; slot++) {
+                String menu = safeText(store.get("menu" + slot), "", 100);
+                boolean free = Boolean.TRUE.equals(store.get("free" + slot));
+                var price = WonPrice.parse(store.get("price" + slot));
+                if (menu.isBlank() || "null".equals(menu) || price.isEmpty()
+                        || WonPrice.menuMinimum(store.get("price" + slot), free) == null
+                        || !menuMatchesIntent(userMessage, menu, store)) continue;
+                WonPrice.Value value = price.get();
+                // A cheap variant does not prove every variant meets a budget.
+                if (budget != null && value.maximum() > budget) continue;
+                Map<String, Object> selected = new LinkedHashMap<>();
+                selected.put("storeId", storeId);
+                selected.put("storeName", safeText(store.get("storeName"), "매장명 없음", 100));
+                selected.put("matchedMenu", menu);
+                selected.put("menuIndex", slot);
+                selected.put("rawPrice", String.valueOf(store.get("price" + slot)));
+                selected.put("minimumPrice", value.minimum());
+                selected.put("maximumPrice", value.maximum());
+                selected.put("priceExact", value.exact());
+                selected.put("free", free);
+                selected.put("distanceMeters", distance);
+                selected.put("source", normalizedSource(store.get("source")));
+                for (String field : List.of("latitude", "longitude", "address", "industry")) {
+                    if (store.get(field) != null) selected.put(field, store.get(field));
+                }
+                for (int originalSlot = 1; originalSlot <= 4; originalSlot++) {
+                    for (String prefix : List.of("menu", "price", "free")) {
+                        String field = prefix + originalSlot;
+                        if (store.get(field) != null) selected.put(field, store.get(field));
+                    }
+                }
+                results.add(java.util.Collections.unmodifiableMap(selected));
+                seen.add(storeId);
+                break;
             }
-            result.append("\n");
+            if (results.size() >= requestedRecommendationCount(userMessage)) break;
         }
-        List<String> storeIds = selected.stream()
-                .map(store -> safeText(store.get("storeId"), "", 200))
-                .filter(id -> !id.isBlank())
-                .distinct()
-                .toList();
-        return new LocalChatRecommendation(result.toString().trim(), storeIds);
+        return List.copyOf(results);
+    }
+
+    public String verifiedRecommendationText(List<Map<String, Object>> recommendations,
+                                            int radiusMeters, boolean fallback) {
+        if (recommendations == null || recommendations.isEmpty()) {
+            return "선택한 " + radiusMeters / 1_000
+                    + "km 이내에서 메뉴·예산 조건을 모두 만족하는 매장을 찾지 못했어요. "
+                    + "거리를 넓히거나 메뉴·예산을 바꿔 다시 물어봐 주세요.";
+        }
+        StringBuilder text = new StringBuilder(fallback ? "AI 연결이 원활하지 않아, " : "");
+        text.append(radiusMeters / 1_000).append("km 이내에서 조건을 만족하는 ")
+                .append(recommendations.size()).append("곳을 가까운 순서로 안내해요.\n");
+        for (int index = 0; index < recommendations.size(); index++) {
+            Map<String, Object> item = recommendations.get(index);
+            text.append(index + 1).append(". ").append(item.get("storeName"))
+                    .append(" — ").append(item.get("matchedMenu"))
+                    .append(" · ").append(Boolean.TRUE.equals(item.get("free"))
+                            ? "무료" : priceLabel(item.get("rawPrice")))
+                    .append(" · 약 ").append(Math.round(distanceOf(item))).append("m");
+            String source = String.valueOf(item.get("source"));
+            if ("GOV".equals(source)) text.append(" · 정부 인증");
+            else if ("USER".equals(source)) text.append(" · 사용자 제보");
+            if (!Boolean.TRUE.equals(item.get("priceExact"))) text.append(" (가격별 선택 확인)");
+            text.append("\n");
+        }
+        return text.toString().trim();
+    }
+
+    private String normalizedSource(Object value) {
+        String source = String.valueOf(value);
+        if ("GOV".equals(source) || "착한가격업소".equals(source) || "정부 인증".equals(source)) return "GOV";
+        if ("USER".equals(source) || "사용자 제보".equals(source)) return "USER";
+        return "UNKNOWN";
+    }
+
+    private boolean menuMatchesIntent(String message, String menu, Map<String, Object> store) {
+        String query = message == null ? "" : message.toLowerCase().replace(" ", "");
+        String item = menu.toLowerCase().replace(" ", "");
+        String industry = safeText(store.get("industry"), "", 100).toLowerCase();
+        boolean soup = List.of("국물", "뜨끈", "따뜻한", "국밥", "찌개", "삼계탕", "설렁탕", "갈비탕", "짬뽕")
+                .stream().anyMatch(query::contains);
+        if (soup && List.of("국수", "수제비", "국밥", "탕", "찌개", "짬뽕", "우동", "라면", "전골", "국")
+                .stream().noneMatch(item::contains)) return false;
+        if (soup && List.of("비빔", "냉", "볶음", "김밥").stream().anyMatch(item::contains)) return false;
+        // Specific dishes are matched against a menu, never a common store name.
+        List<String> dishes = List.of("칼국수", "수제비", "국밥", "김밥", "백반", "짜장", "짬뽕",
+                "돈까스", "돈가스", "삼겹살", "냉면", "비빔국수", "아메리카노", "라떼",
+                "우동", "라면", "탕수육", "삼계탕", "설렁탕", "갈비탕").stream().filter(query::contains).toList();
+        if (!dishes.isEmpty() && dishes.stream().noneMatch(item::contains)) return false;
+        boolean cafe = List.of("카페", "커피", "디저트", "빵", "베이커리").stream().anyMatch(query::contains);
+        if (cafe && !item.endsWith("차")
+                && List.of("커피", "아메리카노", "라떼", "카푸치노", "음료", "빵", "케이크", "디저트")
+                .stream().noneMatch(item::contains)) return false;
+        boolean meal = soup || List.of("점심", "저녁", "아침", "식사", "밥", "음식", "맛집", "국수", "분식")
+                .stream().anyMatch(query::contains);
+        if (meal && List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
+                .stream().anyMatch((industry + " " + item)::contains)) return false;
+        for (String service : List.of("미용", "세탁", "목욕", "이발", "수선")) {
+            if (query.contains(service) && !(industry + " " + item).contains(service)) return false;
+        }
+        return true;
     }
 
     private int requestedRecommendationCount(String message) {
@@ -380,25 +461,36 @@ public class GeminiService {
 
     private Integer requestedBudgetWon(String message) {
         String text = message == null ? "" : message.replace(",", "").replace(" ", "");
+        if (text.contains("무료")) return 0;
+        Matcher mixed = Pattern.compile("(\\d+)만(\\d+)천원").matcher(text);
+        if (mixed.find()) {
+            try { return boundedBudget(Long.parseLong(mixed.group(1)) * 10_000L
+                    + Long.parseLong(mixed.group(2)) * 1_000L); }
+            catch (NumberFormatException ignored) { return null; }
+        }
         Matcher manWon = Pattern.compile("(\\d+(?:\\.\\d+)?)만원").matcher(text);
         if (manWon.find()) {
             try {
-                return (int) Math.round(Double.parseDouble(manWon.group(1)) * 10_000);
+                return boundedBudget(Math.round(Double.parseDouble(manWon.group(1)) * 10_000));
             } catch (NumberFormatException ignored) {
                 return null;
             }
+        }
+        for (Map.Entry<String, Integer> korean : Map.of("일", 1, "이", 2, "삼", 3, "사", 4,
+                "오", 5, "육", 6, "칠", 7, "팔", 8, "구", 9, "십", 10).entrySet()) {
+            if (text.contains(korean.getKey() + "만원")) return korean.getValue() * 10_000;
         }
         if (text.contains("만원")) return 10_000;
         Matcher cheonWon = Pattern.compile("(\\d+)천원").matcher(text);
         if (cheonWon.find()) {
             try {
-                return Integer.parseInt(cheonWon.group(1)) * 1_000;
+                return boundedBudget(Long.parseLong(cheonWon.group(1)) * 1_000L);
             } catch (NumberFormatException ignored) {
                 return null;
             }
         }
         if (text.contains("천원")) return 1_000;
-        Matcher won = Pattern.compile("(\\d{4,7})원").matcher(text);
+        Matcher won = Pattern.compile("(\\d{1,7})원").matcher(text);
         if (won.find()) {
             try {
                 return Integer.parseInt(won.group(1));
@@ -409,67 +501,8 @@ public class GeminiService {
         return null;
     }
 
-    private int priceOf(Object value) {
-        if (value == null) return -1;
-        String digits = value.toString().replaceAll("[^0-9]", "");
-        if (digits.isBlank()) return -1;
-        try {
-            return Integer.parseInt(digits);
-        } catch (NumberFormatException ignored) {
-            return -1;
-        }
-    }
-
-    private int minimumKnownPrice(Map<String, Object> store) {
-        int minimum = Integer.MAX_VALUE;
-        for (int i = 1; i <= 4; i++) {
-            int price = priceOf(store.get("price" + i));
-            if (price > 0) minimum = Math.min(minimum, price);
-        }
-        return minimum == Integer.MAX_VALUE ? -1 : minimum;
-    }
-
-    private List<Map<String, Object>> storesMatchingIntent(
-            String userMessage, List<Map<String, Object>> stores) {
-        String query = userMessage == null ? "" : userMessage.toLowerCase();
-        boolean mealQuery = List.of(
-                        "아침", "점심", "저녁", "식사", "밥", "맛집", "한식", "중식", "일식",
-                        "양식", "분식", "국밥", "국수", "찌개", "고기", "짜장", "짬뽕", "돈까스")
-                .stream().anyMatch(query::contains);
-        boolean cafeQuery = List.of("카페", "커피", "디저트", "빵", "베이커리")
-                .stream().anyMatch(query::contains);
-        if (!mealQuery && !cafeQuery) return stores;
-
-        return stores.stream().filter(store -> {
-            StringBuilder searchable = new StringBuilder();
-            searchable.append(safeText(store.get("storeName"), "", 100)).append(' ')
-                    .append(safeText(store.get("industry"), "", 100));
-            for (int i = 1; i <= 4; i++) {
-                searchable.append(' ').append(safeText(store.get("menu" + i), "", 100));
-            }
-            String text = searchable.toString().toLowerCase();
-            if (cafeQuery) {
-                return List.of("카페", "커피", "디저트", "빵", "베이커리", "음료", "차")
-                        .stream().anyMatch(text::contains);
-            }
-            return List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
-                    .stream().noneMatch(text::contains);
-        }).toList();
-    }
-
-    private int displayMenuIndex(
-            Map<String, Object> store, Integer budgetWon, boolean hasBudgetMatches) {
-        if (budgetWon != null && hasBudgetMatches) {
-            for (int i = 1; i <= 4; i++) {
-                int price = priceOf(store.get("price" + i));
-                if (price > 0 && price <= budgetWon) return i;
-            }
-        }
-        for (int i = 1; i <= 4; i++) {
-            if (!safeText(store.get("menu" + i), "", 100).isBlank()
-                    || priceOf(store.get("price" + i)) > 0) return i;
-        }
-        return 1;
+    private Integer boundedBudget(long amount) {
+        return amount < 0 || amount > WonPrice.MAX_AMOUNT ? null : (int) amount;
     }
 
     private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {
@@ -481,12 +514,25 @@ public class GeminiService {
         StringBuilder result = new StringBuilder("현재는 거리순으로 추천 루트를 안내합니다.\n");
         for (int i = 0; i < sorted.size(); i++) {
             Map<String, Object> pick = sorted.get(i);
+            String matchedMenu = safeText(pick.get("matchedMenu"), "", 100);
+            Object selectedPrice = pick.get("price1");
+            boolean selectedFree = Boolean.TRUE.equals(pick.get("free1"));
+            if (matchedMenu.isBlank()) matchedMenu = safeText(pick.get("menu1"), "메뉴 정보 없음", 100);
+            else {
+                for (int slot = 1; slot <= 4; slot++) {
+                    if (matchedMenu.equals(safeText(pick.get("menu" + slot), "", 100))) {
+                        selectedPrice = pick.get("price" + slot);
+                        selectedFree = Boolean.TRUE.equals(pick.get("free" + slot));
+                        break;
+                    }
+                }
+            }
             result.append(i + 1).append(". ")
                     .append(pick.getOrDefault("storeName", "매장명 없음"))
                     .append(" (")
-                    .append(pick.getOrDefault("menu1", "메뉴 정보 없음"))
+                    .append(matchedMenu)
                     .append(", ")
-                    .append(priceLabel(pick.get("price1")))
+                    .append(selectedFree ? "무료" : priceLabel(selectedPrice))
                     .append(")");
             if (pick.get("distanceMeters") != null) {
                 result.append(" - 현재 위치에서 가까운 순서");

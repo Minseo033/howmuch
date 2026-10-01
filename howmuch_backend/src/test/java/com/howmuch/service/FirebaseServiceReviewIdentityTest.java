@@ -97,6 +97,26 @@ class FirebaseServiceReviewIdentityTest {
         verifyNoInteractions(db);
     }
 
+    @Test
+    void ownReviewSourcesUseCanonicalIdsAndKeepAmbiguousOrMissingSourceUnknown() throws Exception {
+        catalog(List.of(store("store_a", "동명식당", "목포"), store("store_b", "동명식당", "단양")));
+        ReflectionTestUtils.setField(service, "cachedUserStores", List.of(Map.of("storeId", "store_user", "storeName", "제보식당",
+                "address", "서울", "status", "APPROVED")));
+        CollectionReference reviews = mock(CollectionReference.class); Query query = mock(Query.class); QuerySnapshot snapshot = mock(QuerySnapshot.class);
+        when(db.collection("reviews")).thenReturn(reviews); when(reviews.whereEqualTo("authorUid", "user-1")).thenReturn(query);
+        when(query.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        var documents = List.of(review("gov", "store_a"), review("user", "store_user"),
+                review("ambiguous", "동명식당"), review("missing", "removed-id"));
+        when(snapshot.getDocuments()).thenReturn(documents);
+        var result = service.getMyReviews("user-1");
+        assertThat(result).filteredOn(item -> "gov".equals(item.get("id"))).singleElement()
+                .satisfies(item -> assertThat(item).containsEntry("storeSource", "GOV"));
+        assertThat(result).filteredOn(item -> "user".equals(item.get("id"))).singleElement()
+                .satisfies(item -> assertThat(item).containsEntry("storeSource", "USER"));
+        assertThat(result).filteredOn(item -> List.of("ambiguous", "missing").contains(item.get("id")))
+                .allSatisfy(item -> assertThat(item).containsEntry("storeSource", "UNKNOWN"));
+    }
+
     private void catalog(List<Map<String, Object>> stores) {
         ReflectionTestUtils.setField(service, "cachedStores", stores);
     }

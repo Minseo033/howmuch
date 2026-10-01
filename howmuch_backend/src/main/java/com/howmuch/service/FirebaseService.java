@@ -80,6 +80,9 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
+    /** Reviewed overlays survive snapshots/restarts; source records are never overwritten. */
+    private volatile Map<String, Map<String, Object>> cachedStoreCorrections = Map.of();
+    private static final String STORE_CORRECTIONS_COLLECTION = "store_corrections";
 
     /** /api/stores/all 응답 캐시. 원본 캐시 참조가 바뀌면 자동으로 새로 만듭니다. */
     private final Object allStoresCacheLock = new Object();
@@ -128,6 +131,7 @@ public class FirebaseService {
     @Async
     @EventListener(ApplicationReadyEvent.class)
     public void warmStoreCaches() {
+        loadStoreCorrections();
         // 1순위: 디스크 스냅샷 (같은 인스턴스 재시작 시 Firestore 읽기 0)
         if (loadGovStoresFromDisk()) {
             log.info("디스크 스냅샷에서 매장 {}개를 로드했습니다.", cachedStores.size());
@@ -209,9 +213,35 @@ public class FirebaseService {
             fixedDelayString = "${stores.user.refresh.delay-ms:600000}")
     public void refreshUserStores() {
         loadUserStoresFromFirestore();
+        loadStoreCorrections();
+    }
+
+    private void loadStoreCorrections() {
+        try {
+            Map<String, Map<String, Object>> corrections = new HashMap<>();
+            for (DocumentSnapshot doc : db.collection(STORE_CORRECTIONS_COLLECTION).get().get().getDocuments()) {
+                if (doc.getData() != null) corrections.put(doc.getId(), immutableStoreCopy(doc.getData()));
+            }
+            synchronized (allStoresCacheLock) {
+                // A refresh may have started before an approval committed. Never
+                // replace that newer locally committed revision with an older
+                // query snapshot (nor drop a commit absent from that snapshot).
+                cachedStoreCorrections.forEach((id, current) -> {
+                    Map<String, Object> loaded = corrections.get(id);
+                    if (loaded == null || correctionRevision(current) > correctionRevision(loaded)) {
+                        corrections.put(id, current);
+                    }
+                });
+                cachedStoreCorrections = Map.copyOf(corrections);
+                allStoresCache = null;
+            }
+        } catch (Exception exception) {
+            log.warn("매장 수정 기록 조회 실패로 기존 기록을 유지합니다: {}", exception.getClass().getSimpleName());
+        }
     }
 
     private void loadUserStoresFromFirestore() {
+        List<Map<String, Object>> beforeRefresh = cachedUserStores;
         try {
             List<Map<String, Object>> userStores = db.collection("stores_user")
                     .get().get().getDocuments().stream()
@@ -221,7 +251,14 @@ public class FirebaseService {
                         return data;
                     })
                     .toList();
-            cachedUserStores = immutableStoreList(userStores);
+            synchronized (allStoresCacheLock) {
+                if (cachedUserStores != beforeRefresh) {
+                    log.info("조회 중 제보가 변경되어 이전 조회 결과를 캐시에 반영하지 않습니다.");
+                    return;
+                }
+                cachedUserStores = immutableStoreList(userStores);
+                allStoresCache = null;
+            }
             invalidateCommunityFeedCache();
             log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
         } catch (Exception e) {
@@ -360,51 +397,86 @@ public class FirebaseService {
     }
 
     public List<Map<String, Object>> getAllStores() {
+        return getStoreCatalogEntry().discoverableStores();
+    }
+
+    public String getAllStoresEtag() { return getStoreCatalogEntry().etag(); }
+
+    /** Body and validation tag must describe one immutable catalog snapshot. */
+    public record PublicStoreCatalog(List<Map<String, Object>> stores, String etag) {}
+
+    public PublicStoreCatalog getPublicStoreCatalog() {
+        AllStoresCacheEntry entry = getStoreCatalogEntry();
+        return new PublicStoreCatalog(entry.discoverableStores(), entry.etag());
+    }
+
+    /** Includes closed stores for existing favorites, reviewed history and detail only. */
+    public Map<String, Object> getStoreById(String storeId) {
+        return getStoreCatalogEntry().stores().stream()
+                .filter(store -> java.util.Objects.equals(storeId, store.get("storeId")))
+                .findFirst().orElse(null);
+    }
+
+    private AllStoresCacheEntry getStoreCatalogEntry() {
         List<Map<String, Object>> govSnapshot = cachedStores;
         List<Map<String, Object>> userSnapshot = cachedUserStores;
+        Map<String, Map<String, Object>> correctionSnapshot = cachedStoreCorrections;
         AllStoresCacheEntry cached = allStoresCache;
-        if (cached != null && cached.matches(govSnapshot, userSnapshot)) {
-            return cached.stores();
+        if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+            return cached;
         }
 
         synchronized (allStoresCacheLock) {
             govSnapshot = cachedStores;
             userSnapshot = cachedUserStores;
+            correctionSnapshot = cachedStoreCorrections;
             cached = allStoresCache;
-            if (cached != null && cached.matches(govSnapshot, userSnapshot)) {
-                return cached.stores();
+            if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+                return cached;
             }
-            List<Map<String, Object>> stores = buildAllStores(govSnapshot, userSnapshot);
-            allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, stores);
-            return stores;
+            List<Map<String, Object>> stores = buildAllStores(govSnapshot, userSnapshot, correctionSnapshot);
+            List<Map<String, Object>> discoverable = stores.stream()
+                    .filter(store -> !Boolean.TRUE.equals(store.get("isClosed"))).toList();
+            String etag;
+            try {
+                byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(discoverable));
+                etag = "\"" + java.util.HexFormat.of().formatHex(digest) + "\"";
+            } catch (Exception exception) { throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception); }
+            allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, correctionSnapshot, stores, discoverable, etag);
+            return allStoresCache;
         }
     }
 
     private record AllStoresCacheEntry(
             List<Map<String, Object>> govSource,
             List<Map<String, Object>> userSource,
-            List<Map<String, Object>> stores) {
+            Map<String, Map<String, Object>> correctionSource,
+            List<Map<String, Object>> stores,
+            List<Map<String, Object>> discoverableStores,
+            String etag) {
         boolean matches(
                 List<Map<String, Object>> currentGovSource,
-                List<Map<String, Object>> currentUserSource) {
-            return govSource == currentGovSource && userSource == currentUserSource;
+                List<Map<String, Object>> currentUserSource,
+                Map<String, Map<String, Object>> currentCorrections) {
+            return govSource == currentGovSource && userSource == currentUserSource && correctionSource == currentCorrections;
         }
     }
 
     private List<Map<String, Object>> buildAllStores(
             List<Map<String, Object>> govSnapshot,
-            List<Map<String, Object>> userSnapshot) {
+            List<Map<String, Object>> userSnapshot,
+            Map<String, Map<String, Object>> correctionSnapshot) {
         Map<String, Map<String, Object>> publicStoresById = new LinkedHashMap<>();
         Set<String> publicPhones = new HashSet<>();
         Set<String> publicNamesAndAddresses = new HashSet<>();
         for (Map<String, Object> rawStore : govSnapshot) {
-            Map<String, Object> store = toPublicStore(rawStore, "GOV");
+            Map<String, Object> store = toPublicStore(rawStore, "GOV", correctionSnapshot);
             publicStoresById.put(String.valueOf(store.get("storeId")), store);
             addPublicStoreIdentity(store, publicPhones, publicNamesAndAddresses);
         }
         for (Map<String, Object> rawStore : userSnapshot) {
             if (!isPubliclyVisible(rawStore)) continue;
-            Map<String, Object> store = toPublicStore(rawStore, "USER");
+            Map<String, Object> store = toPublicStore(rawStore, "USER", correctionSnapshot);
             String storeId = String.valueOf(store.get("storeId"));
             String phone = comparablePhone(store.get("phoneNumber"));
             String nameAndAddress = comparableNameAddress(store);
@@ -422,18 +494,40 @@ public class FirebaseService {
                 .toList();
     }
 
-    private Map<String, Object> toPublicStore(Map<String, Object> rawStore, String source) {
+    private Map<String, Object> toPublicStore(Map<String, Object> rawStore, String source,
+            Map<String, Map<String, Object>> correctionSnapshot) {
         Map<String, Object> normalized = withStableStoreId(rawStore);
+        normalized = applyStoreCorrection(normalized, correctionSnapshot.get(String.valueOf(normalized.get("storeId"))));
         Map<String, Object> result = new HashMap<>();
         for (String field : List.of(
                 "storeId", "storeName", "address", "phoneNumber", "industry",
                 "menu1", "price1", "menu2", "price2", "menu3", "price3",
-                "menu4", "price4", "latitude", "longitude", "openingHours")) {
+                "menu4", "price4", "free1", "free2", "free3", "free4", "latitude", "longitude", "openingHours", "isClosed", "correctionRevision")) {
             if (normalized.containsKey(field)) {
                 result.put(field, immutablePublicValue(normalized.get(field)));
             }
         }
         result.put("source", source);
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> applyStoreCorrection(Map<String, Object> original, Map<String, Object> correction) {
+        Map<String, Object> result = new HashMap<>(original);
+        if (correction != null && correction.get("fields") instanceof Map<?, ?> fields) {
+            for (var entry : fields.entrySet()) {
+                String field = String.valueOf(entry.getKey());
+                if (field.matches("(?:menu|price|free)[1-4]") || List.of("address", "latitude", "longitude", "isClosed").contains(field)) {
+                    result.put(field, entry.getValue());
+                }
+            }
+            result.put("correctionRevision", correction.getOrDefault("revision", 0L));
+        } else result.put("correctionRevision", 0L);
+        result.putIfAbsent("isClosed", false);
+        for (int i = 1; i <= 4; i++) {
+            result.putIfAbsent("free" + i, false);
+            result.putIfAbsent("menu" + i, ""); result.putIfAbsent("price" + i, "");
+        }
         return result;
     }
 
@@ -482,45 +576,35 @@ public class FirebaseService {
      */
     public List<Map<String, Object>> getAiStoreContext(
             List<String> storeIds, Double latitude, Double longitude) {
-        if (storeIds != null && !storeIds.isEmpty()) {
-            Set<String> requestedIds = new LinkedHashSet<>(storeIds);
-            Map<String, Map<String, Object>> storesById = new HashMap<>();
-            addAiStores(storesById, requestedIds, cachedStores,
-                    "착한가격업소", latitude, longitude);
-            addAiStores(storesById, requestedIds, cachedUserStores.stream()
-                    .filter(this::isPubliclyVisible)
-                    .toList(), "사용자 제보", latitude, longitude);
+        return getAiStoreContext(storeIds, latitude, longitude, 3000);
+    }
 
-            List<Map<String, Object>> resolved = requestedIds.stream()
-                    .map(storesById::get)
-                    .filter(java.util.Objects::nonNull)
-                    .limit(10)
-                    .toList();
-            if (!resolved.isEmpty()) return resolved;
+    public List<Map<String, Object>> getAiStoreContext(
+            List<String> storeIds, Double latitude, Double longitude, int radiusMeters) {
+        validateRecommendationRadius(radiusMeters);
+        if (!isValidCoordinate(latitude, longitude)) return List.of();
+        // Client candidate IDs are hints, never an authorization to include an out-of-radius shop.
+        List<Map<String, Object>> candidates = new ArrayList<>();
+        for (Map<String, Object> store : getAllStores()) {
+            if (!hasValidStoreCoordinate(store)) continue;
+            double distance = haversine(latitude, longitude, parseLat(store), parseLng(store));
+            if (distance > radiusMeters) continue;
+            Map<String, Object> context = new HashMap<>();
+            context.put("storeId", store.get("storeId"));
+            context.put("storeName", store.getOrDefault("storeName", "매장명 없음"));
+            addAiStoreDetails(context, store);
+            context.put("source", store.get("source"));
+            context.put("distanceMeters", (int) Math.round(distance));
+            candidates.add(context);
         }
+        candidates.sort(Comparator.comparingInt(item -> (int) item.get("distanceMeters")));
+        return candidates.stream().limit(500).toList();
+    }
 
-        if (isValidCoordinate(latitude, longitude)) {
-            List<Map<String, Object>> candidates = new ArrayList<>();
-            for (Map<String, Object> raw : cachedStores) {
-                Map<String, Object> store = withStableStoreId(raw);
-                if (hasValidStoreCoordinate(store)) {
-                    double dist = haversine(latitude, longitude, parseLat(store), parseLng(store));
-                    if (dist <= 15000) {
-                        Map<String, Object> ctx = new HashMap<>();
-                        ctx.put("storeId", store.get("storeId"));
-                        ctx.put("storeName", String.valueOf(store.getOrDefault("storeName", "매장명 없음")));
-                        addAiStoreDetails(ctx, store);
-                        ctx.put("source", "착한가격업소");
-                        ctx.put("distanceMeters", (int) Math.round(dist));
-                        candidates.add(ctx);
-                    }
-                }
-            }
-            candidates.sort(Comparator.comparingInt(m -> (int) m.getOrDefault("distanceMeters", Integer.MAX_VALUE)));
-            return candidates.stream().limit(10).toList();
+    private void validateRecommendationRadius(int radiusMeters) {
+        if (radiusMeters < 1000 || radiusMeters > 15000 || radiusMeters % 1000 != 0) {
+            throw new IllegalArgumentException("추천 거리는 1~15km에서 1km 단위로 선택해주세요.");
         }
-
-        return List.of();
     }
 
     private void addAiStores(Map<String, Map<String, Object>> target,
@@ -549,9 +633,13 @@ public class FirebaseService {
 
     private void addAiStoreDetails(Map<String, Object> context, Map<String, Object> store) {
         context.put("industry", String.valueOf(store.getOrDefault("industry", "")));
+        context.put("address", store.getOrDefault("address", ""));
+        context.put("latitude", store.get("latitude"));
+        context.put("longitude", store.get("longitude"));
         for (int i = 1; i <= 4; i++) {
             context.put("menu" + i, String.valueOf(store.getOrDefault("menu" + i, "")));
             context.put("price" + i, String.valueOf(store.getOrDefault("price" + i, "")));
+            context.put("free" + i, Boolean.TRUE.equals(store.get("free" + i)));
         }
     }
 
@@ -563,7 +651,8 @@ public class FirebaseService {
                     truePriceService.estimate(menu, industry, address);
             if (official.isPresent()) return official;
         }
-        return ReferencePrices.estimateFromPublicStores(cachedStores, menu, industry);
+        return ReferencePrices.estimateFromPublicStores(getAllStores().stream()
+                .filter(store -> "GOV".equals(store.get("source"))).toList(), menu, industry);
     }
 
     /** 자동화 작업이 classpath 스냅샷을 갱신할 수 있도록 안정된 순서의 캐시 복사본을 반환합니다. */
@@ -586,38 +675,13 @@ public class FirebaseService {
 
     // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합, 전량 인메모리)
     public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
-        // 1. 정부 인증 업소 (Blue) - 메모리 캐시
-        List<Map<String, Object>> govStores = cachedStores.stream()
-                .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
-                .map(data -> toPublicStore(data, "GOV"))
-                .limit(1000)
-                .toList();
-
-        // 2. 사용자 제보 업소 (Orange) - 메모리 캐시 (Firestore 실시간 조회 제거)
-        // 💡 어드민 승인(APPROVED)된 제변이나, 승인제 도입 이전의 레거시 제보(status 없음)만 지도에 노출.
-        //    PENDING(검토 중)·REJECTED(반려)는 공개 지도에서 제외합니다.
-        List<Map<String, Object>> userStores = cachedUserStores.stream()
-                .filter(this::isPubliclyVisible)
-                .filter(data -> isInBounds(data, minLat, maxLat, minLng, maxLng))
-                .map(data -> toPublicStore(data, "USER"))
-                .limit(200)
-                .toList();
-
-        // 3. 통합 리스트 반환
-        List<Map<String, Object>> combined = new ArrayList<>();
-        combined.addAll(govStores);
-        combined.addAll(userStores);
-        return combined;
+        return getAllStores().stream().filter(store -> isInBounds(store, minLat, maxLat, minLng, maxLng))
+                .limit(1200).toList();
     }
 
     /** 매장 상세의 가격 이력 조회. 승인된 가격 변동 제보만 공개합니다. */
     public Map<String, Object> getPriceHistory(String storeIdentity, String menuName) throws Exception {
-        Map<String, Object> store = Stream.concat(cachedStores.stream(), cachedUserStores.stream())
-                .map(this::withStableStoreId)
-                .filter(item -> storeIdentity.equals(String.valueOf(item.get("storeId")))
-                        || storeIdentity.equals(String.valueOf(item.get("storeName"))))
-                .findFirst()
-                .orElse(null);
+        Map<String, Object> store = resolveReviewStore(storeIdentity, getStoreCatalogEntry().stores());
         if (store == null) {
             throw new NoSuchElementException("매장을 찾을 수 없습니다.");
         }
@@ -629,20 +693,31 @@ public class FirebaseService {
         List<Map<String, Object>> history = new ArrayList<>();
 
         for (Map<String, Object> report : cachedUserStores) {
-            if (report == null || !isPubliclyVisible(report)) continue;
+            if (report == null || !"APPROVED".equals(report.get("status"))
+                    || !("PRICE".equals(report.get("resolution")) || StoreCorrectionPolicy.priceReport(report))) continue;
             Map<String, Object> normalized = withStableStoreId(report);
             if (!String.valueOf(store.get("storeId")).equals(String.valueOf(normalized.get("storeId")))) {
                 continue;
             }
-            if (!resolvedMenu.equals(String.valueOf(report.getOrDefault("menu1", "")).trim())) {
+            Map<String, Object> applied = report.get("appliedFields") instanceof Map<?, ?> fields
+                    ? fields.entrySet().stream().collect(java.util.stream.Collectors.toMap(
+                            entry -> String.valueOf(entry.getKey()), Map.Entry::getValue)) : report;
+            int slot = 1;
+            for (int i = 1; i <= 4; i++) if (resolvedMenu.equals(applied.get("menu" + i))) slot = i;
+            if ("delete".equals(report.get("changeType")) && report.get("previousFields") instanceof Map<?, ?> previous) {
+                for (int i = 1; i <= 4; i++) if (resolvedMenu.equals(previous.get("menu" + i))) slot = i;
+                applied = new HashMap<>(applied); applied.put("menu" + slot, resolvedMenu);
+            }
+            if (!resolvedMenu.equals(String.valueOf(applied.getOrDefault("menu" + slot, "")).trim())) {
                 continue;
             }
-            String price = String.valueOf(report.getOrDefault("price1", "")).trim();
+            String price = String.valueOf(applied.getOrDefault("price" + slot, "")).trim();
             if (price.isBlank() && !"delete".equals(report.get("changeType"))) continue;
             Map<String, Object> item = new HashMap<>();
             item.put("price", price);
             item.put("source", "USER");
-            item.put("description", stringOrDefault(report, "description", "사용자 제보 반영"));
+            item.put("description", "승인된 가격 변동 반영");
+            item.put("free", Boolean.TRUE.equals(applied.get("free" + slot)));
             item.put("date", stringOrDefault(report, "createdAt", ""));
             item.put("changeType", stringOrDefault(report, "changeType", ""));
             history.add(item);
@@ -678,16 +753,11 @@ public class FirebaseService {
     /** Price-change validation must use the server catalog, not the client-supplied price. */
     public String getCurrentMenuPrice(String storeId, String storeName, String menuName) {
         if (menuName == null || menuName.isBlank()) return null;
-        return Stream.concat(cachedStores.stream(), cachedUserStores.stream())
-                .map(this::withStableStoreId)
-                .filter(item -> (storeId != null && !storeId.isBlank()
-                        && storeId.equals(String.valueOf(item.get("storeId"))))
-                        || ((storeId == null || storeId.isBlank()) && storeName != null
-                        && storeName.equals(String.valueOf(item.get("storeName")))))
-                .map(item -> findMenuPrice(item, menuName))
-                .filter(price -> !price.isBlank())
-                .findFirst()
-                .orElse(null);
+        Map<String, Object> store = resolveReviewStore(storeId != null && !storeId.isBlank() ? storeId : storeName,
+                getAllStores());
+        if (store == null) return null;
+        String price = findMenuPrice(store, menuName);
+        return price.isBlank() ? null : price;
     }
 
     /**
@@ -695,6 +765,7 @@ public class FirebaseService {
      * APPROVED(어드민 승인) 또는 status 필드가 없는 레거시 제볼만 true.
      */
     private boolean isPubliclyVisible(Map<String, Object> data) {
+        if (StoreCorrectionPolicy.informationReport(data) || StoreCorrectionPolicy.priceReport(data)) return false;
         Object status = data.get("status");
         if (status == null || status.toString().isBlank()) return true; // 승인제 도입 전 레거시 데이터
         return "APPROVED".equalsIgnoreCase(status.toString());
@@ -721,19 +792,25 @@ public class FirebaseService {
             report.setStoreId(stableStoreId(
                     report.getStoreName(), report.getAddress(), report.getPhoneNumber()));
         }
+        validateReportTarget(report);
         report.setImageUrls(normalizeReportImageUrls(
                 report.getReporterId(), report.getImageUrls(), Set.of()));
 
         DocumentReference docRef = db.collection("stores_user").document();
         @SuppressWarnings("unchecked")
         Map<String, Object> data = objectMapper.convertValue(report, Map.class);
-        ApiFuture<WriteResult> future = docRef.set(report);
+        Map<String, Object> targetStore = getStoreById(report.getStoreId());
+        if (targetStore != null) data.put("baseRevision", StoreCorrectionPolicy.revision(targetStore));
+        ApiFuture<WriteResult> future = docRef.set(data);
         future.get();
 
         data.put("id", docRef.getId());
-        List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
-        updated.add(immutableStoreCopy(data));
-        cachedUserStores = List.copyOf(updated);
+        synchronized (allStoresCacheLock) {
+            List<Map<String, Object>> updated = new ArrayList<>(cachedUserStores);
+            updated.add(immutableStoreCopy(data));
+            cachedUserStores = List.copyOf(updated);
+            allStoresCache = null;
+        }
         invalidateCommunityFeedCache();
 
         return docRef.getId();
@@ -751,6 +828,9 @@ public class FirebaseService {
         if (!reporterUid.equals(existing.getString("reporterId"))) {
             throw new SecurityException("본인의 제보만 수정할 수 있습니다.");
         }
+        if ("APPROVED".equalsIgnoreCase(existing.getString("status"))) {
+            throw new IllegalArgumentException("승인된 제보는 다시 작성할 수 없습니다. 새 변경 제보를 등록해주세요.");
+        }
 
         List<String> existingImageUrls = stringList(existing.get("imageUrls"));
         report.setReporterId(reporterUid);
@@ -759,6 +839,7 @@ public class FirebaseService {
             report.setStoreId(stableStoreId(
                     report.getStoreName(), report.getAddress(), report.getPhoneNumber()));
         }
+        validateReportTarget(report);
         report.setCreatedAt(stringOrDefault(
                 existing.getData(), "createdAt", java.time.Instant.now().toString()));
         report.setRejectReason(null);
@@ -769,14 +850,36 @@ public class FirebaseService {
 
         @SuppressWarnings("unchecked")
         Map<String, Object> data = objectMapper.convertValue(report, Map.class);
-        docRef.update(data).get();
+        Map<String, Object> currentTarget = getStoreById(report.getStoreId());
+        if (currentTarget != null) data.put("baseRevision", StoreCorrectionPolicy.revision(currentTarget));
+        data.put("appliedFields", Map.of()); data.put("previousFields", Map.of()); data.put("resolution", "");
+        try {
+            db.runTransaction(transaction -> {
+                DocumentSnapshot latest = transaction.get(docRef).get();
+                if (!latest.exists()) throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+                if (!reporterUid.equals(latest.getString("reporterId"))) throw new SecurityException("본인의 제보만 수정할 수 있습니다.");
+                if ("APPROVED".equalsIgnoreCase(latest.getString("status"))) {
+                    throw new IllegalStateException("검토 중 제보가 승인되었습니다. 새 변경 제보를 등록해주세요.");
+                }
+                transaction.update(docRef, data);
+                return null;
+            }).get();
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof RuntimeException failure) throw failure;
+            throw exception;
+        }
 
         Map<String, Object> mergedData = new HashMap<>(existing.getData());
         mergedData.putAll(data);
         mergedData.put("id", reportId);
-        cachedUserStores = cachedUserStores.stream()
-                .map(item -> reportId.equals(item.get("id")) ? immutableStoreCopy(mergedData) : item)
-                .toList();
+        synchronized (allStoresCacheLock) {
+            cachedUserStores = cachedUserStores.stream()
+                    .map(item -> reportId.equals(item.get("id"))
+                            && !"APPROVED".equalsIgnoreCase(strOrNull(item.get("status")))
+                            ? immutableStoreCopy(mergedData) : item)
+                    .toList();
+            allStoresCache = null;
+        }
         invalidateCommunityFeedCache();
 
         List<String> removedImages = existingImageUrls.stream()
@@ -786,6 +889,14 @@ public class FirebaseService {
             deleteReportImages(reporterUid, removedImages);
         } catch (Exception e) {
             log.warn("수정 후 제거된 제보 사진 정리에 실패했습니다. reportId={}", reportId, e);
+        }
+    }
+
+    private void validateReportTarget(com.howmuch.dto.UserReportRequest report) {
+        if (!"STORE_INFO".equalsIgnoreCase(report.getReportType()) && (report.getChangeType() == null || report.getChangeType().isBlank())) return;
+        Map<String, Object> target = getStoreById(report.getStoreId());
+        if (target == null || !normalizeStoreIdentityPart(report.getStoreName()).equals(normalizeStoreIdentityPart(strOrNull(target.get("storeName"))))) {
+            throw new IllegalArgumentException("신고 대상 매장 정보를 다시 선택해주세요.");
         }
     }
 
@@ -835,9 +946,12 @@ public class FirebaseService {
         int deletedSubscriptions = deleteWhere("feed_notifications", "postId", reportId);
         int deletedNotifications = deleteWhere("notifications", "relatedReportId", reportId);
         docRef.delete().get();
-        cachedUserStores = cachedUserStores.stream()
-                .filter(item -> !reportId.equals(item.get("id")))
-                .toList();
+        synchronized (allStoresCacheLock) {
+            cachedUserStores = cachedUserStores.stream()
+                    .filter(item -> !reportId.equals(item.get("id")))
+                    .toList();
+            allStoresCache = null;
+        }
         invalidateCommunityFeedCache();
 
         Map<String, Object> result = new HashMap<>();
@@ -1002,13 +1116,15 @@ public class FirebaseService {
                 Long price = snapshot.getLong("price");
                 if (userId == null || userId.isBlank()
                         || storeName == null || storeName.isBlank()
-                        || price == null || price <= 0) {
+                        || price == null || price < 0
+                        || (price == 0 && !isApprovedFreeMenu(snapshot.getString("storeId"), storeName, snapshot.getString("menu")))) {
                     throw new IllegalArgumentException("영수증 인증 데이터가 올바르지 않습니다.");
                 }
 
                 String menu = snapshot.getString("menu");
+                if (isClosedStore(snapshot.getString("storeId"), storeName)) throw new IllegalArgumentException("폐업한 매장은 방문 인증할 수 없습니다.");
                 String industry = findIndustryByStoreName(storeName);
-                long savedAmount = ReferencePrices.savedAmount(
+                long savedAmount = price == 0 ? 0L : ReferencePrices.savedAmount(
                         estimateReferencePrice(menu, industry, findAddressByStoreName(storeName)), price);
                 com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
                         .storeId(snapshot.getString("storeId"))
@@ -1253,6 +1369,8 @@ public class FirebaseService {
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
+                    Map<String, Object> currentStore = getStoreById(strOrNull(data.get("storeId")));
+                    if (currentStore != null) data.put("currentStore", currentStore);
                     return data;
                 })
                 .sorted((a, b) -> String.valueOf(b.getOrDefault("createdAt", ""))
@@ -1266,18 +1384,126 @@ public class FirebaseService {
         DocumentReference document = db.collection("stores_user").document(reportId);
         if (!document.get().get().exists()) throw new NoSuchElementException("제보를 찾을 수 없습니다.");
         document.update("industry", industry).get();
-        cachedUserStores = cachedUserStores.stream().map(item -> {
-            if (!reportId.equals(String.valueOf(item.get("id")))) return item;
-            Map<String, Object> updated = new HashMap<>(item);
-            updated.put("industry", industry);
-            return immutableStoreCopy(updated);
-        }).toList();
-        allStoresCache = null;
+        updateReportCache(reportId, Map.of("industry", industry));
     }
 
     // 💡 [어드민] 제보 승인 — status를 APPROVED로 변경 (승인 매장의 공식 stores 반영은 별도 작업)
     public void approveReport(String reportId) throws Exception {
-        updateReportStatus(reportId, "APPROVED", null);
+        approveReport(reportId, null);
+    }
+
+    public void approveReport(String reportId, com.howmuch.dto.ReportApprovalRequest approval) throws Exception {
+        DocumentReference reportRef = db.collection("stores_user").document(reportId);
+        ApprovalCommit committed;
+        try {
+            committed = db.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(reportRef).get();
+                if (!snapshot.exists()) throw new NoSuchElementException("제보를 찾을 수 없습니다.");
+                Map<String, Object> report = new HashMap<>(snapshot.getData());
+                String status = snapshot.getString("status");
+                if (status != null && !status.isBlank() && !"PENDING".equalsIgnoreCase(status)) {
+                    throw new IllegalStateException("이미 처리된 제보입니다.");
+                }
+                boolean correctionReport = StoreCorrectionPolicy.informationReport(report) || StoreCorrectionPolicy.priceReport(report);
+                Map<String, Object> correction = null;
+                Map<String, Object> updates = new HashMap<>();
+                String processedAt = java.time.Instant.now().toString();
+                updates.put("status", "APPROVED"); updates.put("processedAt", processedAt);
+                String storeId = strOrNull(report.get("storeId"));
+                if (correctionReport) {
+                    Map<String, Object> base = findOriginalStore(storeId);
+                    if (base == null) throw new IllegalArgumentException("신고 대상 매장을 찾을 수 없습니다.");
+                    DocumentReference correctionRef = db.collection(STORE_CORRECTIONS_COLLECTION).document(storeId);
+                    DocumentSnapshot correctionSnapshot = transaction.get(correctionRef).get();
+                    Map<String, Object> previous = correctionSnapshot.exists() ? correctionSnapshot.getData() : null;
+                    Map<String, Object> current = applyStoreCorrection(base, previous);
+                    long reportRevision = report.get("baseRevision") instanceof Number revision ? revision.longValue() : 0L;
+                    if (!StoreCorrectionPolicy.informationReport(report)
+                            && reportRevision != StoreCorrectionPolicy.revision(current)) {
+                        throw new IllegalStateException("제보 후 매장 정보가 변경되었습니다. 새 정보를 확인한 뒤 다시 검토해주세요.");
+                    }
+                    StoreCorrectionPolicy.Decision decision = StoreCorrectionPolicy.decide(report, current, approval);
+                    updates.put("resolution", decision.resolution()); updates.put("reviewReason", decision.reason());
+                    updates.put("appliedFields", decision.fields());
+                    updates.put("previousFields", correctionPreviousFields(current, decision.fields()));
+                    if (!decision.fields().isEmpty()) {
+                        correction = previous == null ? new HashMap<>() : new HashMap<>(previous);
+                        Map<String, Object> fields = new HashMap<>();
+                        if (correction.get("fields") instanceof Map<?, ?> oldFields) {
+                            oldFields.forEach((key, value) -> fields.put(String.valueOf(key), value));
+                        }
+                        fields.putAll(decision.fields());
+                        correction.put("fields", fields);
+                        correction.put("revision", StoreCorrectionPolicy.revision(current) + 1);
+                        correction.put("updatedAt", processedAt);
+                        correction.put("lastReportId", reportId);
+                        transaction.set(correctionRef, correction);
+                    }
+                } else {
+                    StoreCorrectionPolicy.validateNewStorePrices(report);
+                    updates.put("resolution", "NEW_STORE");
+                }
+                transaction.update(reportRef, updates);
+                return new ApprovalCommit(storeId, correction, updates, strOrNull(report.get("storeName")), strOrNull(report.get("changeType")));
+            }).get();
+        } catch (ExecutionException exception) {
+            if (exception.getCause() instanceof RuntimeException failure) throw failure;
+            throw exception;
+        }
+        if (committed.correction() != null) {
+            synchronized (allStoresCacheLock) {
+                Map<String, Map<String, Object>> corrections = new HashMap<>(cachedStoreCorrections);
+                Map<String, Object> prior = corrections.get(committed.storeId());
+                long priorRevision = correctionRevision(prior);
+                if (correctionRevision(committed.correction()) >= priorRevision) {
+                    corrections.put(committed.storeId(), immutableStoreCopy(committed.correction()));
+                }
+                cachedStoreCorrections = Map.copyOf(corrections);
+            }
+        }
+        updateReportCache(reportId, committed.updates());
+        if ("PRICE".equals(committed.updates().get("resolution"))) {
+            try { notifyUsersOnPriceReportApproved(committed.storeName(), committed.storeId(), reportId, committed.changeType()); }
+            catch (Exception exception) { log.warn("가격 반영 후 알림을 보내지 못했습니다: {}", reportId); }
+        }
+    }
+
+    private record ApprovalCommit(String storeId, Map<String, Object> correction, Map<String, Object> updates,
+                                  String storeName, String changeType) {}
+
+    private static long correctionRevision(Map<String, Object> correction) {
+        return correction != null && correction.get("revision") instanceof Number revision ? revision.longValue() : 0L;
+    }
+
+    private Map<String, Object> correctionPreviousFields(Map<String, Object> current, Map<String, Object> changes) {
+        Map<String, Object> previous = new HashMap<>();
+        for (String key : changes.keySet()) previous.put(key, current.getOrDefault(key, ""));
+        return previous;
+    }
+
+    private Map<String, Object> findOriginalStore(String storeId) {
+        for (Map<String, Object> raw : cachedStores) {
+            Map<String, Object> store = withStableStoreId(raw);
+            if (java.util.Objects.equals(storeId, store.get("storeId"))) { store.put("source", "GOV"); return store; }
+        }
+        for (Map<String, Object> raw : cachedUserStores) {
+            if (!isPubliclyVisible(raw)) continue;
+            Map<String, Object> store = withStableStoreId(raw);
+            if (java.util.Objects.equals(storeId, store.get("storeId"))) { store.put("source", "USER"); return store; }
+        }
+        return null;
+    }
+
+    private void updateReportCache(String reportId, Map<String, Object> updates) {
+        synchronized (allStoresCacheLock) {
+            cachedUserStores = cachedUserStores.stream().map(item -> {
+                if (!reportId.equals(item.get("id"))) return item;
+                Map<String, Object> updated = new HashMap<>(item); updated.putAll(updates);
+                return immutableStoreCopy(updated);
+            }).toList();
+            allStoresCache = null;
+        }
+        invalidateCommunityFeedCache();
     }
 
     // 💡 [어드민] 제보 반려 — status를 REJECTED로 변경 + 반려 사유 저장
@@ -1334,19 +1560,7 @@ public class FirebaseService {
             }
         }
 
-        // 인메모리 캐시에도 즉시 반영 (bounds 조회 캐시와 상태 일치)
-        List<Map<String, Object>> updated = cachedUserStores.stream()
-                .map(item -> {
-                    if (reportId.equals(item.get("id"))) {
-                        Map<String, Object> copy = new HashMap<>(item);
-                        copy.putAll(updates);
-                        return immutableStoreCopy(copy);
-                    }
-                    return item;
-                })
-                .toList();
-        cachedUserStores = List.copyOf(updated);
-        invalidateCommunityFeedCache();
+        updateReportCache(reportId, updates);
     }
 
     private record ReportStatusUpdate(String storeName, String storeId, String changeType) { }
@@ -1604,26 +1818,23 @@ public class FirebaseService {
     // 💡 매장명으로 업종 조회 (공공데이터 인메모리 캐시 사용 — Firestore 읽기 0)
     public String findIndustryByStoreName(String storeName) {
         if (storeName == null || storeName.isBlank()) return null;
-        return cachedStores.stream()
-                .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
-                .map(s -> s.get("industry") != null ? s.get("industry").toString() : null)
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+        Map<String, Object> store = resolveReviewStore(storeName, getAllStores());
+        return store == null ? null : strOrNull(store.get("industry"));
     }
 
     public String findAddressByStoreName(String storeName) {
         if (storeName == null || storeName.isBlank()) return null;
-        return cachedStores.stream()
-                .filter(store -> storeName.equals(String.valueOf(store.get("storeName"))))
-                .map(store -> store.get("address") == null ? null : String.valueOf(store.get("address")))
-                .filter(java.util.Objects::nonNull)
-                .findFirst()
-                .orElse(null);
+        Map<String, Object> store = resolveReviewStore(storeName, getAllStores());
+        return store == null ? null : strOrNull(store.get("address"));
     }
 
     // 💡 방문 기록 저장 (절약 금액은 VisitController에서 서버 룰로 계산되어 주입됨)
     public String saveVisit(String firebaseUid, com.howmuch.dto.VisitRequest request, long savedAmount) throws Exception {
+        if (isClosedStore(request.getStoreId(), request.getStoreName())) throw new IllegalArgumentException("폐업한 매장은 방문 인증할 수 없습니다.");
+        if (request.getPrice() != null && request.getPrice() == 0
+                && !isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu())) {
+            throw new IllegalArgumentException("승인된 무료 메뉴만 0원 방문 인증할 수 있습니다.");
+        }
         boolean locationVerification = "LOCATION".equalsIgnoreCase(request.getVerificationMethod());
         DocumentReference docRef = locationVerification
                 ? db.collection("visits").document(locationVisitDocumentId(
@@ -1689,12 +1900,32 @@ public class FirebaseService {
         data.put("industry", industry);
         data.put("menu", request.getMenu());
         data.put("price", request.getPrice());
-        data.put("savedAmount", savedAmount);
-        data.put("isGov", findIndustryByStoreName(request.getStoreName()) != null);
+        boolean free = request.getPrice() != null && request.getPrice() == 0
+                && isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu());
+        data.put("isFree", free);
+        data.put("savedAmount", free ? 0L : savedAmount);
+        Map<String, Object> canonical = resolveReviewStore(request.getStoreId() != null ? request.getStoreId() : request.getStoreName(), getStoreCatalogEntry().stores());
+        data.put("isGov", canonical != null && "GOV".equals(canonical.get("source")));
         data.put("verificationMethod", request.getVerificationMethod());
         data.put("verificationDistanceMeters", request.getVerificationDistanceMeters());
         data.put("visitedAt", visitedAt);
         return data;
+    }
+
+    public boolean isApprovedFreeMenu(String storeId, String storeName, String menu) {
+        Map<String, Object> store = resolveReviewStore(storeId != null && !storeId.isBlank() ? storeId : storeName, getAllStores());
+        if (store == null || menu == null || menu.isBlank()) return false;
+        for (int i = 1; i <= 4; i++) if (menu.trim().equals(strOrNull(store.get("menu" + i)))) {
+            return Boolean.TRUE.equals(store.get("free" + i))
+                    && WonPrice.parse(store.get("price" + i)).filter(WonPrice.Value::exact)
+                    .map(price -> price.minimum() == 0).orElse(false);
+        }
+        return false;
+    }
+
+    public boolean isClosedStore(String storeId, String storeName) {
+        Map<String, Object> store = resolveReviewStore(storeId != null && !storeId.isBlank() ? storeId : storeName, getStoreCatalogEntry().stores());
+        return store != null && Boolean.TRUE.equals(store.get("isClosed"));
     }
 
     // 💡 사용자의 방문 기록 목록 조회 (방문 일시, 매장명, 절약 금액 등 포함)
@@ -1865,12 +2096,15 @@ public class FirebaseService {
 
     // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)
     public List<Map<String, Object>> getMyReviews(String authorUid) throws Exception {
+        List<Map<String, Object>> catalog = getStoreCatalogEntry().stores();
         List<Map<String, Object>> reviews = new ArrayList<>(db.collection("reviews")
                 .whereEqualTo("authorUid", authorUid)
                 .get().get().getDocuments().stream()
                 .map(doc -> {
                     Map<String, Object> data = new HashMap<>(doc.getData());
                     data.put("id", doc.getId());
+                    Map<String, Object> store = resolveReviewStore(strOrNull(data.get("storeId")), catalog);
+                    data.put("storeSource", store == null ? "UNKNOWN" : store.get("source"));
                     return data;
                 })
                 .toList());
@@ -1917,6 +2151,7 @@ public class FirebaseService {
                     .price(priceAmt)
                     .savedAmount(savedAmt != null ? savedAmt : 0L)
                     .isGov(isGov)
+                    .isFree(Boolean.TRUE.equals(data.get("isFree")))
                     .build();
 
             historyList.add(dto);
@@ -2172,10 +2407,10 @@ public class FirebaseService {
     /** 공공데이터 인메모리 캐시에서 매장명으로 매장 정보 조회 (Firestore 읽기 0). 없으면 null */
     private Map<String, Object> findGovStoreByName(String storeName) {
         if (storeName == null || storeName.isBlank()) return null;
-        return cachedStores.stream()
-                .filter(s -> storeName.equals(String.valueOf(s.get("storeName"))))
-                .findFirst()
-                .orElse(null);
+        // This lookup is used while assigning IDs; never recurse into the canonical catalog.
+        List<Map<String, Object>> matches = cachedStores.stream()
+                .filter(store -> storeName.equals(String.valueOf(store.get("storeName")))).toList();
+        return matches.size() == 1 ? matches.getFirst() : null;
     }
 
     /**
@@ -2184,13 +2419,11 @@ public class FirebaseService {
      * 클라이언트만 고유한 매장명으로 보완합니다.
      */
     public java.util.Optional<StoreCoordinates> findStoreCoordinates(String storeId, String storeName) {
-        List<Map<String, Object>> stores = new ArrayList<>();
-        stores.addAll(cachedStores);
-        stores.addAll(cachedUserStores);
+        List<Map<String, Object>> stores = getAllStores();
 
         StoreCoordinates nameFallback = null;
         for (Map<String, Object> rawStore : stores) {
-            Map<String, Object> store = withStableStoreId(rawStore);
+            Map<String, Object> store = rawStore;
             StoreCoordinates coordinates = toStoreCoordinates(store);
             if (coordinates == null) continue;
             String cachedId = strOrNull(store.get("storeId"));
@@ -2334,6 +2567,12 @@ public class FirebaseService {
                 .price3(store != null ? strOrNull(store.get("price3")) : null)
                 .menu4(store != null ? strOrNull(store.get("menu4")) : null)
                 .price4(store != null ? strOrNull(store.get("price4")) : null)
+                .free1(store != null && Boolean.TRUE.equals(store.get("free1")))
+                .free2(store != null && Boolean.TRUE.equals(store.get("free2")))
+                .free3(store != null && Boolean.TRUE.equals(store.get("free3")))
+                .free4(store != null && Boolean.TRUE.equals(store.get("free4")))
+                .isClosed(store != null && Boolean.TRUE.equals(store.get("isClosed")))
+                .correctionRevision(store != null ? StoreCorrectionPolicy.revision(store) : 0L)
                 .address(store != null ? strOrNull(store.get("address")) : null)
                 .phoneNumber(store != null ? strOrNull(store.get("phoneNumber")) : null)
                 .latitude(store != null ? finiteNumberOrNull(store.get("latitude")) : null)
@@ -2345,7 +2584,7 @@ public class FirebaseService {
     /** 공개 상태의 정부·사용자 제보 매장을 stable ID로 인덱싱한다. */
     private Map<String, Map<String, Object>> publicStoreIndex() {
         Map<String, Map<String, Object>> storesById = new HashMap<>();
-        for (Map<String, Object> store : getAllStores()) {
+        for (Map<String, Object> store : getStoreCatalogEntry().stores()) {
             String storeId = strOrNull(store.get("storeId"));
             if (storeId != null && !storeId.isBlank()) {
                 storesById.putIfAbsent(storeId, store);
@@ -2538,6 +2777,7 @@ public class FirebaseService {
     // 💡 커뮤니티 피드 노출 여부 — 반려(REJECTED) 제보는 공개 피드에서 제외
     // (PENDING=검토 중, APPROVED=승인 완료, status 없음=승인제 이전 레거시는 노출)
     private boolean isFeedVisible(Map<String, Object> data) {
+        if (StoreCorrectionPolicy.informationReport(data)) return false;
         Object status = data.get("status");
         if (status == null || status.toString().isBlank()) return true; // 레거시
         return !"REJECTED".equalsIgnoreCase(status.toString());
@@ -2633,6 +2873,7 @@ public class FirebaseService {
                         .storeName(storeName)
                         .menu(menu1)
                         .price(price1)
+                        .free(Boolean.TRUE.equals(data.get("free1")))
                         .build();
                 feeds.add(dto);
             }
@@ -2720,6 +2961,10 @@ public class FirebaseService {
                 .price3(data.get("price3") != null ? (String) data.get("price3") : "")
                 .menu4(data.get("menu4") != null ? (String) data.get("menu4") : "")
                 .price4(data.get("price4") != null ? (String) data.get("price4") : "")
+                .free1(Boolean.TRUE.equals(data.get("free1")))
+                .free2(Boolean.TRUE.equals(data.get("free2")))
+                .free3(Boolean.TRUE.equals(data.get("free3")))
+                .free4(Boolean.TRUE.equals(data.get("free4")))
                 .visitedRecently(data.get("visitedRecently") != null && Boolean.parseBoolean(data.get("visitedRecently").toString()))
                 .checkedMenuPrice(data.get("checkedMenuPrice") != null && Boolean.parseBoolean(data.get("checkedMenuPrice").toString()))
                 .build();
@@ -2945,7 +3190,13 @@ public class FirebaseService {
      * @return 추천 매장 리스트 (최대 3개)
      */
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
+        return getTodaysPicks(weather, temp, lat, lng, 3000);
+    }
+
+    public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng, int radiusMeters) {
+        validateRecommendationRadius(radiusMeters);
         boolean locationAvailable = isValidCoordinate(lat, lng);
+        if (!locationAvailable) return List.of();
         final Double effectiveLat = locationAvailable ? lat : null;
         final Double effectiveLng = locationAvailable ? lng : null;
         List<PickTheme> themes = weatherThemes(weather, temp);
@@ -2955,16 +3206,16 @@ public class FirebaseService {
         // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
         //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
         List<Map<String, Object>> foodStores = new ArrayList<>();
-        for (Map<String, Object> store : cachedStores) {
+        for (Map<String, Object> store : getAllStores()) {
             String industry = strOrNull(store.get("industry"));
             if (industry != null && FOOD_INDUSTRIES.contains(industry)
-                    && (!locationAvailable || hasValidStoreCoordinate(store))) {
+                    && hasValidStoreCoordinate(store) && firstPricedMenu(store) != null) {
                 foodStores.add(store);
             }
         }
 
         // 테마별 매칭 (매장 → 실제 매칭된 메뉴 추적). 대안 테마는 메인과 겹치지 않게 제외.
-        long dailySeed = java.time.LocalDate.now().toEpochDay();
+        long dailySeed = java.time.LocalDate.now(ZoneId.of("Asia/Seoul")).toEpochDay();
         Map<String, String> matchedMenuByStore = new HashMap<>();
         Map<String, String> themeByStore = new HashMap<>();
         Map<String, String> reasonByStore = new HashMap<>();
@@ -2983,16 +3234,16 @@ public class FirebaseService {
        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
        List<Map<String, Object>> mainCandidates = nearestShuffled(
-                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, MAX_RECOMMENDATION_RADIUS_METERS);
+                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, radiusMeters);
        List<Map<String, Object>> altCandidates = nearestShuffled(
-                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, MAX_RECOMMENDATION_RADIUS_METERS);
+                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, radiusMeters);
 
        // 날씨 테마 후보를 먼저 유지하되, 3km 안에서 식사 2곳 + 디저트/카페 1곳을
        // 우선 구성한다. 한쪽이 부족하면 다른 쪽으로만 채우고, 먼 매장까지 범위를
        // 확장하지 않는다.
        List<Map<String, Object>> nearbyFood = nearestShuffled(
                foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE,
-               dailySeed + 2, MAX_RECOMMENDATION_RADIUS_METERS);
+               dailySeed + 2, radiusMeters);
        List<Map<String, Object>> preferred = new ArrayList<>();
        Set<String> preferredNames = new HashSet<>();
        addUnique(preferred, mainCandidates, CANDIDATE_POOL_SIZE, preferredNames);
@@ -3025,6 +3276,7 @@ public class FirebaseService {
            pick.put("industry", strOrNull(store.get("industry")));
            pick.put("menu1", strOrNull(store.get("menu1")));
            pick.put("price1", strOrNull(store.get("price1")));
+           for (int menuIndex = 1; menuIndex <= 4; menuIndex++) pick.put("free" + menuIndex, Boolean.TRUE.equals(store.get("free" + menuIndex)));
            for (int menuIndex = 2; menuIndex <= 4; menuIndex++) {
                pick.put("menu" + menuIndex, strOrNull(store.get("menu" + menuIndex)));
                pick.put("price" + menuIndex, strOrNull(store.get("price" + menuIndex)));
@@ -3040,19 +3292,23 @@ public class FirebaseService {
                        haversine(effectiveLat, effectiveLng, parseLat(store), parseLng(store))));
            }
             // 추천 근거: 실제 매칭된 메뉴 + 테마 + 이유 멘트 (폼백 매장도 4번째 추천 이유가 누락되지 않도록 메인 테마로 보정)
-            String matchedMenu = matchedMenuByStore.get(name);
+            String identity = String.valueOf(store.get("storeId"));
+            String matchedMenu = matchedMenuByStore.get(identity);
             if (matchedMenu == null || matchedMenu.isBlank()) {
-                matchedMenu = strOrNull(store.get("menu1"));
+                matchedMenu = firstPricedMenu(store);
             }
-            String theme = themeByStore.get(name);
+            String theme = themeByStore.get(identity);
             if (theme == null || theme.isBlank()) {
-                theme = mainTheme.label();
+                theme = "주변 매장";
             }
-            String reason = reasonByStore.get(name);
+            String reason = reasonByStore.get(identity);
             if (reason == null || reason.isBlank()) {
-                reason = mainTheme.reason();
+                reason = "선택한 거리 안에서 가까운 매장이에요.";
             }
             pick.put("matchedMenu", matchedMenu);
+            for (int slot = 1; slot <= 4; slot++) if (java.util.Objects.equals(matchedMenu, store.get("menu" + slot))) {
+                pick.put("matchedFree", Boolean.TRUE.equals(store.get("free" + slot)));
+            }
             pick.put("theme", theme);
             pick.put("reason", reason);
            picks.add(pick);
@@ -3148,14 +3404,14 @@ public class FirebaseService {
                                                  Set<String> excludeNames) {
         List<Map<String, Object>> matched = new ArrayList<>();
         for (Map<String, Object> store : foodStores) {
-            String name = String.valueOf(store.get("storeName"));
-            if (excludeNames.contains(name)) continue;
-            String matchedMenu = findMatchedMenu(store, theme.keywords());
+            String identity = String.valueOf(store.get("storeId"));
+            if (excludeNames.contains(identity)) continue;
+            String matchedMenu = findMatchedMenu(store, theme);
             if (matchedMenu != null) {
                 matched.add(store);
-                matchedMenuByStore.put(name, matchedMenu);
-                themeByStore.put(name, theme.label());
-                reasonByStore.put(name, theme.reason());
+                matchedMenuByStore.put(identity, matchedMenu);
+                themeByStore.put(identity, theme.label());
+                reasonByStore.put(identity, theme.reason());
             }
         }
         return matched;
@@ -3195,8 +3451,8 @@ public class FirebaseService {
         int added = 0;
         for (Map<String, Object> store : candidates) {
             if (added >= count) break;
-            String name = strOrNull(store.get("storeName"));
-            if (name == null || !seenNames.add(name)) continue;
+            String identity = strOrNull(store.get("storeId"));
+            if (identity == null || !seenNames.add(identity)) continue;
             chosen.add(store);
             added++;
         }
@@ -3206,15 +3462,27 @@ public class FirebaseService {
      * 매장의 메뉴(menu1~menu4) 중 추천 키워드를 포함하는 "첫 번째 실제 메뉴"를 반환.
      * 없으면 null. 카드에는 menu1 대신 이 매칭된 메뉴를 보여줘 추천 근거와 일치시킨다.
      */
-    private String findMatchedMenu(Map<String, Object> store, List<String> keywords) {
-        for (String key : new String[]{"menu1", "menu2", "menu3", "menu4"}) {
-            String menu = strOrNull(store.get(key));
-            if (menu == null || menu.isBlank()) continue;
-            for (String kw : keywords) {
+    private String findMatchedMenu(Map<String, Object> store, PickTheme theme) {
+        boolean warm = theme.label().contains("따뜻") || theme.label().equals("이열치열");
+        for (int slot = 1; slot <= 4; slot++) {
+            String menu = strOrNull(store.get("menu" + slot));
+            if (menu == null || menu.isBlank() || WonPrice.menuMinimum(store.get("price" + slot),
+                    Boolean.TRUE.equals(store.get("free" + slot))) == null) continue;
+            if (warm && List.of("비빔", "냉", "볶음", "김밥").stream().anyMatch(menu::contains)) continue;
+            for (String kw : theme.keywords()) {
                 if (menu.contains(kw)) {
                     return menu;
                 }
             }
+        }
+        return null;
+    }
+
+    private String firstPricedMenu(Map<String, Object> store) {
+        for (int slot = 1; slot <= 4; slot++) {
+            String menu = strOrNull(store.get("menu" + slot));
+            if (menu != null && !menu.isBlank() && WonPrice.menuMinimum(store.get("price" + slot),
+                    Boolean.TRUE.equals(store.get("free" + slot))) != null) return menu;
         }
         return null;
     }

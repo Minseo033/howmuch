@@ -201,6 +201,8 @@ public class ReportController {
         } catch (SecurityException e) {
             return ResponseEntity.status(403).body(Map.of(
                     "success", false, "message", "본인의 제보만 수정할 수 있습니다."));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("제보 수정 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
@@ -325,14 +327,39 @@ public class ReportController {
                         "success", false, "message", "메뉴판 가격 확인 여부를 체크해주세요."));
             }
         }
+        if (reportTypeIsStoreInfo(report)) {
+            if (report.getChangeType() == null || report.getDescription() == null || report.getDescription().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "신고 유형과 상세 설명은 필수입니다."));
+            }
+            if ("price_mismatch".equals(report.getChangeType())) {
+                if (report.getMenu1() == null || report.getMenu1().isBlank()) {
+                    return ResponseEntity.badRequest().body(Map.of("success", false, "message", "변경할 메뉴는 필수입니다."));
+                }
+                validateSubmittedPrice(report.getPrice1(), report.isFree1());
+            }
+        } else if (report.getChangeType() == null || report.getChangeType().isBlank()) {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            @SuppressWarnings("unchecked") Map<String, Object> reportData = mapper.convertValue(report, Map.class);
+            com.howmuch.service.StoreCorrectionPolicy.validateNewStorePrices(reportData);
+        } else if (!"delete".equals(report.getChangeType())) {
+            validateSubmittedPrice(report.getPrice1(), report.isFree1());
+        }
         return null;
+    }
+
+    private void validateSubmittedPrice(String raw, boolean free) {
+        var price = com.howmuch.service.WonPrice.parse(raw).filter(com.howmuch.service.WonPrice.Value::exact)
+                .orElseThrow(() -> new IllegalArgumentException("가격은 하나의 정확한 금액으로 입력해주세요."));
+        if (free ? price.minimum() != 0 : price.minimum() <= 0) {
+            throw new IllegalArgumentException("무료로 명시한 메뉴만 0원을 입력할 수 있습니다.");
+        }
     }
 
     private void validatePriceDirection(UserReportRequest report) {
         String type = report.getChangeType();
         if (reportTypeIsStoreInfo(report) || type == null || type.isBlank() || "delete".equals(type)) return;
         long nextPrice = parseWon(report.getPrice1());
-        if (nextPrice <= 0) throw new IllegalArgumentException("변경된 가격을 올바르게 입력해주세요.");
+        if (nextPrice < 0 || (nextPrice == 0 && !report.isFree1())) throw new IllegalArgumentException("변경된 가격을 올바르게 입력해주세요.");
         String currentRaw = firebaseService.getCurrentMenuPrice(
                 report.getStoreId(), report.getStoreName(), report.getMenu1());
         if ("new".equals(type)) {
@@ -342,7 +369,7 @@ public class ReportController {
             return;
         }
         long currentPrice = parseWon(currentRaw);
-        if (currentPrice <= 0) {
+        if (currentPrice < 0) {
             throw new IllegalArgumentException("현재 메뉴 가격을 확인할 수 없습니다. 등록된 메뉴를 선택해주세요.");
         }
         if (nextPrice == currentPrice) throw new IllegalArgumentException("기존 가격과 새 가격이 같습니다.");
@@ -355,11 +382,8 @@ public class ReportController {
     }
 
     private long parseWon(String value) {
-        if (value == null) return -1;
-        String digits = value.replaceAll("[^0-9]", "");
-        if (digits.isEmpty() || digits.length() > 9) return -1;
-        try { return Long.parseLong(digits); }
-        catch (NumberFormatException ignored) { return -1; }
+        return com.howmuch.service.WonPrice.parse(value).filter(com.howmuch.service.WonPrice.Value::exact)
+                .map(com.howmuch.service.WonPrice.Value::minimum).orElse(-1L);
     }
 
     private void normalizeReport(UserReportRequest report) {

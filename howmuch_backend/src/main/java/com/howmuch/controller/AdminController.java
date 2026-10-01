@@ -417,8 +417,13 @@ public class AdminController {
     }
 
     /** 제보 승인 (POST /api/admin/reports/{id}/approve) */
+    public ResponseEntity<?> approveReport(String id, HttpServletRequest httpRequest) {
+        return approveReport(id, null, httpRequest);
+    }
+
     @PostMapping("/reports/{id}/approve")
     public ResponseEntity<?> approveReport(@PathVariable String id,
+                                           @RequestBody(required = false) com.howmuch.dto.ReportApprovalRequest approval,
                                            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
@@ -426,13 +431,16 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
-            firebaseService.approveReport(id);
+            if (approval == null) firebaseService.approveReport(id);
+            else firebaseService.approveReport(id, approval);
             log.info("[AdminController] 제보 승인 - id: {}", id);
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "APPROVED"));
         } catch (IllegalStateException e) {
             return ResponseEntity.status(409).body(Map.of("success", false, "message", e.getMessage()));
-        } catch (IllegalArgumentException e) {
+        } catch (java.util.NoSuchElementException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 제보 승인 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

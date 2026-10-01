@@ -28,6 +28,10 @@ public class UserReportRequest {
     private String price3;
     private String menu4;
     private String price4;
+    private boolean free1;
+    private boolean free2;
+    private boolean free3;
+    private boolean free4;
     private double latitude;
     private double longitude;
 

@@ -24,4 +24,5 @@ public class SavingsHistoryResponse {
     private Long price;         // 결제/이용 금액 (원)
     private Long savedAmount;   // 절약 금액 (원)
     private Boolean isGov;      // 착한가격업소 여부 (정부인증 여부)
+    private Boolean isFree;     // Explicitly approved free use; savings are not invented
 }

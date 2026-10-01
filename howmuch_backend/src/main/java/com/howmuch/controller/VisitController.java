@@ -85,7 +85,8 @@ public class VisitController {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false, "message", "입력값이 허용 범위를 초과했습니다."));
             }
-            if (price <= 0 || price > 10_000_000L) {
+            boolean free = price == 0 && firebaseService.isApprovedFreeMenu(normalizedStoreId, normalizedStoreName, normalizedMenu);
+            if (price < 0 || (price == 0 && !free) || price > 10_000_000L) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", "결제 금액을 확인해주세요."));
             }
             if (images == null || images.size() != 1) {
@@ -101,6 +102,9 @@ public class VisitController {
                 return ResponseEntity.status(429).body(Map.of(
                         "success", false,
                         "message", "영수증 인증 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."));
+            }
+            if (firebaseService.isClosedStore(normalizedStoreId, normalizedStoreName)) {
+                return ResponseEntity.badRequest().body(Map.of("success", false, "message", "폐업한 매장은 방문 인증할 수 없습니다."));
             }
             if (firebaseService.receiptVerificationExists(receiptFingerprint)
                     || firebaseService.receiptVerificationExists(legacyFingerprint)) {
@@ -231,6 +235,9 @@ public class VisitController {
                     "success", false, "message", "입력값이 허용 범위를 벗어났습니다."));
         }
 
+        if (price == 0) return ResponseEntity.ok(Map.of("referencePriceAvailable", false,
+                "referencePrice", 0, "savedAmount", 0, "matchedByMenu", false,
+                "source", "UNAVAILABLE", "sourceLabel", "무료 이용은 절약액을 합산하지 않아요", "basisDate", "", "sampleSize", 0));
         String industry = firebaseService.findIndustryByStoreName(storeName);
         Optional<ReferencePrices.Estimate> estimate = firebaseService.estimateReferencePrice(
                 menu, industry, firebaseService.findAddressByStoreName(storeName));
@@ -282,10 +289,12 @@ public class VisitController {
                     "message", "storeName은 필수입니다."
             ));
         }
-        if (request.getPrice() == null || request.getPrice() <= 0) {
+        boolean free = request.getPrice() != null && request.getPrice() == 0
+                && firebaseService.isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu());
+        if (request.getPrice() == null || request.getPrice() < 0 || (request.getPrice() == 0 && !free)) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "실제 결제 금액은 1원 이상이어야 합니다."
+                    "message", "실제 결제 금액은 양수여야 합니다. 승인된 무료 메뉴만 0원을 허용합니다."
             ));
         }
         if (!LOCATION_VERIFICATION.equalsIgnoreCase(request.getVerificationMethod())) {
@@ -349,7 +358,7 @@ public class VisitController {
                 request.setStoreName(coordinates.storeName());
             }
             request.setIndustry(industry);
-            long savedAmount = ReferencePrices.savedAmount(
+            long savedAmount = free ? 0L : ReferencePrices.savedAmount(
                     firebaseService.estimateReferencePrice(
                             request.getMenu(), industry,
                             firebaseService.findAddressByStoreName(request.getStoreName())),

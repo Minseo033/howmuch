@@ -6,6 +6,7 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.GeminiService;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.WeatherService;
+import com.howmuch.service.RecommendationRadius;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,16 +61,20 @@ public class RecommendationController {
     /** 오늘의 픽 (GET /api/recommendation/todays-pick) */
     @GetMapping("/todays-pick")
     public ResponseEntity<?> getTodaysPick(@RequestParam(required = false) Double lat,
-                                           @RequestParam(required = false) Double lng) {
+                                           @RequestParam(required = false) Double lng,
+                                           @RequestParam(required = false) Integer radiusMeters) {
         ResponseEntity<?> coordinateError = validateCoordinates(lat, lng);
         if (coordinateError != null) return coordinateError;
+        final int radius;
+        try { radius = RecommendationRadius.resolve(radiusMeters); }
+        catch (IllegalArgumentException exception) { return radiusError(exception); }
         try {
             // 사용자 위치를 기상청 격자로 변환해 현재 지역의 예보를 조회합니다.
             Map<String, Object> weather = weatherService.getCurrentWeather(lat, lng);
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
 
-            List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng);
+            List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng, radius);
 
             Map<String, Object> result = new HashMap<>();
             result.put("weather", weatherText);
@@ -77,6 +82,7 @@ public class RecommendationController {
             result.put("fcstTime", weather.get("fcstTime"));
             result.put("weatherAvailable", weather.getOrDefault("available", false));
             result.put("picks", picks);
+            result.put("radiusMeters", radius);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("[RecommendationController] 오늘의 픽 조회 중 오류 발생: ", e);
@@ -91,9 +97,13 @@ public class RecommendationController {
     @GetMapping("/route")
     public ResponseEntity<?> getRoute(@RequestParam(required = false) Double lat,
                                       @RequestParam(required = false) Double lng,
+                                      @RequestParam(required = false) Integer radiusMeters,
                                       HttpServletRequest httpRequest) {
         ResponseEntity<?> coordinateError = validateCoordinates(lat, lng);
         if (coordinateError != null) return coordinateError;
+        final int radius;
+        try { radius = RecommendationRadius.resolve(radiusMeters); }
+        catch (IllegalArgumentException exception) { return radiusError(exception); }
         String uid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         String key = uid != null && !uid.isBlank()
                 ? "route:user:" + uid
@@ -109,7 +119,7 @@ public class RecommendationController {
             String weatherText = (String) weather.getOrDefault("weather", "알 수 없음");
             Integer temp = (Integer) weather.get("temp");
 
-            List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng);
+            List<Map<String, Object>> picks = firebaseService.getTodaysPicks(weatherText, temp, lat, lng, radius);
             String routeText = geminiService.getRouteRecommendation(picks);
 
             Map<String, Object> result = new HashMap<>();
@@ -118,6 +128,7 @@ public class RecommendationController {
             result.put("temp", temp);
             result.put("fcstTime", weather.get("fcstTime"));
             result.put("picks", picks);
+            result.put("radiusMeters", radius);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("[RecommendationController] 루트 추천 조회 중 오류 발생: ", e);
@@ -126,6 +137,20 @@ public class RecommendationController {
                     "message", "루트 추천 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    // Keep source compatibility for callers that used the previous signatures.
+    public ResponseEntity<?> getTodaysPick(Double lat, Double lng) {
+        return getTodaysPick(lat, lng, null);
+    }
+
+    public ResponseEntity<?> getRoute(Double lat, Double lng, HttpServletRequest request) {
+        return getRoute(lat, lng, null, request);
+    }
+
+    private ResponseEntity<?> radiusError(IllegalArgumentException exception) {
+        return ResponseEntity.badRequest().body(Map.of(
+                "success", false, "message", exception.getMessage()));
     }
 
     private ResponseEntity<?> validateCoordinates(Double lat, Double lng) {

@@ -25,4 +25,5 @@ public class FeedResponseDto {
     private String storeName;
     private String menu;
     private String price;
+    private boolean free;
 }

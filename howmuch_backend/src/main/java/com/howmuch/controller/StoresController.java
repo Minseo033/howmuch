@@ -5,12 +5,12 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -30,14 +30,23 @@ public class StoresController {
     }
 
     /** 전체 매장 데이터 (인메모리 캐시, gzip 압축 응답) */
+    public ResponseEntity<?> getAllStores() { return getAllStores(null); }
+
     @GetMapping("/all")
-    public ResponseEntity<?> getAllStores() {
+    public ResponseEntity<?> getAllStores(@RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch) {
         try {
-            // The public catalog is large. Browser HTTP caching avoids a full
-            // download on every reload without relying on LocalStorage quotas.
+            // Revalidation ensures an approved correction is not hidden behind a five-minute fresh cache.
+            FirebaseService.PublicStoreCatalog catalog = firebaseService.getPublicStoreCatalog();
+            String etag = catalog.etag();
+            if (etag != null && ifNoneMatch != null && java.util.Arrays.stream(ifNoneMatch.split(","))
+                    .map(String::trim).map(value -> value.startsWith("W/") ? value.substring(2) : value)
+                    .anyMatch(value -> value.equals(etag) || value.equals("*"))) {
+                return ResponseEntity.status(304).eTag(etag).cacheControl(CacheControl.noCache().cachePublic()).build();
+            }
             return ResponseEntity.ok()
-                    .cacheControl(CacheControl.maxAge(Duration.ofMinutes(5)).cachePublic())
-                    .body(firebaseService.getAllStores());
+                    .cacheControl(CacheControl.noCache().cachePublic())
+                    .eTag(etag)
+                    .body(catalog.stores());
         } catch (Exception e) {
             log.error("[StoresController] 전체 매장 조회 오류", e);
             return ResponseEntity.status(500).body(Map.of(
@@ -46,6 +55,21 @@ public class StoresController {
     }
 
     /** 화면 범위(Bounds) 내 매장 조회: /api/stores/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0 */
+    @GetMapping("/{storeId}")
+    public ResponseEntity<?> getStore(@PathVariable String storeId) {
+        if (storeId == null || storeId.isBlank() || storeId.length() > 200 || storeId.contains("/")) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "매장 식별자를 확인해주세요."));
+        }
+        try {
+            Map<String, Object> store = firebaseService.getStoreById(storeId);
+            return store == null ? ResponseEntity.status(404).body(Map.of("success", false, "message", "매장을 찾을 수 없습니다."))
+                    : ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(store);
+        } catch (Exception exception) {
+            log.warn("매장 상세 조회 실패: {}", exception.getClass().getSimpleName());
+            return ResponseEntity.status(503).body(Map.of("success", false, "message", "매장 정보를 불러오지 못했습니다. 다시 시도해주세요."));
+        }
+    }
+
     @GetMapping("/bounds")
     public ResponseEntity<?> getStoresInBounds(
             @RequestParam double minLat, @RequestParam double maxLat,

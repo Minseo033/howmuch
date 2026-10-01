@@ -20,15 +20,39 @@ class StoresControllerTest {
         StoresController controller = new StoresController(service);
         var stores = java.util.List.of(
                 java.util.Map.<String, Object>of("storeName", "테스트 식당"));
-        when(service.getAllStores()).thenReturn(stores);
+        when(service.getPublicStoreCatalog()).thenReturn(new FirebaseService.PublicStoreCatalog(stores, "\"catalog-a\""));
 
         ResponseEntity<?> response = controller.getAllStores();
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(stores, response.getBody());
-        assertTrue(response.getHeaders().getCacheControl().contains("max-age=300"));
+        assertTrue(response.getHeaders().getCacheControl().contains("no-cache"));
         assertTrue(response.getHeaders().getCacheControl().contains("public"));
-        verify(service).getAllStores();
+        assertEquals("\"catalog-a\"", response.getHeaders().getETag());
+        verify(service).getPublicStoreCatalog();
+    }
+
+    @Test
+    void matchingStrongOrWeakValidationTagAvoidsResendingTheCatalog() {
+        FirebaseService service = mock(FirebaseService.class);
+        StoresController controller = new StoresController(service);
+        when(service.getPublicStoreCatalog()).thenReturn(new FirebaseService.PublicStoreCatalog(java.util.List.of(), "\"catalog-a\""));
+        ResponseEntity<?> response = controller.getAllStores("\"other\", W/\"catalog-a\"");
+        assertEquals(304, response.getStatusCode().value());
+        assertEquals("\"catalog-a\"", response.getHeaders().getETag());
+        assertEquals(null, response.getBody());
+    }
+
+    @Test
+    void aChangedCatalogReturnsItsNewValidationTagAndBodyTogether() {
+        FirebaseService service = mock(FirebaseService.class);
+        StoresController controller = new StoresController(service);
+        var stores = java.util.List.of(java.util.Map.<String, Object>of("price1", "6500"));
+        when(service.getPublicStoreCatalog()).thenReturn(new FirebaseService.PublicStoreCatalog(stores, "\"catalog-b\""));
+        ResponseEntity<?> response = controller.getAllStores("\"catalog-a\"");
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals(stores, response.getBody());
+        assertEquals("\"catalog-b\"", response.getHeaders().getETag());
     }
 
     @Test

@@ -3,11 +3,12 @@ package com.howmuch.service;
 import com.howmuch.dto.SavingsHistoryResponse;
 import com.howmuch.dto.SavingsStatsResponse;
 import com.howmuch.dto.SavingsStatsResponse.ChartItemDto;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -23,13 +24,38 @@ import java.util.Map;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SavingsService {
 
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
     private static final java.util.Set<String> SUPPORTED_PERIODS =
             java.util.Set.of("this_month", "last_month", "this_year");
     private final FirebaseService firebaseService;
+    private final Clock clock;
+
+    @Autowired
+    public SavingsService(FirebaseService firebaseService) {
+        this(firebaseService, Clock.system(KOREA_ZONE));
+    }
+
+    SavingsService(FirebaseService firebaseService, Clock clock) {
+        this.firebaseService = firebaseService;
+        this.clock = java.util.Objects.requireNonNull(clock).withZone(KOREA_ZONE);
+    }
+
+    public record DateRange(LocalDate startDate, LocalDate endDateExclusive) {
+        public boolean contains(LocalDate date) {
+            return date != null && !date.isBefore(startDate) && date.isBefore(endDateExclusive);
+        }
+    }
+
+    public static DateRange periodRange(String period, LocalDate today) {
+        return switch (period) {
+            case "this_month" -> new DateRange(today.withDayOfMonth(1), today.withDayOfMonth(1).plusMonths(1));
+            case "last_month" -> new DateRange(today.withDayOfMonth(1).minusMonths(1), today.withDayOfMonth(1));
+            case "this_year" -> new DateRange(LocalDate.of(today.getYear(), 1, 1), LocalDate.of(today.getYear() + 1, 1, 1));
+            default -> throw new IllegalArgumentException("지원하지 않는 절약 통계 기간입니다.");
+        };
+    }
 
     /**
      * 사용자의 절약 내역 목록 조회 (GET /api/savings/history)
@@ -42,6 +68,27 @@ public class SavingsService {
             return List.of();
         }
         return firebaseService.getSavingsHistory(firebaseUid);
+    }
+
+    public List<SavingsHistoryResponse> getSavingsHistory(
+            String firebaseUid, String startDate, String endDateExclusive) throws Exception {
+        if (startDate == null && endDateExclusive == null) return getSavingsHistory(firebaseUid);
+        if (startDate == null || endDateExclusive == null
+                || !startDate.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")
+                || !endDateExclusive.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) {
+            throw new IllegalArgumentException("조회 시작 날짜와 종료 날짜를 YYYY-MM-DD 형식으로 함께 입력해주세요.");
+        }
+        final DateRange range;
+        try {
+            range = new DateRange(LocalDate.parse(startDate), LocalDate.parse(endDateExclusive));
+        } catch (java.time.DateTimeException exception) {
+            throw new IllegalArgumentException("올바른 조회 날짜를 입력해주세요.");
+        }
+        if (!range.startDate().isBefore(range.endDateExclusive())) {
+            throw new IllegalArgumentException("조회 종료 날짜는 시작 날짜 이후여야 합니다.");
+        }
+        return getSavingsHistory(firebaseUid).stream()
+                .filter(item -> range.contains(itemDate(item))).toList();
     }
 
     /**
@@ -59,17 +106,18 @@ public class SavingsService {
 
         List<SavingsHistoryResponse> history = getSavingsHistory(firebaseUid);
 
-        LocalDate now = LocalDate.now(KOREA_ZONE);
+        LocalDate now = LocalDate.now(clock);
+        DateRange range = periodRange(targetPeriod, now);
 
         if ("last_month".equals(targetPeriod)) {
-            YearMonth lastMonth = YearMonth.from(now).minusMonths(1);
+            YearMonth lastMonth = YearMonth.from(range.startDate());
             return aggregateMonthlyStats(history, lastMonth, "last_month");
         } else if ("this_year".equals(targetPeriod)) {
-            int currentYear = now.getYear();
+            int currentYear = range.startDate().getYear();
             return aggregateYearlyStats(history, currentYear, "this_year");
         } else {
             // 기본값: this_month
-            YearMonth thisMonth = YearMonth.from(now);
+            YearMonth thisMonth = YearMonth.from(range.startDate());
             return aggregateMonthlyStats(history, thisMonth, "this_month");
         }
     }
@@ -87,11 +135,11 @@ public class SavingsService {
         long totalVisits = 0L;
 
         for (SavingsHistoryResponse item : history) {
-            LocalDate date = parseDate(item.getVisitedAt() != null ? item.getVisitedAt() : item.getDate());
+            LocalDate date = itemDate(item);
             if (date == null) continue;
 
             if (YearMonth.from(date).equals(yearMonth)) {
-                long saved = item.getSavedAmount() != null ? item.getSavedAmount() : 0L;
+                long saved = savedAmount(item);
                 int weekNum = Math.min((date.getDayOfMonth() - 1) / 7 + 1, 5); // 1~5주차
 
                 totalSaved += saved;
@@ -122,6 +170,8 @@ public class SavingsService {
 
         return SavingsStatsResponse.builder()
                 .period(periodKey)
+                .startDate(yearMonth.atDay(1).toString())
+                .endDateExclusive(yearMonth.plusMonths(1).atDay(1).toString())
                 .totalSavedAmount(totalSaved)
                 .totalVisits(totalVisits)
                 .averageSavedAmount(avgSaved)
@@ -143,11 +193,11 @@ public class SavingsService {
         long totalVisits = 0L;
 
         for (SavingsHistoryResponse item : history) {
-            LocalDate date = parseDate(item.getVisitedAt() != null ? item.getVisitedAt() : item.getDate());
+            LocalDate date = itemDate(item);
             if (date == null) continue;
 
             if (date.getYear() == year) {
-                long saved = item.getSavedAmount() != null ? item.getSavedAmount() : 0L;
+                long saved = savedAmount(item);
                 int monthNum = date.getMonthValue(); // 1~12월
 
                 totalSaved += saved;
@@ -178,6 +228,8 @@ public class SavingsService {
 
         return SavingsStatsResponse.builder()
                 .period(periodKey)
+                .startDate(LocalDate.of(year, 1, 1).toString())
+                .endDateExclusive(LocalDate.of(year + 1, 1, 1).toString())
                 .totalSavedAmount(totalSaved)
                 .totalVisits(totalVisits)
                 .averageSavedAmount(avgSaved)
@@ -186,7 +238,18 @@ public class SavingsService {
                 .build();
     }
 
-    private LocalDate parseDate(String dateStr) {
+    private LocalDate itemDate(SavingsHistoryResponse item) {
+        if (item == null) return null;
+        LocalDate date = parseDate(item.getVisitedAt());
+        return date == null ? parseDate(item.getDate()) : date;
+    }
+
+    private long savedAmount(SavingsHistoryResponse item) {
+        if (Boolean.TRUE.equals(item.getIsFree())) return 0L;
+        return item.getSavedAmount() == null ? 0L : Math.max(0L, item.getSavedAmount());
+    }
+
+    static LocalDate parseDate(String dateStr) {
         if (dateStr == null || dateStr.isBlank()) return null;
         String s = dateStr.trim();
         try {
