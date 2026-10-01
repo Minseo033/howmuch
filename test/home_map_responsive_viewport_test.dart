@@ -54,6 +54,100 @@ void main() {
     });
   }
 
+  for (final height in [213.0, 260.0, 280.0, 288.0]) {
+    testWidgets('short home viewport $height does not invert button bounds', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        tester.view.physicalSize = Size(393, height);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        await tester.pumpWidget(
+          const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+        );
+        await tester.pump();
+
+        expect(tester.takeException(), isNull);
+        final location = tester.getRect(
+          find.byKey(const ValueKey('home-location-control')),
+        );
+        final ai = tester.getRect(
+          find.byKey(const ValueKey('home-ai-control')),
+        );
+        final navigation = tester.getRect(
+          find.byKey(const ValueKey('home-bottom-navigation')),
+        );
+        for (final rect in [location, ai]) {
+          expect(rect.top, greaterThanOrEqualTo(0));
+          expect(rect.bottom, lessThanOrEqualTo(navigation.top));
+          expect(rect.left, greaterThanOrEqualTo(0));
+          expect(rect.right, lessThanOrEqualTo(393));
+        }
+        expect(location.overlaps(ai), isFalse);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('AI 추천받기')),
+          matchesSemantics(
+            label: 'AI 추천받기',
+            isButton: true,
+            hasTapAction: true,
+          ),
+        );
+      } finally {
+        semantics.dispose();
+      }
+    });
+  }
+
+  testWidgets('short home viewport also respects native safe insets', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 260);
+    tester.view.devicePixelRatio = 1;
+    tester.view.viewPadding = FakeViewPadding(top: 48, bottom: 34);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
+
+    await tester.pumpWidget(
+      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    final navigation = tester.getRect(
+      find.byKey(const ValueKey('home-bottom-navigation')),
+    );
+    for (final key in const [
+      ValueKey('home-location-control'),
+      ValueKey('home-ai-control'),
+    ]) {
+      final rect = tester.getRect(find.byKey(key));
+      expect(rect.top, greaterThanOrEqualTo(48));
+      expect(rect.bottom, lessThanOrEqualTo(navigation.top));
+    }
+  });
+
+  testWidgets('home survives 20 short and normal viewport transitions', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.physicalSize = const Size(393, 800);
+    await tester.pumpWidget(
+      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+    );
+    for (var index = 0; index < 20; index++) {
+      tester.view.physicalSize = Size(393, index.isEven ? 213 : 800);
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'transition $index');
+      expect(find.byKey(const ValueKey('home-ai-control')), findsOneWidget);
+    }
+  });
+
   testWidgets(
     'desktop home uses the same centered product shell as other tabs',
     (tester) async {

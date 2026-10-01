@@ -1974,15 +1974,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final defaultFloatingAiTop = _showStoreSummary
         ? storeCardTop - 68.0
         : bottomBase - 68.0;
-    final floatingLocationTop = isCompactHeight
+    final preferredLocationTop = isCompactHeight
         ? todayPickTop + todayPickHeight + 4
         : defaultFloatingLocationTop;
+    // Resize/keyboard transitions can leave less room than the stacked
+    // controls require. Never clamp with a minimum greater than the maximum:
+    // that throws ArgumentError(164) and prevents the entire map from building.
+    final compactControlLimit = math.max(0.0, bottomBase - 52.0);
+    final inlineCompactControls =
+        isCompactHeight && preferredLocationTop + 56 > compactControlLimit;
+    final floatingLocationTop = isCompactHeight
+        ? math.min(preferredLocationTop, compactControlLimit)
+        : preferredLocationTop;
     final floatingAiTop = isCompactHeight
-        ? (floatingLocationTop + 56).clamp(
-            floatingLocationTop + 56,
-            bottomBase - 56,
-          )
+        ? (inlineCompactControls
+              ? floatingLocationTop
+              : floatingLocationTop + 56)
         : defaultFloatingAiTop;
+    final showCompactTodayPick =
+        !isCompactHeight ||
+        floatingLocationTop >= todayPickTop + todayPickHeight + 4;
     final spotlightAiTop = bottomBase - 77.0;
     final spotlightCoachTop = spotlightAiTop - 48.0;
 
@@ -2205,7 +2216,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               key: const ValueKey('home-map-accessibility-controls'),
               right: isCompactHeight ? null : 16,
               left: isCompactHeight ? 16 : null,
-              top: todayPickTop + todayPickHeight + topOffsetPush + 12,
+              top: isCompactHeight
+                  ? math.min(
+                      todayPickTop + todayPickHeight + topOffsetPush + 12,
+                      compactControlLimit,
+                    )
+                  : todayPickTop + todayPickHeight + topOffsetPush + 12,
               child: Material(
                 color: Colors.white,
                 elevation: 2,
@@ -2246,21 +2262,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   child: const _SourceLegend(),
                 ),
               ),
-            Positioned(
-              key: const ValueKey('home-today-pick-card'),
-              left: horizontalPadding,
-              right: horizontalPadding,
-              top: todayPickTop + topOffsetPush,
-              height: todayPickHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: _TodayPickCard(compact: isCompactHeight),
+            if (showCompactTodayPick)
+              Positioned(
+                key: const ValueKey('home-today-pick-card'),
+                left: horizontalPadding,
+                right: horizontalPadding,
+                top: todayPickTop + topOffsetPush,
+                height: todayPickHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _TodayPickCard(compact: isCompactHeight),
+                ),
               ),
-            ),
           ],
           Positioned(
             key: const ValueKey('home-location-control'),
-            right: 16,
+            right: inlineCompactControls ? 76 : 16,
             top: floatingLocationTop,
             width: 52.0,
             height: 52.0,
@@ -2315,7 +2332,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       _suppressMarkerClicks(const Duration(milliseconds: 800)),
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: _AiRecommendControl(onTap: _openAiRecommend),
+                  child: Tooltip(
+                    message: 'AI 추천받기',
+                    child: Semantics(
+                      button: true,
+                      label: 'AI 추천받기',
+                      onTap: _openAiRecommend,
+                      excludeSemantics: true,
+                      child: _AiRecommendControl(
+                        onTap: _openAiRecommend,
+                        compact: inlineCompactControls,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -3175,10 +3204,15 @@ class _RoundIconButton extends StatelessWidget {
 }
 
 class _AiRecommendControl extends StatelessWidget {
-  const _AiRecommendControl({required this.onTap, this.spotlight = false});
+  const _AiRecommendControl({
+    required this.onTap,
+    this.spotlight = false,
+    this.compact = false,
+  });
 
   final VoidCallback onTap;
   final bool spotlight;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -3268,42 +3302,43 @@ class _AiRecommendControl extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Row(
         children: [
-          Container(
-            width: 82,
-            height: 22.982954025268555,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(999),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x1F0F172A),
-                  blurRadius: 6,
-                  offset: Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: 'AI',
-                    style: TextStyle(color: HomeMapScreen.blue),
+          if (!compact)
+            Container(
+              width: 82,
+              height: 22.982954025268555,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x1F0F172A),
+                    blurRadius: 6,
+                    offset: Offset(0, 4),
                   ),
-                  TextSpan(text: ' 추천받기'),
                 ],
               ),
-              style: TextStyle(
-                color: HomeMapScreen.ink,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
+              child: const Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'AI',
+                      style: TextStyle(color: HomeMapScreen.blue),
+                    ),
+                    TextSpan(text: ' 추천받기'),
+                  ],
+                ),
+                style: TextStyle(
+                  color: HomeMapScreen.ink,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontFamilyFallback: HomeMapScreen.fontFallback,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 7.5),
+          if (!compact) const SizedBox(width: 7.5),
           Container(
             width: 51.9886360168457,
             height: 51.9886360168457,
