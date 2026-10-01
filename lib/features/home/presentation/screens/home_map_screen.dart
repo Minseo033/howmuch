@@ -1443,59 +1443,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _zoomMap(int delta) {
-    if (kIsWeb) {
-      web_helper.zoomKakaoMapWeb(_viewId, delta);
-    } else {
-      _safeRunJavaScript('zoomMap($delta);');
-    }
-  }
-
-  Future<void> _openAccessibleStoreList() async {
-    final stores = List<Store>.of(_currentStores);
-    final selected = await showDialog<Store>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('지도 매장 선택'),
-        content: SizedBox(
-          width: 360,
-          height: 320,
-          child: stores.isEmpty
-              ? const Text('현재 지도에 매장이 없어요. 지도를 이동하거나 검색해 주세요.')
-              : ListView.builder(
-                  itemCount: stores.length,
-                  itemBuilder: (_, index) {
-                    final store = stores[index];
-                    final menu = _isAiRecommendationActive
-                        ? _selectionFor(store)
-                        : _searchSelectionFor(store);
-                    return ListTile(
-                      title: Text(store.storeName),
-                      subtitle: Text(
-                        '${menu?.menu ?? store.menu1} ${formatMenuPrice(menu?.price ?? store.price1, free: menu?.free ?? store.free1)}${store.hasValidCoordinates ? '' : ' · 위치 정보 없음'}',
-                      ),
-                      onTap: () => Navigator.of(dialogContext).pop(store),
-                    );
-                  },
-                ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
-      ),
-    );
-    if (!mounted || selected == null) return;
-    final index = _currentStores.indexWhere(
-      (store) => _mapStoreKey(store) == _mapStoreKey(selected),
-    );
-    if (index < 0) return;
-    _onMarkerClicked(index);
-    _centerMapOnStore(selected, index);
-  }
-
   void _hideStore() {
     if (!mounted) return;
     if (_showStoreSummary || _selectedStore != null) {
@@ -2005,16 +1952,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final showStoreList =
         (isSearching || isAiActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
-    // A selected card pushes location/AI controls upward even in a portrait
-    // viewport. Reserve their column instead of using only a height breakpoint.
-    final preferredMapControlsTop =
-        todayPickTop + todayPickHeight + topOffsetPush + 12;
-    final horizontalMapControls =
-        isCompactHeight ||
-        preferredMapControlsTop + 3 * 48 + 8 > floatingLocationTop;
-    final mapControlsTop = horizontalMapControls
-        ? math.min(preferredMapControlsTop, math.max(0.0, bottomBase - 48))
-        : preferredMapControlsTop;
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFEFF4FF),
@@ -2217,54 +2154,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                       ),
                     );
                   },
-                ),
-              ),
-            ),
-
-          if (_isMapReady && !_showAiSpotlight)
-            Positioned(
-              key: const ValueKey('home-map-accessibility-controls'),
-              right: horizontalMapControls ? null : 16,
-              left: horizontalMapControls ? 12 : null,
-              top: mapControlsTop,
-              child: Material(
-                color: Colors.white,
-                elevation: 2,
-                borderRadius: BorderRadius.circular(16),
-                child: Flex(
-                  direction: horizontalMapControls
-                      ? Axis.horizontal
-                      : Axis.vertical,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 48,
-                        height: 48,
-                      ),
-                      tooltip: '지도 확대',
-                      onPressed: () => _zoomMap(-1),
-                      icon: const Icon(Icons.add),
-                    ),
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 48,
-                        height: 48,
-                      ),
-                      tooltip: '지도 축소',
-                      onPressed: () => _zoomMap(1),
-                      icon: const Icon(Icons.remove),
-                    ),
-                    IconButton(
-                      constraints: const BoxConstraints.tightFor(
-                        width: 48,
-                        height: 48,
-                      ),
-                      tooltip: '지도 매장 목록',
-                      onPressed: _openAccessibleStoreList,
-                      icon: const Icon(Icons.list_alt),
-                    ),
-                  ],
                 ),
               ),
             ),

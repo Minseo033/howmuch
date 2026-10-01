@@ -19,7 +19,7 @@ void main() {
   });
 
   for (final size in [const Size(320, 568), const Size(393, 852)]) {
-    testWidgets('selected recommendation controls never overlap at $size', (
+    testWidgets('recommendation map has no unwanted toolbar at $size', (
       tester,
     ) async {
       tester.view.physicalSize = size;
@@ -51,21 +51,29 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(milliseconds: 300));
-      final controls = tester.getRect(
+      expect(
         find.byKey(const ValueKey('home-map-accessibility-controls')),
+        findsNothing,
       );
+      for (final tooltip in ['지도 확대', '지도 축소', '지도 매장 목록']) {
+        expect(find.byTooltip(tooltip), findsNothing);
+      }
+      final carousel = tester.getRect(find.byType(HomeMapStoreCarousel));
+      final location = tester.getRect(
+        find.byKey(const ValueKey('home-location-control')),
+      );
+      final ai = tester.getRect(find.byKey(const ValueKey('home-ai-control')));
+      expect(location.overlaps(ai), isFalse);
       for (final key in const [
         ValueKey('home-location-control'),
         ValueKey('home-ai-control'),
       ]) {
-        expect(controls.overlaps(tester.getRect(find.byKey(key))), isFalse);
-      }
-      expect(
-        controls.overlaps(tester.getRect(find.byType(HomeMapStoreCarousel))),
-        isFalse,
-      );
-      for (final tooltip in ['지도 확대', '지도 축소', '지도 매장 목록']) {
-        final button = tester.getRect(find.byTooltip(tooltip));
+        final button = tester.getRect(find.byKey(key));
+        expect(button.overlaps(carousel), isFalse);
+        expect(button.left, greaterThanOrEqualTo(0));
+        expect(button.top, greaterThanOrEqualTo(0));
+        expect(button.right, lessThanOrEqualTo(size.width));
+        expect(button.bottom, lessThanOrEqualTo(size.height));
         expect(button.height, greaterThanOrEqualTo(44));
         expect(button.width, greaterThanOrEqualTo(44));
       }
