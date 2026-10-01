@@ -678,22 +678,44 @@
     }
 
     function setKakaoMapSearchMode(containerId, enabled) {
-      getKakaoMapLifecycle(containerId).searchMode = enabled === true;
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      lifecycle.searchMode = enabled === true;
+      if (!lifecycle.searchMode) {
+        lifecycle.fitRequestGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
+        cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
+      }
       var map = window.kakaoMapObjects[containerId];
       if (isUsableKakaoMap(map) && typeof map.setMaxLevel === 'function') map.setMaxLevel(enabled === true ? 14 : 10);
     }
 
     function fitKakaoMapStores(containerId, coordinatesJson) {
-      var map = window.kakaoMapObjects[containerId];
-      if (!isUsableKakaoMap(map)) return;
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      var generation = lifecycle.generation;
+      var fitGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
+      lifecycle.fitRequestGeneration = fitGeneration;
+      cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
       var coordinates;
       try { coordinates = JSON.parse(coordinatesJson); } catch (_) { return; }
+      if (!Array.isArray(coordinates)) return;
       var valid = coordinates.filter(function(point) {
-        return Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
+        return point && Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
           Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180 &&
           point.lat !== 0 && point.lng !== 0;
       });
       if (!valid.length) return;
+      var attempts = 0;
+      function fitWhenVisible() {
+      if (window.kakaoMapLifecycles[containerId] !== lifecycle ||
+          lifecycle.generation !== generation || lifecycle.fitRequestGeneration !== fitGeneration) return;
+      var map = window.kakaoMapObjects[containerId];
+      // A retained Flutter platform view has zero size during route-pop
+      // transitions. Keep this one navigation intent until it is visible;
+      // never execute work for a disposed or superseded map/search.
+      if (!isUsableKakaoMap(map)) {
+        if (++attempts <= 20) lifecycle.fitTimer = scheduleKakaoMapTask(lifecycle, fitWhenVisible, 100);
+        return;
+      }
+      lifecycle.fitTimer = null;
       if (valid.length === 1) {
         map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
         map.setLevel(4);
@@ -702,11 +724,16 @@
         valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
         map.setBounds(bounds, 150, 40, 260, 40);
       }
-      var lifecycle = getKakaoMapLifecycle(containerId);
-      var generation = lifecycle.generation;
       scheduleKakaoMapTask(lifecycle, function() {
-        if (isActiveKakaoMap(containerId, map, generation)) notifyKakaoMapIdle(containerId, lifecycle);
+        if (isActiveKakaoMap(containerId, map, generation) && lifecycle.fitRequestGeneration === fitGeneration) {
+          // A new result/filter is a new request even if its viewport matches
+          // the previous one; bounds-only idle deduplication cannot skip it.
+          lifecycle.lastIdleBounds = null;
+          notifyKakaoMapIdle(containerId, lifecycle);
+        }
       }, 150);
+      }
+      fitWhenVisible();
     }
 
     function updateUserLocationMarker(containerId, lat, lng) {

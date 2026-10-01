@@ -141,6 +141,39 @@ function createRuntime() {
 }
 
 {
+  const { context, runTimers } = createRuntime();
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  map.node.offsetWidth = 0;
+  context.fitKakaoMapStores('map', JSON.stringify([{lat: 37.09, lng: 126.86}]));
+  assert.equal(map.center.lat, 37.5, 'hidden route is not manipulated');
+  runTimers();
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.equal(map.center.lat, 37.09, 'search navigation survives a zero-size route-pop frame');
+  assert.equal(map.level, 4);
+  map.node.offsetWidth = 0;
+  context.fitKakaoMapStores('map', JSON.stringify([{lat: 35.1, lng: 129.1}]));
+  context.fitKakaoMapStores('map', JSON.stringify([{lat: 36.1, lng: 128.1}]));
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.equal(map.center.lat, 36.1, 'a newer search cancels the old pending fit');
+  map.node.offsetWidth = 0;
+  context.fitKakaoMapStores('map', JSON.stringify([{lat: 35.1, lng: 129.1}]));
+  context.setKakaoMapSearchMode('map', false);
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.equal(map.center.lat, 36.1, 'clearing a search cancels its pending navigation');
+  map.node.offsetWidth = 0;
+  context.fitKakaoMapStores('map', JSON.stringify([{lat: 35.1, lng: 129.1}]));
+  context.disposeKakaoMap('map');
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.equal(map.center.lat, 36.1, 'disposed views never apply a pending search navigation');
+}
+
+{
   const { context, observers, runTimers } = createRuntime();
   context.initKakaoMap('map', 37.5, 127);
   runTimers();

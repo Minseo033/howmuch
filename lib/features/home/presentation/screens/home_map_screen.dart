@@ -414,6 +414,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _searchResultStores = stores is List<Store>
           ? List.unmodifiable(stores)
           : null;
+      // The map route can still be offstage while a pushed search route is
+      // popping. Its delayed bounds callback must not leave unrelated cards
+      // visible in the meantime.
+      if (_searchResultStores != null) {
+        _currentStores = _searchResultStores!;
+        _searchViewportCount = 0;
+      }
       _selectedStore = null;
       _showStoreSummary = false;
     });
