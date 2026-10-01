@@ -664,17 +664,18 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                           final hasMenuMatch = match != null;
                           final displayedMenu = displayMenu?.name ?? '';
                           final displayedPrice = displayMenu?.price ?? '';
-                          final priceLabel = displayedMenu.isNotEmpty
-                              ? (displayedPrice.isNotEmpty
-                                    ? '$displayedMenu  ${_fmt(displayedPrice, free: s.freeAt(displayMenu!.index))}${parsePriceValue(displayedPrice)?.isExact == false ? ' (최저가격 기준)' : ''}'
-                                    : displayedMenu)
-                              : s.industry;
+                          final priceLabel = displayedPrice.isNotEmpty
+                              ? '${_fmt(displayedPrice, free: s.freeAt(displayMenu!.index))}${parsePriceValue(displayedPrice)?.isExact == false ? ' (최저가격 기준)' : ''}'
+                              : '';
 
                           return _StoreCard(
                             store: s,
                             emoji: _emoji(s.industry),
                             distance: _formatDistance(s),
                             priceLabel: priceLabel,
+                            menuLabel: displayedMenu.isNotEmpty
+                                ? displayedMenu
+                                : s.industry,
                             isMatchedMenu: hasMenuMatch,
                             onTap: () {
                               unawaited(_rememberSearch(_query));
@@ -975,6 +976,7 @@ class _StoreCard extends StatelessWidget {
     required this.store,
     required this.emoji,
     required this.priceLabel,
+    required this.menuLabel,
     required this.distance,
     required this.onTap,
     this.isMatchedMenu = false,
@@ -983,6 +985,7 @@ class _StoreCard extends StatelessWidget {
   final Store store;
   final String emoji;
   final String priceLabel;
+  final String menuLabel;
   final String distance;
   final VoidCallback onTap;
   final bool isMatchedMenu;
@@ -1108,7 +1111,7 @@ class _StoreCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            priceLabel,
+                            menuLabel,
                             style: const TextStyle(
                               fontFamily: SearchResultScreen.fontFamily,
                               fontFamilyFallback:
@@ -1123,6 +1126,19 @@ class _StoreCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (priceLabel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        priceLabel,
+                        style: const TextStyle(
+                          fontFamily: SearchResultScreen.fontFamily,
+                          fontFamilyFallback: SearchResultScreen.fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: SearchResultScreen.blue,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

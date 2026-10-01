@@ -2005,6 +2005,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final showStoreList =
         (isSearching || isAiActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
+    // A selected card pushes location/AI controls upward even in a portrait
+    // viewport. Reserve their column instead of using only a height breakpoint.
+    final preferredMapControlsTop =
+        todayPickTop + todayPickHeight + topOffsetPush + 12;
+    final horizontalMapControls =
+        isCompactHeight ||
+        preferredMapControlsTop + 3 * 48 + 8 > floatingLocationTop;
+    final mapControlsTop = horizontalMapControls
+        ? math.min(preferredMapControlsTop, math.max(0.0, bottomBase - 48))
+        : preferredMapControlsTop;
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFEFF4FF),
@@ -2214,33 +2224,42 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (_isMapReady && !_showAiSpotlight)
             Positioned(
               key: const ValueKey('home-map-accessibility-controls'),
-              right: isCompactHeight ? null : 16,
-              left: isCompactHeight ? 16 : null,
-              top: isCompactHeight
-                  ? math.min(
-                      todayPickTop + todayPickHeight + topOffsetPush + 12,
-                      compactControlLimit,
-                    )
-                  : todayPickTop + todayPickHeight + topOffsetPush + 12,
+              right: horizontalMapControls ? null : 16,
+              left: horizontalMapControls ? 12 : null,
+              top: mapControlsTop,
               child: Material(
                 color: Colors.white,
                 elevation: 2,
                 borderRadius: BorderRadius.circular(16),
                 child: Flex(
-                  direction: isCompactHeight ? Axis.horizontal : Axis.vertical,
+                  direction: horizontalMapControls
+                      ? Axis.horizontal
+                      : Axis.vertical,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
                       tooltip: '지도 확대',
                       onPressed: () => _zoomMap(-1),
                       icon: const Icon(Icons.add),
                     ),
                     IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
                       tooltip: '지도 축소',
                       onPressed: () => _zoomMap(1),
                       icon: const Icon(Icons.remove),
                     ),
                     IconButton(
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
                       tooltip: '지도 매장 목록',
                       onPressed: _openAccessibleStoreList,
                       icon: const Icon(Icons.list_alt),
@@ -2396,7 +2415,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   onPageChanged: _onStorePageChanged,
                   itemBuilder: (context, index) {
                     final store = _currentStores[index];
-                    return _StoreSummaryCard(
+                    return HomeMapStoreSummaryCard(
                       store: store,
                       selection: isAiActive
                           ? _selectionFor(store)
@@ -2428,7 +2447,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   behavior: HitTestBehavior.opaque,
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: _StoreSummaryCard(
+                  child: HomeMapStoreSummaryCard(
                     store: _selectedStore!,
                     selection: isAiActive
                         ? _selectionFor(_selectedStore!)
@@ -2979,10 +2998,14 @@ class _RankDot extends StatelessWidget {
   }
 }
 
-class _StoreSummaryCard extends StatelessWidget {
+class HomeMapStoreSummaryCard extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
-  const _StoreSummaryCard({required this.store, this.selection});
+  const HomeMapStoreSummaryCard({
+    super.key,
+    required this.store,
+    this.selection,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3023,13 +3046,50 @@ class _StoreSummaryCard extends StatelessWidget {
             const SizedBox(height: 3),
             SizedBox(
               height: 60,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(child: _StoreInfo(store: store)),
-                  const SizedBox(width: 12),
-                  _StorePrice(store: store, selection: selection),
-                ],
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 300) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _StoreInfo(store: store, compact: true),
+                            ),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 64),
+                              child: Text(
+                                store.industry,
+                                style: _muted11,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        _StorePrice(
+                          store: store,
+                          selection: selection,
+                          compact: true,
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: _StoreInfo(store: store)),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 144,
+                        child: _StorePrice(store: store, selection: selection),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             const Divider(height: 1, color: Color(0xFFE7E9E2)),
@@ -3046,7 +3106,8 @@ class _StoreSummaryCard extends StatelessWidget {
 
 class _StoreInfo extends StatelessWidget {
   final Store store;
-  const _StoreInfo({required this.store});
+  final bool compact;
+  const _StoreInfo({required this.store, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -3067,8 +3128,10 @@ class _StoreInfo extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 4),
-        Text(store.industry, style: _muted12),
+        if (!compact) ...[
+          const SizedBox(height: 4),
+          Text(store.industry, style: _muted12),
+        ],
       ],
     );
   }
@@ -3077,7 +3140,12 @@ class _StoreInfo extends StatelessWidget {
 class _StorePrice extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
-  const _StorePrice({required this.store, this.selection});
+  final bool compact;
+  const _StorePrice({
+    required this.store,
+    this.selection,
+    this.compact = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3091,8 +3159,37 @@ class _StorePrice extends StatelessWidget {
         ? selectedMenu
         : (store.menu1.isNotEmpty ? store.menu1 : '대표 메뉴');
 
+    if (compact) {
+      return Row(
+        children: [
+          Expanded(
+            child: Text(
+              menuStr,
+              style: _muted12,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                priceStr,
+                style: const TextStyle(
+                  color: HomeMapScreen.ink,
+                  fontFamily: HomeMapScreen.fontFamily,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return SizedBox(
-      width: 144,
       height: 52,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -3138,7 +3235,7 @@ class _DetailButton extends StatelessWidget {
       onTap: () => context.push(AppRoutes.storeDetail, extra: store),
       child: Container(
         width: double.infinity,
-        height: 30,
+        height: 44,
         decoration: BoxDecoration(
           color: HomeMapScreen.blue,
           borderRadius: BorderRadius.circular(12),
@@ -3656,12 +3753,16 @@ class _AiRecommendationBanner extends StatelessWidget {
         children: [
           const Icon(Icons.auto_awesome, color: Color(0xFF10B981), size: 16),
           const SizedBox(width: 6),
-          Text(
-            'AI 추천 매장 $count곳',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              'AI 추천 매장 $count곳',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(width: 10),

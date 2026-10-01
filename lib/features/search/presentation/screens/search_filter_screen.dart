@@ -285,6 +285,7 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: surface,
                         foregroundColor: ink,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(22),
                         ),
@@ -292,6 +293,8 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                       ),
                       child: const Text(
                         '초기화',
+                        maxLines: 1,
+                        softWrap: false,
                         style: TextStyle(
                           fontFamily: fontFamily,
                           fontFamilyFallback: fontFallback,

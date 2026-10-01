@@ -347,7 +347,9 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                   const SizedBox(height: 10),
                   LayoutBuilder(
                     builder: (context, constraints) {
-                      final chipWidth = (constraints.maxWidth - 8) / 2;
+                      final chipWidth = constraints.maxWidth < 300
+                          ? constraints.maxWidth
+                          : (constraints.maxWidth - 8) / 2;
                       return Wrap(
                         spacing: 8,
                         runSpacing: 10,
@@ -564,6 +566,9 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final narrow =
+        FigmaMobileCanvas.webContentWidthFor(MediaQuery.sizeOf(context).width) <
+        350;
     return Container(
       padding: const EdgeInsets.fromLTRB(23, 21, 23, 14),
       decoration: BoxDecoration(
@@ -571,10 +576,10 @@ class _HeroCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFEEF2FF)),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
               Icon(
                 Icons.auto_awesome_rounded,
@@ -595,10 +600,10 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: 10),
+          const SizedBox(height: 10),
           Text(
-            '오늘은 뭘 드시고 싶으세요?',
-            style: TextStyle(
+            narrow ? '오늘은 뭘\n드시고 싶으세요?' : '오늘은 뭘 드시고 싶으세요?',
+            style: const TextStyle(
               color: _AiUi.ink,
               fontFamily: _AiUi.fontFamily,
               fontFamilyFallback: _AiUi.fontFallback,
@@ -607,8 +612,8 @@ class _HeroCard extends StatelessWidget {
               height: 1.25,
             ),
           ),
-          SizedBox(height: 8),
-          Text(
+          const SizedBox(height: 8),
+          const Text(
             '현재 위치의 실제 매장과 가격을 바탕으로\n합리적인 한 끼를 추천해드려요.',
             style: TextStyle(
               color: Color(0xFF64748B),

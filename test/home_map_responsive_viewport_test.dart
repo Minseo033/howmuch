@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
@@ -11,10 +12,71 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     WebViewPlatform.instance = _FakeWebViewPlatform();
+    _FakePlatformWebViewController.channels.clear();
     HomeMapScreen.globalAllStores = [];
     HomeMapScreen.globalUserPosition = null;
     HomeMapScreen.hasRequestedLocationWeb = true;
   });
+
+  for (final size in [const Size(320, 568), const Size(393, 852)]) {
+    testWidgets('selected recommendation controls never overlap at $size', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final store = Store.fromJson({
+        'id': 's',
+        'storeName': '구백년짜장',
+        'address': '서울시 중구',
+        'menu1': '짜장면',
+        'price1': '5000',
+        'latitude': 37.56,
+        'longitude': 126.98,
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeMapScreen(
+            initialRecommendation: AiMapRecommendationResult(
+              storeIds: ['s'],
+              stores: [store],
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      _FakePlatformWebViewController.channels['Print']!.onMessageReceived(
+        const JavaScriptMessage(message: 'Map Initialized on Mobile'),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+      final controls = tester.getRect(
+        find.byKey(const ValueKey('home-map-accessibility-controls')),
+      );
+      for (final key in const [
+        ValueKey('home-location-control'),
+        ValueKey('home-ai-control'),
+      ]) {
+        expect(controls.overlaps(tester.getRect(find.byKey(key))), isFalse);
+      }
+      expect(
+        controls.overlaps(tester.getRect(find.byType(HomeMapStoreCarousel))),
+        isFalse,
+      );
+      for (final tooltip in ['지도 확대', '지도 축소', '지도 매장 목록']) {
+        final button = tester.getRect(find.byTooltip(tooltip));
+        expect(button.height, greaterThanOrEqualTo(44));
+        expect(button.width, greaterThanOrEqualTo(44));
+      }
+      final error = tester.takeException();
+      expect(
+        error,
+        isNull,
+        reason: error is FlutterError ? error.toStringDeep() : '$error',
+      );
+    });
+  }
 
   for (final size in [
     const Size(320, 568),
@@ -220,6 +282,7 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 }
 
 class _FakePlatformWebViewController extends PlatformWebViewController {
+  static final channels = <String, JavaScriptChannelParams>{};
   _FakePlatformWebViewController(super.params) : super.implementation();
 
   @override
@@ -229,9 +292,9 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   Future<void> setBackgroundColor(Color color) async {}
 
   @override
-  Future<void> addJavaScriptChannel(
-    JavaScriptChannelParams javaScriptChannelParams,
-  ) async {}
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
+    channels[params.name] = params;
+  }
 
   @override
   Future<void> loadHtmlString(String html, {String? baseUrl}) async {}

@@ -109,7 +109,9 @@
   .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
   .topbar h2 { font-size:22px; font-weight: 800; letter-spacing: -.4px; }
   .topbar .crumb { font-size:13px; color: var(--muted); margin-top: 3px; }
-  .topbar-actions { display: flex; gap: 8px; }
+  .topbar > :first-child { min-width: 0; }
+  .topbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .topbar-actions .btn { white-space: nowrap; }
 
   /* ── 통계 카드 ─────────────────── */
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
@@ -165,6 +167,12 @@
   .data-table tr:last-child td { border-bottom: none; }
   .data-table tbody tr { transition: background .12s; }
   .data-table tbody tr:hover td { background: #FAFBFD; }
+  .data-table.inquiry-table { min-width: 1020px; }
+  .inquiry-table th:first-child, .inquiry-table td:first-child { min-width: 200px; }
+  .inquiry-table th:nth-child(2), .inquiry-table td:nth-child(2) { min-width: 260px; max-width: 320px; overflow-wrap: anywhere; }
+  .inquiry-table th:nth-child(4), .inquiry-table td:nth-child(4) { min-width: 100px; white-space: nowrap; }
+  .inquiry-table .btn { white-space: nowrap; }
+  .table-scroll-hint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
   .avatar {
     width: 32px; height: 32px; border-radius: 10px; flex-shrink: 0;
     color: #fff; font-size: 13px; font-weight: 800;
@@ -1459,7 +1467,7 @@
         : '<span class="badge ANSWERED">답변 완료</span>';
       return `<tr>
         <td><b>${esc(q.title) || '-'}</b><div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(q.category) || '일반'}</div></td>
-        <td style="max-width:320px"><span>${esc(preview) || '-'}</span><button class="btn btn-ghost btn-sm" data-inquiry-detail="${esc(q.id)}">전문 보기</button>${images.length ? `<div class="report-images" style="margin-top:8px">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" width="74" height="74" loading="lazy" alt="문의 첨부 이미지">`).join('')}</div>` : ''}</td>
+        <td><span>${esc(preview) || '-'}</span><button class="btn btn-ghost btn-sm" data-inquiry-detail="${esc(q.id)}">전문 보기</button>${images.length ? `<div class="report-images" style="margin-top:8px">${images.map((u) => `<img src="${esc(u)}" data-open-image="${esc(u)}" width="74" height="74" loading="lazy" alt="문의 첨부 이미지">`).join('')}</div>` : ''}</td>
         <td class="uid-cell">${shortUid(q.userId)}</td>
         <td>${statusBadge}</td>
         <td style="white-space:nowrap">${fmtDate(q.createdAt)}</td>
@@ -1469,8 +1477,9 @@
 
     content.innerHTML = `
       <div class="section-title">전체 문의 <span class="chip">${(allInquiries || []).length}건</span>${listCapNotice(allInquiries || [])}</div>
-      <div class="card table-wrap">
-        <table class="data-table">
+      <p class="table-scroll-hint">좁은 화면에서는 표를 좌우로 스크롤해 상태와 처리 버튼을 확인하세요.</p>
+      <div class="card table-wrap" tabindex="0" role="region" aria-label="문의 목록, 좌우 스크롤 가능">
+        <table class="data-table inquiry-table">
           <thead><tr><th>제목</th><th>내용</th><th>작성자</th><th>상태</th><th>접수일</th><th></th></tr></thead>
           <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">접수된 문의가 없습니다</td></tr>'}</tbody>
         </table>

@@ -113,8 +113,9 @@ void main() {
 
       expect(find.text('맛있는 카페'), findsOneWidget);
       expect(find.text('검색 메뉴'), findsOneWidget);
-      expect(find.text('치아바타 샌드위치  6,000원'), findsOneWidget);
-      expect(find.text('아메리카노  2,500원'), findsNothing);
+      expect(find.text('치아바타 샌드위치'), findsOneWidget);
+      expect(find.text('6,000원'), findsOneWidget);
+      expect(find.text('2,500원'), findsNothing);
     });
 
     testWidgets(
@@ -151,7 +152,8 @@ void main() {
 
         expect(find.text('맛있는 카페'), findsNWidgets(2));
         expect(find.text('검색 메뉴'), findsNothing);
-        expect(find.text('아메리카노  2,500원'), findsOneWidget);
+        expect(find.text('아메리카노'), findsOneWidget);
+        expect(find.text('2,500원'), findsOneWidget);
       },
     );
 
