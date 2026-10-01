@@ -158,6 +158,26 @@ class GeminiServiceTest {
     }
 
     @Test
+    void mealRequestRejectsDrinksButKeepsCafeFoodAndExplicitCoffeeRequests() {
+        GeminiService service = new GeminiService("", 1_000, false);
+        var stores = List.of(
+                Map.<String, Object>of("storeId", "coffee", "storeName", "가까운 카페", "industry", "카페",
+                        "menu1", "아메리카노(HOT)", "price1", "1500", "distanceMeters", 50),
+                Map.<String, Object>of("storeId", "cafe-food", "storeName", "카페 식사", "industry", "카페",
+                        "menu1", "카페라떼", "price1", "2000", "menu2", "샌드위치", "price2", "5000", "distanceMeters", 100),
+                Map.<String, Object>of("storeId", "meal", "storeName", "식당", "industry", "한식",
+                        "menu1", "칼국수", "price1", "7000", "distanceMeters", 200));
+        for (String message : List.of("10,000원 이하 점심", "저녁 식사", "아침 추천")) {
+            var results = service.verifiedRecommendations(message, stores, 3000);
+            assertThat(results).extracting(item -> item.get("matchedMenu"))
+                    .containsExactly("샌드위치", "칼국수");
+        }
+        var coffee = service.verifiedRecommendations("점심 후 커피 한 곳", stores, 3000);
+        assertThat(coffee).hasSize(1);
+        assertThat(coffee.get(0)).containsEntry("storeId", "coffee");
+    }
+
+    @Test
     void radiusOneThreeAndFifteenKmAreHardBoundariesIncludingExactEdge() {
         GeminiService service = new GeminiService("", 1_000, false);
         for (int radius : List.of(1000, 3000, 15000)) {

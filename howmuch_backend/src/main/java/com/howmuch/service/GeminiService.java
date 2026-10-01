@@ -434,6 +434,10 @@ public class GeminiService {
                 .stream().noneMatch(item::contains)) return false;
         boolean meal = soup || List.of("점심", "저녁", "아침", "식사", "밥", "음식", "맛집", "국수", "분식")
                 .stream().anyMatch(query::contains);
+        // A nearby cheap drink is not a meal. Do not exclude a cafe's actual food menu.
+        boolean drink = item.endsWith("차") || List.of("커피", "아메리카노", "라떼", "카푸치노",
+                "에스프레소", "음료", "에이드", "주스", "스무디").stream().anyMatch(item::contains);
+        if (meal && !cafe && drink) return false;
         if (meal && List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
                 .stream().anyMatch((industry + " " + item)::contains)) return false;
         for (String service : List.of("미용", "세탁", "목욕", "이발", "수선")) {
