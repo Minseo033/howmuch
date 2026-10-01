@@ -438,6 +438,12 @@ public class GeminiService {
         boolean drink = item.endsWith("차") || List.of("커피", "아메리카노", "라떼", "카푸치노",
                 "에스프레소", "음료", "에이드", "주스", "스무디").stream().anyMatch(item::contains);
         if (meal && !cafe && drink) return false;
+        boolean cafeVenue = List.of("카페", "커피", "베이커리").stream().anyMatch(industry::contains);
+        boolean cafeFood = List.of("샌드위치", "샐러드", "토스트", "파니니", "브런치", "파스타",
+                "스파게티", "피자", "버거", "카레", "밥", "국수", "라면", "우동", "찌개", "빵", "베이글")
+                .stream().anyMatch(item::contains);
+        // Unknown cafe menu names can be branded drinks (e.g. 메가리카노), not verified meals.
+        if (meal && !cafe && cafeVenue && !cafeFood) return false;
         if (meal && List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
                 .stream().anyMatch((industry + " " + item)::contains)) return false;
         for (String service : List.of("미용", "세탁", "목욕", "이발", "수선")) {

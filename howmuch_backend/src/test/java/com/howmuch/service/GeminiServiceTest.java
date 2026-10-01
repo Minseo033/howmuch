@@ -163,6 +163,8 @@ class GeminiServiceTest {
         var stores = List.of(
                 Map.<String, Object>of("storeId", "coffee", "storeName", "가까운 카페", "industry", "카페",
                         "menu1", "아메리카노(HOT)", "price1", "1500", "distanceMeters", 50),
+                Map.<String, Object>of("storeId", "branded-drink", "storeName", "커피 매장", "industry", "음식점 · 카페",
+                        "menu1", "메가리카노", "price1", "3000", "distanceMeters", 55),
                 Map.<String, Object>of("storeId", "cafe-food", "storeName", "카페 식사", "industry", "카페",
                         "menu1", "카페라떼", "price1", "2000", "menu2", "샌드위치", "price2", "5000", "distanceMeters", 100),
                 Map.<String, Object>of("storeId", "meal", "storeName", "식당", "industry", "한식",
