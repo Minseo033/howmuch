@@ -112,7 +112,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: PriceHistoryScreen(
-            store: state.extra is Store ? state.extra as Store : null,
+            store: state.extra is PriceHistoryTarget
+                ? (state.extra as PriceHistoryTarget).store
+                : state.extra is Store
+                ? state.extra as Store
+                : null,
+            menuIndex: state.extra is PriceHistoryTarget
+                ? (state.extra as PriceHistoryTarget).menuIndex
+                : 1,
           ),
         ),
       ),

@@ -13,10 +13,23 @@ import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../store_model.dart';
 import '../../../../core/utils/price_formatter.dart';
 
+class PriceHistoryTarget {
+  const PriceHistoryTarget({required this.store, required this.menuIndex});
+
+  final Store store;
+  final int menuIndex;
+}
+
+Uri priceHistoryUri(Store store, int menuIndex) => ApiClient.uri(
+  '/api/stores/${Uri.encodeComponent(store.id.isNotEmpty ? store.id : store.storeName)}/price-history',
+  {'menu': store.menuAt(menuIndex.clamp(1, 4))},
+);
+
 class PriceHistoryScreen extends StatefulWidget {
-  const PriceHistoryScreen({super.key, this.store});
+  const PriceHistoryScreen({super.key, this.store, this.menuIndex = 1});
 
   final Store? store;
+  final int menuIndex;
 
   @override
   State<PriceHistoryScreen> createState() => _PriceHistoryScreenState();
@@ -26,6 +39,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   bool _loading = true;
   String? _errorMessage;
   Map<String, dynamic>? _data;
+  int get _menuIndex => widget.menuIndex.clamp(1, 4);
 
   @override
   void initState() {
@@ -49,10 +63,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     try {
       final response = await http
           .get(
-            ApiClient.uri(
-              '/api/stores/${Uri.encodeComponent(identity)}/price-history',
-              store?.menu1.isNotEmpty == true ? {'menu': store!.menu1} : null,
-            ),
+            priceHistoryUri(store!, _menuIndex),
             headers: ApiClient.jsonHeaders(),
           )
           .timeout(ApiClient.defaultTimeout);
@@ -100,7 +111,8 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     final store = widget.store;
     final storeName =
         _data?['storeName']?.toString() ?? store?.storeName ?? '매장 정보 없음';
-    final menuName = _data?['menuName']?.toString() ?? store?.menu1 ?? '대표 메뉴';
+    final menuName =
+        _data?['menuName']?.toString() ?? store?.menuAt(_menuIndex) ?? '대표 메뉴';
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
@@ -220,7 +232,12 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            _formatPrice(_data?['currentPrice']),
+            formatMenuPrice(
+              _data?['currentPrice']?.toString() ??
+                  widget.store?.priceAt(_menuIndex) ??
+                  '',
+              free: widget.store?.freeAt(_menuIndex) ?? false,
+            ),
             style: const TextStyle(
               color: AppColors.success,
               fontSize: 20,

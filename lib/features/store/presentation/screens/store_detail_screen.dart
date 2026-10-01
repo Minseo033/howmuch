@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'price_history_screen.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -159,13 +160,13 @@ class _StoreDetailContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final menus = [
       if (store.menu1.isNotEmpty)
-        (name: store.menu1, price: store.price1, free: store.free1),
+        (index: 1, name: store.menu1, price: store.price1, free: store.free1),
       if (store.menu2.isNotEmpty)
-        (name: store.menu2, price: store.price2, free: store.free2),
+        (index: 2, name: store.menu2, price: store.price2, free: store.free2),
       if (store.menu3.isNotEmpty)
-        (name: store.menu3, price: store.price3, free: store.free3),
+        (index: 3, name: store.menu3, price: store.price3, free: store.free3),
       if (store.menu4.isNotEmpty)
-        (name: store.menu4, price: store.price4, free: store.free4),
+        (index: 4, name: store.menu4, price: store.price4, free: store.free4),
     ];
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
@@ -496,14 +497,16 @@ class _StoreDetailContent extends ConsumerWidget {
                                           Expanded(
                                             child: Row(
                                               children: [
-                                                Text(
-                                                  e.value.name,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: isFirst
-                                                        ? FontWeight.w600
-                                                        : FontWeight.w400,
-                                                    color: _ink,
+                                                Flexible(
+                                                  child: Text(
+                                                    e.value.name,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight: isFirst
+                                                          ? FontWeight.w600
+                                                          : FontWeight.w400,
+                                                      color: _ink,
+                                                    ),
                                                   ),
                                                 ),
                                                 if (isFirst) ...[
@@ -550,6 +553,27 @@ class _StoreDetailContent extends ConsumerWidget {
                                             ),
                                           ),
                                         ],
+                                      ),
+                                    ),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: () => context.push(
+                                          AppRoutes.priceHistory,
+                                          extra: PriceHistoryTarget(
+                                            store: store,
+                                            menuIndex: e.value.index,
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.history,
+                                          size: 16,
+                                        ),
+                                        label: Text('${e.value.name} 가격 이력'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: _blue,
+                                          minimumSize: const Size(44, 44),
+                                        ),
                                       ),
                                     ),
                                     if (e.key < menus.length - 1)
