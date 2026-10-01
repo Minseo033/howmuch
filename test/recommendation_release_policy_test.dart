@@ -11,12 +11,13 @@ Store store(
   String price,
   double latitude, {
   bool free = false,
+  String industry = '한식',
 }) => Store(
   id: id,
   storeName: id,
   address: '테스트 주소',
   phoneNumber: '',
-  industry: '한식',
+  industry: industry,
   menu1: menu,
   price1: price,
   free1: free,
@@ -103,6 +104,13 @@ void main() {
         stores: [
           store('drink', '아메리카노(HOT)', '1500', 37.001),
           store('latte', '카페라떼', '2000', 37.002),
+          store(
+            'branded-drink',
+            '메가리카노',
+            '3000',
+            37.0025,
+            industry: '음식점 · 카페',
+          ),
           store('food', '샌드위치', '5000', 37.003),
         ],
         query: query,

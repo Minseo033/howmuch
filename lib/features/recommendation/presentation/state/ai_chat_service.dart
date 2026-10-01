@@ -584,6 +584,27 @@ bool menuMatchesRecommendationQuery(
     return false;
   }
   if (meal && !cafe && drink) return false;
+  final cafeVenue = ['카페', '커피', '베이커리'].any(industry.contains);
+  final cafeFood = [
+    '샌드위치',
+    '샐러드',
+    '토스트',
+    '파니니',
+    '브런치',
+    '파스타',
+    '스파게티',
+    '피자',
+    '버거',
+    '카레',
+    '밥',
+    '국수',
+    '라면',
+    '우동',
+    '찌개',
+    '빵',
+    '베이글',
+  ].any(text.contains);
+  if (meal && !cafe && cafeVenue && !cafeFood) return false;
   if (meal &&
       [
         '미용',
