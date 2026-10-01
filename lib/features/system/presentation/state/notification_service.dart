@@ -134,6 +134,20 @@ class NotificationApiService {
   final http.Client _client;
 
   Future<List<NotificationModel>> fetchNotifications() async {
+    // Retry this read-only request once, never mutations (read/save/send).
+    for (var attempt = 0; ; attempt++) {
+      try {
+        return await _fetchNotificationsOnce();
+      } on NotificationApiException catch (error) {
+        if (attempt >= 1 || ![502, 503, 504].contains(error.statusCode)) {
+          rethrow;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 250));
+      }
+    }
+  }
+
+  Future<List<NotificationModel>> _fetchNotificationsOnce() async {
     final response = await _client
         .get(
           ApiClient.uri('/api/notifications'),
@@ -424,9 +438,11 @@ class NotificationsNotifier
     if (_isLoading || _disposed) return;
     _isLoading = true;
     final previousList = state.valueOrNull;
-    if (!isRefresh && !_disposed) {
-      state = const AsyncValue.loading();
-    }
+    state = previousList == null
+        ? const AsyncValue.loading()
+        : const AsyncLoading<List<NotificationModel>>().copyWithPrevious(
+            AsyncValue.data(previousList),
+          );
     try {
       final notifications = await _api.fetchNotifications();
       if (_disposed) return;
@@ -438,9 +454,13 @@ class NotificationsNotifier
       ]);
     } catch (error, stackTrace) {
       if (_disposed) return;
-      if (isRefresh && previousList != null) {
+      if (previousList != null &&
+          !(error is NotificationApiException && error.isUnauthorized)) {
         // A read action may have updated the list while this request waited.
-        state = AsyncValue.data(state.valueOrNull ?? previousList);
+        state = AsyncError<List<NotificationModel>>(
+          error,
+          stackTrace,
+        ).copyWithPrevious(AsyncValue.data(state.valueOrNull ?? previousList));
         return;
       }
       state = AsyncValue.error(error, stackTrace);

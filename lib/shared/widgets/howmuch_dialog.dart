@@ -43,6 +43,7 @@ class HowmuchDialog extends StatelessWidget {
         ),
       ),
       child: AlertDialog(
+        semanticLabel: '$title. $description',
         backgroundColor: AppColors.white,
         surfaceTintColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -85,6 +86,7 @@ class HowmuchDialog extends StatelessWidget {
               Expanded(
                 flex: cancelFlex,
                 child: TextButton(
+                  autofocus: true,
                   style: TextButton.styleFrom(
                     minimumSize: const Size(0, 48),
                     foregroundColor: AppColors.textBody,

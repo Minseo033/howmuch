@@ -11,6 +11,10 @@ import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
+import 'package:geolocator/geolocator.dart';
 
 /// Separates numbered store recommendations from the free-form explanation.
 /// Non-list AI replies keep the original text untouched.
@@ -148,12 +152,27 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         .toList();
 
     // 서버가 실제 매장 정보를 다시 확인할 수 있도록 ID와 현재 위치만 전달합니다.
-    final position = HomeMapScreen.globalUserPosition;
+    var position = HomeMapScreen.globalUserPosition;
+    if (position == null) {
+      try {
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 4),
+        );
+        HomeMapScreen.globalUserPosition = position;
+      } catch (_) {
+        /* Missing location is handled without inventing a city. */
+      }
+    }
+    await ref.read(recommendationRadiusProvider.notifier).ready;
+    if (!mounted || generation != _chatGeneration) return;
+    final radiusMeters = ref.read(recommendationRadiusProvider);
     final nearbyStoreIds = buildNearbyStoreIds(
       stores: HomeMapScreen.globalAllStores,
       lat: position?.latitude,
       lng: position?.longitude,
       limit: 10,
+      radiusMeters: radiusMeters,
     );
 
     // 💡 Gemini API 호출
@@ -165,18 +184,12 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
           nearbyStoreIds: nearbyStoreIds,
           latitude: position?.latitude,
           longitude: position?.longitude,
+          radiusMeters: radiusMeters,
         );
     var botResponse = aiReply.text;
     List<Store> recommendedStores = const [];
-    if (aiReply.isFallback) {
-      final ids = aiReply.recommendedStoreIds.toSet();
-      final candidateStores = HomeMapScreen.globalSearchCatalog.isNotEmpty
-          ? HomeMapScreen.globalSearchCatalog
-          : HomeMapScreen.globalAllStores;
-      recommendedStores = candidateStores
-          .where((store) => ids.contains(store.id))
-          .toList(growable: false);
-    } else if (isAiUnavailableResponse(botResponse)) {
+    List<RecommendationMenuSelection> menuSelections = const [];
+    if (isAiUnavailableResponse(botResponse)) {
       final position = HomeMapScreen.globalUserPosition;
       final candidateStores = await _candidateStoresForFallback();
       final fallbackResult = buildLocalAiFallbackResult(
@@ -184,10 +197,12 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         query: messageText,
         lat: position?.latitude,
         lng: position?.longitude,
+        radiusMeters: radiusMeters,
       );
       if (fallbackResult != null) {
         botResponse = fallbackResult.text;
         recommendedStores = fallbackResult.stores;
+        menuSelections = fallbackResult.menuSelections;
       } else {
         botResponse = 'AI 연결이 원활하지 않습니다. 지도에서 위치를 확인한 뒤 다시 요청해주세요.';
       }
@@ -195,27 +210,16 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       final candidateStores = HomeMapScreen.globalSearchCatalog.isNotEmpty
           ? HomeMapScreen.globalSearchCatalog
           : HomeMapScreen.globalAllStores;
-      final extractedStores = extractRecommendedStoresFromText(
-        text: botResponse,
-        candidateStores: candidateStores,
+      final verified = resolveVerifiedAiRecommendations(
+        recommendations: aiReply.recommendations,
+        catalog: candidateStores,
+        query: messageText,
+        latitude: position?.latitude,
+        longitude: position?.longitude,
+        radiusMeters: radiusMeters,
       );
-      final requestedCount = parseRequestedRecommendationCount(messageText);
-      final budgetWon = parseRequestedBudgetWon(messageText);
-      recommendedStores = extractedStores
-          .where((store) => storeMatchesRequestedBudget(store, budgetWon))
-          .take(requestedCount)
-          .toList(growable: false);
-      if (recommendedStores.length != extractedStores.length) {
-        botResponse = buildStructuredAiRecommendationText(
-          stores: recommendedStores,
-          intro: recommendedStores.isEmpty
-              ? '요청한 예산에 맞는 확인된 매장을 찾지 못했어요. 예산이나 지역을 조금 넓혀 다시 알려주세요.'
-              : '요청하신 조건에 맞는 확인된 매장 ${recommendedStores.length}곳이에요.',
-          budgetWon: budgetWon,
-          lat: position?.latitude,
-          lng: position?.longitude,
-        );
-      }
+      recommendedStores = verified.map((item) => item.store).toList();
+      menuSelections = verified.map((item) => item.selection).toList();
     }
     final recommendedStoreIds = recommendedStores
         .map((s) => s.id)
@@ -235,6 +239,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
               isBot: true,
               recommendedStores: recommendedStores,
               recommendedStoreIds: recommendedStoreIds,
+              menuSelections: menuSelections,
             ),
           ],
         );
@@ -249,6 +254,10 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        return;
+      }
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 260),
@@ -309,6 +318,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 padding: EdgeInsets.fromLTRB(20, 25, 20, contentBottomPadding),
                 children: [
                   const _HeroCard(),
+                  const SizedBox(height: 12),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: RecommendationRadiusButton(),
+                  ),
                   const SizedBox(height: 24),
                   const Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -387,6 +401,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 controller: _controller,
                 onSend: _sendMessage,
                 hasText: _controller.text.trim().isNotEmpty,
+                isSending: _isTyping,
                 bottomPadding: bottomOffset,
               ),
             ),
@@ -703,12 +718,14 @@ class _Composer extends StatelessWidget {
     required this.onSend,
     required this.hasText,
     required this.bottomPadding,
+    this.isSending = false,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
   final bool hasText;
   final double bottomPadding;
+  final bool isSending;
 
   @override
   Widget build(BuildContext context) {
@@ -730,9 +747,13 @@ class _Composer extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              onSubmitted: (_) {
+                if (hasText && !isSending) onSend();
+              },
               cursorColor: const Color(0xFF2563EB),
               decoration: InputDecoration(
                 hintText: '메시지를 입력하세요',
+                labelText: 'AI에게 질문',
                 hintStyle: const TextStyle(
                   color: Color(0xFFCBD5E1),
                   fontFamily: _AiUi.fontFamily,
@@ -773,7 +794,7 @@ class _Composer extends StatelessWidget {
             width: 44,
             height: 44,
             child: FilledButton(
-              onPressed: hasText ? onSend : null,
+              onPressed: hasText && !isSending ? onSend : null,
               style: FilledButton.styleFrom(
                 backgroundColor: hasText
                     ? const Color(0xFF2563EB)
@@ -782,10 +803,13 @@ class _Composer extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 shape: const CircleBorder(),
               ),
-              child: const Icon(
-                Icons.send_rounded,
-                color: Colors.white,
-                size: 20,
+              child: Semantics(
+                label: 'AI 질문 전송',
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ),
@@ -935,40 +959,25 @@ class _BotMessageBubble extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _MessageActionChip(
-              icon: Icons.map_outlined,
-              label: '지도에서 찾기',
-              onTap: () {
-                List<String> storeIds = message.recommendedStoreIds;
-                List<Store> stores = message.recommendedStores;
-
-                if (storeIds.isEmpty && stores.isEmpty) {
-                  final extracted = extractRecommendedStoresFromText(
-                    text: message.text,
-                    candidateStores: HomeMapScreen.globalAllStores,
+            if (message.recommendedStores.isNotEmpty)
+              _MessageActionChip(
+                icon: Icons.map_outlined,
+                label: '지도에서 찾기',
+                onTap: () {
+                  final result = AiMapRecommendationResult(
+                    storeIds: message.recommendedStoreIds,
+                    stores: message.recommendedStores,
+                    menuSelections: message.menuSelections,
+                    queryText: message.text,
                   );
-                  if (extracted.isNotEmpty) {
-                    stores = extracted;
-                    storeIds = extracted
-                        .map((s) => s.id)
-                        .where((id) => id.isNotEmpty)
-                        .toList();
+
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop(result);
+                  } else {
+                    context.go(AppRoutes.home, extra: result);
                   }
-                }
-
-                final result = AiMapRecommendationResult(
-                  storeIds: storeIds,
-                  stores: stores,
-                  queryText: message.text,
-                );
-
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop(result);
-                } else {
-                  context.go(AppRoutes.home, extra: result);
-                }
-              },
-            ),
+                },
+              ),
             const SizedBox(width: 8),
             _MessageActionChip(
               icon: Icons.copy_rounded,

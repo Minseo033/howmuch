@@ -741,3 +741,17 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
     );
   }).toList();
 });
+
+/// Searches only the user's reports; tabs apply their status filter afterwards.
+bool matchesMyReportQuery(UserReportStatus report, String query) {
+  final normalized = query.trim().toLowerCase();
+  if (normalized.isEmpty) return true;
+  final values = [
+    report.store,
+    report.address,
+    report.menu,
+    ...report.menuPrices.map((menu) => menu.menu),
+    report.description,
+  ];
+  return values.any((value) => value.toLowerCase().contains(normalized));
+}

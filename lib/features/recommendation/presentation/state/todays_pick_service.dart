@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 
 final todaysPickHttpClientProvider = Provider<http.Client>((ref) {
   final client = http.Client();
@@ -27,13 +29,21 @@ class TodaysPickService {
   final Duration requestTimeout;
 
   /// 오늘의 픽 조회 (세션 인증 불필요 — 공개 GET)
-  Future<Map<String, dynamic>> getTodaysPick({double? lat, double? lng}) async {
+  Future<Map<String, dynamic>> getTodaysPick({
+    double? lat,
+    double? lng,
+    int radiusMeters = defaultRecommendationRadiusMeters,
+  }) async {
+    if (!validRecommendationRadius(radiusMeters)) {
+      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
+    }
     if (lat == null || lng == null) {
       return const {'error': true, 'message': '현재 위치가 필요합니다.'};
     }
     final query = <String, String>{
       'lat': lat.toString(),
       'lng': lng.toString(),
+      'radiusMeters': radiusMeters.toString(),
     };
     final url = ApiClient.uri('/api/recommendation/todays-pick', query);
 
@@ -59,13 +69,21 @@ class TodaysPickService {
   }
 
   /// AI 루트 추천 조회 (세션 인증 불필요 — 공개 GET)
-  Future<Map<String, dynamic>> getRoute({double? lat, double? lng}) async {
+  Future<Map<String, dynamic>> getRoute({
+    double? lat,
+    double? lng,
+    int radiusMeters = defaultRecommendationRadiusMeters,
+  }) async {
+    if (!validRecommendationRadius(radiusMeters)) {
+      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
+    }
     if (lat == null || lng == null) {
       return const {'error': true, 'message': '현재 위치가 필요합니다.'};
     }
     final query = <String, String>{
       'lat': lat.toString(),
       'lng': lng.toString(),
+      'radiusMeters': radiusMeters.toString(),
     };
     final url = ApiClient.uri('/api/recommendation/route', query);
 
@@ -120,7 +138,18 @@ Map<String, dynamic> buildLocalTodaysPickData({
   double maxDistanceMeters = todaysPickMaxDistanceMeters,
   bool balanceDessert = true,
 }) {
-  if (lat == null || lng == null) {
+  if (lat == null ||
+      lng == null ||
+      !lat.isFinite ||
+      !lng.isFinite ||
+      lat.abs() > 90 ||
+      lng.abs() > 180 ||
+      (lat == 0 && lng == 0) ||
+      !maxDistanceMeters.isFinite ||
+      maxDistanceMeters < 1000 ||
+      maxDistanceMeters > 15000 ||
+      maxDistanceMeters % 1000 != 0 ||
+      limit <= 0) {
     return const {
       'weather': '위치 확인 필요',
       'fallback': true,
@@ -131,7 +160,13 @@ Map<String, dynamic> buildLocalTodaysPickData({
   final originLng = lng;
   final ranked =
       stores
-          .where((store) => store.hasValidCoordinates && _isFoodStore(store))
+          .where(
+            (store) =>
+                store.hasValidCoordinates &&
+                !store.isClosed &&
+                _isFoodStore(store) &&
+                _localPickMenuSlot(store) != null,
+          )
           .map(
             (store) => (
               store: store,
@@ -163,15 +198,30 @@ Map<String, dynamic> buildLocalTodaysPickData({
     'weather': '위치 기반',
     'fallback': true,
     'picks': selected.map((entry) {
+      final slot = _localPickMenuSlot(entry.store)!;
       return {
         ...entry.store.toJson(),
         'distanceMeters': entry.distance.round(),
-        'matchedMenu': entry.store.menu1,
+        'matchedMenu': entry.store.menuAt(slot),
+        'matchedPrice': entry.store.priceAt(slot),
+        'matchedFree': entry.store.freeAt(slot),
+        'menuIndex': slot,
         'theme': '가까운 거리',
         'reason': 'AI 연결 대신 가까운 매장을 안내해요.',
       };
     }).toList(),
   };
+}
+
+int? _localPickMenuSlot(Store store) {
+  for (var slot = 1; slot <= 4; slot++) {
+    if (store.menuAt(slot).trim().isNotEmpty &&
+        minimumMenuPrice(store.priceAt(slot), free: store.freeAt(slot)) !=
+            null) {
+      return slot;
+    }
+  }
+  return null;
 }
 
 bool _isFoodStore(Store store) {

@@ -10,6 +10,73 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test('transient read-only 503 retries once and recovers', () async {
+    var reads = 0;
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((request) async {
+          reads++;
+          return reads == 1
+              ? http.Response('{}', 503)
+              : http.Response('[{"id":"a"}]', 200);
+        }),
+      ),
+    );
+    addTearDown(notifier.dispose);
+    await notifier.loadNotifications();
+    expect(reads, 2);
+    expect(notifier.state.requireValue.single.id, 'a');
+  });
+
+  test(
+    'persistent 503 keeps existing list with observable refresh error',
+    () async {
+      var reads = 0;
+      var available = true;
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            reads++;
+            return available
+                ? http.Response('[{"id":"a"}]', 200)
+                : http.Response('{}', 503);
+          }),
+        ),
+      );
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      available = false;
+      await notifier.loadNotifications(isRefresh: true);
+      expect(reads, 3);
+      expect(notifier.state.valueOrNull!.single.id, 'a');
+      expect(notifier.state.hasError, isTrue);
+    },
+  );
+
+  test(
+    'authorization failure is not retried and clears old personal list',
+    () async {
+      var reads = 0;
+      var available = true;
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((request) async {
+            reads++;
+            return available
+                ? http.Response('[{"id":"a"}]', 200)
+                : http.Response('{}', 401);
+          }),
+        ),
+      );
+      addTearDown(notifier.dispose);
+      await notifier.loadNotifications();
+      available = false;
+      await notifier.loadNotifications(isRefresh: true);
+      expect(reads, 2);
+      expect(notifier.state.valueOrNull, isNull);
+      expect(notifier.state.hasError, isTrue);
+    },
+  );
   test(
     'bulk read continues after a failed item and retries only unread items',
     () async {

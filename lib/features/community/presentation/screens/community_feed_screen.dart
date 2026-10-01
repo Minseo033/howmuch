@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
@@ -265,6 +266,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         store: rawStore.isNotEmpty ? rawStore : null,
         menu: rawMenu.isNotEmpty ? rawMenu : null,
         price: rawPrice.isNotEmpty ? rawPrice : null,
+        free: data['free'] == true || data['free1'] == true,
       );
 
       final String status = switch (rawStatus.toUpperCase()) {
@@ -1389,13 +1391,6 @@ String _formatRelativeTime(String isoString) {
   }
 }
 
-String _formatNumberComma(int value) {
-  return value.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
-}
-
 class _ParsedFeedTitle {
   final String storeName;
   final String menu;
@@ -1413,14 +1408,12 @@ _ParsedFeedTitle _parseFeedTitle(
   String? store,
   String? menu,
   String? price,
+  bool free = false,
 }) {
   if (store != null && store.isNotEmpty) {
-    final pNum = int.tryParse(price?.replaceAll(RegExp(r'[^0-9]'), '') ?? '');
-    final formattedPrice = pNum != null
-        ? '${_formatNumberComma(pNum)}원'
-        : (price != null && price.isNotEmpty
-              ? (price.endsWith('원') ? price : '$price원')
-              : '');
+    final formattedPrice = price == null || price.isEmpty
+        ? ''
+        : formatMenuPrice(price, free: free);
     return _ParsedFeedTitle(
       storeName: store,
       menu: menu ?? '',
@@ -1443,7 +1436,7 @@ _ParsedFeedTitle _parseFeedTitle(
     final rawNumStr = tokens.removeLast().replaceAll('원', '');
     final numVal = int.tryParse(rawNumStr);
     if (numVal != null) {
-      priceStr = '${_formatNumberComma(numVal)}원';
+      priceStr = formatMenuPrice(numVal);
     } else {
       priceStr = '$rawNumStr원';
     }

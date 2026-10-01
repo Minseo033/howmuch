@@ -1,39 +1,82 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/features/store/presentation/state/directions_urls.dart';
 
 void main() {
-  group('Directions external URL policy', () {
-    test('encodes store name cleanly without address concatenation for map search', () {
-      const storeName = '구백년짜장';
-      final query = Uri.encodeComponent(storeName);
-      expect(Uri.decodeComponent(query), '구백년짜장');
-      expect(query, isNot(contains('경기도')));
-    });
-
-    test('formats Naver Map mobile route URL with coordinates', () {
-      const storeName = '구백년짜장';
-      const lat = 36.987;
-      const lng = 126.921;
-      final encoded = Uri.encodeComponent(storeName);
-      final url = Uri.parse(
-        'https://m.map.naver.com/route.nhn?menu=route&ename=$encoded&ex=$lng&ey=$lat&pathType=1',
+  for (final transport in DirectionsTransport.values) {
+    test(
+      'production Kakao builder preserves origin, destination and $transport',
+      () {
+        final urls = buildKakaoDirectionsUrls(
+          destinationName: '가게 이름/테스트 &점',
+          startName: '첫 번째 매장',
+          transport: transport,
+          startLatitude: 37.1,
+          startLongitude: 127.1,
+          destinationLatitude: 37.2,
+          destinationLongitude: 127.2,
+        );
+        final mode = switch (transport) {
+          DirectionsTransport.walk => 'walk',
+          DirectionsTransport.transit => 'traffic',
+          DirectionsTransport.car => 'car',
+        };
+        expect(urls.web.pathSegments.take(3), ['link', 'by', mode]);
+        expect(urls.web.pathSegments[3], '첫 번째 매장,37.1,127.1');
+        expect(urls.web.pathSegments[4], '가게 이름/테스트 &점,37.2,127.2');
+        expect(urls.native.queryParameters['sp'], '37.1,127.1');
+        expect(urls.native.queryParameters['ep'], '37.2,127.2');
+      },
+    );
+    test(
+      'production Naver builder preserves origin, destination and $transport',
+      () {
+        final urls = buildNaverDirectionsUrls(
+          destinationName: '구백년짜장',
+          startName: '이전 매장',
+          transport: transport,
+          startLatitude: 37.1,
+          startLongitude: 127.1,
+          destinationLatitude: 37.2,
+          destinationLongitude: 127.2,
+        );
+        expect(urls.web.queryParameters['sname'], '이전 매장');
+        expect(urls.web.queryParameters['sx'], '127.1');
+        expect(urls.web.queryParameters['sy'], '37.1');
+        expect(urls.web.queryParameters['ename'], '구백년짜장');
+        expect(urls.web.queryParameters['ex'], '127.2');
+        expect(urls.web.queryParameters['ey'], '37.2');
+        expect(urls.web.queryParameters['pathType'], switch (transport) {
+          DirectionsTransport.walk => '2',
+          DirectionsTransport.transit => '1',
+          DirectionsTransport.car => '0',
+        });
+      },
+    );
+  }
+  test(
+    'missing origin explicitly falls back without fabricating current position',
+    () {
+      final urls = buildKakaoDirectionsUrls(
+        destinationName: '가게',
+        transport: DirectionsTransport.walk,
+        destinationLatitude: 37.2,
+        destinationLongitude: 127.2,
       );
-
-      expect(url.queryParameters['menu'], 'route');
-      expect(url.queryParameters['ename'], storeName);
-      expect(url.queryParameters['ex'], '126.921');
-      expect(url.queryParameters['ey'], '36.987');
-    });
-
-    test('formats Kakao Map mobile link-to route URL with coordinates', () {
-      const storeName = '구백년짜장';
-      const lat = 36.987;
-      const lng = 126.921;
-      final encoded = Uri.encodeComponent(storeName);
-      final url = Uri.parse(
-        'https://map.kakao.com/link/to/$encoded,$lat,$lng',
+      expect(urls.web.pathSegments.take(2), ['link', 'to']);
+      expect(urls.native.queryParameters.containsKey('sp'), isFalse);
+    },
+  );
+  test(
+    'invalid destination uses a name search without invalid coordinates',
+    () {
+      final urls = buildKakaoDirectionsUrls(
+        destinationName: '가게',
+        transport: DirectionsTransport.walk,
+        destinationLatitude: double.nan,
+        destinationLongitude: 127.2,
       );
-
-      expect(Uri.decodeComponent(url.path), '/link/to/$storeName,$lat,$lng');
-    });
-  });
+      expect(urls.web.pathSegments.take(2), ['link', 'search']);
+      expect(urls.web.toString(), isNot(contains('NaN')));
+    },
+  );
 }

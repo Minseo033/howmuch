@@ -9,6 +9,7 @@ import 'package:howmuch/features/store/store_model.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 
 class StoreInfoReportScreen extends ConsumerStatefulWidget {
   const StoreInfoReportScreen({super.key, this.store});
@@ -23,6 +24,11 @@ class StoreInfoReportScreen extends ConsumerStatefulWidget {
 class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   int _selectedTypeIndex = 1; // 기본: '가격이 달라요'
   bool _isSubmitting = false;
+  bool _isFree = false;
+  String? _priceError;
+  String? _descriptionError;
+  final _firstInvalidFocus = FocusNode();
+  final _descriptionFocus = FocusNode();
 
   final _priceController = TextEditingController();
   final _descController = TextEditingController();
@@ -49,18 +55,31 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       return;
     }
     final description = _descController.text.trim();
-    final price = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final price = _priceController.text.trim();
+    setState(() {
+      _priceError = null;
+      _descriptionError = null;
+    });
     if (widget.store == null) {
       _showMessage('매장 정보가 없어 신고할 수 없어요.');
       return;
     }
+    final parsedPrice = parsePriceValue(price);
     if (_selectedTypeIndex == 1 &&
-        (price.isEmpty || int.tryParse(price) == 0)) {
-      _showMessage('실제 가격을 입력해주세요.');
+        (parsedPrice == null ||
+            !parsedPrice.isExact ||
+            (_isFree ? parsedPrice.minimum != 0 : parsedPrice.minimum <= 0))) {
+      setState(
+        () => _priceError = _isFree
+            ? '무료 메뉴는 정확히 0원으로 입력해주세요.'
+            : '실제 가격은 0보다 큰 정확한 금액을 입력해주세요.',
+      );
+      _firstInvalidFocus.requestFocus();
       return;
     }
     if (description.isEmpty) {
-      _showMessage('신고 내용을 입력해주세요.');
+      setState(() => _descriptionError = '신고 내용을 입력해주세요.');
+      _descriptionFocus.requestFocus();
       return;
     }
     setState(() => _isSubmitting = true);
@@ -77,6 +96,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
               phoneNumber: store.phoneNumber,
               menu1: store.menu1,
               price1: _selectedTypeIndex == 1 ? price : store.price1,
+              free1: _selectedTypeIndex == 1 ? _isFree : store.free1,
               latitude: store.latitude,
               longitude: store.longitude,
               imageUrls: const [],
@@ -113,6 +133,8 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   void dispose() {
     _priceController.dispose();
     _descController.dispose();
+    _firstInvalidFocus.dispose();
+    _descriptionFocus.dispose();
     super.dispose();
   }
 
@@ -166,7 +188,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                   // 실제 가격 (가격이 달라요 선택 시)
                   if (_selectedTypeIndex == 1) ...[
                     const Text(
-                      '실제 가격 선택',
+                      '실제 가격 (필수)',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey,
@@ -175,12 +197,27 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                     ),
                     const SizedBox(height: 8),
                     _buildPriceField(),
+                    Semantics(
+                      label: '무료 메뉴 여부',
+                      child: CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('무료 (정확히 0원)'),
+                        value: _isFree,
+                        onChanged: (value) => setState(() {
+                          _isFree = value ?? false;
+                          if (_isFree) _priceController.text = '0';
+                          _priceError = null;
+                        }),
+                      ),
+                    ),
+                    if (_priceError != null) _inlineError(_priceError!),
                     const SizedBox(height: 20),
                   ],
 
                   // 추가 설명
                   const Text(
-                    '추가 설명 선택',
+                    '신고 내용 (필수)',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey,
@@ -189,6 +226,8 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildDescField(),
+                  if (_descriptionError != null)
+                    _inlineError(_descriptionError!),
                   const SizedBox(height: 20),
 
                   _buildWarningBox(),
@@ -324,9 +363,11 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   Widget _buildPriceField() {
     return TextField(
       controller: _priceController,
+      focusNode: _firstInvalidFocus,
       keyboardType: TextInputType.number,
       style: const TextStyle(fontWeight: FontWeight.w500),
       decoration: InputDecoration(
+        labelText: '실제 가격 (필수)',
         suffixText: '원',
         suffixStyle: const TextStyle(color: Colors.grey),
         contentPadding: const EdgeInsets.symmetric(
@@ -352,8 +393,10 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   Widget _buildDescField() {
     return TextField(
       controller: _descController,
+      focusNode: _descriptionFocus,
       maxLines: 3,
       decoration: InputDecoration(
+        labelText: '신고 내용 (필수)',
         hintStyle: const TextStyle(color: Colors.grey),
         contentPadding: const EdgeInsets.all(16),
         border: OutlineInputBorder(
@@ -371,6 +414,14 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       ),
     );
   }
+
+  Widget _inlineError(String message) => Padding(
+    padding: const EdgeInsets.only(top: 6),
+    child: Text(
+      message,
+      style: const TextStyle(color: Colors.red, fontSize: 12),
+    ),
+  );
 
   Widget _buildWarningBox() {
     return Container(

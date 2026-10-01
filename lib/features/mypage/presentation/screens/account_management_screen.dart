@@ -9,7 +9,7 @@ import 'package:howmuch/features/mypage/presentation/state/device_permission_ser
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 
-class AccountManagementScreen extends ConsumerWidget {
+class AccountManagementScreen extends ConsumerStatefulWidget {
   const AccountManagementScreen({super.key});
 
   static const blue = AppColors.primary;
@@ -31,7 +31,35 @@ class AccountManagementScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountManagementScreen> createState() =>
+      _AccountManagementScreenState();
+}
+
+class _AccountManagementScreenState
+    extends ConsumerState<AccountManagementScreen>
+    with WidgetsBindingObserver {
+  static const surface = AccountManagementScreen.surface;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(locationAccessProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final profile = ref.watch(userProfileProvider);
     final auth = ref.watch(authStateProvider);
     final location = ref.watch(locationAccessProvider);
@@ -97,18 +125,9 @@ class AccountManagementScreen extends ConsumerWidget {
                     onSocialAccounts: () =>
                         context.push(AppRoutes.connectedSocialAccounts),
                     onLocationTap: () async {
-                      final service = ref.read(devicePermissionServiceProvider);
                       final access =
                           location.valueOrNull ?? DeviceAccess.unknown;
-                      if (access == DeviceAccess.denied) {
-                        await service.requestLocation();
-                      } else if (access != DeviceAccess.allowed) {
-                        await service.openSettings(
-                          locationService: access == DeviceAccess.serviceOff,
-                        );
-                      }
-                      if (!context.mounted) return;
-                      ref.invalidate(locationAccessProvider);
+                      await manageLocationPermission(context, ref, access);
                     },
                   ),
                 ),

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:howmuch/features/store/presentation/state/directions_urls.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,6 +27,7 @@ class DirectionsExternalAppScreen extends StatefulWidget {
     this.startLatitude,
     this.startLongitude,
     this.positionLookup,
+    this.startName = '현재 위치',
   });
 
   final String storeName;
@@ -35,6 +38,7 @@ class DirectionsExternalAppScreen extends StatefulWidget {
   final double? startLatitude;
   final double? startLongitude;
   final DirectionsPositionLookup? positionLookup;
+  final String startName;
 
   @override
   State<DirectionsExternalAppScreen> createState() =>
@@ -162,102 +166,75 @@ class _DirectionsExternalAppScreenState
     await _resolveStartLocation();
   }
 
-  Future<void> _launchKakaoMap() async {
-    await _ensureStartLocation();
-    final storeQuery = Uri.encodeComponent(widget.storeName);
-    final mode = _transports[_selectedTransport]['mode'] as String;
-    final hasDestCoords = _isValidCoordinate(widget.latitude, widget.longitude);
+  Future<void> _launchKakaoMap() => _launchDirections(true);
 
-    final url = hasDestCoords
-        ? (_hasRouteCoordinates
-              ? Uri.parse(
-                  'kakaomap://route?sp=$_effectiveStartLat,$_effectiveStartLng'
-                  '&ep=${widget.latitude},${widget.longitude}&by=$mode',
-                )
-              : Uri.parse(
-                  'kakaomap://route?ep=${widget.latitude},${widget.longitude}&by=$mode',
-                ))
-        : Uri.parse('kakaomap://search?q=$storeQuery');
+  Future<void> _launchNaverMap() => _launchDirections(false);
 
-    final fallbackUrl = hasDestCoords
-        ? Uri.parse(
-            'https://map.kakao.com/link/to/$storeQuery,${widget.latitude},${widget.longitude}',
-          )
-        : Uri.parse('https://map.kakao.com/link/search/$storeQuery');
-
-    try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
-      } else {
-        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
-      }
-      if (!_hasRouteCoordinates && mounted) {
+  Future<void> _launchDirections(bool kakao) async {
+    // On web, opening a window must stay on the button's activation event.
+    // If GPS was not ready, resolve it first and ask for a second activation.
+    if (kIsWeb && !_hasRouteCoordinates && !_isResolvingStart) {
+      await _ensureStartLocation();
+      if (!mounted) return;
+      if (_hasRouteCoordinates) {
         ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
+          HowmuchSnackBar(content: Text('출발지를 확인했어요. 지도 열기 버튼을 다시 눌러주세요.')),
         );
+        return;
       }
-    } catch (e) {
-      debugPrint('카카오맵 실행 오류: $e');
+    } else if (!kIsWeb) {
+      await _ensureStartLocation();
     }
-  }
-
-  Future<void> _launchNaverMap() async {
-    await _ensureStartLocation();
-    final storeQuery = Uri.encodeComponent(widget.storeName);
-    final mode = switch (_selectedTransport) {
-      0 => 'walk',
-      1 => 'public',
-      _ => 'car',
-    };
-    final naverPathType = switch (_selectedTransport) {
-      0 => '2', // 도보
-      1 => '1', // 대중교통
-      _ => '0', // 자동차
-    };
-    final hasDestCoords = _isValidCoordinate(widget.latitude, widget.longitude);
-
-    final url = hasDestCoords
-        ? (_hasRouteCoordinates
-              ? Uri.parse(
-                  'nmap://route/$mode?slat=$_effectiveStartLat'
-                  '&slng=$_effectiveStartLng&sname=${Uri.encodeComponent('현재 위치')}'
-                  '&dlat=${widget.latitude}&dlng=${widget.longitude}'
-                  '&dname=$storeQuery&appname=com.howmuch.app',
-                )
-              : Uri.parse(
-                  'nmap://route/$mode?dlat=${widget.latitude}&dlng=${widget.longitude}'
-                  '&dname=$storeQuery&appname=com.howmuch.app',
-                ))
-        : Uri.parse('nmap://search?query=$storeQuery&appname=com.howmuch.app');
-
-    final fallbackUrl = hasDestCoords
-        ? (_hasRouteCoordinates
-              ? Uri.parse(
-                  'https://m.map.naver.com/route.nhn?menu=route'
-                  '&sname=${Uri.encodeComponent('현재 위치')}&sx=$_effectiveStartLng&sy=$_effectiveStartLat'
-                  '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
-                )
-              : Uri.parse(
-                  'https://m.map.naver.com/route.nhn?menu=route'
-                  '&ename=$storeQuery&ex=${widget.longitude}&ey=${widget.latitude}&pathType=$naverPathType',
-                ))
-        : Uri.parse(
-            'https://m.map.naver.com/search2/search.naver?query=$storeQuery',
+    final args = DirectionsTransport.values[_selectedTransport];
+    final urls = kakao
+        ? buildKakaoDirectionsUrls(
+            destinationName: widget.storeName,
+            startName: widget.startName,
+            transport: args,
+            startLatitude: _effectiveStartLat,
+            startLongitude: _effectiveStartLng,
+            destinationLatitude: widget.latitude,
+            destinationLongitude: widget.longitude,
+          )
+        : buildNaverDirectionsUrls(
+            destinationName: widget.storeName,
+            startName: widget.startName,
+            transport: args,
+            startLatitude: _effectiveStartLat,
+            startLongitude: _effectiveStartLng,
+            destinationLatitude: widget.latitude,
+            destinationLongitude: widget.longitude,
           );
-
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
-      } else {
-        await launchUrl(fallbackUrl, mode: LaunchMode.externalApplication);
-      }
-      if (!_hasRouteCoordinates && mounted) {
+      final opened = kIsWeb
+          ? await launchUrl(
+              urls.web,
+              mode: LaunchMode.externalApplication,
+              webOnlyWindowName: '_blank',
+            )
+          : await canLaunchUrl(urls.native)
+          ? await launchUrl(urls.native)
+          : await launchUrl(urls.web, mode: LaunchMode.externalApplication);
+      if (!mounted) return;
+      if (!opened) {
         ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('현재 위치를 확인하지 못해 지도 앱에서 출발지를 선택해주세요.')),
+          HowmuchSnackBar(
+            content: Text('지도를 열지 못했어요. 브라우저 팝업 설정을 확인하고 다시 눌러주세요.'),
+          ),
+        );
+      } else if (!_hasRouteCoordinates) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          HowmuchSnackBar(
+            content: Text('현재 위치를 확인하지 못했어요. 외부 지도에서 출발지와 이동 방식을 선택해주세요.'),
+          ),
         );
       }
-    } catch (e) {
-      debugPrint('네이버지도 실행 오류: $e');
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          HowmuchSnackBar(content: Text('지도를 열지 못했어요. 연결 상태를 확인하고 다시 시도해주세요.')),
+        );
+      }
     }
   }
 
@@ -398,7 +375,7 @@ class _DirectionsExternalAppScreenState
                         _isResolvingStart
                             ? '출발지 · 현재 위치 확인 중'
                             : _hasRouteCoordinates
-                            ? '출발지 · 현재 위치'
+                            ? '출발지 · ${widget.startName}'
                             : '출발지 · 지도 앱에서 선택',
                         style: TextStyle(
                           color: _hasRouteCoordinates
@@ -424,49 +401,64 @@ class _DirectionsExternalAppScreenState
       children: List.generate(_transports.length, (i) {
         final selected = _selectedTransport == i;
         return Expanded(
-          child: GestureDetector(
-            onTap: () => setState(() => _selectedTransport = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              margin: EdgeInsets.only(
-                right: i < _transports.length - 1 ? 10 : 0,
-              ),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primarySubtle : AppColors.white,
+          child: Semantics(
+            label: '${_transports[i]['label']} 이동 방식',
+            selected: selected,
+            button: true,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _selectedTransport = i),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: selected ? AppColors.primary : Colors.grey.shade200,
-                  width: selected ? 2 : 1,
+                child: AnimatedContainer(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 150),
+                  margin: EdgeInsets.only(
+                    right: i < _transports.length - 1 ? 10 : 0,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primarySubtle : AppColors.white,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.primary
+                          : Colors.grey.shade200,
+                      width: selected ? 2 : 1,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(
+                        _transports[i]['icon'] as IconData,
+                        color: selected
+                            ? AppColors.primary
+                            : Colors.grey.shade500,
+                        size: 28,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _transports[i]['label'] as String,
+                        style: TextStyle(
+                          color: selected ? AppColors.primary : Colors.black87,
+                          fontWeight: selected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '지도 앱에서 확인',
+                        style: TextStyle(
+                          color: selected ? AppColors.primary : AppColors.muted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    _transports[i]['icon'] as IconData,
-                    color: selected ? AppColors.primary : Colors.grey.shade500,
-                    size: 28,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _transports[i]['label'] as String,
-                    style: TextStyle(
-                      color: selected ? AppColors.primary : Colors.black87,
-                      fontWeight: selected
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '지도 앱에서 확인',
-                    style: TextStyle(
-                      color: selected ? AppColors.primary : AppColors.muted,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
               ),
             ),
           ),
@@ -482,47 +474,55 @@ class _DirectionsExternalAppScreenState
     required Color textColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Text(
-                  badge,
-                  style: TextStyle(
-                    color: textColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
+    return Semantics(
+      label: label,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      badge,
+                      style: TextStyle(
+                        color: textColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 15,
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
                 ),
-              ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade400),
-          ],
+          ),
         ),
       ),
     );

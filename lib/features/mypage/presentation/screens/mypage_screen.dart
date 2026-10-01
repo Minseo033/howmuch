@@ -99,7 +99,11 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _refreshSummary();
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(locationAccessProvider);
+      ref.invalidate(pushAccessProvider);
+      _refreshSummary();
+    }
   }
 
   void _refreshSummary() {
@@ -1075,21 +1079,7 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
   Future<void> _location(DeviceAccess access) async {
     if (_busy) return;
     _busy = true;
-    final service = ref.read(devicePermissionServiceProvider);
-    if (access == DeviceAccess.denied) {
-      await service.requestLocation();
-    } else if (access != DeviceAccess.allowed) {
-      final opened = await service.openSettings(
-        locationService: access == DeviceAccess.serviceOff,
-      );
-      if (!opened && mounted) {
-        _message(
-          service.web
-              ? '브라우저의 사이트 설정에서 위치 권한을 변경해 주세요.'
-              : '기기 설정에서 위치 권한을 변경해 주세요.',
-        );
-      }
-    }
+    await manageLocationPermission(context, ref, access);
     if (!mounted) return;
     _busy = false;
     ref.invalidate(locationAccessProvider);

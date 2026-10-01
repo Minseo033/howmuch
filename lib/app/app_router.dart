@@ -181,6 +181,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               longitude: (extra['longitude'] as num?)?.toDouble(),
               startLatitude: (extra['startLatitude'] as num?)?.toDouble(),
               startLongitude: (extra['startLongitude'] as num?)?.toDouble(),
+              startName: extra['startName']?.toString() ?? '현재 위치',
             ),
           );
         },
@@ -301,7 +302,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AppRoutes.savingsReportDashboard,
         const SavingsReportDashboardScreen(),
       ),
-      _route(AppRoutes.savingsDetail, const SavingsDetailScreen()),
+      GoRoute(
+        path: AppRoutes.savingsDetail,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: SavingsDetailScreen(
+            startDate: state.uri.queryParameters['startDate'],
+            endDateExclusive: state.uri.queryParameters['endDateExclusive'],
+          ),
+        ),
+      ),
       _route(AppRoutes.savingsGoalSetting, const SavingsGoalSettingScreen()),
       _route(AppRoutes.todaysPick, const TodaysPickScreen()),
       _route(AppRoutes.optimalRoute, const OptimalRouteScreen()),
@@ -313,12 +323,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final extra = state.extra;
           String query = '';
           bool openFilter = false;
+          SearchFilter? initialFilter;
 
           if (extra is String) {
             query = extra;
           } else if (extra is Map<String, dynamic>) {
             query = extra['query'] as String? ?? '';
             openFilter = extra['openFilter'] as bool? ?? false;
+            initialFilter = extra['filter'] is SearchFilter
+                ? extra['filter'] as SearchFilter
+                : null;
           }
 
           return CupertinoPage<void>(
@@ -326,6 +340,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             child: SearchResultScreen(
               initialQuery: query,
               autoOpenFilter: openFilter,
+              initialFilter: initialFilter,
             ),
           );
         },

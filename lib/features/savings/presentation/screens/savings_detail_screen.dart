@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/savings/presentation/state/savings_period.dart';
+import 'package:howmuch/app/app_routes.dart';
 
 @visibleForTesting
 String normalizeSavingsCategory(Object? rawValue) {
@@ -32,10 +34,12 @@ class SavingsDetailItem {
   final Color badgeColor;
   final Color badgeBg;
   final String date;
+  final DateTime? dateValue;
   final String storeName;
   final String menuName;
   final String price;
   final String savingAmount;
+  final int savedAmountValue;
 
   SavingsDetailItem({
     required this.category,
@@ -43,15 +47,20 @@ class SavingsDetailItem {
     required this.badgeColor,
     required this.badgeBg,
     required this.date,
+    required this.dateValue,
     required this.storeName,
     required this.menuName,
     required this.price,
     required this.savingAmount,
+    required this.savedAmountValue,
   });
 }
 
 class SavingsDetailScreen extends StatefulWidget {
-  const SavingsDetailScreen({super.key});
+  const SavingsDetailScreen({super.key, this.startDate, this.endDateExclusive});
+
+  final String? startDate;
+  final String? endDateExclusive;
 
   @override
   State<SavingsDetailScreen> createState() => _SavingsDetailScreenState();
@@ -65,6 +74,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   int _totalSavedAmount = 0;
   int _visitCount = 0;
   int _averageSaved = 0;
+  late final SavingsPeriod? _period;
 
   List<String> get _availableCategories {
     const preferredOrder = ['음식점', '카페', '미용', '기타'];
@@ -75,10 +85,17 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _period = widget.startDate == null && widget.endDateExclusive == null
+        ? SavingsPeriod.currentMonth(DateTime.now())
+        : SavingsPeriod.fromDates(widget.startDate, widget.endDateExclusive);
     _fetchSavingsHistory();
   }
 
   Future<void> _fetchSavingsHistory() async {
+    if (_period == null) {
+      _setLoadError('조회 기간이 올바르지 않아요. 리포트에서 기간을 다시 선택해 주세요.');
+      return;
+    }
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -86,7 +103,10 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
     try {
       final response = await ApiClient.get(
-        ApiClient.uri('/api/savings/history'),
+        ApiClient.uri('/api/savings/history', {
+          'startDate': _period.startDate,
+          'endDateExclusive': _period.endDateExclusive,
+        }),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
 
@@ -97,8 +117,14 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
         final List<dynamic> historyData = decoded is List ? decoded : [];
 
         final parsed = historyData.map((item) {
-          final isGov = item['isGov'] == true;
-          final String badgeText = isGov ? '정부 인증' : '사용자 제보';
+          final source = item['storeSource']?.toString().trim().toUpperCase();
+          final isGov =
+              source == 'GOV' || (source == null && item['isGov'] == true);
+          final String badgeText = isGov
+              ? '정부 인증'
+              : source == 'USER'
+              ? '사용자 제보'
+              : '출처 확인 필요';
           final Color badgeColor = isGov
               ? const Color(0xFF2563EB)
               : const Color(0xFFF97316);
@@ -107,7 +133,10 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               : const Color(0xFFFFF3EA);
 
           final int priceVal = (item['price'] as num?)?.toInt() ?? 0;
-          final int savedVal = (item['savedAmount'] as num?)?.toInt() ?? 0;
+          final bool isFree = item['isFree'] == true;
+          final int savedVal = isFree
+              ? 0
+              : (item['savedAmount'] as num?)?.toInt() ?? 0;
 
           final String dateRaw =
               item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
@@ -121,29 +150,33 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
             badgeColor: badgeColor,
             badgeBg: badgeBg,
             date: _formatDate(dateRaw),
+            dateValue: _parseDate(dateRaw),
             storeName: item['storeName']?.toString() ?? '미등록 매장',
             menuName: item['menu']?.toString() ?? '기타',
-            price: '${_formatCurrency(priceVal)}원',
-            savingAmount: '공공 기준가 대비 ${_formatCurrency(savedVal)}원 절약',
+            price: isFree ? '무료' : '${_formatCurrency(priceVal)}원',
+            savingAmount: isFree
+                ? '무료 이용'
+                : '공공 기준가 대비 ${_formatCurrency(savedVal)}원 절약',
+            savedAmountValue: savedVal,
           );
         }).toList();
 
-        // 이번 달 항목만 필터링해 요약 통계 계산
-        final now = DateTime.now();
-        final thisMonthItems = parsed.where((item) {
-          final d = _parseDate(item.date);
-          return d != null && d.year == now.year && d.month == now.month;
-        }).toList();
+        final periodItems = parsed
+            .where(
+              (item) =>
+                  item.dateValue != null && _period.contains(item.dateValue!),
+            )
+            .toList();
 
-        final totalSaved = thisMonthItems.fold<int>(
+        final totalSaved = periodItems.fold<int>(
           0,
-          (sum, it) => sum + _parseAmount(it.savingAmount),
+          (sum, it) => sum + it.savedAmountValue,
         );
-        final visitCount = thisMonthItems.length;
+        final visitCount = periodItems.length;
         final averageSaved = visitCount > 0 ? totalSaved ~/ visitCount : 0;
 
         setState(() {
-          _allItems = parsed;
+          _allItems = periodItems;
           _totalSavedAmount = totalSaved;
           _visitCount = visitCount;
           _averageSaved = averageSaved;
@@ -172,24 +205,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
 
   /// ISO 8601/점 형식 날짜 문자열을 파싱 (실패 시 null)
   DateTime? _parseDate(String raw) {
-    final s = raw.trim();
-    if (s.isEmpty) return null;
-    try {
-      if (s.contains('T')) {
-        final parsed = DateTime.tryParse(s);
-        if (parsed != null) return parsed.toLocal();
-      }
-      // "2026-08-03T..." 또는 "2026.08.03..."
-      final match = RegExp(r'(\d{4})[-.](\d{1,2})[-.](\d{1,2})').firstMatch(s);
-      if (match != null) {
-        return DateTime(
-          int.parse(match.group(1)!),
-          int.parse(match.group(2)!),
-          int.parse(match.group(3)!),
-        );
-      }
-    } catch (_) {}
-    return null;
+    return SavingsPeriod.koreanDate(raw.trim());
   }
 
   /// "2026.08.03" 형태로 표시
@@ -197,13 +213,6 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     final d = _parseDate(raw);
     if (d == null) return raw;
     return '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
-  }
-
-  /// "공공 기준가 대비 2,000원 절약" → 2000
-  int _parseAmount(String saving) {
-    final match = RegExp(r'([\d,]+)').firstMatch(saving);
-    if (match == null) return 0;
-    return int.tryParse(match.group(1)!.replaceAll(',', '')) ?? 0;
   }
 
   String _formatCurrency(int value) {
@@ -244,12 +253,15 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                   child: Row(
                     children: [
                       IconButton(
+                        tooltip: '리포트로 돌아가기',
                         icon: const Icon(
                           Icons.arrow_back_rounded,
                           color: Colors.black,
                           size: 20,
                         ),
-                        onPressed: () => context.pop(),
+                        onPressed: () => context.canPop()
+                            ? context.pop()
+                            : context.go(AppRoutes.savingsReportDashboard),
                       ),
                       const Expanded(
                         child: Text(
@@ -308,7 +320,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${DateTime.now().month}월 누적 절약',
+                                  '${_period?.title ?? '선택 기간'} 누적 절약',
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],

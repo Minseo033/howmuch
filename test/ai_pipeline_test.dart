@@ -235,7 +235,7 @@ void main() {
       expect(result.text, isNot(contains('7,000원')));
     });
 
-    test('keeps real candidates when no store meets the requested budget', () {
+    test('does not relax a requested budget to fill results', () {
       final result = buildLocalAiFallbackResult(
         stores: sampleStores,
         query: '1000원 이하 한 곳 추천해줘',
@@ -244,14 +244,13 @@ void main() {
       );
 
       expect(result, isNotNull);
-      expect(result!.stores, hasLength(1));
-      expect(result.text, contains('실제 매장 대안'));
-      expect(result.text, contains(result.stores.single.storeName));
-      expect(result.text, contains('7,000원'));
+      expect(result!.stores, isEmpty);
+      expect(result.text, contains('맞는 매장을 찾지 못했어요'));
+      expect(result.text, isNot(contains('7,000원')));
     });
   });
 
-  group('extractRecommendedStoresFromText', () {
+  group('verified structured recommendation identity', () {
     final sampleStores = [
       Store(
         id: 's1',
@@ -291,17 +290,31 @@ void main() {
       ),
     ];
 
-    test('extracts stores mentioned in bot message', () {
-      const botMsg = '오늘 같은 날에는 원조순대국에서 따뜻한 순대국 한 그릇 어떠세요?';
-      final extracted = extractRecommendedStoresFromText(
-        text: botMsg,
-        candidateStores: sampleStores,
-      );
+    test(
+      'only the supplied store ID resolves, never a common name in prose',
+      () {
+        final recommendation = VerifiedAiRecommendation.fromJson({
+          'storeId': 's1',
+          'storeName': '원조순대국',
+          'matchedMenu': '순대국',
+          'rawPrice': '7000',
+          'distanceMeters': 0,
+          'source': 'GOV',
+        });
+        final extracted = resolveVerifiedAiRecommendations(
+          recommendations: [recommendation!],
+          catalog: sampleStores,
+          query: '국물',
+          latitude: 37.55,
+          longitude: 126.92,
+          radiusMeters: 3000,
+        );
 
-      expect(extracted.length, 1);
-      expect(extracted.first.id, 's1');
-      expect(extracted.first.storeName, '원조순대국');
-    });
+        expect(extracted.length, 1);
+        expect(extracted.first.store.id, 's1');
+        expect(extracted.first.store.storeName, '원조순대국');
+      },
+    );
   });
 
   group('AI Map Linkage and Chat UI', () {
@@ -320,10 +333,21 @@ void main() {
             overrides: [
               aiChatHistoryProvider.overrideWith(
                 (ref) => [
-                  const AiChatMessage(
+                  AiChatMessage(
                     text: '1. 마포국밥 — 순대국밥 · 7,000원',
                     isBot: true,
                     recommendedStoreIds: ['store-1'],
+                    recommendedStores: [
+                      Store.fromJson({
+                        'storeId': 'store-1',
+                        'storeName': '마포국밥',
+                        'menu1': '순대국밥',
+                        'price1': '7000',
+                        'latitude': 37.55,
+                        'longitude': 126.92,
+                        'source': 'GOV',
+                      }),
+                    ],
                   ),
                 ],
               ),
@@ -415,9 +439,7 @@ void main() {
 
         await tester.pumpWidget(
           const ProviderScope(
-            child: MaterialApp(
-              home: AiRecommendChatScreen(),
-            ),
+            child: MaterialApp(home: AiRecommendChatScreen()),
           ),
         );
         await tester.pumpAndSettle();

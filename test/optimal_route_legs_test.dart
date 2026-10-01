@@ -125,7 +125,7 @@ void main() {
   );
 
   testWidgets(
-    'regression for 22.4km far leg: must show transit/vehicle label and never 도보 약 3분',
+    'radius policy excludes a 22.4km store instead of building a far leg',
     (tester) async {
       tester.view.physicalSize = const Size(360, 800);
       tester.view.devicePixelRatio = 1;
@@ -191,7 +191,8 @@ void main() {
       // Before the fix, the leg between Store 3 and Store 4 mistakenly used leg index 1 or 2 (도보 약 3분).
       // With the fix, it MUST show 대중교통/차량 이동 (22.0km), NEVER a third "도보 약 3분"!
       expect(find.text('도보 약 3분'), findsNWidgets(2)); // exactly 2, NOT 3
-      expect(find.text('대중교통/차량 이동 (22.0km)'), findsOneWidget);
+      expect(find.text('대중교통/차량 이동 (22.0km)'), findsNothing);
+      expect(find.byKey(const ValueKey('route-step-4')), findsNothing);
     },
   );
 
@@ -253,8 +254,11 @@ class _FakeRouteService extends TodaysPickService {
   final Map<String, dynamic> route;
 
   @override
-  Future<Map<String, dynamic>> getRoute({double? lat, double? lng}) async =>
-      route;
+  Future<Map<String, dynamic>> getRoute({
+    double? lat,
+    double? lng,
+    int radiusMeters = 3000,
+  }) async => route;
 }
 
 class _FakeWebViewPlatform extends WebViewPlatform {

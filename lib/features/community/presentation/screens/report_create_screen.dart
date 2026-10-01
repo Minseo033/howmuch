@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
@@ -194,7 +195,11 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       _addInitialMenuPrice(menu: initialMenu.$1, price: initialMenu.$2);
     } else {
       for (final menuPrice in initialMenus) {
-        _addInitialMenuPrice(menu: menuPrice.menu, price: menuPrice.price);
+        _addInitialMenuPrice(
+          menu: menuPrice.menu,
+          price: menuPrice.price,
+          free: menuPrice.free,
+        );
       }
     }
     _scrollController.addListener(_syncStepWithScroll);
@@ -250,11 +255,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
   bool get _priceInfoComplete {
     return _menuPrices.isNotEmpty &&
-        _menuPrices.every(
-          (menuPrice) =>
-              menuPrice.menu.text.trim().isNotEmpty &&
-              menuPrice.price.text.trim().isNotEmpty,
-        );
+        _menuPrices.every((menuPrice) {
+          if (menuPrice.menu.text.trim().isEmpty) return false;
+          final parsed = parsePriceValue(menuPrice.price.text);
+          return parsed != null &&
+              parsed.isExact &&
+              (menuPrice.free ? parsed.minimum == 0 : parsed.minimum > 0);
+        });
   }
 
   bool get _confirmInfoComplete {
@@ -274,8 +281,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  void _addInitialMenuPrice({required String menu, required String price}) {
+  void _addInitialMenuPrice({
+    required String menu,
+    required String price,
+    bool free = false,
+  }) {
     final menuPrice = _MenuPriceControllers(menu: menu, price: price);
+    menuPrice.free = free;
     menuPrice.addListener(_onFormChanged);
     _menuPrices.add(menuPrice);
   }
@@ -368,11 +380,16 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       final price4 = _menuPrices.length > 3
           ? _menuPrices[3].price.text.trim()
           : '';
+      final free1 = _menuPrices.isNotEmpty && _menuPrices[0].free;
+      final free2 = _menuPrices.length > 1 && _menuPrices[1].free;
+      final free3 = _menuPrices.length > 2 && _menuPrices[2].free;
+      final free4 = _menuPrices.length > 3 && _menuPrices[3].free;
       final savedMenuPrices = _menuPrices
           .map(
             (item) => UserReportMenuPrice(
               menu: item.menu.text.trim(),
               price: item.price.text.trim(),
+              free: item.free,
             ),
           )
           .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
@@ -404,6 +421,10 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         price3: price3,
         menu4: menu4,
         price4: price4,
+        free1: free1,
+        free2: free2,
+        free3: free3,
+        free4: free4,
         imageUrls: reportImageUrls,
         reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
         visitedRecently: _visitedRecently,
@@ -806,6 +827,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                     menuPrices: _menuPrices,
                     onAdd: _addMenuPrice,
                     onRemove: _removeMenuPrice,
+                    onChanged: _onFormChanged,
                   ),
                   const SizedBox(height: 15.994),
                   const _SectionLabel(
@@ -878,6 +900,7 @@ class _MenuPriceControllers {
 
   final TextEditingController menu;
   final TextEditingController price;
+  bool free = false;
 
   void addListener(VoidCallback listener) {
     menu.addListener(listener);
@@ -1630,11 +1653,13 @@ class _PriceInfoCard extends StatelessWidget {
     required this.menuPrices,
     required this.onAdd,
     required this.onRemove,
+    required this.onChanged,
   });
 
   final List<_MenuPriceControllers> menuPrices;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1649,6 +1674,7 @@ class _PriceInfoCard extends StatelessWidget {
               menuPrice: menuPrices[index],
               showRemove: menuPrices.length > 1,
               onRemove: () => onRemove(index),
+              onChanged: onChanged,
             ),
             if (index != menuPrices.length - 1) const SizedBox(height: 10),
           ],
@@ -1687,78 +1713,105 @@ class _MenuPriceRow extends StatelessWidget {
     required this.menuPrice,
     required this.showRemove,
     required this.onRemove,
+    required this.onChanged,
   });
 
   final _MenuPriceControllers menuPrice;
   final bool showRemove;
   final VoidCallback onRemove;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
         children: [
-          Expanded(
-            child: _EditableFormRow(
-              label: '대표 메뉴',
-              required: true,
-              controller: menuPrice.menu,
-            ),
-          ),
-          const SizedBox(width: 7.997),
-          Expanded(
-            child: _EditableFormRow(
-              label: '가격',
-              required: true,
-              controller: menuPrice.price,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              trailing: const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Text(
-                  '원',
-                  style: TextStyle(
-                    color: ReportCreateStyle.muted,
-                    fontFamily: ReportCreateStyle.fontFamily,
-                    fontFamilyFallback: ReportCreateStyle.fontFallback,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    height: 1.5,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _EditableFormRow(
+                  label: '대표 메뉴',
+                  required: true,
+                  controller: menuPrice.menu,
                 ),
               ),
-            ),
-          ),
-          if (showRemove) ...[
-            const SizedBox(width: 7.997),
-            SizedBox(
-              width: 34,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 25.494),
-                  SizedBox(
-                    width: 34,
-                    height: 34,
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(99),
-                      child: InkWell(
-                        onTap: onRemove,
-                        borderRadius: BorderRadius.circular(99),
-                        child: const Icon(
-                          Icons.remove_circle_outline_rounded,
-                          color: ReportCreateStyle.red,
-                          size: 20,
-                        ),
+              const SizedBox(width: 7.997),
+              Expanded(
+                child: _EditableFormRow(
+                  label: '가격',
+                  required: true,
+                  controller: menuPrice.price,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  trailing: const Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Text(
+                      '원',
+                      style: TextStyle(
+                        color: ReportCreateStyle.muted,
+                        fontFamily: ReportCreateStyle.fontFamily,
+                        fontFamilyFallback: ReportCreateStyle.fontFallback,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
                       ),
                     ),
                   ),
-                ],
+                ),
+              ),
+              if (showRemove) ...[
+                const SizedBox(width: 7.997),
+                SizedBox(
+                  width: 44,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 25.494),
+                      SizedBox(
+                        width: 44,
+                        height: 44,
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(99),
+                          child: IconButton(
+                            tooltip:
+                                '${menuPrice.menu.text.trim().isEmpty ? '메뉴' : menuPrice.menu.text} 제거',
+                            onPressed: onRemove,
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(
+                              Icons.remove_circle_outline_rounded,
+                              color: ReportCreateStyle.red,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          Semantics(
+            container: true,
+            label: '무료 메뉴 여부',
+            child: Material(
+              type: MaterialType.transparency,
+              child: CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('무료 (가격은 정확히 0원만 가능)'),
+                value: menuPrice.free,
+                onChanged: (value) {
+                  menuPrice.free = value ?? false;
+                  if (menuPrice.free) menuPrice.price.text = '0';
+                  onChanged();
+                },
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -2184,22 +2237,17 @@ class _PhotoThumbnailSlot extends StatelessWidget {
               Positioned(
                 right: 4,
                 bottom: 4,
-                child: GestureDetector(
-                  onTap: () => onRemove(index),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    width: 22,
-                    height: 22,
-                    decoration: BoxDecoration(
-                      color: const Color(0xE60F172A),
-                      border: Border.all(color: Colors.white, width: 1.5),
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      color: Colors.white,
-                      size: 14,
-                    ),
+                child: IconButton(
+                  tooltip: '첨부 사진 ${index + 1} 제거',
+                  onPressed: () => onRemove(index),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xE60F172A),
+                    minimumSize: const Size(44, 44),
+                  ),
+                  icon: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 14,
                   ),
                 ),
               ),

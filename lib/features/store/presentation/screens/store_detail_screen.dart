@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
@@ -16,10 +18,56 @@ import 'package:howmuch/features/recommendation/presentation/state/recommendatio
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
+
+final currentStoreDetailProvider = FutureProvider.autoDispose
+    .family<Store, String>((ref, id) async {
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/stores/${Uri.encodeComponent(id)}'),
+        headers: ApiClient.jsonHeaders(),
+      );
+      if (response.statusCode != 200) {
+        throw StateError(
+          response.statusCode == 404 ? '매장을 찾을 수 없어요.' : '최신 매장 정보를 확인하지 못했어요.',
+        );
+      }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map) throw const FormatException('잘못된 매장 정보');
+      final store = Store.fromJson(Map<String, dynamic>.from(decoded));
+      if (store.id != id) {
+        throw const FormatException('매장 식별자가 일치하지 않습니다.');
+      }
+      return store;
+    });
 
 class StoreDetailScreen extends ConsumerWidget {
-  final Store store;
   const StoreDetailScreen({super.key, required this.store});
+  final Store store;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final latest = store.id.isEmpty
+        ? null
+        : ref.watch(currentStoreDetailProvider(store.id));
+    return _StoreDetailContent(
+      store: latest?.valueOrNull ?? store,
+      refreshFailed: latest?.hasError ?? false,
+      onRefresh: store.id.isEmpty
+          ? null
+          : () => ref.invalidate(currentStoreDetailProvider(store.id)),
+    );
+  }
+}
+
+class _StoreDetailContent extends ConsumerWidget {
+  final Store store;
+  final bool refreshFailed;
+  final VoidCallback? onRefresh;
+  const _StoreDetailContent({
+    required this.store,
+    this.refreshFailed = false,
+    this.onRefresh,
+  });
 
   static const _blue = AppColors.primary;
   static const _ink = AppColors.textDark;
@@ -42,11 +90,8 @@ class StoreDetailScreen extends ConsumerWidget {
     return '🍽️';
   }
 
-  String _fmt(String raw) {
-    final n = int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), ''));
-    if (n == null) return raw;
-    return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
-  }
+  String _fmt(String raw, {bool free = false}) =>
+      formatMenuPrice(raw, free: free);
 
   Future<void> _call(BuildContext ctx) async {
     final num = store.phoneNumber.replaceAll(RegExp(r'[^0-9]'), '');
@@ -113,10 +158,14 @@ class StoreDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final menus = [
-      if (store.menu1.isNotEmpty) (name: store.menu1, price: store.price1),
-      if (store.menu2.isNotEmpty) (name: store.menu2, price: store.price2),
-      if (store.menu3.isNotEmpty) (name: store.menu3, price: store.price3),
-      if (store.menu4.isNotEmpty) (name: store.menu4, price: store.price4),
+      if (store.menu1.isNotEmpty)
+        (name: store.menu1, price: store.price1, free: store.free1),
+      if (store.menu2.isNotEmpty)
+        (name: store.menu2, price: store.price2, free: store.free2),
+      if (store.menu3.isNotEmpty)
+        (name: store.menu3, price: store.price3, free: store.free3),
+      if (store.menu4.isNotEmpty)
+        (name: store.menu4, price: store.price4, free: store.free4),
     ];
     final hasPhone =
         store.phoneNumber.isNotEmpty && store.phoneNumber != '전화번호 없음';
@@ -165,7 +214,7 @@ class StoreDetailScreen extends ConsumerWidget {
                       onPressed: () async {
                         final menu = store.menu1.isEmpty
                             ? ''
-                            : '\n대표 메뉴: ${store.menu1} ${_fmt(store.price1)}';
+                            : '\n대표 메뉴: ${store.menu1} ${_fmt(store.price1, free: store.free1)}';
                         await Clipboard.setData(
                           ClipboardData(
                             text: '${store.storeName}\n${store.address}$menu',
@@ -175,6 +224,44 @@ class StoreDetailScreen extends ConsumerWidget {
                       },
                     ),
                   ],
+                ),
+
+                SliverToBoxAdapter(
+                  child: store.isClosed
+                      ? Container(
+                          width: double.infinity,
+                          color: const Color(0xFFFFF1F2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          child: const Text(
+                            '폐업으로 확인된 매장이에요. 방문 인증과 가격 제보를 잠시 사용할 수 없어요.',
+                            style: TextStyle(
+                              color: Color(0xFFB91C1C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        )
+                      : refreshFailed
+                      ? Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text('최신 정보를 확인하지 못해 이전 정보를 보여드려요.'),
+                              ),
+                              TextButton(
+                                onPressed: onRefresh,
+                                child: const Text('다시 확인'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
 
                 SliverToBoxAdapter(
@@ -450,7 +537,10 @@ class StoreDetailScreen extends ConsumerWidget {
                                             ),
                                           ),
                                           Text(
-                                            _fmt(e.value.price),
+                                            _fmt(
+                                              e.value.price,
+                                              free: e.value.free,
+                                            ),
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: isFirst
@@ -622,22 +712,26 @@ class StoreDetailScreen extends ConsumerWidget {
                         _BottomIconBtn(
                           icon: Icons.campaign_rounded,
                           label: '가격 제보',
-                          onTap: () => context.push(
-                            AppRoutes.priceChangeReport,
-                            extra: store,
-                          ),
-                          muted: false,
+                          onTap: store.isClosed
+                              ? null
+                              : () => context.push(
+                                  AppRoutes.priceChangeReport,
+                                  extra: store,
+                                ),
+                          muted: store.isClosed,
                         ),
                         const SizedBox(width: 10),
                         // 방문 인증 버튼 (프리젠테이션 시연용)
                         _BottomIconBtn(
                           icon: Icons.verified_rounded,
                           label: '방문 인증',
-                          onTap: () => context.push(
-                            AppRoutes.visitVerification,
-                            extra: store,
-                          ),
-                          muted: false,
+                          onTap: store.isClosed
+                              ? null
+                              : () => context.push(
+                                  AppRoutes.visitVerification,
+                                  extra: store,
+                                ),
+                          muted: store.isClosed,
                         ),
                         const SizedBox(width: 10),
                         // 길찾기 버튼 (메인 CTA)
@@ -911,7 +1005,7 @@ class _Review extends StatelessWidget {
 class _BottomIconBtn extends StatelessWidget {
   final IconData icon;
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool muted;
   const _BottomIconBtn({
     required this.icon,
@@ -923,30 +1017,38 @@ class _BottomIconBtn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = muted ? AppColors.textLight : AppColors.textBody;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 60,
-        height: 48,
-        decoration: BoxDecoration(
-          color: AppColors.bgLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 18, color: color),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                color: color,
-                fontWeight: FontWeight.w500,
+    return Semantics(
+      label: label,
+      button: true,
+      enabled: onTap != null,
+      excludeSemantics: true,
+      child: InkWell(
+        excludeFromSemantics: true,
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          width: 60,
+          height: 48,
+          decoration: BoxDecoration(
+            color: AppColors.bgLight,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: color,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

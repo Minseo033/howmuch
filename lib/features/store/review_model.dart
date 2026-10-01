@@ -1,9 +1,12 @@
+import 'package:howmuch/core/utils/price_formatter.dart';
+
 /// 매장 리뷰 모델.
 /// 백엔드 /api/review 응답 필드와 매칭됩니다.
 class Review {
   final String id;
   final String storeId;
   final String storeName;
+  final String storeSource;
   final String authorName;
   final int stars;
   final String menu;
@@ -17,6 +20,7 @@ class Review {
     this.id = '',
     required this.storeId,
     this.storeName = '',
+    this.storeSource = 'UNKNOWN',
     required this.authorName,
     required this.stars,
     this.menu = '',
@@ -48,6 +52,7 @@ class Review {
       id: (json['reviewId'] ?? json['id'] ?? '').toString(),
       storeId: (json['storeId'] ?? '').toString(),
       storeName: (json['storeName'] ?? '').toString(),
+      storeSource: (json['storeSource'] ?? 'UNKNOWN').toString().toUpperCase(),
       authorName: (json['authorName'] ?? json['name'] ?? '익명').toString(),
       stars: (json['stars'] as num?)?.toInt() ?? 0,
       menu: (json['menu'] ?? '').toString(),
@@ -74,9 +79,8 @@ class Review {
   }
 
   static int? _parsePrice(dynamic raw) {
-    if (raw is num) return raw.toInt();
-    if (raw == null) return null;
-    return int.tryParse(raw.toString().replaceAll(RegExp(r'[^0-9]'), ''));
+    final value = parsePriceValue(raw);
+    return value?.isExact == true ? value!.minimum : null;
   }
 
   /// 리뷰 작성 요청용 페이로드 (백엔드 ReviewRequest와 매칭)

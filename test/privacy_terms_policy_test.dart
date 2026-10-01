@@ -119,7 +119,9 @@ void main() {
           reason: 'Chapter 6 must contain immediate deletion upon withdrawal',
         );
         expect(
-          allTexts.any((t) => t.contains('단말기 OS 설정에서 위치·알림·사진 권한 해제')),
+          allTexts.any(
+            (t) => t.contains('브라우저 사이트 설정 또는 기기 설정에서 위치·알림·사진 권한 변경'),
+          ),
           isTrue,
           reason: 'Chapter 6 must contain permission withdrawal guide',
         );

@@ -14,18 +14,23 @@ import 'package:howmuch/features/community/presentation/state/report_service.dar
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 
 String? validatePriceChange({
   required String changeType,
   required String menu,
   required String price,
   required List<({String menu, String price})> registeredMenus,
+  bool free = false,
 }) {
   final existing = registeredMenus.where((item) => item.menu == menu.trim());
   final currentPrice = existing.isEmpty
       ? null
-      : int.tryParse(existing.first.price.replaceAll(RegExp(r'[^0-9]'), ''));
-  final newPrice = int.tryParse(price.replaceAll(RegExp(r'[^0-9]'), ''));
+      : minimumMenuPrice(existing.first.price);
+  final parsedNewPrice = parsePriceValue(price);
+  final newPrice = parsedNewPrice != null && parsedNewPrice.isExact
+      ? parsedNewPrice.minimum
+      : null;
   if (changeType == 'new') {
     if (existing.isNotEmpty) return '이미 등록된 메뉴예요. 기존 메뉴의 가격 변동을 선택해주세요.';
     return null;
@@ -34,6 +39,17 @@ String? validatePriceChange({
   if (changeType == 'delete') return null;
   if (currentPrice == null || currentPrice <= 0) {
     return '현재 가격을 확인할 수 없어 가격 변동을 제보할 수 없어요.';
+  }
+  if (free &&
+      (parsedNewPrice == null || !parsedNewPrice.isExact || newPrice != 0)) {
+    return '무료 메뉴는 정확히 0원으로 입력해주세요.';
+  }
+  if (!free &&
+      (parsedNewPrice == null ||
+          !parsedNewPrice.isExact ||
+          newPrice == null ||
+          newPrice <= 0)) {
+    return '새 가격은 0보다 큰 정확한 금액으로 입력해주세요.';
   }
   if (newPrice == currentPrice) return '기존 가격과 새 가격이 같아요.';
   if (changeType == 'rise' && newPrice != null && newPrice < currentPrice) {
@@ -65,6 +81,7 @@ class _PriceChangeReportScreenState
   // 0: 가격 인상, 1: 가격 인하, 2: 메뉴 삭제, 3: 신규 메뉴
   int _selectedType = 0;
   bool _isConfirmed = false;
+  bool _isFree = false;
   bool _isSubmitting = false;
 
   final _menuController = TextEditingController();
@@ -101,7 +118,7 @@ class _PriceChangeReportScreenState
   Future<void> _submit() async {
     if (_isSubmitting) return;
     final menu = _menuController.text.trim();
-    final price = _priceController.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final price = _priceController.text.trim();
     final description = _descController.text.trim();
     if (!ApiClient.isAuthenticated) {
       _showMessage('가격 변동 제보는 로그인 후 이용할 수 있어요.');
@@ -111,10 +128,11 @@ class _PriceChangeReportScreenState
       _showMessage('변경된 메뉴를 입력해주세요.');
       return;
     }
+    final parsedPrice = parsePriceValue(price);
     if (_selectedType != 2 &&
-        (price.isEmpty ||
-            int.tryParse(price) == null ||
-            int.parse(price) <= 0)) {
+        (parsedPrice == null ||
+            !parsedPrice.isExact ||
+            (_isFree ? parsedPrice.minimum != 0 : parsedPrice.minimum <= 0))) {
       _showMessage('변경된 가격을 입력해주세요.');
       return;
     }
@@ -123,6 +141,7 @@ class _PriceChangeReportScreenState
       menu: menu,
       price: price,
       registeredMenus: _registeredMenus,
+      free: _isFree,
     );
     if (priceError != null) {
       _showMessage(priceError);
@@ -151,6 +170,7 @@ class _PriceChangeReportScreenState
         phoneNumber: store?.phoneNumber ?? '',
         menu1: menu,
         price1: _selectedType == 2 ? '' : price,
+        free1: _selectedType != 2 && _isFree,
         imageUrls: uploadedImageUrls,
         reporterId: '',
         visitedRecently: false,
@@ -224,6 +244,7 @@ class _PriceChangeReportScreenState
       final prev = _selectedType;
       _selectedType = i;
       _priceController.clear();
+      _isFree = false;
       if (i == 3) {
         if (_registeredMenus.any(
           (m) => m.menu == _menuController.text.trim(),
@@ -241,10 +262,7 @@ class _PriceChangeReportScreenState
   }
 
   String _formatWon(String raw) {
-    final clean = raw.replaceAll(RegExp(r'[^0-9]'), '');
-    final n = int.tryParse(clean);
-    if (n == null) return raw;
-    return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
+    return formatWon(raw, fallback: raw);
   }
 
   @override
@@ -401,6 +419,17 @@ class _PriceChangeReportScreenState
                       const SizedBox(height: 7),
                     ],
                     _buildPriceField(),
+                    Semantics(
+                      label: '무료 메뉴 여부',
+                      child: CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('무료 (정확히 0원)'),
+                        value: _isFree,
+                        onChanged: (value) =>
+                            setState(() => _isFree = value ?? false),
+                      ),
+                    ),
                     const SizedBox(height: 20),
                   ],
 
@@ -648,23 +677,21 @@ class _PriceChangeReportScreenState
                 Positioned(
                   top: -6,
                   right: -6,
-                  child: GestureDetector(
-                    onTap: () {
+                  child: IconButton(
+                    tooltip: '첨부 사진 ${_selectedImages.indexOf(image) + 1} 제거',
+                    onPressed: () {
                       setState(() {
                         _selectedImages.remove(image);
                       });
                     },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 14,
-                      ),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                      minimumSize: const Size(44, 44),
+                    ),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 14,
                     ),
                   ),
                 ),

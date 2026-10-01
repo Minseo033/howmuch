@@ -47,6 +47,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             // Content Scroll
             Positioned.fill(
               child: notificationsAsync.when(
+                skipError: true,
                 loading: () => const Center(
                   child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                 ),
@@ -144,6 +145,8 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
+                            if (notificationsAsync.hasError)
+                              _buildRefreshError(),
                             Container(
                               width: 60,
                               height: 60,
@@ -186,6 +189,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        if (notificationsAsync.hasError) _buildRefreshError(),
                         if (todayNotifications.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           const Padding(
@@ -366,6 +370,26 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
     context.go(AppRoutes.home);
   }
+
+  Widget _buildRefreshError() => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Semantics(
+      liveRegion: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('최신 알림을 불러오지 못했어요. 기존 목록은 유지됩니다.'),
+          TextButton.icon(
+            onPressed: () => ref
+                .read(notificationsProvider.notifier)
+                .loadNotifications(isRefresh: true),
+            icon: const Icon(Icons.refresh),
+            label: const Text('알림 다시 불러오기'),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildTab({required String label}) {
     final isSelected = _selectedTab == label;

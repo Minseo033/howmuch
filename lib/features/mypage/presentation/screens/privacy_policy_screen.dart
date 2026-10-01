@@ -130,7 +130,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                         body: '위치 정보는 ',
                         strong: '매장 검색·추천 목적',
                         tail:
-                            '으로만 사용되며 별도로 저장하지 않습니다. 위치 권한은 마이페이지에서 언제든 해제할 수 있습니다.',
+                            '으로만 사용되며 별도로 저장하지 않습니다. 위치 권한은 브라우저 사이트 설정 또는 기기 설정에서 변경할 수 있으며, 마이페이지에서 변경 방법을 안내합니다.',
                       ),
                     ],
                   ),
@@ -150,7 +150,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                       ),
                       _PolicyLine(
                         strong: '권한 철회',
-                        body: ' · 단말기 OS 설정에서 위치·알림·사진 권한 해제',
+                        body: ' · 브라우저 사이트 설정 또는 기기 설정에서 위치·알림·사진 권한 변경',
                       ),
                       _PolicyLine(body: '기타 권리 행사는 앱 내 1:1 문의를 통해 접수할 수 있습니다.'),
                     ],

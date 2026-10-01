@@ -1,4 +1,5 @@
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 
 typedef SearchMenuMatch = ({String name, String price, int index});
 
@@ -54,7 +55,7 @@ class SearchFilterPolicy {
     SearchMenuMatch? lowestPriced;
     var lowestPrice = 0;
     for (final menu in menus) {
-      final price = parsePrice(menu.price);
+      final price = parsePrice(menu.price, free: store.freeAt(menu.index));
       if (price == null) continue;
       if (lowestPriced == null || price < lowestPrice) {
         lowestPriced = menu;
@@ -69,14 +70,11 @@ class SearchFilterPolicy {
     return null;
   }
 
-  static int? parsePrice(String rawPrice) {
-    final match = RegExp(r'\d{1,3}(?:,\d{3})+|\d{3,}').firstMatch(rawPrice);
-    final price = int.tryParse(match?.group(0)?.replaceAll(',', '') ?? '');
-    return price != null && price > 0 ? price : null;
-  }
+  static int? parsePrice(String rawPrice, {bool free = false}) =>
+      minimumMenuPrice(rawPrice, free: free);
 
   static bool matchesMaxPrice(Store store, int maxPrice, {String query = ''}) {
-    final price = parsePrice(displayMenuFor(store, query)?.price ?? '');
+    final price = priceForResult(store, query);
     return price != null && price <= maxPrice;
   }
 
@@ -95,7 +93,10 @@ class SearchFilterPolicy {
   }
 
   static int? priceForResult(Store store, String query) {
-    return parsePrice(displayMenuFor(store, query)?.price ?? '');
+    final menu = displayMenuFor(store, query);
+    return menu == null
+        ? null
+        : parsePrice(menu.price, free: store.freeAt(menu.index));
   }
 
   static int? lowestMenuPrice(Store store) {

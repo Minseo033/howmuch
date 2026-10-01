@@ -13,12 +13,18 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
 
 AiMapRecommendationResult buildTodaysPickMapResult(
   Iterable<TodaysPickItem> items,
 ) {
   final mapItems = items
-      .where((item) => item.store?.hasValidCoordinates == true)
+      .where(
+        (item) =>
+            item.store?.hasValidCoordinates == true &&
+            item.store?.isClosed != true,
+      )
       .toList(growable: false);
   final stores = mapItems.map((item) => item.store!).toList(growable: false);
   return AiMapRecommendationResult(
@@ -33,7 +39,8 @@ AiMapRecommendationResult buildTodaysPickMapResult(
             storeId: item.store!.id,
             storeName: item.storeName,
             menu: item.menuName,
-            price: item.priceValue ?? item.price,
+            price: item.rawPrice ?? item.price,
+            free: item.free,
           ),
         )
         .toList(growable: false),
@@ -50,6 +57,8 @@ class TodaysPickItem {
   final String distance;
   final double? distanceMeters;
   final int? priceValue;
+  final Object? rawPrice;
+  final bool free;
   final String badgeText;
   final Color badgeColor;
   final Color badgeBg;
@@ -67,6 +76,8 @@ class TodaysPickItem {
     required this.distance,
     this.distanceMeters,
     this.priceValue,
+    this.rawPrice,
+    this.free = false,
     required this.badgeText,
     required this.badgeColor,
     required this.badgeBg,
@@ -89,6 +100,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _pickData;
+  int _loadGeneration = 0;
+  int _loadedRadiusMeters = defaultRecommendationRadiusMeters;
 
   @override
   void initState() {
@@ -97,12 +110,17 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   }
 
   Future<void> _loadTodaysPick() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      await ref.read(recommendationRadiusProvider.notifier).ready;
+      if (!mounted || generation != _loadGeneration) return;
+      final radiusMeters = ref.read(recommendationRadiusProvider);
+      _loadedRadiusMeters = radiusMeters;
       final service = ref.read(todaysPickServiceProvider);
       // 지도에서 이미 확보한 위치가 있으면 그대로 사용, 없으면 geolocator로 조회
       double? lat;
@@ -123,20 +141,27 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         }
       }
       if (lat == null || lng == null) {
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
         setState(() {
           _errorMessage = '주변 추천을 보려면 위치 권한을 허용해주세요.';
           _isLoading = false;
         });
         return;
       }
-      final data = await service.getTodaysPick(lat: lat, lng: lng);
-      if (!mounted) return;
+      final data = await service.getTodaysPick(
+        lat: lat,
+        lng: lng,
+        radiusMeters: radiusMeters,
+      );
+      if (!mounted || generation != _loadGeneration) return;
       if (data['error'] == true) {
         final fallback = buildLocalTodaysPickData(
-          stores: HomeMapScreen.globalAllStores,
+          stores: HomeMapScreen.globalSearchCatalog.isNotEmpty
+              ? HomeMapScreen.globalSearchCatalog
+              : HomeMapScreen.globalAllStores,
           lat: lat,
           lng: lng,
+          maxDistanceMeters: radiusMeters.toDouble(),
         );
         if ((fallback['picks'] as List).isNotEmpty) {
           setState(() {
@@ -156,7 +181,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _errorMessage = '네트워크 오류가 발생했습니다.';
         _isLoading = false;
@@ -172,7 +197,10 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         .map((pick) => Map<String, dynamic>.from(pick))
         .where((pick) {
           final distance = _asDouble(pick['distanceMeters']);
-          return distance == null || distance <= todaysPickMaxDistanceMeters;
+          return distance != null &&
+              distance.isFinite &&
+              distance >= 0 &&
+              distance <= _loadedRadiusMeters;
         })
         .take(3)
         .toList(growable: false);
@@ -208,11 +236,19 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         menuName: backendMenu != null && backendMenu.isNotEmpty
             ? backendMenu
             : (p['menu1']?.toString() ?? '메뉴 정보 없음'),
-        price: formatRecommendationPrice(recommendationMenuPrice(p)),
+        price: formatRecommendationPrice(
+          recommendationMenuPrice(p),
+          free: recommendationMenuFree(p),
+        ),
+        rawPrice: recommendationMenuPrice(p),
+        free: recommendationMenuFree(p),
         tipText: tip,
         distance: distance,
         distanceMeters: distanceNumber,
-        priceValue: parseRecommendationPrice(recommendationMenuPrice(p)),
+        priceValue: parseRecommendationPrice(
+          recommendationMenuPrice(p),
+          free: recommendationMenuFree(p),
+        ),
         badgeText: store.isUserReported ? '사용자 제보' : '착한가격업소',
         badgeColor: const Color(0xFF2563EB),
         badgeBg: const Color(0xFFEFF4FF),
@@ -231,6 +267,9 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(recommendationRadiusProvider, (previous, next) {
+      if (previous != null && previous != next) _loadTodaysPick();
+    });
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
 
@@ -274,6 +313,13 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                       title: '오늘의 픽',
                       onBack: () => context.pop(),
                     ),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 0, 20, 4),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: RecommendationRadiusButton(),
                   ),
                 ),
                 Expanded(

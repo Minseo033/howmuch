@@ -46,8 +46,23 @@ void main() {
     expect(stores.map((item) => item.storeName), ['저렴', '비쌈', '미상']);
   });
 
-  test('여러 가격이 들어온 공공데이터는 첫 대표 가격만 사용한다', () {
-    expect(SearchFilterPolicy.parsePrice('일반: 10,000원 / 노인: 8,000원'), 10000);
+  test('복수 가격은 최저가격으로 필터링하고 설명문에서 숫자를 추측하지 않는다', () {
+    expect(SearchFilterPolicy.parsePrice('10,000 / 8,000'), 8000);
+    expect(SearchFilterPolicy.parsePrice('일반: 10,000원 / 노인: 8,000원'), isNull);
+    expect(SearchFilterPolicy.parsePrice('3,000 ~ 3,500'), 3000);
+    expect(SearchFilterPolicy.parsePrice('-5000'), isNull);
+  });
+
+  test('명시적인 무료 메뉴만 0원으로 필터링한다', () {
+    final freeStore = Store.fromJson({
+      'storeName': '무료 매장',
+      'menu1': '무료 서비스',
+      'price1': '0',
+      'free1': true,
+    });
+    expect(SearchFilterPolicy.matchesMaxPrice(freeStore, 5000), isTrue);
+    expect(SearchFilterPolicy.priceForResult(freeStore, ''), 0);
+    expect(SearchFilterPolicy.parsePrice('0'), isNull);
   });
 
   test('메뉴 검색 가격 필터는 검색된 보조 메뉴 가격으로 판단한다', () {

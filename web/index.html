@@ -75,6 +75,10 @@
       height: 100%;
       display: block;
     }
+    .kakao-map-marker:focus-visible {
+      outline: 3px solid #0F172A;
+      outline-offset: 3px;
+    }
     .my-location-wrapper {
       width: 40px;
       height: 40px;
@@ -119,11 +123,21 @@
     window.userLocationMarkers = {};
     window.kakaoMapLifecycles = {};
     window.kakaoMarkerRequestGenerations = {};
+    window.nextKakaoMarkerRequestGeneration = 0;
+    window.kakaoMapCallbacks = {};
+
+    // Callbacks belong to a mounted platform view, never to the whole page.
+    function emitKakaoMapEvent(containerId, event, value, storeId) {
+      var callbacks = window.kakaoMapCallbacks[containerId];
+      if (callbacks && typeof callbacks[event] === 'function') {
+        callbacks[event](value, storeId || '');
+      }
+    }
 
     function getKakaoMapLifecycle(containerId) {
       var lifecycle = window.kakaoMapLifecycles[containerId];
       if (!lifecycle) {
-        lifecycle = { generation: 0, resizeObserver: null, timers: [], listeners: [], lastIdleBounds: null, lastIdleAt: 0 };
+        lifecycle = { generation: 0, resizeObserver: null, timers: [], listeners: [], lastIdleBounds: null, lastIdleAt: 0, resizeTimer: null, width: 0, height: 0 };
         window.kakaoMapLifecycles[containerId] = lifecycle;
       }
       return lifecycle;
@@ -160,7 +174,8 @@
     }
 
     function notifyKakaoMapIdle(containerId, lifecycle) {
-      if (!window.onKakaoMapIdle) return;
+      var callbacks = window.kakaoMapCallbacks[containerId];
+      if (!callbacks || typeof callbacks.onIdle !== 'function') return;
       var bounds = getKakaoMapBounds(containerId);
       if (bounds) {
         var values = JSON.parse(bounds);
@@ -173,7 +188,7 @@
         lifecycle.lastIdleBounds = key;
         lifecycle.lastIdleAt = now;
       }
-      window.onKakaoMapIdle();
+      emitKakaoMapEvent(containerId, 'onIdle');
     }
 
     function bindKakaoMapEvents(containerId, map, lifecycle, generation) {
@@ -195,19 +210,54 @@
       });
       function moveStarted() {
         cancelKakaoMapTask(lifecycle, boundsTimer);
-        if (window.onKakaoMapMoveStart) window.onKakaoMapMoveStart();
+        emitKakaoMapEvent(containerId, 'onMoveStart');
       }
       listen('dragstart', moveStarted);
       listen('zoom_start', moveStarted);
       listen('click', function() {
-        if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(-1);
+        window.highlightKakaoMapMarker(containerId, -1);
+        emitKakaoMapEvent(containerId, 'onMarkerClick', -1);
       });
     }
 
     function isActiveKakaoMap(containerId, map, generation) {
       var lifecycle = window.kakaoMapLifecycles[containerId];
       return lifecycle && lifecycle.generation === generation &&
-        window.kakaoMapObjects[containerId] === map;
+        window.kakaoMapObjects[containerId] === map && isUsableKakaoMap(map);
+    }
+
+    function isUsableKakaoMap(map) {
+      if (!map) return false;
+      var node = typeof map.getNode === 'function' ? map.getNode() : null;
+      return !node || (node.isConnected !== false && node.offsetWidth > 0 && node.offsetHeight > 0);
+    }
+
+    function observeKakaoMapSize(containerId, map, container, lifecycle, generation) {
+      if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
+      lifecycle.width = container.offsetWidth;
+      lifecycle.height = container.offsetHeight;
+      if (typeof ResizeObserver === 'undefined') return;
+      lifecycle.resizeObserver = new ResizeObserver(function() {
+        if (!isActiveKakaoMap(containerId, map, generation)) return;
+        var width = container.offsetWidth;
+        var height = container.offsetHeight;
+        if (width === lifecycle.width && height === lifecycle.height) return;
+        cancelKakaoMapTask(lifecycle, lifecycle.resizeTimer);
+        lifecycle.resizeTimer = scheduleKakaoMapTask(lifecycle, function() {
+          lifecycle.resizeTimer = null;
+          if (!isActiveKakaoMap(containerId, map, generation)) return;
+          if (container.offsetWidth === lifecycle.width && container.offsetHeight === lifecycle.height) return;
+          lifecycle.width = container.offsetWidth;
+          lifecycle.height = container.offsetHeight;
+          // Kakao relayout can shift the viewport. Resize is not a navigation.
+          var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
+          var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
+          map.relayout();
+          if (center) map.setCenter(center);
+          if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+        }, 100);
+      });
+      lifecycle.resizeObserver.observe(container);
     }
 
     function clearKakaoMapOverlays(containerId) {
@@ -231,8 +281,7 @@
         lifecycle.resizeObserver = null;
         delete window.kakaoMapLifecycles[containerId];
       }
-      window.kakaoMarkerRequestGenerations[containerId] =
-        (window.kakaoMarkerRequestGenerations[containerId] || 0) + 1;
+      delete window.kakaoMarkerRequestGenerations[containerId];
       clearKakaoMapOverlays(containerId);
       var userMarker = window.userLocationMarkers[containerId];
       if (userMarker) userMarker.setMap(null);
@@ -243,11 +292,32 @@
       delete window.customOverlays[containerId];
       delete window.highlightedKakaoMarkerIndices[containerId];
       delete window[containerId];
+      delete window.kakaoMapCallbacks[containerId];
     }
 
-    function notifyKakaoMapError(message) {
-      if (window.onKakaoMapError) window.onKakaoMapError(message);
-      else console.error(message);
+    function notifyKakaoMapError(containerId, message) {
+      emitKakaoMapEvent(containerId, 'onError', message);
+    }
+
+    function recoverKakaoMap(containerId) {
+      var node = window[containerId] || document.getElementById(containerId);
+      var callbacks = window.kakaoMapCallbacks[containerId];
+      var map = window.kakaoMapObjects[containerId];
+      var center = map && typeof map.getCenter === 'function' ? map.getCenter() : null;
+      var level = map && typeof map.getLevel === 'function' ? map.getLevel() : 3;
+      var maxLevel = getKakaoMapLifecycle(containerId).searchMode ? 14 : 10;
+      disposeKakaoMap(containerId);
+      window.kakaoMapCallbacks[containerId] = callbacks;
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      lifecycle.recoveryLevel = level;
+      lifecycle.searchMode = maxLevel === 14;
+      if (node) {
+        if (typeof node.replaceChildren === 'function') node.replaceChildren();
+        window[containerId] = node;
+      }
+      initKakaoMap(containerId, center ? center.getLat() : 37.5665, center ? center.getLng() : 126.978);
+      var restored = window.kakaoMapObjects[containerId];
+      if (restored && typeof restored.setLevel === 'function') restored.setLevel(level);
     }
 
     function initKakaoMap(containerId, lat, lng) {
@@ -257,13 +327,15 @@
       clearKakaoMapListeners(lifecycle);
       lifecycle.lastIdleBounds = null;
       lifecycle.lastIdleAt = 0;
+      lifecycle.suppressMarkerClicks = false;
+      lifecycle.suppressTimer = null;
       var generation = lifecycle.generation;
 
       if (typeof kakao === 'undefined' || !kakao.maps) {
         var attempts = (window.kakaoMapLoadAttempts[containerId] || 0) + 1;
         window.kakaoMapLoadAttempts[containerId] = attempts;
         if (attempts > 25) {
-          notifyKakaoMapError("카카오맵을 불러오지 못했어요.");
+          notifyKakaoMapError(containerId, "카카오맵을 불러오지 못했어요.");
           return;
         }
         scheduleKakaoMapTask(lifecycle, function() {
@@ -273,7 +345,7 @@
       }
 
       var loadCheckTimer = scheduleKakaoMapTask(lifecycle, function() {
-        if (lifecycle.generation === generation) notifyKakaoMapError("지도 인증이 지연되고 있어요.");
+        if (lifecycle.generation === generation) notifyKakaoMapError(containerId, "지도 인증이 지연되고 있어요.");
       }, 5000);
 
      kakao.maps.load(function() {
@@ -290,16 +362,16 @@
               scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
-            notifyKakaoMapError("지도 화면을 준비하지 못했어요.");
+            notifyKakaoMapError(containerId, "지도 화면을 준비하지 못했어요.");
             return;
           }
-          if (container.offsetWidth === 0 || container.offsetHeight === 0) {
+          if (container.isConnected === false || container.offsetWidth === 0 || container.offsetHeight === 0) {
             sizeWaitAttempts++;
             if (sizeWaitAttempts <= 30) {
               scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
-           notifyKakaoMapError("지도 화면 크기가 올바르지 않아요.");
+           notifyKakaoMapError(containerId, "지도 화면 크기가 올바르지 않아요.");
            return;
          }
 
@@ -311,21 +383,10 @@
           } catch (_) {}
 
           if (isSameContainer) {
-            if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
-            if (typeof ResizeObserver !== 'undefined') {
-              lifecycle.resizeObserver = new ResizeObserver(function() {
-                if (isActiveKakaoMap(containerId, existingMap, generation) &&
-                    container.offsetWidth > 0 && container.offsetHeight > 0) {
-                  existingMap.relayout();
-                }
-              });
-              lifecycle.resizeObserver.observe(container);
-            }
-            existingMap.relayout();
-            existingMap.setCenter(new kakao.maps.LatLng(lat, lng));
-            if (typeof existingMap.setMaxLevel === 'function') existingMap.setMaxLevel(10);
+            observeKakaoMapSize(containerId, existingMap, container, lifecycle, generation);
+            if (typeof existingMap.setMaxLevel === 'function') existingMap.setMaxLevel(lifecycle.searchMode ? 14 : 10);
             bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
-            if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
+            emitKakaoMapEvent(containerId, 'onReady');
             scheduleKakaoMapTask(lifecycle, function() {
               if (isActiveKakaoMap(containerId, existingMap, generation)) {
                 notifyKakaoMapIdle(containerId, lifecycle);
@@ -341,37 +402,33 @@
 
           var options = {
           center: new kakao.maps.LatLng(lat, lng),
-          level: 3
+          level: lifecycle.recoveryLevel || 3
         };
-        var map = new kakao.maps.Map(container, options);
-        // Keep the viewport within the bounds endpoint's supported query span.
-        map.setMaxLevel(10);
+        var map;
+        try {
+          map = new kakao.maps.Map(container, options);
+          // Keep the viewport within the bounds endpoint's supported query span.
+          map.setMaxLevel(lifecycle.searchMode ? 14 : 10);
+        } catch (_) {
+          notifyKakaoMapError(containerId, '지도 화면을 준비하지 못했어요. 지도만 다시 불러와 주세요.');
+          return;
+        }
         window.kakaoMapObjects[containerId] = map;
         window.kakaoMapLoadAttempts[containerId] = 0;
         window.customOverlays[containerId] = [];
         if (window.userLocationMarkers) delete window.userLocationMarkers[containerId];
 
-        if (typeof ResizeObserver !== 'undefined') {
-          lifecycle.resizeObserver = new ResizeObserver(function() {
-            if (isActiveKakaoMap(containerId, map, generation) &&
-                container.offsetWidth > 0 && container.offsetHeight > 0) {
-              map.relayout();
-            }
-          });
-          lifecycle.resizeObserver.observe(container);
-        }
+        observeKakaoMapSize(containerId, map, container, lifecycle, generation);
 
         bindKakaoMapEvents(containerId, map, lifecycle, generation);
         
-        if (window.onKakaoMapReady) window.onKakaoMapReady(containerId);
+        emitKakaoMapEvent(containerId, 'onReady');
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
-          if (typeof map.relayout === 'function') map.relayout();
           notifyKakaoMapIdle(containerId, lifecycle);
         }, 150);
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
-          if (typeof map.relayout === 'function') map.relayout();
           notifyKakaoMapIdle(containerId, lifecycle);
         }, 500);
         }
@@ -383,7 +440,6 @@
     window.customOverlays = {};
     window.markerDataCache = {};
     window.highlightedKakaoMarkerIndices = {};
-    window.suppressMarkerClicks = false;
 
     function applyKakaoMapMarkerHighlight(containerId, selectedIndex) {
       var overlays = window.customOverlays[containerId] || [];
@@ -399,7 +455,10 @@
         var baseColor = overlay._howmuchBaseColor ||
           (item.source === 'USER' ? '#F97316' : '#2563EB');
         var color = isSelected ? '#C2410C' : baseColor;
-        if (bubble) bubble.style.background = color;
+        if (bubble) {
+          bubble.style.background = color;
+          bubble.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        }
         if (tail) tail.style.borderTopColor = color;
         if (wrapper) wrapper.style.transform = isSelected ? 'scale(1.2)' : 'scale(1)';
         if (typeof overlay.setZIndex === 'function') overlay.setZIndex(isSelected ? 10 : 3);
@@ -413,22 +472,30 @@
       applyKakaoMapMarkerHighlight(containerId, normalizedIndex);
     };
 
-    function setSuppressMarkerClicks(durationMs) {
-      window.suppressMarkerClicks = true;
-      if (window._suppressTimer) clearTimeout(window._suppressTimer);
-      window._suppressTimer = setTimeout(function() {
-        window.suppressMarkerClicks = false;
+    function setSuppressMarkerClicks(containerId, durationMs) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (!lifecycle) return;
+      lifecycle.suppressMarkerClicks = true;
+      cancelKakaoMapTask(lifecycle, lifecycle.suppressTimer);
+      var generation = lifecycle.generation;
+      lifecycle.suppressTimer = scheduleKakaoMapTask(lifecycle, function() {
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle || lifecycle.generation !== generation) return;
+        lifecycle.suppressMarkerClicks = false;
+        lifecycle.suppressTimer = null;
       }, durationMs || 600);
     }
 
     window.onMarkerClickWeb = function(containerId, index) {
-      if (window.suppressMarkerClicks) return;
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (!lifecycle || lifecycle.suppressMarkerClicks) return;
       window.highlightKakaoMapMarker(containerId, index);
-      if (window.onKakaoMarkerClick) window.onKakaoMarkerClick(index);
+      var item = (window.markerDataCache[containerId] || [])[index];
+      emitKakaoMapEvent(containerId, 'onMarkerClick', index, item && item.storeId);
     }
 
     function addMobileMarkers(containerId, markerListJson) {
-      var markerGeneration = (window.kakaoMarkerRequestGenerations[containerId] || 0) + 1;
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      var markerGeneration = ++window.nextKakaoMarkerRequestGeneration;
       window.kakaoMarkerRequestGenerations[containerId] = markerGeneration;
       var waitAttempts = 0;
       var maxWaitAttempts = 25;
@@ -440,10 +507,10 @@
       function retryWhenReady(message) {
         waitAttempts++;
         if (waitAttempts > maxWaitAttempts) {
-          if (isCurrentMarkerRequest()) notifyKakaoMapError(message);
+          if (isCurrentMarkerRequest()) notifyKakaoMapError(containerId, message);
           return;
         }
-        setTimeout(function() {
+        scheduleKakaoMapTask(lifecycle, function() {
           if (isCurrentMarkerRequest()) renderMarkersWhenReady();
         }, 200);
       }
@@ -464,7 +531,7 @@
         kakao.maps.load(function() {
         if (!isCurrentMarkerRequest()) return;
         var map = window.kakaoMapObjects[containerId];
-        if (!map) {
+        if (!isUsableKakaoMap(map)) {
           retryWhenReady("지도 마커를 표시하지 못했어요.");
           return;
         }
@@ -473,7 +540,7 @@
         try {
           markerData = JSON.parse(markerListJson);
         } catch (_) {
-          notifyKakaoMapError("지도 마커 정보를 읽지 못했어요.");
+          notifyKakaoMapError(containerId, "지도 마커 정보를 읽지 못했어요.");
           return;
         }
         if (!Array.isArray(markerData) || !isCurrentMarkerRequest()) return;
@@ -501,10 +568,14 @@
             var item = markerData[idx];
 
             var wrapper = document.createElement('div');
-            wrapper.id = 'marker-wrapper-' + idx;
+            wrapper.id = containerId + '-marker-wrapper-' + idx;
             wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
             var bubble = document.createElement('div');
+            bubble.className = 'kakao-map-marker';
+            bubble.setAttribute('role', 'button');
+            bubble.setAttribute('tabindex', '0');
+            bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
             var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
             bubble.style.cssText = [
               'cursor:pointer',
@@ -548,8 +619,14 @@
             bubble.appendChild(priceEl);
             bubble.onclick = function(e) {
               if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-              if (window.suppressMarkerClicks) return;
+              if (!isCurrentMarkerRequest() || !isUsableKakaoMap(map) || lifecycle.suppressMarkerClicks) return;
               window.onMarkerClickWeb(containerId, idx);
+            };
+            bubble.onkeydown = function(e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                bubble.onclick(e);
+              }
             };
             wrapper.appendChild(bubble);
             wrapper.appendChild(tail);
@@ -570,35 +647,66 @@
           containerId,
           window.highlightedKakaoMarkerIndices[containerId]
         );
-        if (isCurrentMarkerRequest() && typeof map.relayout === 'function') {
-          map.relayout();
-        }
-        setTimeout(function() {
-          if (isCurrentMarkerRequest() && window.kakaoMapObjects[containerId] === map &&
-              typeof map.relayout === 'function') {
-            map.relayout();
-          }
-        }, 60);
+        // Adding overlays does not resize the platform view. Relayout here
+        // caused a second idle/request/rebuild loop on every marker update.
       });
       }
     }
 
     function setKakaoMapCenter(containerId, lat, lng) {
       var map = window.kakaoMapObjects[containerId];
-      if (map) {
+      if (isUsableKakaoMap(map)) {
         var lifecycle = getKakaoMapLifecycle(containerId);
         var generation = lifecycle.generation;
         map.setCenter(new kakao.maps.LatLng(lat, lng));
-        if (typeof map.relayout === 'function') map.relayout();
         scheduleKakaoMapTask(lifecycle, function() {
-          if (isActiveKakaoMap(containerId, map, generation) && window.onKakaoMapIdle) window.onKakaoMapIdle();
+          if (isActiveKakaoMap(containerId, map, generation)) notifyKakaoMapIdle(containerId, lifecycle);
         }, 150);
       }
     }
 
     function setKakaoMapCenterFromSwipe(containerId, lat, lng) {
       var map = window.kakaoMapObjects[containerId];
-      if (map) map.panTo(new kakao.maps.LatLng(lat, lng));
+      if (isUsableKakaoMap(map)) map.panTo(new kakao.maps.LatLng(lat, lng));
+    }
+
+    function zoomKakaoMap(containerId, delta) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!isUsableKakaoMap(map) || typeof map.getLevel !== 'function') return;
+      var maxLevel = getKakaoMapLifecycle(containerId).searchMode ? 14 : 10;
+      map.setLevel(Math.max(1, Math.min(maxLevel, map.getLevel() + Number(delta))));
+    }
+
+    function setKakaoMapSearchMode(containerId, enabled) {
+      getKakaoMapLifecycle(containerId).searchMode = enabled === true;
+      var map = window.kakaoMapObjects[containerId];
+      if (isUsableKakaoMap(map) && typeof map.setMaxLevel === 'function') map.setMaxLevel(enabled === true ? 14 : 10);
+    }
+
+    function fitKakaoMapStores(containerId, coordinatesJson) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!isUsableKakaoMap(map)) return;
+      var coordinates;
+      try { coordinates = JSON.parse(coordinatesJson); } catch (_) { return; }
+      var valid = coordinates.filter(function(point) {
+        return Number.isFinite(point.lat) && Number.isFinite(point.lng) &&
+          Math.abs(point.lat) <= 90 && Math.abs(point.lng) <= 180 &&
+          point.lat !== 0 && point.lng !== 0;
+      });
+      if (!valid.length) return;
+      if (valid.length === 1) {
+        map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
+        map.setLevel(4);
+      } else {
+        var bounds = new kakao.maps.LatLngBounds();
+        valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
+        map.setBounds(bounds, 150, 40, 260, 40);
+      }
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      var generation = lifecycle.generation;
+      scheduleKakaoMapTask(lifecycle, function() {
+        if (isActiveKakaoMap(containerId, map, generation)) notifyKakaoMapIdle(containerId, lifecycle);
+      }, 150);
     }
 
     function updateUserLocationMarker(containerId, lat, lng) {
@@ -635,9 +743,10 @@
     // 💡 Flutter가 현재 지도의 보이는 범위를 가져갈 수 있도록 지원하는 함수
     function getKakaoMapBounds(containerId) {
       var map = window.kakaoMapObjects[containerId];
-      if (!map) return null;
+      if (!isUsableKakaoMap(map)) return null;
 
       function readValues() {
+        if (typeof map.getBounds !== 'function') return null;
         var bounds = map.getBounds();
         if (!bounds) return null;
         var sw = bounds.getSouthWest();
@@ -650,10 +759,23 @@
           values[0] >= -90 && values[1] <= 90 && values[0] < values[1] &&
           values[2] >= -180 && values[3] <= 180 && values[2] < values[3];
       }
-      var values = readValues();
+      var values;
+      try { values = readValues(); } catch (_) {
+        notifyKakaoMapError(containerId, '지도 범위를 읽지 못했어요. 지도만 다시 불러와 주세요.');
+        return null;
+      }
       if (!areValid(values) && typeof map.relayout === 'function') {
-        map.relayout();
-        values = readValues();
+        try {
+          var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
+          var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
+          map.relayout();
+          if (center) map.setCenter(center);
+          if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+          values = readValues();
+        } catch (_) {
+          notifyKakaoMapError(containerId, '지도 범위를 읽지 못했어요. 지도만 다시 불러와 주세요.');
+          return null;
+        }
       }
       if (!areValid(values)) return null;
 

@@ -11,6 +11,7 @@ import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../store_model.dart';
+import '../../../../core/utils/price_formatter.dart';
 
 class PriceHistoryScreen extends StatefulWidget {
   const PriceHistoryScreen({super.key, this.store});
@@ -85,11 +86,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   }
 
   String _formatPrice(Object? raw) {
-    final value = int.tryParse(
-      raw?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '',
-    );
-    if (value == null) return '가격 정보 없음';
-    return '${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
+    return formatWon(raw, fallback: '가격 정보 없음');
   }
 
   String _formatDate(Object? raw) {
@@ -237,12 +234,9 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
 
   Widget _buildBarChart() {
     final prices = _history
-        .map(
-          (item) => int.tryParse(
-            item['price']?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '',
-          ),
-        )
-        .whereType<int>()
+        .map((item) => parsePriceValue(item['price']))
+        .where((value) => value != null && value.isExact)
+        .map((value) => value!.minimum)
         .take(12)
         .toList()
         .reversed
@@ -294,7 +288,14 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     return Column(
       children: List.generate(_history.length, (index) {
         final item = _history[index];
-        final isUser = item['source']?.toString() == 'USER';
+        final source = item['source']?.toString().trim().toUpperCase();
+        final isUser = source == 'USER';
+        final isGov = source == 'GOV';
+        final sourceLabel = isUser
+            ? '사용자 제보'
+            : isGov
+            ? '공공 데이터'
+            : '출처 확인 필요';
         return Container(
           margin: EdgeInsets.only(
             bottom: index == _history.length - 1 ? 0 : 10,
@@ -311,7 +312,11 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: isUser ? AppColors.orangeTheme : AppColors.primary,
+                  color: isUser
+                      ? AppColors.orangeTheme
+                      : isGov
+                      ? AppColors.primary
+                      : AppColors.muted,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -329,8 +334,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      item['description']?.toString() ??
-                          (isUser ? '사용자 제보 반영' : '공공데이터 반영'),
+                      item['description']?.toString() ?? sourceLabel,
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,
@@ -348,9 +352,13 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                 ),
               ),
               Text(
-                isUser ? '사용자 제보' : '공공 데이터',
+                sourceLabel,
                 style: TextStyle(
-                  color: isUser ? AppColors.orangeTheme : AppColors.primary,
+                  color: isUser
+                      ? AppColors.orangeTheme
+                      : isGov
+                      ? AppColors.primary
+                      : AppColors.muted,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),

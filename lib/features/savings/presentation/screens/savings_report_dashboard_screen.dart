@@ -141,18 +141,65 @@ class _SavingsReportDashboardScreenState
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
   Future<Map<String, dynamic>?> _fetchStats(String period) async {
     try {
+      final bounds = _periodBounds(period, DateTime.now());
       final response = await ApiClient.get(
-        ApiClient.uri('/api/savings/stats', {'period': period}),
+        ApiClient.uri('/api/savings/stats', {
+          'period': period,
+          'startDate': bounds.$1,
+          'endDateExclusive': bounds.$2,
+        }),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
       if (response.statusCode == 200) {
-        return jsonDecode(utf8.decode(response.bodyBytes))
-            as Map<String, dynamic>;
+        final data =
+            jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+        // Preserve the exact response interval, with legacy-server compatibility.
+        return {
+          ...data,
+          'startDate': data['startDate'] ?? bounds.$1,
+          'endDateExclusive': data['endDateExclusive'] ?? bounds.$2,
+        };
       }
     } catch (e) {
       debugPrint('절약 통계 조회 오류($period): $e');
     }
     return null;
+  }
+
+  /// Bounds are computed once per request in KST and sent as a half-open
+  /// interval; the server response remains the source of truth for totals.
+  (String, String) _periodBounds(String period, DateTime now) {
+    final kst = now.toUtc().add(const Duration(hours: 9));
+    DateTime start;
+    DateTime end;
+    switch (period) {
+      case 'last_month':
+        start = DateTime(kst.year, kst.month - 1, 1);
+        end = DateTime(kst.year, kst.month, 1);
+      case 'this_year':
+        start = DateTime(kst.year, 1, 1);
+        end = DateTime(kst.year + 1, 1, 1);
+      default:
+        start = DateTime(kst.year, kst.month, 1);
+        end = DateTime(kst.year, kst.month + 1, 1);
+    }
+    String date(DateTime value) =>
+        '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+    return (date(start), date(end));
+  }
+
+  void _openSavingsDetail() {
+    final data = _statsData?[_selectedTab];
+    if (data == null || data['loaded'] != true) return;
+    context.push(
+      Uri(
+        path: AppRoutes.savingsDetail,
+        queryParameters: {
+          'startDate': data['startDate'].toString(),
+          'endDateExclusive': data['endDateExclusive'].toString(),
+        },
+      ).toString(),
+    );
   }
 
   /// GET /api/savings/goal → goalAmount (미설정 시 0)
@@ -231,6 +278,8 @@ class _SavingsReportDashboardScreenState
 
     return {
       'loaded': stats != null,
+      'startDate': stats?['startDate'],
+      'endDateExclusive': stats?['endDateExclusive'],
       'savedAmount': (stats?['totalSavedAmount'] as num?)?.toInt() ?? 0,
       'goalAmount': goal,
       'visits': (stats?['totalVisits'] as num?)?.toInt() ?? 0,
@@ -561,7 +610,7 @@ class _SavingsReportDashboardScreenState
 
               // Chart Card
               GestureDetector(
-                onTap: () => context.push(AppRoutes.savingsDetail),
+                onTap: _openSavingsDetail,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSizes.horizontalPadding),
@@ -731,7 +780,7 @@ class _SavingsReportDashboardScreenState
     }
 
     return GestureDetector(
-      onTap: () => context.push(AppRoutes.savingsDetail),
+      onTap: _openSavingsDetail,
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(

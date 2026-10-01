@@ -15,6 +15,8 @@ import 'package:howmuch/features/recommendation/presentation/widgets/route_map_v
 import 'package:howmuch/features/recommendation/presentation/widgets/route_step_card.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
+import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
 
 class OptimalRouteScreen extends ConsumerStatefulWidget {
   const OptimalRouteScreen({super.key});
@@ -29,6 +31,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   Map<String, dynamic>? _routeData;
   double? _userLatitude;
   double? _userLongitude;
+  int _loadGeneration = 0;
+  int _loadedRadiusMeters = defaultRecommendationRadiusMeters;
 
   @override
   void initState() {
@@ -37,16 +41,20 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   }
 
   Future<void> _loadRoute() async {
+    final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
+      await ref.read(recommendationRadiusProvider.notifier).ready;
+      if (!mounted || generation != _loadGeneration) return;
+      _loadedRadiusMeters = ref.read(recommendationRadiusProvider);
       final service = ref.read(todaysPickServiceProvider);
       final position = await _resolveCurrentPosition();
       if (position == null) {
-        if (!mounted) return;
+        if (!mounted || generation != _loadGeneration) return;
         setState(() {
           _errorMessage = '추천 루트를 만들려면 위치 권한을 허용해주세요.';
           _isLoading = false;
@@ -58,8 +66,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       final data = await service.getRoute(
         lat: _userLatitude,
         lng: _userLongitude,
+        radiusMeters: _loadedRadiusMeters,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       if (data['error'] == true) {
         setState(() {
           _errorMessage = '루트를 불러오지 못했어요.';
@@ -72,7 +81,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _errorMessage = '네트워크 오류가 발생했습니다.';
         _isLoading = false;
@@ -86,6 +95,24 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return rawPicks
         .whereType<Map>()
         .map((pick) => Map<String, dynamic>.from(pick))
+        .where((pick) {
+          final coordinates = _coordinates(pick);
+          final distance =
+              _number(pick['distanceMeters']) ??
+              (_userLatitude != null &&
+                      _userLongitude != null &&
+                      coordinates != null
+                  ? routeDistanceMeters((
+                      lat: _userLatitude!,
+                      lng: _userLongitude!,
+                    ), coordinates)
+                  : null);
+          return pick['isClosed'] != true &&
+              distance != null &&
+              distance.isFinite &&
+              distance >= 0 &&
+              distance <= _loadedRadiusMeters;
+        })
         .toList(growable: false);
   }
 
@@ -107,14 +134,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return points;
   }
 
-  int get _totalCost {
-    int sum = 0;
-    for (var p in _picks) {
-      final parsed = parseRecommendationPrice(recommendationMenuPrice(p));
-      if (parsed != null) sum += parsed;
-    }
-    return sum;
-  }
+  String get _totalCostLabel => formatRecommendationTotal(_picks);
 
   int? get _totalDistance {
     int sum = 0;
@@ -195,6 +215,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(recommendationRadiusProvider, (previous, next) {
+      if (previous != null && previous != next) _loadRoute();
+    });
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -231,6 +254,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          const RecommendationRadiusButton(),
                           Container(
                             width: 60,
                             height: 60,
@@ -333,6 +357,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               fontSize: 12,
                             ),
                           ),
+                          const SizedBox(height: 12),
+                          const RecommendationRadiusButton(),
                         ],
                       ),
                     ),
@@ -344,6 +370,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const RecommendationRadiusButton(),
+                          const SizedBox(height: 12),
                           const Text(
                             '식사부터 카페까지 저렴한 동선을 추천해요',
                             style: TextStyle(
@@ -412,6 +440,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final price = formatRecommendationPrice(
                                 recommendationMenuPrice(p),
                                 unavailable: '',
+                                free: recommendationMenuFree(p),
                               );
                               final distance = _distanceText(
                                 p['distanceMeters'],
@@ -428,6 +457,21 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                     details: [menu, price, distance]
                                         .where((part) => part.isNotEmpty)
                                         .join(' · '),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      onPressed: _canOpenLeg(idx)
+                                          ? () => _openLeg(idx)
+                                          : null,
+                                      icon: const Icon(
+                                        Icons.directions_outlined,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        '${idx + 1}구간: ${_legStartName(idx)} → $storeName',
+                                      ),
+                                    ),
                                   ),
                                   if (idx < _picks.length - 1)
                                     _buildConnection(
@@ -449,19 +493,25 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      '총 예상 비용',
-                                      style: TextStyle(
-                                        color: Color(0xFF64748B),
-                                        fontSize: 12,
+                                    const Expanded(
+                                      child: Text(
+                                        '총 예상 비용',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
-                                    Text(
-                                      formatRecommendationPrice(_totalCost),
-                                      style: const TextStyle(
-                                        color: Color(0xFF0F172A),
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w800,
+                                    Flexible(
+                                      flex: 2,
+                                      child: Text(
+                                        _totalCostLabel,
+                                        textAlign: TextAlign.end,
+                                        style: const TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -571,39 +621,18 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                   color: Colors.white,
                   border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
                 ),
-                child: GestureDetector(
-                  onTap: () {
-                    final firstPick = _picks.isNotEmpty
-                        ? _picks.first
-                        : const <String, dynamic>{};
-                    final firstCoordinates = _coordinates(firstPick);
-                    final startLegDistance = _legDistanceMeters(0);
-                    context.push(
-                      AppRoutes.directionsExternalApp,
-                      extra: {
-                        'storeName':
-                            firstPick['storeName']?.toString() ?? '선택한 매장',
-                        'address':
-                            firstPick['address']?.toString() ?? '주소 정보 없음',
-                        'distanceLabel': startLegDistance != null
-                            ? formatRecommendationDistance(startLegDistance)
-                            : _distanceText(firstPick['distanceMeters']),
-                        'latitude': firstCoordinates?.lat,
-                        'longitude': firstCoordinates?.lng,
-                        'startLatitude': _userLatitude,
-                        'startLongitude': _userLongitude,
-                      },
-                    );
-                  },
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2563EB),
-                      borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  height: 50,
+                  child: FilledButton(
+                    onPressed: _showRouteLegs,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
-                    alignment: Alignment.center,
                     child: const Text(
-                      '이 루트로 길찾기',
+                      '구간별 길찾기',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -680,6 +709,88 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
         ),
       ),
     );
+  }
+
+  String _legStartName(int index) => index == 0
+      ? '현재 위치'
+      : _picks[index - 1]['storeName']?.toString() ?? '이전 매장';
+
+  RouteCoordinate? _legStart(int index) => index == 0
+      ? (_userLatitude != null && _userLongitude != null
+            ? (lat: _userLatitude!, lng: _userLongitude!)
+            : null)
+      : _coordinates(_picks[index - 1]);
+
+  bool _canOpenLeg(int index) =>
+      index >= 0 &&
+      index < _picks.length &&
+      _legStart(index) != null &&
+      _coordinates(_picks[index]) != null;
+
+  void _openLeg(int index) {
+    if (!_canOpenLeg(index)) return;
+    final pick = _picks[index];
+    final destination = _coordinates(pick)!;
+    final start = _legStart(index)!;
+    context.push(
+      AppRoutes.directionsExternalApp,
+      extra: {
+        'storeName': pick['storeName']?.toString() ?? '선택한 매장',
+        'address': pick['address']?.toString() ?? '주소 정보 없음',
+        'distanceLabel': formatRecommendationDistance(
+          _legDistanceMeters(index),
+        ),
+        'latitude': destination.lat,
+        'longitude': destination.lng,
+        'startLatitude': start.lat,
+        'startLongitude': start.lng,
+        'startName': _legStartName(index),
+      },
+    );
+  }
+
+  Future<void> _showRouteLegs() async {
+    final index = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  '구간별 길찾기',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Text('순서대로 이동할 구간을 선택하세요. 지도에서 돌아와도 방문 완료로 처리하지 않아요.'),
+              ),
+              for (var i = 0; i < _picks.length; i++)
+                ListTile(
+                  enabled: _canOpenLeg(i),
+                  leading: Text('${i + 1}구간'),
+                  title: Text(
+                    '${_legStartName(i)} → ${_picks[i]['storeName']}',
+                  ),
+                  subtitle: Text(
+                    _canOpenLeg(i)
+                        ? formatRecommendationDistance(_legDistanceMeters(i))
+                        : '위치 정보가 없어 이 구간을 열 수 없어요.',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.pop(sheetContext, i),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted && index != null) _openLeg(index);
   }
 
   Widget _buildConnection(String timeText) {

@@ -432,7 +432,7 @@ class _AllAlertCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ToggleSm(value: value, onTap: onTap),
+              _ToggleSm(label: '전체 매장 가격 알림', value: value, onTap: onTap),
             ],
           ),
         ),
@@ -470,7 +470,11 @@ class _StoreAlertCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _ToggleSm(value: store.enabled, onTap: onTap),
+              _ToggleSm(
+                label: '${store.storeName} ${store.menuName} 가격 알림',
+                value: store.enabled,
+                onTap: onTap,
+              ),
             ],
           ),
         ),
@@ -556,7 +560,7 @@ class _ConditionRow extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(child: Text(label, style: _conditionText)),
-              _ToggleSm(value: value, onTap: onTap),
+              _ToggleSm(label: '$label 알림', value: value, onTap: onTap),
             ],
           ),
         ),
@@ -566,18 +570,26 @@ class _ConditionRow extends StatelessWidget {
 }
 
 class _ToggleSm extends StatelessWidget {
-  const _ToggleSm({required this.value, required this.onTap});
+  const _ToggleSm({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
 
+  final String label;
   final bool value;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      label: label,
       toggled: value,
-      button: true,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        excludeFromSemantics: true,
         onTap: onTap,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
