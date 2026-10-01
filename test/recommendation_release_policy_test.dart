@@ -97,6 +97,32 @@ void main() {
       expect(result!.stores.map((item) => item.id), expected);
     }
   });
+  test('meal fallback excludes drinks while explicit coffee still works', () {
+    for (final query in ['10,000원 이하 점심', '저녁 식사', '아침 추천']) {
+      final result = buildLocalAiFallbackResult(
+        stores: [
+          store('drink', '아메리카노(HOT)', '1500', 37.001),
+          store('latte', '카페라떼', '2000', 37.002),
+          store('food', '샌드위치', '5000', 37.003),
+        ],
+        query: query,
+        lat: 37,
+        lng: 127,
+      );
+      expect(result!.stores.map((item) => item.id), ['food']);
+    }
+    expect(menuMatchesRecommendationQuery('아메리카노', '점심 후 커피'), isTrue);
+    expect(menuMatchesRecommendationQuery('칼국수', '점심 후 커피'), isFalse);
+    expect(menuMatchesRecommendationQuery('유자차', '점심 추천'), isFalse);
+    expect(
+      menuMatchesRecommendationQuery('커트', '점심 추천', industry: '미용'),
+      isFalse,
+    );
+    expect(
+      menuMatchesRecommendationQuery('샌드위치', '점심 추천', industry: '카페'),
+      isTrue,
+    );
+  });
   test('ambiguous prices do not imply a fixed route total', () {
     expect(
       formatRecommendationTotal([

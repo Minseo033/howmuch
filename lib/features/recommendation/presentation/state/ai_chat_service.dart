@@ -551,11 +551,52 @@ bool menuMatchesRecommendationQuery(
     '삼겹살',
     '비빔밥',
     '백반',
-    '커피',
     '아메리카노',
   ];
   final requested = specific.where(q.contains).toList();
   if (requested.isNotEmpty) return requested.any(text.contains);
+  final meal = [
+    '점심',
+    '저녁',
+    '아침',
+    '식사',
+    '밥',
+    '음식',
+    '맛집',
+    '국수',
+    '분식',
+  ].any(q.contains);
+  final cafe = ['카페', '커피', '디저트', '빵', '베이커리'].any(q.contains);
+  final drink =
+      text.endsWith('차') ||
+      [
+        '커피',
+        '아메리카노',
+        '라떼',
+        '카푸치노',
+        '에스프레소',
+        '음료',
+        '에이드',
+        '주스',
+        '스무디',
+      ].any(text.contains);
+  if (cafe && !drink && !['빵', '케이크', '디저트'].any(text.contains)) {
+    return false;
+  }
+  if (meal && !cafe && drink) return false;
+  if (meal &&
+      [
+        '미용',
+        '헤어',
+        '이발',
+        '세탁',
+        '수선',
+        '네일',
+        '목욕',
+        '숙박',
+      ].any(('$industry $text').contains)) {
+    return false;
+  }
   const categoryTerms = {
     '분식': ['김밥', '떡볶이', '라면', '순대', '만두', '튀김'],
     '카페': ['커피', '아메리카노', '라떼', '차', '에이드', '주스'],
