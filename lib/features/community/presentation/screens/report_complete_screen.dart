@@ -49,7 +49,7 @@ class ReportCompleteScreen extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 return SingleChildScrollView(
-                  physics: const NeverScrollableScrollPhysics(),
+                  physics: const ClampingScrollPhysics(),
                   padding: EdgeInsets.only(bottom: safePadding.bottom + 24),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
