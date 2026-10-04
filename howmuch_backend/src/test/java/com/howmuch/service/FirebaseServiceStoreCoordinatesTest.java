@@ -189,9 +189,9 @@ class FirebaseServiceStoreCoordinatesTest {
                 126.9780);
 
         assertThat(context).extracting(item -> item.get("storeName"))
-                .containsExactly("승인 매장", "정부 매장");
+                .containsExactly("정부 매장", "승인 매장");
         assertThat(context).extracting(item -> item.get("source"))
-                .containsExactly("사용자 제보", "착한가격업소");
+                .containsExactly("GOV", "USER");
         assertThat(context).allSatisfy(item ->
                 assertThat(item.get("distanceMeters")).isInstanceOf(Integer.class));
     }

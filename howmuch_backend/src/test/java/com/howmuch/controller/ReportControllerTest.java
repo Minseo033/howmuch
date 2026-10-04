@@ -215,6 +215,7 @@ class ReportControllerTest {
         return UserReportRequest.builder()
                 .storeName("실제 매장")
                 .address("서울시 중구")
+                .menu1("백반").price1("6000")
                 .build();
     }
 

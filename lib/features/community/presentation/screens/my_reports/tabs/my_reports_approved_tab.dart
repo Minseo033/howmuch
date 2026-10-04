@@ -23,6 +23,7 @@ AiMapRecommendationResult buildApprovedReportMapResult(
     industry: report.category,
     menu1: firstMenu?.menu ?? report.menu,
     price1: firstMenu?.price ?? '',
+    free1: firstMenu?.free ?? false,
     menu2: '',
     price2: '',
     menu3: '',

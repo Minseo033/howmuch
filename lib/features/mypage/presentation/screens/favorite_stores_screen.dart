@@ -472,7 +472,10 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -509,7 +512,6 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 6),
                           Text(
                             store.distance,
                             style: const TextStyle(
@@ -582,6 +584,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 TextButton.icon(
                   onPressed: () => _confirmFavoriteRemoval(store),
                   style: TextButton.styleFrom(
@@ -591,7 +594,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                       horizontal: 10,
                       vertical: 8,
                     ),
-                    minimumSize: const Size(0, 36),
+                    minimumSize: const Size(0, 44),
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),

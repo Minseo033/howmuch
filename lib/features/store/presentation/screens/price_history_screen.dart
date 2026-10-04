@@ -11,11 +11,25 @@ import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../store_model.dart';
+import '../../../../core/utils/price_formatter.dart';
+
+class PriceHistoryTarget {
+  const PriceHistoryTarget({required this.store, required this.menuIndex});
+
+  final Store store;
+  final int menuIndex;
+}
+
+Uri priceHistoryUri(Store store, int menuIndex) => ApiClient.uri(
+  '/api/stores/${Uri.encodeComponent(store.id.isNotEmpty ? store.id : store.storeName)}/price-history',
+  {'menu': store.menuAt(menuIndex.clamp(1, 4))},
+);
 
 class PriceHistoryScreen extends StatefulWidget {
-  const PriceHistoryScreen({super.key, this.store});
+  const PriceHistoryScreen({super.key, this.store, this.menuIndex = 1});
 
   final Store? store;
+  final int menuIndex;
 
   @override
   State<PriceHistoryScreen> createState() => _PriceHistoryScreenState();
@@ -25,6 +39,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   bool _loading = true;
   String? _errorMessage;
   Map<String, dynamic>? _data;
+  int get _menuIndex => widget.menuIndex.clamp(1, 4);
 
   @override
   void initState() {
@@ -48,10 +63,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     try {
       final response = await http
           .get(
-            ApiClient.uri(
-              '/api/stores/${Uri.encodeComponent(identity)}/price-history',
-              store?.menu1.isNotEmpty == true ? {'menu': store!.menu1} : null,
-            ),
+            priceHistoryUri(store!, _menuIndex),
             headers: ApiClient.jsonHeaders(),
           )
           .timeout(ApiClient.defaultTimeout);
@@ -85,11 +97,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   }
 
   String _formatPrice(Object? raw) {
-    final value = int.tryParse(
-      raw?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '',
-    );
-    if (value == null) return '가격 정보 없음';
-    return '${value.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
+    return formatWon(raw, fallback: '가격 정보 없음');
   }
 
   String _formatDate(Object? raw) {
@@ -103,7 +111,8 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     final store = widget.store;
     final storeName =
         _data?['storeName']?.toString() ?? store?.storeName ?? '매장 정보 없음';
-    final menuName = _data?['menuName']?.toString() ?? store?.menu1 ?? '대표 메뉴';
+    final menuName =
+        _data?['menuName']?.toString() ?? store?.menuAt(_menuIndex) ?? '대표 메뉴';
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: AppColors.backgroundDark,
@@ -223,7 +232,12 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
           ),
           const SizedBox(width: 12),
           Text(
-            _formatPrice(_data?['currentPrice']),
+            formatMenuPrice(
+              _data?['currentPrice']?.toString() ??
+                  widget.store?.priceAt(_menuIndex) ??
+                  '',
+              free: widget.store?.freeAt(_menuIndex) ?? false,
+            ),
             style: const TextStyle(
               color: AppColors.success,
               fontSize: 20,
@@ -237,12 +251,9 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
 
   Widget _buildBarChart() {
     final prices = _history
-        .map(
-          (item) => int.tryParse(
-            item['price']?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '',
-          ),
-        )
-        .whereType<int>()
+        .map((item) => parsePriceValue(item['price']))
+        .where((value) => value != null && value.isExact)
+        .map((value) => value!.minimum)
         .take(12)
         .toList()
         .reversed
@@ -294,7 +305,14 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     return Column(
       children: List.generate(_history.length, (index) {
         final item = _history[index];
-        final isUser = item['source']?.toString() == 'USER';
+        final source = item['source']?.toString().trim().toUpperCase();
+        final isUser = source == 'USER';
+        final isGov = source == 'GOV';
+        final sourceLabel = isUser
+            ? '사용자 제보'
+            : isGov
+            ? '공공 데이터'
+            : '출처 확인 필요';
         return Container(
           margin: EdgeInsets.only(
             bottom: index == _history.length - 1 ? 0 : 10,
@@ -311,7 +329,11 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                 width: 12,
                 height: 12,
                 decoration: BoxDecoration(
-                  color: isUser ? AppColors.orangeTheme : AppColors.primary,
+                  color: isUser
+                      ? AppColors.orangeTheme
+                      : isGov
+                      ? AppColors.primary
+                      : AppColors.muted,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -329,8 +351,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      item['description']?.toString() ??
-                          (isUser ? '사용자 제보 반영' : '공공데이터 반영'),
+                      item['description']?.toString() ?? sourceLabel,
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,
@@ -348,9 +369,13 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                 ),
               ),
               Text(
-                isUser ? '사용자 제보' : '공공 데이터',
+                sourceLabel,
                 style: TextStyle(
-                  color: isUser ? AppColors.orangeTheme : AppColors.primary,
+                  color: isUser
+                      ? AppColors.orangeTheme
+                      : isGov
+                      ? AppColors.primary
+                      : AppColors.muted,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),

@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class FirebaseServiceReceiptApprovalTest {
 
@@ -112,6 +113,39 @@ class FirebaseServiceReceiptApprovalTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("이미 처리된");
         verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void closedStoreCannotBeManuallyApprovedIntoAVisit() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getString("userId")).thenReturn("user-1");
+        when(receipt.getString("storeId")).thenReturn("store-1");
+        when(receipt.getString("storeName")).thenReturn("테스트 식당");
+        when(receipt.getLong("price")).thenReturn(6000L);
+        ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of("storeId", "store-1", "storeName", "테스트 식당")));
+        ReflectionTestUtils.setField(service, "cachedStoreCorrections", Map.of("store-1", Map.of("fields", Map.of("isClosed", true), "revision", 1L)));
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("폐업");
+        verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void onlyCanonicalExplicitFreeMenuCanCreateAZeroPriceReceiptVisit() throws Exception {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getString("userId")).thenReturn("user-1");
+        when(receipt.getString("storeId")).thenReturn("store-1");
+        when(receipt.getString("storeName")).thenReturn("테스트 식당");
+        when(receipt.getString("menu")).thenReturn("무료 국밥");
+        when(receipt.getLong("price")).thenReturn(0L);
+        when(receipt.get("imageUrls")).thenReturn(java.util.List.of());
+        ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of("storeId", "store-1", "storeName", "테스트 식당",
+                "menu1", "무료 국밥", "price1", "0", "free1", true)));
+        service.approveReceiptVerification("receipt-1", "ADMIN");
+        verify(transaction).set(eq(visitRef), argThat(data -> Boolean.TRUE.equals(data.get("isFree"))
+                && Long.valueOf(0L).equals(data.get("price")) && Long.valueOf(0L).equals(data.get("savedAmount"))));
     }
 
     @Test

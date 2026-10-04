@@ -115,7 +115,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('매장 좌표가 없어 지도를 표시할 수 없어요.'), findsOneWidget);
-    expect(find.text('5,000원'), findsOneWidget);
+    expect(find.text('5,000원 (표시 가격 합계)'), findsOneWidget);
     expect(find.text('총 예상 비용'), findsOneWidget);
     _expectNoFlutterError(tester);
   });
@@ -128,14 +128,22 @@ void main() {
       route: {
         'picks': [
           {
+            'storeId': 'test-pork',
             'storeName': '천이오겹살',
             'menu1': '삼겹살',
             'price1': '10000',
             'menu2': '비빔국수',
             'price2': '4000',
             'matchedMenu': '비빔국수',
+            'distanceMeters': 100,
           },
-          {'storeName': '맛양값 칼국수', 'menu1': '칼국수', 'price1': '6000'},
+          {
+            'storeId': 'test-noodles',
+            'storeName': '맛양값 칼국수',
+            'menu1': '칼국수',
+            'price1': '6000',
+            'distanceMeters': 200,
+          },
         ],
       },
     );
@@ -145,7 +153,7 @@ void main() {
 
     expect(find.textContaining('비빔국수 · 4,000원'), findsOneWidget);
     expect(find.textContaining('칼국수 · 6,000원'), findsOneWidget);
-    expect(find.text('10,000원'), findsOneWidget);
+    expect(find.text('10,000원 (표시 가격 합계)'), findsOneWidget);
     expect(find.textContaining('삼겹살 · 10,000원'), findsNothing);
     _expectNoFlutterError(tester);
   });
@@ -181,9 +189,13 @@ class _FakeTodaysPickService extends TodaysPickService {
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
+    int radiusMeters = 3000,
   }) async => todaysPick;
 
   @override
-  Future<Map<String, dynamic>> getRoute({double? lat, double? lng}) async =>
-      route;
+  Future<Map<String, dynamic>> getRoute({
+    double? lat,
+    double? lng,
+    int radiusMeters = 3000,
+  }) async => route;
 }

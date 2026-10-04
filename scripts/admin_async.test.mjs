@@ -12,6 +12,15 @@ const deferred = () => {
   return { promise, resolve, reject };
 };
 
+test('report deletion warning distinguishes public new stores from information reports', () => {
+  const modal = html.match(/<dialog[^>]+id="deleteReportModal"[\s\S]*?<\/dialog>/)?.[0];
+  assert.ok(modal, 'actual report deletion dialog must exist');
+  assert.match(modal, /승인·공개된 신규 매장 제보는 지도에서도 제거됩니다/);
+  assert.match(modal, /대상 매장 원본과 승인된 수정 기록은 유지됩니다/);
+  assert.match(modal, /삭제한 제보와 첨부 사진은 복구할 수 없습니다/);
+  assert.doesNotMatch(modal, /승인된 제보는 지도에서도 즉시 제거/);
+});
+
 function harness(fetchImpl) {
   const elements = new Map();
   const timers = new Map();
@@ -50,6 +59,7 @@ function harness(fetchImpl) {
     renderNoticesView = () => rendered.push('notices');
     globalThis.admin = { api, switchView, loadReports, handleError, rendered,
       reportCounts,
+      fmtPrice, reportCard, receiptCard, inquiryOriginal, resolutionSummary,
       openUserActivity, openDeleteReportModal, doDeleteReport,
       setReports: (reports) => { allReports = reports; },
       invalidateAdminSession,
@@ -75,6 +85,48 @@ test('slow report response cannot replace a newly selected view or populate its 
   assert.deepEqual([...admin.rendered], ['notices']);
   assert.equal(admin.state().reportsLoaded, false);
   assert.equal(admin.state().allReports.length, 0);
+});
+
+test('actual admin price renderer preserves alternatives and ranges', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  assert.equal(admin.fmtPrice('3,000 / 3,500'), '3,000 / 3,500원');
+  assert.equal(admin.fmtPrice('3000~3500원'), '3,000 ~ 3,500원');
+  assert.equal(admin.fmtPrice('0'), '0원 · 무료 여부 확인 필요');
+  assert.equal(admin.fmtPrice('<script>'), '&lt;script&gt;');
+});
+
+test('actual report card includes type, original description, and explicit free flag', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const card = admin.reportCard({id:'info',status:'PENDING',reportType:'STORE_INFO',changeType:'other',description:'<img> 검토해주세요',menu1:'무료 서비스',price1:'0',free1:true});
+  assert.match(card, /매장 정보 신고/);
+  assert.match(card, /other/);
+  assert.match(card, /&lt;img&gt; 검토해주세요/);
+  assert.match(card, /무료/);
+});
+
+test('processed receipt renderer never offers a deleted original link', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const card = admin.receiptCard({id:'receipt',status:'REJECTED',imageCleanupStatus:'DELETED',imageUrls:['https://res.cloudinary.com/example/image/upload/receipt.jpg']});
+  assert.match(card, /심사 후 원본 삭제/);
+  assert.doesNotMatch(card, /data-open-image/);
+  const unknown = admin.receiptCard({status:'APPROVED',imageCleanupStatus:'SYNC_PENDING',imageUrls:[]});
+  assert.match(unknown, /확인 필요/);
+});
+
+test('inquiry modal renders escaped full original and safe attachment', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const original = admin.inquiryOriginal({content:'긴 원문\n<script>전체 내용</script>',imageUrls:['javascript:alert(1)']});
+  assert.match(original, /긴 원문\n&lt;script&gt;전체 내용&lt;\/script&gt;/);
+  assert.doesNotMatch(original, /javascript:/);
+});
+
+test('actual approval confirmation states before, after, and reason', () => {
+  const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const text = admin.resolutionSummary('테스트 매장', 'PRICE', {menu2:'칼국수',price2:'5000',free2:false}, {menuSlot:2,menu:'무료 칼국수',price:'0',free:true}, '사업자가 무료 제공 확인');
+  assert.match(text, /칼국수 5,000원/);
+  assert.match(text, /→ 무료 칼국수 무료/);
+  assert.match(text, /사업자가 무료 제공 확인/);
+  assert.match(admin.resolutionSummary('테스트', 'NO_CHANGE', {}, {}, '변경 근거 없음'), /매장 정보 수정 없음/);
 });
 
 test('legacy report count closes the gap between status tabs and total', () => {

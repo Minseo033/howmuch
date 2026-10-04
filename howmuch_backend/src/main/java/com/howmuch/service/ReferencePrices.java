@@ -96,14 +96,6 @@ public final class ReferencePrices {
     }
 
     private static Long parsePrice(Object value) {
-        if (value == null) return null;
-        String digits = String.valueOf(value).replaceAll("[^0-9]", "");
-        if (digits.isEmpty()) return null;
-        try {
-            long price = Long.parseLong(digits);
-            return price > 0 && price <= 10_000_000L ? price : null;
-        } catch (NumberFormatException ignored) {
-            return null;
-        }
+        return WonPrice.exactPositive(value);
     }
 }

@@ -4,8 +4,39 @@ import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 
 void main() {
+  test('검색 지도 이동은 기존 viewport와 무관한 실제 결과·필터와 위치 없는 결과도 보존한다', () {
+    final stores = [
+      Store.fromJson({
+        'storeId': 'search-1',
+        'storeName': '검색 매장',
+        'latitude': 37.51,
+        'longitude': 127.1,
+      }),
+      Store.fromJson({'storeId': 'search-2', 'storeName': '위치 없는 매장'}),
+    ];
+    const filter = SearchFilter(maxPrice: 5000);
+    final result = buildSearchMapResult(
+      query: '검색',
+      filter: filter,
+      stores: stores,
+    );
+    expect(result['storeIds'], ['search-1', 'search-2']);
+    expect(result['query'], '검색');
+    expect(result['filter'], same(filter));
+    stores.clear();
+    expect((result['stores'] as List<Store>).length, 2);
+    final cleared = buildSearchMapResult(
+      query: '검색',
+      filter: filter,
+      stores: const [],
+      clear: true,
+    );
+    expect(cleared['stores'], isNull);
+    expect(cleared['query'], '');
+  });
   test('승인 제보의 좌표와 매장 ID를 지도 이동 데이터로 전달한다', () {
     final report = UserReportStatus.fromJson({
       'id': 'report-1',
@@ -62,6 +93,6 @@ void main() {
     expect(result.storeIds, ['store-2']);
     expect(result.stores, [validStore]);
     expect(result.selectionFor(validStore)!.menu, '비빔국수');
-    expect(result.selectionFor(validStore)!.price, 4000);
+    expect(result.selectionFor(validStore)!.price, '4,000원');
   });
 }

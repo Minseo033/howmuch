@@ -58,13 +58,50 @@ class VisitControllerTest {
     }
 
     @Test
-    void rejectsZeroPaymentInsteadOfCreditingTheFullReferencePrice() {
+    void rejectsZeroPaymentInsteadOfCreditingTheFullReferencePrice() throws Exception {
         authenticate();
         VisitRequest body = validRequest();
         body.setPrice(0L);
         assertThat(controller.createVisit(body, request).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);
-        verifyNoInteractions(firebaseService);
+        verify(firebaseService).isApprovedFreeMenu("store-test", "테스트 식당", "김치찌개");
+        verify(firebaseService, never()).saveVisit(anyString(), any(), anyLong());
+        verify(firebaseService, never()).estimateReferencePrice(any(), any(), any());
+    }
+
+    @Test
+    void approvedFreeMenuRequiresLocationAndSavesZeroSavings() throws Exception {
+        authenticate();
+        VisitRequest body = validRequest(); body.setPrice(0L);
+        when(firebaseService.isApprovedFreeMenu("store-test", "테스트 식당", "김치찌개")).thenReturn(true);
+        when(firebaseService.findStoreCoordinates(any(), any()))
+                .thenReturn(Optional.of(new StoreCoordinates(37.5665, 126.9780)));
+        when(firebaseService.saveVisit(anyString(), any(), anyLong())).thenReturn("free-visit");
+        ResponseEntity<?> response = controller.createVisit(body, request);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(firebaseService).saveVisit("user-1", body, 0L);
+        verify(firebaseService, never()).estimateReferencePrice(any(), any(), any());
+    }
+
+    @Test
+    void freeMenuDoesNotBypassTheLocationEvidenceChecks() throws Exception {
+        authenticate();
+        VisitRequest body = validRequest(); body.setPrice(0L); body.setLatitude(null);
+        when(firebaseService.isApprovedFreeMenu("store-test", "테스트 식당", "김치찌개")).thenReturn(true);
+        assertThat(controller.createVisit(body, request).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(firebaseService, never()).saveVisit(anyString(), any(), anyLong());
+    }
+
+    @Test
+    void closedReceiptIsRejectedBeforeImageUploadOrPaidOcr() throws Exception {
+        authenticate();
+        MockMultipartFile image = new MockMultipartFile("images", "receipt.jpg", "image/jpeg",
+                new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        when(firebaseService.isClosedStore("store-1", "테스트 식당")).thenReturn(true);
+        assertThat(controller.submitReceiptVerification(request, "store-1", "테스트 식당", "국밥", 6000, List.of(image))
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verify(firebaseService, never()).uploadReportImages(anyString(), any());
+        verifyNoInteractions(receiptOcrService);
     }
 
     @Test

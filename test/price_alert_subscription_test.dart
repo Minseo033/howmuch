@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -79,6 +80,36 @@ void main() {
         child: MaterialApp.router(routerConfig: router),
       );
     }
+
+    testWidgets(
+      'named price toggle supports keyboard activation and selected semantics',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(createTestApp());
+          await tester.pumpAndSettle();
+          final toggle = find.bySemanticsLabel('전체 매장 가격 알림');
+          expect(toggle, findsOneWidget);
+          final focusable = find.descendant(
+            of: toggle,
+            matching: find.byType(Focus),
+          );
+          expect(focusable, findsWidgets);
+          final visual = find
+              .descendant(of: toggle, matching: find.byType(AnimatedContainer))
+              .first;
+          Focus.of(tester.element(visual)).requestFocus();
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('설정 저장'));
+          await tester.pumpAndSettle();
+          expect(fakeApi.settings.all, isFalse);
+        } finally {
+          semantics.dispose();
+        }
+      },
+    );
 
     testWidgets(
       'renders all sections and ensures 새 메뉴 등록 is not occluded by sticky button',

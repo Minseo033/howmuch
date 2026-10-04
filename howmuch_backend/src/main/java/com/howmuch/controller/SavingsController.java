@@ -34,7 +34,10 @@ public class SavingsController {
      * 세션 토큰으로 인증된 유저의 visits 데이터를 기반으로 절약 내역 목록을 최신순으로 반환합니다.
      */
     @GetMapping("/history")
-    public ResponseEntity<?> getSavingsHistory(HttpServletRequest httpRequest) {
+    public ResponseEntity<?> getSavingsHistory(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDateExclusive,
+            HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
 
         try {
@@ -43,14 +46,21 @@ public class SavingsController {
                         "success", false, "message", "인증 정보가 유효하지 않습니다."));
             }
 
-            List<SavingsHistoryResponse> history = savingsService.getSavingsHistory(firebaseUid);
+            List<SavingsHistoryResponse> history = savingsService.getSavingsHistory(firebaseUid, startDate, endDateExclusive);
             return ResponseEntity.ok(history);
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", exception.getMessage()));
         } catch (Exception e) {
             log.error("[SavingsController] 절약 내역 조회 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "절약 내역 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
         }
+    }
+
+    public ResponseEntity<?> getSavingsHistory(HttpServletRequest request) {
+        return getSavingsHistory(null, null, request);
     }
 
     /**

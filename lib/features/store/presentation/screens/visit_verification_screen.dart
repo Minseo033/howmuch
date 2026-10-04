@@ -568,7 +568,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       return;
     }
     final price = _priceValue;
-    if (price <= 0) {
+    if (!_hasValidPaymentAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
         HowmuchSnackBar(content: Text('영수증 인증 전에 결제 금액을 입력해주세요.')),
       );
@@ -649,15 +649,31 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   /// 메뉴 · 결제 금액 입력 (방문 인증 시 절약 금액 계산에 사용)
   Widget _buildMenuPriceSection() {
     final store = widget.store;
-    final registeredMenus = <({String menu, String price})>[
+    final registeredMenus = <({String menu, String price, bool free})>[
       if (store != null && store.menu1.trim().isNotEmpty)
-        (menu: store.menu1.trim(), price: store.price1.trim()),
+        (
+          menu: store.menu1.trim(),
+          price: store.price1.trim(),
+          free: store.free1,
+        ),
       if (store != null && store.menu2.trim().isNotEmpty)
-        (menu: store.menu2.trim(), price: store.price2.trim()),
+        (
+          menu: store.menu2.trim(),
+          price: store.price2.trim(),
+          free: store.free2,
+        ),
       if (store != null && store.menu3.trim().isNotEmpty)
-        (menu: store.menu3.trim(), price: store.price3.trim()),
+        (
+          menu: store.menu3.trim(),
+          price: store.price3.trim(),
+          free: store.free3,
+        ),
       if (store != null && store.menu4.trim().isNotEmpty)
-        (menu: store.menu4.trim(), price: store.price4.trim()),
+        (
+          menu: store.menu4.trim(),
+          price: store.price4.trim(),
+          free: store.free4,
+        ),
     ];
 
     return Container(
@@ -704,7 +720,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                       label: Text(
                         item.price.isEmpty
                             ? item.menu
-                            : '${item.menu} (${formatWon(item.price)})',
+                            : '${item.menu} (${formatMenuPrice(item.price, free: item.free)})',
                         style: const TextStyle(fontSize: 12),
                       ),
                       backgroundColor: AppColors.primarySubtle,
@@ -712,15 +728,15 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       onPressed: () {
                         _menuController.text = item.menu;
-                        final cleanPrice = item.price.replaceAll(
-                          RegExp(r'[^0-9]'),
-                          '',
-                        );
-                        if (cleanPrice.isNotEmpty) {
-                          final n = int.tryParse(cleanPrice);
-                          if (n != null) {
-                            _amountController.text = _formatWon(n);
-                          }
+                        // A range/alternative is not a visit payment. Keep the
+                        // amount blank so the user records the actual receipt total.
+                        final parsed = parsePriceValue(item.price);
+                        if (parsed != null &&
+                            parsed.isExact &&
+                            (parsed.minimum > 0 || item.free)) {
+                          _amountController.text = parsed.minimum.toString();
+                        } else {
+                          _amountController.clear();
                         }
                         _onInputChanged();
                       },
@@ -745,6 +761,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             decoration: _inputDecoration('결제 금액 입력 (원)'),
           ),
           const SizedBox(height: 8),
+          if (_isApprovedFreeMenu)
+            const Text('승인된 무료 메뉴는 0원으로 기록할 수 있어요. 무료 이용은 절약액에 합산하지 않아요.'),
           Row(
             children: [
               _buildQuickPriceChip('+1,000원', 1000),
@@ -831,9 +849,35 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     );
   }
 
-  int get _priceValue =>
-      int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
-      0;
+  int get _priceValue {
+    final parsed = parsePriceValue(_amountController.text);
+    return parsed != null && parsed.isExact ? parsed.minimum : 0;
+  }
+
+  bool get _isApprovedFreeMenu {
+    final store = widget.store;
+    if (store == null) return false;
+    final selected = _menuController.text.trim();
+    final menus = [
+      (store.menu1, store.price1, store.free1),
+      (store.menu2, store.price2, store.free2),
+      (store.menu3, store.price3, store.free3),
+      (store.menu4, store.price4, store.free4),
+    ];
+    return menus.any(
+      (item) =>
+          item.$1.trim() == selected &&
+          item.$3 &&
+          parsePriceValue(item.$2)?.amounts.singleOrNull == 0,
+    );
+  }
+
+  bool get _hasValidPaymentAmount {
+    final parsed = parsePriceValue(_amountController.text);
+    return parsed != null &&
+        parsed.isExact &&
+        (parsed.minimum > 0 || (parsed.minimum == 0 && _isApprovedFreeMenu));
+  }
 
   /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
   void _onInputChanged() {
@@ -848,7 +892,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
 
   Future<void> _fetchEstimate(int requestId) async {
     final price = _priceValue;
-    if (price <= 0) {
+    if (!_hasValidPaymentAmount) {
       if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
       setState(() {
         _estimatedSaved = null;
@@ -903,9 +947,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       );
       return;
     }
-    final price =
-        int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
-        0;
+    final parsedPrice = parsePriceValue(_amountController.text);
+    final price = parsedPrice != null && parsedPrice.isExact
+        ? parsedPrice.minimum
+        : 0;
     if (price <= 0) {
       ScaffoldMessenger.of(
         context,

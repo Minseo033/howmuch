@@ -295,7 +295,15 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const StatusBadge(type: BadgeType.user),
+              if (review.storeSource == 'GOV')
+                const StatusBadge(type: BadgeType.government)
+              else if (review.storeSource == 'USER')
+                const StatusBadge(type: BadgeType.user)
+              else
+                const Text(
+                  '출처 확인 필요',
+                  style: TextStyle(color: AppColors.muted, fontSize: 12),
+                ),
               Text(
                 dateText,
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),

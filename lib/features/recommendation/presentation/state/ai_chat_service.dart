@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/features/store/store_model.dart';
-import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 
 final aiChatServiceProvider = Provider((ref) => AiChatService());
 
@@ -21,20 +22,28 @@ class AiChatService {
     List<String>? nearbyStoreIds,
     double? latitude,
     double? longitude,
+    int radiusMeters = defaultRecommendationRadiusMeters,
   }) async {
+    if (!validRecommendationRadius(radiusMeters)) {
+      return const AiChatReply(text: '추천 거리를 1~15km에서 1km 단위로 선택해주세요.');
+    }
+    if (!_validOrigin(latitude, longitude)) {
+      return const AiChatReply(
+        text: '주변 추천에는 현재 위치가 필요해요. 브라우저의 위치 권한을 허용한 뒤 다시 질문해주세요.',
+      );
+    }
     final url = ApiClient.uri('/api/ai/chat');
 
     try {
       final safeHistory = buildAiRequestHistory(history);
       final payload = <String, dynamic>{
         'message': message,
+        'radiusMeters': radiusMeters,
         if (safeHistory.isNotEmpty) 'history': safeHistory,
         if (nearbyStoreIds != null && nearbyStoreIds.isNotEmpty)
           'nearbyStoreIds': nearbyStoreIds,
-        if (latitude != null && longitude != null) ...{
-          'latitude': latitude,
-          'longitude': longitude,
-        },
+        'latitude': latitude!,
+        'longitude': longitude!,
       };
 
       final response = await ApiClient.post(
@@ -49,6 +58,17 @@ class AiChatService {
         return AiChatReply(
           text: data['response']?.toString() ?? '응답을 이해하지 못했습니다.',
           isFallback: data['fallback'] == true,
+          recommendations:
+              (data['recommendations'] as List?)
+                  ?.whereType<Map>()
+                  .map(
+                    (value) => VerifiedAiRecommendation.fromJson(
+                      Map<String, dynamic>.from(value),
+                    ),
+                  )
+                  .whereType<VerifiedAiRecommendation>()
+                  .toList(growable: false) ??
+              const [],
           recommendedStoreIds:
               (data['recommendedStoreIds'] as List?)
                   ?.map((id) => id.toString().trim())
@@ -109,33 +129,212 @@ class AiChatReply {
     required this.text,
     this.isFallback = false,
     this.recommendedStoreIds = const [],
+    this.recommendations = const [],
   });
 
   final String text;
   final bool isFallback;
   final List<String> recommendedStoreIds;
+  final List<VerifiedAiRecommendation> recommendations;
 }
+
+class VerifiedAiRecommendation {
+  const VerifiedAiRecommendation({
+    required this.storeId,
+    required this.storeName,
+    required this.menu,
+    required this.rawPrice,
+    required this.free,
+    required this.distanceMeters,
+    required this.source,
+    required this.data,
+  });
+  final String storeId;
+  final String storeName;
+  final String menu;
+  final Object? rawPrice;
+  final bool free;
+  final double distanceMeters;
+  final String source;
+  final Map<String, dynamic> data;
+
+  static VerifiedAiRecommendation? fromJson(Map<String, dynamic> data) {
+    final id = data['storeId']?.toString().trim() ?? '';
+    final name = data['storeName']?.toString().trim() ?? '';
+    final menu = data['matchedMenu']?.toString().trim() ?? '';
+    final distance = double.tryParse(data['distanceMeters']?.toString() ?? '');
+    final price = data['rawPrice'];
+    final free = data['free'] == true;
+    if (id.isEmpty ||
+        name.isEmpty ||
+        menu.isEmpty ||
+        distance == null ||
+        !distance.isFinite ||
+        distance < 0 ||
+        minimumMenuPrice(price, free: free) == null) {
+      return null;
+    }
+    return VerifiedAiRecommendation(
+      storeId: id,
+      storeName: name,
+      menu: menu,
+      rawPrice: price,
+      free: free,
+      distanceMeters: distance,
+      source: data['source']?.toString() ?? '',
+      data: data,
+    );
+  }
+
+  RecommendationMenuSelection get selection => RecommendationMenuSelection(
+    storeId: storeId,
+    storeName: storeName,
+    menu: menu,
+    price: rawPrice,
+    free: free,
+  );
+
+  Store? resolveStore(List<Store> catalog) {
+    final fromResponse = Store.fromJson({
+      ...data,
+      'storeId': storeId,
+      'source': source.isEmpty ? 'UNKNOWN' : source,
+    });
+    if (fromResponse.hasValidCoordinates) {
+      return _hasVerifiedMenu(fromResponse) && !fromResponse.isClosed
+          ? fromResponse
+          : null;
+    }
+    final matches = catalog.where((store) => store.id == storeId);
+    final base = matches.isEmpty
+        ? Store.fromJson({
+            ...data,
+            'id': storeId,
+            'menu1': menu,
+            'price1': rawPrice?.toString() ?? '',
+            'free1': free,
+          })
+        : matches.first;
+    if (!base.hasValidCoordinates || base.isClosed || !_hasVerifiedMenu(base)) {
+      return null;
+    }
+    return base;
+  }
+
+  bool _hasVerifiedMenu(Store store) {
+    final requestedSlot = int.tryParse('${data['menuIndex']}');
+    if (data.containsKey('menuIndex') &&
+        (requestedSlot == null || requestedSlot < 1 || requestedSlot > 4)) {
+      return false;
+    }
+    final slots = requestedSlot == null ? [1, 2, 3, 4] : [requestedSlot];
+    final quoted = parsePriceValue(rawPrice);
+    if (quoted == null) return false;
+    for (final slot in slots) {
+      final actual = parsePriceValue(store.priceAt(slot));
+      if (store.menuAt(slot).trim() == menu &&
+          store.freeAt(slot) == free &&
+          actual != null &&
+          actual.isRange == quoted.isRange &&
+          listEquals(actual.amounts, quoted.amounts)) {
+        return true;
+      }
+    }
+    return false;
+  }
+}
+
+/// Only server-provided identities and matching menu slots can become cards.
+/// Rechecking coordinates protects the map from a stale or malformed distance.
+List<({Store store, RecommendationMenuSelection selection})>
+resolveVerifiedAiRecommendations({
+  required List<VerifiedAiRecommendation> recommendations,
+  required List<Store> catalog,
+  required String query,
+  required double? latitude,
+  required double? longitude,
+  required int radiusMeters,
+}) {
+  if (!_validOrigin(latitude, longitude) ||
+      !validRecommendationRadius(radiusMeters)) {
+    return const [];
+  }
+  final budget = parseRequestedBudgetWon(query);
+  final seen = <String>{};
+  final results = <({Store store, RecommendationMenuSelection selection})>[];
+  for (final item in recommendations) {
+    if (item.distanceMeters > radiusMeters || seen.contains(item.storeId)) {
+      continue;
+    }
+    final price = parsePriceValue(item.rawPrice);
+    final store = item.resolveStore(catalog);
+    if (store == null ||
+        price == null ||
+        (budget != null && price.maximum > budget) ||
+        !menuMatchesRecommendationQuery(
+          item.menu,
+          query,
+          industry: store.industry,
+        ) ||
+        _haversineDistance(
+              latitude!,
+              longitude!,
+              store.latitude,
+              store.longitude,
+            ) >
+            radiusMeters) {
+      continue;
+    }
+    seen.add(item.storeId);
+    results.add((store: store, selection: item.selection));
+  }
+  return results;
+}
+
+bool _validOrigin(double? latitude, double? longitude) =>
+    latitude != null &&
+    longitude != null &&
+    latitude.isFinite &&
+    longitude.isFinite &&
+    latitude.abs() <= 90 &&
+    longitude.abs() <= 180 &&
+    !(latitude == 0 && longitude == 0);
 
 List<String> buildNearbyStoreIds({
   required List<Store> stores,
   double? lat,
   double? lng,
   int limit = 10,
+  int radiusMeters = defaultRecommendationRadiusMeters,
 }) {
-  final data = buildLocalTodaysPickData(
-    stores: stores,
-    lat: lat,
-    lng: lng,
-    limit: limit,
-    balanceDessert: false,
-  );
-  final picks = (data['picks'] as List).whereType<Map>().toList();
-  return picks
-      .map((pick) => pick['storeId']?.toString().trim() ?? '')
-      .where((storeId) => storeId.isNotEmpty)
-      .toSet()
-      .take(limit)
-      .toList();
+  if (!_validOrigin(lat, lng) ||
+      !validRecommendationRadius(radiusMeters) ||
+      limit <= 0) {
+    return const [];
+  }
+  final ranked =
+      stores
+          .where(
+            (store) =>
+                store.hasValidCoordinates &&
+                !store.isClosed &&
+                store.id.isNotEmpty,
+          )
+          .map(
+            (store) => (
+              store: store,
+              distance: _haversineDistance(
+                lat!,
+                lng!,
+                store.latitude,
+                store.longitude,
+              ),
+            ),
+          )
+          .where((item) => item.distance <= radiusMeters)
+          .toList()
+        ..sort((a, b) => a.distance.compareTo(b.distance));
+  return ranked.map((item) => item.store.id).toSet().take(limit).toList();
 }
 
 bool isAiUnavailableResponse(String response) {
@@ -152,12 +351,14 @@ class LocalAiRecommendation {
     required this.stores,
     this.matchedIntent,
     this.matchedArea,
+    this.menuSelections = const [],
   });
 
   final String text;
   final List<Store> stores;
   final String? matchedIntent;
   final String? matchedArea;
+  final List<RecommendationMenuSelection> menuSelections;
 }
 
 class AiMapRecommendationResult {
@@ -189,12 +390,14 @@ class AiChatMessage {
     required this.isBot,
     this.recommendedStoreIds = const [],
     this.recommendedStores = const [],
+    this.menuSelections = const [],
   });
 
   final String text;
   final bool isBot;
   final List<String> recommendedStoreIds;
   final List<Store> recommendedStores;
+  final List<RecommendationMenuSelection> menuSelections;
 }
 
 int parseRequestedRecommendationCount(
@@ -265,36 +468,168 @@ int? parseRequestedBudgetWon(String query) {
   return null;
 }
 
-List<({String menu, Object? price})> _storeMenuEntries(Store store) {
+List<({String menu, Object? price, bool free})> _storeMenuEntries(Store store) {
   return [
-    (menu: store.menu1.trim(), price: store.price1),
-    (menu: store.menu2.trim(), price: store.price2),
-    (menu: store.menu3.trim(), price: store.price3),
-    (menu: store.menu4.trim(), price: store.price4),
+    (menu: store.menu1.trim(), price: store.price1, free: store.free1),
+    (menu: store.menu2.trim(), price: store.price2, free: store.free2),
+    (menu: store.menu3.trim(), price: store.price3, free: store.free3),
+    (menu: store.menu4.trim(), price: store.price4, free: store.free4),
   ].where((entry) => entry.menu.isNotEmpty).toList(growable: false);
 }
 
-({String menu, Object? price})? preferredStoreMenu(
+({String menu, Object? price, bool free})? preferredStoreMenu(
   Store store, {
   int? budgetWon,
+  String query = '',
 }) {
   final entries = _storeMenuEntries(store);
   if (entries.isEmpty) return null;
-  if (budgetWon == null) return entries.first;
-
   final eligible =
       entries
           .where((entry) {
-            final price = parseRecommendationPrice(entry.price);
-            return price != null && price <= budgetWon;
+            final price = parsePriceValue(entry.price);
+            return minimumMenuPrice(entry.price, free: entry.free) != null &&
+                (budgetWon == null || price!.maximum <= budgetWon) &&
+                menuMatchesRecommendationQuery(
+                  entry.menu,
+                  query,
+                  industry: store.industry,
+                );
           })
           .toList(growable: false)
         ..sort(
           (a, b) => parseRecommendationPrice(
             a.price,
-          )!.compareTo(parseRecommendationPrice(b.price)!),
+            free: a.free,
+          )!.compareTo(parseRecommendationPrice(b.price, free: b.free)!),
         );
   return eligible.isEmpty ? null : eligible.first;
+}
+
+bool menuMatchesRecommendationQuery(
+  String menu,
+  String query, {
+  String industry = '',
+}) {
+  final text = menu.toLowerCase();
+  final q = query.toLowerCase();
+  if (q.contains('국물')) {
+    const soup = [
+      '국수',
+      '국밥',
+      '탕',
+      '찌개',
+      '전골',
+      '수제비',
+      '우동',
+      '라멘',
+      '라면',
+      '짬뽕',
+      '국',
+    ];
+    if (['비빔국수', '콩국수', '냉국수', '냉면', '김밥', '볶음'].any(text.contains)) {
+      return false;
+    }
+    return soup.any(text.contains);
+  }
+  const specific = [
+    '칼국수',
+    '수제비',
+    '국밥',
+    '찌개',
+    '김밥',
+    '떡볶이',
+    '짬뽕',
+    '짜장',
+    '자장',
+    '우동',
+    '라멘',
+    '라면',
+    '돈까스',
+    '돈가스',
+    '초밥',
+    '삼겹살',
+    '비빔밥',
+    '백반',
+    '아메리카노',
+  ];
+  final requested = specific.where(q.contains).toList();
+  if (requested.isNotEmpty) return requested.any(text.contains);
+  final meal = [
+    '점심',
+    '저녁',
+    '아침',
+    '식사',
+    '밥',
+    '음식',
+    '맛집',
+    '국수',
+    '분식',
+  ].any(q.contains);
+  final cafe = ['카페', '커피', '디저트', '빵', '베이커리'].any(q.contains);
+  final drink =
+      text.endsWith('차') ||
+      [
+        '커피',
+        '아메리카노',
+        '라떼',
+        '카푸치노',
+        '에스프레소',
+        '음료',
+        '에이드',
+        '주스',
+        '스무디',
+      ].any(text.contains);
+  if (cafe && !drink && !['빵', '케이크', '디저트'].any(text.contains)) {
+    return false;
+  }
+  if (meal && !cafe && drink) return false;
+  final cafeVenue = ['카페', '커피', '베이커리'].any(industry.contains);
+  final cafeFood = [
+    '샌드위치',
+    '샐러드',
+    '토스트',
+    '파니니',
+    '브런치',
+    '파스타',
+    '스파게티',
+    '피자',
+    '버거',
+    '카레',
+    '밥',
+    '국수',
+    '라면',
+    '우동',
+    '찌개',
+    '빵',
+    '베이글',
+  ].any(text.contains);
+  if (meal && !cafe && cafeVenue && !cafeFood) return false;
+  if (meal &&
+      [
+        '미용',
+        '헤어',
+        '이발',
+        '세탁',
+        '수선',
+        '네일',
+        '목욕',
+        '숙박',
+      ].any(('$industry $text').contains)) {
+    return false;
+  }
+  const categoryTerms = {
+    '분식': ['김밥', '떡볶이', '라면', '순대', '만두', '튀김'],
+    '카페': ['커피', '아메리카노', '라떼', '차', '에이드', '주스'],
+    '세탁': ['세탁', '빨래', '드라이'],
+    '미용': ['커트', '컷', '염색', '파마', '헤어'],
+  };
+  for (final entry in categoryTerms.entries) {
+    if (q.contains(entry.key)) {
+      return industry.contains(entry.key) || entry.value.any(text.contains);
+    }
+  }
+  return true;
 }
 
 bool storeMatchesRequestedBudget(Store store, int? budgetWon) {
@@ -320,27 +655,12 @@ String buildStructuredAiRecommendationText({
         : '';
     final detail = [
       menu?.menu ?? store.industry,
-      formatRecommendationPrice(menu?.price),
+      formatRecommendationPrice(menu?.price, free: menu?.free ?? false),
       distance,
     ].where((value) => value.isNotEmpty).join(' · ');
     lines.add('${index + 1}. ${store.storeName} — $detail');
   }
   return lines.join('\n');
-}
-
-List<Store> extractRecommendedStoresFromText({
-  required String text,
-  required List<Store> candidateStores,
-}) {
-  if (text.isEmpty || candidateStores.isEmpty) return const [];
-  final matched = <Store>[];
-  for (final store in candidateStores) {
-    if (store.storeName.trim().length >= 2 &&
-        text.contains(store.storeName.trim())) {
-      matched.add(store);
-    }
-  }
-  return matched;
 }
 
 double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
@@ -362,172 +682,68 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
   String? query,
   double? lat,
   double? lng,
+  int radiusMeters = defaultRecommendationRadiusMeters,
 }) {
-  final validStores = stores.where((s) => s.hasValidCoordinates).toList();
-  if (validStores.isEmpty) return null;
-
+  if (!_validOrigin(lat, lng) || !validRecommendationRadius(radiusMeters)) {
+    return null;
+  }
   final q = (query ?? '').trim().toLowerCase();
-  final targetCount = parseRequestedRecommendationCount(q);
   final budgetWon = parseRequestedBudgetWon(q);
-
-  // 1. Identify intent keywords
-  final intentMap = <String, List<String>>{
-    '한식': [
-      '한식',
-      '밥',
-      '백반',
-      '찌개',
-      '국밥',
-      '국수',
-      '김치',
-      '된장',
-      '불고기',
-      '비빔밥',
-      '삼겹살',
-      '고기',
-      '칼국수',
-      '수제비',
-    ],
-    '중식': ['중식', '중국집', '짜장', '자장', '짬뽕', '탕수육', '볶음밥', '마라'],
-    '일식': ['일식', '돈까스', '돈가스', '초밥', '스시', '라멘', '우동', '소바', '덮밥', '회'],
-    '분식': ['분식', '김밥', '떡볶이', '라면', '튀김', '순대', '만두'],
-    '양식': ['양식', '파스타', '스파게티', '피자', '버거', '스테이크', '샐러드', '샌드위치'],
-    '카페': ['카페', '커피', '디저트', '음료', '베이커리', '빵', '티'],
-    '미용': ['미용', '헤어', '이발', '미용실', '파마', '염색', '커트'],
-    '세탁': ['세탁', '빨래', '드라이'],
-  };
-
-  String? matchedIntentCategory;
-  String? matchedIntentKeyword;
-  for (final entry in intentMap.entries) {
-    for (final kw in entry.value) {
-      if (q.contains(kw)) {
-        matchedIntentCategory = entry.key;
-        matchedIntentKeyword = kw;
-        break;
-      }
+  final count = parseRequestedRecommendationCount(q);
+  final ranked =
+      <
+        ({Store store, double distance, String menu, Object? price, bool free})
+      >[];
+  for (final store in stores) {
+    if (!store.hasValidCoordinates || store.isClosed || store.id.isEmpty) {
+      continue;
     }
-    if (matchedIntentCategory != null) break;
-  }
-
-  // 2. Identify area keywords (e.g. "마포", "신촌", "서대문", "강남", "종로", etc.)
-  String? matchedAreaKeyword;
-  final tokens = q
-      .replaceAll(RegExp(r'[^\w\s가-힣]'), ' ')
-      .split(RegExp(r'\s+'))
-      .where(
-        (t) =>
-            t.length >= 2 &&
-            !t.contains(RegExp(r'추천|알려|어디|주변|근처|맛집|식당|카페|가성비|얼마')),
-      )
-      .toList();
-  for (final token in tokens) {
-    final hasAreaMatch = validStores.any(
-      (s) =>
-          s.address.toLowerCase().contains(token) ||
-          s.storeName.toLowerCase().contains(token),
+    final distance = _haversineDistance(
+      lat!,
+      lng!,
+      store.latitude,
+      store.longitude,
     );
-    if (hasAreaMatch) {
-      matchedAreaKeyword = token;
-      break;
-    }
+    if (distance > radiusMeters) continue;
+    final menu = preferredStoreMenu(store, budgetWon: budgetWon, query: q);
+    if (menu == null) continue;
+    ranked.add((
+      store: store,
+      distance: distance,
+      menu: menu.menu,
+      price: menu.price,
+      free: menu.free,
+    ));
   }
-
-  // 3. Score & filter candidate stores
-  final budgetEligibleStores = validStores
-      .where((store) => storeMatchesRequestedBudget(store, budgetWon))
-      .toList(growable: false);
-  // Do not turn a backend outage into a dead-end message just because the
-  // requested ceiling has no matching entry. Show real nearby candidates and
-  // say clearly that they are alternatives outside the requested budget.
-  final hasBudgetMatches = budgetEligibleStores.isNotEmpty;
-  final recommendationStores = hasBudgetMatches
-      ? budgetEligibleStores
-      : validStores;
-
-  List<({Store store, double distance, int score})> ranked =
-      recommendationStores.map((s) {
-        final dist = (lat != null && lng != null)
-            ? _haversineDistance(lat, lng, s.latitude, s.longitude)
-            : 0.0;
-
-        int score = 0;
-        // Area match bonus
-        if (matchedAreaKeyword != null) {
-          if (s.address.toLowerCase().contains(matchedAreaKeyword) ||
-              s.storeName.toLowerCase().contains(matchedAreaKeyword)) {
-            score += 100;
-          }
-        }
-
-        // Intent match bonus
-        if (matchedIntentKeyword != null) {
-          final menus = '${s.menu1} ${s.menu2} ${s.menu3} ${s.menu4}'
-              .toLowerCase();
-          final storeName = s.storeName.toLowerCase();
-          final industry = s.industry.toLowerCase();
-
-          if (menus.contains(matchedIntentKeyword) ||
-              storeName.contains(matchedIntentKeyword)) {
-            score += 50;
-          } else if (industry.contains(matchedIntentCategory!.toLowerCase())) {
-            score += 30;
-          }
-        }
-
-        return (store: s, distance: dist, score: score);
-      }).toList();
-
-  // If specific area or intent was requested, prioritize matching items
-  final hasSpecificFilter =
-      matchedAreaKeyword != null || matchedIntentKeyword != null;
-  if (hasSpecificFilter) {
-    final filtered = ranked.where((item) => item.score > 0).toList();
-    if (filtered.isNotEmpty) {
-      ranked = filtered;
-    }
+  ranked.sort((a, b) => a.distance.compareTo(b.distance));
+  final selected = ranked.take(count).toList(growable: false);
+  if (selected.isEmpty) {
+    return LocalAiRecommendation(
+      text:
+          'AI 연결이 원활하지 않아요. ${radiusMeters ~/ 1000}km 안에서 요청한 메뉴·예산에 맞는 매장을 찾지 못했어요. 추천 거리나 조건을 바꿔 다시 질문해주세요.',
+      stores: const [],
+    );
   }
-
-  // Sort primarily by relevance score, then distance
-  ranked.sort((a, b) {
-    if (a.score != b.score) return b.score.compareTo(a.score);
-    return a.distance.compareTo(b.distance);
-  });
-
-  final selected = ranked.take(targetCount).toList();
-  if (selected.isEmpty) return null;
-
-  final selectedStores = selected.map((item) => item.store).toList();
-
-  // 4. Build friendly, properly formatted message
-  String intro;
-  if (!hasBudgetMatches && budgetWon != null) {
-    intro =
-        'AI 연결이 원활하지 않고 ${formatRecommendationPrice(budgetWon)} 이하 매장이 없어, 확인된 실제 매장 대안을 먼저 추천할게요.';
-  } else if (matchedAreaKeyword != null && matchedIntentKeyword != null) {
-    intro =
-        "AI 연결이 원활하지 않아 '$matchedAreaKeyword' 근처 '$matchedIntentKeyword' 가까운 매장 $targetCount곳을 추천할게요.";
-  } else if (matchedIntentKeyword != null) {
-    intro =
-        "AI 연결이 원활하지 않아 '$matchedIntentKeyword' 관련 가까운 매장 $targetCount곳을 추천할게요.";
-  } else if (matchedAreaKeyword != null) {
-    intro =
-        "AI 연결이 원활하지 않아 '$matchedAreaKeyword' 근처 가까운 매장 $targetCount곳을 추천할게요.";
-  } else {
-    intro = "AI 연결이 원활하지 않아 가까운 매장 $targetCount곳을 먼저 추천할게요.";
-  }
-
+  final lines = <String>[
+    'AI 연결 대신 확인된 매장 정보를 안내해요. ${radiusMeters ~/ 1000}km 안에서 조건에 맞는 매장 ${selected.length}곳이에요.',
+    if (selected.length < count) '조건에 맞는 매장이 부족해 먼 매장으로 채우지 않았어요.',
+    for (var index = 0; index < selected.length; index++)
+      '${index + 1}. ${selected[index].store.storeName} — ${selected[index].menu} · ${formatRecommendationPrice(selected[index].price, free: selected[index].free)} · ${formatRecommendationDistance(selected[index].distance)}',
+  ];
   return LocalAiRecommendation(
-    text: buildStructuredAiRecommendationText(
-      stores: selectedStores,
-      intro: intro,
-      budgetWon: hasBudgetMatches ? budgetWon : null,
-      lat: lat,
-      lng: lng,
-    ),
-    stores: selectedStores,
-    matchedIntent: matchedIntentKeyword,
-    matchedArea: matchedAreaKeyword,
+    text: lines.join('\n'),
+    stores: selected.map((entry) => entry.store).toList(growable: false),
+    menuSelections: selected
+        .map(
+          (entry) => RecommendationMenuSelection(
+            storeId: entry.store.id,
+            storeName: entry.store.storeName,
+            menu: entry.menu,
+            price: entry.price,
+            free: entry.free,
+          ),
+        )
+        .toList(growable: false),
   );
 }
 
@@ -536,11 +752,11 @@ String? buildLocalAiFallback({
   String? query,
   double? lat,
   double? lng,
-}) {
-  return buildLocalAiFallbackResult(
-    stores: stores,
-    query: query,
-    lat: lat,
-    lng: lng,
-  )?.text;
-}
+  int radiusMeters = defaultRecommendationRadiusMeters,
+}) => buildLocalAiFallbackResult(
+  stores: stores,
+  query: query,
+  lat: lat,
+  lng: lng,
+  radiusMeters: radiusMeters,
+)?.text;

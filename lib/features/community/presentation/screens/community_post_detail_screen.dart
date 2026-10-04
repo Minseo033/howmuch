@@ -10,6 +10,7 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 
 @visibleForTesting
 List<String> communityPostImageUrls(Object? raw) {
@@ -865,7 +866,8 @@ class _PostCard extends StatelessWidget {
     }
 
     if (menu1.isNotEmpty && price1.isNotEmpty) {
-      displaySubhead = '$menu1 · ${_formatPriceDisplay(price1)}';
+      displaySubhead =
+          '$menu1 · ${_formatPriceDisplay(price1, free: postData!['free1'] == true)}';
     } else if (menu1.isNotEmpty) {
       displaySubhead = menu1;
     }
@@ -1041,18 +1043,34 @@ class _PostCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  _buildMenuRow(menu1, price1),
+                  _buildMenuRow(
+                    menu1,
+                    price1,
+                    free: postData!['free1'] == true,
+                  ),
                   if (menu2.isNotEmpty) ...[
                     const Divider(color: Color(0xFFEFF4FF), height: 16),
-                    _buildMenuRow(menu2, price2),
+                    _buildMenuRow(
+                      menu2,
+                      price2,
+                      free: postData!['free2'] == true,
+                    ),
                   ],
                   if (menu3.isNotEmpty) ...[
                     const Divider(color: Color(0xFFEFF4FF), height: 16),
-                    _buildMenuRow(menu3, price3),
+                    _buildMenuRow(
+                      menu3,
+                      price3,
+                      free: postData!['free3'] == true,
+                    ),
                   ],
                   if (menu4.isNotEmpty) ...[
                     const Divider(color: Color(0xFFEFF4FF), height: 16),
-                    _buildMenuRow(menu4, price4),
+                    _buildMenuRow(
+                      menu4,
+                      price4,
+                      free: postData!['free4'] == true,
+                    ),
                   ],
                 ],
               ),
@@ -1206,19 +1224,22 @@ class _PostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuRow(String name, String price) {
-    final formattedPrice = _formatPriceDisplay(price);
+  Widget _buildMenuRow(String name, String price, {bool free = false}) {
+    final formattedPrice = _formatPriceDisplay(price, free: free);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          name,
-          style: const TextStyle(
-            color: Color(0xFF374151),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+        Expanded(
+          child: Text(
+            name,
+            style: const TextStyle(
+              color: Color(0xFF374151),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
+        const SizedBox(width: 12),
         Text(
           formattedPrice,
           style: const TextStyle(
@@ -1572,20 +1593,9 @@ class _PostStatusBadge extends StatelessWidget {
   }
 }
 
-String _formatPriceDisplay(String price) {
+String _formatPriceDisplay(String price, {bool free = false}) {
   if (price.isEmpty) return '';
-  final pNum = int.tryParse(price.replaceAll(RegExp(r'[^0-9]'), ''));
-  if (pNum != null) {
-    return '${_formatNumberComma(pNum)}원';
-  }
-  return price.endsWith('원') ? price : '$price원';
-}
-
-String _formatNumberComma(int value) {
-  return value.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
+  return formatMenuPrice(price, free: free);
 }
 
 String _formatDetailRelativeDate(String rawDate) {

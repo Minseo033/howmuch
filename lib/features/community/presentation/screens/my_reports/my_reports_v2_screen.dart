@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -43,6 +42,16 @@ class MyReportsV2Screen extends ConsumerStatefulWidget {
 
 class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   ReportFilter _filter = ReportFilter.all;
+  final _searchController = TextEditingController();
+  bool _searchOpen = false;
+  bool _loading = false;
+  bool _loadFailed = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -51,16 +60,20 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   }
 
   Future<void> _refreshReports() async {
+    if (_loading) return;
+    setState(() {
+      _loading = true;
+      _loadFailed = false;
+    });
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
     if (!mounted) return;
-    if (reports == null) return;
-    ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
-  }
-
-  void _showSnack(String message) {
-    ScaffoldMessenger.of(context)
-      ..clearSnackBars()
-      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
+    setState(() {
+      _loading = false;
+      _loadFailed = reports == null;
+    });
+    if (reports != null) {
+      ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+    }
   }
 
   Widget _buildCurrentTab() {
@@ -82,12 +95,23 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
-    const topChromeHeight = HowmuchTopBar.height * 2;
+    final topChromeHeight = HowmuchTopBar.height * 2 + (_searchOpen ? 72 : 0);
     final actionBarHeight = HowmuchBottomActionBar.heightFor(
       safePadding.bottom,
       contentHeight: 56,
     );
-    final reports = ref.watch(myReportDataProvider);
+    final reports = ref
+        .watch(myReportDataProvider)
+        .where(
+          (report) =>
+              matchesMyReportQuery(report.source, _searchController.text),
+        )
+        .toList();
+    final visibleCount = reports
+        .where(
+          (report) => _filter == ReportFilter.all || report.filter == _filter,
+        )
+        .length;
     final counts = <ReportFilter, int>{
       ReportFilter.all: reports.length,
       ReportFilter.pending: reports
@@ -134,9 +158,34 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                 // report confirmation.
                 context.go(AppRoutes.mypage);
               },
-              onSearch: () => _showSnack('내 제보 검색은 다음 단계에서 연결할게요.'),
+              onSearch: () => setState(() => _searchOpen = !_searchOpen),
             ),
           ),
+          if (_searchOpen)
+            Positioned(
+              left: 20,
+              right: 20,
+              top: topOffset + HowmuchTopBar.height * 2 + 8,
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: '내 제보 검색',
+                  hintText: '매장명, 주소, 메뉴, 신고 설명',
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: IconButton(
+                    tooltip: '검색어 지우기',
+                    onPressed: () => setState(_searchController.clear),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             left: 0,
             top: topOffset + HowmuchTopBar.height,
@@ -153,15 +202,56 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
             top: topOffset + topChromeHeight,
             right: 0,
             bottom: 0,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                20,
-                15.994,
-                20,
-                actionBarHeight + 24,
+            child: RefreshIndicator(
+              onRefresh: _refreshReports,
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  15.994,
+                  20,
+                  actionBarHeight + 24,
+                ),
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  if (_loading)
+                    const LinearProgressIndicator(semanticsLabel: '내 제보 조회 중'),
+                  if (_loadFailed)
+                    Column(
+                      children: [
+                        const Text('내 제보를 새로 불러오지 못했어요. 기존 내역은 유지했어요.'),
+                        TextButton(
+                          onPressed: _refreshReports,
+                          child: const Text('다시 불러오기'),
+                        ),
+                      ],
+                    ),
+                  if (!_loading && !_loadFailed && visibleCount == 0)
+                    Column(
+                      children: [
+                        const SizedBox(height: 32),
+                        Text(
+                          _searchController.text.trim().isEmpty
+                              ? '이 상태의 제보가 없어요.'
+                              : '검색 결과가 없어요. 다른 검색어를 입력해 주세요.',
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            _searchController.clear();
+                            _filter = ReportFilter.all;
+                          }),
+                          child: const Text('전체 제보 보기'),
+                        ),
+                      ],
+                    )
+                  else if (visibleCount > 0)
+                    ProviderScope(
+                      overrides: [
+                        myReportDataProvider.overrideWithValue(reports),
+                      ],
+                      child: _buildCurrentTab(),
+                    ),
+                ],
               ),
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [_buildCurrentTab()],
             ),
           ),
 
@@ -246,9 +336,9 @@ class _Header extends StatelessWidget {
     return HowmuchTopBar(
       title: _title,
       onBack: onBack,
-      trailingIcon: filter == ReportFilter.all ? Icons.search_rounded : null,
-      trailingTooltip: filter == ReportFilter.all ? '검색' : null,
-      onTrailingTap: filter == ReportFilter.all ? onSearch : null,
+      trailingIcon: Icons.search_rounded,
+      trailingTooltip: '내 제보 검색',
+      onTrailingTap: onSearch,
     );
   }
 }

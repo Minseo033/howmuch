@@ -30,6 +30,13 @@ public class FavoriteResponse {
     private String price3;
     private String menu4;
     private String price4;
+    private boolean free1;
+    private boolean free2;
+    private boolean free3;
+    private boolean free4;
+    @com.fasterxml.jackson.annotation.JsonProperty("isClosed")
+    private boolean isClosed;
+    private long correctionRevision;
     private String address;     // 매장 주소
     private String phoneNumber;
     private Double latitude;

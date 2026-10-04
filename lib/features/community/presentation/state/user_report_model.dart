@@ -14,6 +14,10 @@ class UserReport {
   final String price3;
   final String menu4;
   final String price4;
+  final bool free1;
+  final bool free2;
+  final bool free3;
+  final bool free4;
   final double latitude;
   final double longitude;
   final List<String> imageUrls;
@@ -40,6 +44,10 @@ class UserReport {
     this.price3 = '',
     this.menu4 = '',
     this.price4 = '',
+    this.free1 = false,
+    this.free2 = false,
+    this.free3 = false,
+    this.free4 = false,
     required this.latitude,
     required this.longitude,
     required this.imageUrls,
@@ -68,6 +76,10 @@ class UserReport {
       'price3': price3,
       'menu4': menu4,
       'price4': price4,
+      'free1': free1,
+      'free2': free2,
+      'free3': free3,
+      'free4': free4,
       'latitude': latitude,
       'longitude': longitude,
       'imageUrls': imageUrls,

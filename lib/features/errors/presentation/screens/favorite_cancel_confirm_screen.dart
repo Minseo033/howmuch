@@ -62,8 +62,8 @@ class _FavoriteCancelConfirmScreenState
                     size: 32,
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    '찜을 취소할까요?',
+                  Text(
+                    '${widget.storeName} 찜을 취소할까요?',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
@@ -86,6 +86,7 @@ class _FavoriteCancelConfirmScreenState
                     children: [
                       Expanded(
                         child: OutlinedButton(
+                          autofocus: true,
                           onPressed: _busy
                               ? null
                               : () => Navigator.of(context).pop(false),

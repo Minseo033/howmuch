@@ -522,7 +522,7 @@ class _PriceLine extends StatelessWidget {
   List<(String, String)> get _items {
     if (report.menuPrices.isNotEmpty) {
       return report.menuPrices.map((item) {
-        final price = formatWon(item.price);
+        final price = formatMenuPrice(item.price, free: item.free);
         return (item.menu, price);
       }).toList();
     }

@@ -17,6 +17,8 @@ import java.util.List;
 @AllArgsConstructor
 public class SavingsStatsResponse {
     private String period;              // period 구분 (this_month, last_month, this_year)
+    private String startDate;           // Inclusive date in Asia/Seoul
+    private String endDateExclusive;    // Exclusive date in Asia/Seoul
     private Long totalSavedAmount;      // 기간별 총 절약금액 (원)
     private Long totalVisits;           // 기간별 총 방문 횟수
     private Long averageSavedAmount;    // 방문당 평균 절약금액 (원)

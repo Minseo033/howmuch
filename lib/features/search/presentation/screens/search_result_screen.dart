@@ -18,17 +18,33 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 // ──────────────────────────────────────────────────────────────
 // 2-2  검색 결과 화면
 // ──────────────────────────────────────────────────────────────
+Map<String, dynamic> buildSearchMapResult({
+  required String query,
+  required SearchFilter filter,
+  required List<Store> stores,
+  bool clear = false,
+}) => {
+  'query': clear ? '' : query,
+  'filter': clear ? const SearchFilter() : filter,
+  'storeIds': clear
+      ? const <String>[]
+      : stores.map((store) => store.id).toList(growable: false),
+  'stores': clear ? null : List<Store>.unmodifiable(stores),
+};
+
 class SearchResultScreen extends StatefulWidget {
   const SearchResultScreen({
     super.key,
     required this.initialQuery,
     this.autoOpenFilter = false,
+    this.initialFilter,
     this.storeCatalogLoader,
     this.searchHistoryStore,
   });
 
   final String initialQuery;
   final bool autoOpenFilter;
+  final SearchFilter? initialFilter;
   final StoreCatalogLoader? storeCatalogLoader;
   final SearchHistoryStore? searchHistoryStore;
 
@@ -123,6 +139,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   void initState() {
     super.initState();
     _query = widget.initialQuery;
+    _filter = widget.initialFilter ?? const SearchFilter();
     _ctrl = TextEditingController(text: _query);
     _ctrl.addListener(_onSearchInputChanged);
     _searchHistoryStore = widget.searchHistoryStore ?? SearchHistoryStore();
@@ -196,14 +213,16 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   }
 
   void _returnToMap({bool clear = false}) {
-    final result = {
-      'query': clear ? '' : _query,
-      'filter': clear ? const SearchFilter() : _filter,
-    };
+    final result = buildSearchMapResult(
+      query: _query,
+      filter: _filter,
+      stores: _results,
+      clear: clear,
+    );
     if (context.canPop()) {
       context.pop(result);
     } else {
-      context.go(AppRoutes.home);
+      context.go(AppRoutes.home, extra: result);
     }
   }
 
@@ -262,7 +281,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
 
       var stores = List<Store>.from(
         howmuch_home.HomeMapScreen.globalSearchCatalog,
-      );
+      ).where((store) => !store.isClosed).toList();
 
       // 검색어 필터링
       if (query.isNotEmpty) {
@@ -397,11 +416,8 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   // ────────────────────────────────────────────────
   //  가격 포맷
   // ────────────────────────────────────────────────
-  String _fmt(String raw) {
-    final n = SearchFilterPolicy.parsePrice(raw);
-    if (n == null) return raw;
-    return '${n.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]},')}원';
-  }
+  String _fmt(String raw, {bool free = false}) =>
+      formatMenuPrice(raw, free: free);
 
   // ────────────────────────────────────────────────
   //  업종 이모지
@@ -648,17 +664,18 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                           final hasMenuMatch = match != null;
                           final displayedMenu = displayMenu?.name ?? '';
                           final displayedPrice = displayMenu?.price ?? '';
-                          final priceLabel = displayedMenu.isNotEmpty
-                              ? (displayedPrice.isNotEmpty
-                                    ? '$displayedMenu  ${_fmt(displayedPrice)}'
-                                    : displayedMenu)
-                              : s.industry;
+                          final priceLabel = displayedPrice.isNotEmpty
+                              ? '${_fmt(displayedPrice, free: s.freeAt(displayMenu!.index))}${parsePriceValue(displayedPrice)?.isExact == false ? ' (최저가격 기준)' : ''}'
+                              : '';
 
                           return _StoreCard(
                             store: s,
                             emoji: _emoji(s.industry),
                             distance: _formatDistance(s),
                             priceLabel: priceLabel,
+                            menuLabel: displayedMenu.isNotEmpty
+                                ? displayedMenu
+                                : s.industry,
                             isMatchedMenu: hasMenuMatch,
                             onTap: () {
                               unawaited(_rememberSearch(_query));
@@ -959,6 +976,7 @@ class _StoreCard extends StatelessWidget {
     required this.store,
     required this.emoji,
     required this.priceLabel,
+    required this.menuLabel,
     required this.distance,
     required this.onTap,
     this.isMatchedMenu = false,
@@ -967,6 +985,7 @@ class _StoreCard extends StatelessWidget {
   final Store store;
   final String emoji;
   final String priceLabel;
+  final String menuLabel;
   final String distance;
   final VoidCallback onTap;
   final bool isMatchedMenu;
@@ -1092,7 +1111,7 @@ class _StoreCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            priceLabel,
+                            menuLabel,
                             style: const TextStyle(
                               fontFamily: SearchResultScreen.fontFamily,
                               fontFamilyFallback:
@@ -1107,6 +1126,19 @@ class _StoreCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (priceLabel.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        priceLabel,
+                        style: const TextStyle(
+                          fontFamily: SearchResultScreen.fontFamily,
+                          fontFamilyFallback: SearchResultScreen.fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: SearchResultScreen.blue,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

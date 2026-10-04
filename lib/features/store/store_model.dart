@@ -14,6 +14,12 @@ class Store {
   final String price3;
   final String menu4;
   final String price4;
+  final bool free1;
+  final bool free2;
+  final bool free3;
+  final bool free4;
+  final bool isClosed;
+  final int correctionRevision;
   final double latitude;
   final double longitude;
   final String source; // 💡 GOV 또는 USER
@@ -46,6 +52,12 @@ class Store {
     required this.latitude,
     required this.longitude,
     required this.source,
+    this.free1 = false,
+    this.free2 = false,
+    this.free3 = false,
+    this.free4 = false,
+    this.isClosed = false,
+    this.correctionRevision = 0,
     this.openingHours,
   });
 
@@ -64,6 +76,12 @@ class Store {
       price3: json['price3']?.toString() ?? '',
       menu4: json['menu4']?.toString() ?? '',
       price4: json['price4']?.toString() ?? '',
+      free1: json['free1'] == true,
+      free2: json['free2'] == true,
+      free3: json['free3'] == true,
+      free4: json['free4'] == true,
+      isClosed: json['isClosed'] == true,
+      correctionRevision: int.tryParse('${json['correctionRevision']}') ?? 0,
       latitude: _coordinate(json['latitude']),
       longitude: _coordinate(json['longitude']),
       source: _source(json['source']),
@@ -86,12 +104,22 @@ class Store {
       'price3': price3,
       'menu4': menu4,
       'price4': price4,
+      'free1': free1,
+      'free2': free2,
+      'free3': free3,
+      'free4': free4,
+      'isClosed': isClosed,
+      'correctionRevision': correctionRevision,
       'latitude': latitude,
       'longitude': longitude,
       'source': source,
       if (openingHours != null) 'openingHours': openingHours!.toJson(),
     };
   }
+
+  String menuAt(int slot) => [menu1, menu2, menu3, menu4][slot - 1];
+  String priceAt(int slot) => [price1, price2, price3, price4][slot - 1];
+  bool freeAt(int slot) => [free1, free2, free3, free4][slot - 1];
 
   static double _coordinate(Object? value) {
     if (value is num) return value.toDouble();

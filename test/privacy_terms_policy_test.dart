@@ -24,17 +24,25 @@ void main() {
         // Brand label check
         expect(find.text('얼마고? 개인정보 처리방침'), findsOneWidget);
 
-        // TOC entries 1..7 check
-        for (var i = 0; i < 7; i++) {
-          expect(find.byKey(ValueKey('privacy-toc-$i')), findsOneWidget);
-        }
-
-        // Chapter headings 1..7 check
-        for (var i = 1; i <= 7; i++) {
-          expect(
-            find.byKey(ValueKey('privacy-chapter-$i-title')),
-            findsOneWidget,
+// Keys disambiguate the repeated labels, but still verify their content.
+        const chapterTitles = [
+          '수집하는 개인정보 항목',
+          '개인정보 이용 목적',
+          '보유 및 이용 기간',
+          '제 3자 제공 안내',
+          '위치 정보 처리',
+          '이용자의 권리',
+          '회원 탈퇴 시 데이터 처리',
+        ];
+        for (var i = 0; i < chapterTitles.length; i++) {
+          final toc = find.byKey(ValueKey('privacy-toc-$i'));
+          final chapter = find.byKey(
+            ValueKey('privacy-chapter-${i + 1}-title'),
           );
+          expect(toc, findsOneWidget);
+          expect(chapter, findsOneWidget);
+          expect(tester.widget<Text>(toc).data, chapterTitles[i]);
+          expect(tester.widget<Text>(chapter).data, chapterTitles[i]);
         }
 
         // Chapter numbers 1..7 check
@@ -111,7 +119,9 @@ void main() {
           reason: 'Chapter 6 must contain immediate deletion upon withdrawal',
         );
         expect(
-          allTexts.any((t) => t.contains('단말기 OS 설정에서 위치·알림·사진 권한 해제')),
+          allTexts.any(
+            (t) => t.contains('브라우저 사이트 설정 또는 기기 설정에서 위치·알림·사진 권한 변경'),
+          ),
           isTrue,
           reason: 'Chapter 6 must contain permission withdrawal guide',
         );

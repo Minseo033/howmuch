@@ -37,3 +37,10 @@ tools/jev-quality-gate/result*.json
 
 # Firebase Service Account Key
 howmuch_backend/src/main/resources/firebase-service-account.json
+
+# Private re-QA captures: retain locally, do not publish personal activity or other inquiries.
+docs/qa-evidence/2026-10-01/reqa/02-savings-september.jpg
+docs/qa-evidence/2026-10-01/reqa/12-qa-inquiry-cleaned.jpg
+docs/qa-evidence/2026-10-01/reqa/08-ai-soup-verified.jpg
+docs/qa-evidence/2026-10-01/reqa/15-ai-meal-verified.jpg
+docs/qa-evidence/2026-10-01/reqa/17-short-height-fixed.jpg

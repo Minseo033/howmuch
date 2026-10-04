@@ -18,4 +18,5 @@ public class ChatRequest {
     private List<String> nearbyStoreIds;
     private Double latitude;
     private Double longitude;
+    private Integer radiusMeters;
 }

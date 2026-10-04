@@ -209,14 +209,19 @@ class PriceAlertStore {
 }
 
 class UserReportMenuPrice {
-  const UserReportMenuPrice({required this.menu, required this.price});
+  const UserReportMenuPrice({
+    required this.menu,
+    required this.price,
+    this.free = false,
+  });
 
   final String menu;
   final String price;
+  final bool free;
 
   String get displayText {
     if (menu.isEmpty && price.isEmpty) return '';
-    final displayPrice = formatWon(price);
+    final displayPrice = formatMenuPrice(price, free: free);
     if (menu.isEmpty) return displayPrice;
     if (price.isEmpty) return menu;
     return '$menu $displayPrice';
@@ -243,6 +248,9 @@ class UserReportStatus {
     this.checkedMenuPrice = false,
     this.createdAt = '',
     this.rejectReason = '',
+    this.description = '',
+    this.reportType = '',
+    this.changeType = '',
   });
 
   final String id;
@@ -263,6 +271,9 @@ class UserReportStatus {
   final bool checkedMenuPrice;
   final String createdAt;
   final String rejectReason;
+  final String description;
+  final String reportType;
+  final String changeType;
 
   factory UserReportStatus.fromJson(Map<String, dynamic> json) {
     final status = _statusLabel(json['status']?.toString() ?? '');
@@ -293,6 +304,9 @@ class UserReportStatus {
           : false,
       createdAt: json['createdAt']?.toString() ?? '',
       rejectReason: json['rejectReason']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      reportType: json['reportType']?.toString() ?? '',
+      changeType: json['changeType']?.toString() ?? '',
     );
   }
 
@@ -315,6 +329,9 @@ class UserReportStatus {
     bool? checkedMenuPrice,
     String? createdAt,
     String? rejectReason,
+    String? description,
+    String? reportType,
+    String? changeType,
   }) {
     return UserReportStatus(
       id: id ?? this.id,
@@ -335,6 +352,9 @@ class UserReportStatus {
       checkedMenuPrice: checkedMenuPrice ?? this.checkedMenuPrice,
       createdAt: createdAt ?? this.createdAt,
       rejectReason: rejectReason ?? this.rejectReason,
+      description: description ?? this.description,
+      reportType: reportType ?? this.reportType,
+      changeType: changeType ?? this.changeType,
     );
   }
 
@@ -356,6 +376,7 @@ class UserReportStatus {
         UserReportMenuPrice(
           menu: json['menu$index']?.toString() ?? '',
           price: json['price$index']?.toString() ?? '',
+          free: json['free$index'] == true,
         ),
     ].where((item) => item.menu.isNotEmpty || item.price.isNotEmpty).toList();
   }

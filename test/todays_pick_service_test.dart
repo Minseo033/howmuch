@@ -24,7 +24,11 @@ void main() {
     final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
 
     expect(captured.url.path, '/api/recommendation/todays-pick');
-    expect(captured.url.queryParameters, {'lat': '37.5', 'lng': '127.0'});
+    expect(captured.url.queryParameters, {
+      'lat': '37.5',
+      'lng': '127.0',
+      'radiusMeters': '3000',
+    });
     expect(result['weather'], '맑음');
     expect(result['error'], isNull);
   });
@@ -169,7 +173,7 @@ void main() {
       lat: 37.5665,
       lng: 126.978,
     );
-    expect(message, contains('가까운 매장'));
+    expect(message, contains('3km 안에서'));
     expect(message, contains('테스트 식당'));
     expect(message, contains('비빔밥'));
   });
