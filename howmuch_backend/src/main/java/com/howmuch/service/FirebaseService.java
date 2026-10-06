@@ -56,7 +56,6 @@ import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -454,8 +453,6 @@ public class FirebaseService {
         return getStoreCatalogEntry().discoverableStores();
     }
 
-    public String getAllStoresEtag() { return getStoreCatalogEntry().etag(); }
-
     /** Body and validation tag must describe one immutable catalog snapshot. */
     public record PublicStoreCatalog(List<Map<String, Object>> stores, String etag) {}
 
@@ -629,11 +626,6 @@ public class FirebaseService {
      * 클라이언트가 보낸 매장명·가격·출처는 신뢰하지 않습니다.
      */
     public List<Map<String, Object>> getAiStoreContext(
-            List<String> storeIds, Double latitude, Double longitude) {
-        return getAiStoreContext(storeIds, latitude, longitude, 3000);
-    }
-
-    public List<Map<String, Object>> getAiStoreContext(
             List<String> storeIds, Double latitude, Double longitude, int radiusMeters) {
         validateRecommendationRadius(radiusMeters);
         if (!isValidCoordinate(latitude, longitude)) return List.of();
@@ -701,11 +693,6 @@ public class FirebaseService {
                 .<Map<String, Object>>map(HashMap::new)
                 .sorted(stableOrder)
                 .toList();
-    }
-
-    // 💡 화면 범위(Bounds) 기반 업소 조회 (정부 데이터 + 사용자 제보 통합, 전량 인메모리)
-    public List<Map<String, Object>> getStoresInBounds(double minLat, double maxLat, double minLng, double maxLng) {
-        return getStoresInBoundsPage(minLat, maxLat, minLng, maxLng).stores();
     }
 
     /** 지도 범위 조회 상한 */
@@ -2469,16 +2456,12 @@ public class FirebaseService {
         return visits;
     }
 
-    // 💡 리뷰 저장 (작성자 uid는 인증된 세션에서만 주입)
-    public String saveReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
-        return createReview(authorUid, request).reviewId();
-    }
-
     /** 저장된 리뷰 ID와 서버가 정한 작성자 표시명입니다. */
     public record SavedReview(String reviewId, String authorName) { }
 
     /**
-     * 리뷰를 저장합니다. 작성자 표시명은 요청 본문 값을 쓰지 않고 회원 정보로 정합니다(계약 C1).
+     * 리뷰를 저장합니다. 작성자 uid는 인증된 세션에서만 받고, 표시명은 요청 본문 값을 쓰지 않고
+     * 회원 정보로 정합니다(계약 C1).
      */
     public SavedReview createReview(String authorUid, com.howmuch.dto.ReviewRequest request) throws Exception {
         if (authorUid == null || authorUid.isBlank()) {
@@ -3456,10 +3439,6 @@ public class FirebaseService {
     }
 
     // 💡 커뮤니티 피드 상세 조회 (REJECTED는 404, rejectReason 비공개)
-    public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id) throws Exception {
-        return getCommunityFeedDetail(id, null);
-    }
-
     public com.howmuch.dto.FeedDetailResponseDto getCommunityFeedDetail(String id, String requesterUid) throws Exception {
         DocumentSnapshot doc = db.collection("stores_user").document(id).get().get();
         if (!doc.exists()) {
@@ -3740,12 +3719,6 @@ public class FirebaseService {
    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 최대 3곳 선정) */
    private static final int CANDIDATE_POOL_SIZE = 20;
 
-    /**
-     * 추천 허용 기본 최대 반경 (미터).
-     * 가까운 동네 추천에 원거리 매장이 혼입되는 것을 방지한다.
-     */
-    public static final double MAX_RECOMMENDATION_RADIUS_METERS = 3000.0;
-
    /**
      * 오늘의 픽 추천 — 날씨 기반 추천 룰 + 공공데이터 인메모리 캐시에서 매장 선별.
      * Firestore 읽기 0 (cachedStores만 사용).
@@ -3756,10 +3729,6 @@ public class FirebaseService {
      * @param lng     사용자 경도 (거리 계산용, null 가능)
      * @return 추천 매장 리스트 (최대 3개)
      */
-    public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng) {
-        return getTodaysPicks(weather, temp, lat, lng, 3000);
-    }
-
     public List<Map<String, Object>> getTodaysPicks(String weather, Integer temp, Double lat, Double lng, int radiusMeters) {
         validateRecommendationRadius(radiusMeters);
         boolean locationAvailable = isValidCoordinate(lat, lng);
@@ -4804,10 +4773,6 @@ public class FirebaseService {
     }
 
     // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
-    public Map<String, Object> sendAdminNotification(String targetUid, String title, String body, String type) throws Exception {
-        return sendAdminNotification(targetUid, title, body, type, null);
-    }
-
     /** requestId가 있으면 같은 요청을 다시 보내도 회원마다 한 번만 알림이 생깁니다(WEB-ADM-2). */
     public Map<String, Object> sendAdminNotification(
             String targetUid, String title, String body, String type, String requestId) throws Exception {
@@ -4816,10 +4781,6 @@ public class FirebaseService {
     }
 
     // 공지는 전체 회원의 알림함/웹 접속 팝업에만 등록하고 기기 푸시는 보내지 않습니다.
-    public Map<String, Object> publishAdminNotice(String title, String body) throws Exception {
-        return publishAdminNotice(title, body, null);
-    }
-
     public Map<String, Object> publishAdminNotice(String title, String body, String requestId) throws Exception {
         return sendAdminMessage(null, title, body, "notice", false, requestId);
     }

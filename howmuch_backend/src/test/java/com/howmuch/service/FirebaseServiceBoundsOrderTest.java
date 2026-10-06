@@ -47,7 +47,6 @@ class FirebaseServiceBoundsOrderTest {
         assertThat(result.truncated()).isFalse();
         assertThat(result.stores()).extracting(store -> store.get("storeId"))
                 .containsExactly("store_near", "store_far");
-        assertThat(service.getStoresInBounds(37.4, 37.6, 126.9, 127.1)).hasSize(2);
+        assertThat(service.getStoresInBoundsPage(37.4, 37.6, 126.9, 127.1).stores()).hasSize(2);
     }
 }
-

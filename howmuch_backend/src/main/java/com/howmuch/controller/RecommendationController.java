@@ -143,15 +143,6 @@ public class RecommendationController {
         }
     }
 
-    // Keep source compatibility for callers that used the previous signatures.
-    public ResponseEntity<?> getTodaysPick(Double lat, Double lng) {
-        return getTodaysPick(lat, lng, null);
-    }
-
-    public ResponseEntity<?> getRoute(Double lat, Double lng, HttpServletRequest request) {
-        return getRoute(lat, lng, null, request);
-    }
-
     private ResponseEntity<?> radiusError(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(Map.of(
                 "success", false, "message", exception.getMessage()));

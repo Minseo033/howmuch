@@ -304,22 +304,6 @@ public class GeminiService {
                 || response.contains("AI 연결에 실패했습니다");
     }
 
-    /**
-     * 외부 AI 장애 시에도 서버가 다시 확인한 실제 주변 매장만으로 답변합니다.
-     * 클라이언트가 전국 매장 목록을 다시 내려받지 못하더라도 채팅이 오류 문구로
-     * 끝나지 않도록 하는 최종 안전망입니다.
-     */
-    public record LocalChatRecommendation(String text, List<String> storeIds) {}
-
-    public LocalChatRecommendation buildLocalChatRecommendation(
-            String userMessage, List<Map<String, Object>> nearbyStores) {
-        List<Map<String, Object>> selected = verifiedRecommendations(
-                userMessage, nearbyStores, RecommendationRadius.DEFAULT_METERS);
-        return new LocalChatRecommendation(
-                verifiedRecommendationText(selected, RecommendationRadius.DEFAULT_METERS, true),
-                selected.stream().map(store -> String.valueOf(store.get("storeId"))).toList());
-    }
-
     public boolean isRecommendationRequest(String message) {
         String query = message == null ? "" : message.toLowerCase();
         return List.of("추천", "찾", "어디", "주변", "근처", "가게", "매장", "식당", "가격",
@@ -386,6 +370,11 @@ public class GeminiService {
         return List.copyOf(results);
     }
 
+    /**
+     * 서버가 다시 확인한 실제 주변 매장만으로 답변합니다. {@code fallback}이면 외부 AI 장애 때의
+     * 최종 안전망으로, 클라이언트가 전국 매장 목록을 다시 내려받지 못해도 채팅이 오류 문구로
+     * 끝나지 않게 합니다.
+     */
     public String verifiedRecommendationText(List<Map<String, Object>> recommendations,
                                             int radiusMeters, boolean fallback) {
         if (recommendations == null || recommendations.isEmpty()) {

@@ -7,7 +7,6 @@ import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReceiptOcrService;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.DuplicateVisitException;
-import com.howmuch.service.DuplicateReceiptException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;

@@ -96,10 +96,10 @@ class GeminiServiceTest {
     void localChatFallbackUsesOnlyVerifiedStoresAndHonorsBudgetAndCount() {
         GeminiService service = new GeminiService("", 1_000, false);
 
-        String response = service.buildLocalChatRecommendation("만원 이하 점심 두 곳", List.of(
+        String response = fallbackText(service, "만원 이하 점심 두 곳", List.of(
                 Map.of("storeId", "a", "storeName", "가까운 식당", "menu1", "백반", "price1", "8,000원", "distanceMeters", 100),
                 Map.of("storeId", "b", "storeName", "예산초과 식당", "menu1", "불고기", "price1", "15,000", "distanceMeters", 120),
-                Map.of("storeId", "c", "storeName", "두번째 식당", "menu1", "칼국수", "price1", "7,000", "distanceMeters", 300))).text();
+                Map.of("storeId", "c", "storeName", "두번째 식당", "menu1", "칼국수", "price1", "7,000", "distanceMeters", 300)));
 
         assertThat(response).contains("가까운 식당", "두번째 식당", "8,000원", "7,000원");
         assertThat(response).doesNotContain("예산초과 식당", "원원");
@@ -109,8 +109,8 @@ class GeminiServiceTest {
     void localChatFallbackDoesNotRelaxBudgetWhenNoMenuMatches() {
         GeminiService service = new GeminiService("", 1_000, false);
 
-        String response = service.buildLocalChatRecommendation("천원 이하 한 곳", List.of(
-                Map.of("storeId", "real", "storeName", "실제 매장", "menu1", "국수", "price1", "5,000", "distanceMeters", 80))).text();
+        String response = fallbackText(service, "천원 이하 한 곳", List.of(
+                Map.of("storeId", "real", "storeName", "실제 매장", "menu1", "국수", "price1", "5,000", "distanceMeters", 80)));
 
         assertThat(response).contains("조건을 모두 만족하는 매장을 찾지 못했어요");
         assertThat(response).doesNotContain("실제 매장", "5,000원");
@@ -120,7 +120,7 @@ class GeminiServiceTest {
     void localChatFallbackUsesSecondaryMenuAndSkipsNonFoodForLunch() {
         GeminiService service = new GeminiService("", 1_000, false);
 
-        GeminiService.LocalChatRecommendation result = service.buildLocalChatRecommendation(
+        List<Map<String, Object>> picks = service.verifiedRecommendations(
                 "만원 이하 점심 한 곳", List.of(
                         Map.of(
                                 "storeId", "hair",
@@ -137,11 +137,21 @@ class GeminiServiceTest {
                                 "price1", "15,000",
                                 "menu2", "백반",
                                 "price2", "9,000",
-                                "distanceMeters", 200)));
+                                "distanceMeters", 200)),
+                RecommendationRadius.DEFAULT_METERS);
+        String text = service.verifiedRecommendationText(picks, RecommendationRadius.DEFAULT_METERS, true);
 
-        assertThat(result.text()).contains("착한식당", "백반", "9,000원");
-        assertThat(result.text()).doesNotContain("동네미용실", "불고기");
-        assertThat(result.storeIds()).containsExactly("meal");
+        assertThat(text).contains("착한식당", "백반", "9,000원");
+        assertThat(text).doesNotContain("동네미용실", "불고기");
+        assertThat(picks).extracting(store -> store.get("storeId")).containsExactly("meal");
+    }
+
+    /** AiController가 외부 AI 장애 때 쓰는 대체 답변 경로를 그대로 호출합니다. */
+    private static String fallbackText(GeminiService service, String message,
+                                       List<Map<String, Object>> nearbyStores) {
+        List<Map<String, Object>> picks = service.verifiedRecommendations(
+                message, nearbyStores, RecommendationRadius.DEFAULT_METERS);
+        return service.verifiedRecommendationText(picks, RecommendationRadius.DEFAULT_METERS, true);
     }
 
     @Test

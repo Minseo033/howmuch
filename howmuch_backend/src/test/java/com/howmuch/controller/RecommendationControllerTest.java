@@ -34,7 +34,7 @@ class RecommendationControllerTest {
 
     @Test
     void rejectsAnIncompleteCoordinatePairBeforeCallingExternalServices() {
-        ResponseEntity<?> response = controller.getTodaysPick(37.5, null);
+        ResponseEntity<?> response = controller.getTodaysPick(37.5, null, null);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(weatherService, firebaseService, geminiService, rateLimiter);
@@ -42,7 +42,7 @@ class RecommendationControllerTest {
 
     @Test
     void rejectsMissingCoordinatesInsteadOfUsingASeoulDefault() {
-        ResponseEntity<?> response = controller.getTodaysPick(null, null);
+        ResponseEntity<?> response = controller.getTodaysPick(null, null, null);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(weatherService, firebaseService, geminiService, rateLimiter);
@@ -51,7 +51,7 @@ class RecommendationControllerTest {
     @Test
     void rejectsOutOfRangeRouteCoordinatesBeforeConsumingRateLimit() {
         ResponseEntity<?> response = controller.getRoute(
-                91.0, 127.0, new MockHttpServletRequest());
+                91.0, 127.0, null, new MockHttpServletRequest());
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(weatherService, firebaseService, geminiService, rateLimiter);

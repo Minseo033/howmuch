@@ -3,7 +3,6 @@ package com.howmuch.service;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -29,7 +28,6 @@ import java.util.stream.Collectors;
  * 토큰 검증은 계정당 한 번만 읽습니다.</p>
  */
 @Service
-@Slf4j
 public class SessionRevocationStore {
 
     private static final String COLLECTION = "session_revocations";
@@ -58,11 +56,6 @@ public class SessionRevocationStore {
             @Value("${session.revocation.store-timeout-ms:1500}") long timeoutMillis) {
         this.db = db;
         this.timeoutMillis = Math.max(100, timeoutMillis);
-    }
-
-    /** Returns the newest persistent revocation cutoff, or {@link Long#MIN_VALUE} when none exists. */
-    public long getRevokedAfter(String uid) {
-        return getRevocation(uid).revokedAfter();
     }
 
     /** 계정 전체 기준과 로그아웃한 토큰 목록을 한 번에 읽습니다. */

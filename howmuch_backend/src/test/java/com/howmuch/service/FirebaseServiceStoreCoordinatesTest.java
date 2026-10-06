@@ -1,7 +1,6 @@
 package com.howmuch.service;
 
 import com.google.cloud.firestore.Firestore;
-import com.howmuch.dto.StoreCoordinates;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -25,7 +24,8 @@ class FirebaseServiceStoreCoordinatesTest {
                 "latitude", 37.5666, "longitude", 126.9781));
         ReflectionTestUtils.setField(service, "cachedStores", List.of(store));
 
-        var pick = service.getTodaysPicks("맑음", 32, 37.5665, 126.9780).getFirst();
+        var pick = service.getTodaysPicks(
+                "맑음", 32, 37.5665, 126.9780, RecommendationRadius.DEFAULT_METERS).getFirst();
 
         assertThat(pick.get("matchedMenu")).isEqualTo("냉면");
         assertThat(pick.get("menu2")).isEqualTo("냉면");
@@ -163,7 +163,7 @@ class FirebaseServiceStoreCoordinatesTest {
                         "latitude", 999, "longitude", 126.9781)));
 
         List<Map<String, Object>> picks = service.getTodaysPicks(
-                "비", 20, 37.5665, 126.9780);
+                "비", 20, 37.5665, 126.9780, RecommendationRadius.DEFAULT_METERS);
 
         assertThat(picks).extracting(pick -> pick.get("storeName"))
                 .containsExactly("정상 국밥집");
@@ -186,7 +186,8 @@ class FirebaseServiceStoreCoordinatesTest {
         List<Map<String, Object>> context = service.getAiStoreContext(
                 List.of("user-1", "gov-1", "pending-1", "fabricated-id"),
                 37.5665,
-                126.9780);
+                126.9780,
+                RecommendationRadius.DEFAULT_METERS);
 
         assertThat(context).extracting(item -> item.get("storeName"))
                 .containsExactly("정부 매장", "승인 매장");
@@ -221,7 +222,7 @@ class FirebaseServiceStoreCoordinatesTest {
                 List.of(near1, near2, near3, near4, farAlt));
 
         List<Map<String, Object>> picks = service.getTodaysPicks(
-                "비", 18, 37.5665, 126.9780);
+                "비", 18, 37.5665, 126.9780, RecommendationRadius.DEFAULT_METERS);
 
         // Far store (29km) cannot enter the local recommendation picks
         assertThat(picks).extracting(p -> p.get("storeName"))
@@ -261,7 +262,7 @@ class FirebaseServiceStoreCoordinatesTest {
                 List.of(meal1, meal2, meal3, dessert, tooFarDessert));
 
         List<Map<String, Object>> picks = service.getTodaysPicks(
-                "맑음", 20, 37.5665, 126.9780);
+                "맑음", 20, 37.5665, 126.9780, RecommendationRadius.DEFAULT_METERS);
 
         assertThat(picks).hasSize(3);
         assertThat(picks).extracting(pick -> pick.get("storeName"))
@@ -285,7 +286,7 @@ class FirebaseServiceStoreCoordinatesTest {
         ReflectionTestUtils.setField(service, "cachedStores", List.of(near, far));
 
         List<Map<String, Object>> picks = service.getTodaysPicks(
-                "맑음", 20, 37.5665, 126.9780);
+                "맑음", 20, 37.5665, 126.9780, RecommendationRadius.DEFAULT_METERS);
 
         assertThat(picks).extracting(pick -> pick.get("storeName"))
                 .containsExactly("유일한 근처 식당");

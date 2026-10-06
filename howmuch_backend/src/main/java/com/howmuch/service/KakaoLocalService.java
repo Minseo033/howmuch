@@ -53,10 +53,6 @@ public class KakaoLocalService {
         this(kakaoRestApiKey, restTemplate, 300_000L, 256);
     }
 
-    KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate, long cacheTtlMillis) {
-        this(kakaoRestApiKey, restTemplate, cacheTtlMillis, 256);
-    }
-
     KakaoLocalService(String kakaoRestApiKey, RestTemplate restTemplate, long cacheTtlMillis, int cacheMaxEntries) {
         this.kakaoRestApiKey = kakaoRestApiKey;
         this.restTemplate = restTemplate;

@@ -72,7 +72,7 @@ class FirebaseServiceCommunityPrivacyTest {
         when(postSnapshot.getId()).thenReturn("private-post");
         when(postSnapshot.getData()).thenReturn(postData("kakao:private", "drop", "서울", "2026-10-05T00:00:00Z", null));
 
-        var detail = service.getCommunityFeedDetail("private-post");
+        var detail = service.getCommunityFeedDetail("private-post", null);
         assertThat(detail.getAuthor()).isEqualTo("익명");
         assertThat(detail.getAuthorProfileImageUrl()).isNull();
         assertThat(detail.getChangeType()).isEqualTo("drop");
@@ -152,4 +152,3 @@ class FirebaseServiceCommunityPrivacyTest {
         when(snapshot.getData()).thenReturn(new HashMap<>(data));
     }
 }
-

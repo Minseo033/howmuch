@@ -33,8 +33,6 @@ public class StoresController {
     }
 
     /** 전체 매장 데이터 (인메모리 캐시, gzip 압축 응답) */
-    public ResponseEntity<?> getAllStores() { return getAllStores(null); }
-
     @GetMapping("/all")
     public ResponseEntity<?> getAllStores(@RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch) {
         try {

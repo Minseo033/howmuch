@@ -22,7 +22,7 @@ class StoresControllerTest {
                 java.util.Map.<String, Object>of("storeName", "테스트 식당"));
         when(service.getPublicStoreCatalog()).thenReturn(new FirebaseService.PublicStoreCatalog(stores, "\"catalog-a\""));
 
-        ResponseEntity<?> response = controller.getAllStores();
+        ResponseEntity<?> response = controller.getAllStores(null);
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals(stores, response.getBody());

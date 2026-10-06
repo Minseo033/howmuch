@@ -422,10 +422,6 @@ public class AdminController {
     }
 
     /** 제보 승인 (POST /api/admin/reports/{id}/approve) */
-    public ResponseEntity<?> approveReport(String id, HttpServletRequest httpRequest) {
-        return approveReport(id, null, httpRequest);
-    }
-
     @PostMapping("/reports/{id}/approve")
     public ResponseEntity<?> approveReport(@PathVariable String id,
                                            @RequestBody(required = false) com.howmuch.dto.ReportApprovalRequest approval,
