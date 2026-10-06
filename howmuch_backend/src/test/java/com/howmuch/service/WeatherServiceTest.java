@@ -1,6 +1,7 @@
 package com.howmuch.service;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.net.URI;
 import java.time.Clock;
@@ -19,6 +20,17 @@ class WeatherServiceTest {
 
     private static final double SEOUL_LAT = 37.5665;
     private static final double SEOUL_LNG = 126.9780;
+
+    @Test
+    void springCreatesTheServiceAlongsideItsTestConstructor() {
+        // 10/6 Render 배포가 "No default constructor found"로 실패한 회귀를 막는다.
+        try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
+            context.register(WeatherService.class);
+            context.refresh();
+
+            assertThat(context.getBean(WeatherService.class)).isNotNull();
+        }
+    }
 
     /** 테스트 안에서 시간을 앞으로 돌릴 수 있는 시계 */
     private static final class MutableClock extends Clock {

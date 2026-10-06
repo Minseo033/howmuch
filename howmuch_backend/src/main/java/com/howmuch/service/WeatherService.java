@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -67,6 +68,8 @@ public class WeatherService {
 
     private record CachedWeather(Map<String, Object> value, long expiresAtMillis) {}
 
+    // 테스트용 생성자가 함께 있으므로 Spring이 쓸 생성자를 명시한다(없으면 서버가 시작되지 않는다).
+    @Autowired
     public WeatherService(@Value("${weather.api-key:}") String weatherApiKey,
                           @Value("${weather.timeout-ms:2000}") int timeoutMs) {
         this(weatherApiKey, restTemplateFetcher(effectiveTimeoutMs(timeoutMs)), Clock.system(KST));
