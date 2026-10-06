@@ -1351,11 +1351,7 @@ public class FirebaseService {
         return db.collection("stores_user")
                 .whereEqualTo("reporterId", firebaseUid)
                 .get().get().getDocuments().stream()
-                .map(doc -> {
-                    Map<String, Object> data = new HashMap<>(doc.getData());
-                    data.put("id", doc.getId());
-                    return data;
-                })
+                .map(doc -> UserReportResponsePolicy.ownerView(doc.getId(), doc.getData()))
                 .toList();
     }
 
