@@ -64,6 +64,17 @@ void main() {
     },
   );
 
+  testWidgets('approved list also labels NO_CHANGE without claiming a new store', (tester) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(userReportsProvider.notifier).setReports([noChange]);
+    await tester.pumpWidget(UncontrolledProviderScope(container: container,
+      child: const MaterialApp(home: Scaffold(body: MyReportsApprovedTab()))));
+    await tester.pumpAndSettle();
+    expect(find.text('검토 완료 · 수정 없음'), findsOneWidget);
+    expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
+  });
+
   for (final size in [
     const Size(568, 320),
     const Size(852, 393),

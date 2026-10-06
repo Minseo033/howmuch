@@ -311,20 +311,22 @@ class ReportCard extends StatelessWidget {
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(
+                    children: [
+                      const Icon(
                         Icons.location_on,
                         color: Color(0xFF10B981),
                         size: 14,
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Flexible(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            '지도에 사용자 제보 매장으로 표시 중',
+                            report.source.resolution == 'NEW_STORE'
+                                ? '지도에 사용자 제보 매장으로 표시 중'
+                                : report.source.processingLabel,
                             maxLines: 1,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Color(0xFF2563EB),
                               fontFamily: "Inter",
                               fontFamilyFallback: [
