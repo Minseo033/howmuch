@@ -87,42 +87,51 @@ void main() {
     },
   );
 
-  testWidgets('actual history CTA passes slot through application router', (
-    tester,
-  ) async {
-    final store = Store.fromJson({
-      'storeId': 'test',
-      'storeName': '식당',
-      'menu1': '같은 메뉴',
-      'price1': '3000',
-      'menu3': '같은 메뉴',
-      'price3': '5000',
-      'menu4': '네 번째',
-      'price4': '7000',
-    });
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    final router = container.read(appRouterProvider);
-    addTearDown(router.dispose);
-    router.go(
-      AppRoutes.priceHistory,
-      extra: PriceHistoryTarget(store: store, menuIndex: 3),
+  for (final selectedSlot in [3, 4]) {
+    testWidgets(
+      'actual history CTA passes slot $selectedSlot through application router',
+      (tester) async {
+        final store = Store.fromJson({
+          'storeId': 'test',
+          'storeName': '식당',
+          'menu1': '같은 메뉴',
+          'price1': '3000',
+          'menu3': '같은 메뉴',
+          'price3': '5000',
+          'menu4': '네 번째',
+          'price4': '7000',
+        });
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final router = container.read(appRouterProvider);
+        addTearDown(router.dispose);
+        router.go(
+          AppRoutes.priceHistory,
+          extra: PriceHistoryTarget(store: store, menuIndex: selectedSlot),
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('가격 변동 제보하기'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('기존 가격 ${selectedSlot == 3 ? '5,000' : '7,000'}원'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .widget<TextField>(find.byType(TextField).first)
+              .controller!
+              .text,
+          store.menuAt(selectedSlot),
+        );
+      },
     );
-    await tester.pumpWidget(
-      UncontrolledProviderScope(
-        container: container,
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('가격 변동 제보하기'));
-    await tester.pumpAndSettle();
-    expect(find.text('기존 가격 5,000원'), findsOneWidget);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
-      '같은 메뉴',
-    );
-  });
+  }
 
   testWidgets('five-row imported draft cannot upload or submit', (
     tester,
