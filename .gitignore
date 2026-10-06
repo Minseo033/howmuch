@@ -4,6 +4,7 @@
 # IDE
 .idea/
 .vscode/
+*.iml
 
 # Flutter / Dart
 .dart_tool/
