@@ -8,6 +8,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
@@ -47,6 +48,20 @@ class ReportDetailV2Screen extends ConsumerStatefulWidget {
 
 class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
   String? _alertedRejectReportId;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_refreshReport);
+  }
+
+  Future<void> _refreshReport() async {
+    final reports = await ref.read(reportServiceProvider).fetchMyReports();
+    if (!mounted || reports == null) return;
+    // Re-entry must not retain a pending snapshot after administrator review.
+    // Failed reads retain the existing record; this never repeats a write.
+    ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -416,6 +431,7 @@ class _ReportInfoCard extends StatelessWidget {
               label: '신고 내용',
               value: report.description.isEmpty ? '입력 없음' : report.description,
               valueWeight: FontWeight.w400,
+              wrap: true,
             ),
           ],
           const SizedBox(height: AppSizes.itemSpacing),
@@ -487,16 +503,21 @@ class _InfoLine extends StatelessWidget {
     required this.value,
     required this.valueWeight,
     this.valueColor,
+    this.wrap = false,
   });
 
   final String label;
   final String value;
   final FontWeight valueWeight;
   final Color? valueColor;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: wrap
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
         Text(
           label,
@@ -514,7 +535,7 @@ class _InfoLine extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            overflow: TextOverflow.ellipsis,
+            overflow: wrap ? TextOverflow.clip : TextOverflow.ellipsis,
             style: TextStyle(
               color: valueColor ?? ReportDetailV2Screen._ink,
               fontFamily: ReportDetailV2Screen._fontFamily,

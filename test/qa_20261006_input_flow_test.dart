@@ -8,6 +8,7 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/errors/presentation/screens/store_info_report_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -23,6 +24,68 @@ void main() {
     await ApiClient.setSessionToken('qa-test-session');
   });
   tearDown(() => ApiClient.setSessionToken(null));
+
+  testWidgets(
+    'report detail re-entry replaces stale pending moderation state',
+    (tester) async {
+      final pending = UserReportStatus.fromJson({
+        'id': 'info-latest',
+        'storeName': '기존 매장',
+        'status': 'PENDING',
+        'reportType': 'STORE_INFO',
+        'changeType': 'other',
+        'description': '긴 신고 설명 ' * 30,
+      });
+      var fetches = 0;
+      final container = ProviderContainer(
+        overrides: [
+          reportServiceProvider.overrideWithValue(
+            ReportService(
+              MockClient((request) async {
+                fetches++;
+                return http.Response(
+                  jsonEncode([
+                    {
+                      'id': pending.id,
+                      'storeName': pending.store,
+                      'status': 'APPROVED',
+                      'reportType': 'STORE_INFO',
+                      'changeType': 'other',
+                      'description': pending.description,
+                      'resolution': 'NO_CHANGE',
+                    },
+                  ]),
+                  200,
+                  headers: {'content-type': 'application/json; charset=utf-8'},
+                );
+              }),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      container.read(userReportsProvider.notifier).setReports([pending]);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: ReportDetailV2Screen(initialReport: pending),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(fetches, 1);
+      expect(find.text('검토 완료 · 수정 없음'), findsWidgets);
+      expect(
+        tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNull,
+      );
+      final description = tester.widget<Text>(find.text(pending.description));
+      expect(description.overflow, isNot(TextOverflow.ellipsis));
+      expect(description.maxLines, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('actual history CTA passes slot through application router', (
     tester,
