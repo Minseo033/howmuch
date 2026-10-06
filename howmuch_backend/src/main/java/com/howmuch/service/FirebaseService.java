@@ -22,7 +22,6 @@ import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
-import com.howmuch.dto.PriceAlertSubscriptionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.beans.factory.annotation.Value;
@@ -3206,60 +3205,6 @@ public class FirebaseService {
             if (menu != null) return new String[]{menu, blankToNull(store.get("price" + slot))};
         }
         return new String[]{null, null};
-    }
-
-    /** 찜한 매장에 대해서만 가격 알림 구독 상태를 변경합니다. */
-    public PriceAlertSubscriptionDto savePriceAlertSubscription(
-            String firebaseUid,
-            PriceAlertSubscriptionRequest request) throws Exception {
-        if (request == null || request.getStoreId() == null || request.getStoreId().isBlank()) {
-            throw new IllegalArgumentException("storeId는 필수입니다.");
-        }
-        if (request.getEnabled() == null) {
-            throw new IllegalArgumentException("enabled는 필수입니다.");
-        }
-
-        DocumentSnapshot favorite = findFavoriteDocument(firebaseUid, request.getStoreId());
-        if (favorite == null) {
-            throw new NoSuchElementException("찜한 매장을 찾을 수 없습니다.");
-        }
-        favorite.getReference().update("priceAlertEnabled", request.getEnabled()).get();
-
-        if (request.getNotifyOnRise() != null
-                || request.getNotifyOnDrop() != null
-                || request.getNotifyOnNewMenu() != null) {
-            Map<String, Object> conditionUpdates = new HashMap<>();
-            if (request.getNotifyOnRise() != null) {
-                conditionUpdates.put("notifyOnRise", request.getNotifyOnRise());
-            }
-            if (request.getNotifyOnDrop() != null) {
-                conditionUpdates.put("notifyOnDrop", request.getNotifyOnDrop());
-            }
-            if (request.getNotifyOnNewMenu() != null) {
-                conditionUpdates.put("notifyOnNewMenu", request.getNotifyOnNewMenu());
-            }
-            db.collection("notification_settings").document(firebaseUid)
-                    .set(conditionUpdates, SetOptions.merge()).get();
-        }
-
-        Map<String, Object> data = new HashMap<>(favorite.getData());
-        data.put("priceAlertEnabled", request.getEnabled());
-        NotificationSettingsDto savedConditions = getNotificationSettings(firebaseUid);
-        String storeId = canonicalStoreIdForFavorite(data);
-        Map<String, Object> store = publicStoreIndex().get(storeId);
-        String storeName = store != null && strOrNull(store.get("storeName")) != null
-                ? strOrNull(store.get("storeName")) : strOrNull(data.get("storeName"));
-        String[] representative = representativeMenu(store);
-        return PriceAlertSubscriptionDto.builder()
-                .storeId(storeId)
-                .storeName(storeName != null ? storeName : "매장명 없음")
-                .menuName(representative[0] != null ? representative[0] : "가격 변동 알림")
-                .price(representative[1])
-                .enabled(request.getEnabled())
-                .notifyOnRise(Boolean.TRUE.equals(savedConditions.getNotifyOnRise()))
-                .notifyOnDrop(Boolean.TRUE.equals(savedConditions.getNotifyOnDrop()))
-                .notifyOnNewMenu(Boolean.TRUE.equals(savedConditions.getNotifyOnNewMenu()))
-                .build();
     }
 
     // ==================== 절약 목표 (savings goal) ====================
