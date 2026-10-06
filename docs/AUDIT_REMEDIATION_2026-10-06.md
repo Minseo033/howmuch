@@ -2,7 +2,7 @@
 
 - 기준: 브랜치 `codex/audit-fixes-20261006`(운영 배포본 `9ca2626`에서 분기)
 - 근거: 같은 날 전체 코드 검수 보고서(172건: P0 2, P1 19, P2 57, P3 94). 보고서 원본은 저장소 밖 `HowMuch_코드검수_2026-10-06.md`이며 항목 ID를 그대로 쓴다.
-- 상태: 로컬 자동 검증 완료, **운영 배포 전**. 실기기·운영 서버 재QA 전까지 RELEASE_HOLD를 유지한다.
+- 상태: **운영 배포 완료(10/6 20:30 KST)** — 서버 `2cf1334`, 웹 `97e5974`. 실기기·실제 카카오 로그인 재QA 전까지 RELEASE_HOLD를 유지한다(9장).
 
 ## 1. 결과 요약
 
@@ -86,7 +86,7 @@ P0 2건과 P1 19건을 모두 고쳤다. P1-2는 표시와 서버 동작을 맞�
 
 | 검사 | 결과 |
 | --- | --- |
-| 백엔드 `./gradlew test bootJar --rerun-tasks` | 80개 클래스, 392개 통과(기준 311), jar 생성 |
+| 백엔드 `./gradlew test bootJar --rerun-tasks` | 394개 통과(기준 311), jar 생성 |
 | `dart analyze lib test` | 문제 없음. `flutter analyze`는 로컬 분석 서버 비정상 종료(기존 현상) |
 | Flutter 전체 `flutter test` | 615개 통과(기준 464) |
 | Chrome 브라우저 테스트 3파일 | 14개 통과 |
@@ -119,3 +119,22 @@ P0 2건과 P1 19건을 모두 고쳤다. P1-2는 표시와 서버 동작을 맞�
 - 웹 연결 계정 화면에서 더 받을 카카오 정보가 없으면 동의 창이 잠깐 열렸다 닫힌다(팝업 차단 회피를 위해 클릭 순간 창을 먼저 연다).
 - 공용 확인창의 파괴적 버튼 빨강이 AA 대비 색(#B91C1C)으로 짙어졌다.
 - 세션 폐기는 같은 서버 인스턴스에서 즉시, 다른 인스턴스에서는 최대 30초 뒤 반영된다.
+
+## 9. 운영 배포 기록 (10/6)
+
+| 순서 | 커밋 | 결과 |
+| --- | --- | --- |
+| 1 | `c4f6c67` 서버 | CI [37450970783](https://github.com/Minseo033/howmuch/actions/runs/37450970783) 성공. Render 자동 배포는 시작 단계에서 실패(`WeatherService` "No default constructor found")했고 기존 `0f0d9e1`이 계속 Live여서 중단은 없었다 |
+| 2 | `2cf1334` 서버 수정 | 운영 생성자에 `@Autowired`, 모든 Spring 컴포넌트의 생성자 모호성 검사 테스트 추가(수정 전 실패 확인). CI [37454636272](https://github.com/Minseo033/howmuch/actions/runs/37454636272) 성공, Render 자동 배포 Live(빌드 4분 9초), `/healthz` 커밋 일치 |
+| 3 | `97e5974` 앱·웹 | CI [37456066213](https://github.com/Minseo033/howmuch/actions/runs/37456066213) 전체 성공(Vercel 배포·운영 별칭·공개 파일 해시 검증 포함). PR #5 병합 처리. 백엔드 변경이 없어 Render는 재배포하지 않음 |
+
+- 원인: 날씨 캐시 테스트용 생성자를 더하면서 운영 생성자 지정이 빠졌다. 단위 테스트는 Spring을 띄우지 않아 CI가 잡지 못했다(9/14 `GeminiService`와 같은 유형). 이제 `ServiceConstructorInjectionTest`가 모든 컴포넌트를 검사한다. 수정 jar를 로컬에서 띄워 모든 빈 생성까지 통과하는 것도 확인했다(샌드박스 포트 제한으로 웹 서버 시작 직전까지).
+- 운영 확인(읽기 요청만):
+  - `/healthz` → `2cf1334`
+  - CORS 사전 요청 → `Access-Control-Max-Age: 3600`, `Access-Control-Expose-Headers: X-Stores-Truncated, Retry-After`
+  - 오늘의 픽(서울시청, 3km) → 200, 4.1초·2.8초, `weatherAvailable: true`, 추천 3곳. 재시작 직후 첫 요청은 캐시 예열과 겹쳐 20초를 넘겼다
+  - 지도 범위(전국) → 200, 1,200곳, `X-Stores-Truncated: true`
+  - 커뮤니티 피드 → 200(0.85초), `changeType`·`cityProvince`·`reportType`·`likedByMe` 포함
+  - 웹 `/` → `Cross-Origin-Opener-Policy: same-origin-allow-popups`, CSP·`X-Frame-Options: DENY` 유지. Chrome에서 `/home`까지 정상 로드, 오늘의 픽 배너 표시, 콘솔 오류·경고 없음
+- 남은 운영 확인: 웹 카카오 아이디·비밀번호 직접 로그인(P0-1 핵심 경로), 7장의 나머지 항목, 실기기. 무료 인스턴스가 재시작한 직후 첫 추천 요청은 늦을 수 있다(앱은 시간 초과 안내와 다시 시도를 보여 준다).
+
