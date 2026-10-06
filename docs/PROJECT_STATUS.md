@@ -1,5 +1,7 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
+> **2026-10-06 쓰지 않는 코드·파일 정리 — 운영 배포 완료(서버·웹 `2e83d94`)**: PR [#6](https://github.com/Minseo033/howmuch/pull/6)으로 호출처가 없는 Flutter·서버 코드, 테스트에서만 쓰이던 래퍼, `fl_chart`·`shimmer`, 매장별 가격 알림 API(`PUT /api/notifications/price-alerts`), 죽은 스크립트·오래된 문서·실험 도구를 지웠다(70개 파일, 1,527줄 삭제, 동작 변경 없음). Flutter612/Chrome14/백엔드393/스크립트 검사와 CI 전부 통과, 웹은 공개 파일 12개 해시 검증 PASS. 서버 변경이 든 푸시였지만 마지막 커밋이 `howmuch_backend` 밖만 바꿔 Render 자동 배포가 시작되지 않았고, 대시보드 수동 배포 뒤 `/healthz` commit `2e83d94`와 주요 API 200을 확인했다. 출시 판정은 5-146 기준 RELEASE_HOLD 그대로다. 상세는 5-147.
+
 > **2026-10-06 코드 검수 172건 후속 수정 — 운영 배포 완료(서버 `2cf1334`, 웹 `97e5974`)**: 전체 검수(P0 2/P1 19/P2 57/P3 94) 결과를 영역별로 나눠 고쳤다. P0 2건(웹 카카오 직접 로그인 3초 취소의 COOP 원인, 오늘의 픽·루트의 날씨 대기 초과)과 P1 19건을 모두 고쳤고 P2·P3 대부분을 반영했다. 리뷰 uid 노출 제거·작성자명 서버 결정, 로그인 중 추가 동의 제거, 제보 수정 유형 보존, 영수증·GPS 결정적 방문 ID, 지도 가려짐 상태 보류·재적용, 세션 폐기 캐시·기기별 로그아웃, 관리자 발송 멱등이 포함된다. 백엔드394/Flutter615/Chrome14/스크립트 검사 통과. 첫 서버 배포 `c4f6c67`은 `WeatherService` 생성자 지정 누락으로 Render 시작에 실패(기존 버전 유지, 중단 없음)해 `2cf1334`로 고친 뒤 Live, 웹은 CI 해시 검증까지 성공. 운영 COOP·오늘의 픽 2.8~4.1초·잘림 헤더·피드 새 필드 확인. 실제 카카오 직접 로그인·실기기 재QA 전이라 RELEASE_HOLD 유지. **다음 할 일**: 웹에서 카카오 아이디·비밀번호 직접 로그인 확인(P0-1 핵심 경로) → 5-146의 배포 후 확인 목록과 실기기 재QA → 출시 판정. Render `KAKAO_APP_ID` 입력은 선택이다. 항목별 상세·계약 변경·보류 사유·배포 기록은 모두 5-146에 있다.
 
 > **10/6 최종 배포 대조:** 문서·증거 커밋 `0fe421e`의 CI `37421614790` 전부 성공, 별도 다운로드한 산출물과 운영 주소13/13 일치, 새로고침 뒤 카카오 세션·기존 제보4건 유지 확인. Chrome 기존 제보 복원 PNG도 장부에 추가했다. 추가 추천 카드 QA는 오늘의 픽 최초 조회/재시도 실패로 카드 진입 불가, 공개 서울시청 표본 API만3건 정상이다. 사용자 화면 성공/카드 스와이프로 오인하지 않으며 기존 추천·루트 잔여 위험과 RELEASE_HOLD를 유지한다. (→ 오늘의 픽 실패 원인은 같은 날 코드 검수 P0-2에서 확정·수정: 서버 날씨 대기 최대 10초가 앱 제한 8초를 넘었다. 5-146)
@@ -83,7 +85,7 @@
 - 주의: geolocator 12.0.0은 `getCurrentPosition(desiredAccuracy:, timeLimit:)` 구형 파라미터가 정상 API (locationSettings 없음)
 
 ## 4. 배포 방법
-- **백엔드**: `main` 푸시 → GitHub `Quality gates` 통과 → Render 자동 배포(9/14부터 `After CI Checks Pass`). 운영 서비스 `howmuch_backend`(Singapore)는 Docker 런타임으로 `howmuch_backend/Dockerfile`(Java 21)을 빌드하며, 빌드 중 `./gradlew clean test bootJar`로 테스트를 한 번 더 돌린다. 10/6 빌드는 약 4분이었다. 저장소의 `render.yaml`은 java 런타임으로 정의돼 있어 실제 서비스와 다르므로 이 서비스에는 반영되지 않는 것으로 본다(10/6 대시보드 확인). 새 환경 변수는 Render 대시보드에 직접 넣고 `render.yaml`은 필요한 키 목록으로 참고한다. 서버가 시작 단계에서 실패하면 이전 버전이 계속 Live여서 중단은 없지만 새 코드도 반영되지 않는다. 배포 완료는 `/healthz`의 `commit`이 푸시한 커밋과 같은지로 확인한다. 10/6 백엔드 변경이 없는 `97e5974` 푸시 뒤에는 Render가 재배포하지 않았다. 문서만 바꾼 커밋에는 `[skip ci] [skip render]`를 붙인다.
+- **백엔드**: `main` 푸시 → GitHub `Quality gates` 통과 → Render 자동 배포(9/14부터 `After CI Checks Pass`). 운영 서비스 `howmuch_backend`(Singapore)는 Docker 런타임으로 `howmuch_backend/Dockerfile`(Java 21)을 빌드하며, 빌드 중 `./gradlew clean test bootJar`로 테스트를 한 번 더 돌린다. 10/6 빌드는 약 4분이었다. 저장소의 `render.yaml`은 java 런타임으로 정의돼 있어 실제 서비스와 다르므로 이 서비스에는 반영되지 않는 것으로 본다(10/6 대시보드 확인). 새 환경 변수는 Render 대시보드에 직접 넣고 `render.yaml`은 필요한 키 목록으로 참고한다. 서버가 시작 단계에서 실패하면 이전 버전이 계속 Live여서 중단은 없지만 새 코드도 반영되지 않는다. 배포 완료는 `/healthz`의 `commit`이 푸시한 커밋과 같은지로 확인한다. 서비스 루트 디렉터리가 `howmuch_backend`라서 그 밖의 파일만 바꾼 푸시는 자동 배포하지 않는다(10/6 `97e5974`). 같은 날 `2e83d94` 푸시는 서버 커밋을 포함했는데도 마지막 커밋이 서버 밖만 바꿔 자동 배포가 시작되지 않았다. `/healthz`의 `commit`이 푸시한 커밋과 다르면 대시보드 Manual Deploy → Deploy latest commit으로 배포한다(5-147). 문서만 바꾼 커밋에는 `[skip ci] [skip render]`를 붙인다.
 - **웹 자동 배포**: `main` 푸시 → GitHub `Quality gates`의 백엔드·Flutter 웹·iOS 작업 전체 통과 → 검증된 `build/web` 아티팩트만 Vercel `howmuch` 프로젝트에 배포 → 운영 별칭 연결 → 공개 파일 해시 검증. Vercel 인증값은 GitHub Actions 암호화 비밀값으로만 관리한다.
 - **웹 수동 복구**: `flutter build web --release --no-wasm-dry-run` → 저장소 루트에서 `npx -y vercel@59.19.0 deploy build/web --project howmuch --local-config vercel.json --prod --yes` (다른 Vercel 프로젝트로 잘못 연결되는 것을 막기 위해 프로젝트를 명시)
 - **운영 주소 연결**: 배포 출력의 실제 URL을 사용해 `npx -y vercel@latest alias set <배포-URL> howmuch-zeta.vercel.app --local-config vercel.json`을 실행한다. `--prod`만으로 기존 대표 주소가 갱신된다고 가정하지 않는다. 롤백도 직전 검증된 배포 URL로 같은 별칭을 연결한다.
@@ -2431,3 +2433,15 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
   3. **실기기 재QA**: iPhone Safari·Android에서 위 흐름과 FE-MAP-22를 확인한 뒤 출시 판정을 다시 한다. 그 전까지 RELEASE_HOLD.
   4. **(선택) `KAKAO_APP_ID`**: Render 대시보드에 카카오 숫자 앱 ID를 넣으면 다른 앱용 카카오 토큰 로그인을 막는다.
   5. **보류 항목 결정**: 1원 결제를 어떻게 셀지 같은 BE-CORE 정책 항목, 처리방침의 사업자명·책임자 연락처, 닉네임 공개 설정을 사용자가 직접 바꾸는 기능(P1-2).
+
+## 5-147. 10/6 쓰지 않는 코드·파일 정리·운영 배포
+
+- **범위**: PR [#6](https://github.com/Minseo033/howmuch/pull/6). 커밋 `4aa24ac`(저장소 파일), `1d7a22e`(Flutter), `b0793e7`(서버), `e9d4aaf`(매장별 가격 알림 API), `2e83d94`(문서·실험 도구). 동작은 바꾸지 않고 쓰지 않는 코드와 파일만 지웠다. 70개 파일, 1,527줄 삭제·115줄 추가(대부분 테스트 호출부).
+- **Flutter**: `AppScreen`과 `BackendWarmupService`(테스트 포함), 호출처 없는 함수·상수를 지웠다. 테스트에서만 쓰이던 `saveSubscription`, `formatWonAmount`, `loadHomeMapStores`, `buildLocalAiFallback`, `FigmaMobileCanvas.designScaleFor`와 375×800 별칭은 지우고, 테스트가 앱이 실제로 부르는 함수를 검사하게 했다. import가 없는 `fl_chart`·`shimmer`를 뺐다. `cupertino_icons`는 import가 없어도 `CupertinoPage`·`CupertinoSwitch`·`CupertinoDatePicker`가 글꼴을 써서 유지한다(빼면 웹 릴리스 빌드에 글꼴 누락 경고).
+- **서버**: 호출처 없는 메서드·오버로드·상수, 주입되지 않는 `FirebaseAuth` 빈, 읽지 않는 `firebase.config.path`, 쓰지 않는 import·`@Slf4j`를 지웠다. 테스트에서만 쓰이던 래퍼(3000m 고정 반경 오버로드, `buildLocalChatRecommendation`, `getStoresInBounds`, `saveReview` 등)는 지우고 테스트를 실제 메서드로 옮겼다. `HELP.md`와 Windows용 `local.properties`도 지웠다.
+- **API**: 매장별 `PUT /api/notifications/price-alerts`를 지웠다. 앱은 `PUT /api/notifications/price-alerts/batch`만 쓴다. `GET /api/notifications/price-alerts`와 일괄 저장은 그대로다.
+- **저장소 파일·문서**: 9/15 일회성 스크립트 2개, `reports/state-coverage.json`, 참조가 끊긴 `web/images/app_logo.png`(806KB), `STORE_HOURS_ROLLBACK.md`(복구 태그 `checkpoint/before-store-hours-20260912`는 GitHub에 있음), 5~6월 개인 현황 2개, `GEMINI.md`, `tools/jev-quality-gate`를 지우고 `*.iml` 추적을 해제했다. `FILE_STRUCTURE.md`는 실제 폴더 구조로 고쳤다.
+- **일부러 남긴 것**: 쓰이지 않는 디자인 토큰(체계의 단계), `SessionAuthFilter`의 OPTIONS 중복 검사(인증 필터 방어선), `/network-error` 화면(디자인된 화면 세트), 로그인 응답 `firebaseCustomToken`과 리뷰 요청 `authorName`(형식 호환), `render.yaml`(환경 변수 목록).
+- **검증**: `dart analyze` 0건, Flutter 612·Chrome 14, 웹 릴리스 빌드, 스크립트 51·파이썬 16, 백엔드 393(정리 전 394에서 매장별 가격 알림 테스트 1개 제외). PR과 main의 CI 모두 성공.
+- **배포**: main을 `6b87386..2e83d94`로 fast-forward했다(PR #6 병합 처리). 웹은 CI가 배포했고 공개 파일 12개 해시 검증이 PASS다. 서버는 자동 배포가 시작되지 않았다. 빌드 필터는 비어 있지만 서비스 루트 디렉터리가 `howmuch_backend`이고, 이번 푸시의 마지막 커밋 `2e83d94`가 그 밖의 파일만 바꿨다. 대시보드에서 Manual Deploy → Deploy latest commit으로 `2e83d94`를 배포했고, `/healthz` commit `2e83d94`와 지도 범위·커뮤니티 피드·전체 매장·오늘의 픽(3.9초, 날씨 포함) 200을 확인했다.
+- **저장소 밖 정리**: 9/22 감사 작업 트리의 커밋되지 않은 수정(선택 마커 1.1배, 알림함 공지 전문 표시, 메모 5-135·5-136·5-138)은 `codex/performance-function-audit-20260922` 브랜치 `a08eaf8`로 보존하고 작업 트리를 지웠다. 두 UX 변경은 지금 운영에 없다.
