@@ -464,7 +464,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         reportCount: savedReports.length,
       );
       if (initialReport == null) {
-        context.push(AppRoutes.reportComplete);
+        context.push('${AppRoutes.reportComplete}?id=${Uri.encodeQueryComponent(reportId)}');
       } else {
         context.go('${AppRoutes.reportDetailV2}?id=$reportId');
       }

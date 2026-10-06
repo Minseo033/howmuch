@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 class ReportCompleteScreen extends StatelessWidget {
-  const ReportCompleteScreen({super.key});
+  const ReportCompleteScreen({super.key, this.reportId});
+  final String? reportId;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -95,7 +97,7 @@ class ReportCompleteScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 28),
-                          const _SubmittedReportCard(),
+                          _SubmittedReportCard(reportId: reportId),
                           const SizedBox(height: 24),
                           _BottomActionButton(
                             label: '지도에서 주변 매장 더 보기',
@@ -188,12 +190,14 @@ class _SuccessMark extends StatelessWidget {
 }
 
 class _SubmittedReportCard extends ConsumerWidget {
-  const _SubmittedReportCard();
+  const _SubmittedReportCard({this.reportId});
+  final String? reportId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reports = ref.watch(userReportsProvider);
-    final report = reports.isNotEmpty ? reports.first : null;
+    final matching = reports.where((item) => item.id == reportId);
+    final report = matching.isNotEmpty ? matching.first : null;
     if (report == null) {
       return DecoratedBox(
         decoration: BoxDecoration(
@@ -212,17 +216,6 @@ class _SubmittedReportCard extends ConsumerWidget {
     }
 
     final storeName = report.store.isEmpty ? '매장명 정보 없음' : report.store;
-
-    // 메뉴와 가격 분리 로직 (예: "제육덮밥 6,000원")
-    final fullMenuText = report.menu.isEmpty ? '메뉴 정보 없음' : report.menu;
-    String menuName = fullMenuText;
-    String menuPrice = '';
-
-    final lastSpaceIndex = fullMenuText.lastIndexOf(' ');
-    if (lastSpaceIndex != -1) {
-      menuName = fullMenuText.substring(0, lastSpaceIndex);
-      menuPrice = fullMenuText.substring(lastSpaceIndex + 1);
-    }
 
     final createdAt = DateTime.tryParse(report.createdAt)?.toLocal();
     final createdAtText = createdAt == null
@@ -265,32 +258,37 @@ class _SubmittedReportCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 10.99),
-            _InfoRow(
-              label: '대표 메뉴',
-              value: RichText(
-                text: TextSpan(
-                  style: const TextStyle(
-                    color: ReportCompleteScreen.ink,
-                    fontFamily: ReportCompleteScreen.fontFamily,
-                    fontFamilyFallback: ReportCompleteScreen.fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    height: 1.5,
-                  ),
-                  children: [
-                    TextSpan(text: '$menuName '),
-                    TextSpan(
-                      text: menuPrice,
-                      style: const TextStyle(
-                        color: ReportCompleteScreen.orange,
-                        fontWeight: FontWeight.w700,
-                      ),
+            for (var index = 0; index < report.menuPrices.length; index++) ...[
+              _InfoRow(
+                label: index == 0 ? '대표 메뉴' : '메뉴 ${index + 1}',
+                value: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                      color: ReportCompleteScreen.ink,
+                      fontFamily: ReportCompleteScreen.fontFamily,
+                      fontFamilyFallback: ReportCompleteScreen.fontFallback,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
                     ),
-                  ],
+                    children: [
+                      TextSpan(text: '${report.menuPrices[index].menu} '),
+                      TextSpan(
+                        text: formatMenuPrice(
+                          report.menuPrices[index].price,
+                          free: report.menuPrices[index].free,
+                        ),
+                        style: const TextStyle(
+                          color: ReportCompleteScreen.orange,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 5.994),
+              const SizedBox(height: 5.994),
+            ],
             _InfoRow(
               label: '위치',
               text: report.address.isEmpty ? '주소 정보 없음' : report.address,

@@ -264,7 +264,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _route(AppRoutes.reportComplete, const ReportCompleteScreen()),
+      GoRoute(
+        path: AppRoutes.reportComplete,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ReportCompleteScreen(reportId: state.uri.queryParameters['id']),
+        ),
+      ),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
       GoRoute(
         path: AppRoutes.reportDetailV2,

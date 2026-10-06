@@ -4,11 +4,53 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
+import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_approved_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 void main() {
+  testWidgets(
+    'completion uses submitted ID not arbitrary server order and shows all saved menus',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(userReportsProvider.notifier).setReports([
+        UserReportStatus.fromJson({
+          'id': 'old',
+          'storeName': '다른 과거 제보',
+          'status': 'REJECTED',
+        }),
+        UserReportStatus.fromJson({
+          'id': 'saved',
+          'storeName': '방금 저장한 제보',
+          'status': 'PENDING',
+          'menu1': '하나',
+          'price1': '1000',
+          'menu2': '둘',
+          'price2': '2000',
+          'menu3': '셋',
+          'price3': '3000',
+          'menu4': '넷',
+          'price4': '0',
+          'free4': true,
+        }),
+      ]);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: ReportCompleteScreen(reportId: 'saved'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('방금 저장한 제보'), findsOneWidget);
+      expect(find.text('다른 과거 제보'), findsNothing);
+      expect(find.text('메뉴 4'), findsOneWidget);
+      expect(find.textContaining('넷 무료', findRichText: true), findsOneWidget);
+    },
+  );
   test('menu count guard rejects overflow instead of truncating', () {
     expect(validateReportMenuCount(0), isNotNull);
     for (var count = 1; count <= 4; count++) {
@@ -64,16 +106,25 @@ void main() {
     },
   );
 
-  testWidgets('approved list also labels NO_CHANGE without claiming a new store', (tester) async {
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
-    container.read(userReportsProvider.notifier).setReports([noChange]);
-    await tester.pumpWidget(UncontrolledProviderScope(container: container,
-      child: const MaterialApp(home: Scaffold(body: MyReportsApprovedTab()))));
-    await tester.pumpAndSettle();
-    expect(find.text('검토 완료 · 수정 없음'), findsOneWidget);
-    expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
-  });
+  testWidgets(
+    'approved list also labels NO_CHANGE without claiming a new store',
+    (tester) async {
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+      container.read(userReportsProvider.notifier).setReports([noChange]);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(
+            home: Scaffold(body: MyReportsApprovedTab()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('검토 완료 · 수정 없음'), findsOneWidget);
+      expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
+    },
+  );
 
   for (final size in [
     const Size(568, 320),
