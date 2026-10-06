@@ -7,6 +7,8 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_state.dart';
+import 'kakao_account_login_stub.dart'
+    if (dart.library.js_interop) 'kakao_account_login_web.dart' as account;
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_router.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -41,7 +43,7 @@ class KakaoLoginService {
   }) : _talkInstalled = talkInstalled ?? isKakaoTalkInstalled,
        _talkLogin = talkLogin ?? (() => UserApi.instance.loginWithKakaoTalk()),
        _accountLogin =
-           accountLogin ?? (() => UserApi.instance.loginWithKakaoAccount());
+           accountLogin ?? account.loginWithKakaoAccount;
 
   final Future<bool> Function() _talkInstalled;
   final Future<OAuthToken> Function() _talkLogin;
