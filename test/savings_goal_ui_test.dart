@@ -102,4 +102,37 @@ void main() {
       ),
     );
   });
+
+  testWidgets('a goal above the server limit is rejected before saving', (
+    tester,
+  ) async {
+    var posts = 0;
+    await http.runWithClient(
+      () async {
+        await tester.pumpWidget(
+          const MaterialApp(home: SavingsGoalSettingScreen()),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), '99999999999');
+        await tester.pump();
+        expect(find.text('9999999999'), findsOneWidget);
+
+        await tester.tap(find.text('목표 저장하기'));
+        await tester.pump();
+        expect(find.text('절약 목표는 10억원 이하로 입력해주세요.'), findsOneWidget);
+        expect(posts, 0);
+      },
+      () => MockClient((request) async {
+        if (request.method == 'POST') posts++;
+        return http.Response(
+          jsonEncode(
+            request.url.path.endsWith('/goal')
+                ? {'goalAmount': 50000}
+                : {'totalSavedAmount': 0, 'totalVisits': 0},
+          ),
+          200,
+        );
+      }),
+    );
+  });
 }

@@ -1,4 +1,21 @@
+import 'package:flutter/foundation.dart';
+
 enum DirectionsTransport { walk, transit, car }
+
+/// Naver Map identifies the calling app by its bundle ID or package name.
+/// iOS uses the bundle in ios/Runner.xcodeproj. The Android applicationId is
+/// configurable in android/app/build.gradle.kts (HOWMUCH_APPLICATION_ID,
+/// default com.example.howmuch); a release build should pass the same value
+/// with --dart-define=HOWMUCH_APPLICATION_ID=...
+String naverMapAppName({TargetPlatform? platform}) {
+  if ((platform ?? defaultTargetPlatform) == TargetPlatform.android) {
+    return const String.fromEnvironment(
+      'HOWMUCH_APPLICATION_ID',
+      defaultValue: 'com.example.howmuch',
+    );
+  }
+  return 'com.ohtaegwan.howmuch';
+}
 
 class DirectionsUrls {
   const DirectionsUrls({required this.native, required this.web});
@@ -75,7 +92,7 @@ DirectionsUrls buildNaverDirectionsUrls({
         host: 'search',
         queryParameters: {
           'query': destinationName,
-          'appname': 'com.howmuch.app',
+          'appname': naverMapAppName(),
         },
       ),
       web: Uri.https('m.map.naver.com', '/search2/search.naver', {
@@ -94,7 +111,7 @@ DirectionsUrls buildNaverDirectionsUrls({
         'dlat': '$destinationLatitude',
         'dlng': '$destinationLongitude',
         'dname': destinationName,
-        'appname': 'com.howmuch.app',
+        'appname': naverMapAppName(),
       },
     ),
     web: Uri.https('m.map.naver.com', '/route.nhn', {

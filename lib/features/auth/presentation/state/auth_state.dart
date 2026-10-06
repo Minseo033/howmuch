@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 const kakaoProfileImagePreferenceKey = 'kakao_profile_image_url';
 const kakaoEmailPreferenceKey = 'kakao_email';
 
+/// Version 2 added the mandatory age (14+) confirmation, so agreements made
+/// on the earlier screen are asked once more.
+const authTermsAcceptedPreferenceKey = 'auth_terms_accepted_v2';
+
 String? usableAccountEmail(Object? value) {
   final email = value?.toString().trim() ?? '';
   if (email.isEmpty || email.toLowerCase() == 'unknown') return null;

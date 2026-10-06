@@ -26,6 +26,9 @@ class Store {
   final StoreHours? openingHours;
 
   bool get isUserReported => source.trim().toUpperCase() == 'USER';
+
+  /// Only the public good-price dataset may be shown as government certified.
+  bool get isGovernmentCertified => source.trim().toUpperCase() == 'GOV';
   String get menuSourceLabel => switch (source.trim().toUpperCase()) {
     'GOV' => '공공데이터 기준',
     'USER' => '사용자 제보 기준',

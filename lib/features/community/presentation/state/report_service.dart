@@ -4,11 +4,51 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'user_report_model.dart';
+
+/// 저장 요청의 응답을 받지 못해 서버 반영 여부를 확인하지 못했을 때 보여줄 안내입니다.
+const reportSaveOutcomeUnknownMessage =
+    '저장 결과를 확인하지 못했어요. 내 제보 내역에서 저장됐는지 확인한 뒤 다시 시도해주세요.';
+
+bool isRemoteReportImage(String path) =>
+    path.startsWith('http://') || path.startsWith('https://');
+
+/// 고른 사진 가운데 5MB 이하이면서 남은 장수 안에 드는 사진만 고릅니다.
+/// 제외한 사진 수를 함께 돌려줘 화면이 이유를 알릴 수 있게 합니다.
+Future<({List<XFile> accepted, int oversized, int overLimit})>
+selectReportPhotos(List<XFile> picked, {required int remaining}) async {
+  final accepted = <XFile>[];
+  var oversized = 0;
+  var overLimit = 0;
+  for (final photo in picked) {
+    if (await photo.length() > ReportService.maxImageBytes) {
+      oversized++;
+    } else if (accepted.length < remaining) {
+      accepted.add(photo);
+    } else {
+      overLimit++;
+    }
+  }
+  return (accepted: accepted, oversized: oversized, overLimit: overLimit);
+}
+
+/// [selectReportPhotos]에서 제외한 사진이 있을 때 보여줄 안내입니다.
+String? reportPhotoSelectionNotice({
+  required int oversized,
+  required int overLimit,
+}) {
+  final notices = [
+    if (oversized > 0) '5MB를 넘는 사진 $oversized장은 첨부하지 않았어요.',
+    if (overLimit > 0)
+      '사진은 최대 ${ReportService.maxImageCount}장까지라 $overLimit장은 제외했어요.',
+  ];
+  return notices.isEmpty ? null : notices.join(' ');
+}
 
 class ReportServiceException implements Exception {
   const ReportServiceException(
@@ -214,6 +254,29 @@ class ReportService {
     return Map<String, dynamic>.from(decoded);
   }
 
+  /// 기존 제보를 수정할 때 대상 매장의 최신 메뉴와 가격을 가져옵니다.
+  /// 조회에 실패하면 null을 돌려주고, 이때는 서버가 저장 시 다시 검증합니다.
+  Future<Store?> fetchStore(String storeId) async {
+    final normalizedId = storeId.trim();
+    if (normalizedId.isEmpty) return null;
+    try {
+      final response = await _client
+          .get(
+            ApiClient.uri('/api/stores/${Uri.encodeComponent(normalizedId)}'),
+            headers: ApiClient.authHeaders(),
+          )
+          .timeout(ApiClient.defaultTimeout);
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map) return null;
+      final store = Store.fromJson(Map<String, dynamic>.from(decoded));
+      return store.id == normalizedId ? store : null;
+    } catch (error) {
+      debugPrint('제보 대상 매장 조회 실패: $error');
+      return null;
+    }
+  }
+
   Future<List<UserReportStatus>?> fetchMyReports() async {
     if (!ApiClient.isAuthenticated) {
       debugPrint('내 제보 목록 조회: 로그인 세션 없음');
@@ -234,10 +297,12 @@ class ReportService {
 
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (decoded is! List) return null;
-      return decoded
-          .whereType<Map<String, dynamic>>()
-          .map(UserReportStatus.fromJson)
-          .toList();
+      return sortReportsNewestFirst(
+        decoded
+            .whereType<Map<String, dynamic>>()
+            .map(UserReportStatus.fromJson)
+            .toList(),
+      );
     } catch (error) {
       debugPrint('내 제보 목록 조회 통신 에러: $error');
       return null;
@@ -307,4 +372,129 @@ class _ReportImageType {
 
   final String mimeType;
   final String extension;
+}
+
+/// 서버 응답 순서와 관계없이 내 제보를 최근 작성순으로 정렬합니다.
+/// 작성일을 읽을 수 없는 제보는 맨 뒤에 두고, 같은 시각이면 기존 순서를 지킵니다.
+List<UserReportStatus> sortReportsNewestFirst(List<UserReportStatus> reports) {
+  final entries = [
+    for (var index = 0; index < reports.length; index++)
+      (
+        index: index,
+        report: reports[index],
+        createdAt: DateTime.tryParse(reports[index].createdAt),
+      ),
+  ];
+  entries.sort((a, b) {
+    final aTime = a.createdAt;
+    final bTime = b.createdAt;
+    if (aTime == null || bTime == null) {
+      if (aTime == null && bTime == null) return a.index.compareTo(b.index);
+      return aTime == null ? 1 : -1;
+    }
+    final byTime = bTime.compareTo(aTime);
+    return byTime != 0 ? byTime : a.index.compareTo(b.index);
+  });
+  return [for (final entry in entries) entry.report];
+}
+
+/// 응답을 받지 못한 저장 요청이 서버의 내 제보 목록에 반영됐는지 찾습니다.
+///
+/// 수정은 같은 ID의 제보가 보낸 내용과 같은지로 판단합니다. 새 제보는 이번에
+/// 올린 사진 주소가 들어 있는 제보, 사진이 없으면 같은 매장·메뉴의 미승인
+/// 제보를 저장된 것으로 봅니다.
+UserReportStatus? matchSavedReport(
+  List<UserReportStatus> reports,
+  UserReport sent, {
+  String? reportId,
+}) {
+  final sentMenus = [
+    for (final (menu, price, free) in [
+      (sent.menu1, sent.price1, sent.free1),
+      (sent.menu2, sent.price2, sent.free2),
+      (sent.menu3, sent.price3, sent.free3),
+      (sent.menu4, sent.price4, sent.free4),
+    ])
+      if (menu.trim().isNotEmpty || price.trim().isNotEmpty)
+        (menu.trim(), price.trim(), free),
+  ];
+  bool sameContent(UserReportStatus report) {
+    final savedMenus = [
+      for (final item in report.menuPrices)
+        (item.menu.trim(), item.price.trim(), item.free),
+    ];
+    return report.store.trim() == sent.storeName.trim() &&
+        report.changeType == (sent.changeType ?? '') &&
+        listEquals(savedMenus, sentMenus) &&
+        sent.imageUrls.every(report.imageUrls.contains);
+  }
+
+  if (reportId != null) {
+    final report = reports.where((item) => item.id == reportId).firstOrNull;
+    if (report == null || !sameContent(report)) return null;
+    final description = sent.description.trim();
+    if (description.isNotEmpty && report.description.trim() != description) {
+      return null;
+    }
+    return report;
+  }
+  for (final report in reports) {
+    final matches = sent.imageUrls.isNotEmpty
+        ? sent.imageUrls.any(report.imageUrls.contains)
+        : !report.isApproved && sameContent(report);
+    if (matches) return report;
+  }
+  return null;
+}
+
+/// 한 작성 화면에서 올린 제보 사진을 기억합니다.
+///
+/// 저장 요청이 시간 초과로 끝나면 서버에는 이미 저장됐을 수 있으므로 사진을
+/// 지우지 않고, 다시 시도할 때 같은 사진 주소를 재사용합니다.
+class ReportUploadSession {
+  final Map<String, String> _uploadedUrlByPath = {};
+
+  /// 응답 없이 끝난 저장 요청이 있어 서버 반영 여부를 아직 모르는 상태입니다.
+  bool saveOutcomeUnknown = false;
+
+  /// 이미 등록된 사진 주소는 그대로 두고, 아직 올리지 않은 사진만 업로드합니다.
+  Future<List<String>> resolveImageUrls(
+    ReportService service,
+    List<XFile> photos, {
+    required bool uploadEnabled,
+  }) async {
+    final pending = [
+      for (final photo in photos)
+        if (!isRemoteReportImage(photo.path) &&
+            !_uploadedUrlByPath.containsKey(photo.path))
+          photo,
+    ];
+    if (uploadEnabled && pending.isNotEmpty) {
+      final urls = await service.uploadReportImages(pending);
+      for (var index = 0; index < pending.length; index++) {
+        _uploadedUrlByPath[pending[index].path] = urls[index];
+      }
+    }
+    return [
+      for (final photo in photos)
+        if (isRemoteReportImage(photo.path))
+          photo.path
+        else
+          ?_uploadedUrlByPath[photo.path],
+    ];
+  }
+
+  /// 서버가 저장을 거절했거나 저장 요청 전에 실패했을 때만 업로드한 사진을
+  /// 정리합니다. 저장 여부를 모르는 사진은 이미 제보에 쓰였을 수 있어 남겨둡니다.
+  Future<void> discardUnsaved(ReportService service) async {
+    if (saveOutcomeUnknown || _uploadedUrlByPath.isEmpty) return;
+    final urls = _uploadedUrlByPath.values.toList(growable: false);
+    _uploadedUrlByPath.clear();
+    await service.cleanupReportImages(urls);
+  }
+
+  void markSaved() {
+    _uploadedUrlByPath.clear();
+    saveOutcomeUnknown = false;
+  }
 }

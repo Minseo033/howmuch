@@ -6,7 +6,7 @@ import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'package:howmuch/features/home/home_map_viewport_policy.dart';
 import 'kakao_web_helper_stub.dart'
-    if (dart.library.js) 'kakao_web_helper.dart'
+    if (dart.library.js_interop) 'kakao_web_helper.dart'
     as web_helper;
 
 import 'package:flutter/material.dart';
@@ -41,6 +41,55 @@ bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
 bool isFreshHomeLocation(DateTime timestamp, DateTime now) {
   final age = now.toUtc().difference(timestamp.toUtc());
   return !age.isNegative && age <= maxHomeLocationCacheAge;
+}
+
+/// A marker tap from the native map WebView. [index] is the position in the
+/// rendered marker list, which can differ from the card list (search draws at
+/// most 100 markers inside the viewport), so callers resolve [storeId].
+typedef MobileMarkerClick = ({int index, String storeId});
+
+/// Parses CLICK payloads such as {"index":3,"storeId":"abc"}, or a bare index
+/// from an older page that has not been reloaded yet.
+MobileMarkerClick? parseMobileMarkerClick(String payload) {
+  final legacyIndex = int.tryParse(payload.trim());
+  if (legacyIndex != null) return (index: legacyIndex, storeId: '');
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is! Map) return null;
+    final index = decoded['index'];
+    if (index is! num || !index.isFinite || index != index.roundToDouble()) {
+      return null;
+    }
+    final storeId = decoded['storeId'];
+    return (index: index.toInt(), storeId: storeId is String ? storeId : '');
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Center and zoom level reported with native map bounds. A reloaded WebView
+/// (for example after iOS ends its content process) starts from here.
+typedef MobileMapViewport = ({double lat, double lng, int level});
+
+MobileMapViewport? parseMobileMapViewport(String raw) {
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    final lat = decoded['centerLat'];
+    final lng = decoded['centerLng'];
+    final level = decoded['level'];
+    if (lat is! num || lng is! num || level is! num) return null;
+    if (!lat.isFinite || !lng.isFinite || lat.abs() > 90 || lng.abs() > 180) {
+      return null;
+    }
+    return (
+      lat: lat.toDouble(),
+      lng: lng.toDouble(),
+      level: level.toInt().clamp(1, 14),
+    );
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Kakao WebView bounds can briefly be null or out of range while the map is
@@ -157,6 +206,7 @@ class HomeMapScreen extends StatefulWidget {
     this.showAiSpotlight = false,
     this.initialRecommendation,
     this.initialSearchResult,
+    this.storeLoader,
   });
 
   // `globalAllStores` is the current map/viewport result. It must not be used
@@ -183,6 +233,9 @@ class HomeMapScreen extends StatefulWidget {
   final bool showAiSpotlight;
   final AiMapRecommendationResult? initialRecommendation;
   final Map<String, dynamic>? initialSearchResult;
+
+  /// Loads stores for a map viewport. Defaults to the bounds endpoint.
+  final HomeMapStoreLoader? storeLoader;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -249,6 +302,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   AiMapRecommendationResult? _activeAiRecommendation;
   AiMapRecommendationResult? _pendingAiResult;
   Map<String, dynamic>? _pendingSearchResult;
+  // Native map bookkeeping.
+  MobileMapViewport? _lastMobileViewport;
+  Timer? _markerTapGuard;
+  double? _lastSentHeading;
+  double? _pendingHeading;
+  Timer? _headingThrottle;
+  // Location tracking runs only while this route is visible in the foreground.
+  bool _routeIsCurrent = true;
+  bool _appInForeground = true;
+  bool _trackingSuspended = false;
+  bool _awaitingLocationSettingsReturn = false;
+  // Non-blocking map notices are shown once per streak.
+  bool _boundsFailureNoticeShown = false;
+  bool _truncationNoticeShown = false;
+  // The viewport whose stores are loading right now.
+  String? _inFlightBoundsKey;
+  int? _inFlightBoundsGeneration;
 
   Future<void> _openAiRecommend() async {
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);
@@ -292,11 +362,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     _invalidatePendingMapRequest();
-    if (kIsWeb) web_helper.setKakaoMapSearchModeWeb(_viewId, false);
+    _setMapSearchMode(false);
 
     setState(() {
       _isAiRecommendationActive = true;
+      // The AI result replaces any search. Its query and filters no longer
+      // describe the cards and must not filter the map once AI is cleared.
+      _searchQuery = '';
+      _searchFilter = const SearchFilter();
       _searchResultStores = null;
+      _searchViewportCount = 0;
       _activeAiRecommendation = result;
       _aiRecommendedStores = matchingStores;
       _currentStores = matchingStores;
@@ -305,43 +380,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     });
     _resetStoreCarouselToFirst();
 
-    final first = matchingStores.first;
-    if (kIsWeb) {
-      web_helper.setKakaoMapCenterFromSwipeWeb(
-        _viewId,
-        first.latitude,
-        first.longitude,
-      );
-    } else if (_webViewController != null) {
-      _safeRunJavaScript(
-        'setMapCenterFromSwipe(${first.latitude}, ${first.longitude}); highlightMarker(0);',
-      );
-    }
-
-    final markerList = matchingStores
-        .map((store) => _storeMarker(store, result.selectionFor(store)))
-        .toList();
-
-    if (kIsWeb) {
-      _renderedMarkerStoreIds = markerList
-          .map((marker) => marker['storeId'] as String)
-          .toList();
-      web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
-      _lastRenderedMarkerSignature = _markerListSignature(markerList);
-    } else if (_webViewController != null) {
-      final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-      _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
-    }
+    _renderMarkers(
+      matchingStores
+          .map((store) => _storeMarker(store, result.selectionFor(store)))
+          .toList(),
+    );
+    // The AI screen is still covering home when its result arrives. The web
+    // bridge keeps this move until the map is visible again (P1-19).
+    _panMapTo(matchingStores.first);
   }
 
   void _clearAiRecommendation() {
+    _invalidatePendingMapRequest();
+    _lastRenderedMarkerSignature = '';
     setState(() {
       _isAiRecommendationActive = false;
       _activeAiRecommendation = null;
       _aiRecommendedStores = [];
+      // The next viewport response replaces the AI cards and markers.
+      _currentStores = const [];
       _showStoreSummary = false;
       _selectedStore = null;
     });
+    _resetStoreCarouselToFirst();
+    _setMapSearchMode(false);
     _searchInCurrentArea();
   }
 
@@ -395,6 +457,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         'query': _searchQuery,
         'openFilter': openFilter,
         'filter': _searchFilter,
+        // Search pops its result back to this map instead of opening a new one.
+        'returnToMap': true,
       },
     );
 
@@ -428,9 +492,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _showStoreSummary = false;
     });
     _invalidatePendingMapRequest();
-    if (kIsWeb) {
-      web_helper.setKakaoMapSearchModeWeb(_viewId, _searchResultStores != null);
-    }
+    _setMapSearchMode(_searchResultStores != null);
     _resetStoreCarouselToFirst();
     final validStores =
         _searchResultStores
@@ -461,7 +523,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (_searchResultStores == null) return;
     if (_searchQuery.isEmpty && _searchFilter.activeLabels.isEmpty) {
       _searchResultStores = null;
-      if (kIsWeb) web_helper.setKakaoMapSearchModeWeb(_viewId, false);
+      _setMapSearchMode(false);
       return;
     }
     final distanceLimit = switch (_searchFilter.distance) {
@@ -556,6 +618,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
     if (_isCenteringLocation ||
         DateTime.now().millisecondsSinceEpoch < _suppressMarkerClicksUntil) {
+      // The map raised the tapped marker before asking. Put the highlight
+      // back on the store that is actually selected.
+      _restoreMarkerHighlight();
       return;
     }
     if (index == -1) {
@@ -577,58 +642,126 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           _isAiRecommendationActive ||
           _searchQuery.trim().isNotEmpty ||
           _searchFilter.activeLabels.isNotEmpty;
+      final currentPage = _pageController.hasClients
+          ? _pageController.page?.round()
+          : null;
       if (hasStoreCarousel &&
           _pageController.hasClients &&
-          _pageController.page?.round() != index) {
-        unawaited(
-          _pageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-          ),
-        );
+          currentPage != index) {
+        if (currentPage == null || (index - currentPage).abs() > 1) {
+          // Animating across several cards reports every card in between,
+          // and each report would pan the map to that store.
+          _pageController.jumpToPage(index);
+        } else {
+          unawaited(
+            _pageController.animateToPage(
+              index,
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOutCubic,
+            ),
+          );
+        }
       }
+    } else {
+      _restoreMarkerHighlight();
     }
   }
 
-  void _onWebMarkerClicked(int index, String storeId) {
+  /// Resolves a tapped marker to its card. Markers can be a subset of the
+  /// cards (search draws at most 100 inside the viewport), so the store ID,
+  /// not the marker position, identifies the store.
+  void _onRenderedMarkerClicked(int markerIndex, String storeId) {
     if (!mounted) return;
-    if (index < 0) {
+    if (markerIndex < 0) {
       _onMarkerClicked(-1);
       return;
     }
-    final currentIndex = _currentStores.indexWhere(
-      (store) => _mapStoreKey(store) == storeId,
+    var key = storeId;
+    if (key.isEmpty && markerIndex < _renderedMarkerStoreIds.length) {
+      key = _renderedMarkerStoreIds[markerIndex];
+    }
+    final storeIndex = key.isEmpty
+        ? -1
+        : _currentStores.indexWhere((store) => _mapStoreKey(store) == key);
+    if (storeIndex < 0) {
+      _restoreMarkerHighlight();
+      return;
+    }
+    _onMarkerClicked(storeIndex);
+  }
+
+  /// Card index to the index in the marker list last sent to the map, or -1.
+  int _renderedMarkerIndexOf(int storeIndex) {
+    if (storeIndex < 0 || storeIndex >= _currentStores.length) return -1;
+    return _renderedMarkerStoreIds.indexOf(
+      _mapStoreKey(_currentStores[storeIndex]),
     );
-    if (currentIndex >= 0) _onMarkerClicked(currentIndex);
   }
 
   void _highlightMapMarker(int index) {
+    final markerIndex = _renderedMarkerIndexOf(index);
     if (kIsWeb) {
-      final markerIndex = index >= 0 && index < _currentStores.length
-          ? _renderedMarkerStoreIds.indexOf(_mapStoreKey(_currentStores[index]))
-          : -1;
       web_helper.highlightKakaoMapMarkerWeb(_viewId, markerIndex);
-    } else if (_webViewController != null) {
-      _safeRunJavaScript('highlightMarker($index);');
+    } else {
+      _safeRunJavaScript('highlightMarker($markerIndex);');
     }
   }
 
-  void _centerMapOnStore(Store store, int index) {
+  void _restoreMarkerHighlight() {
+    final selected = _selectedStore;
+    final selectedKey = selected == null ? null : _mapStoreKey(selected);
+    _highlightMapMarker(
+      selectedKey == null
+          ? -1
+          : _currentStores.indexWhere(
+              (store) => _mapStoreKey(store) == selectedKey,
+            ),
+    );
+  }
+
+  void _renderMarkers(List<Map<String, dynamic>> markerList) {
+    _renderedMarkerStoreIds = markerList
+        .map((marker) => marker['storeId'] as String)
+        .toList(growable: false);
+    _lastRenderedMarkerSignature = _markerListSignature(markerList);
+    final markersJson = jsonEncode(markerList);
+    if (kIsWeb) {
+      web_helper.addMobileMarkersWeb(_viewId, markersJson);
+    } else {
+      _safeRunJavaScript('addMobileMarkers(${jsonEncode(markersJson)});');
+    }
+  }
+
+  /// Search results may span the country (zoom limit 14); the normal map
+  /// stays inside the bounds endpoint's span (10).
+  void _setMapSearchMode(bool enabled) {
+    if (kIsWeb) {
+      web_helper.setKakaoMapSearchModeWeb(_viewId, enabled);
+    } else {
+      _safeRunJavaScript('setSearchMode($enabled);');
+    }
+  }
+
+  void _panMapTo(Store store) {
     if (!store.hasValidCoordinates) return;
-    _viewportPolicy.invalidate();
     if (kIsWeb) {
       web_helper.setKakaoMapCenterFromSwipeWeb(
         _viewId,
         store.latitude,
         store.longitude,
       );
-      _highlightMapMarker(index);
-    } else if (_webViewController != null) {
+    } else {
       _safeRunJavaScript(
-        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude}); highlightMarker($index);',
+        'setMapCenterFromSwipe(${store.latitude}, ${store.longitude});',
       );
     }
+  }
+
+  void _centerMapOnStore(Store store, int index) {
+    if (!store.hasValidCoordinates) return;
+    _viewportPolicy.invalidate();
+    _panMapTo(store);
+    _highlightMapMarker(index);
   }
 
   void _onStorePageChanged(int index) {
@@ -670,7 +803,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _viewId,
         _onWebMapIdle,
         _invalidatePendingMapRequest,
-        _onWebMarkerClicked,
+        _onRenderedMarkerClicked,
         _onMapReady,
         _onMapError,
       );
@@ -703,14 +836,64 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _positionStream?.resume();
-      _compassStream?.resume();
+      _appInForeground = true;
+      _syncLocationTracking();
       _relayoutMobileMap();
-      _prepareInitialLocation();
+      if (_awaitingLocationSettingsReturn) {
+        // Coming back from location settings is a request to use them now,
+        // including moving the map to the newly available position.
+        _awaitingLocationSettingsReturn = false;
+        unawaited(_moveToCurrentLocation());
+      } else {
+        _prepareInitialLocation();
+      }
     } else if (state == AppLifecycleState.paused) {
-      _positionStream?.pause();
-      _compassStream?.pause();
+      _appInForeground = false;
+      _syncLocationTracking();
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // A pushed screen covers this map; it does not need GPS fixes or compass
+    // headings drawn while hidden.
+    final routeIsCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    if (routeIsCurrent != _routeIsCurrent) {
+      _routeIsCurrent = routeIsCurrent;
+      _syncLocationTracking();
+    }
+  }
+
+  void _syncLocationTracking() {
+    final active = _routeIsCurrent && _appInForeground;
+    if (kIsWeb) {
+      // Restarting a browser location watch can ask for permission again
+      // (Safari "Ask"). Keep the watch and ignore updates while hidden.
+      final subscription = _positionStream;
+      if (subscription == null) return;
+      if (active && subscription.isPaused) {
+        subscription.resume();
+      } else if (!active && !subscription.isPaused) {
+        subscription.pause();
+      }
+      return;
+    }
+    if (active) {
+      if (_trackingSuspended) {
+        _trackingSuspended = false;
+        _startLocationTracking();
+      }
+      return;
+    }
+    // Cancel rather than pause: a paused listener keeps the platform's GPS
+    // and compass running. Both start again when the map is visible.
+    if (_positionStream == null && _compassStream == null) return;
+    _positionStream?.cancel();
+    _compassStream?.cancel();
+    _positionStream = null;
+    _compassStream = null;
+    _trackingSuspended = true;
   }
 
   @override
@@ -721,6 +904,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _pageController.dispose();
     _boundsDebouncer?.cancel();
     _webBoundsRetryTimer?.cancel();
+    _markerTapGuard?.cancel();
+    _headingThrottle?.cancel();
     if (kIsWeb) {
       web_helper.disposeKakaoWebMap(_viewId);
     }
@@ -731,44 +916,97 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
+      ..setNavigationDelegate(
+        NavigationDelegate(onWebResourceError: _onMobileMapResourceError),
+      )
       ..addJavaScriptChannel(
         'Print',
-        onMessageReceived: (JavaScriptMessage message) {
-          debugPrint('WebView: ${message.message}');
-          if (message.message == 'Map Initialized on Mobile') {
-            _onMapReady();
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _relayoutMobileMap();
-            });
-          }
-          if (message.message.startsWith('MAP_ERROR:')) {
-            _onMapError(message.message.substring('MAP_ERROR:'.length));
-          }
-          if (message.message.startsWith('BOUNDS:')) {
-            _boundsDebouncer?.cancel();
-            _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
-              if (mounted) {
-                _fetchAndAddMarkersForMobile(message.message.substring(7));
-              }
-            });
-          }
-          if (message.message == 'MOVE_START') {
-            _invalidatePendingMapRequest();
-          }
-          if (message.message.startsWith('CLICK:')) {
-            final indexStr = message.message.substring(6);
-            final index = int.tryParse(indexStr);
-            if (index != null) _onMarkerClicked(index);
-          }
-          if (message.message == 'MAP_CLICK') {
-            _hideStore();
-          }
-        },
+        onMessageReceived: (JavaScriptMessage message) =>
+            _onMobileMapMessage(message.message),
       )
       ..loadHtmlString(_getMobileMapHtml(), baseUrl: kakaoMapAuthorizedOrigin);
   }
 
-  String _getMobileMapHtml() {
+  void _onMobileMapMessage(String message) {
+    if (!mounted) return;
+    if (message == 'Map Initialized on Mobile') {
+      _onMapReady();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _relayoutMobileMap();
+      });
+    } else if (message.startsWith('MAP_ERROR:')) {
+      _onMapError(message.substring('MAP_ERROR:'.length));
+    } else if (message.startsWith('BOUNDS:')) {
+      final boundsJson = message.substring('BOUNDS:'.length);
+      _lastMobileViewport =
+          parseMobileMapViewport(boundsJson) ?? _lastMobileViewport;
+      _boundsDebouncer?.cancel();
+      _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) unawaited(_fetchAndAddLatestMarkers(boundsJson));
+      });
+    } else if (message == 'MOVE_START') {
+      _invalidatePendingMapRequest();
+    } else if (message.startsWith('CLICK:')) {
+      final click = parseMobileMarkerClick(message.substring('CLICK:'.length));
+      if (click == null) return;
+      _markerTapGuard?.cancel();
+      _markerTapGuard = Timer(const Duration(milliseconds: 400), () {
+        _markerTapGuard = null;
+      });
+      _onRenderedMarkerClicked(click.index, click.storeId);
+    } else if (message == 'MAP_CLICK') {
+      // A marker tap can also reach the map as a background tap. It must not
+      // close the card that the marker has just opened.
+      final guard = _markerTapGuard;
+      if (guard != null && guard.isActive) {
+        guard.cancel();
+        _markerTapGuard = null;
+        return;
+      }
+      _hideStore();
+    } else {
+      debugPrint('WebView: $message');
+    }
+  }
+
+  void _onMobileMapResourceError(WebResourceError error) {
+    // iOS can end the WebView content process under memory pressure, which
+    // leaves a blank map. Reload the page at the last viewport.
+    if (error.errorType != WebResourceErrorType.webContentProcessTerminated) {
+      return;
+    }
+    _reloadMobileMap();
+  }
+
+  void _reloadMobileMap() {
+    final controller = _webViewController;
+    if (!mounted || kIsWeb || controller == null) return;
+    _isMapReady = false;
+    _lastRenderedMarkerSignature = '';
+    _renderedMarkerStoreIds = const [];
+    final viewport = _lastMobileViewport;
+    final html = viewport == null
+        ? _getMobileMapHtml()
+        : _getMobileMapHtml(
+            initialLat: viewport.lat,
+            initialLng: viewport.lng,
+            initialLevel: viewport.level,
+          );
+    unawaited(
+      controller
+          .loadHtmlString(html, baseUrl: kakaoMapAuthorizedOrigin)
+          .onError(
+            (Object error, StackTrace stackTrace) =>
+                debugPrint('지도 다시 불러오기 실패: $error'),
+          ),
+    );
+  }
+
+  String _getMobileMapHtml({
+    double initialLat = 37.5665,
+    double initialLng = 126.9780,
+    int initialLevel = 3,
+  }) {
     return '''
     <!DOCTYPE html>
     <html>
@@ -778,6 +1016,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; }
         #kakao-map-container { width: 100%; height: 100%; }
+        .kakao-map-marker:focus-visible {
+          outline: 3px solid #0F172A;
+          outline-offset: 3px;
+        }
         .my-location-wrapper {
           width: 40px;
           height: 40px;
@@ -807,15 +1049,38 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           z-index: 1;
         }
       </style>
+      <script>
+        // Defined before the SDK tag so its onerror handler can always report.
+        function reportMapError(message) {
+          if (window.Print && typeof Print.postMessage === 'function') {
+            Print.postMessage('MAP_ERROR:' + message);
+          }
+        }
+      </script>
       <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer" onerror="reportMapError('카카오맵 SDK를 불러오지 못했어요.')"></script>
     </head>
     <body>
-      <div id="kakao-map-container"></div>
+      <div id="kakao-map-container" aria-label="매장 지도"></div>
       <script>
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
         var ignoreBoundsUntil = 0;
+        // Search results are filtered locally and may span the country. The
+        // normal map stays within the bounds endpoint's 10-degree span.
+        var searchMode = false;
+
+        function maxMapLevel() {
+          return searchMode ? 14 : 10;
+        }
+
+        function setSearchMode(enabled) {
+          searchMode = enabled === true;
+          if (!map) return;
+          map.setMaxLevel(maxMapLevel());
+          // Leaving a zoomed-out search: return inside the supported span.
+          if (map.getLevel() > maxMapLevel()) map.setLevel(maxMapLevel());
+        }
 
         function relayoutMap() {
           if (!map) return;
@@ -826,9 +1091,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         var mapInitAttempts = 0;
-        function reportMapError(message) {
-          Print.postMessage('MAP_ERROR:' + message);
-        }
 
         function initializeMap() {
           if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -842,11 +1104,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           try {
           var container = document.getElementById('kakao-map-container');
-          var options = { center: new kakao.maps.LatLng(37.5665, 126.9780), level: 3 };
+          var options = { center: new kakao.maps.LatLng($initialLat, $initialLng), level: $initialLevel };
           map = new kakao.maps.Map(container, options);
-          // Match the backend's maximum supported geographic query span.
-          map.setMaxLevel(10);
-          
+          map.setMaxLevel(maxMapLevel());
+
           kakao.maps.event.addListener(map, 'idle', function() {
             if (Date.now() < ignoreBoundsUntil) {
               return;
@@ -887,9 +1148,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var markerDataCache = [];
         var selectedMarkerIndex = -1;
 
+        // Flutter resolves the store by its ID: markers can be a subset of the
+        // cards, so the marker position alone is not a card position.
         function onMarkerClick(index) {
+          var item = markerDataCache[index] || {};
           highlightMarker(index);
-          Print.postMessage('CLICK:' + index);
+          Print.postMessage('CLICK:' + JSON.stringify({
+            index: index,
+            storeId: String(item.storeId || '')
+          }));
         }
 
         function addMobileMarkers(markerListJson) {
@@ -898,7 +1165,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           selectedMarkerIndex = markerData.findIndex(function(item) {
             return item.selected === true;
           });
-          
+
           for (var i = 0; i < customOverlays.length; i++) {
             customOverlays[i].setMap(null);
           }
@@ -913,6 +1180,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
 
               var bubble = document.createElement('div');
+              bubble.className = 'kakao-map-marker';
+              bubble.setAttribute('role', 'button');
+              bubble.setAttribute('tabindex', '0');
+              bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
+              bubble.setAttribute('aria-pressed', 'false');
               var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
               bubble.style.cssText = [
                 'cursor:pointer',
@@ -954,7 +1226,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
               bubble.appendChild(nameEl);
               bubble.appendChild(priceEl);
-              bubble.onclick = function() { onMarkerClick(idx); };
+              bubble.onclick = function(event) {
+                // A marker tap must not also reach the map as a background tap.
+                if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+                onMarkerClick(idx);
+              };
+              bubble.onkeydown = function(event) {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  bubble.onclick(event);
+                }
+              };
               wrapper.appendChild(bubble);
               wrapper.appendChild(tail);
 
@@ -982,6 +1264,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
             var isSelected = i === selectedMarkerIndex;
             var baseColor = markerDataCache[i].source === 'USER' ? '#F97316' : '#2563EB';
+            bubble.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             if (isSelected) {
               bubble.style.background = '#C2410C'; // Selected
               tail.style.borderTopColor = '#C2410C';
@@ -1019,21 +1302,35 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
         }
 
-        function zoomMap(delta) {
-          if (map) map.setLevel(Math.max(1, Math.min(10, map.getLevel() + delta)));
+        // Search fits keep the top search bar and the bottom cards clear.
+        // Short screens scale that padding down so it never exceeds the map.
+        function fitPadding() {
+          var container = document.getElementById('kakao-map-container');
+          var width = container && container.offsetWidth > 0 ? container.offsetWidth : 360;
+          var height = container && container.offsetHeight > 0 ? container.offsetHeight : 640;
+          var verticalScale = Math.min(1, (height * 0.7) / 410);
+          var sideScale = Math.min(1, (width * 0.5) / 80);
+          return [
+            Math.round(150 * verticalScale),
+            Math.round(40 * sideScale),
+            Math.round(260 * verticalScale),
+            Math.round(40 * sideScale)
+          ];
         }
 
         function fitMapStores(coordinatesJson) {
           if (!map) return;
           var points = JSON.parse(coordinatesJson);
           if (!points.length) return;
+          map.setMaxLevel(maxMapLevel());
           if (points.length === 1) {
             map.setCenter(new kakao.maps.LatLng(points[0].lat, points[0].lng));
             map.setLevel(4);
           } else {
             var bounds = new kakao.maps.LatLngBounds();
             points.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
-            map.setBounds(bounds, 150, 40, 260, 40);
+            var padding = fitPadding();
+            map.setBounds(bounds, padding[0], padding[1], padding[2], padding[3]);
           }
           requestBounds();
         }
@@ -1047,16 +1344,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           if (!userLocationOverlay) {
             userLocationWrapper = document.createElement('div');
             userLocationWrapper.className = 'my-location-wrapper';
-            
+
             var dot = document.createElement('div');
             dot.className = 'my-location-dot';
-            
+
             var direction = document.createElement('div');
             direction.className = 'my-location-direction';
-            
+
             userLocationWrapper.appendChild(direction);
             userLocationWrapper.appendChild(dot);
-            
+
             userLocationOverlay = new kakao.maps.CustomOverlay({
               position: position,
               content: userLocationWrapper,
@@ -1082,13 +1379,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           var values = [sw.getLat(), ne.getLat(), sw.getLng(), ne.getLng()];
           if (!values.every(Number.isFinite) ||
               values[0] < -90 || values[1] > 90 || values[0] >= values[1] ||
-              values[2] < -180 || values[3] > 180 || values[2] >= values[3] ||
-              values[1] - values[0] > 10 || values[3] - values[2] > 10) {
+              values[2] < -180 || values[3] > 180 || values[2] >= values[3]) {
             return;
           }
+          // Outside search, the backend accepts at most a 10-degree span.
+          if (!searchMode && (values[1] - values[0] > 10 || values[3] - values[2] > 10)) {
+            return;
+          }
+          var center = map.getCenter();
           var boundsData = JSON.stringify({
             minLat: values[0], maxLat: values[1],
-            minLng: values[2], maxLng: values[3]
+            minLng: values[2], maxLng: values[3],
+            centerLat: center.getLat(), centerLng: center.getLng(),
+            level: map.getLevel()
           });
           Print.postMessage('BOUNDS:' + boundsData);
         }
@@ -1242,6 +1545,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (permission == LocationPermission.denied) {
         if (!requestPermission) return;
         permission = await Geolocator.requestPermission();
+        // The permission dialog can outlive this screen.
+        if (!mounted) return;
         if (permission == LocationPermission.denied) {
           if (mounted) {
             _showLocationNotice(
@@ -1273,21 +1578,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _startLocationTracking();
 
       // 이미 확보한 좌표나 OS 캐시를 먼저 사용해 지도 이동을 즉시 반응시킵니다.
-      Position? position = _lastKnownPosition;
-      if (position == null) {
+      Position? lastKnown = _lastKnownPosition;
+      if (lastKnown == null) {
         try {
-          position = await Geolocator.getLastKnownPosition();
+          lastKnown = await Geolocator.getLastKnownPosition();
         } catch (_) {
           debugPrint('마지막 위치 조회 실패');
         }
       }
 
-      if (position != null &&
-          isFreshHomeLocation(position.timestamp, DateTime.now())) {
-        _storeUserPosition(position);
+      if (lastKnown != null &&
+          isFreshHomeLocation(lastKnown.timestamp, DateTime.now())) {
+        _storeUserPosition(lastKnown);
         if (viewportGeneration != null &&
             _viewportPolicy.canApply(viewportGeneration)) {
-          _centerMapOnPosition(position, generation: viewportGeneration);
+          _centerMapOnPosition(lastKnown, generation: viewportGeneration);
         }
         _refreshCurrentPositionInBackground(
           centerGeneration: viewportGeneration,
@@ -1295,19 +1600,23 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         return;
       }
 
-      position = await _getFreshPosition();
+      // Indoors a fresh fix can time out. An older fix still centers the map
+      // near the user, and the tracking stream corrects it once GPS recovers.
+      final position = await _getFreshPosition() ?? lastKnown;
+      if (!mounted) return;
       if (position == null) {
-        if (mounted && showFailureNotice) {
+        if (showFailureNotice) {
           _showLocationNotice(
-            const _LocationNoticeData(
+            _LocationNoticeData(
               title: '현재 위치를 찾지 못했어요',
               message: '잠시 후 다시 시도하거나\n네트워크 상태를 확인해주세요.',
+              primaryLabel: '다시 시도',
+              onPrimaryPressed: _retryLocationPermission,
             ),
           );
         }
         return;
       }
-      if (!mounted) return;
       _storeUserPosition(position);
       if (viewportGeneration != null &&
           _viewportPolicy.canApply(viewportGeneration)) {
@@ -1394,7 +1703,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final opened = await openLocationSettingsForStatus(
       serviceDisabled: serviceDisabled,
     );
-    if (!opened && mounted) {
+    if (opened) {
+      // Center on the user once they come back with location available.
+      _awaitingLocationSettingsReturn = true;
+      return;
+    }
+    if (mounted) {
       _showLocationNotice(
         const _LocationNoticeData(
           title: '설정을 열지 못했어요',
@@ -1460,6 +1774,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _mapErrorMessage = null;
       });
     }
+    // A reloaded native page starts in normal mode; restore the current mode.
+    _setMapSearchMode(_searchResultStores != null);
     _flushPendingMapPosition();
     final pendingSearch = _pendingSearchResult;
     if (pendingSearch != null) {
@@ -1498,7 +1814,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (kIsWeb) {
       web_helper.recoverKakaoWebMap(_viewId);
     } else {
-      _initMobileController();
+      _reloadMobileMap();
     }
   }
 
@@ -1560,8 +1876,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _updateUserHeading(double heading) {
-    if (kIsWeb) return; // 웹에서는 나침반 제외
-    _safeRunJavaScript('updateUserHeading($heading);');
+    if (kIsWeb || !_isMapReady || !heading.isFinite) return; // 웹에서는 나침반 제외
+    // Compass events arrive many times per second. Redraw at most ten times a
+    // second, and only for a visible change.
+    if (_headingThrottle?.isActive ?? false) {
+      _pendingHeading = heading;
+      return;
+    }
+    _sendUserHeading(heading);
+  }
+
+  void _sendUserHeading(double heading) {
+    final previous = _lastSentHeading;
+    if (previous != null &&
+        (((heading - previous + 540) % 360) - 180).abs() < 3) {
+      return;
+    }
+    _lastSentHeading = heading;
+    _safeRunJavaScript('updateUserHeading(${heading.toStringAsFixed(1)});');
+    _headingThrottle = Timer(const Duration(milliseconds: 100), () {
+      final pending = _pendingHeading;
+      _pendingHeading = null;
+      if (pending != null && mounted && _isMapReady) _sendUserHeading(pending);
+    });
   }
 
   void _updateLocationMarker(double lat, double lng) {
@@ -1573,8 +1910,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _safeRunJavaScript(String script) {
+    final controller = _webViewController;
+    if (controller == null) return;
     try {
-      _webViewController?.runJavaScript(script);
+      // Page errors are reported asynchronously, after this call returns.
+      unawaited(
+        controller
+            .runJavaScript(script)
+            .onError(
+              (Object error, StackTrace stackTrace) =>
+                  debugPrint('WebView JS 실행 에러 (무시됨): $error'),
+            ),
+      );
     } catch (e) {
       debugPrint('WebView JS 실행 에러 (무시됨): $e');
     }
@@ -1589,9 +1936,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _startLocationTracking() {
-    if (_positionStream != null) return;
-
-    _positionStream =
+    // Permission prompts and position lookups can finish after this screen is
+    // disposed. A stream started then would never be cancelled.
+    if (!mounted) return;
+    _positionStream ??=
         Geolocator.getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.best,
@@ -1606,13 +1954,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           cancelOnError: true,
         );
 
-    if (!kIsWeb) {
-      _compassStream = FlutterCompass.events?.listen((CompassEvent event) {
-        if (event.heading != null) {
-          _updateUserHeading(event.heading!);
-        }
-      });
+    // Keep a single compass subscription even when the position stream ends
+    // with an error and is started again.
+    if (!kIsWeb && _compassStream == null) {
+      _compassStream = FlutterCompass.events?.listen(
+        (CompassEvent event) {
+          final heading = event.heading;
+          if (heading != null) _updateUserHeading(heading);
+        },
+        onError: (Object error) {
+          debugPrint('나침반 종료: $error');
+          _compassStream = null;
+        },
+        cancelOnError: true,
+      );
     }
+    _syncLocationTracking();
   }
 
   Future<void> _searchInCurrentArea() async {
@@ -1625,21 +1982,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         _webBoundsRetryTimer?.cancel();
         _webBoundsRetryCount = 0;
-        await _fetchAndAddMarkersWeb(boundsJson);
+        await _fetchAndAddLatestMarkers(boundsJson);
       } catch (e) {
         debugPrint('웹 범위 검색 에러: $e');
       }
     } else {
       _safeRunJavaScript('requestBounds();');
     }
-  }
-
-  Future<void> _fetchAndAddMarkersForMobile(String boundsJson) async {
-    await _fetchAndAddLatestMarkers(boundsJson);
-  }
-
-  Future<void> _fetchAndAddMarkersWeb(String boundsJson) async {
-    await _fetchAndAddLatestMarkers(boundsJson);
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
@@ -1655,6 +2004,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _pendingBoundsJson = null;
       return;
     }
+    // Start-up and "my location" ask for the same viewport several times.
+    // When that viewport is already loading for the current map state, let
+    // the response finish instead of discarding it and requesting it again.
+    final boundsKey = _homeMapBoundsKey(parsedBounds);
+    if (_isFetching &&
+        _pendingBoundsJson == null &&
+        _inFlightBoundsKey == boundsKey &&
+        _inFlightBoundsGeneration == _boundsRequestGeneration) {
+      return;
+    }
     _boundsRequestGeneration++;
     _pendingBoundsJson = boundsJson;
     if (_isFetching) return;
@@ -1664,30 +2023,32 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         final requestGeneration = _boundsRequestGeneration;
         final bounds = parseKakaoMapBounds(_pendingBoundsJson!)!;
         _pendingBoundsJson = null;
+        _inFlightBoundsKey = _homeMapBoundsKey(bounds);
+        _inFlightBoundsGeneration = requestGeneration;
         final markerList = await _fetchStoresFromBackend(
           bounds,
           isCurrent: () => requestGeneration == _boundsRequestGeneration,
         );
         if (!mounted) return;
         if (requestGeneration != _boundsRequestGeneration) continue;
-        final markerSignature = _markerListSignature(markerList);
-        if (markerSignature == _lastRenderedMarkerSignature) continue;
-        if (kIsWeb) {
-          _renderedMarkerStoreIds = markerList
-              .map((marker) => marker['storeId'] as String)
-              .toList();
-          web_helper.addMobileMarkersWeb(_viewId, jsonEncode(markerList));
-          _lastRenderedMarkerSignature = markerSignature;
-        } else if (_webViewController != null) {
-          final jsStringLiteral = jsonEncode(jsonEncode(markerList));
-          _safeRunJavaScript('addMobileMarkers($jsStringLiteral);');
-          _lastRenderedMarkerSignature = markerSignature;
+        if (_markerListSignature(markerList) == _lastRenderedMarkerSignature) {
+          continue;
         }
+        _renderMarkers(markerList);
       }
     } finally {
       _isFetching = false;
+      _inFlightBoundsKey = null;
+      _inFlightBoundsGeneration = null;
     }
   }
+
+  String _homeMapBoundsKey(Map<String, double> bounds) => [
+    bounds['minLat']!,
+    bounds['maxLat']!,
+    bounds['minLng']!,
+    bounds['maxLng']!,
+  ].map((value) => value.toStringAsFixed(5)).join(':');
 
   Future<List<Map<String, dynamic>>> _fetchStoresFromBackend(
     Map<String, double> bounds, {
@@ -1736,7 +2097,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
 
     try {
-      final loadResult = await loadHomeMapStoresWithStatus(
+      final HomeMapStoreLoader loadStores =
+          widget.storeLoader ?? loadHomeMapStoresWithStatus;
+      final loadResult = await loadStores(
         bounds: bounds,
         cachedStores: _allStores,
       );
@@ -1762,6 +2125,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (loadResult.hasFreshResponse) {
         unawaited(_cacheHomeMapStores(fetchedStores));
       }
+      _reportBoundsLoadOutcome(loadResult);
 
       var stores = fetchedStores
           .where(
@@ -1882,6 +2246,50 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } catch (error) {
       debugPrint('지도 매장 캐시 저장 실패: $error');
     }
+  }
+
+  /// Non-blocking feedback for viewport loads, once per streak. A load with
+  /// no stores at all keeps the full-screen retry state instead.
+  void _reportBoundsLoadOutcome(HomeMapStoreLoadResult result) {
+    if (!mounted) return;
+    if (result.hasFreshResponse) {
+      _boundsFailureNoticeShown = false;
+      if (!result.truncated) {
+        _truncationNoticeShown = false;
+        return;
+      }
+      if (_truncationNoticeShown) return;
+      _truncationNoticeShown = true;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        HowmuchSnackBar(
+          content: const Text('지도를 확대하면 매장이 더 보여요.'),
+          aboveNavigation: true,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+    if (result.stores.isEmpty || _boundsFailureNoticeShown) return;
+    _boundsFailureNoticeShown = true;
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      HowmuchSnackBar.warning(
+        title: '새 매장 정보를 불러오지 못했어요',
+        aboveNavigation: true,
+        content: _MapNoticeMessage(
+          message: '저장된 매장으로 보여드리고 있어요.',
+          actionLabel: '다시 시도',
+          onAction: _retryBoundsLoad,
+        ),
+      ),
+    );
+  }
+
+  void _retryBoundsLoad() {
+    if (!mounted) return;
+    ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+    _boundsFailureNoticeShown = false;
+    _lastRenderedMarkerSignature = '';
+    _searchInCurrentArea();
   }
 
   double? _distanceFromUser(Store store) {
@@ -2477,9 +2885,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ],
           if (_locationNotice != null)
             Positioned.fill(
-              child: _LocationPermissionModal(
-                notice: _locationNotice!,
-                onClose: _hideLocationNotice,
+              // Screen readers must not reach the map controls behind it.
+              child: BlockSemantics(
+                child: _LocationPermissionModal(
+                  notice: _locationNotice!,
+                  onClose: _hideLocationNotice,
+                ),
               ),
             ),
         ],
@@ -3184,38 +3595,71 @@ class _StorePrice extends StatelessWidget {
   }
 }
 
-class _DetailButton extends StatelessWidget {
+class _DetailButton extends StatefulWidget {
   final Store store;
   const _DetailButton({required this.store});
 
   @override
+  State<_DetailButton> createState() => _DetailButtonState();
+}
+
+class _DetailButtonState extends State<_DetailButton> {
+  bool _showFocus = false;
+
+  void _open() => context.push(AppRoutes.storeDetail, extra: widget.store);
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(AppRoutes.storeDetail, extra: store),
-      child: Container(
-        width: double.infinity,
-        height: 44,
-        decoration: BoxDecoration(
-          color: HomeMapScreen.blue,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '상세보기',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
+    // Keyboard users reach the card action with Tab and open it with
+    // Enter or Space, like any other button.
+    return Semantics(
+      button: true,
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowFocusHighlight: (value) => setState(() => _showFocus = value),
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _open();
+              return null;
+            },
+          ),
+        },
+        child: GestureDetector(
+          onTap: _open,
+          child: Container(
+            width: double.infinity,
+            height: 44,
+            decoration: BoxDecoration(
+              color: HomeMapScreen.blue,
+              borderRadius: BorderRadius.circular(12),
+              border: _showFocus
+                  ? Border.all(color: HomeMapScreen.ink, width: 2)
+                  : null,
             ),
-            SizedBox(width: 4),
-            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 13),
-          ],
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '상세보기',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white,
+                  size: 13,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -3602,6 +4046,41 @@ const _muted11 = TextStyle(
   fontWeight: FontWeight.w400,
   height: 1.5,
 );
+
+/// Message with an inline action for non-blocking map notices.
+class _MapNoticeMessage extends StatelessWidget {
+  const _MapNoticeMessage({
+    required this.message,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String message;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: Text(message)),
+        TextButton(
+          onPressed: onAction,
+          style: TextButton.styleFrom(
+            foregroundColor: HomeMapScreen.blue,
+            textStyle: const TextStyle(
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          child: Text(actionLabel),
+        ),
+      ],
+    );
+  }
+}
 
 // ──────────────────────────────────────────────────────────────
 //  검색 안내 칩

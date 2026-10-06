@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
@@ -228,7 +230,13 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  if (!authRequired)
+                  if (authRequired)
+                    // A login-required state needs a way to log in.
+                    FilledButton(
+                      onPressed: () => context.go(AppRoutes.login),
+                      child: const Text('로그인하기'),
+                    )
+                  else
                     OutlinedButton(
                       onPressed: () {
                         ref

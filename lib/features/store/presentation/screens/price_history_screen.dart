@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:http/http.dart' as http;
 
 import '../../../../app/app_routes.dart';
 import '../../../../core/network/api_client.dart';
@@ -10,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
+import '../../../../shared/widgets/howmuch_snack_bar.dart';
 import '../../store_model.dart';
 import '../../../../core/utils/price_formatter.dart';
 import 'price_change_report_screen.dart';
@@ -26,6 +26,23 @@ Uri priceHistoryUri(Store store, int menuIndex) => ApiClient.uri(
   {'menu': store.menuAt(menuIndex.clamp(1, 4))},
 );
 
+/// History dates arrive as UTC timestamps; show the day the user lived through.
+String formatPriceHistoryDate(Object? raw) {
+  final parsed = DateTime.tryParse(raw?.toString() ?? '');
+  if (parsed == null) return '날짜 정보 없음';
+  final local = parsed.toLocal();
+  return '${local.year}.${local.month.toString().padLeft(2, '0')}.${local.day.toString().padLeft(2, '0')}';
+}
+
+/// An approved free menu is stored as 0 with free=true; it is not "0원".
+String formatPriceHistoryPrice(Object? raw, {bool free = false}) {
+  final parsed = parsePriceValue(raw);
+  if (free && parsed != null && parsed.isExact && parsed.minimum == 0) {
+    return '무료';
+  }
+  return formatWon(raw, fallback: '가격 정보 없음');
+}
+
 class PriceHistoryScreen extends StatefulWidget {
   const PriceHistoryScreen({super.key, this.store, this.menuIndex = 1});
 
@@ -40,6 +57,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   bool _loading = true;
   String? _errorMessage;
   Map<String, dynamic>? _data;
+  int _requestId = 0;
   int get _menuIndex => widget.menuIndex.clamp(1, 4);
 
   @override
@@ -48,7 +66,10 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
     _loadHistory();
   }
 
-  Future<void> _loadHistory() async {
+  /// [keepContent] is used by pull-to-refresh: the loaded history stays on
+  /// screen and a failed refresh is reported without replacing it.
+  Future<void> _loadHistory({bool keepContent = false}) async {
+    final requestId = ++_requestId;
     final store = widget.store;
     final identity = store?.id.isNotEmpty == true
         ? store!.id
@@ -60,27 +81,45 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
       });
       return;
     }
+    final refreshing = keepContent && _data != null;
+    if (!refreshing) {
+      // A retry must leave the error view, otherwise a successful response
+      // stays hidden behind the old error message.
+      setState(() {
+        _loading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final response = await http
-          .get(
-            priceHistoryUri(store!, _menuIndex),
-            headers: ApiClient.jsonHeaders(),
-          )
-          .timeout(ApiClient.defaultTimeout);
+      final response = await ApiClient.get(
+        priceHistoryUri(store!, _menuIndex),
+        headers: ApiClient.authHeaders(),
+      );
       if (response.statusCode != 200) {
         throw Exception('가격 이력 응답 오류 ${response.statusCode}');
       }
       final decoded = jsonDecode(ApiClient.bodyText(response));
       if (decoded is! Map) throw const FormatException('응답 형식 오류');
-      if (!mounted) return;
+      if (!mounted || requestId != _requestId) return;
       setState(() {
         _data = Map<String, dynamic>.from(decoded);
         _loading = false;
+        _errorMessage = null;
       });
     } catch (error) {
       debugPrint('가격 이력 조회 오류: $error');
-      if (!mounted) return;
+      if (!mounted || requestId != _requestId) return;
+      if (refreshing) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            HowmuchSnackBar(
+              content: Text('가격 이력을 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
+            ),
+          );
+        return;
+      }
       setState(() {
         _loading = false;
         _errorMessage = '가격 이력을 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
@@ -95,16 +134,6 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
-  }
-
-  String _formatPrice(Object? raw) {
-    return formatWon(raw, fallback: '가격 정보 없음');
-  }
-
-  String _formatDate(Object? raw) {
-    final parsed = DateTime.tryParse(raw?.toString() ?? '');
-    if (parsed == null) return '날짜 정보 없음';
-    return '${parsed.year}.${parsed.month.toString().padLeft(2, '0')}.${parsed.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -124,7 +153,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
               : _errorMessage != null
               ? _buildError()
               : RefreshIndicator(
-                  onRefresh: _loadHistory,
+                  onRefresh: () => _loadHistory(keepContent: true),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
@@ -192,7 +221,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                 Text(_errorMessage!, textAlign: TextAlign.center),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: _loadHistory,
+                  onPressed: () => _loadHistory(),
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('다시 시도'),
                 ),
@@ -255,17 +284,23 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
   }
 
   Widget _buildBarChart() {
-    final prices = _history
-        .map((item) => parsePriceValue(item['price']))
-        .where((value) => value != null && value.isExact)
-        .map((value) => value!.minimum)
+    final points = _history
+        .map(
+          (item) => (
+            parsed: parsePriceValue(item['price']),
+            free: item['free'] == true,
+          ),
+        )
+        .where((point) => point.parsed != null && point.parsed!.isExact)
+        .map((point) => (amount: point.parsed!.minimum, free: point.free))
         .take(12)
         .toList()
         .reversed
         .toList();
-    if (prices.isEmpty) {
+    if (points.isEmpty) {
       return _emptyPanel('아직 승인된 가격 변동 이력이 없어요.');
     }
+    final prices = points.map((point) => point.amount).toList();
     final minPrice = prices.reduce((a, b) => a < b ? a : b).toDouble();
     final maxPrice = prices.reduce((a, b) => a > b ? a : b).toDouble();
     final range = (maxPrice - minPrice).clamp(1, double.infinity);
@@ -279,13 +314,14 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: prices.map((price) {
+        children: points.map((point) {
+          final price = point.amount;
           final height = 32 + ((price - minPrice) / range) * 82;
           return Expanded(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 2),
               child: Tooltip(
-                message: _formatPrice(price),
+                message: formatPriceHistoryPrice(price, free: point.free),
                 child: Container(
                   height: height,
                   decoration: BoxDecoration(
@@ -348,7 +384,10 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _formatPrice(item['price']),
+                      formatPriceHistoryPrice(
+                        item['price'],
+                        free: item['free'] == true,
+                      ),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
@@ -364,7 +403,7 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _formatDate(item['date']),
+                      formatPriceHistoryDate(item['date']),
                       style: const TextStyle(
                         color: AppColors.muted,
                         fontSize: 12,

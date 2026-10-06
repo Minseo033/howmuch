@@ -463,7 +463,8 @@ class UserReportStatus {
       return (
         statusColor: 0xFFEF4444,
         statusBg: 0xFFFEE2E2,
-        textColor: 0xFFEF4444,
+        // AppColors.errorText: readable red text on the pale badge.
+        textColor: 0xFFB91C1C,
       );
     }
     return (
@@ -585,6 +586,12 @@ class FavoriteStoreModel {
     this.latitude = 0,
     this.longitude = 0,
     this.source = 'UNKNOWN',
+    this.free1 = false,
+    this.free2 = false,
+    this.free3 = false,
+    this.free4 = false,
+    this.isClosed = false,
+    this.correctionRevision = 0,
   });
 
   final String id;
@@ -617,6 +624,12 @@ class FavoriteStoreModel {
   final double latitude;
   final double longitude;
   final String source;
+  final bool free1;
+  final bool free2;
+  final bool free3;
+  final bool free4;
+  final bool isClosed;
+  final int correctionRevision;
 
   bool get hasDetailMetadata =>
       phoneNumber.isNotEmpty ||
@@ -649,6 +662,14 @@ class FavoriteStoreModel {
       latitude: latitude,
       longitude: longitude,
       source: source,
+      // Detail falls back to this model when its fresh lookup fails, so it
+      // needs the same free/closed/revision facts the favorite API returned.
+      free1: free1,
+      free2: free2,
+      free3: free3,
+      free4: free4,
+      isClosed: isClosed,
+      correctionRevision: correctionRevision,
     );
   }
 
@@ -661,6 +682,7 @@ class FavoriteStoreModel {
     final industry = json['industry']?.toString().trim();
     final menu1 = json['menu1']?.toString().trim();
     final price1 = json['price1']?.toString().trim();
+    final free1 = json['free1'] == true;
     final hasMeta = industry != null && industry.isNotEmpty;
 
     return FavoriteStoreModel(
@@ -676,11 +698,11 @@ class FavoriteStoreModel {
       menu: (menu1 != null && menu1.isNotEmpty)
           ? menu1
           : '상세 정보는 매장 화면에서 확인해 주세요',
-      price: _formatPrice(price1),
+      price: _formatPrice(price1, free: free1),
       priceColor: 0xFF2563EB,
       buttonText: '찜 해제',
       buttonColor: 0xFFFEE2E2,
-      buttonTextColor: 0xFFEF4444,
+      buttonTextColor: 0xFFB91C1C,
       createdAt: createdAtText == null
           ? null
           : DateTime.tryParse(createdAtText),
@@ -695,6 +717,12 @@ class FavoriteStoreModel {
       latitude: _coordinate(json['latitude']),
       longitude: _coordinate(json['longitude']),
       source: _source(json['source']),
+      free1: free1,
+      free2: json['free2'] == true,
+      free3: json['free3'] == true,
+      free4: json['free4'] == true,
+      isClosed: json['isClosed'] == true,
+      correctionRevision: _revision(json['correctionRevision']),
     );
   }
 
@@ -730,6 +758,12 @@ class FavoriteStoreModel {
       latitude: latitude,
       longitude: longitude,
       source: source,
+      free1: free1,
+      free2: free2,
+      free3: free3,
+      free4: free4,
+      isClosed: isClosed,
+      correctionRevision: correctionRevision,
     );
   }
 
@@ -749,14 +783,17 @@ class FavoriteStoreModel {
     return '🍽️';
   }
 
-  /// "5000" → "5,000원" (숫자 아닌 문자 제거 후 천 단위 구분. 파싱 실패 시 원문 유지)
-  static String _formatPrice(String? price1) {
-    if (price1 == null || price1.isEmpty) return '';
-    final digits = price1.replaceAll(RegExp(r'[^0-9]'), '');
-    if (digits.isEmpty) return price1;
-    final value = int.tryParse(digits);
-    if (value == null) return price1;
-    return formatWon(value);
+  /// Uses the shared menu-price rules: "3,000 / 3,500" stays two prices and
+  /// "3.5~4만원" stays as written. Stripping every non-digit used to show
+  /// "30,003,500원" and "354원".
+  static String _formatPrice(String? price1, {bool free = false}) {
+    if (!free && (price1 == null || price1.isEmpty)) return '';
+    return formatMenuPrice(price1, free: free);
+  }
+
+  static int _revision(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString().trim() ?? '') ?? 0;
   }
 
   static double _coordinate(Object? value) {
@@ -1118,6 +1155,13 @@ class PriceAlertSettingsNotifier
   final PriceAlertApiService _api;
   bool _disposed = false;
 
+  /// Why the last save failed, shown by the screen. Null after a success.
+  String? lastSaveError;
+
+  /// The favorites changed on the server (409): the same request would fail
+  /// forever, so the screen reloads the list instead of letting it retry.
+  bool lastSaveNeedsReload = false;
+
   @override
   void dispose() {
     _disposed = true;
@@ -1143,11 +1187,19 @@ class PriceAlertSettingsNotifier
   }
 
   Future<bool> saveSettings(PriceAlertSettings settings) async {
+    lastSaveError = null;
+    lastSaveNeedsReload = false;
     try {
       final saved = await _api.saveSettings(settings);
       if (_disposed) return false;
       state = AsyncValue.data(saved);
       return true;
+    } on PriceAlertApiException catch (error) {
+      lastSaveNeedsReload = error.statusCode == 409;
+      lastSaveError = lastSaveNeedsReload
+          ? '찜 목록이 바뀌어 최신 목록을 다시 불러왔어요. 확인한 뒤 저장해 주세요.'
+          : error.message;
+      return false;
     } catch (_) {
       return false;
     }

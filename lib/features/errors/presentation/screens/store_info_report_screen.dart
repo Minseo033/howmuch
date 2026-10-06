@@ -33,6 +33,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   int _selectedTypeIndex = 1; // 기본: '가격이 달라요'
   bool _isSubmitting = false;
   bool _isFree = false;
+  int? _selectedMenuSlot;
   String? _priceError;
   String? _descriptionError;
   final _firstInvalidFocus = FocusNode();
@@ -61,9 +62,25 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     });
   }
 
+  List<({int slot, String menu, String price})> get _registeredMenuSlots {
+    final store = _store;
+    if (store == null) return const [];
+    return [
+      for (var slot = 1; slot <= 4; slot++)
+        if (store.menuAt(slot).trim().isNotEmpty)
+          (
+            slot: slot,
+            menu: store.menuAt(slot).trim(),
+            price: store.priceAt(slot).trim(),
+          ),
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
+    final slots = _registeredMenuSlots;
+    _selectedMenuSlot = slots.isEmpty ? null : slots.first.slot;
     final initial = widget.initialReport;
     if (initial == null) return;
     _selectedTypeIndex = _types.indexWhere(
@@ -74,6 +91,9 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
         initial.changeType == 'price_mismatch') {
       _priceController.text = initial.menuPrices.first.price;
       _isFree = initial.menuPrices.first.free;
+      final reportedMenu = initial.menuPrices.first.menu.trim();
+      final matching = slots.where((item) => item.menu == reportedMenu);
+      if (matching.isNotEmpty) _selectedMenuSlot = matching.first.slot;
     }
   }
 
@@ -139,34 +159,58 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       final store = _store!;
       final initial = widget.initialReport;
       final service = ref.read(reportServiceProvider);
-      final request = UserReport(
-        storeId: store.id,
-        storeName: store.storeName,
-        industry: store.industry,
-        address: store.address,
-        phoneNumber: store.phoneNumber,
-        menu1: store.menu1,
-        price1: _selectedTypeIndex == 1 ? price : store.price1,
-        free1: _selectedTypeIndex == 1 ? _isFree : store.free1,
-        menu2: store.menu2,
-        price2: store.price2,
-        free2: store.free2,
-        menu3: store.menu3,
-        price3: store.price3,
-        free3: store.free3,
-        menu4: store.menu4,
-        price4: store.price4,
-        free4: store.free4,
-        latitude: store.latitude,
-        longitude: store.longitude,
-        imageUrls: initial?.imageUrls ?? const [],
-        reporterId: '',
-        visitedRecently: false,
-        checkedMenuPrice: _selectedTypeIndex == 1,
-        changeType: _types[_selectedTypeIndex]['value'],
-        reportType: 'STORE_INFO',
-        description: description,
-      );
+      final isPriceMismatch = _selectedTypeIndex == 1;
+      // '가격이 달라요'는 사용자가 고른 메뉴를 첫 번째 칸에 담아 보냅니다.
+      // 서버와 관리자 검토 화면은 첫 번째 칸을 신고 대상 메뉴로 읽습니다.
+      final targetSlot = _selectedMenuSlot ?? 1;
+      final request = isPriceMismatch
+          ? UserReport(
+              storeId: store.id,
+              storeName: store.storeName,
+              industry: store.industry,
+              address: store.address,
+              phoneNumber: store.phoneNumber,
+              menu1: store.menuAt(targetSlot),
+              price1: price,
+              free1: _isFree,
+              latitude: store.latitude,
+              longitude: store.longitude,
+              imageUrls: initial?.imageUrls ?? const [],
+              reporterId: '',
+              visitedRecently: false,
+              checkedMenuPrice: true,
+              changeType: _types[_selectedTypeIndex]['value'],
+              reportType: 'STORE_INFO',
+              description: description,
+            )
+          : UserReport(
+              storeId: store.id,
+              storeName: store.storeName,
+              industry: store.industry,
+              address: store.address,
+              phoneNumber: store.phoneNumber,
+              menu1: store.menu1,
+              price1: store.price1,
+              free1: store.free1,
+              menu2: store.menu2,
+              price2: store.price2,
+              free2: store.free2,
+              menu3: store.menu3,
+              price3: store.price3,
+              free3: store.free3,
+              menu4: store.menu4,
+              price4: store.price4,
+              free4: store.free4,
+              latitude: store.latitude,
+              longitude: store.longitude,
+              imageUrls: initial?.imageUrls ?? const [],
+              reporterId: '',
+              visitedRecently: false,
+              checkedMenuPrice: false,
+              changeType: _types[_selectedTypeIndex]['value'],
+              reportType: 'STORE_INFO',
+              description: description,
+            );
       if (initial == null) {
         await service.submitReport(request);
       } else {
@@ -270,6 +314,34 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
+                    if (_registeredMenuSlots.isNotEmpty) ...[
+                      const Text(
+                        '가격이 다른 메뉴를 골라주세요',
+                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final item in _registeredMenuSlots)
+                            ChoiceChip(
+                              key: ValueKey('info-report-menu-${item.slot}'),
+                              label: Text(
+                                item.price.isEmpty
+                                    ? item.menu
+                                    : '${item.menu} (${formatWon(item.price, fallback: item.price)})',
+                              ),
+                              selected: _selectedMenuSlot == item.slot,
+                              onSelected: (_) => setState(() {
+                                _selectedMenuSlot = item.slot;
+                                _priceError = null;
+                              }),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     _buildPriceField(),
                     Semantics(
                       label: '무료 메뉴 여부',

@@ -713,6 +713,8 @@ class _NotificationTypeCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Each toggle names the notifications the server actually gates
+          // with it (contract C3).
           _NotificationRow(
             title: '가격 변동 알림',
             subtitle: '찜한 매장의 가격 변동 제보를 알려드려요.',
@@ -721,22 +723,25 @@ class _NotificationTypeCard extends StatelessWidget {
           ),
           const _CardDivider(lineKey: ValueKey('notification-type-divider')),
           _NotificationRow(
-            title: '제보 상태 알림',
-            subtitle: '내 제보가 승인되거나 보완 요청되면 알려드려요.',
+            title: '제보·문의 알림',
+            subtitle: '제보 승인·반려와 문의 답변을 알려드려요.',
             value: settings.report,
             onTap: onReportTap,
           ),
           const _CardDivider(),
+          // Nothing sends this notification yet, so it is shown as upcoming
+          // instead of a switch that changes nothing.
           _NotificationRow(
             title: '오늘의 픽 추천',
-            subtitle: '날씨와 위치에 맞는 추천 매장을 알려드려요.',
+            subtitle: '아직 보내지 않는 알림이에요.',
             value: settings.todayPick,
             onTap: onTodayPickTap,
+            available: false,
           ),
           const _CardDivider(),
           _NotificationRow(
-            title: '리뷰 반응 알림',
-            subtitle: '내 리뷰에 반응이 있을 때 알려드려요.',
+            title: '댓글 알림',
+            subtitle: '내 글·알림 받는 글의 댓글을 알려드려요.',
             value: settings.review,
             onTap: onReviewTap,
           ),
@@ -752,17 +757,19 @@ class _NotificationRow extends StatelessWidget {
     required this.subtitle,
     required this.value,
     required this.onTap,
+    this.available = true,
   });
 
   final String title;
   final String subtitle;
   final bool value;
   final VoidCallback onTap;
+  final bool available;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: available ? onTap : null,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         height: 66.9602279663086,
@@ -779,7 +786,17 @@ class _NotificationRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _HowmuchToggle(semanticLabel: title, value: value, onTap: onTap),
+              if (available)
+                _HowmuchToggle(semanticLabel: title, value: value, onTap: onTap)
+              else
+                const SizedBox(
+                  width: 52,
+                  height: 36,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text('준비 중', style: _muted11),
+                  ),
+                ),
             ],
           ),
         ),
@@ -799,10 +816,10 @@ class _PriceAlertEntryCard extends ConsumerWidget {
     final subtitle = settings.when(
       data: (value) {
         final enabled = value.stores.where((store) => store.enabled).toList();
-        final menuCount = enabled
-            .where((store) => store.menuName.trim().isNotEmpty)
-            .length;
-        return '매장 ${enabled.length}곳 · 메뉴 $menuCount개 관리';
+        // Alerts are per store, so a menu count only repeated the store count.
+        return enabled.isEmpty
+            ? '알림 받는 매장이 없어요'
+            : '매장 ${enabled.length}곳 알림 받는 중';
       },
       loading: () => '가격 알림 정보를 불러오는 중',
       error: (_, _) => '가격 알림에서 구독 현황 확인',

@@ -8,6 +8,9 @@ import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
 
+/// Same ceiling as the server (POST /api/savings/goal rejects larger values).
+const maxSavingsGoalAmount = 1000000000;
+
 class SavingsGoalSettingScreen extends StatefulWidget {
   const SavingsGoalSettingScreen({super.key});
 
@@ -91,6 +94,12 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       ).showSnackBar(HowmuchSnackBar(content: Text('목표 금액을 입력해주세요.')));
       return;
     }
+    if (newGoal > maxSavingsGoalAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        HowmuchSnackBar(content: Text('절약 목표는 10억원 이하로 입력해주세요.')),
+      );
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final response = await ApiClient.post(
@@ -102,7 +111,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
         throw StateError('목표 저장 실패');
       }
       _state.monthlyGoal.value = newGoal;
-      if (mounted) context.pop();
+      // The report screen uses the saved amount to refresh its progress.
+      if (mounted) context.pop(newGoal);
     } catch (e) {
       debugPrint('절약 목표 저장 실패: $e');
       if (mounted) {
@@ -188,6 +198,8 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                                   textAlignVertical: TextAlignVertical.center,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
+                                    // 1,000,000,000 is the largest accepted goal.
+                                    LengthLimitingTextInputFormatter(10),
                                   ],
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',

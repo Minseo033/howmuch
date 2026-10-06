@@ -2,6 +2,8 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { applyPhotoMatch } from './photo_merge.mjs';
+import { addressMatches } from './store_address.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const catalogPath = path.join(root, 'howmuch_backend/src/main/resources/store-hours.json');
@@ -51,29 +53,6 @@ const phone = (value) => String(value ?? '').replace(/\D/g, '');
 const storeId = (store) => store.storeId || `store_${createHash('sha256').update(
   [store.storeName, store.address, store.phoneNumber].map(normalize).join('|'),
 ).digest('hex').slice(0, 24)}`;
-
-const provincePrefix = /^(서울특별시|서울시|부산광역시|대구광역시|인천광역시|대전광역시|울산광역시|세종특별자치시|세종시|경기도|강원특별자치도|강원도|충청북도|충북|충청남도|충남|전라북도|전북|전북특별자치도|전라남도|전남|경상북도|경북|경상남도|경남|제주특별자치도|제주도|전남광주통합특별시)\s*/;
-
-function addressKeys(value) {
-  const raw = String(value ?? '').split(/[,(]/)[0];
-  return [...new Set([compact(raw), compact(raw.replace(provincePrefix, ''))].filter(Boolean))];
-}
-
-function buildingNumbers(value) {
-  return [...String(value ?? '').matchAll(/(?:^|\D)(\d{1,5})(?:-\d{1,5})?(?=\D|$)/g)].map((m) => m[1]);
-}
-
-function addressMatches(left, right) {
-  const leftKeys = addressKeys(left);
-  const rightKeys = addressKeys(right);
-  if (leftKeys[0] && rightKeys[0]
-      && (leftKeys[0] === rightKeys[0] || leftKeys[0].includes(rightKeys[0]) || rightKeys[0].includes(leftKeys[0]))) return true;
-  if (leftKeys[1] && rightKeys[1] && leftKeys[1] === rightKeys[1]) return true;
-  const numbers = buildingNumbers(left);
-  const otherNumbers = buildingNumbers(right);
-  return numbers.length > 0 && numbers.some((n) => otherNumbers.includes(n))
-    && leftKeys.some((a) => rightKeys.some((b) => a.slice(-6) === b.slice(-6)));
-}
 
 function nameMatches(left, right) {
   const a = compact(left);
@@ -276,17 +255,16 @@ console.log(JSON.stringify({
 if (dryRun) process.exit(0);
 
 for (const { entry, candidate, urls } of matches) {
-  entry.imageUrls = [...new Set([...(entry.imageUrls || []), ...urls])];
-  entry.sourceUrl = `https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=${candidate.bsshSn}`;
-  entry.sourceName = entry.sourceName || '행정안전부 착한가격업소';
-  entry.checkedAt = checkedAt;
+  const officialUrl = `https://www.goodprice.go.kr/bssh/bsshInfo.do?bsshSn=${candidate.bsshSn}`;
+  // 새 사진이 없으면 건너뛰어, 다시 실행해도 기존 출처·확인일이 바뀌지 않습니다.
+  if (!applyPhotoMatch(entry, { sourceUrl: officialUrl, urls, checkedAt })) continue;
   harvested[entry.storeId] = {
     ...(harvested[entry.storeId] || {}),
     storeId: entry.storeId,
     storeName: entry.storeName,
     address: entry.address,
     phoneNumber: entry.phoneNumber,
-    sourceUrl: entry.sourceUrl,
+    sourceUrl: officialUrl,
     imageUrls: entry.imageUrls,
   };
 }

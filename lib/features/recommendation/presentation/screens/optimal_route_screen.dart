@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/recommendation/presentation/state/route_geometry.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/route_map_point.dart';
@@ -18,6 +19,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
 
+/// The server's deterministic route (Gemini disabled or failed) starts with
+/// this sentence. Such a route must not be labelled as an AI recommendation.
+const localRouteTextPrefix = '현재는 거리순으로';
+
 class OptimalRouteScreen extends ConsumerStatefulWidget {
   const OptimalRouteScreen({super.key});
 
@@ -27,7 +32,8 @@ class OptimalRouteScreen extends ConsumerStatefulWidget {
 
 class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   bool _isLoading = true;
-  String? _errorMessage;
+  RecommendationFailure? _failure;
+  String? _failureServerMessage;
   Map<String, dynamic>? _routeData;
   double? _userLatitude;
   double? _userLongitude;
@@ -44,7 +50,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _failure = null;
+      _failureServerMessage = null;
     });
 
     try {
@@ -55,10 +62,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       final position = await _resolveCurrentPosition();
       if (position == null) {
         if (!mounted || generation != _loadGeneration) return;
-        setState(() {
-          _errorMessage = '추천 루트를 만들려면 위치 권한을 허용해주세요.';
-          _isLoading = false;
-        });
+        _showFailure(RecommendationFailure.location);
         return;
       }
       _userLatitude = position.latitude;
@@ -70,10 +74,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       );
       if (!mounted || generation != _loadGeneration) return;
       if (data['error'] == true) {
-        setState(() {
-          _errorMessage = '루트를 불러오지 못했어요.';
-          _isLoading = false;
-        });
+        _showFailure(
+          recommendationFailureOf(data),
+          serverMessage: data['message']?.toString(),
+        );
         return;
       }
       setState(() {
@@ -82,11 +86,21 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
       });
     } catch (e) {
       if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _errorMessage = '네트워크 오류가 발생했습니다.';
-        _isLoading = false;
-      });
+      _showFailure(RecommendationFailure.unknown);
     }
+  }
+
+  void _showFailure(RecommendationFailure failure, {String? serverMessage}) {
+    setState(() {
+      _failure = failure;
+      _failureServerMessage = serverMessage;
+      _isLoading = false;
+    });
+  }
+
+  bool get _isAiRoute {
+    final route = _routeData?['route']?.toString().trim() ?? '';
+    return route.isNotEmpty && !route.startsWith(localRouteTextPrefix);
   }
 
   List<Map<String, dynamic>> get _picks {
@@ -161,10 +175,11 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     final cached = HomeMapScreen.globalUserPosition;
     if (cached != null) return cached;
     try {
+      // Some browsers ignore timeLimit, so keep an outer bound as well.
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
         timeLimit: const Duration(seconds: 3),
-      );
+      ).timeout(const Duration(seconds: 4));
     } catch (_) {
       return null;
     }
@@ -221,6 +236,14 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
+    final failure = _failure;
+    final failureCopy = failure == null
+        ? null
+        : recommendationFailureCopy(
+            failure,
+            route: true,
+            serverMessage: _failureServerMessage,
+          );
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -247,7 +270,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(color: Color(0xFF2563EB)),
                   )
-                : _errorMessage != null
+                : failureCopy != null
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -262,16 +285,19 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               color: Color(0xFFE5E7EB),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.error_outline_rounded,
-                              color: Color(0xFF64748B),
+                            child: Icon(
+                              failure == RecommendationFailure.location
+                                  ? Icons.location_off_outlined
+                                  : Icons.error_outline_rounded,
+                              color: const Color(0xFF64748B),
                               size: 30,
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            '추천 경로를 불러오지 못했어요',
-                            style: TextStyle(
+                          Text(
+                            failureCopy.title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               fontWeight: FontWeight.bold,
@@ -281,7 +307,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            _errorMessage!,
+                            failureCopy.message,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
@@ -546,17 +572,17 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   ).withValues(alpha: 0.2),
                                 ),
                                 const SizedBox(height: 12),
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.directions_walk,
                                       color: Color(0xFF64748B),
                                       size: 12,
                                     ),
-                                    SizedBox(width: 4),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'AI 추천 동선',
-                                      style: TextStyle(
+                                      _isAiRoute ? 'AI 추천 동선' : '가까운 순서로 정한 동선',
+                                      style: const TextStyle(
                                         color: Color(0xFF64748B),
                                         fontSize: 11,
                                       ),
@@ -580,9 +606,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'AI 추천 이유',
-                                    style: TextStyle(
+                                  Text(
+                                    _isAiRoute ? 'AI 추천 이유' : '동선 안내',
+                                    style: const TextStyle(
                                       color: Color(0xFF0F172A),
                                       fontSize: 13,
                                       fontWeight: FontWeight.bold,
@@ -605,7 +631,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                     ),
                   ),
           ),
-          if (!_isLoading && _errorMessage == null && _picks.isNotEmpty)
+          if (!_isLoading && _failure == null && _picks.isNotEmpty)
             Positioned(
               bottom: 0,
               left: 0,

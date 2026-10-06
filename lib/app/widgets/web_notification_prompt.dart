@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -44,13 +46,15 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final preferences = await SharedPreferences.getInstance();
+      // A notice pops up once per device; it used to return on every launch.
+      final alreadySeen = preferences.getBool(noticeSeenKey(notice.id)) == true;
       final hiddenToday = preferences.getString(noticeHiddenDateKey(notice.id));
       if (!mounted) return;
       if (_suppressedNoticeId == notice.id || _dismissedNoticeId == notice.id) {
         _pendingNoticeId = null;
         return;
       }
-      if (hiddenToday == noticeLocalDate(DateTime.now())) {
+      if (alreadySeen || hiddenToday == noticeLocalDate(DateTime.now())) {
         setState(() {
           _dismissedNoticeId = notice.id;
           _pendingNoticeId = null;
@@ -72,6 +76,7 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         builder: (context) => _NoticePopup(notice: notice),
       );
       if (!mounted) return;
+      await preferences.setBool(noticeSeenKey(notice.id), true);
       if (action == _NoticeDialogAction.hideToday) {
         await preferences.setString(
           noticeHiddenDateKey(notice.id),
@@ -79,6 +84,15 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         );
       }
       if (!mounted) return;
+      if (notice.isUnread) {
+        // The user has read it in the popup, so the inbox should agree.
+        unawaited(
+          ref
+              .read(notificationsProvider.notifier)
+              .markRead(notice.id)
+              .catchError((Object _) {}),
+        );
+      }
       setState(() {
         _dismissedNoticeId = notice.id;
         _pendingNoticeId = null;
@@ -177,6 +191,8 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
 
 String noticeHiddenDateKey(String noticeId) =>
     'howmuch_notice_hidden_date_$noticeId';
+
+String noticeSeenKey(String noticeId) => 'howmuch_notice_seen_$noticeId';
 
 String noticeLocalDate(DateTime dateTime) {
   final local = dateTime.toLocal();

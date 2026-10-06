@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,7 @@ import 'package:howmuch/features/community/presentation/state/report_service.dar
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 class InquiryScreen extends ConsumerStatefulWidget {
   const InquiryScreen({super.key});
@@ -41,22 +44,56 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   late final TextEditingController _bodyController;
   final _imagePicker = ImagePicker();
   final List<XFile> _attachments = [];
+  // Read each picked photo once; rebuilding on every keystroke used to read
+  // and decode the originals again.
+  final Map<XFile, Future<Uint8List>> _thumbnailBytes = {};
+  late final ReportService _reportService;
+
+  /// Photos already uploaded for the current selection. A retry reuses them
+  /// instead of uploading the same files again.
+  List<String> _uploadedUrls = const [];
+
+  /// Set after a timeout or network failure: the server may have stored the
+  /// inquiry, so its photos must not be deleted and a retry checks first.
+  ({String title, String content})? _unconfirmedAttempt;
   int _selectedType = 0;
   bool _isSubmitting = false;
+  bool _submitted = false;
+  bool _isLeaving = false;
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController();
+    _reportService = ref.read(reportServiceProvider);
+    _titleController = TextEditingController()
+      ..addListener(() => setState(() {}));
     _bodyController = TextEditingController()
       ..addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
+    // Leaving without sending: remove photos that no inquiry refers to.
+    if (!_submitted && _unconfirmedAttempt == null) {
+      _discardUploads();
+    }
     _titleController.dispose();
     _bodyController.dispose();
     super.dispose();
+  }
+
+  bool get _hasDraft =>
+      _titleController.text.trim().isNotEmpty ||
+      _bodyController.text.trim().isNotEmpty ||
+      _attachments.isNotEmpty;
+
+  /// The selection changed or the screen is closing, so uploaded copies are
+  /// stale. Photos that a possibly stored inquiry uses are only forgotten.
+  void _discardUploads() {
+    final urls = _uploadedUrls;
+    _uploadedUrls = const [];
+    if (urls.isEmpty || _unconfirmedAttempt != null) return;
+    unawaited(_reportService.cleanupReportImages(urls));
   }
 
   Future<void> _pickPhotos() async {
@@ -81,7 +118,13 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       }
 
       final imagesToAdd = pickedImages.take(remainingCount).toList();
-      setState(() => _attachments.addAll(imagesToAdd));
+      _discardUploads();
+      setState(() {
+        _attachments.addAll(imagesToAdd);
+        for (final image in imagesToAdd) {
+          _thumbnailBytes[image] = image.readAsBytes();
+        }
+      });
 
       if (pickedImages.length > remainingCount) {
         messenger
@@ -101,7 +144,34 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   }
 
   void _removePhoto(int index) {
-    setState(() => _attachments.removeAt(index));
+    _discardUploads();
+    setState(() => _thumbnailBytes.remove(_attachments.removeAt(index)));
+  }
+
+  Future<void> _leave() async {
+    if (_isSubmitting || _isLeaving) return;
+    if (_hasDraft && !_submitted) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => HowmuchDialog(
+          title: '작성 중인 문의를 나갈까요?',
+          description: '입력한 내용과 첨부한 사진은 저장되지 않아요.',
+          cancelLabel: '계속 작성',
+          confirmLabel: '나가기',
+          cancelFlex: 1,
+          confirmFlex: 1,
+          onConfirm: () => Navigator.pop(dialogContext, true),
+        ),
+      );
+      if (!mounted || discard != true) return;
+    }
+    if (!context.canPop()) {
+      context.go(AppRoutes.mypage);
+      return;
+    }
+    setState(() => _isLeaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) context.pop();
   }
 
   @override
@@ -114,18 +184,11 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final scrollContentHeight = 592.8974609375 + topOffset + footerHeight + 24;
     final canPop = Navigator.of(context).canPop();
 
-    void goBack() {
-      if (canPop) {
-        context.pop();
-      } else {
-        context.go(AppRoutes.mypage);
-      }
-    }
-
     return PopScope(
-      canPop: canPop,
+      canPop:
+          canPop && !_isSubmitting && (_isLeaving || _submitted || !_hasDraft),
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) context.go(AppRoutes.mypage);
+        if (!didPop) _leave();
       },
       child: FigmaMobileCanvas(
         backgroundColor: InquiryScreen.surface,
@@ -229,6 +292,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                             height: 90.4,
                             child: _PhotoAttachBox(
                               attachments: _attachments,
+                              thumbnailBytes: _thumbnailBytes,
                               onAdd: _pickPhotos,
                               onRemove: _removePhoto,
                             ),
@@ -248,7 +312,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                 _Header(
                   topOffset: topOffset,
                   title: '문의하기',
-                  onBack: goBack,
+                  onBack: _leave,
                   onHistory: () => context.push(AppRoutes.inquiryHistory),
                 ),
                 Positioned(
@@ -287,11 +351,21 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     }
 
     setState(() => _isSubmitting = true);
-    final reportService = ref.read(reportServiceProvider);
-    var uploadedUrls = const <String>[];
+    final reportService = _reportService;
     try {
-      if (_attachments.isNotEmpty) {
-        uploadedUrls = await reportService.uploadReportImages(_attachments);
+      // After a timeout the first attempt may already be stored. Check before
+      // sending the same inquiry again so a retry cannot duplicate it.
+      final unconfirmed = _unconfirmedAttempt;
+      if (unconfirmed != null &&
+          unconfirmed.title == title &&
+          unconfirmed.content == content &&
+          await _wasStored(title, content)) {
+        if (!mounted) return;
+        _finishSubmitted(messenger);
+        return;
+      }
+      if (_attachments.isNotEmpty && _uploadedUrls.isEmpty) {
+        _uploadedUrls = await reportService.uploadReportImages(_attachments);
       }
       final result = await ref
           .read(inquiryServiceProvider)
@@ -299,12 +373,20 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
             title: title,
             content: content,
             category: category,
-            imageUrls: uploadedUrls,
+            imageUrls: _uploadedUrls,
           );
 
       if (result['error'] == true) {
+        // Only an HTTP answer proves nothing was stored; a timeout or network
+        // failure leaves that open.
+        final answeredByServer = result['statusCode'] is int;
+        _unconfirmedAttempt = answeredByServer
+            ? null
+            : (title: title, content: content);
         if (result['cleanupUploadedImages'] == true) {
-          await reportService.cleanupReportImages(uploadedUrls);
+          final urls = _uploadedUrls;
+          _uploadedUrls = const [];
+          await reportService.cleanupReportImages(urls);
         }
         if (!mounted) return;
         messenger
@@ -318,10 +400,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       }
 
       if (!mounted) return;
-      messenger.clearSnackBars();
-      ref.invalidate(myInquiriesProvider);
-      context.go(AppRoutes.mypage);
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
+      _finishSubmitted(messenger);
     } on ReportServiceException catch (error) {
       if (!mounted) return;
       messenger
@@ -337,6 +416,28 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<bool> _wasStored(String title, String content) async {
+    try {
+      final mine = await ref.read(inquiryServiceProvider).getMyInquiries();
+      return mine.any(
+        (inquiry) =>
+            inquiry.title.trim() == title && inquiry.content.trim() == content,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  void _finishSubmitted(ScaffoldMessengerState messenger) {
+    _submitted = true;
+    _uploadedUrls = const [];
+    _unconfirmedAttempt = null;
+    messenger.clearSnackBars();
+    ref.invalidate(myInquiriesProvider);
+    context.go(AppRoutes.mypage);
+    messenger.showSnackBar(HowmuchSnackBar(content: Text('문의가 접수되었어요.')));
   }
 }
 
@@ -443,31 +544,37 @@ class _InquiryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        key: ValueKey('inquiry-type-$text'),
-        width: double.infinity,
-        height: 41.80397415161133,
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primaryLight : AppColors.white,
-          border: Border.all(
-            color: selected ? InquiryScreen.blue : InquiryScreen.border,
-            width: .909,
+    // Hand-drawn chips: announce which type is selected like radio buttons.
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          key: ValueKey('inquiry-type-$text'),
+          width: double.infinity,
+          height: 41.80397415161133,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryLight : AppColors.white,
+            border: Border.all(
+              color: selected ? InquiryScreen.blue : InquiryScreen.border,
+              width: .909,
+            ),
+            borderRadius: BorderRadius.circular(14),
           ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: TextStyle(
-            color: selected ? InquiryScreen.blue : InquiryScreen.ink,
-            fontFamily: InquiryScreen.fontFamily,
-            fontFamilyFallback: InquiryScreen.fontFallback,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            height: 1.5,
+          alignment: Alignment.center,
+          child: Text(
+            text,
+            style: TextStyle(
+              color: selected ? InquiryScreen.blue : InquiryScreen.ink,
+              fontFamily: InquiryScreen.fontFamily,
+              fontFamilyFallback: InquiryScreen.fontFallback,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              height: 1.5,
+            ),
           ),
         ),
       ),
@@ -604,11 +711,13 @@ class _InputShell extends StatelessWidget {
 class _PhotoAttachBox extends StatelessWidget {
   const _PhotoAttachBox({
     required this.attachments,
+    required this.thumbnailBytes,
     required this.onAdd,
     required this.onRemove,
   });
 
   final List<XFile> attachments;
+  final Map<XFile, Future<Uint8List>> thumbnailBytes;
   final VoidCallback onAdd;
   final ValueChanged<int> onRemove;
 
@@ -644,6 +753,8 @@ class _PhotoAttachBox extends StatelessWidget {
                 if (canAddMore || index > 0) const SizedBox(width: 7.997),
                 _PhotoThumbnail(
                   image: attachments[index],
+                  bytes: thumbnailBytes[attachments[index]],
+                  label: '첨부 사진 ${index + 1}',
                   onRemove: () => onRemove(index),
                 ),
               ],
@@ -704,13 +815,21 @@ class _AddPhotoButton extends StatelessWidget {
 }
 
 class _PhotoThumbnail extends StatelessWidget {
-  const _PhotoThumbnail({required this.image, required this.onRemove});
+  const _PhotoThumbnail({
+    required this.image,
+    required this.bytes,
+    required this.label,
+    required this.onRemove,
+  });
 
   final XFile image;
+  final Future<Uint8List>? bytes;
+  final String label;
   final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
+    final cacheWidth = (64 * MediaQuery.devicePixelRatioOf(context)).round();
     return SizedBox(
       width: 63.99147415161133,
       height: 63.99147415161133,
@@ -727,7 +846,7 @@ class _PhotoThumbnail extends StatelessWidget {
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: FutureBuilder<Uint8List>(
-                  future: image.readAsBytes(),
+                  future: bytes ?? image.readAsBytes(),
                   builder: (context, snapshot) {
                     final bytes = snapshot.data;
                     if (bytes == null) {
@@ -740,30 +859,58 @@ class _PhotoThumbnail extends StatelessWidget {
                       );
                     }
 
-                    return Image.memory(bytes, fit: BoxFit.cover);
+                    // Decode at thumbnail size, not the camera resolution.
+                    return Image.memory(
+                      bytes,
+                      fit: BoxFit.cover,
+                      cacheWidth: cacheWidth,
+                      gaplessPlayback: true,
+                    );
                   },
                 ),
               ),
             ),
           ),
+          // A hit area inside the thumbnail: taps outside the 64px box never
+          // reached the old corner button, which left about 15px to press.
           Positioned(
-            right: -5,
-            top: -5,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onRemove,
-              child: Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: InquiryScreen.ink,
-                  border: Border.all(color: AppColors.white, width: 1.5),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close_rounded,
-                  size: 13,
-                  color: AppColors.white,
+            right: 0,
+            top: 0,
+            width: 40,
+            height: 40,
+            child: Semantics(
+              button: true,
+              label: '$label 삭제',
+              excludeSemantics: true,
+              child: GestureDetector(
+                key: ValueKey('inquiry-photo-remove-$label'),
+                behavior: HitTestBehavior.opaque,
+                onTap: onRemove,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      right: -5,
+                      top: -5,
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: InquiryScreen.ink,
+                          border: Border.all(
+                            color: AppColors.white,
+                            width: 1.5,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 13,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

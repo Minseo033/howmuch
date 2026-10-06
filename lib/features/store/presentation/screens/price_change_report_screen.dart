@@ -7,14 +7,30 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
+
+/// 등록 가격이 범위나 여러 값이면 서버가 인상·인하 방향을 비교할 수 없습니다.
+const priceChangeMultiPriceMessage =
+    '이 메뉴는 가격이 하나로 정해져 있지 않아 가격 변동 제보를 할 수 없어요. '
+    "정보 신고의 '가격이 달라요'로 알려주세요.";
+
+/// 수정할 때는 대상 매장과 변동 유형을 바꾸지 않습니다(서버도 변경 요청을 거절).
+const priceChangeLockedNotice =
+    '변동 유형과 메뉴는 수정할 수 없어요. 바꾸려면 제보를 삭제하고 다시 제보해주세요.';
+
+bool hasInexactRegisteredPrice(String rawPrice) {
+  final parsed = parsePriceValue(rawPrice);
+  return parsed != null && !parsed.isExact;
+}
 
 String? validatePriceChange({
   required String changeType,
@@ -22,21 +38,31 @@ String? validatePriceChange({
   required String price,
   required List<({String menu, String price})> registeredMenus,
   bool free = false,
+  bool editing = false,
 }) {
   final existing = registeredMenus.where((item) => item.menu == menu.trim());
-  final currentPrice = existing.isEmpty
-      ? null
-      : minimumMenuPrice(existing.first.price);
   final parsedNewPrice = parsePriceValue(price);
   final newPrice = parsedNewPrice != null && parsedNewPrice.isExact
       ? parsedNewPrice.minimum
       : null;
   if (changeType == 'new') {
-    if (existing.isNotEmpty) return '이미 등록된 메뉴예요. 기존 메뉴의 가격 변동을 선택해주세요.';
+    if (existing.isNotEmpty) {
+      return editing
+          ? '이미 등록된 메뉴가 됐어요. 제보를 삭제하고 기존 메뉴의 가격 변동으로 다시 제보해주세요.'
+          : '이미 등록된 메뉴예요. 기존 메뉴의 가격 변동을 선택해주세요.';
+    }
     return null;
   }
-  if (existing.isEmpty) return '등록된 메뉴를 선택해주세요. 새 메뉴라면 신규 메뉴를 선택해주세요.';
+  if (existing.isEmpty) {
+    return editing
+        ? '제보한 메뉴를 현재 매장 정보에서 찾을 수 없어요. 제보를 삭제하고 다시 제보해주세요.'
+        : '등록된 메뉴를 선택해주세요. 새 메뉴라면 신규 메뉴를 선택해주세요.';
+  }
   if (changeType == 'delete') return null;
+  if (hasInexactRegisteredPrice(existing.first.price)) {
+    return priceChangeMultiPriceMessage;
+  }
+  final currentPrice = minimumMenuPrice(existing.first.price);
   if (currentPrice == null || currentPrice <= 0) {
     return '현재 가격을 확인할 수 없어 가격 변동을 제보할 수 없어요.';
   }
@@ -53,10 +79,14 @@ String? validatePriceChange({
   }
   if (newPrice == currentPrice) return '기존 가격과 새 가격이 같아요.';
   if (changeType == 'rise' && newPrice != null && newPrice < currentPrice) {
-    return '기존 가격보다 낮아요. 가격 인하를 선택해주세요.';
+    return editing
+        ? '기존 가격보다 낮아요. 변동 유형을 바꾸려면 제보를 삭제하고 다시 제보해주세요.'
+        : '기존 가격보다 낮아요. 가격 인하를 선택해주세요.';
   }
   if (changeType == 'drop' && newPrice != null && newPrice > currentPrice) {
-    return '기존 가격보다 높아요. 가격 인상을 선택해주세요.';
+    return editing
+        ? '기존 가격보다 높아요. 변동 유형을 바꾸려면 제보를 삭제하고 다시 제보해주세요.'
+        : '기존 가격보다 높아요. 가격 인상을 선택해주세요.';
   }
   return null;
 }
@@ -72,11 +102,16 @@ class PriceChangeReportScreen extends ConsumerStatefulWidget {
   final Store? store;
   final int? initialMenuIndex;
 
+  /// 기존 가격 변동 제보를 수정할 때 전달합니다. 같은 ID로 저장하며
+  /// 대상 매장(storeId)과 변동 유형(changeType)은 바꾸지 않습니다.
+  final UserReportStatus? initialReport;
+
   const PriceChangeReportScreen({
     super.key,
     this.storeName = '매장 정보 없음',
     this.store,
     this.initialMenuIndex,
+    this.initialReport,
   });
 
   @override
@@ -91,7 +126,10 @@ class _PriceChangeReportScreenState
   bool _isConfirmed = false;
   bool _isFree = false;
   bool _isSubmitting = false;
+  bool _saved = false;
   int? _selectedMenuIndex;
+  Store? _loadedStore;
+  bool _loadingStore = false;
 
   final _menuController = TextEditingController();
   final _priceController = TextEditingController();
@@ -106,9 +144,15 @@ class _PriceChangeReportScreenState
 
   final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
+  final _uploads = ReportUploadSession();
+
+  bool get _isEditing => widget.initialReport != null;
+
+  /// 화면에 넘어온 매장, 없으면 수정 대상 제보의 매장을 새로 조회한 값입니다.
+  Store? get _store => widget.store ?? _loadedStore;
 
   List<({int slot, String menu, String price})> get _registeredMenuSlots {
-    final s = widget.store;
+    final s = _store;
     if (s == null) return const [];
     return [
       for (var slot = 1; slot <= 4; slot++)
@@ -126,10 +170,21 @@ class _PriceChangeReportScreenState
       (menu: item.menu, price: item.price),
   ];
 
-  String get _changeType => _changeTypes[_selectedType]['value']!;
+  String get _changeType {
+    final lockedType = widget.initialReport?.changeType.trim() ?? '';
+    if (lockedType.isNotEmpty) return lockedType;
+    return _changeTypes[_selectedType]['value']!;
+  }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _saved) return;
+    final initial = widget.initialReport;
+    if (initial != null && initial.isApproved) {
+      _showMessage('승인된 제보는 수정할 수 없어요.');
+      return;
+    }
+    final changeType = _changeType;
+    final isDelete = changeType == 'delete';
     final menu = _menuController.text.trim();
     final price = _priceController.text.trim();
     final description = _descController.text.trim();
@@ -142,26 +197,30 @@ class _PriceChangeReportScreenState
       return;
     }
     final parsedPrice = parsePriceValue(price);
-    if (_selectedType != 2 &&
+    if (!isDelete &&
         (parsedPrice == null ||
             !parsedPrice.isExact ||
             (_isFree ? parsedPrice.minimum != 0 : parsedPrice.minimum <= 0))) {
       _showMessage('변경된 가격을 입력해주세요.');
       return;
     }
-    final priceError = validatePriceChange(
-      changeType: _changeType,
-      menu: menu,
-      price: price,
-      registeredMenus: _selectedMenuIndex == null
-          ? _registeredMenus
-          : [
-              for (final item in _registeredMenuSlots)
-                if (item.slot == _selectedMenuIndex)
-                  (menu: item.menu, price: item.price),
-            ],
-      free: _isFree,
-    );
+    // 수정 중 대상 매장을 불러오지 못했다면 서버가 현재 가격과 방향을 다시 검증합니다.
+    final priceError = _isEditing && _store == null
+        ? null
+        : validatePriceChange(
+            changeType: changeType,
+            menu: menu,
+            price: price,
+            registeredMenus: _selectedMenuIndex == null
+                ? _registeredMenus
+                : [
+                    for (final item in _registeredMenuSlots)
+                      if (item.slot == _selectedMenuIndex)
+                        (menu: item.menu, price: item.price),
+                  ],
+            free: _isFree,
+            editing: _isEditing,
+          );
     if (priceError != null) {
       _showMessage(priceError);
       return;
@@ -172,56 +231,115 @@ class _PriceChangeReportScreenState
     }
 
     setState(() => _isSubmitting = true);
-    var uploadedImageUrls = <String>[];
+    final reportService = ref.read(reportServiceProvider);
+    final store = _store;
+    UserReport? request;
+    var saveRequestSent = false;
     try {
-      final reportService = ref.read(reportServiceProvider);
-      if (FeatureFlags.reportImageUploadEnabled && _selectedImages.isNotEmpty) {
-        uploadedImageUrls = await reportService.uploadReportImages(
-          _selectedImages,
-        );
-      }
-      final store = widget.store;
-      final report = UserReport(
-        storeId: store?.id ?? '',
-        storeName: store?.storeName ?? widget.storeName,
-        industry: store?.industry ?? '',
-        address: store?.address ?? '',
+      final imageUrls = await _uploads.resolveImageUrls(
+        reportService,
+        _selectedImages,
+        uploadEnabled: FeatureFlags.reportImageUploadEnabled,
+      );
+      request = UserReport(
+        storeId: initial?.storeId ?? store?.id ?? '',
+        storeName: store?.storeName ?? initial?.store ?? widget.storeName,
+        industry: store?.industry ?? initial?.category ?? '',
+        address: store?.address ?? initial?.address ?? '',
         phoneNumber: store?.phoneNumber ?? '',
         menu1: menu,
-        price1: _selectedType == 2 ? '' : price,
-        free1: _selectedType != 2 && _isFree,
-        imageUrls: uploadedImageUrls,
+        price1: isDelete ? '' : price,
+        free1: !isDelete && _isFree,
+        imageUrls: imageUrls,
         reporterId: '',
-        visitedRecently: false,
+        visitedRecently: initial?.visitedRecently ?? false,
         checkedMenuPrice: true,
-        changeType: _changeType,
+        changeType: changeType,
         description: description,
-        latitude: store?.latitude ?? 0,
-        longitude: store?.longitude ?? 0,
+        latitude: store?.latitude ?? initial?.latitude ?? 0,
+        longitude: store?.longitude ?? initial?.longitude ?? 0,
       );
-      await reportService.submitReport(report);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
-      );
-      context.pop();
+      // 이전 시도가 응답 없이 끝났다면, 다시 보내기 전에 이미 저장됐는지 확인합니다.
+      if (_uploads.saveOutcomeUnknown &&
+          await _finishIfAlreadySaved(reportService, request)) {
+        return;
+      }
+      saveRequestSent = true;
+      if (initial == null) {
+        await reportService.submitReport(request);
+      } else {
+        await reportService.updateReport(initial.id, request);
+      }
+      await _finishSaved(reportService);
     } on ReportServiceException catch (error) {
-      if (uploadedImageUrls.isNotEmpty) {
-        await ref
-            .read(reportServiceProvider)
-            .cleanupReportImages(uploadedImageUrls);
+      // 서버가 거절했으므로 저장되지 않았습니다.
+      if (error.cleanupUploadedImages) {
+        await _uploads.discardUnsaved(reportService);
       }
       if (mounted) _showMessage(error.message);
     } catch (error) {
       debugPrint('가격 변동 제보 오류: $error');
-      if (uploadedImageUrls.isNotEmpty) {
-        await ref
-            .read(reportServiceProvider)
-            .cleanupReportImages(uploadedImageUrls);
+      if (saveRequestSent && request != null) {
+        // 시간 초과나 연결 끊김은 서버에 저장됐을 수 있어 사진을 지우지 않습니다.
+        _uploads.saveOutcomeUnknown = true;
+        if (await _finishIfAlreadySaved(reportService, request)) return;
+        if (mounted) _showMessage(reportSaveOutcomeUnknownMessage);
+      } else {
+        await _uploads.discardUnsaved(reportService);
+        if (mounted) _showMessage('제보를 저장하지 못했어요. 잠시 후 다시 시도해주세요.');
       }
-      if (mounted) _showMessage('제보를 저장하지 못했어요. 잠시 후 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<bool> _finishIfAlreadySaved(
+    ReportService service,
+    UserReport request,
+  ) async {
+    final reports = await service.fetchMyReports();
+    if (reports == null ||
+        matchSavedReport(
+              reports,
+              request,
+              reportId: widget.initialReport?.id,
+            ) ==
+            null) {
+      return false;
+    }
+    await _finishSaved(service, latestReports: reports);
+    return true;
+  }
+
+  Future<void> _finishSaved(
+    ReportService service, {
+    List<UserReportStatus>? latestReports,
+  }) async {
+    _uploads.markSaved();
+    _saved = true;
+    final editing = _isEditing;
+    if (editing) {
+      // 상세 화면이 수정된 내용과 '검토 중' 상태를 바로 보여주도록 갱신합니다.
+      final reports = latestReports ?? await service.fetchMyReports();
+      if (!mounted) return;
+      if (reports != null) {
+        ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+      }
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      HowmuchSnackBar(
+        content: Text(
+          editing
+              ? '가격 변동 제보를 수정했어요. 관리자 확인 후 반영됩니다.'
+              : '가격 변동 제보가 접수되었습니다. 관리자 확인 후 반영됩니다.',
+        ),
+      ),
+    );
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(editing ? AppRoutes.myReportsV2 : AppRoutes.home);
     }
   }
 
@@ -232,43 +350,105 @@ class _PriceChangeReportScreenState
   }
 
   Future<void> _pickImages() async {
-    if (_selectedImages.length >= 3) return;
+    final remaining = ReportService.maxImageCount - _selectedImages.length;
+    if (remaining <= 0) {
+      _showMessage('사진은 최대 3장까지 첨부할 수 있어요.');
+      return;
+    }
     try {
       final List<XFile> images = await _picker.pickMultiImage(imageQuality: 70);
-      if (images.isNotEmpty) {
-        setState(() {
-          _selectedImages.addAll(images.take(3 - _selectedImages.length));
-        });
+      if (images.isEmpty) return;
+      // 제출할 때가 아니라 고르는 즉시 용량과 장수를 확인하고 이유를 알립니다.
+      final selection = await selectReportPhotos(images, remaining: remaining);
+      if (!mounted) return;
+      if (selection.accepted.isNotEmpty) {
+        setState(() => _selectedImages.addAll(selection.accepted));
       }
+      final notice = reportPhotoSelectionNotice(
+        oversized: selection.oversized,
+        overLimit: selection.overLimit,
+      );
+      if (notice != null) _showMessage(notice);
     } catch (e) {
       debugPrint('사진 첨부 오류: $e');
+      if (mounted) _showMessage('사진을 불러오지 못했어요. 사진 접근 권한을 확인해주세요.');
     }
   }
 
   @override
   void initState() {
     super.initState();
-    _menuController.addListener(() {
-      if (_selectedMenuIndex != null &&
-          widget.store?.menuAt(_selectedMenuIndex!).trim() !=
-              _menuController.text.trim()) {
-        _selectedMenuIndex = null;
+    final initial = widget.initialReport;
+    if (initial != null) {
+      _restoreInitialReport(initial);
+    } else {
+      final menus = _registeredMenuSlots.where(
+        (item) =>
+            widget.initialMenuIndex == null ||
+            item.slot == widget.initialMenuIndex,
+      );
+      if (menus.isNotEmpty) {
+        _selectedMenuIndex = menus.first.slot;
+        _menuController.text = menus.first.menu;
       }
-      if (mounted) setState(() {});
-    });
-    final menus = _registeredMenuSlots.where(
-      (item) =>
-          widget.initialMenuIndex == null ||
-          item.slot == widget.initialMenuIndex,
-    );
-    if (menus.isNotEmpty) {
-      _selectedMenuIndex = menus.first.slot;
-      _menuController.text = menus.first.menu;
+    }
+    _menuController.addListener(_onMenuChanged);
+    if (initial != null &&
+        widget.store == null &&
+        initial.storeId.trim().isNotEmpty) {
+      Future.microtask(_loadTargetStore);
     }
   }
 
+  void _restoreInitialReport(UserReportStatus initial) {
+    final typeIndex = _changeTypes.indexWhere(
+      (type) => type['value'] == initial.changeType.trim(),
+    );
+    if (typeIndex >= 0) _selectedType = typeIndex;
+    final first = initial.menuPrices.isEmpty ? null : initial.menuPrices.first;
+    _menuController.text = first?.menu.trim() ?? '';
+    if (initial.changeType.trim() != 'delete' && first != null) {
+      _priceController.text = first.price.trim();
+      _isFree = first.free;
+    }
+    _descController.text = initial.description;
+    _isConfirmed = initial.checkedMenuPrice;
+    _selectedImages.addAll(
+      initial.imageUrls.where(isRemoteReportImage).map(XFile.new),
+    );
+    _syncSelectedMenuSlot();
+  }
+
+  Future<void> _loadTargetStore() async {
+    final storeId = widget.initialReport?.storeId.trim() ?? '';
+    if (storeId.isEmpty || !mounted) return;
+    setState(() => _loadingStore = true);
+    final store = await ref.read(reportServiceProvider).fetchStore(storeId);
+    if (!mounted) return;
+    setState(() {
+      _loadedStore = store;
+      _loadingStore = false;
+      _syncSelectedMenuSlot();
+    });
+  }
+
+  void _syncSelectedMenuSlot() {
+    final menu = _menuController.text.trim();
+    final matches = _registeredMenuSlots.where((item) => item.menu == menu);
+    _selectedMenuIndex = matches.isEmpty ? null : matches.first.slot;
+  }
+
+  void _onMenuChanged() {
+    final index = _selectedMenuIndex;
+    if (index != null &&
+        _store?.menuAt(index).trim() != _menuController.text.trim()) {
+      _selectedMenuIndex = null;
+    }
+    if (mounted) setState(() {});
+  }
+
   void _onTypeSelected(int i) {
-    if (_selectedType == i) return;
+    if (_isEditing || _selectedType == i) return;
     setState(() {
       final prev = _selectedType;
       _selectedType = i;
@@ -310,12 +490,19 @@ class _PriceChangeReportScreenState
           item.slot == _selectedMenuIndex &&
           item.menu == _menuController.text.trim(),
     );
+    final selectedMenu = selectedMenus.isEmpty ? null : selectedMenus.first;
+    final showMultiPriceNotice =
+        selectedMenu != null &&
+        (_selectedType == 0 || _selectedType == 1) &&
+        hasInexactRegisteredPrice(selectedMenu.price);
+    final submitLocked =
+        _isSubmitting || _saved || (widget.initialReport?.isApproved ?? false);
     return FigmaMobileCanvas(
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
           backgroundColor: AppColors.white,
-          appBar: const CustomAppBar(title: '가격 변동 제보'),
+          appBar: CustomAppBar(title: _isEditing ? '가격 변동 제보 수정' : '가격 변동 제보'),
           body: SafeArea(
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -334,6 +521,18 @@ class _PriceChangeReportScreenState
                   ),
                   const SizedBox(height: 12),
                   _buildTypeGrid(),
+                  if (_isEditing) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      priceChangeLockedNotice,
+                      key: ValueKey('price-report-locked-notice'),
+                      style: TextStyle(
+                        color: AppColors.muted,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
 
                   // 변경된 메뉴
@@ -342,7 +541,7 @@ class _PriceChangeReportScreenState
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  if (_registeredMenus.isNotEmpty) ...[
+                  if (_registeredMenus.isNotEmpty && !_isEditing) ...[
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -428,6 +627,7 @@ class _PriceChangeReportScreenState
                     _registeredMenus.isNotEmpty
                         ? '메뉴 이름 직접 입력 (예: ${_registeredMenus.first.menu})'
                         : '메뉴 이름 직접 입력',
+                    readOnly: _isEditing,
                   ),
                   const SizedBox(height: 20),
 
@@ -442,16 +642,20 @@ class _PriceChangeReportScreenState
                     ),
                     const SizedBox(height: 8),
                     if (_selectedType != 3 &&
-                        selectedMenus.isNotEmpty &&
-                        selectedMenus.first.price.isNotEmpty) ...[
+                        selectedMenu != null &&
+                        selectedMenu.price.isNotEmpty) ...[
                       Text(
-                        '기존 가격 ${_formatWon(selectedMenus.first.price)}',
+                        '기존 가격 ${_formatWon(selectedMenu.price)}',
                         style: const TextStyle(
                           color: AppColors.muted,
                           fontSize: 13,
                         ),
                       ),
                       const SizedBox(height: 7),
+                    ],
+                    if (showMultiPriceNotice) ...[
+                      _buildMultiPriceNotice(),
+                      const SizedBox(height: 10),
                     ],
                     _buildPriceField(),
                     Semantics(
@@ -494,9 +698,11 @@ class _PriceChangeReportScreenState
             ),
           ),
           bottomNavigationBar: CustomBottomButton(
-            text: _isSubmitting ? '제보 저장 중...' : '가격 변동 제보하기',
+            text: _isSubmitting
+                ? '제보 저장 중...'
+                : (_isEditing ? '제보 수정하기' : '가격 변동 제보하기'),
             backgroundColor: AppColors.orangeTheme,
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: submitLocked ? null : _submit,
           ),
         ),
       ),
@@ -504,10 +710,19 @@ class _PriceChangeReportScreenState
   }
 
   Widget _buildStoreCard() {
-    final s = widget.store;
+    final s = _store;
+    final initial = widget.initialReport;
     final primaryMenu = s != null && s.menu1.trim().isNotEmpty
         ? s.menu1.trim()
         : null;
+    final fallbackCategory = initial != null && initial.category.isNotEmpty
+        ? initial.category
+        : '메뉴 정보 기입';
+    final subtitle = primaryMenu != null
+        ? '대표 메뉴: $primaryMenu'
+        : _loadingStore
+        ? '매장 정보를 불러오고 있어요'
+        : (s?.industry ?? fallbackCategory);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -524,7 +739,7 @@ class _PriceChangeReportScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.store?.storeName ?? widget.storeName,
+                  s?.storeName ?? initial?.store ?? widget.storeName,
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -537,9 +752,7 @@ class _PriceChangeReportScreenState
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  primaryMenu != null
-                      ? '대표 메뉴: $primaryMenu'
-                      : (widget.store?.industry ?? '메뉴 정보 기입'),
+                  subtitle,
                   style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
@@ -556,6 +769,39 @@ class _PriceChangeReportScreenState
     );
   }
 
+  Widget _buildMultiPriceNotice() {
+    final store = _store;
+    return Container(
+      key: const ValueKey('price-report-multi-price-notice'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      decoration: BoxDecoration(
+        color: AppColors.orangeLight,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            priceChangeMultiPriceMessage,
+            style: TextStyle(color: AppColors.ink, fontSize: 12, height: 1.5),
+          ),
+          if (store != null && store.id.isNotEmpty)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () =>
+                    context.push(AppRoutes.storeInfoReport, extra: store),
+                child: const Text('정보 신고로 알리기'),
+              ),
+            )
+          else
+            const SizedBox(height: 6),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTypeGrid() {
     return GridView.count(
       crossAxisCount: 2,
@@ -566,9 +812,11 @@ class _PriceChangeReportScreenState
       childAspectRatio: 3,
       children: List.generate(_changeTypes.length, (i) {
         final selected = _selectedType == i;
-        return FigmaMobileCanvas(
-          child: GestureDetector(
-            onTap: () => _onTypeSelected(i),
+        final locked = _isEditing && !selected;
+        return GestureDetector(
+          onTap: locked ? null : () => _onTypeSelected(i),
+          child: Opacity(
+            opacity: locked ? .45 : 1,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               alignment: Alignment.center,
@@ -597,9 +845,14 @@ class _PriceChangeReportScreenState
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String hint) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String hint, {
+    bool readOnly = false,
+  }) {
     return TextField(
       controller: controller,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: '변경된 메뉴',
         hintText: hint,
@@ -658,6 +911,14 @@ class _PriceChangeReportScreenState
     );
   }
 
+  ImageProvider _thumbnailImage(XFile image) {
+    final ImageProvider source = isRemoteReportImage(image.path) || kIsWeb
+        ? NetworkImage(image.path)
+        : FileImage(File(image.path));
+    // 72px 썸네일을 원본 해상도로 디코딩하지 않도록 줄여서 읽습니다.
+    return ResizeImage.resizeIfNeeded(216, null, source);
+  }
+
   Widget _buildPhotoButton() {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -702,10 +963,10 @@ class _PriceChangeReportScreenState
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.shade200),
                     image: DecorationImage(
-                      image: kIsWeb
-                          ? NetworkImage(image.path) as ImageProvider
-                          : FileImage(File(image.path)),
+                      image: _thumbnailImage(image),
                       fit: BoxFit.cover,
+                      // 지워진 원격 사진도 화면 오류 없이 빈 칸으로 둡니다.
+                      onError: (_, _) {},
                     ),
                   ),
                 ),

@@ -471,7 +471,10 @@ void main() {
 
     await tester.tap(find.text('활동 내역 공개'));
     await tester.pumpAndSettle();
-    expect(find.text('프로필 공개 설정은 현재 제공하지 않아요.'), findsOneWidget);
+    expect(
+      find.text('활동 내역 공개 설정은 아직 바꿀 수 없어요. 방문·제보 횟수는 다른 사용자에게 보이지 않아요.'),
+      findsOneWidget,
+    );
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
     await tester.tap(find.text('저장하기'));

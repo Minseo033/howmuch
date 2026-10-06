@@ -310,10 +310,15 @@ class _LoadError extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-            if (!requiresLogin) ...[
-              const SizedBox(height: 18),
+            const SizedBox(height: 18),
+            // A login-required state needs a way to log in.
+            if (requiresLogin)
+              FilledButton(
+                onPressed: () => context.go(AppRoutes.login),
+                child: const Text('로그인하기'),
+              )
+            else
               TextButton(onPressed: onRetry, child: const Text('다시 시도')),
-            ],
           ],
         ),
       ),

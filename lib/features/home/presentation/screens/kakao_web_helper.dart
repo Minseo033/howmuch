@@ -94,15 +94,11 @@ void registerKakaoWebViewFactory(String viewId) {
 
 @JS('fitKakaoMapStores')
 external void _fitKakaoMapStores(JSString viewId, JSString coordinates);
-@JS('zoomKakaoMap')
-external void _zoomKakaoMap(JSString viewId, JSNumber delta);
 @JS('setKakaoMapSearchMode')
 external void _setKakaoMapSearchMode(JSString viewId, JSBoolean enabled);
 
 void fitKakaoMapStoresWeb(String viewId, String coordinates) =>
     _fitKakaoMapStores(viewId.toJS, coordinates.toJS);
-void zoomKakaoMapWeb(String viewId, int delta) =>
-    _zoomKakaoMap(viewId.toJS, delta.toJS);
 void setKakaoMapSearchModeWeb(String viewId, bool enabled) =>
     _setKakaoMapSearchMode(viewId.toJS, enabled.toJS);
 

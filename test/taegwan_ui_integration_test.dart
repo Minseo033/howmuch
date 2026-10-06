@@ -14,7 +14,7 @@ void main() {
 
   for (final skip in [false, true]) {
     testWidgets(
-      'onboarding ${skip ? 'alternate action' : 'completion'} persists before terms',
+      'onboarding ${skip ? 'guest browsing' : 'completion'} persists its choice',
       (tester) async {
         _setViewport(tester, const Size(390, 844));
         final container = ProviderContainer();
@@ -30,6 +30,10 @@ void main() {
               path: AppRoutes.authTerms,
               builder: (_, _) => const Scaffold(body: Text('약관 화면 도착')),
             ),
+            GoRoute(
+              path: AppRoutes.permissionSetup,
+              builder: (_, _) => const Scaffold(body: Text('권한 화면 도착')),
+            ),
           ],
         );
         addTearDown(router.dispose);
@@ -43,7 +47,9 @@ void main() {
         await tester.tap(find.text(skip ? '로그인 없이 둘러보기' : '시작하기'));
         await tester.pumpAndSettle();
 
-        expect(find.text('약관 화면 도착'), findsOneWidget);
+        // '시작하기' signs up through the terms; browsing skips straight to
+        // the guest path that the login screen also offers.
+        expect(find.text(skip ? '권한 화면 도착' : '약관 화면 도착'), findsOneWidget);
         expect(container.read(onboardingCompletedProvider), isTrue);
         final preferences = await SharedPreferences.getInstance();
         expect(preferences.getBool('onboarding_completed'), isTrue);

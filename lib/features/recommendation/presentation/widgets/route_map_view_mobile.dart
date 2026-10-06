@@ -18,6 +18,17 @@ Widget buildRouteMapView({
   );
 }
 
+/// What the map draws. An unchanged route is not reloaded on parent rebuilds.
+String _routeMapContentKey(
+  List<RouteMapPoint> points,
+  double? userLatitude,
+  double? userLongitude,
+) => jsonEncode([
+  for (final point in points) point.toJson(),
+  userLatitude,
+  userLongitude,
+]);
+
 class _RouteMapMobileView extends StatefulWidget {
   final List<RouteMapPoint> points;
   final double? userLatitude;
@@ -35,10 +46,16 @@ class _RouteMapMobileView extends StatefulWidget {
 
 class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   late final WebViewController _controller;
+  late String _routeKey;
 
   @override
   void initState() {
     super.initState();
+    _routeKey = _routeMapContentKey(
+      widget.points,
+      widget.userLatitude,
+      widget.userLongitude,
+    );
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
@@ -48,6 +65,15 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   @override
   void didUpdateWidget(covariant _RouteMapMobileView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Parent rebuilds pass new lists with the same route. Reload the page only
+    // when the stops or the start point actually change.
+    final routeKey = _routeMapContentKey(
+      widget.points,
+      widget.userLatitude,
+      widget.userLongitude,
+    );
+    if (routeKey == _routeKey) return;
+    _routeKey = routeKey;
     _controller.loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
   }
 

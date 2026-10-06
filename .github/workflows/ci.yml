@@ -4,6 +4,9 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Lets maintainers run the gates on bot branches (e.g. the weekly snapshot PR),
+  # whose pull requests do not trigger workflows. Deployment stays push-to-main only.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,6 +58,10 @@ jobs:
         run: node scripts/check_admin_html.mjs
       - name: Test deployment verification guards
         run: node --test scripts/*.test.mjs
+      - name: Test data import scripts
+        run: |
+          python3 -B scripts/import-store-hours.test.py
+          python3 -B scripts/expand-store-details-from-goodprice.test.py
 
   ios-simulator:
     name: iOS Simulator build

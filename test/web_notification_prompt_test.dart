@@ -307,6 +307,27 @@ void main() {
     });
   }
 
+  testWidgets('a closed notice does not pop up again on the next launch', (
+    tester,
+  ) async {
+    final notice = _notification(
+      id: 'notice-once',
+      type: '공지사항',
+      isUnread: false,
+    );
+    await _pumpNotice(tester, notice);
+    expect(find.byKey(const ValueKey('notice-popup')), findsOneWidget);
+
+    await tester.tap(find.text('닫기'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpNotice(tester, notice);
+
+    expect(find.byKey(const ValueKey('notice-popup')), findsNothing);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool(noticeSeenKey(notice.id)), isTrue);
+  });
+
   testWidgets('notice action closes the popup and opens notifications once', (
     tester,
   ) async {

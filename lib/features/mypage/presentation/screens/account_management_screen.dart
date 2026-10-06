@@ -124,6 +124,7 @@ class _AccountManagementScreenState
                     locationAccess: location.valueOrNull,
                     onSocialAccounts: () =>
                         context.push(AppRoutes.connectedSocialAccounts),
+                    onNickname: () => context.push(AppRoutes.profileEdit),
                     onLocationTap: () async {
                       final access =
                           location.valueOrNull ?? DeviceAccess.unknown;
@@ -278,7 +279,12 @@ class _ProfileAccountCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(profile.nickname, style: _bold15),
+                  Text(
+                    profile.nickname,
+                    style: _bold15,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 3.991),
                   Row(
                     children: [
@@ -298,9 +304,14 @@ class _ProfileAccountCard extends StatelessWidget {
             ),
           ),
           Positioned(
-            right: 16.9034423828125,
-            top: 30.6533203125,
-            child: _SmallPillButton(label: '편집', onTap: onEdit),
+            // Same visual pill, inside a 48x44 touch target.
+            right: 13.9034423828125,
+            top: 22.8933203125,
+            child: _SmallPillButton(
+              label: '편집',
+              semanticLabel: '프로필 편집',
+              onTap: onEdit,
+            ),
           ),
         ],
       ),
@@ -314,6 +325,7 @@ class _AccountInfoCard extends StatelessWidget {
     required this.provider,
     required this.locationAccess,
     required this.onSocialAccounts,
+    required this.onNickname,
     required this.onLocationTap,
   });
 
@@ -321,6 +333,7 @@ class _AccountInfoCard extends StatelessWidget {
   final String provider;
   final DeviceAccess? locationAccess;
   final VoidCallback onSocialAccounts;
+  final VoidCallback onNickname;
   final VoidCallback onLocationTap;
 
   @override
@@ -332,7 +345,8 @@ class _AccountInfoCard extends StatelessWidget {
             icon: Icons.person_outline_rounded,
             title: '닉네임 변경',
             value: profile.nickname,
-            showChevron: false,
+            // The row named an action but did nothing; it opens the editor.
+            onTap: onNickname,
           ),
           const _CardDivider(),
           _AccountRow(
@@ -462,7 +476,6 @@ class _AccountRow extends StatelessWidget {
     this.valueColor = AccountManagementScreen.ink,
     this.boldValue = false,
     this.onTap,
-    this.showChevron = true,
   });
 
   final IconData icon;
@@ -471,7 +484,6 @@ class _AccountRow extends StatelessWidget {
   final Color valueColor;
   final bool boldValue;
   final VoidCallback? onTap;
-  final bool showChevron;
 
   @override
   Widget build(BuildContext context) {
@@ -484,26 +496,29 @@ class _AccountRow extends StatelessWidget {
             _RowIcon(icon: icon),
             const SizedBox(width: 10),
             Text(title, style: _medium13),
-            const Spacer(),
-            Text(
-              value,
-              style: TextStyle(
-                color: valueColor,
-                fontFamily: AccountManagementScreen.fontFamily,
-                fontFamilyFallback: AccountManagementScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: boldValue ? FontWeight.w700 : FontWeight.w500,
-                height: 1.5,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: valueColor,
+                  fontFamily: AccountManagementScreen.fontFamily,
+                  fontFamilyFallback: AccountManagementScreen.fontFallback,
+                  fontSize: 12,
+                  fontWeight: boldValue ? FontWeight.w700 : FontWeight.w500,
+                  height: 1.5,
+                ),
               ),
             ),
-            if (showChevron) ...[
-              const SizedBox(width: 7.997),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 15,
-                color: AccountManagementScreen.muted,
-              ),
-            ],
+            const SizedBox(width: 7.997),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 15,
+              color: AccountManagementScreen.muted,
+            ),
           ],
         ),
       ),
@@ -589,25 +604,41 @@ class _RowIcon extends StatelessWidget {
 }
 
 class _SmallPillButton extends StatelessWidget {
-  const _SmallPillButton({required this.label, required this.onTap});
+  const _SmallPillButton({
+    required this.label,
+    required this.semanticLabel,
+    required this.onTap,
+  });
 
   final String label;
+  final String semanticLabel;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 42.002838134765625,
-        height: 28.480112075805664,
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(10),
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 48,
+          height: 44,
+          child: Center(
+            child: Container(
+              width: 42.002838134765625,
+              height: 28.480112075805664,
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Text(label, style: _semi11),
+            ),
+          ),
         ),
-        alignment: Alignment.center,
-        child: Text(label, style: _semi11),
       ),
     );
   }
@@ -784,7 +815,7 @@ const _sectionText = TextStyle(
 );
 
 const _dangerTitle = TextStyle(
-  color: AccountManagementScreen.red,
+  color: AppColors.errorText,
   fontFamily: AccountManagementScreen.fontFamily,
   fontFamilyFallback: AccountManagementScreen.fontFallback,
   fontSize: 13,

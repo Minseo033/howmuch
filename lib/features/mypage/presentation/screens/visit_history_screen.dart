@@ -25,6 +25,26 @@ String? formatVisitVerification(String? method, double? distanceMeters) {
   return null;
 }
 
+/// Visits are counted per Korean calendar day by the server, so the list
+/// shows the KST date regardless of the device time zone.
+String formatVisitDateKst(String? rawDate) {
+  if (rawDate == null || rawDate.isEmpty) return '최근 방문';
+  final parsed = DateTime.tryParse(rawDate);
+  if (parsed == null) return rawDate;
+  final kst = parsed.toUtc().add(const Duration(hours: 9));
+  return '${kst.year.toString().padLeft(4, '0')}.'
+      '${kst.month.toString().padLeft(2, '0')}.'
+      '${kst.day.toString().padLeft(2, '0')}';
+}
+
+/// The server accepts 0원 only for an approved free menu, so a recorded 0 is
+/// a free visit; a missing price is unknown.
+bool isFreeVisit(Map<dynamic, dynamic> item) {
+  if (item['isFree'] == true) return true;
+  final price = item['price'];
+  return price is num && price == 0;
+}
+
 class VisitHistoryScreen extends StatefulWidget {
   const VisitHistoryScreen({super.key});
 
@@ -60,23 +80,28 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
         final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
         final parsed = data.map((item) {
           final isGov = item['isGov'] == true;
-          final savedAmt = (item['savedAmount'] as num?)?.toInt() ?? 0;
+          final isFree = item is Map && isFreeVisit(item);
+          final savedAmt = isFree
+              ? 0
+              : (item['savedAmount'] as num?)?.toInt() ?? 0;
           final priceAmt = (item['price'] as num?)?.toInt() ?? 0;
           final verificationMethod = item['verificationMethod']?.toString();
           final verificationDistance =
               (item['verificationDistanceMeters'] as num?)?.toDouble();
           final visitedAt = item['visitedAt']?.toString();
-          final dateStr = _formatDate(visitedAt);
+          final dateStr = formatVisitDateKst(visitedAt);
 
           return {
             'isGov': isGov,
             'name': item['storeName'] ?? '미등록 매장',
             'menu': item['menu'] ?? '일반 방문',
-            'price': priceAmt > 0
+            'price': isFree
+                ? '무료'
+                : priceAmt > 0
                 ? '${_formatCurrency(priceAmt)}원'
                 : '가격 정보 없음',
             'savedAmount': savedAmt,
-            'saving': '${_formatCurrency(savedAmt)}원 절약',
+            'saving': isFree ? '무료 이용' : '${_formatCurrency(savedAmt)}원 절약',
             'date': dateStr,
             'visitedAt': visitedAt,
             'verification': formatVisitVerification(
@@ -104,6 +129,8 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   }
 
   void _showFetchError(String message) {
+    // The request can fail after the user already left this screen.
+    if (!mounted) return;
     setState(() {
       _visits = [];
       _errorMessage = message;
@@ -121,19 +148,6 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
       buffer.write(str[i]);
     }
     return buffer.toString();
-  }
-
-  String _formatDate(String? rawDate) {
-    if (rawDate == null || rawDate.isEmpty) return '최근 방문';
-    try {
-      final dt = DateTime.parse(rawDate).toLocal();
-      final y = dt.year.toString().padLeft(4, '0');
-      final m = dt.month.toString().padLeft(2, '0');
-      final d = dt.day.toString().padLeft(2, '0');
-      return '$y.$m.$d';
-    } catch (_) {
-      return rawDate;
-    }
   }
 
   int get _totalSavedAmount {

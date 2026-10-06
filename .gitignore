@@ -30,6 +30,10 @@ node_modules/
 # Logs
 *.log
 
+# Python caches from data scripts
+__pycache__/
+*.pyc
+
 # Local Jev quality-gate inputs and outputs
 tools/jev-quality-gate/quality-signals*.json
 tools/jev-quality-gate/result*.json

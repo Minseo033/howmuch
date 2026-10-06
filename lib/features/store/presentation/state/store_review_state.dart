@@ -4,12 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:http/http.dart' as http;
 
 /// 매장 리뷰 상태.
 /// storeId → 리뷰 목록 맵으로 관리하며, 백엔드 /api/review와 연동합니다.
 class StoreReviewNotifier
     extends StateNotifier<Map<String, AsyncValue<List<Review>>>> {
-  StoreReviewNotifier() : super(const {});
+  StoreReviewNotifier({
+    this.submissionRecheckDelay = const Duration(seconds: 2),
+  }) : super(const {});
+
+  /// After a lost response the server may still be finishing the write, so
+  /// the check for the submitted review waits briefly first.
+  final Duration submissionRecheckDelay;
 
   /// 이미 로드를 시도한 storeId (중복 요청 방지)
   final Set<String> _loadedStoreIds = {};
@@ -83,49 +90,114 @@ class StoreReviewNotifier
   }
 
   /// 리뷰 작성 (세션 인증 필요). 성공 시 로컬 목록 맨 앞에 추가하고 true 반환.
+  ///
+  /// 응답을 받지 못하면(시간 초과·연결 끊김) 서버에 저장됐을 수 있으므로 내 리뷰
+  /// 목록에서 같은 리뷰를 찾아 확인합니다. 저장됐으면 true, 없으면 false,
+  /// 확인 자체가 실패하면 [ReviewSubmissionUnconfirmedException]을 던집니다.
+  /// 확인 없이 다시 보내면 같은 리뷰가 두 번 등록될 수 있습니다.
   Future<bool> addReview(Review review) async {
     if (!mounted) return false;
     final url = ApiClient.uri('/api/review');
+    final submittedAt = DateTime.now();
+    final http.Response response;
     try {
-      final response = await ApiClient.post(
+      response = await ApiClient.post(
         url,
         headers: ApiClient.jsonHeaders(auth: true),
         body: jsonEncode(review.toCreateJson()),
       ).timeout(ApiClient.defaultTimeout);
+    } catch (e) {
+      debugPrint('리뷰 등록 응답 없음: $e');
+      final saved = await _findSubmittedReview(review, since: submittedAt);
+      if (saved == null) return false;
+      _prependReview(saved);
+      return true;
+    }
 
-      if (response.statusCode == 401) {
-        throw const MyReviewsAuthRequiredException();
+    if (response.statusCode != 200) {
+      debugPrint(
+        '리뷰 등록 실패: ${response.statusCode} ${ApiClient.bodyText(response)}',
+      );
+      return false;
+    }
+
+    // A 200 means the review was stored, even if the body cannot be read.
+    String reviewId = '';
+    // The server decides the public author name (e.g. 익명 when the nickname
+    // is private); the locally entered nickname is only a fallback.
+    var authorName = review.authorName;
+    try {
+      final data = ApiClient.decodeJson(response);
+      if (data is Map) {
+        reviewId = (data['reviewId'] ?? '').toString();
+        final serverAuthor = data['authorName']?.toString().trim() ?? '';
+        if (serverAuthor.isNotEmpty) authorName = serverAuthor;
       }
-
-      if (response.statusCode != 200) {
-        debugPrint(
-          '리뷰 등록 실패: ${response.statusCode} ${ApiClient.bodyText(response)}',
-        );
-        return false;
-      }
-
-      final data = ApiClient.decodeJson(response) as Map<String, dynamic>;
-      final saved = Review(
-        id: (data['reviewId'] ?? '').toString(),
+    } catch (e) {
+      debugPrint('리뷰 등록 응답 해석 실패: $e');
+    }
+    _prependReview(
+      Review(
+        id: reviewId,
         storeId: review.storeId,
         storeName: review.storeName,
-        authorName: review.authorName,
+        authorName: authorName,
         stars: review.stars,
         menu: review.menu,
         price: review.price,
         content: review.content,
         createdAt: DateTime.now(),
-      );
-      if (!mounted) return true;
-      final current = reviewsFor(review.storeId);
-      state = {
-        ...state,
-        review.storeId: AsyncValue.data([saved, ...current]),
-      };
-      return true;
+      ),
+    );
+    return true;
+  }
+
+  void _prependReview(Review saved) {
+    if (!mounted) return;
+    final current = reviewsFor(saved.storeId)
+        .where((review) => saved.id.isEmpty || review.id != saved.id)
+        .toList();
+    state = {
+      ...state,
+      saved.storeId: AsyncValue.data([saved, ...current]),
+    };
+  }
+
+  /// Looks for [review] among the signed-in user's reviews written after
+  /// [since] (with room for clock differences between device and server).
+  Future<Review?> _findSubmittedReview(
+    Review review, {
+    required DateTime since,
+  }) async {
+    try {
+      if (submissionRecheckDelay > Duration.zero) {
+        await Future<void>.delayed(submissionRecheckDelay);
+      }
+      final response = await ApiClient.get(
+        ApiClient.uri('/api/review/me'),
+        headers: ApiClient.authHeaders(auth: true),
+      ).timeout(ApiClient.defaultTimeout);
+      if (response.statusCode != 200) {
+        throw StateError('내 리뷰 조회 실패: ${response.statusCode}');
+      }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! List) throw const FormatException('내 리뷰 응답 형식 오류');
+      final earliest = since.subtract(const Duration(minutes: 10));
+      for (final item in decoded.whereType<Map<String, dynamic>>()) {
+        final candidate = Review.fromJson(item);
+        final createdAt = candidate.createdAt;
+        if (candidate.storeId == review.storeId &&
+            candidate.content.trim() == review.content.trim() &&
+            candidate.stars == review.stars &&
+            candidate.menu.trim() == review.menu.trim() &&
+            (createdAt == null || createdAt.isAfter(earliest))) {
+          return candidate;
+        }
+      }
+      return null;
     } catch (e) {
-      debugPrint('리뷰 등록 통신 에러: $e');
-      return false;
+      debugPrint('리뷰 저장 여부 확인 실패: $e');
+      throw const ReviewSubmissionUnconfirmedException();
     }
   }
 }
@@ -208,4 +280,10 @@ final myReviewsProvider =
 
 class MyReviewsAuthRequiredException implements Exception {
   const MyReviewsAuthRequiredException();
+}
+
+/// The review request got no response and the follow-up check also failed,
+/// so it is unknown whether the server stored the review.
+class ReviewSubmissionUnconfirmedException implements Exception {
+  const ReviewSubmissionUnconfirmedException();
 }

@@ -1,7 +1,27 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/store/presentation/state/directions_urls.dart';
 
 void main() {
+  test('Naver Map receives the real app identifier', () {
+    expect(
+      naverMapAppName(platform: TargetPlatform.iOS),
+      'com.ohtaegwan.howmuch',
+    );
+    expect(
+      naverMapAppName(platform: TargetPlatform.android),
+      'com.example.howmuch',
+    );
+    final urls = buildNaverDirectionsUrls(
+      destinationName: '구백년짜장',
+      transport: DirectionsTransport.walk,
+      destinationLatitude: 37.2,
+      destinationLongitude: 127.2,
+    );
+    expect(urls.native.queryParameters['appname'], naverMapAppName());
+    expect(urls.native.queryParameters['appname'], isNot('com.howmuch.app'));
+  });
+
   for (final transport in DirectionsTransport.values) {
     test(
       'production Kakao builder preserves origin, destination and $transport',

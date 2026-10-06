@@ -41,6 +41,11 @@ jobs:
       - name: Validate and normalize the snapshot
         run: node scripts/validate-stores-snapshot.mjs "$RUNNER_TEMP/stores-snapshot.json" "$SNAPSHOT_PATH"
 
+      # Pull requests opened with GITHUB_TOKEN do not start other workflows, so the
+      # data and script checks run here before the pull request is created.
+      - name: Run data and script checks against the new snapshot
+        run: node --test scripts/*.test.mjs
+
       - name: Open or update a snapshot pull request
         run: |
           if git diff --quiet -- "$SNAPSHOT_PATH"; then
@@ -59,7 +64,7 @@ jobs:
             --base main \
             --head "$BRANCH_NAME" \
             --title "chore: update public store snapshot" \
-            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count and required-field validation." \
+            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count, required-field, coordinate and shrink validation, and the script checks ran in this workflow. Bot pull requests do not start CI automatically: run the Quality gates workflow on this branch before merging." \
           || gh pr edit "$BRANCH_NAME" \
             --title "chore: update public store snapshot" \
-            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count and required-field validation."
+            --body "Automated weekly refresh of the bundled public-store snapshot. The downloaded JSON passed row-count, required-field, coordinate and shrink validation, and the script checks ran in this workflow. Bot pull requests do not start CI automatically: run the Quality gates workflow on this branch before merging."

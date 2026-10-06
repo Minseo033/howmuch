@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Import only unique name + normalized-address matches from the public Seo-gu CSV.
 
+Only snapshot stores whose cityProvince/cityDistrict is 부산광역시/서구 can match.
+
 Source: https://www.data.go.kr/data/15051967/fileData.do (2026-06-11)
 Download the original CSV, then run with --source-csv PATH. Dry-run by default.
 """
@@ -9,6 +11,7 @@ import argparse
 import csv
 import hashlib
 import importlib.util
+import io
 import json
 import sys
 from collections import defaultdict
@@ -21,6 +24,8 @@ SOURCE_SHA256 = "2a83ffb7d0e43379c21a4c6a382c2158e9edffc2b22d21071814fcb145c32c9
 NO_HOURS = "등록된 영업시간이 없어요."
 SOURCE_NAME = "부산광역시 서구 착한가격업소"
 SOURCE_DATE = "2026-06-11"
+# Snapshot cityProvince/cityDistrict of the publishing municipality.
+PROVINCE, DISTRICT = "부산광역시", "서구"
 sys.dont_write_bytecode = True
 
 
@@ -33,22 +38,30 @@ def helpers():
     return module
 
 
-def select_updates(source_bytes, stores, catalog):
-    if hashlib.sha256(source_bytes).hexdigest() != SOURCE_SHA256:
-        raise ValueError("Source CSV SHA-256 differs from the reviewed 2026-06-11 file")
-    rows = list(csv.DictReader(source_bytes.decode("cp949").splitlines()))
-    if len(rows) != 74:
-        raise ValueError(f"Expected 74 source rows, got {len(rows)}")
+def read_csv_rows(raw, encoding="cp949"):
+    """Let the csv module split records so quoted cells keep their line breaks (as LF)."""
+    rows = csv.DictReader(io.StringIO(raw.decode(encoding), newline=""))
+    return [{key: value.replace("\r\n", "\n").replace("\r", "\n") if isinstance(value, str) else value
+             for key, value in row.items()} for row in rows]
+
+
+def in_region(store):
+    return (store.get("cityProvince"), store.get("cityDistrict")) == (PROVINCE, DISTRICT)
+
+
+def match_rows(rows, stores, catalog):
     match = helpers()
     by_identity = defaultdict(list)
     for store in stores:
-        by_identity[(match.name_key(store["storeName"]), match.address_key(store["address"]))].append(store)
+        if in_region(store):
+            by_identity[(match.name_key(store["storeName"]), match.address_key(store["address"]))].append(store)
     catalog_by_id = {entry["storeId"]: entry for entry in catalog}
     updates = []
     already_applied = 0
     unmatched = []
     for row in rows:
-        key = (match.name_key(row["업소명"]), match.address_key(row["소재지주소"]))
+        # A line break inside a quoted address cell separates words like a space.
+        key = (match.name_key(row["업소명"]), match.address_key(" ".join(row["소재지주소"].split())))
         candidates = by_identity[key]
         # No name-only, address-only, or ambiguous-building matches are accepted.
         if len(candidates) != 1 or not key[0] or not key[1]:
@@ -69,6 +82,16 @@ def select_updates(source_bytes, stores, catalog):
             if (entry["sourceName"], entry["sourceUrl"], entry["checkedAt"]) != (SOURCE_NAME, SOURCE_URL, SOURCE_DATE):
                 raise ValueError(f"Existing hours have an unrelated source: {store['storeName']}")
             already_applied += 1
+    return updates, already_applied, unmatched
+
+
+def select_updates(source_bytes, stores, catalog):
+    if hashlib.sha256(source_bytes).hexdigest() != SOURCE_SHA256:
+        raise ValueError("Source CSV SHA-256 differs from the reviewed 2026-06-11 file")
+    rows = read_csv_rows(source_bytes)
+    if len(rows) != 74:
+        raise ValueError(f"Expected 74 source rows, got {len(rows)}")
+    updates, already_applied, unmatched = match_rows(rows, stores, catalog)
     if len(updates) + already_applied != 59 or len(unmatched) != 15:
         raise ValueError(f"Unexpected match coverage: {len(updates)} updates, {already_applied} existing, {len(unmatched)} unmatched")
     return updates, already_applied, unmatched

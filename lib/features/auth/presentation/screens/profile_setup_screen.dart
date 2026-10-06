@@ -198,11 +198,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
   void _showErrorSnackBar(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      HowmuchSnackBar.error(
-        content: Text(message),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(HowmuchSnackBar.error(content: Text(message)));
   }
 
   @override
@@ -223,24 +221,35 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     try {
       final authState = ref.read(authStateProvider);
       final email = authState.email;
+      final nickname = _nicknameController.text.trim();
+      final region = _regionController.text.trim();
+      final categories = _selectedCategories.toList();
 
-      final service = UserProfileApiService();
-      await service.saveProfile(
-        nickname: _nicknameController.text.trim(),
-        email: email,
-        region: _regionController.text.trim(),
-        favoriteCategories: _selectedCategories.toList(),
-        profileImageUrl: authState.profileImageUrl,
-      );
+      final saved = await ref
+          .read(userProfileApiServiceProvider)
+          .saveProfile(
+            nickname: nickname,
+            email: email,
+            region: region,
+            favoriteCategories: categories,
+            profileImageUrl: authState.profileImageUrl,
+          );
+      if (!saved) {
+        // Without a stored profile the next launch sends the user back to
+        // login, so stay here and let them retry instead of entering the app.
+        _showErrorSnackBar('프로필을 저장하지 못했어요. 네트워크 상태를 확인하고 다시 시도해 주세요.');
+        return;
+      }
+      if (!mounted) return;
 
       ref
           .read(userProfileProvider.notifier)
           .update(
             (state) => state.copyWith(
-              nickname: _nicknameController.text.trim(),
+              nickname: nickname,
               email: email,
-              region: _regionController.text.trim(),
-              favoriteCategories: _selectedCategories.toList(),
+              region: region,
+              favoriteCategories: categories,
               profileImageUrl: authState.profileImageUrl,
             ),
           );
@@ -718,7 +727,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
         const SizedBox(height: 6),
         const Text(
-          '선택한 지역은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
+          '선택한 동네는 내 프로필에 저장돼요. 바꾸려면 1:1 문의로 요청해 주세요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,
@@ -771,56 +780,67 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           runSpacing: 8,
           children: _allCategories.map((cat) {
             final selected = _selectedCategories.contains(cat);
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (selected) {
-                    _selectedCategories.remove(cat);
-                  } else {
-                    _selectedCategories.add(cat);
-                  }
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 9,
-                ),
-                decoration: BoxDecoration(
-                  color: selected ? _chipSelected : _chipUnselected,
-                  borderRadius: BorderRadius.circular(99),
-                  border: Border.all(
-                    color: selected ? _chipSelected : _chipUnselectedBorder,
-                    width: 1,
+            void toggle() {
+              setState(() {
+                if (selected) {
+                  _selectedCategories.remove(cat);
+                } else {
+                  _selectedCategories.add(cat);
+                }
+              });
+            }
+
+            // The chip is drawn by hand, so expose its checked state to
+            // screen readers the way a FilterChip would.
+            return Semantics(
+              button: true,
+              checked: selected,
+              label: cat,
+              onTap: toggle,
+              excludeSemantics: true,
+              child: GestureDetector(
+                onTap: toggle,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 9,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (selected) ...[
-                      const Icon(
-                        Icons.check_rounded,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      cat,
-                      style: TextStyle(
-                        fontFamily: _font,
-                        fontFamilyFallback: _fontFallback,
-                        fontSize: 13,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: selected
-                            ? _chipSelectedText
-                            : _chipUnselectedText,
-                      ),
+                  decoration: BoxDecoration(
+                    color: selected ? _chipSelected : _chipUnselected,
+                    borderRadius: BorderRadius.circular(99),
+                    border: Border.all(
+                      color: selected ? _chipSelected : _chipUnselectedBorder,
+                      width: 1,
                     ),
-                  ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selected) ...[
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        cat,
+                        style: TextStyle(
+                          fontFamily: _font,
+                          fontFamilyFallback: _fontFallback,
+                          fontSize: 13,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: selected
+                              ? _chipSelectedText
+                              : _chipUnselectedText,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -828,7 +848,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          '관심 업종은 내 프로필에 저장되며 나중에 변경할 수 있어요.',
+          '관심 업종은 내 프로필에 저장돼요. 바꾸려면 1:1 문의로 요청해 주세요.',
           style: TextStyle(
             fontFamily: _font,
             fontFamilyFallback: _fontFallback,
@@ -1004,7 +1024,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           ),
           const SizedBox(height: 10),
           const Text(
-            '입력 정보는 추천 정확도 향상에만 사용되며\n언제든 마이페이지에서 수정할 수 있어요.',
+            '닉네임은 리뷰와 커뮤니티에 표시되며\n마이페이지 > 프로필 수정에서 바꿀 수 있어요.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontFamily: _font,

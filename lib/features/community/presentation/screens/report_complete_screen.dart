@@ -262,6 +262,9 @@ class _SubmittedReportCard extends ConsumerWidget {
               _InfoRow(
                 label: index == 0 ? '대표 메뉴' : '메뉴 ${index + 1}',
                 value: RichText(
+                  textAlign: TextAlign.right,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   text: TextSpan(
                     style: const TextStyle(
                       color: ReportCompleteScreen.ink,
@@ -390,7 +393,7 @@ class _InfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
@@ -403,18 +406,29 @@ class _InfoRow extends StatelessWidget {
             height: 1.5,
           ),
         ),
-        value ??
-            Text(
-              text ?? '',
-              style: const TextStyle(
-                color: ReportCompleteScreen.ink,
-                fontFamily: ReportCompleteScreen.fontFamily,
-                fontFamilyFallback: ReportCompleteScreen.fontFallback,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-              ),
-            ),
+        const SizedBox(width: 12),
+        // 긴 주소나 메뉴명은 오른쪽 칸 안에서 줄바꿈·말줄임됩니다.
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child:
+                value ??
+                Text(
+                  text ?? '',
+                  textAlign: TextAlign.right,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: ReportCompleteScreen.ink,
+                    fontFamily: ReportCompleteScreen.fontFamily,
+                    fontFamilyFallback: ReportCompleteScreen.fontFallback,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    height: 1.5,
+                  ),
+                ),
+          ),
+        ),
       ],
     );
   }

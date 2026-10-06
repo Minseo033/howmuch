@@ -24,6 +24,9 @@ class AppColors {
   static const Color warningBorder = Color(0xFFFDE68A);
 
   static const Color error = Color(0xFFEF4444);
+  // [error] is 3.8:1 on white, below AA for text. Use this for red text and
+  // for fills behind white text such as destructive buttons.
+  static const Color errorText = Color(0xFFB91C1C);
   static const Color errorLight = Color(0xFFFEE2E2);
   static const Color errorAlpha = Color(0x26EF4444);
 

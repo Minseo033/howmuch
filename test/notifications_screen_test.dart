@@ -6,9 +6,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/screens/notifications_screen.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:http/testing.dart';
+
+final _loggedIn = authStateProvider.overrideWith(
+  (ref) => const AuthState(isLoggedIn: true, provider: '카카오', email: ''),
+);
 
 void main() {
   testWidgets('notice opens a scrollable full body and closes at 320px', (
@@ -20,7 +26,10 @@ void main() {
     final notifier = _SeededNotificationsNotifier([_notice(body: body)]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
       ),
     );
@@ -57,7 +66,10 @@ void main() {
     notifier.state = AsyncValue.data([_notice(body: '전체 공지 본문', unread: true)]);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
       ),
     );
@@ -90,7 +102,10 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -117,6 +132,9 @@ void main() {
                 200,
               );
             }
+            if (request.url.path.endsWith('/read-all')) {
+              return http.Response('', 404);
+            }
             if (request.url.path.contains('/a/')) return pending.future;
             return http.Response('{}', 200);
           }),
@@ -125,7 +143,10 @@ void main() {
       await notifier.loadNotifications();
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+          overrides: [
+            notificationsProvider.overrideWith((ref) => notifier),
+            _loggedIn,
+          ],
           child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
         ),
       );
@@ -174,7 +195,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: const MaterialApp(home: NotificationsScreen()),
       ),
     );
@@ -190,7 +214,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: const MaterialApp(home: NotificationsScreen()),
       ),
     );
@@ -226,7 +253,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -260,7 +290,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -299,7 +332,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
         child: MaterialApp.router(routerConfig: router),
       ),
     );
@@ -312,7 +348,258 @@ void main() {
     expect(router.routeInformationProvider.value.uri.path, AppRoutes.home);
     expect(find.text('알림함 열기'), findsOneWidget);
   });
+
+  testWidgets('inbox tabs announce the selected tab', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final notifier = _SeededNotificationsNotifier(const []);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
+        child: const MaterialApp(home: NotificationsScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      tester.getSemantics(find.text('전체')),
+      isSemantics(isSelected: true, isInMutuallyExclusiveGroup: true),
+    );
+    await tester.tap(find.text('가격 변동'));
+    await tester.pump();
+    expect(
+      tester.getSemantics(find.text('가격 변동')),
+      isSemantics(isSelected: true),
+    );
+    expect(
+      tester.getSemantics(find.text('전체')),
+      isSemantics(isSelected: false),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('guest sees a login prompt instead of an endless spinner', (
+    tester,
+  ) async {
+    var requests = 0;
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((_) async {
+          requests++;
+          return http.Response('[]', 200);
+        }),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [notificationsProvider.overrideWith((ref) => notifier)],
+        child: const MaterialApp(home: NotificationsScreen()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('로그인이 필요해요'), findsOneWidget);
+    expect(find.text('로그인하기'), findsOneWidget);
+    expect(requests, 0);
+  });
+
+  testWidgets('signed-in first visit loads instead of waiting for polling', (
+    tester,
+  ) async {
+    var requests = 0;
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((_) async {
+          requests++;
+          return http.Response('[]', 200);
+        }),
+      ),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
+        child: const MaterialApp(home: NotificationsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, 1);
+    expect(find.text('받은 알림이 없어요'), findsOneWidget);
+  });
+
+  testWidgets('a failed read receipt does not block opening the notice', (
+    tester,
+  ) async {
+    final notifier = NotificationsNotifier(
+      NotificationApiService(MockClient((_) async => http.Response('{}', 500))),
+    );
+    notifier.state = AsyncValue.data([_notice(body: '공지 본문', unread: true)]);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
+        child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+      ),
+    );
+    await tester.tap(find.text('전체 내용 보기'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('notification-detail')), findsOneWidget);
+    expect(notifier.state.requireValue.single.isUnread, isTrue);
+  });
+
+  testWidgets('comment, report and price notifications open their targets', (
+    tester,
+  ) async {
+    final notifier = _SeededNotificationsNotifier([
+      _target('comment', 'FEED_COMMENT', '댓글 알림 본문', postId: 'post-1'),
+      _target('report', 'REPORT_APPROVED', '제보 승인 본문', reportId: 'report-1'),
+      _target('price', 'PRICE_ALERT', '가격 변동 본문', storeId: 'store-1'),
+    ]);
+    final api = NotificationApiService(
+      MockClient((request) async {
+        if (request.url.path == '/api/stores/store-1') {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'storeId': 'store-1',
+                'storeName': '착한분식',
+                'address': '서울 마포구',
+                'industry': '분식',
+                'menu1': '김밥',
+                'price1': '3000',
+                'latitude': 37.5,
+                'longitude': 126.9,
+                'source': 'GOV',
+              }),
+            ),
+            200,
+          );
+        }
+        return http.Response('', 404);
+      }),
+    );
+    final router = GoRouter(
+      initialLocation: AppRoutes.notifications,
+      routes: [
+        GoRoute(
+          path: AppRoutes.notifications,
+          builder: (_, _) => const Scaffold(body: NotificationsScreen()),
+        ),
+        GoRoute(
+          path: AppRoutes.communityPostDetail,
+          builder: (_, state) =>
+              Scaffold(body: Text('게시글 ${state.uri.queryParameters['id']}')),
+        ),
+        GoRoute(
+          path: AppRoutes.reportDetailV2,
+          builder: (_, state) =>
+              Scaffold(body: Text('제보 ${state.uri.queryParameters['id']}')),
+        ),
+        GoRoute(
+          path: AppRoutes.storeDetail,
+          builder: (_, state) =>
+              Scaffold(body: Text('매장 ${(state.extra as Store).storeName}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          notificationApiServiceProvider.overrideWithValue(api),
+          _loggedIn,
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+
+    for (final (body, expected) in [
+      ('댓글 알림 본문', '게시글 post-1'),
+      ('제보 승인 본문', '제보 report-1'),
+      ('가격 변동 본문', '매장 착한분식'),
+    ]) {
+      await tester.tap(find.text(body));
+      await tester.pumpAndSettle();
+      expect(find.text(expected), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+    }
+  });
+
+  testWidgets('mark all read sends one batch request', (tester) async {
+    final posts = <String>[];
+    final notifier = NotificationsNotifier(
+      NotificationApiService(
+        MockClient((request) async {
+          if (request.method == 'GET') {
+            return http.Response(
+              jsonEncode([
+                {'id': 'a', 'isRead': false},
+                {'id': 'b', 'isRead': false},
+              ]),
+              200,
+            );
+          }
+          posts.add(request.url.path);
+          return http.Response('{"success":true,"updated":2}', 200);
+        }),
+      ),
+    );
+    await notifier.loadNotifications();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsProvider.overrideWith((ref) => notifier),
+          _loggedIn,
+        ],
+        child: const MaterialApp(home: Scaffold(body: NotificationsScreen())),
+      ),
+    );
+    await tester.tap(find.text('모두 읽음'));
+    await tester.pumpAndSettle();
+
+    expect(posts, ['/api/notifications/read-all']);
+    expect(notifier.state.requireValue.map((n) => n.isUnread), [false, false]);
+  });
 }
+
+NotificationModel _target(
+  String id,
+  String serverType,
+  String body, {
+  String? postId,
+  String? reportId,
+  String? storeId,
+}) => NotificationModel(
+  id: id,
+  section: '오늘',
+  type: serverType,
+  tabCategory: '전체',
+  iconData: Icons.notifications_none,
+  iconColor: Colors.blue,
+  iconBgColor: Colors.white,
+  borderColor: Colors.grey,
+  bgColor: Colors.white,
+  categoryColor: Colors.blue,
+  timeText: '· 1분 전',
+  title: body,
+  messageText: body,
+  isUnread: false,
+  serverType: serverType,
+  relatedPostId: postId,
+  relatedReportId: reportId,
+  storeId: storeId,
+);
 
 NotificationModel _notice({
   required String body,

@@ -75,13 +75,15 @@ class _PriceAlertSubscriptionScreenState
   Widget build(BuildContext context) {
     final settingsState = ref.watch(priceAlertSettingsProvider);
     return settingsState.when(
-      loading: () => const _PriceAlertLoading(),
+      loading: () =>
+          _PriceAlertLoading(onBack: _closeOrGoToNotificationSettings),
       error: (error, _) => _PriceAlertError(
         message: error is PriceAlertApiException
             ? error.message
             : '가격 알림 매장 목록을 불러오지 못했어요.',
         onRetry: () =>
             ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
+        onBack: _closeOrGoToNotificationSettings,
       ),
       data: (settings) {
         _savedSettings ??= settings;
@@ -231,17 +233,27 @@ class _PriceAlertSubscriptionScreenState
                   setState(() => _isSaving = true);
                   final messenger = ScaffoldMessenger.of(context);
                   messenger.clearSnackBars();
-                  final saved = await ref
-                      .read(priceAlertSettingsProvider.notifier)
-                      .saveSettings(settings);
+                  final notifier = ref.read(
+                    priceAlertSettingsProvider.notifier,
+                  );
+                  final saved = await notifier.saveSettings(settings);
                   if (!context.mounted) return;
                   if (!saved) {
-                    setState(() => _isSaving = false);
+                    final reload = notifier.lastSaveNeedsReload;
+                    setState(() {
+                      _isSaving = false;
+                      // The reloaded list becomes the new saved baseline.
+                      if (reload) _savedSettings = null;
+                    });
                     messenger.showSnackBar(
                       HowmuchSnackBar(
-                        content: Text('가격 알림 저장에 실패했어요. 다시 시도해 주세요.'),
+                        content: Text(
+                          notifier.lastSaveError ??
+                              '가격 알림 저장에 실패했어요. 다시 시도해 주세요.',
+                        ),
                       ),
                     );
+                    if (reload) await notifier.loadSettings();
                     return;
                   }
                   _savedSettings = settings;
@@ -261,28 +273,35 @@ class _PriceAlertSubscriptionScreenState
 }
 
 class _PriceAlertLoading extends StatelessWidget {
-  const _PriceAlertLoading();
+  const _PriceAlertLoading({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(child: CircularProgressIndicator()),
+    return _PriceAlertStatusFrame(
+      onBack: onBack,
+      child: const Center(child: CircularProgressIndicator()),
     );
   }
 }
 
 class _PriceAlertError extends StatelessWidget {
-  const _PriceAlertError({required this.message, required this.onRetry});
+  const _PriceAlertError({
+    required this.message,
+    required this.onRetry,
+    required this.onBack,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.white,
-      body: Center(
+    return _PriceAlertStatusFrame(
+      onBack: onBack,
+      child: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -298,6 +317,29 @@ class _PriceAlertError extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Loading and error states keep the page header so the user can always go
+/// back instead of facing a bare spinner.
+class _PriceAlertStatusFrame extends StatelessWidget {
+  const _PriceAlertStatusFrame({required this.onBack, required this.child});
+
+  final VoidCallback onBack;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final topOffset = FigmaMobileCanvas.designSafePaddingOf(context).top;
+    return FigmaMobileCanvas(
+      backgroundColor: AppColors.white,
+      child: Stack(
+        children: [
+          Positioned.fill(top: _Header.heightFor(topOffset), child: child),
+          _Header(topOffset: topOffset, title: '가격 알림 구독', onBack: onBack),
+        ],
       ),
     );
   }

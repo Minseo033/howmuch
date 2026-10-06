@@ -9,10 +9,10 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
+import 'package:howmuch/features/community/presentation/state/report_edit_route.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
-import 'package:howmuch/features/errors/presentation/screens/store_info_report_screen.dart';
 
 class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
@@ -48,6 +48,8 @@ class ReportDetailV2Screen extends ConsumerStatefulWidget {
 
 class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
   String? _alertedRejectReportId;
+  bool _refreshing = true;
+  bool _refreshFailed = false;
 
   @override
   void initState() {
@@ -56,8 +58,18 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
   }
 
   Future<void> _refreshReport() async {
+    if (!mounted) return;
+    setState(() {
+      _refreshing = true;
+      _refreshFailed = false;
+    });
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
-    if (!mounted || reports == null) return;
+    if (!mounted) return;
+    setState(() {
+      _refreshing = false;
+      _refreshFailed = reports == null;
+    });
+    if (reports == null) return;
     // Re-entry must not retain a pending snapshot after administrator review.
     // Failed reads retain the existing record; this never repeats a write.
     ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
@@ -89,17 +101,58 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
     if (report == null) {
       return FigmaMobileCanvas(
         backgroundColor: ReportDetailV2Screen._surface,
-        child: Center(
-          child: Text(
-            '제보 정보를 찾을 수 없어요.',
-            style: const TextStyle(
-              color: ReportDetailV2Screen._muted,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: 0,
+              right: 0,
+              height: topOffset,
+              child: const ColoredBox(color: Colors.white),
             ),
-          ),
+            Positioned(
+              left: 0,
+              top: topOffset,
+              right: 0,
+              height: HowmuchTopBar.height,
+              child: _Header(onBack: goBack),
+            ),
+            Positioned(
+              left: 0,
+              top: topOffset + HowmuchTopBar.height,
+              right: 0,
+              bottom: 0,
+              child: Center(
+                child: _refreshing
+                    ? const CircularProgressIndicator(
+                        color: ReportDetailV2Screen._blue,
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _refreshFailed
+                                ? '제보 정보를 불러오지 못했어요.'
+                                : '제보 정보를 찾을 수 없어요.',
+                            style: const TextStyle(
+                              color: ReportDetailV2Screen._muted,
+                              fontFamily: ReportDetailV2Screen._fontFamily,
+                              fontFamilyFallback:
+                                  ReportDetailV2Screen._fontFallback,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (_refreshFailed)
+                            TextButton(
+                              onPressed: _refreshReport,
+                              child: const Text('다시 불러오기'),
+                            ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -1103,14 +1156,7 @@ class _PrimaryActionButton extends StatelessWidget {
     return FilledButton(
       onPressed: report.isApproved
           ? null
-          : () => context.push(
-              report.isInformationReport
-                  ? AppRoutes.storeInfoReport
-                  : AppRoutes.reportCreate,
-              extra: report.isInformationReport
-                  ? StoreInfoReportTarget(initialReport: report)
-                  : report,
-            ),
+          : () => openReportEditor(context, report),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

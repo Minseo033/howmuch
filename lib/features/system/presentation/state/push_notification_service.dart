@@ -49,6 +49,9 @@ class PushNotificationService {
   bool _isRegistered = false;
   String? _registeredToken;
 
+  /// Whether the server holds this device's token, i.e. pushes can arrive.
+  bool get isRegistered => _isRegistered;
+
   Future<bool> start() {
     if (kIsWeb || !_supportsPush) return Future.value(false);
     return _startup ??= _start().then((ready) {

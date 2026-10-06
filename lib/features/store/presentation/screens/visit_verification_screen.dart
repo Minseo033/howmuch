@@ -549,10 +549,24 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   }
 
   Future<void> _pickReceiptImage() async {
-    final image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 80,
-    );
+    final XFile? image;
+    try {
+      image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+    } catch (error) {
+      // Denied photo access or an unavailable picker must not fail silently.
+      debugPrint('영수증 사진 선택 실패: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          HowmuchSnackBar(
+            content: Text('사진을 불러오지 못했어요. 사진 접근 권한을 확인한 뒤 다시 시도해주세요.'),
+          ),
+        );
+      }
+      return;
+    }
     if (!mounted || image == null) return;
     setState(() => _receiptImage = image);
   }
@@ -765,13 +779,21 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
             const Text('승인된 무료 메뉴는 0원으로 기록할 수 있어요. 무료 이용은 절약액에 합산하지 않아요.'),
           Row(
             children: [
-              _buildQuickPriceChip('+1,000원', 1000),
-              const SizedBox(width: 6),
-              _buildQuickPriceChip('+5,000원', 5000),
-              const SizedBox(width: 6),
-              _buildQuickPriceChip('+10,000원', 10000),
-              const Spacer(),
-              if (_priceValue > 0)
+              // Chips wrap on narrow screens instead of pushing the clear
+              // button past the card edge.
+              Expanded(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _buildQuickPriceChip('+1,000원', 1000),
+                    _buildQuickPriceChip('+5,000원', 5000),
+                    _buildQuickPriceChip('+10,000원', 10000),
+                  ],
+                ),
+              ),
+              if (_priceValue > 0) ...[
+                const SizedBox(width: 6),
                 GestureDetector(
                   onTap: () {
                     _amountController.clear();
@@ -795,6 +817,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                     ),
                   ),
                 ),
+              ],
             ],
           ),
         ],
@@ -947,11 +970,10 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       );
       return;
     }
-    final parsedPrice = parsePriceValue(_amountController.text);
-    final price = parsedPrice != null && parsedPrice.isExact
-        ? parsedPrice.minimum
-        : 0;
-    if (price <= 0) {
+    // Same rule as the amount field and the server: an approved free menu may
+    // be recorded as 0원, every other menu needs a positive exact amount.
+    final price = _priceValue;
+    if (!_hasValidPaymentAmount) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(HowmuchSnackBar(content: Text('결제 금액을 입력해주세요.')));

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 
@@ -22,90 +24,113 @@ const todaysPickMaxDistanceMeters = 3000.0;
 class TodaysPickService {
   TodaysPickService([
     http.Client? client,
-    this.requestTimeout = const Duration(seconds: 8),
+    this.requestTimeout = recommendationRequestTimeout,
   ]) : _client = client ?? http.Client();
 
   final http.Client _client;
   final Duration requestTimeout;
 
-  /// 오늘의 픽 조회 (세션 인증 불필요 — 공개 GET)
+  /// 오늘의 픽 조회. 공개 GET이지만 로그인 상태면 세션 토큰을 함께 보내
+  /// 서버가 IP 대신 계정 기준으로 요청량을 셀 수 있게 합니다.
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
     int radiusMeters = defaultRecommendationRadiusMeters,
-  }) async {
-    if (!validRecommendationRadius(radiusMeters)) {
-      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
-    }
-    if (lat == null || lng == null) {
-      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
-    }
-    final query = <String, String>{
-      'lat': lat.toString(),
-      'lng': lng.toString(),
-      'radiusMeters': radiusMeters.toString(),
-    };
-    final url = ApiClient.uri('/api/recommendation/todays-pick', query);
+  }) => _getRecommendation(
+    '/api/recommendation/todays-pick',
+    lat: lat,
+    lng: lng,
+    radiusMeters: radiusMeters,
+    invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
+  );
 
-    try {
-      final response = await _client
-          .get(url, headers: ApiClient.jsonHeaders())
-          .timeout(requestTimeout);
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (decoded is Map) {
-          return normalizeRecommendationResponse(
-            Map<String, dynamic>.from(decoded),
-            invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
-          );
-        }
-        return const {'error': true, 'message': '추천 응답 형식이 올바르지 않습니다.'};
-      }
-      return {'error': true, 'statusCode': response.statusCode};
-    } catch (_) {
-      return const {'error': true, 'message': '추천 정보를 불러오지 못했습니다.'};
-    }
-  }
-
-  /// AI 루트 추천 조회 (세션 인증 불필요 — 공개 GET)
+  /// 추천 루트 조회. 서버의 시간당 요청 제한이 같은 와이파이 사용자끼리
+  /// 공유되지 않도록 로그인 상태면 세션 토큰을 보냅니다.
   Future<Map<String, dynamic>> getRoute({
     double? lat,
     double? lng,
     int radiusMeters = defaultRecommendationRadiusMeters,
+  }) => _getRecommendation(
+    '/api/recommendation/route',
+    lat: lat,
+    lng: lng,
+    radiusMeters: radiusMeters,
+    invalidMessage: '추천 루트 응답 형식이 올바르지 않습니다.',
+  );
+
+  Future<Map<String, dynamic>> _getRecommendation(
+    String path, {
+    required double? lat,
+    required double? lng,
+    required int radiusMeters,
+    required String invalidMessage,
   }) async {
     if (!validRecommendationRadius(radiusMeters)) {
-      return const {'error': true, 'message': '추천 거리는 1~15km, 1km 단위로 선택해주세요.'};
+      return recommendationError(
+        RecommendationFailure.invalidRequest,
+        message: '추천 거리는 1~15km, 1km 단위로 선택해주세요.',
+      );
     }
     if (lat == null || lng == null) {
-      return const {'error': true, 'message': '현재 위치가 필요합니다.'};
+      return recommendationError(RecommendationFailure.location);
     }
-    final query = <String, String>{
+    final url = ApiClient.uri(path, {
       'lat': lat.toString(),
       'lng': lng.toString(),
       'radiusMeters': radiusMeters.toString(),
-    };
-    final url = ApiClient.uri('/api/recommendation/route', query);
+    });
 
+    final http.Response response;
     try {
-      final response = await _client
-          .get(url, headers: ApiClient.jsonHeaders())
+      // GET has no body: omitting Content-Type avoids a CORS preflight.
+      response = await _client
+          .get(url, headers: ApiClient.authHeaders(auth: true))
           .timeout(requestTimeout);
+    } on TimeoutException {
+      return recommendationError(RecommendationFailure.timeout);
+    } catch (_) {
+      return recommendationError(RecommendationFailure.network);
+    }
 
-      if (response.statusCode == 200) {
+    final statusCode = response.statusCode;
+    if (statusCode == 200) {
+      try {
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         if (decoded is Map) {
           return normalizeRecommendationResponse(
             Map<String, dynamic>.from(decoded),
-            invalidMessage: '추천 루트 응답 형식이 올바르지 않습니다.',
+            invalidMessage: invalidMessage,
           );
         }
-        return const {'error': true, 'message': '추천 루트 응답 형식이 올바르지 않습니다.'};
+      } catch (_) {
+        // Treated as an unreadable response below.
       }
-      return {'error': true, 'statusCode': response.statusCode};
-    } catch (_) {
-      return const {'error': true, 'message': '추천 루트를 불러오지 못했습니다.'};
+      return recommendationError(
+        RecommendationFailure.invalidResponse,
+        message: invalidMessage,
+      );
     }
+    final failure = switch (statusCode) {
+      429 => RecommendationFailure.rateLimited,
+      400 => RecommendationFailure.invalidRequest,
+      >= 500 => RecommendationFailure.server,
+      _ => RecommendationFailure.unknown,
+    };
+    return recommendationError(
+      failure,
+      message: _serverMessage(response),
+      statusCode: statusCode,
+    );
+  }
+}
+
+String? _serverMessage(http.Response response) {
+  try {
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    final message = decoded is Map ? decoded['message']?.toString().trim() : null;
+    return message == null || message.isEmpty ? null : message;
+  } catch (_) {
+    return null;
   }
 }
 
@@ -115,7 +140,10 @@ Map<String, dynamic> normalizeRecommendationResponse(
 }) {
   final rawPicks = response['picks'];
   if (rawPicks is! List) {
-    return {'error': true, 'message': invalidMessage};
+    return recommendationError(
+      RecommendationFailure.invalidResponse,
+      message: invalidMessage,
+    );
   }
 
   final picks = rawPicks
@@ -125,7 +153,10 @@ Map<String, dynamic> normalizeRecommendationResponse(
       .toList(growable: false);
 
   if (rawPicks.isNotEmpty && picks.isEmpty) {
-    return {'error': true, 'message': invalidMessage};
+    return recommendationError(
+      RecommendationFailure.invalidResponse,
+      message: invalidMessage,
+    );
   }
   return {...response, 'picks': picks};
 }
@@ -207,7 +238,8 @@ Map<String, dynamic> buildLocalTodaysPickData({
         'matchedFree': entry.store.freeAt(slot),
         'menuIndex': slot,
         'theme': '가까운 거리',
-        'reason': 'AI 연결 대신 가까운 매장을 안내해요.',
+        // Today's pick is rule-based on the server, not AI; say what failed.
+        'reason': '추천 서버에 연결하지 못해 가까운 매장을 안내해요.',
       };
     }).toList(),
   };

@@ -119,15 +119,21 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     );
 
     setState(() => _isSubmitting = true);
-    late final bool success;
+    bool success = false;
+    var unconfirmed = false;
     try {
       success = await ref.read(storeReviewProvider.notifier).addReview(review);
+    } on ReviewSubmissionUnconfirmedException {
+      unconfirmed = true;
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
     if (!mounted) return;
 
-    if (success) {
+    if (unconfirmed) {
+      // Sending again blindly could store the same review twice.
+      _showSnackBar('응답이 늦어 등록 여부를 확인하지 못했어요. 리뷰 목록에서 등록됐는지 확인한 뒤 다시 시도해주세요.');
+    } else if (success) {
       // 내 리뷰 화면 캐시 무효화 — 다음 진입 시 최신 목록/개수/평균 별점이 갱신됩니다.
       ref.read(myReviewsProvider.notifier).invalidate();
       _showSnackBar('리뷰가 성공적으로 등록되었습니다.');

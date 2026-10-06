@@ -86,16 +86,25 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
       routerConfig: router,
       builder: (context, child) {
         if (!kIsWeb) return child ?? const SizedBox.shrink();
-        final currentPath = router.routerDelegate.currentConfiguration.uri.path;
-        final isHome =
-            currentPath == AppRoutes.home || currentPath == AppRoutes.homeAiFab;
-        return WebNotificationPrompt(
-          // Keep the current page in the navigation stack so the inbox back
-          // button returns to where the user opened the notification prompt.
-          onOpenNotifications: () => router.push(AppRoutes.notifications),
-          isHome: isHome,
-          navigatorKey: router.routerDelegate.navigatorKey,
-          child: child ?? const SizedBox.shrink(),
+        // This builder only reruns when the app rebuilds, so listen to the
+        // router: otherwise the banner kept the first page's home offset.
+        return ListenableBuilder(
+          listenable: router.routerDelegate,
+          builder: (context, _) {
+            final currentPath =
+                router.routerDelegate.currentConfiguration.uri.path;
+            final isHome =
+                currentPath == AppRoutes.home ||
+                currentPath == AppRoutes.homeAiFab;
+            return WebNotificationPrompt(
+              // Keep the current page in the navigation stack so the inbox
+              // back button returns to where the user opened the prompt.
+              onOpenNotifications: () => router.push(AppRoutes.notifications),
+              isHome: isHome,
+              navigatorKey: router.routerDelegate.navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            );
+          },
         );
       },
     );

@@ -96,12 +96,15 @@ class PermissionSetupScreen extends ConsumerWidget {
                       SizedBox(height: verticalGap),
                       const Column(
                         children: [
+                          // Every permission is optional: the app continues
+                          // when any of them is denied.
                           _PermissionCard(
                             icon: Icons.location_on_outlined,
                             iconColor: blue,
                             iconBackground: Color(0xFFEFF4FF),
-                            title: '위치 권한 (필수)',
-                            description: '현재 위치 주변의 착한가격업소를 보여드려요.',
+                            title: '위치 권한 (선택)',
+                            description:
+                                '주변 착한가격업소를 보여드려요. 거부해도 지도·검색은 쓸 수 있어요.',
                             status: '앱 시작 시 요청',
                             allowed: false,
                           ),
@@ -110,8 +113,9 @@ class PermissionSetupScreen extends ConsumerWidget {
                             icon: Icons.notifications_none_rounded,
                             iconColor: orange,
                             iconBackground: Color(0xFFFFF3EA),
-                            title: '알림 권한',
-                            description: '찜한 매장의 가격 변동과 제보 승인 소식을 알려드려요.',
+                            title: '알림 권한 (선택)',
+                            description:
+                                '찜한 매장 가격 변동, 제보 결과, 댓글·문의 답변, 공지를 알려드려요.',
                             status: '앱 시작 시 요청',
                             allowed: false,
                           ),
@@ -120,8 +124,8 @@ class PermissionSetupScreen extends ConsumerWidget {
                             icon: Icons.photo_camera_outlined,
                             iconColor: muted,
                             iconBackground: Color(0xFFF4F6FA),
-                            title: '사진 접근',
-                            description: '매장 제보 시 메뉴판 사진을 첨부할 수 있어요.',
+                            title: '사진 접근 (선택)',
+                            description: '제보·문의·영수증 인증에 사진을 첨부할 수 있어요.',
                             status: '나중에',
                             allowed: false,
                           ),
@@ -236,10 +240,7 @@ class _PermissionHeroIcon extends StatelessWidget {
         color: const Color(0xFFEAF2FF),
         child: Transform.scale(
           scale: 1.45,
-          child: Image.asset(
-            'assets/images/app_logo.png',
-            fit: BoxFit.cover,
-          ),
+          child: Image.asset('assets/images/app_logo.png', fit: BoxFit.cover),
         ),
       ),
     );
@@ -269,7 +270,8 @@ class _PermissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      height: 89.78692626953125,
+      // Grows for longer copy or larger system text instead of clipping.
+      constraints: const BoxConstraints(minHeight: 89.78692626953125),
       padding: const EdgeInsets.symmetric(
         horizontal: 16.9033203125,
         vertical: 15.994,
@@ -312,7 +314,7 @@ class _PermissionCard extends StatelessWidget {
                 const SizedBox(height: 1),
                 Text(
                   description,
-                  maxLines: 2,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: PermissionSetupScreen.muted,

@@ -304,7 +304,6 @@ void main() {
         final extracted = resolveVerifiedAiRecommendations(
           recommendations: [recommendation!],
           catalog: sampleStores,
-          query: '국물',
           latitude: 37.55,
           longitude: 126.92,
           radiusMeters: 3000,

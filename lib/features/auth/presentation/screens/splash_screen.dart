@@ -77,7 +77,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       _markLoggedOut();
       _startupInFlight = false;
       context.go(
-        prefs.getBool('auth_terms_accepted_v1') == true
+        prefs.getBool(authTermsAcceptedPreferenceKey) == true
             ? AppRoutes.login
             : AppRoutes.authTerms,
       );
@@ -210,6 +210,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         : <String>[];
     final email = usableAccountEmail(profile['email']) ?? kakaoEmail;
     final firebaseUid = profile['firebaseUid']?.toString() ?? '';
+    final nicknamePublic = profile['nicknamePublic'];
+    final activityPublic = profile['activityPublic'];
 
     ref
         .read(authStateProvider.notifier)
@@ -231,6 +233,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             email: email.isNotEmpty ? email : state.email,
             region: profile['region']?.toString(),
             favoriteCategories: categories,
+            // The profile screen shows these stored visibility choices.
+            nicknamePublic: nicknamePublic is bool ? nicknamePublic : null,
+            activityPublic: activityPublic is bool ? activityPublic : null,
             profileImageUrl: profileImageUrl,
           ),
         );

@@ -28,7 +28,9 @@ class OnboardingNearbyScreen extends ConsumerWidget {
         final preferences = await SharedPreferences.getInstance();
         await preferences.setBool('onboarding_completed', true);
         if (!context.mounted) return;
-        context.go(AppRoutes.authTerms);
+        // Browsing without an account follows the login screen's guest path
+        // (permission setup, then home) instead of repeating '시작하기'.
+        context.go(AppRoutes.permissionSetup);
       },
     );
   }

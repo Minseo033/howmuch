@@ -1,12 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_tokens.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -22,16 +26,35 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   bool _openingNotification = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Polling only runs while the app is active, so a first visit may find
+    // nothing loaded yet. Load on entry instead of spinning forever.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !ref.read(authStateProvider).isLoggedIn) return;
+      final current = ref.read(notificationsProvider);
+      if (current.valueOrNull == null && !current.hasError) {
+        ref.read(notificationsProvider.notifier).loadNotifications();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
+    final isLoggedIn = ref.watch(
+      authStateProvider.select((auth) => auth.isLoggedIn),
+    );
     final notificationsAsync = ref.watch(notificationsProvider);
     final hasUnread =
-        notificationsAsync.valueOrNull?.any(
-          (notification) => notification.isUnread && notification.id.isNotEmpty,
-        ) ??
-        false;
+        isLoggedIn &&
+        (notificationsAsync.valueOrNull?.any(
+              (notification) =>
+                  notification.isUnread && notification.id.isNotEmpty,
+            ) ??
+            false);
 
     final canPop = Navigator.of(context).canPop();
 
@@ -46,213 +69,240 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           children: [
             // Content Scroll
             Positioned.fill(
-              child: notificationsAsync.when(
-                skipError: true,
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: Color(0xFF2563EB)),
-                ),
-                error: (err, stack) {
-                  final unauthorized =
-                      err is NotificationApiException && err.isUnauthorized;
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFE5E7EB),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.error_outline_rounded,
-                              color: Color(0xFF64748B),
-                              size: 30,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            unauthorized ? '로그인이 필요해요' : '알림을 불러오지 못했어요',
-                            style: const TextStyle(
-                              fontFamily: 'Noto Sans KR',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF0F172A),
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            unauthorized
-                                ? '로그인한 뒤 다시 확인해 주세요.'
-                                : '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontFamily: 'Noto Sans KR',
-                              fontFamilyFallback: ['Noto Sans KR'],
-                              color: Color(0xFF64748B),
-                              fontSize: 12,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: 140,
-                            height: 40,
-                            child: FilledButton(
-                              onPressed: () => ref
-                                  .read(notificationsProvider.notifier)
-                                  .loadNotifications(),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF2563EB),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              child: const Text(
-                                '다시 시도',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-                data: (notifications) {
-                  final filteredNotifications = notifications.where((notif) {
-                    if (_selectedTab == '전체') return true;
-                    return notif.tabCategory == _selectedTab;
-                  }).toList();
-
-                  final todayNotifications = filteredNotifications
-                      .where((n) => n.section == '오늘')
-                      .toList();
-                  final pastNotifications = filteredNotifications
-                      .where((n) => n.section == '이전')
-                      .toList();
-
-                  if (filteredNotifications.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            if (notificationsAsync.hasError)
-                              _buildRefreshError(),
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE5E7EB),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.notifications_off_outlined,
-                                color: Color(0xFF64748B),
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              '받은 알림이 없어요',
-                              style: TextStyle(
-                                fontFamily: 'Noto Sans KR',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0F172A),
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
+              child: !isLoggedIn
+                  ? LoginRequiredState(
+                      description: '로그인하면 가격 변동, 제보 결과, 댓글, 문의 답변 알림을 볼 수 있어요.',
+                      actionLabel: '로그인하기',
+                      onAction: () => context.go(AppRoutes.login),
+                    )
+                  : notificationsAsync.when(
+                      skipError: true,
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF2563EB),
                         ),
                       ),
-                    );
-                  }
+                      error: (err, stack) {
+                        final unauthorized =
+                            err is NotificationApiException &&
+                            err.isUnauthorized;
+                        if (unauthorized) {
+                          return LoginRequiredState(
+                            description: '로그인한 뒤 다시 확인해 주세요.',
+                            actionLabel: '로그인하기',
+                            onAction: () => context.go(AppRoutes.login),
+                          );
+                        }
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFE5E7EB),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.error_outline_rounded,
+                                    color: Color(0xFF64748B),
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  '알림을 불러오지 못했어요',
+                                  style: TextStyle(
+                                    fontFamily: 'Noto Sans KR',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '인터넷 연결 상태를 확인하고 다시 시도해보세요.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontFamily: 'Noto Sans KR',
+                                    fontFamilyFallback: ['Noto Sans KR'],
+                                    color: Color(0xFF64748B),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                SizedBox(
+                                  width: 140,
+                                  height: 40,
+                                  child: FilledButton(
+                                    onPressed: () => ref
+                                        .read(notificationsProvider.notifier)
+                                        .loadNotifications(),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF2563EB),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      '다시 시도',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                      data: (notifications) {
+                        final filteredNotifications = notifications.where((
+                          notif,
+                        ) {
+                          if (_selectedTab == '전체') return true;
+                          return notif.tabCategory == _selectedTab;
+                        }).toList();
 
-                  return SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      top:
-                          topOffset +
-                          HowmuchTopBar.height +
-                          HowmuchTopBar.height,
-                      bottom: 40 + bottomOffset,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (notificationsAsync.hasError) _buildRefreshError(),
-                        if (todayNotifications.isNotEmpty) ...[
-                          const SizedBox(height: 16),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              '오늘',
-                              style: TextStyle(
-                                fontFamily: 'Noto Sans KR',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                                height: 16.5 / 11,
+                        final todayNotifications = filteredNotifications
+                            .where((n) => n.section == '오늘')
+                            .toList();
+                        final pastNotifications = filteredNotifications
+                            .where((n) => n.section == '이전')
+                            .toList();
+
+                        if (filteredNotifications.isEmpty) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (notificationsAsync.hasError)
+                                    _buildRefreshError(),
+                                  Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFE5E7EB),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.notifications_off_outlined,
+                                      color: Color(0xFF64748B),
+                                      size: 28,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    '받은 알림이 없어요',
+                                    style: TextStyle(
+                                      fontFamily: 'Noto Sans KR',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
+                          );
+                        }
+
+                        return SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: EdgeInsets.only(
+                            top:
+                                topOffset +
+                                HowmuchTopBar.height +
+                                HowmuchTopBar.height,
+                            bottom: 40 + bottomOffset,
                           ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              children: todayNotifications.map((notif) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _buildNotificationItem(notif),
-                                );
-                              }).toList(),
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              if (notificationsAsync.hasError)
+                                _buildRefreshError(),
+                              if (todayNotifications.isNotEmpty) ...[
+                                const SizedBox(height: 16),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20),
+                                  child: Text(
+                                    '오늘',
+                                    style: TextStyle(
+                                      fontFamily: 'Noto Sans KR',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 11,
+                                      height: 16.5 / 11,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Column(
+                                    children: todayNotifications.map((notif) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        child: _buildNotificationItem(notif),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                              if (pastNotifications.isNotEmpty) ...[
+                                const SizedBox(height: 24),
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 20),
+                                  child: Text(
+                                    '이전',
+                                    style: TextStyle(
+                                      fontFamily: 'Noto Sans KR',
+                                      fontFamilyFallback: ['Noto Sans KR'],
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                      fontSize: 11,
+                                      height: 16.5 / 11,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  child: Column(
+                                    children: pastNotifications.map((notif) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 10,
+                                        ),
+                                        child: _buildNotificationItem(notif),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ],
-                        if (pastNotifications.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              '이전',
-                              style: TextStyle(
-                                fontFamily: 'Noto Sans KR',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
-                                fontSize: 11,
-                                height: 16.5 / 11,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              children: pastNotifications.map((notif) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _buildNotificationItem(notif),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                        ],
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
             // Tabs
             Positioned(
@@ -393,48 +443,54 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   Widget _buildTab({required String label}) {
     final isSelected = _selectedTab == label;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedTab = label;
-        });
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.only(left: 20, right: 10),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14.63),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'Noto Sans KR',
-                  fontFamilyFallback: const ['Noto Sans KR'],
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                  color: isSelected
-                      ? const Color(0xFF2563EB)
-                      : const Color(0xFF64748B),
-                  fontSize: 13,
-                  height: 19.5 / 13,
-                ),
-              ),
-            ),
-            if (isSelected)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 1.989,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
-                    borderRadius: BorderRadius.circular(99),
+    // Hand-drawn tabs: tell screen readers which one is selected.
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      inMutuallyExclusiveGroup: true,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTab = label;
+          });
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 20, right: 10),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14.63),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Noto Sans KR',
+                    fontFamilyFallback: const ['Noto Sans KR'],
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                    color: isSelected
+                        ? const Color(0xFF2563EB)
+                        : const Color(0xFF64748B),
+                    fontSize: 13,
+                    height: 19.5 / 13,
                   ),
                 ),
               ),
-          ],
+              if (isSelected)
+                Positioned(
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 1.989,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2563EB),
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -537,7 +593,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         height: 18.85 / 13,
                       ),
                     ),
-                    if (notificationRouteForType(notif.type) == null) ...[
+                    if (notificationDestinationFor(notif) == null) ...[
                       const SizedBox(height: AppSpacing.xs),
                       const Text(
                         '전체 내용 보기',
@@ -578,25 +634,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     _openingNotification = true;
     try {
       if (notification.isUnread) {
-        try {
-          await ref
+        // Reading the content must not depend on the read receipt: mark it
+        // in the background and let a failure simply leave it unread.
+        unawaited(
+          ref
               .read(notificationsProvider.notifier)
-              .markRead(notification.id);
-        } catch (_) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context)
-            ..clearSnackBars()
-            ..showSnackBar(
-              HowmuchSnackBar(content: Text('알림 상태를 변경하지 못했어요. 다시 시도해 주세요.')),
-            );
-          return;
-        }
+              .markRead(notification.id)
+              .catchError((Object _) {}),
+        );
       }
 
       if (!mounted) return;
 
-      final route = notificationRouteForType(notification.type);
-      if (route != null) {
+      final destination = notificationDestinationFor(notification);
+      final storeId = destination?.storeId;
+      final route = destination?.route;
+      if (storeId != null) {
+        await _openStore(storeId);
+      } else if (route != null) {
         await context.push<void>(route);
       } else {
         await _showNotificationDetail(notification);
@@ -604,6 +659,22 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     } finally {
       _openingNotification = false;
     }
+  }
+
+  Future<void> _openStore(String storeId) async {
+    final store = await ref
+        .read(notificationApiServiceProvider)
+        .fetchStore(storeId);
+    if (!mounted) return;
+    if (store == null) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(content: Text('매장 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')),
+        );
+      return;
+    }
+    await context.push<void>(AppRoutes.storeDetail, extra: store);
   }
 
   Future<void> _showNotificationDetail(NotificationModel notification) {

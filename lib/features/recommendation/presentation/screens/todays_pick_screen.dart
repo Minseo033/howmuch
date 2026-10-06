@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
@@ -7,14 +10,46 @@ import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_weather.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
+
+/// Real stores for the local today's pick when the server is unavailable.
+///
+/// The in-memory lists are only filled after a search or a map visit, so a
+/// direct visit (common on web) also tries the nationwide catalog. A late
+/// catalog result is kept for the next retry instead of being discarded.
+@visibleForTesting
+Future<List<Store>> loadTodaysPickFallbackCandidates({
+  StoreCatalogLoader catalogLoader = loadStoreCatalog,
+  Duration catalogTimeout = const Duration(seconds: 8),
+}) async {
+  final catalog = HomeMapScreen.globalSearchCatalog;
+  if (catalog.isNotEmpty) return catalog;
+  final mapStores = HomeMapScreen.globalAllStores
+      .where((store) => store.hasValidCoordinates)
+      .toList(growable: false);
+  if (mapStores.isNotEmpty) return mapStores;
+
+  final pending = catalogLoader();
+  unawaited(
+    pending.then((stores) {
+      if (stores.isNotEmpty) HomeMapScreen.setSearchCatalog(stores);
+    }, onError: (Object _) {}),
+  );
+  try {
+    return await pending.timeout(catalogTimeout);
+  } catch (_) {
+    return const [];
+  }
+}
 
 AiMapRecommendationResult buildTodaysPickMapResult(
   Iterable<TodaysPickItem> items,
@@ -89,7 +124,10 @@ class TodaysPickItem {
 }
 
 class TodaysPickScreen extends ConsumerStatefulWidget {
-  const TodaysPickScreen({super.key});
+  const TodaysPickScreen({super.key, this.fallbackCatalogLoader});
+
+  /// Overrides the nationwide catalog download used by the local fallback.
+  final StoreCatalogLoader? fallbackCatalogLoader;
 
   @override
   ConsumerState<TodaysPickScreen> createState() => _TodaysPickScreenState();
@@ -98,7 +136,8 @@ class TodaysPickScreen extends ConsumerStatefulWidget {
 class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   String _selectedFilter = '날씨 기반';
   bool _isLoading = true;
-  String? _errorMessage;
+  RecommendationFailure? _failure;
+  String? _failureServerMessage;
   Map<String, dynamic>? _pickData;
   int _loadGeneration = 0;
   int _loadedRadiusMeters = defaultRecommendationRadiusMeters;
@@ -113,7 +152,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
-      _errorMessage = null;
+      _failure = null;
+      _failureServerMessage = null;
     });
 
     try {
@@ -142,10 +182,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       }
       if (lat == null || lng == null) {
         if (!mounted || generation != _loadGeneration) return;
-        setState(() {
-          _errorMessage = '주변 추천을 보려면 위치 권한을 허용해주세요.';
-          _isLoading = false;
-        });
+        _showFailure(RecommendationFailure.location);
         return;
       }
       final data = await service.getTodaysPick(
@@ -155,10 +192,17 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       );
       if (!mounted || generation != _loadGeneration) return;
       if (data['error'] == true) {
+        final failure = recommendationFailureOf(data);
+        final candidates = await loadTodaysPickFallbackCandidates(
+          catalogLoader: widget.fallbackCatalogLoader ?? loadStoreCatalog,
+          // After a 20s timeout only a quick (cached) catalog is worth waiting for.
+          catalogTimeout: failure == RecommendationFailure.timeout
+              ? const Duration(seconds: 3)
+              : const Duration(seconds: 8),
+        );
+        if (!mounted || generation != _loadGeneration) return;
         final fallback = buildLocalTodaysPickData(
-          stores: HomeMapScreen.globalSearchCatalog.isNotEmpty
-              ? HomeMapScreen.globalSearchCatalog
-              : HomeMapScreen.globalAllStores,
+          stores: candidates,
           lat: lat,
           lng: lng,
           maxDistanceMeters: radiusMeters.toDouble(),
@@ -170,10 +214,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           });
           return;
         }
-        setState(() {
-          _errorMessage = '오늘의 픽을 불러오지 못했어요.';
-          _isLoading = false;
-        });
+        _showFailure(failure, serverMessage: data['message']?.toString());
         return;
       }
       setState(() {
@@ -182,11 +223,35 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       });
     } catch (e) {
       if (!mounted || generation != _loadGeneration) return;
-      setState(() {
-        _errorMessage = '네트워크 오류가 발생했습니다.';
-        _isLoading = false;
-      });
+      _showFailure(RecommendationFailure.unknown);
     }
+  }
+
+  void _showFailure(RecommendationFailure failure, {String? serverMessage}) {
+    setState(() {
+      _failure = failure;
+      _failureServerMessage = serverMessage;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _openLocationSettings() async {
+    // Browsers do not expose an app settings page; Geolocator throws there.
+    final opened =
+        !kIsWeb &&
+        await openLocationSettingsForStatus(serviceDisabled: false);
+    if (opened || !mounted) return;
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(
+          content: Text(
+            kIsWeb
+                ? '브라우저 주소창의 사이트 설정에서 위치 권한을 허용해주세요.'
+                : '기기 설정에서 얼마고의 위치 권한을 직접 허용해주세요.',
+          ),
+        ),
+      );
   }
 
   List<TodaysPickItem> _buildItems() {
@@ -249,9 +314,17 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
           recommendationMenuPrice(p),
           free: recommendationMenuFree(p),
         ),
-        badgeText: store.isUserReported ? '사용자 제보' : '착한가격업소',
-        badgeColor: const Color(0xFF2563EB),
-        badgeBg: const Color(0xFFEFF4FF),
+        badgeText: store.isUserReported
+            ? '사용자 제보'
+            : store.isGovernmentCertified
+            ? '착한가격업소'
+            : '출처 확인 필요',
+        badgeColor: store.isUserReported || store.isGovernmentCertified
+            ? const Color(0xFF2563EB)
+            : const Color(0xFF64748B),
+        badgeBg: store.isUserReported || store.isGovernmentCertified
+            ? const Color(0xFFEFF4FF)
+            : const Color(0xFFF1F5F9),
         tags: const ['날씨 기반'],
         theme: backendTheme,
         reason: backendReason,
@@ -295,6 +368,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     final now = DateTime.now();
     final dateStr =
         '${now.year}.${now.month.toString().padLeft(2, '0')}.${now.day.toString().padLeft(2, '0')}';
+    final failure = _failure;
+    final failureCopy = failure == null
+        ? null
+        : recommendationFailureCopy(
+            failure,
+            route: false,
+            serverMessage: _failureServerMessage,
+          );
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
@@ -344,7 +425,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                             ],
                           ),
                         )
-                      : _errorMessage != null
+                      : failureCopy != null
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -358,16 +439,19 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     color: Color(0xFFE5E7EB),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(
-                                    Icons.error_outline_rounded,
-                                    color: Color(0xFF64748B),
+                                  child: Icon(
+                                    failure == RecommendationFailure.location
+                                        ? Icons.location_off_outlined
+                                        : Icons.error_outline_rounded,
+                                    color: const Color(0xFF64748B),
                                     size: 30,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                const Text(
-                                  '오늘의 픽을 불러오지 못했어요',
-                                  style: TextStyle(
+                                Text(
+                                  failureCopy.title,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
                                     fontFamilyFallback: ['Noto Sans KR'],
                                     fontWeight: FontWeight.bold,
@@ -377,7 +461,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
-                                  _errorMessage!,
+                                  failureCopy.message,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     fontFamily: 'Noto Sans KR',
@@ -390,13 +474,12 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    if (_errorMessage?.contains('위치') ==
-                                        true) ...[
+                                    if (failure ==
+                                        RecommendationFailure.location) ...[
                                       SizedBox(
                                         height: 40,
                                         child: OutlinedButton(
-                                          onPressed: () =>
-                                              Geolocator.openAppSettings(),
+                                          onPressed: _openLocationSettings,
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: const Color(
                                               0xFF2563EB,

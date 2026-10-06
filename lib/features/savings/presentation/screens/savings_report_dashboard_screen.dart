@@ -52,6 +52,7 @@ class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
   bool _isLoading = false;
+  bool _isRefreshing = false;
   bool _loadFailed = false;
   bool _requiresLogin = false;
   Map<String, dynamic>? _statsData;
@@ -70,8 +71,9 @@ class _SavingsReportDashboardScreenState
   }
 
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
-  Future<void> _fetchAll() async {
-    if (_isLoading) return;
+  /// [keepContent]면 이미 보이는 리포트를 유지한 채 조용히 다시 조회합니다.
+  Future<void> _fetchAll({bool keepContent = false}) async {
+    if (_isLoading || _isRefreshing) return;
     if (!ApiClient.isAuthenticated) {
       setState(() {
         _requiresLogin = true;
@@ -80,10 +82,15 @@ class _SavingsReportDashboardScreenState
       });
       return;
     }
+    final silent = keepContent && _statsData != null;
     setState(() {
-      _isLoading = true;
-      _loadFailed = false;
-      _requiresLogin = false;
+      if (silent) {
+        _isRefreshing = true;
+      } else {
+        _isLoading = true;
+        _loadFailed = false;
+        _requiresLogin = false;
+      }
     });
 
     try {
@@ -121,21 +128,45 @@ class _SavingsReportDashboardScreenState
         if (anyStatsLoaded) {
           _statsData = results;
           _loadFailed = false;
-        } else {
+        } else if (!silent) {
           _statsData = null;
           _loadFailed = true;
         }
         _isLoading = false;
+        _isRefreshing = false;
       });
     } catch (e) {
       debugPrint('절약 대시보드 통계 조회 오류: $e');
       if (!mounted) return;
       setState(() {
-        _statsData = null;
-        _loadFailed = true;
+        if (!silent) {
+          _statsData = null;
+          _loadFailed = true;
+        }
         _isLoading = false;
+        _isRefreshing = false;
       });
     }
+  }
+
+  /// 목표 화면은 저장에 성공하면 새 목표 금액을 돌려줍니다. 달성률을 바로
+  /// 반영하고, 서버 기준 값으로 다시 조회합니다.
+  Future<void> _openGoalSetting() async {
+    final savedGoal = await context.push<int>(AppRoutes.savingsGoalSetting);
+    if (!mounted || savedGoal == null) return;
+    final current = _statsData;
+    if (current != null) {
+      setState(() {
+        _statsData = {
+          for (final entry in current.entries)
+            entry.key: entry.value is Map
+                ? (Map<String, dynamic>.from(entry.value as Map)
+                    ..['goalAmount'] = savedGoal)
+                : entry.value,
+        };
+      });
+    }
+    await _fetchAll(keepContent: true);
   }
 
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
@@ -418,8 +449,7 @@ class _SavingsReportDashboardScreenState
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () =>
-                                context.push(AppRoutes.savingsGoalSetting),
+                            onTap: _openGoalSetting,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 10,
@@ -670,7 +700,7 @@ class _SavingsReportDashboardScreenState
               // Stats Row
               Row(
                 children: [
-                  _buildStatCard('$visits', '방문 매장', const Color(0xFF2563EB)),
+                  _buildStatCard('$visits', '방문 횟수', const Color(0xFF2563EB)),
                   _buildStatCard(
                     favorites?.toString() ?? '—',
                     '찜한 매장',

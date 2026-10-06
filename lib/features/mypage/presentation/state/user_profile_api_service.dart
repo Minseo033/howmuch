@@ -1,7 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:http/http.dart' as http;
+
+/// Shared entry point so screens and the login flow can be tested with a fake
+/// profile backend.
+final userProfileApiServiceProvider = Provider<UserProfileApiService>(
+  (ref) => UserProfileApiService(),
+);
 
 class UserProfileAuthException implements Exception {
   const UserProfileAuthException(this.statusCode);

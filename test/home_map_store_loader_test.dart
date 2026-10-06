@@ -52,6 +52,31 @@ void main() {
     expect(result, [cached]);
   });
 
+  test('a capped viewport response is reported as truncated', () async {
+    Future<HomeMapStoreLoadResult> load(Map<String, String> headers) =>
+        loadHomeMapStoresWithStatus(
+          bounds: bounds,
+          cachedStores: const [],
+          request: (_) async => http.Response(
+            jsonEncode([
+              {'storeName': '근처 매장', 'latitude': 37.6, 'longitude': 126.9},
+            ]),
+            200,
+            headers: {
+              'content-type': 'application/json; charset=utf-8',
+              ...headers,
+            },
+          ),
+        );
+
+    final capped = await load({'X-Stores-Truncated': 'true'});
+    expect(capped.hasFreshResponse, isTrue);
+    expect(capped.truncated, isTrue);
+    expect(capped.stores.single.storeName, '근처 매장');
+    expect((await load(const {})).truncated, isFalse);
+    expect((await load({'x-stores-truncated': 'false'})).truncated, isFalse);
+  });
+
   test(
     'slow request falls back and a late response cannot replace the result',
     () async {

@@ -108,7 +108,7 @@ class HowmuchDialog extends StatelessWidget {
                     minimumSize: const Size(0, 48),
                     backgroundColor:
                         confirmColor ??
-                        (destructive ? AppColors.error : AppColors.primary),
+                        (destructive ? AppColors.errorText : AppColors.primary),
                     foregroundColor: confirmForeground ?? AppColors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),

@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/core/utils/text_initial.dart';
 
 final currentStoreDetailProvider = FutureProvider.autoDispose
     .family<Store, String>((ref, id) async {
@@ -952,7 +953,7 @@ class _Review extends StatelessWidget {
           radius: 16,
           backgroundColor: AppColors.borderSubtle,
           child: Text(
-            name[0],
+            displayInitial(name),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -989,7 +990,7 @@ class _Review extends StatelessWidget {
               Row(
                 children: [
                   ...List.generate(
-                    stars,
+                    stars.clamp(0, 5),
                     (_) => const Icon(
                       Icons.star_rounded,
                       size: 12,
@@ -997,7 +998,7 @@ class _Review extends StatelessWidget {
                     ),
                   ),
                   ...List.generate(
-                    5 - stars,
+                    5 - stars.clamp(0, 5),
                     (_) => const Icon(
                       Icons.star_rounded,
                       size: 12,

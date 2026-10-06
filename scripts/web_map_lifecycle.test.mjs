@@ -438,4 +438,231 @@ function createRuntime() {
   assert.equal(errors.length, 1, 'bounds recovery failure becomes a map-only recovery state');
 }
 
+{
+  // P1-16: a marker response that arrives while home is covered is a wait,
+  // not a map error, and it is drawn once the same map is visible again.
+  const { context, overlays, observers, runTimers } = createRuntime();
+  const errors = [];
+  let idleCalls = 0;
+  context.kakaoMapCallbacks.map = {
+    onError: (message) => errors.push(message),
+    onIdle: () => { idleCalls++; },
+  };
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  map.node.offsetWidth = 0;
+  observers[0].callback();
+  context.addMobileMarkers('map', JSON.stringify([
+    { storeId: 'hidden-a', lat: 37.5, lng: 127, title: '가려진 동안 도착', menu: '국밥', price: '8,000원' },
+  ]));
+  for (let index = 0; index < 60; index++) runTimers();
+  assert.deepEqual(errors, [], 'a covered map never turns a marker response into a map error');
+  assert.equal(overlays.length, 0, 'nothing is drawn into a zero-size map');
+  map.node.offsetWidth = 360;
+  const idleBefore = idleCalls;
+  observers[0].callback();
+  assert.equal(overlays.length, 1, 'the pending marker payload is drawn when the map is visible again');
+  assert.equal(context.markerDataCache.map[0].storeId, 'hidden-a');
+  runTimers();
+  assert.ok(idleCalls > idleBefore, 'Flutter is asked to read the viewport again after the hidden period');
+  assert.equal(context.kakaoMapObjects.map, map, 'returning does not rebuild the map');
+}
+
+{
+  // P1-16 without a resize notification: the slow visibility check flushes.
+  const { context, overlays, runTimers } = createRuntime();
+  const errors = [];
+  context.kakaoMapCallbacks.map = { onError: (message) => errors.push(message) };
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  map.node.isConnected = false;
+  context.addMobileMarkers('map', JSON.stringify([{ storeId: 'old', lat: 37.5, lng: 127, title: 'old', menu: '', price: '' }]));
+  context.addMobileMarkers('map', JSON.stringify([{ storeId: 'new', lat: 37.6, lng: 127.1, title: 'new', menu: '', price: '' }]));
+  for (let index = 0; index < 40; index++) runTimers();
+  map.node.isConnected = true;
+  runTimers();
+  assert.deepEqual(errors, []);
+  assert.equal(overlays.length, 1, 'only the newest hidden payload is drawn');
+  assert.equal(context.markerDataCache.map[0].storeId, 'new');
+  context.addMobileMarkers('map', JSON.stringify([]));
+  map.node.offsetWidth = 0;
+  context.addMobileMarkers('map', JSON.stringify([{ storeId: 'late', lat: 1, lng: 2, title: 'late', menu: '', price: '' }]));
+  context.disposeKakaoMap('map');
+  map.node.offsetWidth = 360;
+  for (let index = 0; index < 5; index++) runTimers();
+  assert.equal(context.markerDataCache.map, undefined, 'a disposed view never draws its pending payload');
+}
+
+{
+  // FE-MAP-13: leaving home before the first render waits without a limit.
+  const { context, runTimers } = createRuntime();
+  const errors = [];
+  let ready = 0;
+  context.kakaoMapCallbacks.map = { onError: (message) => errors.push(message), onReady: () => { ready++; } };
+  const container = context.document.getElementById('map');
+  container.offsetWidth = 0;
+  context.initKakaoMap('map', 37.5, 127);
+  for (let index = 0; index < 120; index++) runTimers();
+  assert.deepEqual(errors, [], 'a hidden first render is not reported as a size error');
+  assert.equal(context.kakaoMapObjects.map, undefined, 'the map is not created at zero size');
+  container.offsetWidth = 360;
+  runTimers();
+  assert.ok(context.kakaoMapObjects.map, 'the map is created once the view is visible');
+  assert.equal(ready, 1, 'Flutter receives one ready event');
+}
+
+{
+  // P1-18: the search zoom limit follows the mode even when it changes while
+  // the map is hidden, and it is in place before a pending fit runs.
+  const { context, observers, runTimers } = createRuntime();
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  let maxLevelAtFit = null;
+  map.setBounds = (bounds, ...padding) => { maxLevelAtFit = map.maxLevel; map.fittedBounds = bounds; map.padding = padding; };
+  map.node.offsetWidth = 0;
+  observers[0].callback();
+  context.setKakaoMapSearchMode('map', true);
+  context.fitKakaoMapStores('map', JSON.stringify([{ lat: 37.5, lng: 127 }, { lat: 35.1, lng: 129.0 }]));
+  assert.equal(map.maxLevel, 10, 'a hidden map is not manipulated');
+  map.node.offsetWidth = 360;
+  observers[0].callback();
+  assert.equal(map.maxLevel, 14, 'returning to search results restores the search zoom limit');
+  assert.equal(maxLevelAtFit, 14, 'the nationwide fit runs with the search zoom limit');
+  map.setLevel(13);
+  map.node.offsetWidth = 0;
+  observers[0].callback();
+  context.setKakaoMapSearchMode('map', false);
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.equal(map.maxLevel, 10, 'clearing a search while hidden restores the backend-safe limit');
+  assert.equal(map.level, 10, 'a zoomed-out search view comes back inside the supported span');
+}
+
+{
+  // P1-19: an AI pick chosen on another screen moves the map after return.
+  const { context, runTimers } = createRuntime();
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  const pans = [];
+  map.panTo = (position) => { pans.push([position.lat, position.lng]); map.center = position; };
+  map.node.offsetWidth = 0;
+  context.setKakaoMapCenterFromSwipe('map', 35.15, 129.06);
+  assert.deepEqual(pans, [], 'a hidden map does not pan');
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.deepEqual(pans, [[35.15, 129.06]], 'the preserved pan runs once the map is visible');
+  map.node.offsetWidth = 0;
+  context.setKakaoMapCenterFromSwipe('map', 33.5, 126.5);
+  context.fitKakaoMapStores('map', JSON.stringify([{ lat: 36.35, lng: 127.38 }]));
+  map.node.offsetWidth = 360;
+  runTimers();
+  assert.deepEqual(pans, [[35.15, 129.06]], 'a newer viewport intent replaces the older pan');
+  assert.equal(map.center.lat, 36.35);
+}
+
+{
+  // Leaving right after a drag: the skipped viewport request runs on return.
+  const { context, listeners, observers, runTimers } = createRuntime();
+  let idleCalls = 0;
+  context.kakaoMapCallbacks.map = { onIdle: () => { idleCalls++; } };
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  map.getBounds = () => ({
+    getSouthWest: () => ({ getLat: () => 37.4, getLng: () => 126.9 }),
+    getNorthEast: () => ({ getLat: () => 37.6, getLng: () => 127.1 }),
+  });
+  const before = idleCalls;
+  listeners.find((item) => item.type === 'idle').handler();
+  map.node.offsetWidth = 0;
+  observers[0].callback();
+  for (let index = 0; index < 10; index++) runTimers();
+  assert.equal(idleCalls, before, 'no viewport request reaches Flutter while hidden');
+  map.node.offsetWidth = 360;
+  observers[0].callback();
+  runTimers();
+  assert.equal(idleCalls, before + 1, 'the skipped viewport request runs once the map is visible');
+}
+
+{
+  // FE-MAP-19: fit padding never exceeds a short map.
+  const { context, runTimers } = createRuntime();
+  const container = context.document.getElementById('map');
+  container.offsetHeight = 300;
+  container.offsetWidth = 320;
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  context.fitKakaoMapStores('map', JSON.stringify([{ lat: 37.5, lng: 127 }, { lat: 37.6, lng: 127.1 }]));
+  const [top, right, bottom, left] = context.kakaoMapObjects.map.padding;
+  assert.ok(top + bottom <= 300 * 0.7, 'vertical padding leaves room for the results');
+  assert.ok(top < 150 && bottom < 260, 'short maps scale the padding down');
+  assert.equal(right, 40);
+  assert.equal(left, 40);
+}
+
+{
+  // FE-MAP-11: the recommendation route map replaces its own map when the
+  // route changes, and a closed view stops waiting for the SDK.
+  const dartSource = readFileSync(
+    new URL('../lib/features/recommendation/presentation/widgets/route_map_view_web.dart', import.meta.url),
+    'utf8',
+  );
+  const routeScript = dartSource.match(/_eval\(\s*'''([\s\S]*?)'''/)[1];
+  let nextTimerId = 1;
+  const timers = new globalThis.Map();
+  const container = { innerHTML: '', id: 'route' };
+  const createdMaps = [];
+  const context = {
+    document: {
+      getElementById: (id) => (id === 'route' ? container : null),
+      createElement: () => ({ style: {}, innerText: '' }),
+    },
+    setTimeout(callback) { const id = nextTimerId++; timers.set(id, callback); return id; },
+    clearTimeout(id) { timers.delete(id); },
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(routeScript, context, { filename: 'route_map_view_web.dart' });
+  const runTimers = () => { const pending = [...timers.values()]; timers.clear(); pending.forEach((callback) => callback()); };
+  const kakao = {
+    maps: {
+      load: (callback) => callback(),
+      LatLng: function LatLng(lat, lng) { this.lat = lat; this.lng = lng; },
+      LatLngBounds: function LatLngBounds() { this.extend = () => {}; },
+      CustomOverlay: function CustomOverlay() { this.setMap = () => {}; },
+      Polyline: function Polyline() { this.setMap = () => {}; },
+      Map: function KakaoMap(node) {
+        this.htmlWhenCreated = node.innerHTML;
+        node.innerHTML = '<map>';
+        this.setBounds = () => {};
+        this.setCenter = () => {};
+        createdMaps.push(this);
+      },
+    },
+  };
+  const route = JSON.stringify([
+    { order: 1, name: 'A', latitude: 37.56, longitude: 126.97 },
+    { order: 2, name: 'B', latitude: 37.57, longitude: 126.98 },
+  ]);
+
+  context.initHowMuchRouteMap('route', route, 0, 0);
+  context.disposeHowMuchRouteMap('route');
+  context.kakao = kakao;
+  runTimers();
+  assert.equal(createdMaps.length, 0, 'a closed route map never finishes a pending SDK retry');
+
+  context.initHowMuchRouteMap('route', route, 0, 0);
+  context.initHowMuchRouteMap('route', route, 37.55, 126.96);
+  assert.equal(createdMaps.length, 2);
+  assert.equal(createdMaps[1].htmlWhenCreated, '', 'a changed route replaces the previous map element');
+  assert.equal(context.howMuchRouteMaps.route, createdMaps[1], 'only the newest map is kept');
+  context.disposeHowMuchRouteMap('route');
+  assert.equal(context.howMuchRouteMaps.route, undefined, 'closing the view releases its map');
+  assert.equal(container.innerHTML, '');
+}
+
 console.log('web map lifecycle tests passed');

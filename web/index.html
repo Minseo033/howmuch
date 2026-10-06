@@ -205,6 +205,11 @@
         boundsTimer = scheduleKakaoMapTask(lifecycle, function() {
           if (isActiveKakaoMap(containerId, map, generation)) {
             notifyKakaoMapIdle(containerId, lifecycle);
+          } else if (isCurrentKakaoMapInstance(containerId, map, generation)) {
+            // The user left right after moving the map. Ask Flutter for the
+            // new viewport's stores once the map is visible again.
+            lifecycle.idlePending = true;
+            watchKakaoMapVisibility(containerId, lifecycle);
           }
         }, 600);
       });
@@ -221,9 +226,14 @@
     }
 
     function isActiveKakaoMap(containerId, map, generation) {
+      return isCurrentKakaoMapInstance(containerId, map, generation) && isUsableKakaoMap(map);
+    }
+
+    // The same map object and lifecycle generation, whether or not it is visible.
+    function isCurrentKakaoMapInstance(containerId, map, generation) {
       var lifecycle = window.kakaoMapLifecycles[containerId];
-      return lifecycle && lifecycle.generation === generation &&
-        window.kakaoMapObjects[containerId] === map && isUsableKakaoMap(map);
+      return !!lifecycle && lifecycle.generation === generation &&
+        window.kakaoMapObjects[containerId] === map;
     }
 
     function isUsableKakaoMap(map) {
@@ -232,29 +242,135 @@
       return !node || (node.isConnected !== false && node.offsetWidth > 0 && node.offsetHeight > 0);
     }
 
+    // Normal mode stays inside the bounds endpoint's 10-degree span. Local
+    // search results may be spread across the country, so they can zoom out.
+    function applyKakaoMapZoomLimit(map, lifecycle) {
+      if (!map) return;
+      var maxLevel = lifecycle.searchMode ? 14 : 10;
+      if (typeof map.setMaxLevel === 'function') map.setMaxLevel(maxLevel);
+      // Leaving a zoomed-out search: return inside the supported span.
+      if (typeof map.getLevel === 'function' && typeof map.setLevel === 'function' &&
+          map.getLevel() > maxLevel) {
+        map.setLevel(maxLevel);
+      }
+    }
+
+    // Search fits keep the top search bar and the bottom cards clear. Short
+    // maps scale that padding down so it never exceeds the map itself.
+    function kakaoMapFitPadding(map) {
+      var node = map && typeof map.getNode === 'function' ? map.getNode() : null;
+      var width = node && node.offsetWidth > 0 ? node.offsetWidth : 360;
+      var height = node && node.offsetHeight > 0 ? node.offsetHeight : 640;
+      var top = 150, bottom = 260, side = 40;
+      var verticalScale = Math.min(1, (height * 0.7) / (top + bottom));
+      var sideScale = Math.min(1, (width * 0.5) / (side * 2));
+      return [
+        Math.round(top * verticalScale),
+        Math.round(side * sideScale),
+        Math.round(bottom * verticalScale),
+        Math.round(side * sideScale)
+      ];
+    }
+
+    function hasPendingKakaoMapWork(lifecycle) {
+      return !!(lifecycle.pendingMarkerRender || lifecycle.pendingNavigation ||
+        lifecycle.zoomLimitPending || lifecycle.idlePending);
+    }
+
+    // A covered Flutter route keeps its platform view at zero size or detached.
+    // That is a wait, not a failure: marker, zoom-limit and viewport work that
+    // arrives meanwhile is kept here and runs once the same map is visible.
+    function flushKakaoMapVisibleWork(containerId) {
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      var map = window.kakaoMapObjects[containerId];
+      if (!lifecycle || !isUsableKakaoMap(map)) return false;
+      lifecycle.hidden = false;
+      cancelKakaoMapTask(lifecycle, lifecycle.visibilityTimer);
+      lifecycle.visibilityTimer = null;
+      if (!hasPendingKakaoMapWork(lifecycle)) return false;
+      lifecycle.zoomLimitPending = false;
+      lifecycle.idlePending = false;
+      applyKakaoMapZoomLimit(map, lifecycle);
+      var renderMarkers = lifecycle.pendingMarkerRender;
+      var navigate = lifecycle.pendingNavigation;
+      lifecycle.pendingMarkerRender = null;
+      lifecycle.pendingNavigation = null;
+      lifecycle.pendingNavigationKind = null;
+      if (renderMarkers) renderMarkers();
+      if (navigate) navigate(map);
+      var generation = lifecycle.generation;
+      scheduleKakaoMapTask(lifecycle, function() {
+        if (!isActiveKakaoMap(containerId, map, generation)) return;
+        // Flutter could not read bounds while the map was hidden. Ask again
+        // even if the viewport itself did not change.
+        lifecycle.lastIdleBounds = null;
+        notifyKakaoMapIdle(containerId, lifecycle);
+      }, 150);
+      return true;
+    }
+
+    function watchKakaoMapVisibility(containerId, lifecycle) {
+      lifecycle.hidden = true;
+      if (lifecycle.visibilityTimer) return;
+      // ResizeObserver reports most show transitions. This slow check covers
+      // embeddings that reattach the view without a resize notification.
+      function check() {
+        lifecycle.visibilityTimer = null;
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle || !hasPendingKakaoMapWork(lifecycle)) return;
+        if (flushKakaoMapVisibleWork(containerId)) return;
+        lifecycle.visibilityTimer = scheduleKakaoMapTask(lifecycle, check, 250);
+      }
+      lifecycle.visibilityTimer = scheduleKakaoMapTask(lifecycle, check, 250);
+    }
+
+    // Only the newest viewport intent survives a hidden period.
+    function runKakaoMapNavigation(containerId, lifecycle, kind, navigate) {
+      var map = window.kakaoMapObjects[containerId];
+      if (isUsableKakaoMap(map)) {
+        lifecycle.pendingNavigation = null;
+        lifecycle.pendingNavigationKind = null;
+        navigate(map);
+        return;
+      }
+      lifecycle.pendingNavigation = navigate;
+      lifecycle.pendingNavigationKind = kind;
+      if (map) watchKakaoMapVisibility(containerId, lifecycle);
+    }
+
     function observeKakaoMapSize(containerId, map, container, lifecycle, generation) {
       if (lifecycle.resizeObserver) lifecycle.resizeObserver.disconnect();
       lifecycle.width = container.offsetWidth;
       lifecycle.height = container.offsetHeight;
       if (typeof ResizeObserver === 'undefined') return;
       lifecycle.resizeObserver = new ResizeObserver(function() {
-        if (!isActiveKakaoMap(containerId, map, generation)) return;
+        if (!isCurrentKakaoMapInstance(containerId, map, generation)) return;
+        if (!isUsableKakaoMap(map)) {
+          lifecycle.hidden = true;
+          return;
+        }
+        var wasHidden = lifecycle.hidden === true;
+        lifecycle.hidden = false;
         var width = container.offsetWidth;
         var height = container.offsetHeight;
-        if (width === lifecycle.width && height === lifecycle.height) return;
+        if (width === lifecycle.width && height === lifecycle.height) {
+          if (wasHidden) flushKakaoMapVisibleWork(containerId);
+          return;
+        }
         cancelKakaoMapTask(lifecycle, lifecycle.resizeTimer);
         lifecycle.resizeTimer = scheduleKakaoMapTask(lifecycle, function() {
           lifecycle.resizeTimer = null;
           if (!isActiveKakaoMap(containerId, map, generation)) return;
-          if (container.offsetWidth === lifecycle.width && container.offsetHeight === lifecycle.height) return;
-          lifecycle.width = container.offsetWidth;
-          lifecycle.height = container.offsetHeight;
-          // Kakao relayout can shift the viewport. Resize is not a navigation.
-          var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
-          var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
-          map.relayout();
-          if (center) map.setCenter(center);
-          if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+          if (container.offsetWidth !== lifecycle.width || container.offsetHeight !== lifecycle.height) {
+            lifecycle.width = container.offsetWidth;
+            lifecycle.height = container.offsetHeight;
+            // Kakao relayout can shift the viewport. Resize is not a navigation.
+            var center = typeof map.getCenter === 'function' ? map.getCenter() : null;
+            var level = typeof map.getLevel === 'function' ? map.getLevel() : null;
+            map.relayout();
+            if (center) map.setCenter(center);
+            if (level !== null && typeof map.setLevel === 'function') map.setLevel(level);
+          }
+          flushKakaoMapVisibleWork(containerId);
         }, 100);
       });
       lifecycle.resizeObserver.observe(container);
@@ -329,6 +445,9 @@
       lifecycle.lastIdleAt = 0;
       lifecycle.suppressMarkerClicks = false;
       lifecycle.suppressTimer = null;
+      // Timers were cleared above; stale IDs would block new watchers.
+      lifecycle.visibilityTimer = null;
+      lifecycle.resizeTimer = null;
       var generation = lifecycle.generation;
 
       if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -351,14 +470,15 @@
      kakao.maps.load(function() {
        cancelKakaoMapTask(lifecycle, loadCheckTimer);
        if (lifecycle.generation !== generation) return;
+        var containerWaitAttempts = 0;
         var sizeWaitAttempts = 0;
 
         function renderMapWhenReady() {
           if (lifecycle.generation !== generation) return;
           var container = window[containerId] || document.getElementById(containerId);
           if (!container) {
-            sizeWaitAttempts++;
-            if (sizeWaitAttempts <= 30) {
+            containerWaitAttempts++;
+            if (containerWaitAttempts <= 30) {
               scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
               return;
             }
@@ -366,14 +486,13 @@
             return;
           }
           if (container.isConnected === false || container.offsetWidth === 0 || container.offsetHeight === 0) {
+            // The user can leave home before the first render. A covered or
+            // detached view is waiting, not failing: keep checking (more slowly
+            // after 1.5 seconds) until it is visible. Dispose cancels this timer.
             sizeWaitAttempts++;
-            if (sizeWaitAttempts <= 30) {
-              scheduleKakaoMapTask(lifecycle, renderMapWhenReady, 50);
-              return;
-            }
-           notifyKakaoMapError(containerId, "지도 화면 크기가 올바르지 않아요.");
-           return;
-         }
+            scheduleKakaoMapTask(lifecycle, renderMapWhenReady, sizeWaitAttempts <= 30 ? 50 : 250);
+            return;
+          }
 
           var existingMap = window.kakaoMapObjects && window.kakaoMapObjects[containerId];
           var isSameContainer = false;
@@ -384,9 +503,10 @@
 
           if (isSameContainer) {
             observeKakaoMapSize(containerId, existingMap, container, lifecycle, generation);
-            if (typeof existingMap.setMaxLevel === 'function') existingMap.setMaxLevel(lifecycle.searchMode ? 14 : 10);
+            applyKakaoMapZoomLimit(existingMap, lifecycle);
             bindKakaoMapEvents(containerId, existingMap, lifecycle, generation);
             emitKakaoMapEvent(containerId, 'onReady');
+            flushKakaoMapVisibleWork(containerId);
             scheduleKakaoMapTask(lifecycle, function() {
               if (isActiveKakaoMap(containerId, existingMap, generation)) {
                 notifyKakaoMapIdle(containerId, lifecycle);
@@ -408,7 +528,7 @@
         try {
           map = new kakao.maps.Map(container, options);
           // Keep the viewport within the bounds endpoint's supported query span.
-          map.setMaxLevel(lifecycle.searchMode ? 14 : 10);
+          applyKakaoMapZoomLimit(map, lifecycle);
         } catch (_) {
           notifyKakaoMapError(containerId, '지도 화면을 준비하지 못했어요. 지도만 다시 불러와 주세요.');
           return;
@@ -423,6 +543,7 @@
         bindKakaoMapEvents(containerId, map, lifecycle, generation);
         
         emitKakaoMapEvent(containerId, 'onReady');
+        flushKakaoMapVisibleWork(containerId);
         scheduleKakaoMapTask(lifecycle, function() {
           if (!isActiveKakaoMap(containerId, map, generation)) return;
           notifyKakaoMapIdle(containerId, lifecycle);
@@ -497,17 +618,18 @@
       var lifecycle = getKakaoMapLifecycle(containerId);
       var markerGeneration = ++window.nextKakaoMarkerRequestGeneration;
       window.kakaoMarkerRequestGenerations[containerId] = markerGeneration;
-      var waitAttempts = 0;
-      var maxWaitAttempts = 25;
+      lifecycle.pendingMarkerRender = null;
+      var sdkWaitAttempts = 0;
 
       function isCurrentMarkerRequest() {
         return window.kakaoMarkerRequestGenerations[containerId] === markerGeneration;
       }
 
-      function retryWhenReady(message) {
-        waitAttempts++;
-        if (waitAttempts > maxWaitAttempts) {
-          if (isCurrentMarkerRequest()) notifyKakaoMapError(containerId, message);
+      // Only an SDK that never loads is a marker failure.
+      function retryUntilSdkLoads() {
+        sdkWaitAttempts++;
+        if (sdkWaitAttempts > 25) {
+          if (isCurrentMarkerRequest()) notifyKakaoMapError(containerId, "지도 마커를 불러오지 못했어요.");
           return;
         }
         scheduleKakaoMapTask(lifecycle, function() {
@@ -515,24 +637,23 @@
         }, 200);
       }
 
-      if (typeof kakao === 'undefined' || !kakao.maps) {
-        retryWhenReady("지도 마커를 불러오지 못했어요.");
-        return;
-      }
-
       renderMarkersWhenReady();
 
       function renderMarkersWhenReady() {
         if (!isCurrentMarkerRequest()) return;
         if (typeof kakao === 'undefined' || !kakao.maps) {
-          retryWhenReady("지도 마커를 불러오지 못했어요.");
+          retryUntilSdkLoads();
           return;
         }
         kakao.maps.load(function() {
         if (!isCurrentMarkerRequest()) return;
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle) return;
         var map = window.kakaoMapObjects[containerId];
         if (!isUsableKakaoMap(map)) {
-          retryWhenReady("지도 마커를 표시하지 못했어요.");
+          // Covered, detached, or still being created: keep only this newest
+          // payload and draw it when the map is visible again.
+          lifecycle.pendingMarkerRender = renderMarkersWhenReady;
+          if (map) watchKakaoMapVisibility(containerId, lifecycle);
           return;
         }
 
@@ -654,46 +775,51 @@
     }
 
     function setKakaoMapCenter(containerId, lat, lng) {
-      var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map)) {
-        var lifecycle = getKakaoMapLifecycle(containerId);
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      runKakaoMapNavigation(containerId, lifecycle, 'center', function(map) {
         var generation = lifecycle.generation;
         map.setCenter(new kakao.maps.LatLng(lat, lng));
         scheduleKakaoMapTask(lifecycle, function() {
           if (isActiveKakaoMap(containerId, map, generation)) notifyKakaoMapIdle(containerId, lifecycle);
         }, 150);
-      }
+      });
     }
 
+    // A result chosen on another screen (AI pick, swipe target) must not be
+    // lost when it arrives while home is still hidden behind that screen.
     function setKakaoMapCenterFromSwipe(containerId, lat, lng) {
-      var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map)) map.panTo(new kakao.maps.LatLng(lat, lng));
-    }
-
-    function zoomKakaoMap(containerId, delta) {
-      var map = window.kakaoMapObjects[containerId];
-      if (!isUsableKakaoMap(map) || typeof map.getLevel !== 'function') return;
-      var maxLevel = getKakaoMapLifecycle(containerId).searchMode ? 14 : 10;
-      map.setLevel(Math.max(1, Math.min(maxLevel, map.getLevel() + Number(delta))));
+      var lifecycle = getKakaoMapLifecycle(containerId);
+      runKakaoMapNavigation(containerId, lifecycle, 'pan', function(map) {
+        map.panTo(new kakao.maps.LatLng(lat, lng));
+      });
     }
 
     function setKakaoMapSearchMode(containerId, enabled) {
       var lifecycle = getKakaoMapLifecycle(containerId);
       lifecycle.searchMode = enabled === true;
       if (!lifecycle.searchMode) {
+        // Clearing a search cancels the fit it may still be waiting to run.
         lifecycle.fitRequestGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
-        cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
+        if (lifecycle.pendingNavigationKind === 'fit') {
+          lifecycle.pendingNavigation = null;
+          lifecycle.pendingNavigationKind = null;
+        }
       }
       var map = window.kakaoMapObjects[containerId];
-      if (isUsableKakaoMap(map) && typeof map.setMaxLevel === 'function') map.setMaxLevel(enabled === true ? 14 : 10);
+      if (isUsableKakaoMap(map)) {
+        applyKakaoMapZoomLimit(map, lifecycle);
+        return;
+      }
+      // A hidden map ignores the new limit. Apply it once it is visible so a
+      // returned search can zoom out to level 14 and normal mode is back to 10.
+      lifecycle.zoomLimitPending = true;
+      if (map) watchKakaoMapVisibility(containerId, lifecycle);
     }
 
     function fitKakaoMapStores(containerId, coordinatesJson) {
       var lifecycle = getKakaoMapLifecycle(containerId);
-      var generation = lifecycle.generation;
       var fitGeneration = (lifecycle.fitRequestGeneration || 0) + 1;
       lifecycle.fitRequestGeneration = fitGeneration;
-      cancelKakaoMapTask(lifecycle, lifecycle.fitTimer);
       var coordinates;
       try { coordinates = JSON.parse(coordinatesJson); } catch (_) { return; }
       if (!Array.isArray(coordinates)) return;
@@ -703,37 +829,32 @@
           point.lat !== 0 && point.lng !== 0;
       });
       if (!valid.length) return;
-      var attempts = 0;
-      function fitWhenVisible() {
-      if (window.kakaoMapLifecycles[containerId] !== lifecycle ||
-          lifecycle.generation !== generation || lifecycle.fitRequestGeneration !== fitGeneration) return;
-      var map = window.kakaoMapObjects[containerId];
-      // A retained Flutter platform view has zero size during route-pop
-      // transitions. Keep this one navigation intent until it is visible;
-      // never execute work for a disposed or superseded map/search.
-      if (!isUsableKakaoMap(map)) {
-        if (++attempts <= 20) lifecycle.fitTimer = scheduleKakaoMapTask(lifecycle, fitWhenVisible, 100);
-        return;
-      }
-      lifecycle.fitTimer = null;
-      if (valid.length === 1) {
-        map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
-        map.setLevel(4);
-      } else {
-        var bounds = new kakao.maps.LatLngBounds();
-        valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
-        map.setBounds(bounds, 150, 40, 260, 40);
-      }
-      scheduleKakaoMapTask(lifecycle, function() {
-        if (isActiveKakaoMap(containerId, map, generation) && lifecycle.fitRequestGeneration === fitGeneration) {
-          // A new result/filter is a new request even if its viewport matches
-          // the previous one; bounds-only idle deduplication cannot skip it.
-          lifecycle.lastIdleBounds = null;
-          notifyKakaoMapIdle(containerId, lifecycle);
+      // A retained Flutter platform view has zero size while a pushed route
+      // covers it and during route-pop transitions. Keep this one navigation
+      // intent until it is visible; a disposed view or newer search drops it.
+      runKakaoMapNavigation(containerId, lifecycle, 'fit', function(map) {
+        if (window.kakaoMapLifecycles[containerId] !== lifecycle ||
+            lifecycle.fitRequestGeneration !== fitGeneration) return;
+        var generation = lifecycle.generation;
+        applyKakaoMapZoomLimit(map, lifecycle);
+        if (valid.length === 1) {
+          map.setCenter(new kakao.maps.LatLng(valid[0].lat, valid[0].lng));
+          map.setLevel(4);
+        } else {
+          var bounds = new kakao.maps.LatLngBounds();
+          valid.forEach(function(point) { bounds.extend(new kakao.maps.LatLng(point.lat, point.lng)); });
+          var padding = kakaoMapFitPadding(map);
+          map.setBounds(bounds, padding[0], padding[1], padding[2], padding[3]);
         }
-      }, 150);
-      }
-      fitWhenVisible();
+        scheduleKakaoMapTask(lifecycle, function() {
+          if (isActiveKakaoMap(containerId, map, generation) && lifecycle.fitRequestGeneration === fitGeneration) {
+            // A new result/filter is a new request even if its viewport matches
+            // the previous one; bounds-only idle deduplication cannot skip it.
+            lifecycle.lastIdleBounds = null;
+            notifyKakaoMapIdle(containerId, lifecycle);
+          }
+        }, 150);
+      });
     }
 
     function updateUserLocationMarker(containerId, lat, lng) {

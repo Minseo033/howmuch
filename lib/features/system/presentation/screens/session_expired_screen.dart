@@ -7,7 +7,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
-class SessionExpiredScreen extends ConsumerWidget {
+class SessionExpiredScreen extends ConsumerStatefulWidget {
   const SessionExpiredScreen({super.key});
 
   static const blue = Color(0xFF2563EB);
@@ -28,28 +28,49 @@ class SessionExpiredScreen extends ConsumerWidget {
   ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SessionExpiredScreen> createState() =>
+      _SessionExpiredScreenState();
+}
+
+class _SessionExpiredScreenState extends ConsumerState<SessionExpiredScreen> {
+  // A second tap during the Kakao round trip used to start another login
+  // (and on web another popup) or clear the session mid-login.
+  bool _busy = false;
+
+  Future<void> _close() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(kakaoLoginServiceProvider).clearLocalSession();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (!mounted) return;
+    context.go(AppRoutes.home);
+  }
+
+  Future<void> _loginAgain() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final KakaoLoginResult result;
+    try {
+      result = await ref.read(kakaoLoginServiceProvider).login();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+    if (result.status == KakaoLoginStatus.failed && mounted) {
+      messenger.showSnackBar(
+        HowmuchSnackBar(content: Text('재로그인 실패: ${result.errorMessage}')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
-
-    Future<void> close() async {
-      await ref.read(kakaoLoginServiceProvider).clearLocalSession();
-      if (!context.mounted) return;
-      context.go(AppRoutes.home);
-    }
-
-    void loginAgain() async {
-      final messenger = ScaffoldMessenger.of(context);
-      final result = await ref.read(kakaoLoginServiceProvider).login();
-      if (result.status == KakaoLoginStatus.failed) {
-        if (context.mounted) {
-          messenger.showSnackBar(
-            HowmuchSnackBar(content: Text('재로그인 실패: ${result.errorMessage}')),
-          );
-        }
-      }
-    }
 
     return FigmaMobileCanvas(
       child: LayoutBuilder(
@@ -75,11 +96,11 @@ class SessionExpiredScreen extends ConsumerWidget {
                     width: 31.988636016845703,
                     height: 31.988636016845703,
                     child: Material(
-                      color: surface,
+                      color: SessionExpiredScreen.surface,
                       shape: const CircleBorder(),
                       child: InkWell(
                         customBorder: const CircleBorder(),
-                        onTap: () => close(),
+                        onTap: _busy ? null : _close,
                         child: const Icon(
                           Icons.close_rounded,
                           color: Color(0xFF64748B),
@@ -139,9 +160,12 @@ class SessionExpiredScreen extends ConsumerWidget {
                     top: actionTop,
                     child: Column(
                       children: [
-                        _KakaoButton(onPressed: loginAgain),
+                        _KakaoButton(
+                          busy: _busy,
+                          onPressed: _busy ? null : _loginAgain,
+                        ),
                         const SizedBox(height: 10),
-                        _LaterButton(onPressed: () => close()),
+                        _LaterButton(onPressed: _busy ? null : _close),
                       ],
                     ),
                   ),
@@ -238,9 +262,10 @@ class _AvailableRow extends StatelessWidget {
 }
 
 class _KakaoButton extends StatelessWidget {
-  const _KakaoButton({required this.onPressed});
+  const _KakaoButton({required this.busy, required this.onPressed});
 
-  final VoidCallback onPressed;
+  final bool busy;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -253,17 +278,17 @@ class _KakaoButton extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(22),
           onTap: onPressed,
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.chat_bubble_rounded,
                 color: SessionExpiredScreen.kakaoInk,
                 size: 18,
               ),
-              SizedBox(width: 10),
-              Text('카카오로 다시 로그인', style: _kakaoButtonText),
+              const SizedBox(width: 10),
+              Text(busy ? '로그인 중…' : '카카오로 다시 로그인', style: _kakaoButtonText),
             ],
           ),
         ),
@@ -275,7 +300,7 @@ class _KakaoButton extends StatelessWidget {
 class _LaterButton extends StatelessWidget {
   const _LaterButton({required this.onPressed});
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 
 enum BadgeType { government, user }
 
@@ -15,11 +16,12 @@ class StatusBadge extends StatelessWidget {
 
     if (type == BadgeType.government) {
       bgColor = const Color(0xFFEEF2FF); // 연한 파란색
-      textColor = const Color(0xFF10B981); // 짙은 파란색
+      // AA text tokens: the old #10B981 / #F97316 read at about 2.3:1.
+      textColor = AppColors.success;
       text = '정부 인증';
     } else {
       bgColor = const Color(0xFFFFF3EA); // 연한 주황색
-      textColor = const Color(0xFFF97316); // 주황색
+      textColor = AppColors.warning;
       text = '사용자 제보';
     }
 

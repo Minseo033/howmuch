@@ -162,7 +162,11 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                     const Icon(Icons.circle, size: 8, color: AppColors.success),
                     const SizedBox(width: 4),
                     Text(
-                      widget.store?.isUserReported == true ? '사용자 제보' : '정부 인증',
+                      widget.store?.isUserReported == true
+                          ? '사용자 제보'
+                          : widget.store?.isGovernmentCertified == true
+                          ? '정부 인증'
+                          : '출처 확인 필요',
                       style: const TextStyle(
                         color: AppColors.success,
                         fontSize: 12,

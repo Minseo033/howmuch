@@ -36,6 +36,31 @@ void main() {
       expect(normalizeSavingsCategory('세탁업'), '기타');
       expect(normalizeSavingsCategory(null), '기타');
     });
+
+    test('공공데이터의 모든 업종이 의도한 카테고리로 묶인다', () {
+      // stores-snapshot.json의 업종 11가지 (기타요식업 921곳, 일식 202곳 포함)
+      const expected = {
+        '한식': '음식점',
+        '중식': '음식점',
+        '양식': '음식점',
+        '일식': '음식점',
+        '기타요식업': '음식점',
+        '미용업': '미용',
+        '이용업': '미용',
+        '세탁업': '기타',
+        '숙박업': '기타',
+        '목욕업': '기타',
+        '기타비요식업': '기타',
+      };
+      for (final entry in expected.entries) {
+        expect(
+          normalizeSavingsCategory(entry.key),
+          entry.value,
+          reason: entry.key,
+        );
+      }
+      expect(normalizeSavingsCategory('제과점'), '카페');
+    });
   });
 }
 

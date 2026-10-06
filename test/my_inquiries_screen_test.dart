@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/mypage/presentation/screens/my_inquiries_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 
@@ -55,5 +57,45 @@ void main() {
 
     expect(find.text('등록한 문의가 없어요'), findsOneWidget);
     expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+  });
+  testWidgets('login-required state offers a way to log in', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final router = GoRouter(
+      initialLocation: AppRoutes.inquiryHistory,
+      routes: [
+        GoRoute(
+          path: AppRoutes.inquiryHistory,
+          builder: (_, _) => const MyInquiriesScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.login,
+          builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          myInquiriesProvider.overrideWith(
+            (ref) async => throw const InquiryApiException(
+              '문의 내역을 확인하려면 로그인이 필요합니다.',
+              statusCode: 401,
+            ),
+          ),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('로그인이 필요해요'), findsOneWidget);
+    await tester.tap(find.text('로그인하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('로그인 화면'), findsOneWidget);
   });
 }

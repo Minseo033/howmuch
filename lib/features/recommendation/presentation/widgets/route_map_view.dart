@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'route_map_point.dart';
 import 'route_map_view_mobile.dart'
-    if (dart.library.js) 'route_map_view_web.dart'
+    if (dart.library.js_interop) 'route_map_view_web.dart'
     as platform;
 
 class RouteMapView extends StatelessWidget {

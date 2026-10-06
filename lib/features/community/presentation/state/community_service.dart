@@ -1,6 +1,16 @@
 import 'dart:convert';
 
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/utils/text_initial.dart';
+
+/// 댓글·답글 본문의 서버 최대 길이입니다.
+const communityCommentMaxLength = 1000;
+
+/// 가격 변동 제보로 분류하는 변동 유형입니다(계약 C2의 changeType).
+const communityPriceChangeTypes = {'rise', 'drop', 'new', 'delete'};
+
+bool isCommunityPriceChange(Object? changeType) => communityPriceChangeTypes
+    .contains(changeType?.toString().trim().toLowerCase() ?? '');
 
 class CommunityApiException implements Exception {
   const CommunityApiException(this.statusCode, [this.message]);
@@ -10,6 +20,22 @@ class CommunityApiException implements Exception {
 
   @override
   String toString() => 'CommunityApiException($statusCode, $message)';
+}
+
+/// 서버가 400·403·404·409 응답에 담아 보낸 안내 문구를 꺼냅니다.
+/// 문구가 없거나 다른 오류면 [fallback]을 돌려줍니다.
+String communityErrorMessage(Object error, {required String fallback}) {
+  if (error is CommunityApiException &&
+      const {400, 403, 404, 409}.contains(error.statusCode)) {
+    try {
+      final decoded = jsonDecode(error.message ?? '');
+      if (decoded is Map && decoded['message'] is String) {
+        final message = (decoded['message'] as String).trim();
+        if (message.isNotEmpty) return message;
+      }
+    } catch (_) {}
+  }
+  return fallback;
 }
 
 class CommunityReactionResult {
@@ -55,7 +81,7 @@ class CommunityComment {
   final List<CommunityComment> replies;
   final String? authorProfileImageUrl;
 
-  String get initial => author.isNotEmpty ? author[0] : '익';
+  String get initial => displayInitial(author, fallback: '익');
 
   CommunityComment copyWith({
     int? replyCount,
@@ -70,7 +96,8 @@ class CommunityComment {
       isMine: isMine,
       replyCount: replyCount ?? this.replyCount,
       replies: replies ?? this.replies,
-      authorProfileImageUrl: authorProfileImageUrl ?? this.authorProfileImageUrl,
+      authorProfileImageUrl:
+          authorProfileImageUrl ?? this.authorProfileImageUrl,
     );
   }
 

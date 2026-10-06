@@ -16,6 +16,17 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 typedef DirectionsPositionLookup = Future<Position?> Function();
 
+/// A cached fix older than this may be from another neighborhood, which
+/// would give the external map a wrong starting point.
+const directionsLastKnownMaxAge = Duration(minutes: 2);
+
+@visibleForTesting
+bool isFreshLastKnownPosition(Position? position, DateTime now) {
+  if (position == null) return false;
+  final age = now.toUtc().difference(position.timestamp.toUtc());
+  return !age.isNegative && age <= directionsLastKnownMaxAge;
+}
+
 class DirectionsExternalAppScreen extends StatefulWidget {
   const DirectionsExternalAppScreen({
     super.key,
@@ -122,10 +133,19 @@ class _DirectionsExternalAppScreenState
         permission == LocationPermission.deniedForever) {
       return null;
     }
-    final cached = await Geolocator.getLastKnownPosition();
-    if (cached != null &&
-        _isValidCoordinate(cached.latitude, cached.longitude)) {
-      return cached;
+    // Browsers have no last-known position API (geolocator throws there), so
+    // the web goes straight to a current fix.
+    if (!kIsWeb) {
+      try {
+        final cached = await Geolocator.getLastKnownPosition();
+        if (cached != null &&
+            _isValidCoordinate(cached.latitude, cached.longitude) &&
+            isFreshLastKnownPosition(cached, DateTime.now())) {
+          return cached;
+        }
+      } catch (error) {
+        debugPrint('마지막 위치 조회 실패: $error');
+      }
     }
     return Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,

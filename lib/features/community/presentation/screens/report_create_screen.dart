@@ -18,6 +18,7 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
@@ -35,8 +36,23 @@ class ReportPlaceSuggestion {
   final int distanceMeters;
 }
 
+/// 카카오 업종을 먼저 보고, 업종으로 판단하지 못할 때만 매장명 단어를 씁니다.
+/// (예: '김밥천국 고속버스터미널점'이 매장명의 '버스' 때문에 교통으로 분류되지 않게)
 String? normalizeReportIndustry(String rawCategory, {String placeName = ''}) {
-  final value = '$rawCategory $placeName'.toLowerCase().replaceAll(' ', '');
+  final fromCategory = _industryFromText(rawCategory);
+  final fromName = _industryFromText(placeName);
+  if (fromCategory == null) return fromName;
+  // '음식점'처럼 넓은 업종이면 매장명이 같은 먹거리 업종 안에서 더 구체적일 때만 씁니다.
+  if (fromCategory == '음식점 · 기타' &&
+      fromName != null &&
+      (fromName.startsWith('음식점 ·') || fromName.startsWith('카페·디저트 ·'))) {
+    return fromName;
+  }
+  return fromCategory;
+}
+
+String? _industryFromText(String raw) {
+  final value = raw.toLowerCase().replaceAll(' ', '');
   if (value.isEmpty) return null;
 
   if (_containsCategory(value, const [
@@ -124,6 +140,52 @@ String? validateReportMenuCount(int count) => count < 1
     ? '메뉴는 최대 4개까지 저장할 수 있어요. 초과 메뉴를 제거해주세요.'
     : null;
 
+/// 게스트가 제출하려다 로그인하러 갈 때 작성 중이던 새 제보를 잠시 보관합니다.
+/// 로그인 뒤 홈으로 이동해도 제보 화면을 다시 열면 이어서 쓸 수 있습니다.
+/// 앱이 실행 중인 동안에만 유지합니다.
+class ReportDraftStash {
+  ReportDraftStash._();
+
+  static ReportDraft? _pending;
+
+  static void save(ReportDraft draft) => _pending = draft;
+
+  static ReportDraft? take() {
+    final draft = _pending;
+    _pending = null;
+    return draft;
+  }
+
+  static void discard() => _pending = null;
+}
+
+class ReportDraft {
+  const ReportDraft({
+    required this.store,
+    required this.category,
+    required this.address,
+    required this.menus,
+    required this.photos,
+    required this.visitedRecently,
+    required this.checkedMenuPrice,
+  });
+
+  final String store;
+  final String category;
+  final String address;
+  final List<({String menu, String price, bool free})> menus;
+  final List<XFile> photos;
+  final bool visitedRecently;
+  final bool checkedMenuPrice;
+
+  bool get isEmpty =>
+      store.isEmpty &&
+      category.isEmpty &&
+      address.isEmpty &&
+      photos.isEmpty &&
+      menus.every((item) => item.menu.isEmpty && item.price.isEmpty);
+}
+
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({
     super.key,
@@ -177,13 +239,19 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   bool _checkedMenuPrice = false;
   int _activeStep = 1;
   bool _isSubmitting = false;
+  bool _saved = false;
+  bool _leaving = false;
   final List<XFile> _photos = [];
   final List<_MenuPriceControllers> _menuPrices = [];
+  final Map<String, Future<Uint8List>> _photoBytes = {};
+  final _uploads = ReportUploadSession();
+  late final String _initialSnapshot;
 
   @override
   void initState() {
     super.initState();
     final initialReport = widget.initialReport;
+    final draft = initialReport == null ? ReportDraftStash.take() : null;
     _storeController = TextEditingController(text: initialReport?.store ?? '');
     _categoryController = TextEditingController(
       text: initialReport?.category ?? '',
@@ -213,6 +281,108 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       }
     }
     _scrollController.addListener(_syncStepWithScroll);
+    _initialSnapshot = _formSnapshot();
+    if (draft != null && !draft.isEmpty) {
+      _restoreDraft(draft);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showSnack('로그인 전에 작성하던 제보를 불러왔어요.');
+      });
+    }
+  }
+
+  void _restoreDraft(ReportDraft draft) {
+    _storeController.text = draft.store;
+    _categoryController.text = draft.category;
+    _addressController.text = draft.address;
+    for (final menuPrice in _menuPrices) {
+      menuPrice.dispose();
+    }
+    _menuPrices.clear();
+    for (final item in draft.menus.take(maxReportMenuCount)) {
+      _addInitialMenuPrice(menu: item.menu, price: item.price, free: item.free);
+    }
+    if (_menuPrices.isEmpty) _addInitialMenuPrice(menu: '', price: '');
+    _photos.addAll(draft.photos.take(ReportService.maxImageCount));
+    _visitedRecently = draft.visitedRecently;
+    _checkedMenuPrice = draft.checkedMenuPrice;
+  }
+
+  void _stashDraftForLogin() {
+    if (widget.initialReport != null) return;
+    final draft = ReportDraft(
+      store: _storeController.text.trim(),
+      category: _categoryController.text.trim(),
+      address: _addressController.text.trim(),
+      menus: [
+        for (final menuPrice in _menuPrices)
+          (
+            menu: menuPrice.menu.text.trim(),
+            price: menuPrice.price.text.trim(),
+            free: menuPrice.free,
+          ),
+      ],
+      photos: List.of(_photos),
+      visitedRecently: _visitedRecently,
+      checkedMenuPrice: _checkedMenuPrice,
+    );
+    if (!draft.isEmpty) ReportDraftStash.save(draft);
+  }
+
+  Future<void> _openLoginKeepingDraft() async {
+    _stashDraftForLogin();
+    await context.push(AppRoutes.login);
+  }
+
+  /// 작성 중 이탈 여부를 판단하기 위한 입력값 요약입니다.
+  String _formSnapshot() => [
+    _storeController.text.trim(),
+    _categoryController.text.trim(),
+    _addressController.text.trim(),
+    for (final menuPrice in _menuPrices)
+      '${menuPrice.menu.text.trim()}|${menuPrice.price.text.trim()}|${menuPrice.free}',
+    for (final photo in _photos) photo.path,
+    '$_visitedRecently|$_checkedMenuPrice',
+  ].join('\n');
+
+  bool get _hasUnsavedChanges =>
+      !_saved && !_leaving && _formSnapshot() != _initialSnapshot;
+
+  void _closeForm() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.go(AppRoutes.communityFeed);
+  }
+
+  void _handleBack() {
+    if (_isSubmitting) return;
+    if (_hasUnsavedChanges) {
+      _confirmLeave();
+      return;
+    }
+    _closeForm();
+  }
+
+  Future<void> _confirmLeave() async {
+    if (_isSubmitting) return;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: '작성을 그만두고 나갈까요?',
+        description: '입력한 제보 내용은 저장되지 않아요.',
+        cancelLabel: '계속 작성',
+        confirmLabel: '나가기',
+        cancelFlex: 1,
+        confirmFlex: 1,
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (leave != true || !mounted) return;
+    if (widget.initialReport == null) ReportDraftStash.discard();
+    setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _closeForm();
   }
 
   (String, String) _splitMenuText(String value) {
@@ -281,10 +451,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
         _checkedMenuPrice;
   }
 
-  bool _isRemoteImageUrl(String value) {
-    return value.startsWith('http://') || value.startsWith('https://');
-  }
-
   void _onFormChanged() {
     if (mounted) {
       setState(() {});
@@ -342,7 +508,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _submit() async {
-    if (_isSubmitting) return;
+    if (_isSubmitting || _saved) return;
+    final initialReport = widget.initialReport;
+    if (initialReport != null && initialReport.isExistingStoreReport) {
+      // 가격 변동·정보 신고를 이 화면에서 저장하면 유형과 대상 매장이 사라집니다.
+      _showSnack('가격 변동 제보와 정보 신고는 제보 상세의 수정하기에서 고쳐주세요.');
+      return;
+    }
     final menuCountError = validateReportMenuCount(_menuPrices.length);
     if (menuCountError != null) {
       _showSnack(menuCountError);
@@ -353,10 +525,11 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     if (!auth.isLoggedIn) {
       final shouldLogin = await showLoginRequiredDialog(
         context,
-        message: '제보하려면 카카오 로그인이 필요해요.',
+        message:
+            '제보하려면 카카오 로그인이 필요해요. 로그인한 뒤 제보 화면을 다시 열면 작성한 내용을 이어서 쓸 수 있어요.',
       );
       if (shouldLogin && mounted) {
-        context.push(AppRoutes.login);
+        await _openLoginKeepingDraft();
       }
       return;
     }
@@ -368,119 +541,133 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
     setState(() => _isSubmitting = true);
     final reportService = ref.read(reportServiceProvider);
-    var uploadedImageUrls = <String>[];
-    var reportSaved = false;
+    UserReport? backendReport;
+    var saveRequestSent = false;
 
     try {
-      final menu1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].menu.text.trim()
+      String menuAt(int index) =>
+          _menuPrices.length > index ? _menuPrices[index].menu.text.trim() : '';
+      String priceAt(int index) => _menuPrices.length > index
+          ? _menuPrices[index].price.text.trim()
           : '';
-      final price1 = _menuPrices.isNotEmpty
-          ? _menuPrices[0].price.text.trim()
-          : '';
-      final menu2 = _menuPrices.length > 1
-          ? _menuPrices[1].menu.text.trim()
-          : '';
-      final price2 = _menuPrices.length > 1
-          ? _menuPrices[1].price.text.trim()
-          : '';
-      final menu3 = _menuPrices.length > 2
-          ? _menuPrices[2].menu.text.trim()
-          : '';
-      final price3 = _menuPrices.length > 2
-          ? _menuPrices[2].price.text.trim()
-          : '';
-      final menu4 = _menuPrices.length > 3
-          ? _menuPrices[3].menu.text.trim()
-          : '';
-      final price4 = _menuPrices.length > 3
-          ? _menuPrices[3].price.text.trim()
-          : '';
-      final free1 = _menuPrices.isNotEmpty && _menuPrices[0].free;
-      final free2 = _menuPrices.length > 1 && _menuPrices[1].free;
-      final free3 = _menuPrices.length > 2 && _menuPrices[2].free;
-      final free4 = _menuPrices.length > 3 && _menuPrices[3].free;
-      final existingImageUrls = _photos
-          .map((photo) => photo.path)
-          .where(_isRemoteImageUrl)
-          .toList();
-      final photosToUpload = _photos
-          .where((photo) => !_isRemoteImageUrl(photo.path))
-          .toList();
-      uploadedImageUrls = FeatureFlags.reportImageUploadEnabled
-          ? await reportService.uploadReportImages(photosToUpload)
-          : const [];
-      final reportImageUrls = [...existingImageUrls, ...uploadedImageUrls];
+      bool freeAt(int index) =>
+          _menuPrices.length > index && _menuPrices[index].free;
+      final reportImageUrls = await _uploads.resolveImageUrls(
+        reportService,
+        _photos,
+        uploadEnabled: FeatureFlags.reportImageUploadEnabled,
+      );
 
-      final backendReport = UserReport(
+      backendReport = UserReport(
         cityProvince: '',
         cityDistrict: '',
         storeName: _storeController.text.trim(),
         industry: _categoryController.text.trim(),
         address: _addressController.text.trim(),
         phoneNumber: '',
-        menu1: menu1,
-        price1: price1,
-        menu2: menu2,
-        price2: price2,
-        menu3: menu3,
-        price3: price3,
-        menu4: menu4,
-        price4: price4,
-        free1: free1,
-        free2: free2,
-        free3: free3,
-        free4: free4,
+        menu1: menuAt(0),
+        price1: priceAt(0),
+        menu2: menuAt(1),
+        price2: priceAt(1),
+        menu3: menuAt(2),
+        price3: priceAt(2),
+        menu4: menuAt(3),
+        price4: priceAt(3),
+        free1: freeAt(0),
+        free2: freeAt(1),
+        free3: freeAt(2),
+        free4: freeAt(3),
         imageUrls: reportImageUrls,
-        reporterId: auth.firebaseUid.isNotEmpty ? auth.firebaseUid : auth.email,
+        // 서버는 제보자를 로그인 세션으로만 판단하므로 계정 정보를 보내지 않습니다.
+        reporterId: '',
         visitedRecently: _visitedRecently,
         checkedMenuPrice: _checkedMenuPrice,
         latitude: 0.0,
         longitude: 0.0,
       );
 
-      final initialReport = widget.initialReport;
-      final String reportId;
-      if (initialReport == null) {
-        reportId = await reportService.submitReport(backendReport);
-      } else {
-        await reportService.updateReport(initialReport.id, backendReport);
-        reportId = initialReport.id;
+      // 이전 시도가 응답 없이 끝났다면, 다시 보내기 전에 이미 저장됐는지 확인합니다.
+      String? reportId = _uploads.saveOutcomeUnknown
+          ? await _findSavedReportId(reportService, backendReport)
+          : null;
+      if (reportId == null) {
+        saveRequestSent = true;
+        if (initialReport == null) {
+          reportId = await reportService.submitReport(backendReport);
+        } else {
+          await reportService.updateReport(initialReport.id, backendReport);
+          reportId = initialReport.id;
+        }
       }
-      reportSaved = true;
-
-      // Never show an optimistic draft as if the server saved every field.
-      final savedReports = await reportService.fetchMyReports();
-      if (!mounted) return;
-      if (savedReports == null ||
-          !savedReports.any((item) => item.id == reportId)) {
-        _showSnack('제보는 저장됐어요. 저장 내용을 다시 확인해주세요.');
-        context.go(AppRoutes.myReportsV2);
-        return;
-      }
-      ref.read(userReportsProvider.notifier).setReports(savedReports);
-      final profile = ref.read(userProfileProvider);
-      ref.read(userProfileProvider.notifier).state = profile.copyWith(
-        reportCount: savedReports.length,
-      );
-      if (initialReport == null) {
-        context.push('${AppRoutes.reportComplete}?id=${Uri.encodeQueryComponent(reportId)}');
-      } else {
-        context.go('${AppRoutes.reportDetailV2}?id=$reportId');
-      }
+      await _completeSaved(reportService, reportId);
     } on ReportServiceException catch (error) {
-      if (!reportSaved && error.cleanupUploadedImages) {
-        await reportService.cleanupReportImages(uploadedImageUrls);
+      // 서버가 거절했으므로 저장되지 않았습니다.
+      if (error.cleanupUploadedImages) {
+        await _uploads.discardUnsaved(reportService);
       }
       if (mounted) _showSnack(error.message);
     } catch (error) {
       debugPrint('제보 저장 중 예외: $error');
-      if (!reportSaved && uploadedImageUrls.isNotEmpty) {
-        await reportService.cleanupReportImages(uploadedImageUrls);
+      if (saveRequestSent && backendReport != null) {
+        // 시간 초과나 연결 끊김은 서버에 저장됐을 수 있어 사진을 지우지 않고 확인합니다.
+        _uploads.saveOutcomeUnknown = true;
+        final savedId = await _findSavedReportId(reportService, backendReport);
+        if (savedId != null) {
+          await _completeSaved(reportService, savedId);
+        } else if (mounted) {
+          _showSnack(reportSaveOutcomeUnknownMessage);
+        }
+      } else {
+        await _uploads.discardUnsaved(reportService);
+        if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
       }
-      if (mounted) _showSnack('제보 저장 중 오류가 발생했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<String?> _findSavedReportId(
+    ReportService reportService,
+    UserReport report,
+  ) async {
+    final reports = await reportService.fetchMyReports();
+    if (reports == null) return null;
+    return matchSavedReport(
+      reports,
+      report,
+      reportId: widget.initialReport?.id,
+    )?.id;
+  }
+
+  Future<void> _completeSaved(
+    ReportService reportService,
+    String reportId,
+  ) async {
+    _uploads.markSaved();
+    if (widget.initialReport == null) ReportDraftStash.discard();
+    // 저장된 뒤에는 같은 폼으로 다시 제출할 수 없게 잠급니다.
+    _saved = true;
+    // Never show an optimistic draft as if the server saved every field.
+    final savedReports = await reportService.fetchMyReports();
+    if (!mounted) return;
+    if (savedReports == null ||
+        !savedReports.any((item) => item.id == reportId)) {
+      _showSnack('제보는 저장됐어요. 저장 내용을 다시 확인해주세요.');
+      context.go(AppRoutes.myReportsV2);
+      return;
+    }
+    ref.read(userReportsProvider.notifier).setReports(savedReports);
+    final profile = ref.read(userProfileProvider);
+    ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      reportCount: savedReports.length,
+    );
+    if (widget.initialReport == null) {
+      // 완료 화면이 작성 화면을 대신해, 뒤로 가도 입력이 남은 폼으로 돌아가지 않습니다.
+      context.pushReplacement(
+        '${AppRoutes.reportComplete}?id=${Uri.encodeQueryComponent(reportId)}',
+      );
+    } else {
+      context.go('${AppRoutes.reportDetailV2}?id=$reportId');
     }
   }
 
@@ -729,8 +916,18 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       if (!mounted || pickedImage == null) {
         return;
       }
-
-      setState(() => _photos.add(pickedImage));
+      // 제출할 때가 아니라 고르는 즉시 용량을 확인합니다.
+      final selection = await selectReportPhotos([
+        pickedImage,
+      ], remaining: ReportService.maxImageCount - _photos.length);
+      if (!mounted) return;
+      final notice = reportPhotoSelectionNotice(
+        oversized: selection.oversized,
+        overLimit: selection.overLimit,
+      );
+      if (notice != null) _showSnack(notice);
+      if (selection.accepted.isEmpty) return;
+      setState(() => _photos.addAll(selection.accepted));
     } on PlatformException {
       if (!mounted) {
         return;
@@ -744,8 +941,15 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
 
-    setState(() => _photos.removeAt(index));
+    setState(() {
+      final removed = _photos.removeAt(index);
+      _photoBytes.remove(removed.path);
+    });
   }
+
+  /// 입력할 때마다 화면이 다시 그려져도 같은 사진을 다시 읽지 않도록 보관합니다.
+  Future<Uint8List> _photoBytesFor(XFile photo) =>
+      _photoBytes.putIfAbsent(photo.path, photo.readAsBytes);
 
   @override
   Widget build(BuildContext context) {
@@ -753,109 +957,121 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     final topOffset = safePadding.top;
     const stepProgressHeight = 60.98;
     const topChromeHeight = HowmuchTopBar.height + stepProgressHeight;
+    final isGuest = !ref.watch(authStateProvider).isLoggedIn;
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: FigmaMobileCanvas(
-        backgroundColor: const Color(0xFFF4F6FA),
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              top: 0,
-              right: 0,
-              height: topOffset + topChromeHeight,
-              child: const ColoredBox(color: Colors.white),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset,
-              right: 0,
-              height: HowmuchTopBar.height,
-              child: const _Header(),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset + HowmuchTopBar.height,
-              right: 0,
-              height: stepProgressHeight,
-              child: _StepProgress(
-                activeStep: _activeStep,
-                basicComplete: _basicInfoComplete,
-                priceComplete: _priceInfoComplete,
-                confirmComplete: _confirmInfoComplete,
-                onTap: _goToStep,
+    return PopScope(
+      canPop: !_isSubmitting && !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: GestureDetector(
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: FigmaMobileCanvas(
+          backgroundColor: const Color(0xFFF4F6FA),
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                height: topOffset + topChromeHeight,
+                child: const ColoredBox(color: Colors.white),
               ),
-            ),
-            Positioned(
-              left: 0,
-              top: topOffset + topChromeHeight,
-              right: 0,
-              bottom: 0,
-              child: ListView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  15.994,
-                  20,
-                  safePadding.bottom + 24,
-                ),
-                children: [
-                  const _TipBox(),
-                  const SizedBox(height: 11.989),
-                  const _SectionLabel(title: '기본 정보', required: true),
-                  const SizedBox(height: 10),
-                  _BasicInfoCard(
-                    storeController: _storeController,
-                    categoryController: _categoryController,
-                    addressController: _addressController,
-                    onStoreSearch: _pickStore,
-                    onCategoryTap: _pickCategory,
-                    onAddressTap: _pickAddress,
-                  ),
-                  const SizedBox(height: 15.994),
-                  const _SectionLabel(title: '가격 정보', required: true),
-                  const SizedBox(height: 10),
-                  _PriceInfoCard(
-                    menuPrices: _menuPrices,
-                    onAdd: _addMenuPrice,
-                    onRemove: _removeMenuPrice,
-                    onChanged: _onFormChanged,
-                  ),
-                  const SizedBox(height: 15.994),
-                  const _SectionLabel(
-                    title: FeatureFlags.reportImageUploadEnabled
-                        ? '사진 및 확인'
-                        : '방문 확인',
-                    required: !FeatureFlags.reportImageUploadEnabled,
-                    optional: FeatureFlags.reportImageUploadEnabled,
-                  ),
-                  const SizedBox(height: 10),
-                  _PhotoConfirmCard(
-                    showPhotoUpload: FeatureFlags.reportImageUploadEnabled,
-                    photos: _photos,
-                    visitedRecently: _visitedRecently,
-                    checkedMenuPrice: _checkedMenuPrice,
-                    onPhotoTap: _pickPhotos,
-                    onPhotoRemove: _removePhoto,
-                    onVisitedChanged: (value) =>
-                        setState(() => _visitedRecently = value),
-                    onCheckedChanged: (value) =>
-                        setState(() => _checkedMenuPrice = value),
-                  ),
-                  const SizedBox(height: 15.994),
-                  _SubmitFooter(
-                    onPressed: _submit,
-                    isSubmitting: _isSubmitting,
-                    isEditing: widget.initialReport != null,
-                  ),
-                ],
+              Positioned(
+                left: 0,
+                top: topOffset,
+                right: 0,
+                height: HowmuchTopBar.height,
+                child: _Header(onBack: _handleBack),
               ),
-            ),
-          ],
+              Positioned(
+                left: 0,
+                top: topOffset + HowmuchTopBar.height,
+                right: 0,
+                height: stepProgressHeight,
+                child: _StepProgress(
+                  activeStep: _activeStep,
+                  basicComplete: _basicInfoComplete,
+                  priceComplete: _priceInfoComplete,
+                  confirmComplete: _confirmInfoComplete,
+                  onTap: _goToStep,
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: topOffset + topChromeHeight,
+                right: 0,
+                bottom: 0,
+                child: ListView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    15.994,
+                    20,
+                    safePadding.bottom + 24,
+                  ),
+                  children: [
+                    _TipBox(
+                      onLoginTap: isGuest && widget.initialReport == null
+                          ? _openLoginKeepingDraft
+                          : null,
+                    ),
+                    const SizedBox(height: 11.989),
+                    const _SectionLabel(title: '기본 정보', required: true),
+                    const SizedBox(height: 10),
+                    _BasicInfoCard(
+                      storeController: _storeController,
+                      categoryController: _categoryController,
+                      addressController: _addressController,
+                      onStoreSearch: _pickStore,
+                      onCategoryTap: _pickCategory,
+                      onAddressTap: _pickAddress,
+                    ),
+                    const SizedBox(height: 15.994),
+                    const _SectionLabel(title: '가격 정보', required: true),
+                    const SizedBox(height: 10),
+                    _PriceInfoCard(
+                      menuPrices: _menuPrices,
+                      onAdd: _addMenuPrice,
+                      onRemove: _removeMenuPrice,
+                      onChanged: _onFormChanged,
+                    ),
+                    const SizedBox(height: 15.994),
+                    const _SectionLabel(
+                      title: FeatureFlags.reportImageUploadEnabled
+                          ? '사진 및 확인'
+                          : '방문 확인',
+                      required: !FeatureFlags.reportImageUploadEnabled,
+                      optional: FeatureFlags.reportImageUploadEnabled,
+                    ),
+                    const SizedBox(height: 10),
+                    _PhotoConfirmCard(
+                      showPhotoUpload: FeatureFlags.reportImageUploadEnabled,
+                      photos: _photos,
+                      photoBytes: _photoBytesFor,
+                      visitedRecently: _visitedRecently,
+                      checkedMenuPrice: _checkedMenuPrice,
+                      onPhotoTap: _pickPhotos,
+                      onPhotoRemove: _removePhoto,
+                      onVisitedChanged: (value) =>
+                          setState(() => _visitedRecently = value),
+                      onCheckedChanged: (value) =>
+                          setState(() => _checkedMenuPrice = value),
+                    ),
+                    const SizedBox(height: 15.994),
+                    _SubmitFooter(
+                      onPressed: _saved ? null : _submit,
+                      isSubmitting: _isSubmitting,
+                      isEditing: widget.initialReport != null,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -910,7 +1126,9 @@ class _MenuPriceControllers {
 }
 
 class _Header extends StatelessWidget {
-  const _Header();
+  const _Header({required this.onBack});
+
+  final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -918,13 +1136,7 @@ class _Header extends StatelessWidget {
       title: '가성비 매장 제보',
       titleFontSize: 17,
       showBorder: false,
-      onBack: () {
-        if (context.canPop()) {
-          context.pop();
-          return;
-        }
-        context.go(AppRoutes.communityFeed);
-      },
+      onBack: onBack,
     );
   }
 }
@@ -1096,29 +1308,46 @@ class _StepLine extends StatelessWidget {
 }
 
 class _TipBox extends StatelessWidget {
-  const _TipBox();
+  const _TipBox({this.onLoginTap});
+
+  /// 게스트일 때만 전달합니다. 작성 전에 로그인하도록 안내해 입력이 사라지지 않게 합니다.
+  final VoidCallback? onLoginTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final loginTap = onLoginTap;
+    final box = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF3EA),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Center(
+      child: Center(
         child: Text(
-          '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.',
+          loginTap == null
+              ? '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.'
+              : '제보는 로그인 후 제출할 수 있어요.\n여기를 눌러 먼저 카카오 로그인해주세요.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Color(0xFF92400E),
+            color: const Color(0xFF92400E),
             fontFamily: ReportCreateStyle.fontFamily,
             fontFamilyFallback: ReportCreateStyle.fontFallback,
             fontSize: 12,
-            fontWeight: FontWeight.w400,
+            fontWeight: loginTap == null ? FontWeight.w400 : FontWeight.w600,
             height: 1.45,
           ),
         ),
+      ),
+    );
+    if (loginTap == null) return box;
+    return Semantics(
+      button: true,
+      label: '카카오 로그인하기',
+      child: GestureDetector(
+        key: const ValueKey('report-guest-login-tip'),
+        behavior: HitTestBehavior.opaque,
+        onTap: loginTap,
+        child: box,
       ),
     );
   }
@@ -1667,6 +1896,7 @@ class _PriceInfoCard extends StatelessWidget {
         children: [
           for (var index = 0; index < menuPrices.length; index++) ...[
             _MenuPriceRow(
+              key: ObjectKey(menuPrices[index]),
               menuPrice: menuPrices[index],
               showRemove: menuPrices.length > 1,
               onRemove: () => onRemove(index),
@@ -1714,6 +1944,7 @@ class _PriceInfoCard extends StatelessWidget {
 
 class _MenuPriceRow extends StatelessWidget {
   const _MenuPriceRow({
+    super.key,
     required this.menuPrice,
     required this.showRemove,
     required this.onRemove,
@@ -1979,6 +2210,7 @@ class _PhotoConfirmCard extends StatelessWidget {
   const _PhotoConfirmCard({
     required this.showPhotoUpload,
     required this.photos,
+    required this.photoBytes,
     required this.visitedRecently,
     required this.checkedMenuPrice,
     required this.onPhotoTap,
@@ -1989,6 +2221,7 @@ class _PhotoConfirmCard extends StatelessWidget {
 
   final bool showPhotoUpload;
   final List<XFile> photos;
+  final Future<Uint8List> Function(XFile photo) photoBytes;
   final bool visitedRecently;
   final bool checkedMenuPrice;
   final VoidCallback onPhotoTap;
@@ -2008,7 +2241,11 @@ class _PhotoConfirmCard extends StatelessWidget {
             _PhotoUploadBox(photos: photos, onTap: onPhotoTap),
             if (photos.isNotEmpty) ...[
               const SizedBox(height: 7.997),
-              _PhotoThumbnailStrip(photos: photos, onRemove: onPhotoRemove),
+              _PhotoThumbnailStrip(
+                photos: photos,
+                photoBytes: photoBytes,
+                onRemove: onPhotoRemove,
+              ),
               const SizedBox(height: 9.989),
             ] else
               const SizedBox(height: 11.989),
@@ -2111,9 +2348,14 @@ class _PhotoUploadBox extends StatelessWidget {
 }
 
 class _PhotoThumbnailStrip extends StatelessWidget {
-  const _PhotoThumbnailStrip({required this.photos, required this.onRemove});
+  const _PhotoThumbnailStrip({
+    required this.photos,
+    required this.photoBytes,
+    required this.onRemove,
+  });
 
   final List<XFile> photos;
+  final Future<Uint8List> Function(XFile photo) photoBytes;
   final ValueChanged<int> onRemove;
 
   @override
@@ -2122,6 +2364,9 @@ class _PhotoThumbnailStrip extends StatelessWidget {
       builder: (context, constraints) {
         const gap = 7.997;
         final slotSize = (constraints.maxWidth - (gap * 2)) / 3;
+        final decodeWidth = (slotSize * MediaQuery.devicePixelRatioOf(context))
+            .ceil()
+            .clamp(1, 1200);
 
         return SizedBox(
           height: slotSize,
@@ -2130,11 +2375,16 @@ class _PhotoThumbnailStrip extends StatelessWidget {
             itemCount: photos.length,
             separatorBuilder: (context, index) => const SizedBox(width: gap),
             itemBuilder: (context, index) {
+              final photo = photos[index];
               return SizedBox(
                 width: slotSize,
                 height: slotSize,
                 child: _PhotoThumbnailSlot(
-                  photo: photos[index],
+                  photo: photo,
+                  bytes: isRemoteReportImage(photo.path)
+                      ? null
+                      : photoBytes(photo),
+                  decodeWidth: decodeWidth,
                   index: index,
                   onRemove: onRemove,
                 ),
@@ -2150,11 +2400,15 @@ class _PhotoThumbnailStrip extends StatelessWidget {
 class _PhotoThumbnailSlot extends StatelessWidget {
   const _PhotoThumbnailSlot({
     required this.photo,
+    required this.bytes,
+    required this.decodeWidth,
     required this.index,
     required this.onRemove,
   });
 
   final XFile? photo;
+  final Future<Uint8List>? bytes;
+  final int decodeWidth;
   final int index;
   final ValueChanged<int> onRemove;
 
@@ -2180,14 +2434,20 @@ class _PhotoThumbnailSlot extends StatelessWidget {
               Image.network(
                 imagePath,
                 fit: BoxFit.cover,
+                cacheWidth: decodeWidth,
                 errorBuilder: (_, _, _) => const _PhotoThumbnailFallback(),
               )
             else if (photo != null)
               FutureBuilder<Uint8List>(
-                future: photo.readAsBytes(),
+                future: bytes,
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
-                    return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                    return Image.memory(
+                      snapshot.data!,
+                      fit: BoxFit.cover,
+                      cacheWidth: decodeWidth,
+                      gaplessPlayback: true,
+                    );
                   }
 
                   if (snapshot.hasError) {
@@ -2382,7 +2642,7 @@ class _SubmitFooter extends StatelessWidget {
     required this.isEditing,
   });
 
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool isSubmitting;
   final bool isEditing;
 

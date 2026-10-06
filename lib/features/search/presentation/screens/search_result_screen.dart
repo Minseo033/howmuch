@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/location/browser_location.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/state/search_filter_policy.dart';
@@ -32,6 +34,32 @@ Map<String, dynamic> buildSearchMapResult({
   'stores': clear ? null : List<Store>.unmodifiable(stores),
 };
 
+typedef SearchPositionLookup = Future<Position?> Function();
+
+/// Current position for the distance filter when home has not found one yet.
+/// Same steps as the other screens: service, permission, recent fix, fresh fix.
+Future<Position?> lookUpSearchPosition() async {
+  if (kIsWeb) return requestBrowserLocation();
+  if (!await Geolocator.isLocationServiceEnabled()) return null;
+  var permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    return null;
+  }
+  final cached = await Geolocator.getLastKnownPosition();
+  if (cached != null &&
+      howmuch_home.isFreshHomeLocation(cached.timestamp, DateTime.now())) {
+    return cached;
+  }
+  return Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.high,
+    timeLimit: const Duration(seconds: 8),
+  );
+}
+
 class SearchResultScreen extends StatefulWidget {
   const SearchResultScreen({
     super.key,
@@ -40,6 +68,8 @@ class SearchResultScreen extends StatefulWidget {
     this.initialFilter,
     this.storeCatalogLoader,
     this.searchHistoryStore,
+    this.returnsResultToMap = false,
+    this.positionLookup,
   });
 
   final String initialQuery;
@@ -47,6 +77,14 @@ class SearchResultScreen extends StatefulWidget {
   final SearchFilter? initialFilter;
   final StoreCatalogLoader? storeCatalogLoader;
   final SearchHistoryStore? searchHistoryStore;
+
+  /// True when the home map opened this search and awaits its result.
+  /// Other entry points (community) open the home map with the result.
+  final bool returnsResultToMap;
+
+  /// Finds the current position for the distance filter. Defaults to
+  /// [lookUpSearchPosition].
+  final SearchPositionLookup? positionLookup;
 
   static const blue = Color(0xFF2563EB);
   static const ink = Color(0xFF0F172A);
@@ -86,6 +124,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
   // 디바운스
   Timer? _debounce;
   Future<List<Store>>? _catalogRequest;
+  Future<Position?>? _positionRequest;
   int _searchGeneration = 0;
   int _historyGeneration = 0;
 
@@ -212,18 +251,56 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     }
   }
 
+  /// Shows the search on the map. A search opened from home pops its result
+  /// back to that map; one opened elsewhere opens the home map with it.
   void _returnToMap({bool clear = false}) {
+    if (clear && !widget.returnsResultToMap) {
+      context.go(AppRoutes.home);
+      return;
+    }
     final result = buildSearchMapResult(
       query: _query,
       filter: _filter,
       stores: _results,
       clear: clear,
     );
-    if (context.canPop()) {
+    if (widget.returnsResultToMap && context.canPop()) {
       context.pop(result);
     } else {
       context.go(AppRoutes.home, extra: result);
     }
+  }
+
+  /// Back clears home's map search; elsewhere it returns to the screen that
+  /// opened search.
+  void _leaveSearch() {
+    if (widget.returnsResultToMap || !context.canPop()) {
+      _returnToMap(clear: true);
+      return;
+    }
+    context.pop();
+  }
+
+  Future<Position?> _requestSearchPosition() {
+    final pending = _positionRequest;
+    if (pending != null) return pending;
+    final request = () async {
+      try {
+        final position =
+            await (widget.positionLookup ?? lookUpSearchPosition)();
+        if (position != null) {
+          howmuch_home.HomeMapScreen.globalUserPosition = position;
+        }
+        return position;
+      } catch (error) {
+        debugPrint('검색 위치 확인 실패: $error');
+        return null;
+      }
+    }();
+    _positionRequest = request;
+    return request.whenComplete(() {
+      if (identical(_positionRequest, request)) _positionRequest = null;
+    });
   }
 
   @override
@@ -257,6 +334,16 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       });
       return;
     }
+
+    // The distance filter needs a position even when home has none yet.
+    // Ask before any await so a browser still links it to the user's tap.
+    final hasDistanceFilter =
+        _filter.distance != null && _filter.distance!.isNotEmpty;
+    final positionRequest =
+        hasDistanceFilter &&
+            howmuch_home.HomeMapScreen.globalUserPosition == null
+        ? _requestSearchPosition()
+        : null;
 
     try {
       // The home map list is a viewport cache and can contain only the stores
@@ -301,11 +388,15 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         }).toList();
       }
 
-      final pos = howmuch_home.HomeMapScreen.globalUserPosition;
+      var pos = howmuch_home.HomeMapScreen.globalUserPosition;
+      if (pos == null && positionRequest != null) {
+        pos = await positionRequest;
+        if (!mounted || generation != _searchGeneration) return;
+      }
       _refreshDistanceCache(stores, pos);
 
       // 거리 필터링
-      if (_filter.distance != null && _filter.distance!.isNotEmpty) {
+      if (hasDistanceFilter) {
         if (pos == null) {
           if (mounted) {
             setState(() {
@@ -482,7 +573,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
-          _returnToMap(clear: true);
+          _leaveSearch();
         },
         child: Scaffold(
           backgroundColor: SearchResultScreen.surface,
@@ -540,7 +631,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
                 controller: _ctrl,
                 focus: _focus,
                 activeFilters: activeFilters,
-                onBack: () => _returnToMap(clear: true),
+                onBack: _leaveSearch,
                 onSearch: () {
                   _focus.unfocus();
                   _searchAndRemember(_ctrl.text);

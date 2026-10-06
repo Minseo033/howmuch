@@ -97,6 +97,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('notification types name what the server actually sends', (
+    tester,
+  ) async {
+    final api = _TestSettingsApi();
+    await pumpScreen(
+      tester,
+      const NotificationSettingsScreen(),
+      settingsApi: api,
+      priceApi: _TestPriceApi(),
+    );
+
+    expect(find.text('제보·문의 알림'), findsOneWidget);
+    expect(find.text('댓글 알림'), findsOneWidget);
+    expect(find.text('준비 중'), findsOneWidget);
+    expect(find.text('매장 12곳 알림 받는 중'), findsOneWidget);
+
+    await tester.tap(find.text('오늘의 픽 추천'));
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(NotificationSettingsScreen)),
+    );
+    expect(
+      container.read(notificationSettingsProvider).value!.todayPick,
+      NotificationSettings.defaults.todayPick,
+      reason: 'an upcoming notification has no switch to flip',
+    );
+  });
+
   testWidgets('notification save cannot run twice while pending', (
     tester,
   ) async {

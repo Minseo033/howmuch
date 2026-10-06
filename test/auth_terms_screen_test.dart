@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -51,14 +52,56 @@ void main() {
     addTearDown(router.dispose);
 
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.ensureVisible(find.text('동의하고 로그인하기'));
     await tester.tap(find.text('동의하고 로그인하기'));
     await tester.pump();
     expect(find.text('로그인 화면'), findsNothing);
 
     await tester.tap(find.text('필수 약관 전체 동의'));
     await tester.pump();
+    await tester.ensureVisible(find.text('동의하고 로그인하기'));
     await tester.tap(find.text('동의하고 로그인하기'));
     await tester.pumpAndSettle();
     expect(find.text('로그인 화면'), findsOneWidget);
+  });
+
+  testWidgets('age confirmation is a separate mandatory agreement', (
+    tester,
+  ) async {
+    final router = GoRouter(
+      initialLocation: AppRoutes.authTerms,
+      routes: [
+        GoRoute(
+          path: AppRoutes.authTerms,
+          builder: (_, _) => const AuthTermsScreen(),
+        ),
+        GoRoute(
+          path: AppRoutes.login,
+          builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    expect(find.text('[필수] 만 14세 이상입니다'), findsOneWidget);
+
+    await tester.tap(find.byType(Checkbox).at(1));
+    await tester.tap(find.byType(Checkbox).at(2));
+    await tester.pump();
+    await tester.ensureVisible(find.text('동의하고 로그인하기'));
+    await tester.tap(find.text('동의하고 로그인하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('로그인 화면'), findsNothing);
+
+    await tester.ensureVisible(find.byType(Checkbox).at(3));
+    await tester.tap(find.byType(Checkbox).at(3));
+    await tester.pump();
+    await tester.ensureVisible(find.text('동의하고 로그인하기'));
+    await tester.tap(find.text('동의하고 로그인하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('로그인 화면'), findsOneWidget);
+    final preferences = await SharedPreferences.getInstance();
+    expect(preferences.getBool(authTermsAcceptedPreferenceKey), isTrue);
   });
 }

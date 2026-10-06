@@ -158,7 +158,11 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                 // report confirmation.
                 context.go(AppRoutes.mypage);
               },
-              onSearch: () => setState(() => _searchOpen = !_searchOpen),
+              onSearch: () => setState(() {
+                _searchOpen = !_searchOpen;
+                // 검색창을 닫으면 보이지 않는 검색어가 목록을 계속 거르지 않게 지웁니다.
+                if (!_searchOpen) _searchController.clear();
+              }),
             ),
           ),
           if (_searchOpen)
@@ -373,10 +377,18 @@ class _Tabs extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final tabWidth = constraints.maxWidth / _items.length;
+          // 서버에 아직 '보완 요청' 상태가 없어 비어 있을 때는 탭을 숨깁니다.
+          final items = [
+            for (final item in _items)
+              if (item.$1 != ReportFilter.needsEdit ||
+                  (counts[ReportFilter.needsEdit] ?? 0) > 0 ||
+                  selected == ReportFilter.needsEdit)
+                item,
+          ];
+          final tabWidth = constraints.maxWidth / items.length;
           return Row(
             children: [
-              for (final item in _items)
+              for (final item in items)
                 SizedBox(
                   width: tabWidth,
                   child: _TabButton(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -14,14 +15,17 @@ class AuthTermsScreen extends StatefulWidget {
 class _AuthTermsScreenState extends State<AuthTermsScreen> {
   bool _serviceTermsAccepted = false;
   bool _privacyPolicyAccepted = false;
+  bool _ageConfirmed = false;
   bool _isSaving = false;
 
-  bool get _allAccepted => _serviceTermsAccepted && _privacyPolicyAccepted;
+  bool get _allAccepted =>
+      _serviceTermsAccepted && _privacyPolicyAccepted && _ageConfirmed;
 
   void _setAllAccepted(bool accepted) {
     setState(() {
       _serviceTermsAccepted = accepted;
       _privacyPolicyAccepted = accepted;
+      _ageConfirmed = accepted;
     });
   }
 
@@ -29,7 +33,8 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
     if (!_allAccepted || _isSaving) return;
     setState(() => _isSaving = true);
     final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool('auth_terms_accepted_v1', true);
+    // Stored on this device only; the server keeps no consent record yet.
+    await preferences.setBool(authTermsAcceptedPreferenceKey, true);
     if (mounted) context.go(AppRoutes.login);
   }
 
@@ -106,6 +111,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                   onChanged: (value) =>
                       setState(() => _privacyPolicyAccepted = value),
                   onOpen: () => context.push(AppRoutes.privacyPolicy),
+                ),
+                const SizedBox(height: 8),
+                _RequiredTermsTile(
+                  title: '만 14세 이상입니다',
+                  value: _ageConfirmed,
+                  onChanged: (value) => setState(() => _ageConfirmed = value),
                 ),
                 SizedBox(height: constraints.maxHeight > 680 ? 72 : 28),
                 SizedBox(
@@ -229,13 +240,13 @@ class _RequiredTermsTile extends StatelessWidget {
     required this.title,
     required this.value,
     required this.onChanged,
-    required this.onOpen,
+    this.onOpen,
   });
 
   final String title;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final VoidCallback onOpen;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -266,13 +277,17 @@ class _RequiredTermsTile extends StatelessWidget {
                 ),
               ),
             ),
-            IconButton(
-              onPressed: onOpen,
-              icon: const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF64748B),
-              ),
-            ),
+            if (onOpen != null)
+              IconButton(
+                onPressed: onOpen,
+                icon: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF64748B),
+                ),
+              )
+            else
+              // Same row height as the tiles that open a document.
+              const SizedBox(width: 48, height: 48),
           ],
         ),
       ),

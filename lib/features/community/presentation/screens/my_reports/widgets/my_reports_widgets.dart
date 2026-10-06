@@ -62,78 +62,6 @@ TextStyle _bannerTextStyle(Color color) => TextStyle(
   height: 1.5,
 );
 
-class EmptyStateBox extends StatelessWidget {
-  const EmptyStateBox({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Color(0xFFE5E7EB), width: 0.909),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF4F6FA),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.description_outlined,
-              color: Color(0xFFCBD5E1),
-              size: 20,
-            ),
-          ),
-          const SizedBox(height: 12),
-          const Text(
-            '검토 중인 제보가 없어요',
-            style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontFamily: "Inter",
-              fontFamilyFallback: [
-                "Noto Sans KR",
-                "Apple SD Gothic Neo",
-                "AppleGothic",
-                "Arial Unicode MS",
-                "Malgun Gothic",
-                "sans-serif",
-              ],
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            '새 제보를 등록해보세요',
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontFamily: "Inter",
-              fontFamilyFallback: [
-                "Noto Sans KR",
-                "Apple SD Gothic Neo",
-                "AppleGothic",
-                "Arial Unicode MS",
-                "Malgun Gothic",
-                "sans-serif",
-              ],
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class ReportCard extends StatelessWidget {
   const ReportCard({
     super.key,
@@ -211,7 +139,7 @@ class ReportCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
                     '대표 메뉴',
@@ -231,22 +159,29 @@ class ReportCard extends StatelessWidget {
                       height: 1.5,
                     ),
                   ),
-                  Text(
-                    report.menu,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontFamily: "Inter",
-                      fontFamilyFallback: [
-                        "Noto Sans KR",
-                        "Apple SD Gothic Neo",
-                        "AppleGothic",
-                        "Arial Unicode MS",
-                        "Malgun Gothic",
-                        "sans-serif",
-                      ],
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.5,
+                  const SizedBox(width: 12),
+                  // 긴 메뉴명은 오른쪽에서 말줄임해 카드 밖으로 넘치지 않습니다.
+                  Expanded(
+                    child: Text(
+                      report.menu,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontFamily: "Inter",
+                        fontFamilyFallback: [
+                          "Noto Sans KR",
+                          "Apple SD Gothic Neo",
+                          "AppleGothic",
+                          "Arial Unicode MS",
+                          "Malgun Gothic",
+                          "sans-serif",
+                        ],
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        height: 1.5,
+                      ),
                     ),
                   ),
                 ],

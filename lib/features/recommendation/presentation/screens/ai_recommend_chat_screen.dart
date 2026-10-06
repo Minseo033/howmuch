@@ -56,6 +56,19 @@ final aiChatHistoryProvider = StateProvider<List<_ChatMessage>>((ref) {
   return [];
 });
 
+/// Non-null while an AI reply for the current conversation is pending. It
+/// outlives the chat screen, so a reopened screen still shows the typing
+/// indicator and blocks a second question until the first answer lands.
+/// Resetting the conversation (or switching accounts) clears it.
+final aiChatPendingRequestProvider = StateProvider<Object?>((ref) {
+  ref.watch(aiChatHistoryProvider.notifier);
+  return null;
+});
+
+/// Same limit as the server (AiController rejects longer messages). Counted
+/// in UTF-16 code units like Java's String.length().
+const aiChatMaxMessageLength = 1000;
+
 @visibleForTesting
 Future<List<Store>> loadAiFallbackCandidates({
   StoreCatalogLoader catalogLoader = loadStoreCatalog,
@@ -84,8 +97,6 @@ Future<List<Store>> loadAiFallbackCandidates({
 class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  bool _isTyping = false;
-  int _chatGeneration = 0;
 
   static const _quickPrompts = [
     _QuickPrompt(
@@ -101,6 +112,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
   void initState() {
     super.initState();
     _controller.addListener(() => setState(() {}));
+    // A reopened conversation (possibly with a reply that arrived while the
+    // screen was closed) starts at the latest message.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || ref.read(aiChatHistoryProvider).isEmpty) return;
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
@@ -123,34 +142,85 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       loadAiFallbackCandidates();
 
   Future<void> _sendMessage() async {
-    if (_isTyping) return;
+    if (ref.read(aiChatPendingRequestProvider) != null) return;
 
     final messageText = _controller.text.trim();
     if (messageText.isEmpty) return;
-    final generation = ++_chatGeneration;
+    if (messageText.length > aiChatMaxMessageLength) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(content: Text('메시지는 1000자 이내로 입력해주세요.')),
+        );
+      return;
+    }
 
     final userMessage = _ChatMessage(text: messageText, isBot: false);
+    // Everything the request needs is captured now: the reply must still be
+    // recorded if the user leaves this screen while waiting.
     final historyNotifier = ref.read(aiChatHistoryProvider.notifier);
+    final pendingNotifier = ref.read(aiChatPendingRequestProvider.notifier);
+    final radiusNotifier = ref.read(recommendationRadiusProvider.notifier);
+    final aiService = ref.read(aiChatServiceProvider);
+    final pendingToken = Object();
 
-    ref
-        .read(aiChatHistoryProvider.notifier)
-        .update((list) => [...list, userMessage]);
-    setState(() {
-      _controller.clear();
-      _isTyping = true;
-    });
+    historyNotifier.update((list) => [...list, userMessage]);
+    pendingNotifier.state = pendingToken;
+    setState(_controller.clear);
 
     FocusManager.instance.primaryFocus?.unfocus();
-    _scrollToLatest();
 
     // 💡 최근 대화 내역 추출 (최대 6개, 방금 추가한 본인 메시지 제외)
-    final allMessages = ref.read(aiChatHistoryProvider);
+    final allMessages = historyNotifier.state;
     final previousMessages = allMessages.take(allMessages.length - 1).toList();
     final history = previousMessages
         .skip(previousMessages.length > 6 ? previousMessages.length - 6 : 0)
         .map((m) => {'role': m.isBot ? 'model' : 'user', 'text': m.text})
         .toList();
 
+    try {
+      final reply = await _replyTo(
+        messageText,
+        history: history,
+        historyNotifier: historyNotifier,
+        radiusNotifier: radiusNotifier,
+        aiService: aiService,
+      );
+      // The conversation outlives this screen; only a reset discards the reply.
+      if (reply != null && historyNotifier.mounted) {
+        historyNotifier.update((list) => [...list, reply]);
+      }
+    } catch (error) {
+      // Never leave the question unanswered or the composer locked.
+      debugPrint('AI 답변 처리 오류: $error');
+      if (historyNotifier.mounted) {
+        historyNotifier.update(
+          (list) => [
+            ...list,
+            const _ChatMessage(
+              text: '답변을 불러오지 못했어요. 잠시 후 다시 질문해주세요.',
+              isBot: true,
+            ),
+          ],
+        );
+      }
+    } finally {
+      if (pendingNotifier.mounted &&
+          identical(pendingNotifier.state, pendingToken)) {
+        pendingNotifier.state = null;
+      }
+    }
+  }
+
+  /// Builds the bot reply for [messageText]. Returns null when the
+  /// conversation was reset (or the account changed) while waiting.
+  Future<_ChatMessage?> _replyTo(
+    String messageText, {
+    required List<Map<String, String>> history,
+    required StateController<List<_ChatMessage>> historyNotifier,
+    required RecommendationRadiusNotifier radiusNotifier,
+    required AiChatService aiService,
+  }) async {
     // 서버가 실제 매장 정보를 다시 확인할 수 있도록 ID와 현재 위치만 전달합니다.
     var position = HomeMapScreen.globalUserPosition;
     if (position == null) {
@@ -164,9 +234,10 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         /* Missing location is handled without inventing a city. */
       }
     }
-    await ref.read(recommendationRadiusProvider.notifier).ready;
-    if (!mounted || generation != _chatGeneration) return;
-    final radiusMeters = ref.read(recommendationRadiusProvider);
+    await radiusNotifier.ready;
+    // A reset or account switch disposes the conversation; drop this request.
+    if (!historyNotifier.mounted || !radiusNotifier.mounted) return null;
+    final radiusMeters = radiusNotifier.radiusMeters;
     final nearbyStoreIds = buildNearbyStoreIds(
       stores: HomeMapScreen.globalAllStores,
       lat: position?.latitude,
@@ -176,16 +247,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     );
 
     // 💡 Gemini API 호출
-    final aiReply = await ref
-        .read(aiChatServiceProvider)
-        .getGeminiResponse(
-          messageText,
-          history: history,
-          nearbyStoreIds: nearbyStoreIds,
-          latitude: position?.latitude,
-          longitude: position?.longitude,
-          radiusMeters: radiusMeters,
-        );
+    final aiReply = await aiService.getGeminiResponse(
+      messageText,
+      history: history,
+      nearbyStoreIds: nearbyStoreIds,
+      latitude: position?.latitude,
+      longitude: position?.longitude,
+      radiusMeters: radiusMeters,
+    );
     var botResponse = aiReply.text;
     List<Store> recommendedStores = const [];
     List<RecommendationMenuSelection> menuSelections = const [];
@@ -213,7 +282,6 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       final verified = resolveVerifiedAiRecommendations(
         recommendations: aiReply.recommendations,
         catalog: candidateStores,
-        query: messageText,
         latitude: position?.latitude,
         longitude: position?.longitude,
         radiusMeters: radiusMeters,
@@ -226,34 +294,18 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
         .where((id) => id.isNotEmpty)
         .toList();
 
-    if (mounted && generation == _chatGeneration) {
-      if (identical(
-        historyNotifier,
-        ref.read(aiChatHistoryProvider.notifier),
-      )) {
-        historyNotifier.update(
-          (list) => [
-            ...list,
-            _ChatMessage(
-              text: botResponse,
-              isBot: true,
-              recommendedStores: recommendedStores,
-              recommendedStoreIds: recommendedStoreIds,
-              menuSelections: menuSelections,
-            ),
-          ],
-        );
-      }
-      setState(() {
-        _isTyping = false;
-      });
-      _scrollToLatest();
-    }
+    return _ChatMessage(
+      text: botResponse,
+      isBot: true,
+      recommendedStores: recommendedStores,
+      recommendedStoreIds: recommendedStoreIds,
+      menuSelections: menuSelections,
+    );
   }
 
   void _scrollToLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
+      if (!mounted || !_scrollController.hasClients) return;
       if (MediaQuery.disableAnimationsOf(context)) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
         return;
@@ -268,7 +320,16 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Follow new messages, including a reply to a question sent from an
+    // earlier visit to this screen.
+    ref.listen<List<_ChatMessage>>(aiChatHistoryProvider, (previous, next) {
+      if (next.length > (previous?.length ?? 0)) _scrollToLatest();
+    });
+    ref.listen<Object?>(aiChatPendingRequestProvider, (previous, next) {
+      if (next != null) _scrollToLatest();
+    });
     final messages = ref.watch(aiChatHistoryProvider);
+    final isTyping = ref.watch(aiChatPendingRequestProvider) != null;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final isKeyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
@@ -294,11 +355,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 topPadding: topOffset,
                 onResetChat: messages.isEmpty
                     ? null
-                    : () {
-                        _chatGeneration++;
-                        ref.invalidate(aiChatHistoryProvider);
-                        setState(() => _isTyping = false);
-                      },
+                    : () => ref.invalidate(aiChatHistoryProvider),
               ),
             ),
             Positioned(
@@ -382,13 +439,14 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                     else
                       _UserMessageBubble(message: message),
                   ],
-                  if (_isTyping) ...[
+                  if (isTyping) ...[
                     const SizedBox(height: 14),
                     const Row(
                       children: [
                         SizedBox(width: 34, height: 34, child: _BotAvatar()),
                         SizedBox(width: 10),
-                        _TypingIndicator(),
+                        // Narrow phones wrap the status text instead of overflowing.
+                        Flexible(child: _TypingIndicator()),
                       ],
                     ),
                   ],
@@ -403,7 +461,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
                 controller: _controller,
                 onSend: _sendMessage,
                 hasText: _controller.text.trim().isNotEmpty,
-                isSending: _isTyping,
+                isSending: isTyping,
                 bottomPadding: bottomOffset,
               ),
             ),
@@ -752,6 +810,10 @@ class _Composer extends StatelessWidget {
           Expanded(
             child: TextField(
               controller: controller,
+              // Matches the server limit; the send path re-checks UTF-16 length.
+              inputFormatters: [
+                LengthLimitingTextInputFormatter(aiChatMaxMessageLength),
+              ],
               onSubmitted: (_) {
                 if (hasText && !isSending) onSend();
               },
@@ -1076,14 +1138,16 @@ class _TypingIndicator extends StatelessWidget {
             ),
           ),
           SizedBox(width: 8),
-          Text(
-            '고미가 착한가격 매장을 찾고 있어요...',
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontFamily: _AiUi.fontFamily,
-              fontFamilyFallback: _AiUi.fontFallback,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              '고미가 착한가격 매장을 찾고 있어요...',
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontFamily: _AiUi.fontFamily,
+                fontFamilyFallback: _AiUi.fontFallback,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -11,18 +11,26 @@ import 'package:howmuch/app/app_routes.dart';
 String normalizeSavingsCategory(Object? rawValue) {
   final value = rawValue?.toString().trim() ?? '';
   if (value.isEmpty) return '기타';
-  if (value.contains('카페') || value.contains('커피') || value.contains('다방')) {
+  if (value.contains('카페') ||
+      value.contains('커피') ||
+      value.contains('다방') ||
+      value.contains('제과') ||
+      value.contains('베이커리')) {
     return '카페';
   }
   if (value.contains('미용') || value.contains('이용') || value.contains('헤어')) {
     return '미용';
   }
+  // The public dataset has '기타비요식업' (non-food) next to '기타요식업' (food).
+  if (value.contains('비요식')) return '기타';
   if (value.contains('음식') ||
       value.contains('식당') ||
       value.contains('분식') ||
       value.contains('한식') ||
       value.contains('중식') ||
-      value.contains('양식')) {
+      value.contains('양식') ||
+      value.contains('일식') ||
+      value.contains('요식')) {
     return '음식점';
   }
   return '기타';

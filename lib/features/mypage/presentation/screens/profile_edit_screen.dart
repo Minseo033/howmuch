@@ -53,20 +53,22 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (!mounted) return;
     final profile = ref.read(userProfileProvider);
     final auth = ref.read(authStateProvider);
-    final saved = await UserProfileApiService().saveProfile(
-      nickname: _nickname,
-      email:
-          usableAccountEmail(profile.email) ??
-          usableAccountEmail(auth.email) ??
-          '',
-      region: profile.region,
-      favoriteCategories: profile.favoriteCategories,
-      profileImageUrl: refreshedIdentity.profileImageUrl.isNotEmpty
-          ? refreshedIdentity.profileImageUrl
-          : (profile.profileImageUrl.isNotEmpty
-                ? profile.profileImageUrl
-                : auth.profileImageUrl),
-    );
+    final saved = await ref
+        .read(userProfileApiServiceProvider)
+        .saveProfile(
+          nickname: _nickname,
+          email:
+              usableAccountEmail(profile.email) ??
+              usableAccountEmail(auth.email) ??
+              '',
+          region: profile.region,
+          favoriteCategories: profile.favoriteCategories,
+          profileImageUrl: refreshedIdentity.profileImageUrl.isNotEmpty
+              ? refreshedIdentity.profileImageUrl
+              : (profile.profileImageUrl.isNotEmpty
+                    ? profile.profileImageUrl
+                    : auth.profileImageUrl),
+        );
     if (!mounted) return;
     if (!saved) {
       setState(() => _isSaving = false);
@@ -169,10 +171,24 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
                     const _SectionLabel('공개 설정'),
                     const SizedBox(height: 10),
                     _PrivacyCard(
-                      nicknamePublic: false,
-                      activityPublic: false,
-                      onNicknameTap: _showUnavailablePrivacySetting,
-                      onActivityTap: _showUnavailablePrivacySetting,
+                      // Show the stored values: the server applies them, so a
+                      // hard-coded "off" made public nicknames look private.
+                      nicknamePublic: profile.nicknamePublic,
+                      activityPublic: profile.activityPublic,
+                      onNicknameTap: () => _showUnavailablePrivacySetting(
+                        profile.nicknamePublic
+                            ? '닉네임 공개 설정은 아직 바꿀 수 없어요. 커뮤니티와 리뷰에 닉네임이 표시돼요.'
+                            : '닉네임 공개 설정은 아직 바꿀 수 없어요. 커뮤니티와 리뷰에 익명으로 표시돼요.',
+                      ),
+                      onActivityTap: () => _showUnavailablePrivacySetting(
+                        '활동 내역 공개 설정은 아직 바꿀 수 없어요. 방문·제보 횟수는 다른 사용자에게 보이지 않아요.',
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      '공개 설정은 아직 앱에서 바꿀 수 없어요.',
+                      key: ValueKey('profile-privacy-readonly-note'),
+                      style: _privacyCaptionText,
                     ),
                   ],
                 ),
@@ -230,12 +246,12 @@ class _ProfileEditScreenState extends ConsumerState<ProfileEditScreen> {
     if (mounted) context.pop();
   }
 
-  void _showUnavailablePrivacySetting() {
+  void _showUnavailablePrivacySetting(String message) {
     if (_isSaving) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger
       ..clearSnackBars()
-      ..showSnackBar(HowmuchSnackBar(content: Text('프로필 공개 설정은 현재 제공하지 않아요.')));
+      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   Future<void> _editNickname() async {
@@ -630,7 +646,9 @@ class _PrivacyCard extends StatelessWidget {
         children: [
           _PrivacyRow(
             title: '닉네임 공개',
-            subtitle: '제보와 리뷰에 닉네임이 표시돼요',
+            subtitle: nicknamePublic
+                ? '커뮤니티 글·댓글에 닉네임과 프로필 사진이, 리뷰에 닉네임이 보여요'
+                : '커뮤니티 글·댓글과 리뷰에 익명으로 보여요',
             value: nicknamePublic,
             switchKey: const ValueKey('nickname-public-switch'),
             rowKey: const ValueKey('nickname-public-row'),
@@ -639,7 +657,7 @@ class _PrivacyCard extends StatelessWidget {
           const _Divider(),
           _PrivacyRow(
             title: '활동 내역 공개',
-            subtitle: '방문·제보 횟수를 다른 사용자에게 공개해요',
+            subtitle: '방문·제보 횟수는 다른 사용자에게 보이지 않아요',
             value: activityPublic,
             switchKey: const ValueKey('activity-public-switch'),
             rowKey: const ValueKey('activity-public-row'),
@@ -670,34 +688,42 @@ class _PrivacyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    // The switch is drawn by hand; announce its state like a real switch.
+    return Semantics(
+      toggled: value,
+      label: title,
+      value: subtitle,
       onTap: onTap,
-      child: SizedBox(
-        key: rowKey,
-        height: 64.84375,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.9033203125),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _privacyTitleText),
-                    const SizedBox(height: 1.989),
-                    Text(
-                      subtitle,
-                      style: _privacyCaptionText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          key: rowKey,
+          height: 64.84375,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.9033203125),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: _privacyTitleText),
+                      const SizedBox(height: 1.989),
+                      Text(
+                        subtitle,
+                        style: _privacyCaptionText,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              _Toggle(value: value, switchKey: switchKey, onTap: onTap),
-            ],
+                _Toggle(value: value, switchKey: switchKey, onTap: onTap),
+              ],
+            ),
           ),
         ),
       ),

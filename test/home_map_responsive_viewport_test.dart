@@ -287,6 +287,11 @@ class _FakeWebViewPlatform extends WebViewPlatform {
   PlatformWebViewWidget createPlatformWebViewWidget(
     PlatformWebViewWidgetCreationParams params,
   ) => _FakePlatformWebViewWidget(params);
+
+  @override
+  PlatformNavigationDelegate createPlatformNavigationDelegate(
+    PlatformNavigationDelegateCreationParams params,
+  ) => _FakePlatformNavigationDelegate(params);
 }
 
 class _FakePlatformWebViewController extends PlatformWebViewController {
@@ -298,6 +303,11 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> setBackgroundColor(Color color) async {}
+
+  @override
+  Future<void> setPlatformNavigationDelegate(
+    PlatformNavigationDelegate handler,
+  ) async {}
 
   @override
   Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
@@ -316,4 +326,13 @@ class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox();
+}
+
+class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
+  _FakePlatformNavigationDelegate(super.params) : super.implementation();
+
+  @override
+  Future<void> setOnWebResourceError(
+    WebResourceErrorCallback onWebResourceError,
+  ) async {}
 }

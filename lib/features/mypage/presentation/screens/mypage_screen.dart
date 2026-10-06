@@ -66,7 +66,6 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     // 💡 내 제보를 서버에서 다시 불러옵니다.
     // (앱 재시작 후 로컬 상태가 비어 미리보기가 사라지는 문제 방지)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMyReports();
       _loadProfileSummary();
     });
   }
@@ -108,7 +107,6 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
   void _refreshSummary() {
     if (!mounted) return;
-    _loadMyReports();
     _loadProfileSummary();
   }
 
@@ -139,7 +137,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   }
 
   /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
-  /// 제보 수(/api/report/my) + 찜 수(/api/favorites)를 채웁니다.
+  /// 내 제보(/api/report/my, 목록과 개수를 한 번에) + 찜 수(/api/favorites)를
+  /// 채웁니다.
   Future<void> _loadProfileSummary() async {
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) {
@@ -154,6 +153,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final sessionToken = ApiClient.sessionToken;
 
     if (widget.profileSummaryLoader != null) {
+      unawaited(_loadMyReports());
       try {
         await widget.profileSummaryLoader!(ref);
       } finally {
@@ -211,23 +211,22 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
               return null;
             });
 
-    final reportsFuture =
-        ApiClient.get(
-              ApiClient.uri('/api/report/my'),
-              headers: ApiClient.jsonHeaders(auth: true),
-            )
-            .timeout(ApiClient.defaultTimeout)
-            .then<int?>((res) {
-              if (res.statusCode == 200) {
-                final decoded = jsonDecode(utf8.decode(res.bodyBytes));
-                return decoded is List ? decoded.length : 0;
-              }
-              return null;
-            })
-            .catchError((e) {
-              debugPrint('마이페이지 제보 수 로드 오류: $e');
-              return null;
-            });
+    // One request feeds both the report preview and the count; refreshing
+    // used to call /api/report/my twice.
+    final reportsFuture = ref
+        .read(reportServiceProvider)
+        .fetchMyReports()
+        .then<int?>((reports) {
+          if (reports == null) return null;
+          if (mounted && sessionToken == ApiClient.sessionToken) {
+            ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+          }
+          return reports.length;
+        })
+        .catchError((Object e) {
+          debugPrint('마이페이지 제보 로드 오류: $e');
+          return null;
+        });
 
     try {
       final results = await Future.wait([
@@ -1092,15 +1091,22 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
       _message('브라우저 푸시는 지원하지 않아요. 앱의 알림함을 이용해 주세요.');
       return;
     }
-    if (access == DeviceAccess.blocked || access == DeviceAccess.allowed) {
+    final pushService = ref.read(pushNotificationServiceProvider);
+    if (access == DeviceAccess.blocked ||
+        (access == DeviceAccess.allowed && pushService.isRegistered)) {
       await service.openSettings();
     } else {
+      // OS permission alone does not deliver pushes; the server must also
+      // hold this device's token, so retry registration and report failure.
       _busy = true;
-      final registered = await ref
-          .read(pushNotificationServiceProvider)
-          .registerForCurrentSession();
+      final registered = await pushService.registerForCurrentSession();
       _busy = false;
-      if (!registered) return;
+      if (!mounted) return;
+      if (!registered) {
+        _message('푸시 알림을 켜지 못했어요. 기기 알림 권한과 네트워크를 확인한 뒤 다시 시도해 주세요.');
+        ref.invalidate(pushAccessProvider);
+        return;
+      }
     }
     if (!mounted) return;
     ref.invalidate(pushAccessProvider);
@@ -1110,6 +1116,10 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
   Widget build(BuildContext context) {
     final location = ref.watch(locationAccessProvider).valueOrNull;
     final push = ref.watch(pushAccessProvider).valueOrNull;
+    // Only when the OS allows pushes does the server registration matter.
+    final pushOn =
+        push == DeviceAccess.allowed &&
+        ref.read(pushNotificationServiceProvider).isRegistered;
     return Container(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -1130,7 +1140,7 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
             _ToggleRow(
               icon: Icons.notifications_active_outlined,
               title: '푸시 알림',
-              value: push == DeviceAccess.allowed,
+              value: pushOn,
               onToggle: () => _push(push ?? DeviceAccess.unknown),
             ),
             const _SettingsDivider(),

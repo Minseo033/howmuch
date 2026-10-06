@@ -2,7 +2,8 @@
 """Dry-run import of recent municipal Good Price Store hours.
 
 Download the four official sources named below into --source-dir. Exact file
-hashes, unique name+street-number matches, and phone consistency are required.
+hashes, unique name+street-number matches among stores in the publishing
+municipality (snapshot cityProvince/cityDistrict), and phone consistency are required.
 Existing hours and unrelated store details are never overwritten.
 """
 
@@ -22,20 +23,21 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
 NO_HOURS = "등록된 영업시간이 없어요."
+# province/district are the publisher's snapshot cityProvince/cityDistrict.
 SOURCES = (
     dict(file="howmuch-ulsan-bukgu-20260831.xlsx", sha="19826e4f5440f5df10f805bab8aaeb8cd0ce5c00af34c711b649cbec2c68782d",
-         count=39, provider="울산광역시 북구 착한가격업소", date="2026-08-31",
+         count=39, provider="울산광역시 북구 착한가격업소", province="울산광역시", district="북구", date="2026-08-31",
          url="https://www.bukgu.ulsan.kr/lay1/S1T229C445/contents.do"),
     dict(file="howmuch-cheorwon-official", sha="8e939f86a10ce8ef55cfc3ebf0231c311ce17ee8587cda74720b14d87ffaf4f8",
-         count=22, provider="강원특별자치도 철원군 착한가격업소", date="2026-06-22",
+         count=22, provider="강원특별자치도 철원군 착한가격업소", province="강원특별자치도", district="철원군", date="2026-06-22",
          url="https://www.cwg.go.kr/www/contents.do?key=360"),
     dict(file="howmuch-jindo-official", sha="d9f4195cf4b3c6c32a627259ec8d47e4506b70aa4e90ff38f721bbbf37423949",
-         count=16, provider="전라남도 진도군 착한가격업소", date="2026-01-01",
+         count=16, provider="전라남도 진도군 착한가격업소", province="전라남도", district="진도군", date="2026-01-01",
          url="https://www.jindo.go.kr/home/sub.cs?m=243"),
     # Only entries carrying the 2025-11-17 photo date are included. Other
     # entries on the 2026-updated page carry older or undated evidence.
     dict(file="howmuch-mokpo-official", sha="d4682cd496492b09be8e32283898d919c8be71a556be3bafa96376d9439ef3ff",
-         count=20, provider="전라남도 목포시 착한가격업소", date="2025-11-17",
+         count=20, provider="전라남도 목포시 착한가격업소", province="전라남도", district="목포시", date="2025-11-17",
          url="https://biz.mokpo.go.kr/www/life_welfare/industry_economy/regional_economy/good_price"),
 )
 
@@ -124,6 +126,61 @@ def valid_hours(value):
                for hour, minute in times) and all(int(minute) < 60 for _, minute in times)
 
 
+def in_region(store, source):
+    return (store.get("cityProvince"), store.get("cityDistrict")) == (source["province"], source["district"])
+
+
+def import_rows(source, rows, stores, catalog, by_id, match):
+    """Apply one municipal source to the catalog in place and return outcome counts.
+
+    A store name plus road and building number identifies a store only within one
+    municipality, so stores outside the source's province and district are never candidates.
+    """
+    by_name_and_building = defaultdict(list)
+    for store in stores:
+        if not in_region(store, source):
+            continue
+        building = match.building_key(store["address"])
+        if building:
+            by_name_and_building[(match.name_key(store["storeName"]), building)].append(store)
+    source_keys = Counter((match.name_key(name), match.building_key(address))
+                          for name, address, _, _ in rows)
+    counts = Counter()
+    for name, address, phone, hours in rows:
+        key = (match.name_key(name), match.building_key(address))
+        candidates = by_name_and_building.get(key, [])
+        if not key[0] or not key[1] or source_keys[key] != 1 or len(candidates) != 1:
+            counts["unmatched"] += 1
+            continue
+        store = candidates[0]
+        source_phone = match.phone_key(phone)
+        store_phone = match.phone_key(store.get("phoneNumber"))
+        if source_phone and store_phone and source_phone != store_phone:
+            counts["phoneConflict"] += 1
+            continue
+        if not valid_hours(hours):
+            counts["invalidHours"] += 1
+            continue
+        store_id = match.store_id(store)
+        entry = by_id.get(store_id)
+        if entry is None:
+            entry = dict(storeId=store_id, storeName=store["storeName"], address=store["address"],
+                         phoneNumber=store.get("phoneNumber"), status="SOURCE_VERIFIED",
+                         text=NO_HOURS, sourceName=source["provider"], sourceUrl=source["url"],
+                         checkedAt=source["date"], parkingYn=None, packingYn=None,
+                         areaCurrency=None, imageUrls=[])
+            catalog.append(entry)
+            by_id[store_id] = entry
+            counts["newCatalogEntry"] += 1
+        if entry["text"] != NO_HOURS:
+            counts["alreadyHasHours"] += 1
+            continue
+        entry.update(text=hours, sourceName=source["provider"], sourceUrl=source["url"],
+                     checkedAt=source["date"])
+        counts["added"] += 1
+    return counts
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-dir", type=Path, required=True)
@@ -135,11 +192,6 @@ def main():
     catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
     by_id = {entry["storeId"]: entry for entry in catalog}
     match = matcher()
-    by_name_and_building = defaultdict(list)
-    for store in stores:
-        building = match.building_key(store["address"])
-        if building:
-            by_name_and_building[(match.name_key(store["storeName"]), building)].append(store)
     summaries = []
     parsers = (parse_xlsx, parse_cheorwon, parse_jindo, parse_mokpo)
     for source, parse in zip(SOURCES, parsers):
@@ -149,41 +201,7 @@ def main():
         rows = parse(raw)
         if len(rows) != source["count"]:
             raise ValueError(f"Unexpected row count: {source['file']} ({len(rows)})")
-        source_keys = Counter((match.name_key(name), match.building_key(address))
-                              for name, address, _, _ in rows)
-        counts = Counter()
-        for name, address, phone, hours in rows:
-            key = (match.name_key(name), match.building_key(address))
-            candidates = by_name_and_building.get(key, [])
-            if not key[0] or not key[1] or source_keys[key] != 1 or len(candidates) != 1:
-                counts["unmatched"] += 1
-                continue
-            store = candidates[0]
-            source_phone = match.phone_key(phone)
-            store_phone = match.phone_key(store.get("phoneNumber"))
-            if source_phone and store_phone and source_phone != store_phone:
-                counts["phoneConflict"] += 1
-                continue
-            if not valid_hours(hours):
-                counts["invalidHours"] += 1
-                continue
-            store_id = match.store_id(store)
-            entry = by_id.get(store_id)
-            if entry is None:
-                entry = dict(storeId=store_id, storeName=store["storeName"], address=store["address"],
-                             phoneNumber=store.get("phoneNumber"), status="SOURCE_VERIFIED",
-                             text=NO_HOURS, sourceName=source["provider"], sourceUrl=source["url"],
-                             checkedAt=source["date"], parkingYn=None, packingYn=None,
-                             areaCurrency=None, imageUrls=[])
-                catalog.append(entry)
-                by_id[store_id] = entry
-                counts["newCatalogEntry"] += 1
-            if entry["text"] != NO_HOURS:
-                counts["alreadyHasHours"] += 1
-                continue
-            entry.update(text=hours, sourceName=source["provider"], sourceUrl=source["url"],
-                         checkedAt=source["date"])
-            counts["added"] += 1
+        counts = import_rows(source, rows, stores, catalog, by_id, match)
         summaries.append({"source": source["provider"], "sourceRows": len(rows), **counts})
     print(json.dumps(summaries, ensure_ascii=False, indent=2))
     if args.write:

@@ -199,7 +199,7 @@ class _OnboardingSlideView extends StatelessWidget {
         final bottomGap = safeBottom > 0 ? safeBottom / 2 : 20.0;
         // Keep the artwork fluid on short phones. The previous 240px minimum
         // made the copy and CTA extend below a 320x568 viewport.
-        final fixedHeight = 64 + 34 + 180 + 28 + 6 + 20 + 52 + 30 + bottomGap;
+        final fixedHeight = 64 + 34 + 180 + 28 + 6 + 20 + 52 + 48 + bottomGap;
         final artworkHeight = (constraints.maxHeight - fixedHeight).clamp(
           140.0,
           320.0,
@@ -238,9 +238,10 @@ class _OnboardingSlideView extends StatelessWidget {
                     ),
                   ),
                   if (isLast && onSkip != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 4),
+                    // A full-height touch target; the text was an 18px strip.
                     SizedBox(
-                      height: 18,
+                      height: 44,
                       child: TextButton(
                         onPressed: onSkip,
                         style: TextButton.styleFrom(
@@ -258,7 +259,7 @@ class _OnboardingSlideView extends StatelessWidget {
                       ),
                     ),
                   ] else ...[
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 48),
                   ],
                   SizedBox(height: bottomGap),
                 ],

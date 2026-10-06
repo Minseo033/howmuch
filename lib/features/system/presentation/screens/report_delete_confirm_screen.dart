@@ -55,34 +55,40 @@ class _ReportDeleteConfirmScreenState
 
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            top: topOffset,
-            right: 0,
-            bottom: 0,
-            child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
-          ),
-          Positioned.fill(
-            top: topOffset,
-            child: Center(
-              child: SizedBox(
-                width: math.min(
-                  327.4715881347656,
-                  FigmaMobileCanvas.logicalWidthOf(context) - 48,
-                ),
-                height: 317.96875,
-                child: _DeleteDialog(
-                  report: widget.report,
-                  isDeleting: _isDeleting,
-                  onCancel: close,
-                  onDelete: widget.report == null ? null : _deleteReport,
+      // 삭제 요청 중에는 시스템 뒤로가기로 닫지 않습니다.
+      child: PopScope(
+        canPop: !_isDeleting,
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              top: topOffset,
+              right: 0,
+              bottom: 0,
+              child: ColoredBox(color: Colors.black.withValues(alpha: .4)),
+            ),
+            Positioned.fill(
+              top: topOffset,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: SizedBox(
+                    width: math.min(
+                      327.4715881347656,
+                      FigmaMobileCanvas.logicalWidthOf(context) - 48,
+                    ),
+                    child: _DeleteDialog(
+                      report: widget.report,
+                      isDeleting: _isDeleting,
+                      onCancel: close,
+                      onDelete: widget.report == null ? null : _deleteReport,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -93,15 +99,17 @@ class _ReportDeleteConfirmScreenState
 
     setState(() => _isDeleting = true);
     final messenger = ScaffoldMessenger.of(context);
+    final reportsNotifier = ref.read(userReportsProvider.notifier);
+    final profileNotifier = ref.read(userProfileProvider.notifier);
     try {
       await ref.read(reportServiceProvider).deleteReport(report.id);
-      if (!mounted) return;
-
-      ref.read(userReportsProvider.notifier).removeReport(report.id);
-      final profile = ref.read(userProfileProvider);
-      ref.read(userProfileProvider.notifier).state = profile.copyWith(
+      // 화면이 먼저 닫혔더라도 삭제가 끝났으면 내 제보 목록과 개수를 갱신합니다.
+      reportsNotifier.removeReport(report.id);
+      final profile = profileNotifier.state;
+      profileNotifier.state = profile.copyWith(
         reportCount: math.max(0, profile.reportCount - 1),
       );
+      if (!mounted) return;
 
       context.go(AppRoutes.myReportsV2);
       messenger.showSnackBar(
@@ -150,56 +158,48 @@ class _DeleteDialog extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(22),
-        child: Stack(
+        // 좌표를 고정하지 않고 위에서부터 쌓아 320px 화면에서도 버튼이 잘리지 않습니다.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Positioned(
-              left: 135.738525390625,
-              top: 27.9970703125,
-              width: 55.99431610107422,
-              height: 55.99431610107422,
-              child: _DeleteIcon(),
-            ),
-            const Positioned(
-              left: 88.89208984375,
-              top: 99.986328125,
-              width: 149.6732940673828,
-              height: 25.49715805053711,
-              child: Text(
-                '제보를 삭제할까요?',
-                textAlign: TextAlign.center,
-                style: _dialogTitleText,
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Center(
+                      child: SizedBox(
+                        width: 55.99431610107422,
+                        height: 55.99431610107422,
+                        child: _DeleteIcon(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '제보를 삭제할까요?',
+                      textAlign: TextAlign.center,
+                      style: _dialogTitleText,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _subtitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _dialogSubtitleText,
+                    ),
+                    const SizedBox(height: 16),
+                    _WarningPanel(report: report),
+                  ],
+                ),
               ),
             ),
-            Positioned(
-              left: 20,
-              top: 129.474609375,
-              width: 287.4715881347656,
-              height: 19.488636016845703,
-              child: Text(
-                _subtitle,
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _dialogSubtitleText,
-              ),
-            ),
-            Positioned(
-              left: 20,
-              top: 164.95703125,
-              width: 287.4715881347656,
-              height: 77.61363220214844,
-              child: _WarningPanel(report: report),
-            ),
-            Positioned(
-              left: 0,
-              top: 262.5712890625,
-              width: 327.4715881347656,
-              height: 55.39772415161133,
-              child: _DialogActions(
-                isDeleting: isDeleting,
-                onCancel: onCancel,
-                onDelete: onDelete,
-              ),
+            _DialogActions(
+              isDeleting: isDeleting,
+              onCancel: onCancel,
+              onDelete: onDelete,
             ),
           ],
         ),
@@ -246,28 +246,28 @@ class _WarningPanel extends StatelessWidget {
         color: ReportDeleteConfirmScreen.redBg,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Stack(
-        children: [
-          Positioned(
-            left: 11.988525390625,
-            top: 11.9892578125,
-            child: Icon(
-              Icons.warning_amber_rounded,
-              color: ReportDeleteConfirmScreen.red,
-              size: 13,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(
+                Icons.warning_amber_rounded,
+                color: ReportDeleteConfirmScreen.red,
+                size: 13,
+              ),
             ),
-          ),
-          Positioned(
-            left: 32.98291015625,
-            top: 10,
-            width: 242.49998474121094,
-            height: 57.6136360168457,
-            child: Text(
-              report?.deletionWarning ?? '삭제 후에는 되돌릴 수 없어요.',
-              style: _warningText,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                report?.deletionWarning ?? '삭제 후에는 되돌릴 수 없어요.',
+                style: _warningText,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

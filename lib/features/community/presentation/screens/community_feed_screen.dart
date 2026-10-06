@@ -9,16 +9,92 @@ import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/community/presentation/state/community_service.dart';
 import 'package:geolocator/geolocator.dart';
+
+/// 시·도 표기를 짧은 이름으로 맞춥니다(예: 서울특별시 → 서울, 전북특별자치도 → 전북).
+String normalizeCityProvince(String value) {
+  final compact = value.replaceAll(RegExp(r'\s+'), '');
+  const aliases = {
+    '서울특별시': '서울',
+    '부산광역시': '부산',
+    '대구광역시': '대구',
+    '인천광역시': '인천',
+    '광주광역시': '광주',
+    '대전광역시': '대전',
+    '울산광역시': '울산',
+    '세종특별자치시': '세종',
+    '경기도': '경기',
+    '강원도': '강원',
+    '강원특별자치도': '강원',
+    '충청북도': '충북',
+    '충청남도': '충남',
+    '전라북도': '전북',
+    '전북특별자치도': '전북',
+    '전라남도': '전남',
+    '경상북도': '경북',
+    '경상남도': '경남',
+    '제주특별자치도': '제주',
+    '제주도': '제주',
+  };
+  return aliases[compact] ?? compact;
+}
+
+/// 역지오코딩 주소를 시·도와 시·군·구로 나눕니다.
+/// 예: '경기도 성남시 분당구 삼평동' → (경기, 성남시 분당구)
+({String province, String district}) communityRegionFromAddress(
+  String address,
+) {
+  final parts = address
+      .split(RegExp(r'\s+'))
+      .where((part) => part.isNotEmpty)
+      .toList(growable: false);
+  if (parts.isEmpty) return (province: '', district: '');
+  final district = parts
+      .skip(1)
+      .where(
+        (part) =>
+            part.endsWith('시') || part.endsWith('군') || part.endsWith('구'),
+      )
+      .join(' ');
+  return (province: normalizeCityProvince(parts.first), district: district);
+}
 
 bool communityLocationMatches(
   String itemLocation,
-  Iterable<String> selectedLocations,
-) {
+  Iterable<String> selectedLocations, {
+  String? itemProvince,
+  String? selectedProvince,
+  String? selectedDistrict,
+}) {
   String normalize(String value) => value.replaceAll(RegExp(r'\s+'), '').trim();
+  List<String> words(String value) => value
+      .split(RegExp(r'\s+'))
+      .where((word) => word.isNotEmpty)
+      .toList(growable: false);
 
   final item = normalize(itemLocation);
   if (item.isEmpty || item == '알수없음') return false;
+
+  final province = itemProvince?.trim() ?? '';
+  final userProvince = selectedProvince?.trim() ?? '';
+  final userDistrict = selectedDistrict?.trim() ?? '';
+  if (province.isNotEmpty &&
+      userProvince.isNotEmpty &&
+      userDistrict.isNotEmpty) {
+    // 시·도가 같고 시·군·구 이름이 낱말 단위로 같을 때만 같은 동네로 봅니다.
+    // ('강서구'는 '서구'가 아니고, 서울 중구와 부산 중구는 다릅니다.)
+    if (normalizeCityProvince(province) !=
+        normalizeCityProvince(userProvince)) {
+      return false;
+    }
+    final itemWords = words(itemLocation);
+    final userWords = words(userDistrict);
+    return itemWords.every(userWords.contains) ||
+        userWords.every(itemWords.contains);
+  }
+
+  // 시·도 정보가 없는 예전 응답은 기존 부분 일치 규칙을 유지합니다.
   return selectedLocations.any((location) {
     final selected = normalize(location);
     return selected.isNotEmpty &&
@@ -67,6 +143,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
   List<String> _locationFilterKeys = const [];
+  String _locationProvince = '';
+  String _locationDistrict = '';
   bool _isLoadingLocation = false;
   bool _showLocationPicker = false;
 
@@ -100,6 +178,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       setState(() {
         _locationLabel = '전체';
         _locationFilterKeys = const [];
+        _locationProvince = '';
+        _locationDistrict = '';
       });
       return;
     }
@@ -148,13 +228,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
           .split(RegExp(r'\s+'))
           .where((part) => part.isNotEmpty)
           .toList(growable: false);
-      String? district;
-      for (final part in addressParts) {
-        if (part.endsWith('구') || part.endsWith('군')) {
-          district = part;
-          break;
-        }
-      }
+      final region = communityRegionFromAddress(address);
       final keys = <String>{
         if (address.isNotEmpty) address,
         if (dong.isNotEmpty) dong,
@@ -169,8 +243,12 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       }.toList(growable: false);
       if (!mounted) return;
       setState(() {
-        _locationLabel = district ?? (dong.isNotEmpty ? dong : '전체');
+        _locationLabel = region.district.isNotEmpty
+            ? region.district.split(' ').last
+            : (dong.isNotEmpty ? dong : '전체');
         _locationFilterKeys = keys;
+        _locationProvince = region.province;
+        _locationDistrict = region.district;
         _isLoadingLocation = false;
       });
     } catch (e) {
@@ -189,8 +267,14 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       );
   }
 
-  Future<void> _fetchFeeds({bool silent = false}) async {
-    if (!silent) {
+  /// [silent]는 화면 복귀 때의 조용한 갱신, [refreshing]은 당겨서 새로고침입니다.
+  /// 두 경우 모두 보이던 목록을 유지하고, 새로고침 실패만 알려줍니다.
+  Future<void> _fetchFeeds({
+    bool silent = false,
+    bool refreshing = false,
+  }) async {
+    final keepVisibleList = silent || refreshing;
+    if (!keepVisibleList) {
       setState(() {
         _isLoading = true;
         _hasError = false;
@@ -203,39 +287,44 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
 
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-        if (!mounted) return;
-        setState(() {
-          _rawFeeds = decoded is List ? decoded : [];
-          _isLoading = false;
-          _hasError = false;
-        });
-      } else {
-        if (!mounted) return;
-        setState(() {
-          if (!silent) {
-            _isLoading = false;
-            _hasError = true;
-          }
-        });
+      if (response.statusCode != 200) {
+        throw StateError('커뮤니티 피드 응답 ${response.statusCode}');
       }
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (!mounted) return;
+      setState(() {
+        _rawFeeds = decoded is List ? decoded : [];
+        _isLoading = false;
+        _hasError = false;
+      });
     } catch (e) {
       debugPrint('커뮤니티 피드 조회 오류: $e');
       if (!mounted) return;
-      setState(() {
-        if (!silent) {
+      if (!keepVisibleList) {
+        setState(() {
           _isLoading = false;
           _hasError = true;
-        }
-      });
+        });
+      } else if (refreshing) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            HowmuchSnackBar(
+              content: const Text('피드를 새로 불러오지 못했어요. 잠시 후 다시 시도해주세요.'),
+              aboveNavigation: true,
+            ),
+          );
+      }
     }
   }
+
+  Future<void> _refreshFeeds() => _fetchFeeds(refreshing: true);
 
   List<_FeedItem> get _visibleFeedItems {
     final List<_FeedItem> items = _rawFeeds.map((data) {
       final String id = data['id']?.toString() ?? '';
       final String loc = data['location']?.toString() ?? '알 수 없음';
+      final String cityProvince = data['cityProvince']?.toString().trim() ?? '';
       final String title = data['title']?.toString() ?? '';
       final String author = data['author']?.toString() ?? '알 수 없음';
       final int likes = (data['likes'] as num?)?.toInt() ?? 0;
@@ -272,7 +361,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       final String status = switch (rawStatus.toUpperCase()) {
         'APPROVED' => '승인 완료',
         'PENDING' => '검토 중',
-        _ => '가격 변동',
+        _ => '',
       };
 
       final Color statusColor = switch (rawStatus.toUpperCase()) {
@@ -296,6 +385,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       return _FeedItem(
         id: id,
         location: loc,
+        cityProvince: cityProvince,
+        isPriceChange: isCommunityPriceChange(data['changeType']),
         title: title,
         storeName: parsed.storeName,
         menu: parsed.menu,
@@ -322,12 +413,15 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
                 (item) => communityLocationMatches(
                   item.location,
                   _locationFilterKeys,
+                  itemProvince: item.cityProvince,
+                  selectedProvince: _locationProvince,
+                  selectedDistrict: _locationDistrict,
                 ),
               )
               .toList();
 
     return switch (_selectedFilterIndex) {
-      1 => scoped.where((item) => item.status == '가격 변동').toList(),
+      1 => scoped.where((item) => item.isPriceChange).toList(),
       2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
       _ => scoped,
     };
@@ -393,25 +487,50 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
     }
     final items = _visibleFeedItems;
     if (items.isEmpty) {
-      return Center(
-        child: Text(
-          _selectedFilterIndex == 1
-              ? '아직 가격 변동 제보가 없어요.'
-              : _locationLabel == '전체'
-              ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
-              : '$_locationLabel에 등록된 제보가 아직 없어요.',
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: CommunityFeedScreen.muted,
-            fontFamily: CommunityFeedScreen.fontFamily,
-            fontFamilyFallback: CommunityFeedScreen.fontFallback,
-            fontSize: 12,
+      // 빈 목록에서도 당겨서 새로고침하거나 버튼으로 다시 불러올 수 있습니다.
+      return RefreshIndicator(
+        onRefresh: _refreshFeeds,
+        color: CommunityFeedScreen.blue,
+        child: LayoutBuilder(
+          builder: (context, constraints) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedFilterIndex == 1
+                            ? '아직 가격 변동 제보가 없어요.'
+                            : _locationLabel == '전체'
+                            ? '아직 제보가 없어요. 첫 제보를 남겨보세요!'
+                            : '$_locationLabel에 등록된 제보가 아직 없어요.',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: CommunityFeedScreen.muted,
+                          fontFamily: CommunityFeedScreen.fontFamily,
+                          fontFamilyFallback: CommunityFeedScreen.fontFallback,
+                          fontSize: 12,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _refreshFeeds,
+                        child: const Text('새로고침'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
     return RefreshIndicator(
-      onRefresh: _fetchFeeds,
+      onRefresh: _refreshFeeds,
       color: CommunityFeedScreen.blue,
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -945,7 +1064,10 @@ class _FeedCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           // 1. 태그 행 (위치 칩 + 상태 뱃지)
-                          Row(
+                          // 좁은 화면에서는 배지가 다음 줄로 내려가 넘치지 않습니다.
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(
@@ -965,24 +1087,28 @@ class _FeedCard extends StatelessWidget {
                                       color: Color(0xFF64748B),
                                     ),
                                     const SizedBox(width: 3),
-                                    Text(
-                                      item.location,
-                                      style: const TextStyle(
-                                        fontFamily:
-                                            CommunityFeedScreen.fontFamily,
-                                        fontFamilyFallback:
-                                            CommunityFeedScreen.fontFallback,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF64748B),
+                                    Flexible(
+                                      child: Text(
+                                        item.location,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontFamily:
+                                              CommunityFeedScreen.fontFamily,
+                                          fontFamilyFallback:
+                                              CommunityFeedScreen.fontFallback,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              if (item.status == '가격 변동') ...[
-                                const SizedBox(width: 6),
+                              if (item.isPriceChange)
                                 Container(
+                                  key: ValueKey('feed-price-change-${item.id}'),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 3.5,
@@ -1007,8 +1133,7 @@ class _FeedCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              ] else if (item.status == '검토 중') ...[
-                                const SizedBox(width: 6),
+                              if (item.status == '검토 중')
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -1034,7 +1159,6 @@ class _FeedCard extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                              ],
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -1337,6 +1461,8 @@ class _FeedItem {
   const _FeedItem({
     required this.id,
     required this.location,
+    required this.cityProvince,
+    required this.isPriceChange,
     required this.title,
     required this.storeName,
     required this.menu,
@@ -1357,6 +1483,8 @@ class _FeedItem {
 
   final String id;
   final String location;
+  final String cityProvince;
+  final bool isPriceChange;
   final String title;
   final String storeName;
   final String menu;

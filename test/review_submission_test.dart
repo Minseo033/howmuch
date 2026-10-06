@@ -111,6 +111,36 @@ void main() {
     notifier.pendingResult!.complete(false);
     await tester.pumpAndSettle();
   });
+
+  testWidgets('an unconfirmed submission keeps the form and asks to check', (
+    tester,
+  ) async {
+    final notifier = _RecordingStoreReviewNotifier(unconfirmed: true);
+    await _pumpReviewScreen(tester, notifier);
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '김치찌개');
+    await tester.enterText(fields.at(1), '8,000');
+    await tester.enterText(fields.at(2), '가격이 합리적이에요.');
+    await tester.tap(find.byIcon(Icons.star_rounded).last);
+    await tester.scrollUntilVisible(
+      find.text('최근 1개월 이내 방문했어요'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('최근 1개월 이내 방문했어요'));
+    await tester.pump();
+    await tester.tap(find.text('가격 정보를 직접 확인했어요'));
+    await tester.pump();
+    tester.widget<ElevatedButton>(find.byType(ElevatedButton)).onPressed!();
+    await tester.pump();
+    await tester.pump();
+
+    expect(notifier.submitCount, 1);
+    expect(find.textContaining('등록 여부를 확인하지 못했어요'), findsOneWidget);
+    expect(find.byType(ReviewWriteScreen), findsOneWidget);
+    expect(find.text('리뷰 등록하기'), findsOneWidget);
+  });
 }
 
 Future<void> _pumpReviewScreen(
@@ -155,9 +185,10 @@ final _sampleStore = Store(
 );
 
 class _RecordingStoreReviewNotifier extends StoreReviewNotifier {
-  _RecordingStoreReviewNotifier({this.pendingResult});
+  _RecordingStoreReviewNotifier({this.pendingResult, this.unconfirmed = false});
 
   final Completer<bool>? pendingResult;
+  final bool unconfirmed;
   int submitCount = 0;
   Review? submittedReview;
 
@@ -165,6 +196,9 @@ class _RecordingStoreReviewNotifier extends StoreReviewNotifier {
   Future<bool> addReview(Review review) {
     submitCount += 1;
     submittedReview = review;
+    if (unconfirmed) {
+      return Future.error(const ReviewSubmissionUnconfirmedException());
+    }
     return pendingResult?.future ?? Future.value(false);
   }
 }

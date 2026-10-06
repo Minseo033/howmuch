@@ -34,20 +34,37 @@ class _ConnectedSocialAccountsScreenState
   Future<void> _requestAccountInfo() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
-    final identity = await ref
+    // Called straight from the tap: on web the consent window must open before
+    // the first await to count as a user-initiated popup.
+    final result = await ref
         .read(kakaoLoginServiceProvider)
-        .refreshKakaoIdentity(requestConsent: true);
+        .requestKakaoIdentityConsent();
     if (!mounted) return;
     setState(() => _isRefreshing = false);
 
-    final missingEmail = usableAccountEmail(identity.email) == null;
-    final missingImage = identity.profileImageUrl.isEmpty;
-    final message = missingEmail || missingImage
-        ? '카카오에서 제공하지 않은 정보는 표시할 수 없어요. 카카오 앱의 동의 항목 설정을 확인해주세요.'
-        : '카카오 계정 정보를 불러왔어요.';
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(HowmuchSnackBar(content: Text(message)));
+    ).showSnackBar(HowmuchSnackBar(content: Text(_consentMessage(result))));
+  }
+
+  static String _consentMessage(KakaoIdentityConsentResult result) {
+    switch (result.outcome) {
+      case KakaoConsentOutcome.timedOut:
+        return '카카오 동의 창에서 응답이 없어 요청을 마쳤어요. 다시 시도해주세요.';
+      case KakaoConsentOutcome.blocked:
+        return '브라우저가 카카오 동의 창을 막았어요. 팝업을 허용한 뒤 다시 시도해주세요.';
+      case KakaoConsentOutcome.cancelled:
+        return '카카오 동의를 취소했어요. 필요할 때 다시 불러올 수 있어요.';
+      case KakaoConsentOutcome.failed:
+        return '카카오 계정 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
+      case KakaoConsentOutcome.notNeeded:
+      case KakaoConsentOutcome.granted:
+        final missingEmail = usableAccountEmail(result.email) == null;
+        final missingImage = result.profileImageUrl.isEmpty;
+        return missingEmail || missingImage
+            ? '카카오에서 제공하지 않은 정보는 표시할 수 없어요. 카카오 앱의 동의 항목 설정을 확인해주세요.'
+            : '카카오 계정 정보를 불러왔어요.';
+    }
   }
 
   @override

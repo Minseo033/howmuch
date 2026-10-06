@@ -31,7 +31,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
   ];
 
   final _scrollController = ScrollController();
-  final List<GlobalKey> _chapterKeys = List.generate(7, (_) => GlobalKey());
+  final List<GlobalKey> _chapterKeys = List.generate(
+    _TableOfContents.items.length,
+    (_) => GlobalKey(),
+  );
 
   @override
   void dispose() {
@@ -68,14 +71,41 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   const SizedBox(height: 12),
                   _TableOfContents(onItemTap: _scrollToPolicyChapter),
                   const SizedBox(height: 12),
+                  // Each line below mirrors what the app and server actually
+                  // collect, send and delete. Update it with the code.
                   _PolicyChapter(
                     key: _chapterKeys[0],
                     number: '1',
                     title: '수집하는 개인정보 항목',
                     lines: const [
-                      _PolicyLine(strong: '필수', body: ' · 카카오 로그인 식별자, 이메일'),
-                      _PolicyLine(strong: '선택', body: ' · 위치 정보'),
-                      _PolicyLine(strong: '자동 수집', body: ' · 제보·리뷰·방문·찜·문의 기록'),
+                      _PolicyLine(
+                        strong: '필수',
+                        body: ' · 카카오 회원번호(서비스 식별자), 닉네임, 주 활동 동네, 관심 카테고리',
+                      ),
+                      _PolicyLine(
+                        strong: '카카오에서 동의한 경우',
+                        body: ' · 이메일, 카카오 프로필 사진 주소',
+                      ),
+                      _PolicyLine(
+                        strong: '선택',
+                        body: ' · 이번 달 절약 목표 금액, 위치 정보(권한을 허용한 경우)',
+                      ),
+                      _PolicyLine(
+                        strong: '서비스 이용 중 생성',
+                        body:
+                            ' · 제보(매장 정보·메뉴·가격·첨부 사진), 리뷰, 커뮤니티 댓글·좋아요, '
+                            '방문 인증 기록(매장·메뉴·결제 금액·절약 금액·매장과의 거리), '
+                            '영수증 사진과 판독 결과(금액·날짜), 찜·가격 알림 설정, '
+                            '1:1 문의(내용·첨부 사진), 알림 설정과 알림 내역',
+                      ),
+                      _PolicyLine(
+                        strong: '앱 알림을 허용한 경우',
+                        body: ' · 푸시 알림용 기기 토큰과 기기 종류(Android·iOS)',
+                      ),
+                      _PolicyLine(
+                        strong: 'AI 채팅을 이용한 경우',
+                        body: ' · 입력한 메시지와 최근 대화(최대 6개). 서버에 저장하지 않습니다.',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -84,9 +114,12 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     number: '2',
                     title: '개인정보 이용 목적',
                     body:
-                        '· 회원 식별 및 서비스 제공\n'
-                        '· 주변 매장 추천 및 절약 리포트 산출\n'
-                        '· 제보·리뷰 게시 및 사용자 간 상호작용\n'
+                        '· 회원 식별, 로그인 유지 및 서비스 제공\n'
+                        '· 커뮤니티·리뷰의 작성자 닉네임과 프로필 사진 표시\n'
+                        '· 제보 검토와 지도·커뮤니티 공개, 리뷰·댓글 게시\n'
+                        '· 주변 매장 검색·추천, 방문 인증(영수증 판독 포함)과 절약 리포트 산출\n'
+                        '· 찜한 매장 가격 변동, 제보 처리 결과, 댓글, 문의 답변, 공지 알림 발송\n'
+                        '· 1:1 문의 응대와 AI 채팅 답변 생성\n'
                         '· 부정 이용 방지 및 보안',
                   ),
                   const SizedBox(height: 10),
@@ -95,10 +128,16 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                     number: '3',
                     title: '보유 및 이용 기간',
                     lines: const [
-                      _PolicyLine(body: '회원 탈퇴 시 즉시 파기를 원칙으로 하나,'),
-                      _PolicyLine(strong: '관계 법령', body: '에 따라 일부 정보는 보관됩니다.'),
-                      _PolicyLine(body: '· 회원 탈퇴 시 회원 정보와 이용 기록 삭제'),
-                      _PolicyLine(body: '· 법령상 보존 의무가 발생하는 정보는 해당 기간 동안 보관'),
+                      _PolicyLine(
+                        body: '· 회원 정보와 이용 기록은 회원 탈퇴 시까지 보관하고, 탈퇴하면 삭제합니다.',
+                      ),
+                      _PolicyLine(body: '· 영수증 사진은 방문 인증을 승인하거나 반려한 뒤 삭제합니다.'),
+                      _PolicyLine(body: '· 로그인 세션은 발급 후 7일(168시간)이 지나면 만료됩니다.'),
+                      _PolicyLine(
+                        body: '· 다만 ',
+                        strong: '관계 법령',
+                        tail: '에 따라 보존해야 하는 정보가 생기면 그 기간 동안 보관합니다.',
+                      ),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -111,12 +150,16 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                         body: '운영자는 원칙적으로 이용자의 개인정보를 제3자에게 제공하지 않습니다.',
                       ),
                       _PolicyLine(
-                        strong: '예외',
-                        body: ' · 이용자가 요청한 소셜 로그인 인증 시 카카오 계정 직접 연동',
+                        strong: '서비스 안 공개',
+                        body:
+                            ' · 커뮤니티 글·댓글에는 작성자 닉네임과 프로필 사진이, 리뷰에는 닉네임이 표시됩니다'
+                            '(닉네임 공개 설정이 꺼져 있으면 \'익명\'). 승인된 제보의 매장 정보와 첨부 사진도 '
+                            '다른 이용자에게 보입니다.',
                       ),
                       _PolicyLine(
-                        strong: '제공받는 자',
-                        body: ' · (주)카카오 (카카오 로그인 인증 목적 / 카카오 방침 준용)',
+                        strong: '카카오 로그인',
+                        body:
+                            ' · 이용자가 카카오에 직접 로그인하며, 얼마고?는 카카오에서 회원번호와 이용자가 동의한 이메일·프로필 사진만 받습니다.',
                       ),
                     ],
                   ),
@@ -124,13 +167,37 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   _PolicyChapter(
                     key: _chapterKeys[4],
                     number: '5',
-                    title: '위치 정보 처리',
+                    title: '처리 위탁 및 국외 이전',
                     lines: const [
+                      _PolicyLine(body: '서비스 제공을 위해 아래 업체에 개인정보 처리를 맡기고 있습니다.'),
                       _PolicyLine(
-                        body: '위치 정보는 ',
-                        strong: '매장 검색·추천 목적',
-                        tail:
-                            '으로만 사용되며 별도로 저장하지 않습니다. 위치 권한은 브라우저 사이트 설정 또는 기기 설정에서 변경할 수 있으며, 마이페이지에서 변경 방법을 안내합니다.',
+                        strong: 'Google LLC',
+                        body:
+                            ' · 회원·이용 기록 저장(Firebase Cloud Firestore), 푸시 알림 발송(Firebase 클라우드 메시징), '
+                            'AI 채팅 답변 생성(Gemini API: 입력 메시지·최근 대화·주변 매장 정보), '
+                            '영수증 글자 판독(Cloud Vision API: 영수증 사진)',
+                      ),
+                      _PolicyLine(
+                        strong: 'Cloudinary',
+                        body: ' · 제보·문의·영수증 사진 저장과 전송',
+                      ),
+                      _PolicyLine(
+                        strong: 'Render',
+                        body: ' · 서버 운영(모든 API 요청 처리)',
+                      ),
+                      _PolicyLine(strong: 'Vercel', body: ' · 웹 앱 제공'),
+                      _PolicyLine(
+                        strong: '(주)카카오',
+                        body: ' · 카카오 로그인, 지도 표시, 주소·장소 검색과 위치 좌표의 동네 이름 변환',
+                      ),
+                      _PolicyLine(
+                        strong: '국외 이전',
+                        body:
+                            ' · Google, Cloudinary, Render, Vercel은 해외 사업자로, 서비스를 이용할 때 위 정보가 '
+                            '네트워크를 통해 각 사업자의 해외 서버로 전송·보관될 수 있습니다. Firestore·Cloudinary에 '
+                            '저장된 정보는 회원 탈퇴 또는 위탁 종료 시까지 보관하며, AI 채팅 내용은 얼마고? 서버에 '
+                            '저장하지 않습니다(Google 측 처리는 Google 약관을 따릅니다). '
+                            '원하지 않으면 AI 채팅·사진 첨부·푸시 알림을 이용하지 않거나 회원 탈퇴를 할 수 있습니다.',
                       ),
                     ],
                   ),
@@ -138,34 +205,74 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   _PolicyChapter(
                     key: _chapterKeys[5],
                     number: '6',
-                    title: '이용자의 권리',
+                    title: '위치 정보 처리',
                     lines: const [
                       _PolicyLine(
-                        strong: '열람·정정',
-                        body: ' · 마이페이지 프로필 수정에서 닉네임·동네 등 정정',
+                        body: '위치 정보는 ',
+                        strong: '주변 매장 검색·추천과 방문 인증',
+                        tail: '에만 사용하며, 서버는 위치 좌표를 저장하지 않습니다.',
                       ),
                       _PolicyLine(
-                        strong: '삭제·탈퇴',
-                        body: ' · 회원 탈퇴 시 계정 및 연관 데이터 즉시 삭제',
+                        body:
+                            '· 좌표가 서버로 전송되는 경우: 오늘의 픽·추천 루트, AI 채팅의 주변 매장 찾기, 방문 위치 인증, '
+                            '동네를 현재 위치로 설정하거나 커뮤니티에서 현재 위치로 볼 때, 제보 시 장소 검색',
+                      ),
+                      _PolicyLine(body: '· 방문 위치 인증에는 매장과의 거리(미터)만 기록합니다.'),
+                      _PolicyLine(
+                        body:
+                            '· 동네 이름 변환과 장소 검색에는 카카오 로컬 API를, 날씨 확인에는 좌표를 약 5km 격자로 바꿔 '
+                            '기상청 단기예보 API를 이용합니다.',
                       ),
                       _PolicyLine(
-                        strong: '권한 철회',
-                        body: ' · 브라우저 사이트 설정 또는 기기 설정에서 위치·알림·사진 권한 변경',
+                        body:
+                            '· 위치 권한은 선택입니다. 거부해도 지도와 검색은 이용할 수 있고, 권한은 브라우저 사이트 설정 또는 '
+                            '기기 설정에서 바꿀 수 있습니다.',
                       ),
-                      _PolicyLine(body: '기타 권리 행사는 앱 내 1:1 문의를 통해 접수할 수 있습니다.'),
                     ],
                   ),
                   const SizedBox(height: 10),
                   _PolicyChapter(
                     key: _chapterKeys[6],
                     number: '7',
+                    title: '이용자의 권리',
+                    lines: const [
+                      _PolicyLine(
+                        strong: '열람·정정',
+                        body:
+                            ' · 닉네임은 마이페이지 프로필 수정에서 바꿀 수 있고, 동네·관심 카테고리 정정은 1:1 문의로 요청할 수 있습니다. '
+                            '이메일·프로필 사진은 카카오 계정 정보를 따릅니다.',
+                      ),
+                      _PolicyLine(
+                        strong: '삭제·탈퇴',
+                        body:
+                            ' · 마이페이지 계정 관리의 회원 탈퇴로 계정과 연관 데이터 삭제를 요청할 수 있습니다.',
+                      ),
+                      _PolicyLine(
+                        strong: '권한 철회',
+                        body:
+                            ' · 브라우저 사이트 설정 또는 기기 설정에서 위치·알림·사진 권한 변경, '
+                            '마이페이지 알림 설정에서 푸시 알림 수신 변경',
+                      ),
+                      _PolicyLine(body: '기타 권리 행사는 앱 내 1:1 문의를 통해 접수할 수 있습니다.'),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PolicyChapter(
+                    key: _chapterKeys[7],
+                    number: '8',
                     title: '회원 탈퇴 시 데이터 처리',
                     lines: const [
                       _PolicyLine(
-                        body: '개인 식별 정보는 즉시 삭제되며, ',
-                        strong: '승인된 제보 데이터는 익명화',
-                        tail: '되어 공익 목적으로 계속 활용됩니다.',
+                        body:
+                            '탈퇴하면 서버에서 회원 정보, 리뷰, 검토 중이거나 반려된 제보, 방문·영수증 인증 기록, '
+                            '찜·가격 알림 설정, 1:1 문의, 댓글·좋아요, 알림 내역과 설정, 기기 토큰, 올린 사진을 삭제합니다.',
                       ),
+                      _PolicyLine(
+                        body: '',
+                        strong: '승인된 제보는 작성자 연결과 첨부 사진을 지운 뒤',
+                        tail: ' 매장 정보로 계속 공개됩니다.',
+                      ),
+                      _PolicyLine(body: '탈퇴가 끝나면 카카오 계정과 얼마고?의 연결 끊기도 요청합니다.'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -174,7 +281,11 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Center(
-                    child: Text('이전 버전 보기 · 변경 이력', style: _captionText),
+                    child: Text(
+                      '2026.10.06 개정: 처리 위탁·국외 이전, 위치·사진·알림 처리 내용 보완',
+                      textAlign: TextAlign.center,
+                      style: _captionText,
+                    ),
                   ),
                 ],
               ),
@@ -400,7 +511,7 @@ class _PrivacyIntroCard extends StatelessWidget {
                 children: [
                   Text('얼마고? 개인정보 처리방침', style: _introTitleText),
                   SizedBox(height: 6),
-                  Text('버전 2.4  ·  시행 2026.04.01', style: _introCaptionText),
+                  Text('버전 2.5  ·  시행 2026.10.06', style: _introCaptionText),
                 ],
               ),
             ),
@@ -421,9 +532,10 @@ class _TableOfContents extends StatelessWidget {
     '2. 개인정보 이용 목적',
     '3. 보유 및 이용 기간',
     '4. 제 3자 제공 안내',
-    '5. 위치 정보 처리',
-    '6. 이용자의 권리',
-    '7. 회원 탈퇴 시 데이터 처리',
+    '5. 처리 위탁 및 국외 이전',
+    '6. 위치 정보 처리',
+    '7. 이용자의 권리',
+    '8. 회원 탈퇴 시 데이터 처리',
   ];
 
   @override

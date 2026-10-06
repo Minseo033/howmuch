@@ -136,10 +136,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             initialMenuIndex: state.extra is PriceChangeReportTarget
                 ? (state.extra as PriceChangeReportTarget).menuIndex
                 : null,
+            initialReport: state.extra is UserReportStatus
+                ? state.extra as UserReportStatus
+                : null,
             storeName: state.extra is PriceChangeReportTarget
                 ? (state.extra as PriceChangeReportTarget).store.storeName
                 : state.extra is Store
                 ? (state.extra as Store).storeName
+                : state.extra is UserReportStatus
+                ? (state.extra as UserReportStatus).store
                 : state.extra is String
                 ? state.extra as String
                 : '매장 정보 없음',
@@ -243,11 +248,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.home,
         pageBuilder: (_, state) => NoTransitionPage<void>(
           key: state.pageKey,
-          child: HomeMapScreen(
-            initialRecommendation: state.extra is AiMapRecommendationResult
-                ? state.extra as AiMapRecommendationResult
-                : null,
-          ),
+          child: buildHomeMapScreenForExtra(state.extra),
         ),
       ),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
@@ -268,7 +269,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.reportComplete,
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
-          child: ReportCompleteScreen(reportId: state.uri.queryParameters['id']),
+          child: ReportCompleteScreen(
+            reportId: state.uri.queryParameters['id'],
+          ),
         ),
       ),
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
@@ -348,31 +351,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.notifications, const NotificationsScreen()),
       GoRoute(
         path: AppRoutes.searchResult,
-        pageBuilder: (_, state) {
-          final extra = state.extra;
-          String query = '';
-          bool openFilter = false;
-          SearchFilter? initialFilter;
-
-          if (extra is String) {
-            query = extra;
-          } else if (extra is Map<String, dynamic>) {
-            query = extra['query'] as String? ?? '';
-            openFilter = extra['openFilter'] as bool? ?? false;
-            initialFilter = extra['filter'] is SearchFilter
-                ? extra['filter'] as SearchFilter
-                : null;
-          }
-
-          return CupertinoPage<void>(
-            key: state.pageKey,
-            child: SearchResultScreen(
-              initialQuery: query,
-              autoOpenFilter: openFilter,
-              initialFilter: initialFilter,
-            ),
-          );
-        },
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: buildSearchResultScreenForExtra(state.extra),
+        ),
       ),
       GoRoute(
         path: AppRoutes.storeDetail,
@@ -394,6 +376,32 @@ GoRoute _route(String path, Widget child) {
     path: path,
     pageBuilder: (_, state) =>
         CupertinoPage<void>(key: state.pageKey, child: child),
+  );
+}
+
+/// `/home` accepts either a map recommendation (AI, approved report, today's
+/// pick) or a search result handed over by a search screen that was opened
+/// outside home. Any other extra opens the plain map.
+HomeMapScreen buildHomeMapScreenForExtra(Object? extra) {
+  return HomeMapScreen(
+    initialRecommendation: extra is AiMapRecommendationResult ? extra : null,
+    initialSearchResult: extra is Map<String, dynamic> ? extra : null,
+  );
+}
+
+/// `/search/result` takes a query string or a map from the home map. Only
+/// home sets returnToMap: it awaits the result and applies it to its map.
+SearchResultScreen buildSearchResultScreenForExtra(Object? extra) {
+  if (extra is String) return SearchResultScreen(initialQuery: extra);
+  if (extra is! Map<String, dynamic>) {
+    return const SearchResultScreen(initialQuery: '');
+  }
+  final filter = extra['filter'];
+  return SearchResultScreen(
+    initialQuery: extra['query'] as String? ?? '',
+    autoOpenFilter: extra['openFilter'] as bool? ?? false,
+    initialFilter: filter is SearchFilter ? filter : null,
+    returnsResultToMap: extra['returnToMap'] == true,
   );
 }
 
