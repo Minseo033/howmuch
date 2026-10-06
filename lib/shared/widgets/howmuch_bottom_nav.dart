@@ -28,13 +28,10 @@ class HowmuchBottomNav extends StatelessWidget {
     'sans-serif',
   ];
 
-  static const designHeight = 81.98863220214844;
   static const contentHeight = 60.002838134765625;
-  static const designBottomReserve = designHeight - contentHeight;
-  static const contentLift = 0.0; // Removed the 32.0 compensation hack
 
   static double heightFor(double safeBottom) {
-    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0) + contentLift;
+    return contentHeight + (safeBottom > 8.0 ? safeBottom : 8.0);
   }
 
   final double safeBottom;
@@ -51,7 +48,7 @@ class HowmuchBottomNav extends StatelessWidget {
           Positioned(
             left: 12,
             right: 12,
-            bottom: bottomReserve + contentLift,
+            bottom: bottomReserve,
             height: contentHeight,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),

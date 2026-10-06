@@ -478,10 +478,6 @@ class UserReportStatus {
 class UserReportsNotifier extends StateNotifier<List<UserReportStatus>> {
   UserReportsNotifier(super.initialState);
 
-  void addReport(UserReportStatus report) {
-    state = [report, ...state];
-  }
-
   void updateReport(UserReportStatus report) {
     state = [
       for (final current in state)
@@ -630,14 +626,6 @@ class FavoriteStoreModel {
   final bool free4;
   final bool isClosed;
   final int correctionRevision;
-
-  bool get hasDetailMetadata =>
-      phoneNumber.isNotEmpty ||
-      latitude != 0 ||
-      longitude != 0 ||
-      menu2.isNotEmpty ||
-      menu3.isNotEmpty ||
-      menu4.isNotEmpty;
 
   /// Converts the favorite response into the detail route model.
   ///
@@ -1061,50 +1049,6 @@ class PriceAlertApiService {
       notifyOnRise: conditions['notifyOnRise'] as bool,
       notifyOnDrop: conditions['notifyOnDrop'] as bool,
       notifyOnNewMenu: conditions['notifyOnNewMenu'] as bool,
-    );
-  }
-
-  Future<PriceAlertStore> saveSubscription({
-    required String storeId,
-    required bool enabled,
-    required bool notifyOnRise,
-    required bool notifyOnDrop,
-    required bool notifyOnNewMenu,
-  }) async {
-    final response = await _client
-        .put(
-          ApiClient.uri('/api/notifications/price-alerts'),
-          headers: ApiClient.jsonHeaders(auth: true),
-          body: jsonEncode({
-            'storeId': storeId,
-            'enabled': enabled,
-            'notifyOnRise': notifyOnRise,
-            'notifyOnDrop': notifyOnDrop,
-            'notifyOnNewMenu': notifyOnNewMenu,
-          }),
-        )
-        .timeout(ApiClient.defaultTimeout);
-
-    if (response.statusCode != 200) {
-      throw PriceAlertApiException(
-        response.statusCode == 401 || response.statusCode == 403
-            ? '가격 알림을 사용하려면 로그인이 필요합니다.'
-            : response.statusCode == 404
-            ? '찜한 매장을 찾을 수 없습니다.'
-            : '가격 알림 설정 저장에 실패했습니다.',
-        statusCode: response.statusCode,
-      );
-    }
-    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    if (decoded is! Map) {
-      throw const FormatException('가격 알림 저장 응답 형식이 올바르지 않습니다.');
-    }
-    final json = Map<String, dynamic>.from(decoded);
-    return PriceAlertStore(
-      storeId: json['storeId']?.toString() ?? storeId,
-      storeName: json['storeName']?.toString() ?? '매장명 없음',
-      menuName: json['menuName']?.toString() ?? '가격 변동 알림',
-      enabled: json['enabled'] is bool ? json['enabled'] as bool : enabled,
     );
   }
 

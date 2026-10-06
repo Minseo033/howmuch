@@ -5,9 +5,8 @@ import 'package:flutter/material.dart';
 
 /// A canvas widget that renders the Figma-designed mobile UI.
 ///
-/// **App (iOS/Android)**: Scales the 375px design to fill the screen width.
-/// **Mobile Web (≤480px)**: Uses 100% viewport width, height fills available space.
-/// **Desktop Web (>480px)**: Centers the content at max 430px width.
+/// Content uses the real viewport width up to [maxWebWidth] and is centered
+/// beyond that, on both the app and the web.
 ///
 /// Selected presentation surfaces can opt into the wider web shell. This is
 /// intentionally opt-in so detail/forms screens keep their Figma mobile
@@ -20,18 +19,6 @@ class FigmaMobileCanvas extends StatelessWidget {
     this.outerBackgroundColor = const Color(0xFFF4F6FA),
     this.wideWebLayout = false,
   });
-
-  /// Design reference width from Figma (375px)
-  static const double designWidth = 375.45452880859375;
-
-  /// Design reference height from Figma (800px)
-  static const double designHeight = 800.0;
-
-  /// Legacy alias kept for backward compatibility
-  static const double width = designWidth;
-
-  /// Legacy alias kept for backward compatibility
-  static const double height = designHeight;
 
   /// Max width for desktop web centering
   static const double maxWebWidth = 430.0;
@@ -63,18 +50,11 @@ class FigmaMobileCanvas extends StatelessWidget {
   /// Returns true when running on the web platform.
   static bool get _isWeb => kIsWeb;
 
-  /// Returns the effective logical width used by the canvas for a given context.
-  /// On web, this matches the actual viewport width (capped at maxWebWidth).
-  /// On native mobile, this is always the design width (375px).
+  /// Returns the effective logical width used by the canvas for a given context:
+  /// the actual viewport width, capped at [maxWebWidth].
   static double logicalWidthOf(BuildContext context) {
     final viewportWidth = MediaQuery.sizeOf(context).width;
     return webContentWidthFor(viewportWidth);
-  }
-
-  /// Returns the scale factor applied to the canvas for a given context.
-  /// On both web and native responsive canvas, logical scale is 1.0.
-  static double designScaleFor(BuildContext context) {
-    return 1.0;
   }
 
   /// Returns safe padding translated into the logical coordinate space of the canvas.
@@ -121,10 +101,9 @@ class FigmaMobileCanvas extends StatelessWidget {
     // On mobile web: fill 100% width
     final useWideWebLayout =
         wideWebLayout && _isWeb && viewportWidth >= wideWebBreakpoint;
-    final contentWidth = webContentWidthFor(
-      viewportWidth,
-      maxWidth: useWideWebLayout ? maxWideWebWidth : maxWebWidth,
-    );
+    final contentWidth = useWideWebLayout
+        ? wideWebContentWidthFor(viewportWidth)
+        : webContentWidthFor(viewportWidth);
     final showDesktopFrame = viewportWidth > maxWebWidth;
 
     return Align(

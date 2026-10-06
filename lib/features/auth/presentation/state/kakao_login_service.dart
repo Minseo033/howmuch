@@ -262,11 +262,6 @@ class KakaoLoginService {
     }
   }
 
-  Future<String?> refreshKakaoEmail({bool requestConsent = false}) async {
-    final identity = await refreshKakaoIdentity(requestConsent: requestConsent);
-    return usableAccountEmail(identity.email);
-  }
-
   /// Reads the latest Kakao email/photo without asking for new consent unless
   /// [requestConsent] is set by an explicit user action.
   Future<({String email, String profileImageUrl})> refreshKakaoIdentity({

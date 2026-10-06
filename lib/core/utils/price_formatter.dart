@@ -75,13 +75,6 @@ String formatWon(Object? value, {String fallback = ''}) {
   return '${parsed.amounts.map(_withThousandsSeparator).join(parsed.isRange ? ' ~ ' : ' / ')}원';
 }
 
-String formatWonAmount(Object? value, {String fallback = ''}) {
-  final formatted = formatWon(value, fallback: fallback);
-  return formatted.endsWith('원')
-      ? formatted.substring(0, formatted.length - 1)
-      : formatted;
-}
-
 String _withThousandsSeparator(int value) {
   return value.toString().replaceAllMapped(
     RegExp(r'(\d)(?=(\d{3})+(?!\d))'),

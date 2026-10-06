@@ -853,24 +853,6 @@ class _FakePriceAlertApiService extends PriceAlertApiService {
   );
 
   @override
-  Future<PriceAlertStore> saveSubscription({
-    required String storeId,
-    required bool enabled,
-    required bool notifyOnRise,
-    required bool notifyOnDrop,
-    required bool notifyOnNewMenu,
-  }) async {
-    _stores = _stores
-        .map(
-          (store) => store.storeId == storeId
-              ? store.copyWith(enabled: enabled)
-              : store,
-        )
-        .toList(growable: false);
-    return _stores.single;
-  }
-
-  @override
   Future<PriceAlertSettings> saveSettings(PriceAlertSettings settings) async {
     _stores = settings.stores;
     return settings;

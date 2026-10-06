@@ -23,7 +23,7 @@ void main() {
   test(
     'fresh stores replace cached stores and viewport is sent to the API',
     () async {
-      final result = await loadHomeMapStores(
+      final result = await loadHomeMapStoresWithStatus(
         bounds: bounds,
         cachedStores: [cached],
         request: (uri) async {
@@ -39,17 +39,17 @@ void main() {
           );
         },
       );
-      expect(result.single.storeName, '새 매장');
+      expect(result.stores.single.storeName, '새 매장');
     },
   );
 
   test('connection failure preserves cached stores', () async {
-    final result = await loadHomeMapStores(
+    final result = await loadHomeMapStoresWithStatus(
       bounds: bounds,
       cachedStores: [cached],
       request: (_) async => throw http.ClientException('offline'),
     );
-    expect(result, [cached]);
+    expect(result.stores, [cached]);
   });
 
   test('a capped viewport response is reported as truncated', () async {
@@ -81,16 +81,16 @@ void main() {
     'slow request falls back and a late response cannot replace the result',
     () async {
       final pending = Completer<http.Response>();
-      final result = await loadHomeMapStores(
+      final result = await loadHomeMapStoresWithStatus(
         bounds: bounds,
         cachedStores: [cached],
         timeout: const Duration(milliseconds: 1),
         request: (_) => pending.future,
       );
-      expect(result, [cached]);
+      expect(result.stores, [cached]);
       pending.complete(http.Response('[]', 200));
       await Future<void>.delayed(Duration.zero);
-      expect(result, [cached]);
+      expect(result.stores, [cached]);
     },
   );
 
@@ -103,23 +103,23 @@ void main() {
     test(
       'HTTP or malformed response ${response.body} uses valid cached coordinates',
       () async {
-        final result = await loadHomeMapStores(
+        final result = await loadHomeMapStoresWithStatus(
           bounds: bounds,
           cachedStores: [cached, Store.fromJson({})],
           request: (_) async => response,
         );
-        expect(result, [cached]);
+        expect(result.stores, [cached]);
       },
     );
   }
 
   test('successful empty response does not resurrect cached stores', () async {
-    final result = await loadHomeMapStores(
+    final result = await loadHomeMapStoresWithStatus(
       bounds: bounds,
       cachedStores: [cached],
       request: (_) async => http.Response('[]', 200),
     );
-    expect(result, isEmpty);
+    expect(result.stores, isEmpty);
   });
 
   test(
@@ -130,7 +130,7 @@ void main() {
         'latitude': 37.55,
         'longitude': 126.91,
       });
-      final fresh = await loadHomeMapStores(
+      final fresh = await loadHomeMapStoresWithStatus(
         bounds: bounds,
         cachedStores: [placeholder, cached],
         request: (_) async => http.Response(
@@ -139,14 +139,14 @@ void main() {
           headers: {'content-type': 'application/json; charset=utf-8'},
         ),
       );
-      final fallback = await loadHomeMapStores(
+      final fallback = await loadHomeMapStoresWithStatus(
         bounds: bounds,
         cachedStores: [placeholder, cached],
         request: (_) async => throw http.ClientException('offline'),
       );
 
-      expect(fresh.map((store) => store.storeName), ['기존 매장']);
-      expect(fallback.map((store) => store.storeName), ['기존 매장']);
+      expect(fresh.stores.map((store) => store.storeName), ['기존 매장']);
+      expect(fallback.stores.map((store) => store.storeName), ['기존 매장']);
       expect(
         decodeHomeMapStoreCache(
           encodeHomeMapStoreCache([placeholder, cached]),

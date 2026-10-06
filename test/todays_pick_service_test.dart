@@ -291,11 +291,11 @@ void main() {
     const error = '죄송합니다. AI 응답을 가져오는 중 오류가 발생했습니다.';
     expect(isAiUnavailableResponse(error), isTrue);
 
-    final message = buildLocalAiFallback(
+    final message = buildLocalAiFallbackResult(
       stores: [_store('테스트 식당', 37.5666, 126.9781)],
       lat: 37.5665,
       lng: 126.978,
-    );
+    )?.text;
     expect(message, contains('3km 안에서'));
     expect(message, contains('테스트 식당'));
     expect(message, contains('비빔밥'));

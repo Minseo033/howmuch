@@ -73,21 +73,6 @@ bool isHomeMapStoreResponseTruncated(http.Response response) {
 
 /// An unavailable bounds endpoint must not erase stores already loaded from
 /// the server. The caller applies viewport and user filters to either source.
-Future<List<Store>> loadHomeMapStores({
-  required Map<String, double> bounds,
-  required List<Store> cachedStores,
-  Future<http.Response> Function(Uri)? request,
-  Duration timeout = const Duration(seconds: 5),
-}) async {
-  final result = await loadHomeMapStoresWithStatus(
-    bounds: bounds,
-    cachedStores: cachedStores,
-    request: request,
-    timeout: timeout,
-  );
-  return result.stores;
-}
-
 Future<HomeMapStoreLoadResult> loadHomeMapStoresWithStatus({
   required Map<String, double> bounds,
   required List<Store> cachedStores,

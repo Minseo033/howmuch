@@ -683,37 +683,6 @@ bool menuMatchesRecommendationQuery(
   return true;
 }
 
-bool storeMatchesRequestedBudget(Store store, int? budgetWon) {
-  return budgetWon == null ||
-      preferredStoreMenu(store, budgetWon: budgetWon) != null;
-}
-
-String buildStructuredAiRecommendationText({
-  required List<Store> stores,
-  required String intro,
-  int? budgetWon,
-  double? lat,
-  double? lng,
-}) {
-  final lines = <String>[intro];
-  for (var index = 0; index < stores.length; index++) {
-    final store = stores[index];
-    final menu = preferredStoreMenu(store, budgetWon: budgetWon);
-    final distance = lat != null && lng != null
-        ? formatRecommendationDistance(
-            _haversineDistance(lat, lng, store.latitude, store.longitude),
-          )
-        : '';
-    final detail = [
-      menu?.menu ?? store.industry,
-      formatRecommendationPrice(menu?.price, free: menu?.free ?? false),
-      distance,
-    ].where((value) => value.isNotEmpty).join(' · ');
-    lines.add('${index + 1}. ${store.storeName} — $detail');
-  }
-  return lines.join('\n');
-}
-
 double _haversineDistance(double lat1, double lng1, double lat2, double lng2) {
   const earthRadius = 6371000.0;
   double radians(double degrees) => degrees * math.pi / 180;
@@ -797,17 +766,3 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
         .toList(growable: false),
   );
 }
-
-String? buildLocalAiFallback({
-  required List<Store> stores,
-  String? query,
-  double? lat,
-  double? lng,
-  int radiusMeters = defaultRecommendationRadiusMeters,
-}) => buildLocalAiFallbackResult(
-  stores: stores,
-  query: query,
-  lat: lat,
-  lng: lng,
-  radiusMeters: radiusMeters,
-)?.text;

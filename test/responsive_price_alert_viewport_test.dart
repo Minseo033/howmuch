@@ -68,7 +68,6 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(tester.takeException(), isNull);
-          expect(FigmaMobileCanvas.designScaleFor(capturedContext), 1.0);
 
           if (size.width <= FigmaMobileCanvas.maxWebWidth) {
             expect(
