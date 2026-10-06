@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 void main() {
   testWidgets(
@@ -34,7 +35,9 @@ void main() {
     },
   );
 
-  testWidgets('searches and selects a report address', (tester) async {
+  testWidgets('store selection still fills name, address and industry', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       ProviderScope(
         child: MaterialApp(
@@ -54,7 +57,7 @@ void main() {
       ),
     );
 
-    await tester.tap(find.byTooltip('주소 검색'));
+    await tester.tap(find.byTooltip('매장 검색'));
     await tester.pumpAndSettle();
 
     expect(find.text('현재 위치에서 가까운 순으로 보여드려요.'), findsOneWidget);
@@ -73,6 +76,80 @@ void main() {
     expect(find.text('롯데리아 역삼점'), findsOneWidget);
     expect(find.text('서울 강남구 테헤란로 123'), findsOneWidget);
     expect(find.text('음식점 · 패스트푸드'), findsOneWidget);
+  });
+
+  testWidgets('address-only selection preserves entered name and industry', (
+    tester,
+  ) async {
+    final original = UserReportStatus.fromJson({
+      'id': 'draft',
+      'storeName': '기존 식당',
+      'industry': '음식점 · 한식',
+      'address': '기존 주소',
+      'menu1': '국수',
+      'price1': '5000',
+      'status': 'PENDING',
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: ReportCreateScreen(
+            initialReport: original,
+            locationLookup: () async => null,
+            placeSearch: (_, _, _) async => const [
+              ReportPlaceSuggestion(
+                name: '다른 카페',
+                address: '새 주소',
+                category: '카페',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('주소 검색'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('report-address-search-input')),
+      '새 주소',
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('다른 카페'));
+    await tester.pumpAndSettle();
+    expect(find.text('기존 식당'), findsOneWidget);
+    expect(find.text('음식점 · 한식'), findsOneWidget);
+    expect(find.text('새 주소'), findsOneWidget);
+    expect(find.text('다른 카페'), findsNothing);
+  });
+
+  testWidgets('four menus disable adding and removing re-enables it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final original = UserReportStatus.fromJson({
+      'id': 'draft',
+      'storeName': '식당',
+      'status': 'PENDING',
+      for (var i = 1; i <= 4; i++) ...{'menu$i': '메뉴$i', 'price$i': '5000'},
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(home: ReportCreateScreen(initialReport: original)),
+      ),
+    );
+    final add = find.widgetWithText(OutlinedButton, '메뉴 추가');
+    await tester.ensureVisible(add);
+    expect(tester.widget<OutlinedButton>(add).onPressed, isNull);
+    await tester.tap(find.byTooltip('메뉴4 제거'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<OutlinedButton>(add).onPressed, isNotNull);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
+    expect(tester.widget<OutlinedButton>(add).onPressed, isNull);
   });
 
   testWidgets('keeps the place category hidden in search results', (

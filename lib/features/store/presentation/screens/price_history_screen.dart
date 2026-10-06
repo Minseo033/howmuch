@@ -12,6 +12,7 @@ import '../../../../shared/widgets/custom_bottom_button.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
 import '../../store_model.dart';
 import '../../../../core/utils/price_formatter.dart';
+import 'price_change_report_screen.dart';
 
 class PriceHistoryTarget {
   const PriceHistoryTarget({required this.store, required this.menuIndex});
@@ -160,8 +161,12 @@ class _PriceHistoryScreenState extends State<PriceHistoryScreen> {
         bottomNavigationBar: CustomBottomButton(
           text: '가격 변동 제보하기',
           backgroundColor: AppColors.orangeTheme,
-          onPressed: () =>
-              context.push(AppRoutes.priceChangeReport, extra: store),
+          onPressed: () => context.push(
+            AppRoutes.priceChangeReport,
+            extra: store == null
+                ? null
+                : PriceChangeReportTarget(store: store, menuIndex: _menuIndex),
+          ),
         ),
       ),
     );

@@ -26,6 +26,11 @@ class Store {
   final StoreHours? openingHours;
 
   bool get isUserReported => source.trim().toUpperCase() == 'USER';
+  String get menuSourceLabel => switch (source.trim().toUpperCase()) {
+    'GOV' => '공공데이터 기준',
+    'USER' => '사용자 제보 기준',
+    _ => '출처 확인 필요',
+  };
 
   bool get hasValidCoordinates =>
       latitude.isFinite &&

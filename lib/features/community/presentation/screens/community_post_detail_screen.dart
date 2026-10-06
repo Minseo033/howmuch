@@ -456,11 +456,11 @@ class _CommunityPostDetailScreenState
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom > 12 ? safePadding.bottom : 12.0;
-    final designScale = FigmaMobileCanvas.designScaleFor(context);
-    final keyboardInset = designScale <= 0
+    // FigmaMobileCanvas already resizes for the keyboard. Do not add its
+    // height again to the composer inside the resized viewport.
+    final composerBottomGap = MediaQuery.viewInsetsOf(context).bottom > 0
         ? 0.0
-        : MediaQuery.viewInsetsOf(context).bottom / designScale;
-    final composerBottomGap = keyboardInset > 0 ? keyboardInset : bottomOffset;
+        : bottomOffset;
     const composerTopPadding = 14.0;
     const composerHeight = 52.0;
     final replyTarget = _replyTarget;

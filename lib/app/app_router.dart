@@ -128,8 +128,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: PriceChangeReportScreen(
-            store: state.extra is Store ? state.extra as Store : null,
-            storeName: state.extra is Store
+            store: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).store
+                : state.extra is Store
+                ? state.extra as Store
+                : null,
+            initialMenuIndex: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).menuIndex
+                : null,
+            storeName: state.extra is PriceChangeReportTarget
+                ? (state.extra as PriceChangeReportTarget).store.storeName
+                : state.extra is Store
                 ? (state.extra as Store).storeName
                 : state.extra is String
                 ? state.extra as String
@@ -142,7 +151,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage<void>(
           key: state.pageKey,
           child: StoreInfoReportScreen(
-            store: state.extra is Store ? state.extra as Store : null,
+            store: state.extra is StoreInfoReportTarget
+                ? (state.extra as StoreInfoReportTarget).store
+                : state.extra is Store
+                ? state.extra as Store
+                : null,
+            initialReport: state.extra is StoreInfoReportTarget
+                ? (state.extra as StoreInfoReportTarget).initialReport
+                : null,
           ),
         ),
       ),

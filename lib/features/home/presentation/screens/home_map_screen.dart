@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
+import 'package:howmuch/features/home/home_map_viewport_policy.dart';
 import 'kakao_web_helper_stub.dart'
     if (dart.library.js) 'kakao_web_helper.dart'
     as web_helper;
@@ -217,6 +218,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   bool _isMapReady = false;
   String? _mapErrorMessage;
   Position? _pendingMapPosition;
+  int? _pendingMapCenterGeneration;
+  final _viewportPolicy = HomeMapViewportPolicy();
   StreamSubscription<Position>? _positionStream;
   StreamSubscription<CompassEvent>? _compassStream;
   Position? _lastKnownPosition;
@@ -520,6 +523,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _invalidatePendingMapRequest() {
+    _viewportPolicy.invalidate();
+    _pendingMapCenterGeneration = null;
     _boundsRequestGeneration++;
     _pendingBoundsJson = null;
     _webBoundsRetryTimer?.cancel();
@@ -560,6 +565,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       });
       _highlightMapMarker(-1);
     } else if (index >= 0 && index < _currentStores.length) {
+      _viewportPolicy.invalidate();
       final store = _currentStores[index];
       setState(() {
         _selectedStore = store;
@@ -610,6 +616,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _centerMapOnStore(Store store, int index) {
     if (!store.hasValidCoordinates) return;
+    _viewportPolicy.invalidate();
     if (kIsWeb) {
       web_helper.setKakaoMapCenterFromSwipeWeb(
         _viewId,
@@ -650,7 +657,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     unawaited(_restoreCachedStores());
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _prepareInitialLocation(),
+      (_) => _prepareInitialLocation(initial: true),
     );
     if (kIsWeb) {
       web_helper.registerKakaoWebViewFactory(_viewId);
@@ -733,7 +740,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _relayoutMobileMap();
             });
-            unawaited(_moveToCurrentLocation());
           }
           if (message.message.startsWith('MAP_ERROR:')) {
             _onMapError(message.message.substring('MAP_ERROR:'.length));
@@ -1103,9 +1109,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  Future<void> _prepareInitialLocation() async {
+  Future<void> _prepareInitialLocation({bool initial = false}) async {
+    final centerGeneration = initial
+        ? _viewportPolicy.claimInitialCenter(
+            hasDestination:
+                _pendingAiResult != null ||
+                _pendingSearchResult != null ||
+                _activeAiRecommendation != null ||
+                _searchResultStores != null ||
+                _selectedStore != null,
+          )
+        : null;
+    final requestInitialPermission = initial && centerGeneration != null;
     if (!kIsWeb) {
-      await _moveToCurrentLocation();
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: requestInitialPermission,
+      );
       return;
     }
 
@@ -1113,7 +1134,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     // 탭 복귀 시 안내 모달을 띄우지 않고 조용히 현재 위치로 이동/갱신한다.
     if (HomeMapScreen.globalUserPosition != null ||
         HomeMapScreen.hasRequestedLocationWeb) {
-      await _moveToCurrentLocation();
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: false,
+      );
       return;
     }
 
@@ -1121,7 +1146,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('web_location_granted') == true) {
         HomeMapScreen.hasRequestedLocationWeb = true;
-        await _moveToCurrentLocation();
+        await _moveToCurrentLocation(
+          centerGeneration: centerGeneration,
+          passive: true,
+          requestPermission: false,
+        );
         return;
       }
     } catch (_) {}
@@ -1140,8 +1169,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted || _isCenteringLocation) return;
     if (permission == LocationPermission.always ||
         permission == LocationPermission.whileInUse) {
-      await _moveToCurrentLocation();
-    } else if (_locationNotice == null) {
+      await _moveToCurrentLocation(
+        centerGeneration: centerGeneration,
+        passive: true,
+        requestPermission: false,
+      );
+    } else if (initial && _locationNotice == null) {
       _showLocationNotice(
         _webLocationPermissionNotice(
           title: '내 주변 매장을 찾아볼까요?',
@@ -1153,10 +1186,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  Future<void> _moveToCurrentLocation() async {
-    _suppressMarkerClicks(const Duration(milliseconds: 1200));
+  Future<void> _moveToCurrentLocation({
+    int? centerGeneration,
+    bool passive = false,
+    bool requestPermission = true,
+  }) async {
     if (_isCenteringLocation) return;
-    if (mounted) {
+    final viewportGeneration = passive
+        ? centerGeneration
+        : _viewportPolicy.beginExplicitCenter();
+    if (!passive) _suppressMarkerClicks(const Duration(milliseconds: 1200));
+    final showFailureNotice = !passive || requestPermission;
+    if (mounted && !passive) {
       setState(() {
         _isCenteringLocation = true;
         _locationNotice = null;
@@ -1174,13 +1215,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         } catch (_) {}
         if (!mounted) return;
         _storeUserPosition(position);
-        _centerMapOnPosition(position);
+        if (viewportGeneration != null &&
+            _viewportPolicy.canApply(viewportGeneration)) {
+          _centerMapOnPosition(position, generation: viewportGeneration);
+        }
         _startLocationTracking();
         return;
       }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        if (mounted) {
+        if (mounted && showFailureNotice) {
           _showLocationNotice(
             _LocationNoticeData(
               title: '위치 서비스를 켜주세요',
@@ -1196,6 +1240,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
+        if (!requestPermission) return;
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
           if (mounted) {
@@ -1211,7 +1256,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
 
       if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
+        if (mounted && showFailureNotice) {
           _showLocationNotice(
             _LocationNoticeData(
               title: '위치 권한이 꺼져 있어요',
@@ -1240,14 +1285,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (position != null &&
           isFreshHomeLocation(position.timestamp, DateTime.now())) {
         _storeUserPosition(position);
-        _centerMapOnPosition(position);
-        _refreshCurrentPositionInBackground(centerMap: true);
+        if (viewportGeneration != null &&
+            _viewportPolicy.canApply(viewportGeneration)) {
+          _centerMapOnPosition(position, generation: viewportGeneration);
+        }
+        _refreshCurrentPositionInBackground(
+          centerGeneration: viewportGeneration,
+        );
         return;
       }
 
       position = await _getFreshPosition();
       if (position == null) {
-        if (mounted) {
+        if (mounted && showFailureNotice) {
           _showLocationNotice(
             const _LocationNoticeData(
               title: '현재 위치를 찾지 못했어요',
@@ -1257,10 +1307,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         return;
       }
+      if (!mounted) return;
       _storeUserPosition(position);
-      _centerMapOnPosition(position);
+      if (viewportGeneration != null &&
+          _viewportPolicy.canApply(viewportGeneration)) {
+        _centerMapOnPosition(position, generation: viewportGeneration);
+      }
     } on PermissionDeniedException {
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           kIsWeb
               ? _webLocationPermissionNotice()
@@ -1271,7 +1325,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
     } on TimeoutException {
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           _LocationNoticeData(
             title: '위치 확인에 시간이 걸리고 있어요',
@@ -1283,7 +1337,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     } catch (_) {
       debugPrint('위치 가져오기 실패');
-      if (mounted) {
+      if (mounted && showFailureNotice) {
         _showLocationNotice(
           _LocationNoticeData(
             title: '현재 위치를 찾지 못했어요',
@@ -1294,7 +1348,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         );
       }
     } finally {
-      if (mounted) {
+      if (mounted && !passive) {
         setState(() => _isCenteringLocation = false);
       }
     }
@@ -1363,17 +1417,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  void _refreshCurrentPositionInBackground({bool centerMap = false}) {
+  void _refreshCurrentPositionInBackground({int? centerGeneration}) {
     if (_freshLocationRequest != null) return;
-    _freshLocationRequest = _refreshCurrentPosition(centerMap: centerMap);
+    _freshLocationRequest = _refreshCurrentPosition(
+      centerGeneration: centerGeneration,
+    );
   }
 
-  Future<void> _refreshCurrentPosition({required bool centerMap}) async {
+  Future<void> _refreshCurrentPosition({int? centerGeneration}) async {
     try {
       final position = await _getFreshPosition();
       if (position != null && mounted) {
         _storeUserPosition(position);
-        if (centerMap) _centerMapOnPosition(position);
+        if (centerGeneration != null &&
+            _viewportPolicy.canApply(centerGeneration)) {
+          _centerMapOnPosition(position, generation: centerGeneration);
+        }
       }
     } finally {
       _freshLocationRequest = null;
@@ -1462,12 +1521,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     _pendingMapPosition = null;
     _updateLocationMarker(position.latitude, position.longitude);
-    _centerMapOnPosition(position);
+    final generation = _pendingMapCenterGeneration;
+    _pendingMapCenterGeneration = null;
+    if (generation != null && _viewportPolicy.canApply(generation)) {
+      _centerMapOnPosition(position, generation: generation);
+    }
   }
 
-  void _centerMapOnPosition(Position position) {
+  void _centerMapOnPosition(Position position, {required int generation}) {
+    if (!_viewportPolicy.canApply(generation)) return;
     if (!_isMapReady) {
       _pendingMapPosition = position;
+      _pendingMapCenterGeneration = generation;
       return;
     }
 
@@ -1947,10 +2012,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     final activeFilters = _searchFilter.activeLabels;
     final hasFilters = activeFilters.isNotEmpty;
     final isSearching = _searchQuery.isNotEmpty || hasFilters;
-    final isAiActive =
+    final isResultActive =
         _isAiRecommendationActive && _aiRecommendedStores.isNotEmpty;
+    final isAiActive =
+        isResultActive &&
+        _activeAiRecommendation?.origin != MapResultOrigin.approvedReport;
     final showStoreList =
-        (isSearching || isAiActive) && _currentStores.isNotEmpty;
+        (isSearching || isResultActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
     return FigmaMobileCanvas(
@@ -2158,7 +2226,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
 
-          if (!isSearching && !isAiActive) ...[
+          if (!isSearching && !isResultActive) ...[
             if (!isCompactHeight)
               Positioned(
                 left: AppSizes.horizontalPadding,
@@ -2274,23 +2342,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             ),
           ],
           if (showStoreList) ...[
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 10 + storeCardHeight + 4,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(
-                  child: _FloatingSearchSummary(
-                    count: _currentStores.length,
-                    title: isAiActive ? 'AI 추천 결과 ' : null,
-                    detail: _searchResultStores == null
-                        ? null
-                        : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+            if (_activeAiRecommendation?.origin !=
+                MapResultOrigin.approvedReport)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(
+                    child: _FloatingSearchSummary(
+                      count: _currentStores.length,
+                      title: isAiActive ? 'AI 추천 결과 ' : null,
+                      detail: _searchResultStores == null
+                          ? null
+                          : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                    ),
                   ),
                 ),
               ),
-            ),
             Positioned(
               left: 0,
               right: 0,

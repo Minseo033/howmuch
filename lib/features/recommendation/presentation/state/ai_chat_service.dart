@@ -361,18 +361,22 @@ class LocalAiRecommendation {
   final List<RecommendationMenuSelection> menuSelections;
 }
 
+enum MapResultOrigin { aiRecommendation, approvedReport }
+
 class AiMapRecommendationResult {
   const AiMapRecommendationResult({
     required this.storeIds,
     this.stores = const [],
     this.menuSelections = const [],
     this.queryText = '',
+    this.origin = MapResultOrigin.aiRecommendation,
   });
 
   final List<String> storeIds;
   final List<Store> stores;
   final List<RecommendationMenuSelection> menuSelections;
   final String queryText;
+  final MapResultOrigin origin;
 
   RecommendationMenuSelection? selectionFor(Store store) {
     for (final selection in menuSelections) {

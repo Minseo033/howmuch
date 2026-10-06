@@ -29,6 +29,50 @@ void main() {
     source: 'GOV',
   );
 
+  for (final slot in [2, 3]) {
+    testWidgets('history menu slot $slot is retained and new price is blank', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: PriceChangeReportScreen(
+              store: testStore,
+              initialMenuIndex: slot,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final fields = tester
+          .widgetList<TextField>(find.byType(TextField))
+          .toList();
+      expect(fields.first.controller!.text, testStore.menuAt(slot));
+      expect(fields[1].controller!.text, isEmpty);
+    });
+  }
+
+  testWidgets(
+    'missing explicit history slot never silently selects primary menu',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: PriceChangeReportScreen(
+              store: testStore,
+              initialMenuIndex: 4,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        isEmpty,
+      );
+    },
+  );
+
   testWidgets(
     'derives default menu from store registered menus and never uses generic 아메리카노',
     (tester) async {

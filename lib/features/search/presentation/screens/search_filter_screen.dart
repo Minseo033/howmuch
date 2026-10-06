@@ -146,124 +146,128 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
           ),
 
           // ─── 스크롤 영역
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.6,
-            ),
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── 업종 섹션
-                    const _SectionTitle(title: '업종'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _industryOptions.map((ind) {
-                        final selected = _industries.contains(ind);
-                        return _ChipWidget(
-                          label: ind,
-                          selected: selected,
-                          onTap: () {
-                            setState(() {
-                              if (ind == '전체') {
-                                _industries = {'전체'};
-                              } else {
-                                _industries.remove('전체');
-                                if (_industries.contains(ind)) {
-                                  _industries.remove(ind);
-                                  if (_industries.isEmpty) {
-                                    _industries.add('전체');
-                                  }
+          Flexible(
+            fit: FlexFit.loose,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+              ),
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── 업종 섹션
+                      const _SectionTitle(title: '업종'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _industryOptions.map((ind) {
+                          final selected = _industries.contains(ind);
+                          return _ChipWidget(
+                            label: ind,
+                            selected: selected,
+                            onTap: () {
+                              setState(() {
+                                if (ind == '전체') {
+                                  _industries = {'전체'};
                                 } else {
-                                  _industries.add(ind);
+                                  _industries.remove('전체');
+                                  if (_industries.contains(ind)) {
+                                    _industries.remove(ind);
+                                    if (_industries.isEmpty) {
+                                      _industries.add('전체');
+                                    }
+                                  } else {
+                                    _industries.add(ind);
+                                  }
                                 }
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 가격대 섹션
-                    const _SectionTitle(title: '가격대'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _prices.map((p) {
-                        final selected = _maxPrice == p.value;
-                        return _ChipWidget(
-                          label: p.label,
-                          selected: selected,
-                          onTap: () => setState(
-                            () => _maxPrice = selected ? null : p.value,
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 가격대 섹션
+                      const _SectionTitle(title: '가격대'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _prices.map((p) {
+                          final selected = _maxPrice == p.value;
+                          return _ChipWidget(
+                            label: p.label,
+                            selected: selected,
+                            onTap: () => setState(
+                              () => _maxPrice = selected ? null : p.value,
+                            ),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 거리 섹션
-                    const _SectionTitle(title: '거리'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _distances.map((d) {
-                        final selected = _distance == d;
-                        return _ChipWidget(
-                          label: d,
-                          selected: selected,
-                          onTap: () =>
-                              setState(() => _distance = selected ? null : d),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 거리 섹션
+                      const _SectionTitle(title: '거리'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _distances.map((d) {
+                          final selected = _distance == d;
+                          return _ChipWidget(
+                            label: d,
+                            selected: selected,
+                            onTap: () =>
+                                setState(() => _distance = selected ? null : d),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 정렬 방식 섹션
-                    const _SectionTitle(title: '정렬 방식'),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 12,
-                      children: _sortOrders.map((s) {
-                        final selected = _sortOrder == s;
-                        return _ChipWidget(
-                          label: s,
-                          selected: selected,
-                          onTap: () =>
-                              setState(() => _sortOrder = selected ? null : s),
-                        );
-                      }).toList(),
-                    ),
+                      // ── 정렬 방식 섹션
+                      const _SectionTitle(title: '정렬 방식'),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 12,
+                        children: _sortOrders.map((s) {
+                          final selected = _sortOrder == s;
+                          return _ChipWidget(
+                            label: s,
+                            selected: selected,
+                            onTap: () => setState(
+                              () => _sortOrder = selected ? null : s,
+                            ),
+                          );
+                        }).toList(),
+                      ),
 
-                    const SizedBox(height: 28),
+                      const SizedBox(height: 28),
 
-                    // ── 스위치 영역
-                    _SwitchRow(
-                      label: '정부 인증 업소만 보기',
-                      value: _govCertified,
-                      onChanged: (val) => setState(() => _govCertified = val),
-                    ),
-                    const SizedBox(height: 16),
-                    _SwitchRow(
-                      label: '사용자 제보 매장 포함',
-                      value: _userReported,
-                      onChanged: (val) => setState(() => _userReported = val),
-                    ),
+                      // ── 스위치 영역
+                      _SwitchRow(
+                        label: '정부 인증 업소만 보기',
+                        value: _govCertified,
+                        onChanged: (val) => setState(() => _govCertified = val),
+                      ),
+                      const SizedBox(height: 16),
+                      _SwitchRow(
+                        label: '사용자 제보 매장 포함',
+                        value: _userReported,
+                        onChanged: (val) => setState(() => _userReported = val),
+                      ),
 
-                    const SizedBox(height: 28),
-                  ],
+                      const SizedBox(height: 28),
+                    ],
+                  ),
                 ),
               ),
             ),

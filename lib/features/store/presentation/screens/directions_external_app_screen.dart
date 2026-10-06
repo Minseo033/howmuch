@@ -206,15 +206,36 @@ class _DirectionsExternalAppScreenState
             destinationLongitude: widget.longitude,
           );
     try {
-      final opened = kIsWeb
-          ? await launchUrl(
-              urls.web,
-              mode: LaunchMode.externalApplication,
-              webOnlyWindowName: '_blank',
-            )
-          : await canLaunchUrl(urls.native)
-          ? await launchUrl(urls.native)
-          : await launchUrl(urls.web, mode: LaunchMode.externalApplication);
+      bool opened;
+      if (kIsWeb) {
+        opened = await launchUrl(
+          urls.web,
+          mode: LaunchMode.externalApplication,
+          webOnlyWindowName: '_blank',
+        );
+      } else {
+        opened = false;
+        try {
+          if (await canLaunchUrl(urls.native)) {
+            opened = await launchUrl(urls.native);
+          }
+        } catch (_) {
+          // An installed but unavailable map app must still allow web routes.
+        }
+        if (!opened) {
+          if (!kakao && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              HowmuchSnackBar(
+                content: Text('네이버 지도 앱을 설치해 이용할 수도 있어요. 설치 없이 웹 지도로 연결합니다.'),
+              ),
+            );
+          }
+          opened = await launchUrl(
+            urls.web,
+            mode: LaunchMode.externalApplication,
+          );
+        }
+      }
       if (!mounted) return;
       if (!opened) {
         ScaffoldMessenger.of(context).showSnackBar(

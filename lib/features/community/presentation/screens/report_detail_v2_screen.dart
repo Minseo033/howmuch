@@ -11,6 +11,7 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
+import 'package:howmuch/features/errors/presentation/screens/store_info_report_screen.dart';
 
 class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
@@ -50,9 +51,10 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
   @override
   Widget build(BuildContext context) {
     final reports = ref.watch(userReportsProvider);
+    final identity = widget.reportId ?? widget.initialReport?.id;
     final report =
-        widget.initialReport ??
-        reports.where((item) => item.id == widget.reportId).firstOrNull;
+        reports.where((item) => item.id == identity).firstOrNull ??
+        widget.initialReport;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     const actionHeight = 45.994;
@@ -402,6 +404,20 @@ class _ReportInfoCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSizes.smallSpacing),
           _PriceLine(report: report),
+          if (report.isInformationReport) ...[
+            const SizedBox(height: AppSizes.smallSpacing),
+            _InfoLine(
+              label: '신고 유형',
+              value: report.informationTypeLabel,
+              valueWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: AppSizes.smallSpacing),
+            _InfoLine(
+              label: '신고 내용',
+              value: report.description.isEmpty ? '입력 없음' : report.description,
+              valueWeight: FontWeight.w400,
+            ),
+          ],
           const SizedBox(height: AppSizes.itemSpacing),
           _PhotoSection(imageUrls: report.imageUrls),
         ],
@@ -450,7 +466,7 @@ class _UserBadgeRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(999),
           ),
           child: Text(
-            report.status,
+            report.processingLabel,
             style: TextStyle(
               color: Color(report.textColor),
               fontFamily: ReportDetailV2Screen._fontFamily,
@@ -671,7 +687,7 @@ class _InfoMessageCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  report.status,
+                  report.processingLabel,
                   style: TextStyle(
                     color: hasNotice
                         ? ReportDetailV2Screen._orange
@@ -685,9 +701,7 @@ class _InfoMessageCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  hasNotice
-                      ? report.rejectReason.trim()
-                      : '현재 가격과 위치 정보를 확인하고 있어요.',
+                  report.processingNotice,
                   style: const TextStyle(
                     color: ReportDetailV2Screen._black,
                     fontFamily: ReportDetailV2Screen._fontFamily,
@@ -712,7 +726,7 @@ class _ProgressSteps extends StatelessWidget {
   final UserReportStatus report;
 
   int get _currentIndex {
-    if (report.status.contains('승인')) return 3;
+    if (report.isApproved) return 3;
     if (report.status.contains('반려') || report.status.contains('보완')) {
       return 2;
     }
@@ -728,7 +742,7 @@ class _ProgressSteps extends StatelessWidget {
   String get _reviewResultLabel {
     if (report.status.contains('반려')) return '반려';
     if (report.status.contains('보완')) return '보완 요청';
-    if (report.status.contains('승인')) return '승인 완료';
+    if (report.isApproved) return '검토 완료';
     return '검토 결과';
   }
 
@@ -752,7 +766,11 @@ class _ProgressSteps extends StatelessWidget {
         currentIndex > 2,
       ),
       _StepData(
-        '지도 반영',
+        report.hasAppliedChanges
+            ? '지도 반영'
+            : report.resolution == 'NO_CHANGE'
+            ? '수정 없음'
+            : '처리 확인',
         3,
         currentIndex >= 3
             ? ReportDetailV2Screen._green
@@ -1062,7 +1080,16 @@ class _PrimaryActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FilledButton(
-      onPressed: () => context.push(AppRoutes.reportCreate, extra: report),
+      onPressed: report.isApproved
+          ? null
+          : () => context.push(
+              report.isInformationReport
+                  ? AppRoutes.storeInfoReport
+                  : AppRoutes.reportCreate,
+              extra: report.isInformationReport
+                  ? StoreInfoReportTarget(initialReport: report)
+                  : report,
+            ),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -1072,15 +1099,18 @@ class _PrimaryActionButton extends StatelessWidget {
         children: [
           const Icon(Icons.edit_outlined, size: 14, color: Colors.white),
           const SizedBox(width: 6),
-          const Text(
-            '제보 수정하기',
-            style: TextStyle(
-              color: Colors.white,
-              fontFamily: ReportDetailV2Screen._fontFamily,
-              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              height: 1.5,
+          Flexible(
+            child: Text(
+              report.isApproved ? '승인된 제보 · 수정 불가' : '제보 수정하기',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: ReportDetailV2Screen._fontFamily,
+                fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
             ),
           ),
         ],

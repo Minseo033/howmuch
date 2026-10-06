@@ -46,7 +46,7 @@ void main() {
         expect(urls.web.queryParameters['ex'], '127.2');
         expect(urls.web.queryParameters['ey'], '37.2');
         expect(urls.web.queryParameters['pathType'], switch (transport) {
-          DirectionsTransport.walk => '2',
+          DirectionsTransport.walk => '3',
           DirectionsTransport.transit => '1',
           DirectionsTransport.car => '0',
         });

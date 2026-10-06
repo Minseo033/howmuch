@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,31 +16,67 @@ import 'package:howmuch/features/system/presentation/state/push_notification_ser
 
 final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 
+enum KakaoLoginStatus { success, cancelled, failed }
+
+class KakaoLoginResult {
+  const KakaoLoginResult(this.status, [this.errorMessage]);
+  final KakaoLoginStatus status;
+  final String? errorMessage;
+}
+
+bool isKakaoLoginCancellation(Object error) =>
+    (error is KakaoClientException &&
+        error.reason == ClientErrorCause.cancelled) ||
+    (error is KakaoAuthException && error.error == AuthErrorCause.accessDenied) ||
+    (error is PlatformException && error.code == 'CANCELED');
+
 class KakaoLoginService {
   final Ref _ref;
 
-  KakaoLoginService(this._ref);
+  KakaoLoginService(
+    this._ref, {
+    Future<bool> Function()? talkInstalled,
+    Future<OAuthToken> Function()? talkLogin,
+    Future<OAuthToken> Function()? accountLogin,
+  }) : _talkInstalled = talkInstalled ?? isKakaoTalkInstalled,
+       _talkLogin = talkLogin ?? (() => UserApi.instance.loginWithKakaoTalk()),
+       _accountLogin =
+           accountLogin ?? (() => UserApi.instance.loginWithKakaoAccount());
 
-  Future<String?> login() async {
+  final Future<bool> Function() _talkInstalled;
+  final Future<OAuthToken> Function() _talkLogin;
+  final Future<OAuthToken> Function() _accountLogin;
+
+  Future<KakaoLoginResult> login() async {
     var backendSessionEstablished = false;
     try {
-      bool isInstalled = await isKakaoTalkInstalled();
+      bool isInstalled = await _talkInstalled();
 
       OAuthToken token;
       if (isInstalled) {
         try {
-          token = await UserApi.instance.loginWithKakaoTalk();
+          token = await _talkLogin();
           debugPrint('카카오톡으로 로그인 성공');
         } catch (error) {
+          if (isKakaoLoginCancellation(error)) {
+            return const KakaoLoginResult(KakaoLoginStatus.cancelled);
+          }
           debugPrint('카카오톡으로 로그인하지 못했습니다.');
           _ref.read(appRouterProvider).go(AppRoutes.login);
-          if (error is KakaoClientException && error.msg == 'Canceled') {
-            return '사용자가 취소했습니다.';
-          }
-          return '카카오톡 앱 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.';
+          return const KakaoLoginResult(
+            KakaoLoginStatus.failed,
+            '카카오톡 앱 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.',
+          );
         }
       } else {
-        token = await UserApi.instance.loginWithKakaoAccount();
+        try {
+          token = await _accountLogin();
+        } catch (error) {
+          if (isKakaoLoginCancellation(error)) {
+            return const KakaoLoginResult(KakaoLoginStatus.cancelled);
+          }
+          rethrow;
+        }
         debugPrint('카카오계정으로 로그인 성공');
       }
 
@@ -116,10 +153,10 @@ class KakaoLoginService {
           _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
         }
 
-        return null; // 성공 시 null 반환
+        return const KakaoLoginResult(KakaoLoginStatus.success);
       } else {
         _ref.read(appRouterProvider).go(AppRoutes.login);
-        return '백엔드 인증 실패';
+        return const KakaoLoginResult(KakaoLoginStatus.failed, '백엔드 인증 실패');
       }
     } catch (_) {
       debugPrint('카카오 로그인 처리 중 오류가 발생했습니다.');
@@ -127,7 +164,10 @@ class KakaoLoginService {
         await clearLocalSession(unregisterDevice: false);
       }
       _ref.read(appRouterProvider).go(AppRoutes.login);
-      return '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      return const KakaoLoginResult(
+        KakaoLoginStatus.failed,
+        '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+      );
     }
   }
 

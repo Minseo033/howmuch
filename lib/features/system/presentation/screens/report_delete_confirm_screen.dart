@@ -183,12 +183,12 @@ class _DeleteDialog extends StatelessWidget {
                 style: _dialogSubtitleText,
               ),
             ),
-            const Positioned(
+            Positioned(
               left: 20,
               top: 164.95703125,
               width: 287.4715881347656,
               height: 77.61363220214844,
-              child: _WarningPanel(),
+              child: _WarningPanel(report: report),
             ),
             Positioned(
               left: 0,
@@ -236,7 +236,8 @@ class _DeleteIcon extends StatelessWidget {
 }
 
 class _WarningPanel extends StatelessWidget {
-  const _WarningPanel();
+  const _WarningPanel({this.report});
+  final UserReportStatus? report;
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +246,7 @@ class _WarningPanel extends StatelessWidget {
         color: ReportDeleteConfirmScreen.redBg,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: const Stack(
+      child: Stack(
         children: [
           Positioned(
             left: 11.988525390625,
@@ -262,7 +263,7 @@ class _WarningPanel extends StatelessWidget {
             width: 242.49998474121094,
             height: 57.6136360168457,
             child: Text(
-              '삭제 후에는 되돌릴 수 없어요.\n승인 완료된 제보는 지도에서도 즉시 제거됩니다.',
+              report?.deletionWarning ?? '삭제 후에는 되돌릴 수 없어요.',
               style: _warningText,
             ),
           ),

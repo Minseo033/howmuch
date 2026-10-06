@@ -61,14 +61,22 @@ String? validatePriceChange({
   return null;
 }
 
+class PriceChangeReportTarget {
+  const PriceChangeReportTarget({required this.store, required this.menuIndex});
+  final Store store;
+  final int menuIndex;
+}
+
 class PriceChangeReportScreen extends ConsumerStatefulWidget {
   final String storeName;
   final Store? store;
+  final int? initialMenuIndex;
 
   const PriceChangeReportScreen({
     super.key,
     this.storeName = '매장 정보 없음',
     this.store,
+    this.initialMenuIndex,
   });
 
   @override
@@ -83,6 +91,7 @@ class _PriceChangeReportScreenState
   bool _isConfirmed = false;
   bool _isFree = false;
   bool _isSubmitting = false;
+  int? _selectedMenuIndex;
 
   final _menuController = TextEditingController();
   final _priceController = TextEditingController();
@@ -98,20 +107,24 @@ class _PriceChangeReportScreenState
   final List<XFile> _selectedImages = [];
   final ImagePicker _picker = ImagePicker();
 
-  List<({String menu, String price})> get _registeredMenus {
+  List<({int slot, String menu, String price})> get _registeredMenuSlots {
     final s = widget.store;
     if (s == null) return const [];
     return [
-      if (s.menu1.trim().isNotEmpty)
-        (menu: s.menu1.trim(), price: s.price1.trim()),
-      if (s.menu2.trim().isNotEmpty)
-        (menu: s.menu2.trim(), price: s.price2.trim()),
-      if (s.menu3.trim().isNotEmpty)
-        (menu: s.menu3.trim(), price: s.price3.trim()),
-      if (s.menu4.trim().isNotEmpty)
-        (menu: s.menu4.trim(), price: s.price4.trim()),
+      for (var slot = 1; slot <= 4; slot++)
+        if (s.menuAt(slot).trim().isNotEmpty)
+          (
+            slot: slot,
+            menu: s.menuAt(slot).trim(),
+            price: s.priceAt(slot).trim(),
+          ),
     ];
   }
+
+  List<({String menu, String price})> get _registeredMenus => [
+    for (final item in _registeredMenuSlots)
+      (menu: item.menu, price: item.price),
+  ];
 
   String get _changeType => _changeTypes[_selectedType]['value']!;
 
@@ -140,7 +153,13 @@ class _PriceChangeReportScreenState
       changeType: _changeType,
       menu: menu,
       price: price,
-      registeredMenus: _registeredMenus,
+      registeredMenus: _selectedMenuIndex == null
+          ? _registeredMenus
+          : [
+              for (final item in _registeredMenuSlots)
+                if (item.slot == _selectedMenuIndex)
+                  (menu: item.menu, price: item.price),
+            ],
       free: _isFree,
     );
     if (priceError != null) {
@@ -230,10 +249,20 @@ class _PriceChangeReportScreenState
   void initState() {
     super.initState();
     _menuController.addListener(() {
+      if (_selectedMenuIndex != null &&
+          widget.store?.menuAt(_selectedMenuIndex!).trim() !=
+              _menuController.text.trim()) {
+        _selectedMenuIndex = null;
+      }
       if (mounted) setState(() {});
     });
-    final menus = _registeredMenus;
+    final menus = _registeredMenuSlots.where(
+      (item) =>
+          widget.initialMenuIndex == null ||
+          item.slot == widget.initialMenuIndex,
+    );
     if (menus.isNotEmpty) {
+      _selectedMenuIndex = menus.first.slot;
       _menuController.text = menus.first.menu;
     }
   }
@@ -253,8 +282,9 @@ class _PriceChangeReportScreenState
           _priceController.clear();
         }
       } else if (prev == 3 && _menuController.text.trim().isEmpty) {
-        final menus = _registeredMenus;
+        final menus = _registeredMenuSlots;
         if (menus.isNotEmpty) {
+          _selectedMenuIndex = menus.first.slot;
           _menuController.text = menus.first.menu;
         }
       }
@@ -275,8 +305,10 @@ class _PriceChangeReportScreenState
 
   @override
   Widget build(BuildContext context) {
-    final selectedMenus = _registeredMenus.where(
-      (item) => item.menu == _menuController.text.trim(),
+    final selectedMenus = _registeredMenuSlots.where(
+      (item) =>
+          item.slot == _selectedMenuIndex &&
+          item.menu == _menuController.text.trim(),
     );
     return FigmaMobileCanvas(
       child: GestureDetector(
@@ -315,10 +347,15 @@ class _PriceChangeReportScreenState
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          for (final item in _registeredMenus) ...[
+                          for (final item in _registeredMenuSlots) ...[
                             ChoiceChip(
                               key: ValueKey(
-                                'price-report-menu-chip-${item.menu}',
+                                _registeredMenuSlots
+                                            .where((m) => m.menu == item.menu)
+                                            .length >
+                                        1
+                                    ? 'price-report-menu-chip-slot-${item.slot}'
+                                    : 'price-report-menu-chip-${item.menu}',
                               ),
                               label: Text(
                                 item.price.isNotEmpty
@@ -326,28 +363,26 @@ class _PriceChangeReportScreenState
                                     : item.menu,
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color:
-                                      _menuController.text.trim() == item.menu
+                                  color: _selectedMenuIndex == item.slot
                                       ? AppColors.white
                                       : AppColors.ink,
-                                  fontWeight:
-                                      _menuController.text.trim() == item.menu
+                                  fontWeight: _selectedMenuIndex == item.slot
                                       ? FontWeight.bold
                                       : FontWeight.normal,
                                 ),
                               ),
-                              selected:
-                                  _menuController.text.trim() == item.menu,
+                              selected: _selectedMenuIndex == item.slot,
                               selectedColor: AppColors.orangeTheme,
                               backgroundColor: AppColors.surface,
                               side: BorderSide(
-                                color: _menuController.text.trim() == item.menu
+                                color: _selectedMenuIndex == item.slot
                                     ? AppColors.orangeTheme
                                     : Colors.grey.shade300,
                               ),
                               onSelected: (selected) {
                                 setState(() {
                                   if (selected) {
+                                    _selectedMenuIndex = item.slot;
                                     _menuController.text = item.menu;
                                     _priceController.clear();
                                   } else {

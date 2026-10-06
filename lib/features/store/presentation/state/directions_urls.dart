@@ -64,7 +64,7 @@ DirectionsUrls buildNaverDirectionsUrls({
     DirectionsTransport.car => 'car',
   };
   final pathType = switch (transport) {
-    DirectionsTransport.walk => '2',
+    DirectionsTransport.walk => '3',
     DirectionsTransport.transit => '1',
     DirectionsTransport.car => '0',
   };

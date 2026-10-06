@@ -29,6 +29,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _termsCheckComplete = false;
+  bool _isLoggingIn = false;
 
   @override
   void initState() {
@@ -189,15 +190,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _loginWithKakao(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
-    final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
-    if (errorMsg == null) {
+    if (_isLoggingIn) return;
+    _isLoggingIn = true;
+    final result = await ref.read(kakaoLoginServiceProvider).login();
+    _isLoggingIn = false;
+    if (result.status == KakaoLoginStatus.cancelled) return;
+    if (result.status == KakaoLoginStatus.success) {
       if (context.mounted) {
         messenger.showSnackBar(HowmuchSnackBar(content: Text('카카오로 로그인했어요.')));
       }
     } else {
       if (context.mounted) {
         messenger.showSnackBar(
-          HowmuchSnackBar(content: Text('로그인 실패: $errorMsg')),
+          HowmuchSnackBar(content: Text('로그인 실패: ${result.errorMessage}')),
         );
       }
     }

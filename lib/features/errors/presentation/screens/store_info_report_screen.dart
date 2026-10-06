@@ -10,11 +10,19 @@ import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
+import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
+
+class StoreInfoReportTarget {
+  const StoreInfoReportTarget({this.store, this.initialReport});
+  final Store? store;
+  final UserReportStatus? initialReport;
+}
 
 class StoreInfoReportScreen extends ConsumerStatefulWidget {
-  const StoreInfoReportScreen({super.key, this.store});
+  const StoreInfoReportScreen({super.key, this.store, this.initialReport});
 
   final Store? store;
+  final UserReportStatus? initialReport;
 
   @override
   ConsumerState<StoreInfoReportScreen> createState() =>
@@ -33,6 +41,42 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   final _priceController = TextEditingController();
   final _descController = TextEditingController();
 
+  Store? get _store {
+    if (widget.store != null) return widget.store;
+    final initial = widget.initialReport;
+    if (initial == null || initial.storeId.isEmpty) return null;
+    final menus = initial.menuPrices;
+    return Store.fromJson({
+      'storeId': initial.storeId,
+      'storeName': initial.store,
+      'industry': initial.category,
+      'address': initial.address,
+      'latitude': initial.latitude,
+      'longitude': initial.longitude,
+      for (var i = 0; i < menus.length && i < 4; i++) ...{
+        'menu${i + 1}': menus[i].menu,
+        'price${i + 1}': menus[i].price,
+        'free${i + 1}': menus[i].free,
+      },
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialReport;
+    if (initial == null) return;
+    _selectedTypeIndex = _types.indexWhere(
+      (type) => type['value'] == initial.changeType,
+    );
+    _descController.text = initial.description;
+    if (initial.menuPrices.isNotEmpty &&
+        initial.changeType == 'price_mismatch') {
+      _priceController.text = initial.menuPrices.first.price;
+      _isFree = initial.menuPrices.first.free;
+    }
+  }
+
   final List<Map<String, String>> _types = [
     {'title': '폐업됐어요', 'desc': '매장이 문을 닫은 것 같아요', 'value': 'closed'},
     {
@@ -50,6 +94,14 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
+    if (widget.initialReport?.isApproved == true) {
+      _showMessage('승인된 제보는 수정할 수 없어요.');
+      return;
+    }
+    if (_selectedTypeIndex < 0) {
+      _showMessage('신고 유형을 선택해주세요.');
+      return;
+    }
     if (!ApiClient.isAuthenticated) {
       _showMessage('정보 신고는 로그인 후 이용할 수 있어요.');
       return;
@@ -60,7 +112,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       _priceError = null;
       _descriptionError = null;
     });
-    if (widget.store == null) {
+    if (_store == null) {
       _showMessage('매장 정보가 없어 신고할 수 없어요.');
       return;
     }
@@ -84,33 +136,55 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     }
     setState(() => _isSubmitting = true);
     try {
-      final store = widget.store!;
-      await ref
-          .read(reportServiceProvider)
-          .submitReport(
-            UserReport(
-              storeId: store.id,
-              storeName: store.storeName,
-              industry: store.industry,
-              address: store.address,
-              phoneNumber: store.phoneNumber,
-              menu1: store.menu1,
-              price1: _selectedTypeIndex == 1 ? price : store.price1,
-              free1: _selectedTypeIndex == 1 ? _isFree : store.free1,
-              latitude: store.latitude,
-              longitude: store.longitude,
-              imageUrls: const [],
-              reporterId: '',
-              visitedRecently: false,
-              checkedMenuPrice: _selectedTypeIndex == 1,
-              changeType: _types[_selectedTypeIndex]['value'],
-              reportType: 'STORE_INFO',
-              description: description,
-            ),
-          );
+      final store = _store!;
+      final initial = widget.initialReport;
+      final service = ref.read(reportServiceProvider);
+      final request = UserReport(
+        storeId: store.id,
+        storeName: store.storeName,
+        industry: store.industry,
+        address: store.address,
+        phoneNumber: store.phoneNumber,
+        menu1: store.menu1,
+        price1: _selectedTypeIndex == 1 ? price : store.price1,
+        free1: _selectedTypeIndex == 1 ? _isFree : store.free1,
+        menu2: store.menu2,
+        price2: store.price2,
+        free2: store.free2,
+        menu3: store.menu3,
+        price3: store.price3,
+        free3: store.free3,
+        menu4: store.menu4,
+        price4: store.price4,
+        free4: store.free4,
+        latitude: store.latitude,
+        longitude: store.longitude,
+        imageUrls: initial?.imageUrls ?? const [],
+        reporterId: '',
+        visitedRecently: false,
+        checkedMenuPrice: _selectedTypeIndex == 1,
+        changeType: _types[_selectedTypeIndex]['value'],
+        reportType: 'STORE_INFO',
+        description: description,
+      );
+      if (initial == null) {
+        await service.submitReport(request);
+      } else {
+        await service.updateReport(initial.id, request);
+      }
+      final reports = await service.fetchMyReports();
       if (!mounted) return;
+      if (reports != null) {
+        ref.read(userReportsProvider.notifier).setReports(reports);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('정보 신고가 접수되었습니다. 관리자 확인 후 반영됩니다.')),
+        HowmuchSnackBar(
+          content: Text(
+            initial == null
+                ? '정보 신고가 접수되었습니다. 관리자 확인 후 반영됩니다.'
+                : '정보 신고 수정이 저장됐어요.',
+          ),
+        ),
       );
       context.pop();
     } on ReportServiceException catch (error) {
@@ -239,7 +313,9 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           bottomNavigationBar: CustomBottomButton(
             text: _isSubmitting ? '접수 중...' : '신고 접수하기',
             backgroundColor: const Color(0xFFF97316),
-            onPressed: _isSubmitting ? null : _submit,
+            onPressed: _isSubmitting || widget.initialReport?.isApproved == true
+                ? null
+                : _submit,
           ),
         ),
       ),
@@ -273,12 +349,12 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.store?.storeName ?? '매장 정보 없음',
+                  _store?.storeName ?? '매장 정보 없음',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  widget.store?.address ?? '매장 주소 정보 없음',
+                  _store?.address ?? '매장 주소 정보 없음',
                   style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],

@@ -477,8 +477,8 @@ class _StoreDetailContent extends ConsumerWidget {
                                     ),
                                   ),
                                   const Spacer(),
-                                  const Text(
-                                    '공공데이터 기준',
+                                  Text(
+                                    store.menuSourceLabel,
                                     style: TextStyle(fontSize: 11, color: _sub),
                                   ),
                                 ],

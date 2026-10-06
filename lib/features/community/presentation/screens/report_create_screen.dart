@@ -114,6 +114,16 @@ typedef PlaceSearch =
 typedef LocationLookup =
     Future<({double latitude, double longitude})?> Function();
 
+const maxReportMenuCount = 4;
+
+enum ReportPlaceSelectionMode { store, address }
+
+String? validateReportMenuCount(int count) => count < 1
+    ? '대표 메뉴는 최소 1개가 필요해요.'
+    : count > maxReportMenuCount
+    ? '메뉴는 최대 4개까지 저장할 수 있어요. 초과 메뉴를 제거해주세요.'
+    : null;
+
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({
     super.key,
@@ -293,6 +303,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   void _addMenuPrice() {
+    if (_menuPrices.length >= maxReportMenuCount) return;
     setState(() {
       _addInitialMenuPrice(menu: '', price: '');
     });
@@ -332,6 +343,11 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
 
   Future<void> _submit() async {
     if (_isSubmitting) return;
+    final menuCountError = validateReportMenuCount(_menuPrices.length);
+    if (menuCountError != null) {
+      _showSnack(menuCountError);
+      return;
+    }
 
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) {
@@ -384,16 +400,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       final free2 = _menuPrices.length > 1 && _menuPrices[1].free;
       final free3 = _menuPrices.length > 2 && _menuPrices[2].free;
       final free4 = _menuPrices.length > 3 && _menuPrices[3].free;
-      final savedMenuPrices = _menuPrices
-          .map(
-            (item) => UserReportMenuPrice(
-              menu: item.menu.text.trim(),
-              price: item.price.text.trim(),
-              free: item.free,
-            ),
-          )
-          .where((item) => item.menu.isNotEmpty || item.price.isNotEmpty)
-          .toList();
       final existingImageUrls = _photos
           .map((photo) => photo.path)
           .where(_isRemoteImageUrl)
@@ -443,37 +449,20 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       }
       reportSaved = true;
 
-      final localReport = UserReportStatus(
-        id: reportId,
-        store: _storeController.text.trim(),
-        menu: '$menu1 $price1원',
-        status: '검토 중',
-        statusColor: 0xFFF59E0B,
-        statusBg: 0xFFFFF3EA,
-        textColor: 0xFF92400E,
-        category: _categoryController.text.trim(),
-        address: _addressController.text.trim(),
-        menuPrices: savedMenuPrices,
-        imageUrls: reportImageUrls,
-        visitedRecently: _visitedRecently,
-        checkedMenuPrice: _checkedMenuPrice,
-        createdAt:
-            initialReport?.createdAt ??
-            DateTime.now().toUtc().toIso8601String(),
-        rejectReason: '',
-      );
-
-      if (initialReport == null) {
-        ref.read(userReportsProvider.notifier).addReport(localReport);
-        final profile = ref.read(userProfileProvider);
-        ref.read(userProfileProvider.notifier).state = profile.copyWith(
-          reportCount: profile.reportCount + 1,
-        );
-      } else {
-        ref.read(userReportsProvider.notifier).updateReport(localReport);
-      }
-
+      // Never show an optimistic draft as if the server saved every field.
+      final savedReports = await reportService.fetchMyReports();
       if (!mounted) return;
+      if (savedReports == null ||
+          !savedReports.any((item) => item.id == reportId)) {
+        _showSnack('제보는 저장됐어요. 저장 내용을 다시 확인해주세요.');
+        context.go(AppRoutes.myReportsV2);
+        return;
+      }
+      ref.read(userReportsProvider.notifier).setReports(savedReports);
+      final profile = ref.read(userProfileProvider);
+      ref.read(userProfileProvider.notifier).state = profile.copyWith(
+        reportCount: savedReports.length,
+      );
       if (initialReport == null) {
         context.push(AppRoutes.reportComplete);
       } else {
@@ -592,7 +581,10 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  Future<void> _pickPlace({String initialQuery = ''}) async {
+  Future<void> _pickPlace({
+    required ReportPlaceSelectionMode mode,
+    String initialQuery = '',
+  }) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final mediaQuery = MediaQuery.of(context);
     final selected = await showModalBottomSheet<ReportPlaceSuggestion>(
@@ -621,7 +613,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     );
     if (selected != null && mounted) {
       _addressController.text = selected.address;
-      if (selected.name.isNotEmpty) {
+      if (mode == ReportPlaceSelectionMode.store && selected.name.isNotEmpty) {
         _storeController.text = selected.name;
         final industry = normalizeReportIndustry(
           selected.category,
@@ -632,11 +624,15 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
   }
 
-  Future<void> _pickStore() =>
-      _pickPlace(initialQuery: _storeController.text.trim());
+  Future<void> _pickStore() => _pickPlace(
+    mode: ReportPlaceSelectionMode.store,
+    initialQuery: _storeController.text.trim(),
+  );
 
-  Future<void> _pickAddress() =>
-      _pickPlace(initialQuery: _addressController.text.trim());
+  Future<void> _pickAddress() => _pickPlace(
+    mode: ReportPlaceSelectionMode.address,
+    initialQuery: _addressController.text.trim(),
+  );
 
   Future<String?> _showOptionPicker({
     required String title,
@@ -1683,7 +1679,7 @@ class _PriceInfoCard extends StatelessWidget {
             width: double.infinity,
             height: 34,
             child: OutlinedButton.icon(
-              onPressed: onAdd,
+              onPressed: menuPrices.length < maxReportMenuCount ? onAdd : null,
               icon: const Icon(Icons.add_rounded, size: 18),
               label: const Text('메뉴 추가'),
               style: OutlinedButton.styleFrom(
@@ -1702,6 +1698,14 @@ class _PriceInfoCard extends StatelessWidget {
               ),
             ),
           ),
+          if (menuPrices.length >= maxReportMenuCount)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '메뉴는 최대 4개까지 입력할 수 있어요.',
+                style: TextStyle(color: ReportCreateStyle.muted, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );

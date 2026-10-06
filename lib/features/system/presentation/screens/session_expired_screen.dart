@@ -41,11 +41,11 @@ class SessionExpiredScreen extends ConsumerWidget {
 
     void loginAgain() async {
       final messenger = ScaffoldMessenger.of(context);
-      final errorMsg = await ref.read(kakaoLoginServiceProvider).login();
-      if (errorMsg != null) {
+      final result = await ref.read(kakaoLoginServiceProvider).login();
+      if (result.status == KakaoLoginStatus.failed) {
         if (context.mounted) {
           messenger.showSnackBar(
-            HowmuchSnackBar(content: Text('재로그인 실패: $errorMsg')),
+            HowmuchSnackBar(content: Text('재로그인 실패: ${result.errorMessage}')),
           );
         }
       }

@@ -251,6 +251,7 @@ class UserReportStatus {
     this.description = '',
     this.reportType = '',
     this.changeType = '',
+    this.resolution = '',
   });
 
   final String id;
@@ -274,6 +275,47 @@ class UserReportStatus {
   final String description;
   final String reportType;
   final String changeType;
+  final String resolution;
+
+  bool get isInformationReport => reportType.toUpperCase() == 'STORE_INFO';
+  bool get isApproved => status.contains('승인') || status == 'APPROVED';
+  bool get isExistingStoreReport =>
+      isInformationReport || changeType.isNotEmpty;
+  bool get hasAppliedChanges =>
+      isApproved &&
+      const ['NEW_STORE', 'PRICE', 'LOCATION', 'CLOSED'].contains(resolution);
+  String get processingLabel => !isApproved
+      ? status
+      : switch (resolution) {
+          'NO_CHANGE' => '검토 완료 · 수정 없음',
+          'NEW_STORE' => '승인 완료 · 매장 등록',
+          'PRICE' => '승인 완료 · 가격 반영',
+          'LOCATION' => '승인 완료 · 위치 반영',
+          'CLOSED' => '승인 완료 · 폐업 반영',
+          _ => '검토 완료 · 처리 정보 확인 필요',
+        };
+  String get informationTypeLabel => switch (changeType) {
+    'closed' => '폐업됐어요',
+    'price_mismatch' => '가격이 달라요',
+    'location_wrong' => '위치 정보가 틀려요',
+    'other' => '기타',
+    _ => '유형 확인 필요',
+  };
+  String get processingNotice => rejectReason.trim().isNotEmpty
+      ? rejectReason.trim()
+      : !isApproved
+      ? '현재 가격과 위치 정보를 확인하고 있어요.'
+      : switch (resolution) {
+          'NO_CHANGE' => '신고 검토를 마쳤으며 대상 매장 정보는 변경하지 않았어요.',
+          'NEW_STORE' => '승인된 매장 정보가 지도에 등록됐어요.',
+          'PRICE' => '검토된 가격 변경이 대상 매장에 반영됐어요.',
+          'LOCATION' => '검토된 위치 변경이 대상 매장에 반영됐어요.',
+          'CLOSED' => '대상 매장의 폐업 상태가 반영됐어요.',
+          _ => '검토는 완료됐어요. 실제 변경 여부를 확인할 처리 정보가 없어요.',
+        };
+  String get deletionWarning => isExistingStoreReport
+      ? '신고 기록만 삭제하며 복구할 수 없어요.\n대상 매장과 반영된 수정은 유지됩니다.'
+      : '삭제 후에는 되돌릴 수 없어요.\n승인 완료된 신규 매장 제보는 지도에서도 제거됩니다.';
 
   factory UserReportStatus.fromJson(Map<String, dynamic> json) {
     final status = _statusLabel(json['status']?.toString() ?? '');
@@ -307,6 +349,7 @@ class UserReportStatus {
       description: json['description']?.toString() ?? '',
       reportType: json['reportType']?.toString() ?? '',
       changeType: json['changeType']?.toString() ?? '',
+      resolution: json['resolution']?.toString().trim().toUpperCase() ?? '',
     );
   }
 
@@ -332,6 +375,7 @@ class UserReportStatus {
     String? description,
     String? reportType,
     String? changeType,
+    String? resolution,
   }) {
     return UserReportStatus(
       id: id ?? this.id,
@@ -355,6 +399,7 @@ class UserReportStatus {
       description: description ?? this.description,
       reportType: reportType ?? this.reportType,
       changeType: changeType ?? this.changeType,
+      resolution: resolution ?? this.resolution,
     );
   }
 
