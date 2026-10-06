@@ -35,10 +35,6 @@ node_modules/
 __pycache__/
 *.pyc
 
-# Local Jev quality-gate inputs and outputs
-tools/jev-quality-gate/quality-signals*.json
-tools/jev-quality-gate/result*.json
-
 
 # Firebase Service Account Key
 howmuch_backend/src/main/resources/firebase-service-account.json
