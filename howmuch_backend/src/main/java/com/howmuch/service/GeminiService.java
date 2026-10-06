@@ -86,6 +86,11 @@ public class GeminiService {
 
     private volatile String workingUrl = null;
 
+    /** 국물 요청에서 제외할 메뉴: 차가운 면·물회, 이름에 '탕·국'이 들어간 비국물 음식. */
+    private static final List<String> NOT_HOT_SOUP_MENUS = List.of(
+            "비빔", "볶음", "김밥", "콩국수", "막국수", "메밀국수", "모밀", "밀면", "열무국수", "물회",
+            "쫄면", "탕수", "탕후루", "국화빵");
+
     private static final String GOMI_SYSTEM_INSTRUCTION = """
         당신의 이름은 '고미'입니다.
         고미는 '얼마고?' 서비스의 친근하고 센스 있는 동네 가성비 맛집·절약 가이드입니다.
@@ -422,7 +427,9 @@ public class GeminiService {
                 .stream().anyMatch(query::contains);
         if (soup && List.of("국수", "수제비", "국밥", "탕", "찌개", "짬뽕", "우동", "라면", "전골", "국")
                 .stream().noneMatch(item::contains)) return false;
-        if (soup && List.of("비빔", "냉", "볶음", "김밥").stream().anyMatch(item::contains)) return false;
+        // '콩국수'는 '국수', '탕수육'은 '탕'을 포함하지만 뜨거운 국물 음식이 아니다. '냉이국'은 국물 음식이다.
+        if (soup && (NOT_HOT_SOUP_MENUS.stream().anyMatch(item::contains)
+                || (item.contains("냉") && !item.contains("냉이")))) return false;
         // Specific dishes are matched against a menu, never a common store name.
         List<String> dishes = List.of("칼국수", "수제비", "국밥", "김밥", "백반", "짜장", "짬뽕",
                 "돈까스", "돈가스", "삼겹살", "냉면", "비빔국수", "아메리카노", "라떼",

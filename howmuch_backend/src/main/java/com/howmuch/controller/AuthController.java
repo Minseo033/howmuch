@@ -88,4 +88,26 @@ public class AuthController {
                             "message", "인증에 실패했습니다. 카카오 로그인을 다시 시도해주세요."));
         }
     }
+
+    /**
+     * 로그아웃: 이 기기의 세션 토큰 하나만 서버에서 폐기합니다(다른 기기 세션은 유지).
+     * 토큰이 없거나 이미 만료·위조된 경우에도 결과는 같으므로 200으로 응답합니다.
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest httpRequest) {
+        String header = httpRequest.getHeader("Authorization");
+        String token = header != null && header.startsWith("Bearer ") ? header.substring(7).trim() : null;
+        if (token == null || token.isEmpty() || token.length() > 4096) {
+            return ResponseEntity.ok(Map.of("success", true, "revoked", false));
+        }
+        try {
+            boolean revoked = sessionTokenService.revokeToken(token);
+            return ResponseEntity.ok(Map.of("success", true, "revoked", revoked));
+        } catch (SessionRevocationStore.UnavailableException e) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header("Retry-After", "5")
+                    .body(Map.of("success", false,
+                            "message", "로그아웃 처리를 잠시 완료하지 못했습니다. 이 기기에서는 로그아웃됩니다."));
+        }
+    }
 }

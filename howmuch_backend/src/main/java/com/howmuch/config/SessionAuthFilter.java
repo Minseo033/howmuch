@@ -42,11 +42,16 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         try {
             uid = token == null ? null : sessionTokenService.verifyAndGetUid(token);
         } catch (SessionRevocationStore.UnavailableException e) {
-            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            response.setHeader("Retry-After", "5");
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"success\":false,\"message\":\"인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요.\"}");
-            return;
+            if (requiresAuth(request)) {
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                response.setHeader("Retry-After", "5");
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"success\":false,\"message\":\"인증 서비스를 잠시 이용할 수 없습니다. 잠시 후 다시 시도해주세요.\"}");
+                return;
+            }
+            // Public reads (map, store detail, feed) must not go down with the revocation store.
+            // Without a verified identity the request continues like a signed-out visitor.
+            uid = null;
         }
 
         if (requiresAuth(request)) {

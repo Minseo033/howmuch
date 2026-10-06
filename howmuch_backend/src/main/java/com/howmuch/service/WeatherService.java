@@ -11,13 +11,17 @@ import org.springframework.web.client.RestTemplate;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * 기상청 단기예보 조회 서비스 (공공데이터포털).
@@ -29,14 +33,18 @@ import java.util.Map;
  *  - base_time은 발표 후 제공 시작(약 +10분)까지 시차가 있으므로 15분 버퍼를 두고 계산.
  *    자정~새벽 2시에는 전날 23시 발표분을 사용하도록 날짜 역행 처리.
  *  - 사용자 lat/lng를 기상청 격자(nx, ny)로 변환해 지역 날씨를 조회 (서울 고정 아님).
+ *  - 날씨는 추천의 보조 정보다. 호출 대기를 최대 3초로 제한하고, 같은 격자·발표 시각의
+ *    결과는 30분, 실패는 2분 동안 재사용해 기상청 지연이 추천 응답을 막지 않게 한다.
  */
 @Slf4j
 @Service
 public class WeatherService {
 
     private final String weatherApiKey;
-    private final RestTemplate restTemplate;
+    private final Function<URI, String> forecastFetcher;
+    private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ConcurrentHashMap<String, CachedWeather> cache = new ConcurrentHashMap<>();
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HHmm");
@@ -50,13 +58,37 @@ public class WeatherService {
     /** 기상청 예보 시각과 사용자가 보는 한국 현지 시각을 맞춘다. */
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
+    /** 추천 응답을 날씨 때문에 오래 붙잡지 않도록 연결·응답 대기 상한을 둔다. */
+    static final int MIN_TIMEOUT_MS = 500;
+    static final int MAX_TIMEOUT_MS = 3000;
+    static final long SUCCESS_TTL_MS = 30 * 60_000L;
+    static final long FAILURE_TTL_MS = 2 * 60_000L;
+    private static final int MAX_CACHE_ENTRIES = 512;
+
+    private record CachedWeather(Map<String, Object> value, long expiresAtMillis) {}
+
     public WeatherService(@Value("${weather.api-key:}") String weatherApiKey,
-                          @Value("${weather.timeout-ms:10000}") int timeoutMs) {
+                          @Value("${weather.timeout-ms:2000}") int timeoutMs) {
+        this(weatherApiKey, restTemplateFetcher(effectiveTimeoutMs(timeoutMs)), Clock.system(KST));
+    }
+
+    /** 테스트에서 외부 호출과 시계를 바꿔 끼우기 위한 생성자. */
+    WeatherService(String weatherApiKey, Function<URI, String> forecastFetcher, Clock clock) {
         this.weatherApiKey = weatherApiKey;
+        this.forecastFetcher = forecastFetcher;
+        this.clock = clock;
+    }
+
+    static int effectiveTimeoutMs(int configuredTimeoutMs) {
+        return Math.max(MIN_TIMEOUT_MS, Math.min(configuredTimeoutMs, MAX_TIMEOUT_MS));
+    }
+
+    private static Function<URI, String> restTemplateFetcher(int timeoutMs) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(timeoutMs);
         factory.setReadTimeout(timeoutMs);
-        this.restTemplate = new RestTemplate(factory);
+        RestTemplate restTemplate = new RestTemplate(factory);
+        return uri -> restTemplate.getForObject(uri, String.class);
     }
 
     /**
@@ -89,13 +121,36 @@ public class WeatherService {
             return result;
         }
 
-        try {
-            // 발표 지연(+15분)을 반영해 "이미 제공 중인 가장 최근 발표분"을 고른다.
-            LocalDateTime effective = LocalDateTime.now(KST).minusMinutes(PUBLISH_DELAY_MINUTES);
-            LocalDateTime base = latestBaseDateTime(effective);
-            String baseDate = base.format(DATE_FMT);
-            String baseTime = base.format(TIME_FMT);
+        // 발표 지연(+15분)을 반영해 "이미 제공 중인 가장 최근 발표분"을 고른다.
+        LocalDateTime effective = LocalDateTime.now(clock).minusMinutes(PUBLISH_DELAY_MINUTES);
+        LocalDateTime base = latestBaseDateTime(effective);
+        String baseDate = base.format(DATE_FMT);
+        String baseTime = base.format(TIME_FMT);
+        String cacheKey = baseDate + baseTime + ":" + grid[0] + ":" + grid[1];
+        long nowMillis = clock.millis();
+        CachedWeather cached = cache.get(cacheKey);
+        if (cached != null && cached.expiresAtMillis() > nowMillis) {
+            return new HashMap<>(cached.value());
+        }
 
+        Map<String, Object> fetched = fetchForecast(baseDate, baseTime, grid);
+        boolean available = Boolean.TRUE.equals(fetched.get("available"));
+        remember(cacheKey, fetched, nowMillis + (available ? SUCCESS_TTL_MS : FAILURE_TTL_MS), nowMillis);
+        return new HashMap<>(fetched);
+    }
+
+    private void remember(String key, Map<String, Object> value, long expiresAtMillis, long nowMillis) {
+        if (cache.size() >= MAX_CACHE_ENTRIES) {
+            cache.entrySet().removeIf(entry -> entry.getValue().expiresAtMillis() <= nowMillis);
+            if (cache.size() >= MAX_CACHE_ENTRIES) cache.clear();
+        }
+        cache.put(key, new CachedWeather(
+                Collections.unmodifiableMap(new HashMap<>(value)), expiresAtMillis));
+    }
+
+    private Map<String, Object> fetchForecast(String baseDate, String baseTime, int[] grid) {
+        Map<String, Object> result = new HashMap<>();
+        try {
             // 포털 키 2종 모두 지원: Encoding 키(% 포함)는 그대로, Decoding 키는 인코딩해서 전달
             // (Decoding 키의 '+'는 쿼리에서 공백으로 깨지고, Encoding 키를 또 인코딩하면 %25 이중 인코딩됨)
             String serviceKey = weatherApiKey.contains("%")
@@ -109,7 +164,7 @@ public class WeatherService {
                     + "&nx=" + grid[0] + "&ny=" + grid[1];
 
             // URI 객체로 전달해 RestTemplate의 재인코딩(이스케이프) 방지
-            String response = restTemplate.getForObject(URI.create(url), String.class);
+            String response = forecastFetcher.apply(URI.create(url));
             JsonNode root = objectMapper.readTree(response);
             JsonNode items = root.path("response").path("body").path("items").path("item");
 
@@ -135,7 +190,7 @@ public class WeatherService {
             }
 
             // 현재 시각과 가장 가까운 슬롯 선택 (현재~미래 우선, 없으면 가장 최근 과거)
-            LocalDateTime now = LocalDateTime.now(KST);
+            LocalDateTime now = LocalDateTime.now(clock);
             String bestKey = selectClosestForecastKey(slots, now);
 
             Map<String, String> chosen = bestKey != null ? slots.get(bestKey) : null;

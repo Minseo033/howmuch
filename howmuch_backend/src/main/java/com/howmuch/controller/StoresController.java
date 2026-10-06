@@ -23,6 +23,9 @@ import java.util.Map;
 @Slf4j
 public class StoresController {
 
+    /** 범위 조회 결과가 상한으로 잘렸음을 알리는 응답 헤더(CORS 노출은 WebConfig에서 설정) */
+    public static final String STORES_TRUNCATED_HEADER = "X-Stores-Truncated";
+
     private final FirebaseService firebaseService;
 
     public StoresController(FirebaseService firebaseService) {
@@ -62,6 +65,11 @@ public class StoresController {
         }
         try {
             Map<String, Object> store = firebaseService.getStoreById(storeId);
+            if (store == null && firebaseService.isStoreCatalogWarmingUp()) {
+                // BE-CORE-7: 시작 직후 목록을 불러오는 중에는 "없음"으로 확정하지 않습니다.
+                return ResponseEntity.status(503).header("Retry-After", "5").body(Map.of(
+                        "success", false, "message", "매장 정보를 준비하고 있어요. 잠시 후 다시 시도해주세요."));
+            }
             return store == null ? ResponseEntity.status(404).body(Map.of("success", false, "message", "매장을 찾을 수 없습니다."))
                     : ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(store);
         } catch (Exception exception) {
@@ -80,7 +88,14 @@ public class StoresController {
                     "message", "지도 조회 범위가 올바르지 않습니다."));
         }
         try {
-            return ResponseEntity.ok(firebaseService.getStoresInBounds(minLat, maxLat, minLng, maxLng));
+            // 계약 C6: 중심 거리순 1,200곳 제한. 잘렸으면 X-Stores-Truncated: true 헤더로 알립니다.
+            FirebaseService.BoundsResult result = firebaseService.getStoresInBoundsPage(minLat, maxLat, minLng, maxLng);
+            if (result == null) {
+                return ResponseEntity.ok(List.of());
+            }
+            ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+            if (result.truncated()) response.header(STORES_TRUNCATED_HEADER, "true");
+            return response.body(result.stores());
         } catch (Exception e) {
             log.error("[StoresController] 지도 범위 매장 조회 오류", e);
             return ResponseEntity.status(500).body(Map.of(

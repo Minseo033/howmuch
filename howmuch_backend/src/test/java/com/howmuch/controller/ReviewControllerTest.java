@@ -91,26 +91,46 @@ class ReviewControllerTest {
         request.setAuthorName("   ");
         request.setMenu("  김치찌개  ");
         request.setContent("  가격이 합리적이에요.  ");
-        when(firebaseService.saveReview(anyString(), any())).thenReturn("review-1");
+        when(firebaseService.createReview(anyString(), any()))
+                .thenReturn(new FirebaseService.SavedReview("review-1", "사용자"));
 
         ResponseEntity<?> response = controller.createReview(httpRequest, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         ArgumentCaptor<ReviewRequest> captor = ArgumentCaptor.forClass(ReviewRequest.class);
-        verify(firebaseService).saveReview(anyString(), captor.capture());
+        verify(firebaseService).createReview(anyString(), captor.capture());
         ReviewRequest saved = captor.getValue();
         assertThat(saved.getStoreId()).isEqualTo("테스트 식당");
         assertThat(saved.getStoreName()).isEqualTo("테스트 식당");
-        assertThat(saved.getAuthorName()).isEqualTo("사용자");
+        assertThat(saved.getAuthorName()).isNull();
         assertThat(saved.getMenu()).isEqualTo("김치찌개");
         assertThat(saved.getContent()).isEqualTo("가격이 합리적이에요.");
         assertThat(saved.getPrice()).isEqualTo(8_000);
     }
 
     @Test
+    void clientAuthorNameIsIgnoredAndTheServerChosenNameIsReturned() throws Exception {
+        authenticate();
+        ReviewRequest request = validRequest();
+        request.setAuthorName("운영자".repeat(30));
+        when(firebaseService.createReview(anyString(), any()))
+                .thenReturn(new FirebaseService.SavedReview("review-2", "익명"));
+
+        ResponseEntity<?> response = controller.createReview(httpRequest, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> body = (java.util.Map<String, Object>) response.getBody();
+        assertThat(body).containsEntry("reviewId", "review-2").containsEntry("authorName", "익명");
+        ArgumentCaptor<ReviewRequest> captor = ArgumentCaptor.forClass(ReviewRequest.class);
+        verify(firebaseService).createReview(org.mockito.ArgumentMatchers.eq("user-1"), captor.capture());
+        assertThat(captor.getValue().getAuthorName()).isNull();
+    }
+
+    @Test
     void ambiguousReviewTargetReturnsValidationErrorInsteadOfServerError() throws Exception {
         authenticate();
-        when(firebaseService.saveReview(anyString(), any()))
+        when(firebaseService.createReview(anyString(), any()))
                 .thenThrow(new IllegalArgumentException("매장을 정확히 확인할 수 없습니다."));
         assertThat(controller.createReview(httpRequest, validRequest()).getStatusCode())
                 .isEqualTo(HttpStatus.BAD_REQUEST);

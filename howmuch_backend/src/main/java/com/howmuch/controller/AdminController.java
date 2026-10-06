@@ -199,6 +199,11 @@ public class AdminController {
         } catch (ReceiptOcrEvidenceException e) {
             return ResponseEntity.unprocessableEntity().body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (com.howmuch.service.DuplicateVisitException e) {
+            // 같은 날 같은 매장의 방문이 이미 있으면 승인하지 않고 반려 사유와 함께 알립니다.
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage() + " 중복 방문으로 반려해주세요.",
+                    "reason", "DUPLICATE_VISIT"));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
@@ -553,6 +558,11 @@ public class AdminController {
         } catch (java.util.NoSuchElementException | IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (FirebaseService.InquiryImageOwnerUnknownException e) {
+            // WEB-ADM-15: 저장소 장애가 아니라 첨부 사진 작성자 정보가 없는 문의입니다. 다시 시도해도 결과가 같습니다.
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false,
+                    "message", "첨부 사진의 작성자 정보가 없어 사진을 안전하게 지울 수 없으므로 문의를 삭제하지 않았어요. 저장소 장애가 아니라서 다시 시도해도 결과가 같아요."));
         } catch (IllegalStateException e) {
             log.warn("[AdminController] 문의 사진 저장소가 설정되지 않아 삭제를 중단했습니다. id={}", id);
             return ResponseEntity.status(503).body(Map.of(
@@ -649,7 +659,7 @@ public class AdminController {
         }
     }
 
-    /** 알림 발송 (POST /api/admin/notifications, body: {audience: ALL|USER, title, body, type?, targetUid?}). */
+    /** 알림 발송 (POST /api/admin/notifications, body: {audience: ALL|USER, title, body, type?, targetUid?, requestId?}). */
     @PostMapping("/notifications")
     public ResponseEntity<?> sendNotification(@RequestBody Map<String, String> body,
                                               HttpServletRequest httpRequest) {
@@ -661,6 +671,7 @@ public class AdminController {
         String type = body != null ? body.get("type") : null;
         String targetUid = body != null ? body.get("targetUid") : null;
         String audience = body != null ? body.get("audience") : null;
+        String requestId = body != null ? trimToNullValue(body.get("requestId")) : null;
 
         if (title == null || title.isBlank() || content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
@@ -697,11 +708,15 @@ public class AdminController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "대상 사용자 ID 형식이 올바르지 않습니다."));
         }
+        if (requestId != null && !FirebaseService.isValidAdminRequestId(requestId)) {
+            return invalidRequestId();
+        }
 
         try {
+            // WEB-ADM-2: 같은 requestId로 다시 보내면 이미 받은 회원은 건너뜁니다(skipped).
             Map<String, Object> result = firebaseService.sendAdminNotification(
                     userAudience ? targetUid.trim() : null,
-                    title.trim(), content.trim(), type == null ? null : type.trim());
+                    title.trim(), content.trim(), type == null ? null : type.trim(), requestId);
             log.warn("[AdminController] 알림 발송 완료 - 발송 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
@@ -716,7 +731,18 @@ public class AdminController {
         }
     }
 
-    /** 공지사항 등록 (POST /api/admin/notices, body: {title, body}) — 전체 회원 알림함/웹 팝업, 푸시 제외. */
+    private static String trimToNullValue(String value) {
+        if (value == null) return null;
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private ResponseEntity<?> invalidRequestId() {
+        return ResponseEntity.badRequest().body(Map.of(
+                "success", false, "message", "요청 ID(requestId)는 영문·숫자·-·_ 8~64자로 보내주세요."));
+    }
+
+    /** 공지사항 등록 (POST /api/admin/notices, body: {title, body, requestId?}) — 전체 회원 알림함/웹 팝업, 푸시 제외. */
     @PostMapping("/notices")
     public ResponseEntity<?> publishNotice(@RequestBody Map<String, String> body,
                                            HttpServletRequest httpRequest) {
@@ -725,6 +751,7 @@ public class AdminController {
 
         String title = body != null ? body.get("title") : null;
         String content = body != null ? body.get("body") : null;
+        String requestId = body != null ? trimToNullValue(body.get("requestId")) : null;
         if (title == null || title.isBlank() || content == null || content.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
@@ -737,10 +764,13 @@ public class AdminController {
                     "message", "제목은 100자, 내용은 500자 이내로 입력해주세요."
             ));
         }
+        if (requestId != null && !FirebaseService.isValidAdminRequestId(requestId)) {
+            return invalidRequestId();
+        }
 
         try {
             Map<String, Object> result = firebaseService.publishAdminNotice(
-                    title.trim(), content.trim());
+                    title.trim(), content.trim(), requestId);
             log.warn("[AdminController] 공지사항 등록 완료 - 대상 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
         } catch (Exception e) {

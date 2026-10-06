@@ -106,6 +106,19 @@ public class VisitController {
             if (firebaseService.isClosedStore(normalizedStoreId, normalizedStoreName)) {
                 return ResponseEntity.badRequest().body(Map.of("success", false, "message", "폐업한 매장은 방문 인증할 수 없습니다."));
             }
+            // 계약 C9: 공개 목록에 있는 매장인지 먼저 확인하고, 정규 매장 ID·이름으로 저장합니다.
+            Optional<Map<String, Object>> visitableStore =
+                    firebaseService.findVisitableStore(normalizedStoreId, normalizedStoreName);
+            if (visitableStore == null || visitableStore.isEmpty()) {
+                if (firebaseService.isStoreCatalogWarmingUp()) return catalogWarmingUp();
+                return ResponseEntity.status(422).body(Map.of(
+                        "success", false,
+                        "message", "매장 정보를 확인할 수 없어 인증할 수 없습니다. 매장 상세에서 다시 시도해주세요."));
+            }
+            String canonicalStoreId = String.valueOf(visitableStore.get().get("storeId"));
+            Object canonicalName = visitableStore.get().get("storeName");
+            String canonicalStoreName = canonicalName == null || canonicalName.toString().isBlank()
+                    ? normalizedStoreName : canonicalName.toString();
             if (firebaseService.receiptVerificationExists(receiptFingerprint)
                     || firebaseService.receiptVerificationExists(legacyFingerprint)) {
                 return ResponseEntity.status(409).body(Map.of(
@@ -115,17 +128,22 @@ public class VisitController {
             // 파일 크기와 실제 이미지 시그니처를 검증한 뒤에만 유료 OCR을 호출합니다.
             uploaded = firebaseService.uploadReportImages(firebaseUid, images);
             ReceiptOcrService.Result ocrResult = receiptOcrService.analyze(
-                    receiptBytes, normalizedStoreName, price);
+                    receiptBytes, canonicalStoreName, price);
             String id = firebaseService.saveReceiptVerification(
-                    firebaseUid, normalizedStoreId, normalizedStoreName,
+                    firebaseUid, canonicalStoreId, canonicalStoreName,
                     normalizedMenu, price, receiptFingerprint, uploaded, ocrResult);
             String status = "PENDING";
             String visitId = null;
-            if (ocrResult.shouldAutoApprove()) {
+            if (ocrResult != null && ocrResult.shouldAutoApprove()) {
                 try {
                     Map<String, Object> approval = firebaseService.approveReceiptVerification(id, "AUTO_OCR");
                     status = String.valueOf(approval.get("status"));
                     visitId = String.valueOf(approval.get("visitId"));
+                } catch (DuplicateVisitException duplicateVisit) {
+                    // 접수 직후 같은 날 위치 방문이 먼저 기록된 경우입니다. 중복 적립 대신 자동 반려합니다.
+                    rejectDuplicateReceipt(id);
+                    return ResponseEntity.status(409).body(Map.of(
+                            "success", false, "message", duplicateVisit.getMessage()));
                 } catch (Exception autoApprovalError) {
                     log.warn("OCR 자동 승인 실패, 관리자 검토로 전환합니다. receiptId={}", id, autoApprovalError);
                 }
@@ -134,11 +152,11 @@ public class VisitController {
             response.put("success", true);
             response.put("id", id);
             response.put("status", status);
-            response.put("ocrStatus", ocrResult.status());
-            response.put("ocrScore", ocrResult.score());
+            response.put("ocrStatus", ocrResult == null ? null : ocrResult.status());
+            response.put("ocrScore", ocrResult == null ? 0 : ocrResult.score());
             if (visitId != null) response.put("visitId", visitId);
             return ResponseEntity.ok(response);
-        } catch (DuplicateReceiptException e) {
+        } catch (DuplicateReceiptException | DuplicateVisitException e) {
             cleanupUploadedReceipt(firebaseUid, uploaded);
             return ResponseEntity.status(409).body(Map.of(
                     "success", false, "message", e.getMessage()));
@@ -163,6 +181,15 @@ public class VisitController {
             firebaseService.deleteReportImages(firebaseUid, uploaded);
         } catch (Exception cleanupError) {
             log.warn("저장 실패 후 영수증 이미지 정리에 실패했습니다.", cleanupError);
+        }
+    }
+
+    private void rejectDuplicateReceipt(String receiptId) {
+        try {
+            firebaseService.rejectReceiptVerification(
+                    receiptId, "같은 날 이 매장의 방문 기록이 이미 있어요.", "AUTO_DUPLICATE");
+        } catch (Exception rejectError) {
+            log.warn("중복 영수증 자동 반려에 실패해 관리자 검토로 남깁니다. receiptId={}", receiptId, rejectError);
         }
     }
 
@@ -332,6 +359,7 @@ public class VisitController {
             Optional<StoreCoordinates> storeCoordinates = firebaseService.findStoreCoordinates(
                     request.getStoreId(), request.getStoreName());
             if (storeCoordinates.isEmpty()) {
+                if (firebaseService.isStoreCatalogWarmingUp()) return catalogWarmingUp();
                 return ResponseEntity.status(422).body(Map.of(
                         "success", false,
                         "message", "매장 위치 정보를 확인할 수 없어 인증할 수 없습니다."
@@ -386,6 +414,12 @@ public class VisitController {
                     "message", "방문 인증 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
         }
+    }
+
+    /** BE-CORE-7: 시작 직후 매장 목록을 불러오는 중이면 422 대신 503으로 잠시 후 재시도를 안내합니다. */
+    private ResponseEntity<?> catalogWarmingUp() {
+        return ResponseEntity.status(503).header("Retry-After", "5").body(Map.of(
+                "success", false, "message", "매장 정보를 준비하고 있어요. 잠시 후 다시 시도해주세요."));
     }
 
     private boolean isValidLatitude(Double value) {

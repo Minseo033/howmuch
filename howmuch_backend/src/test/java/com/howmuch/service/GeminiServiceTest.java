@@ -180,6 +180,21 @@ class GeminiServiceTest {
     }
 
     @Test
+    void rainySoupRequestSkipsColdNoodlesAndFriedPorkButKeepsRealSoups() {
+        GeminiService service = new GeminiService("", 1_000, false);
+        var result = service.verifiedRecommendations("비 오는 날 국물 추천 네 곳", List.of(
+                Map.of("storeId", "kong", "storeName", "여름별미", "menu1", "콩국수", "price1", "8000", "distanceMeters", 100),
+                Map.of("storeId", "chinese", "storeName", "중화요리", "menu1", "탕수육", "price1", "9000", "distanceMeters", 150),
+                Map.of("storeId", "makguksu", "storeName", "춘천집", "menu1", "막국수", "price1", "8000", "distanceMeters", 170),
+                Map.of("storeId", "kalguksu", "storeName", "칼국수집", "menu1", "칼국수", "price1", "7000", "distanceMeters", 200),
+                Map.of("storeId", "naengi", "storeName", "봄나물식당", "menu1", "냉이된장국", "price1", "7000", "distanceMeters", 250),
+                Map.of("storeId", "stew", "storeName", "백반집", "menu1", "김치찌개", "price1", "8000", "distanceMeters", 300)), 3000);
+
+        assertThat(result).extracting(item -> item.get("storeId"))
+                .containsExactly("kalguksu", "naengi", "stew");
+    }
+
+    @Test
     void radiusOneThreeAndFifteenKmAreHardBoundariesIncludingExactEdge() {
         GeminiService service = new GeminiService("", 1_000, false);
         for (int radius : List.of(1000, 3000, 15000)) {

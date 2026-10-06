@@ -118,6 +118,10 @@ class FirebaseServiceReportDeletionTest {
                         ? "relatedReportId" : "postId";
                 when(relationCollection.whereEqualTo(relationField, reportId))
                         .thenReturn(relationQuery);
+                // 게시글 삭제는 새 댓글 알림(relatedPostId)도 함께 지웁니다(BE-CORE-11).
+                if ("notifications".equals(relation)) {
+                    when(relationCollection.whereEqualTo("relatedPostId", reportId)).thenReturn(relationQuery);
+                }
                 when(relationQuery.get()).thenReturn(relationFuture);
                 try {
                     when(relationFuture.get()).thenReturn(relationSnapshot);

@@ -23,4 +23,8 @@ public class NotificationResponseDto {
     @JsonProperty("isRead")
     private boolean isRead;
     private String createdAt;
+    /** 계약 C3: 알림 대상(없으면 null). 앱이 알림을 누르면 해당 게시글·제보·매장으로 이동합니다. */
+    private String relatedPostId;
+    private String relatedReportId;
+    private String storeId;
 }

@@ -209,6 +209,7 @@ class VisitControllerTest {
         authenticate();
         MockMultipartFile invalid = new MockMultipartFile(
                 "images", "receipt.txt", "text/plain", new byte[]{1, 2, 3});
+        knownStore();
         when(firebaseService.uploadReportImages("user-1", List.of(invalid)))
                 .thenThrow(new IllegalArgumentException("이미지 형식 오류"));
 
@@ -240,6 +241,7 @@ class VisitControllerTest {
         MockMultipartFile image = new MockMultipartFile(
                 "images", "receipt.jpg", "image/jpeg",
                 new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        knownStore();
         when(firebaseService.receiptVerificationExists(anyString())).thenReturn(true);
 
         ResponseEntity<?> response = controller.submitReceiptVerification(
@@ -256,6 +258,7 @@ class VisitControllerTest {
         MockMultipartFile image = new MockMultipartFile(
                 "images", "receipt.jpg", "image/jpeg",
                 new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF});
+        knownStore();
         when(firebaseService.receiptVerificationExists(anyString()))
                 .thenReturn(false, true);
 
@@ -303,6 +306,11 @@ class VisitControllerTest {
 
     private void authenticate() {
         request.setAttribute(SessionAuthFilter.UID_ATTRIBUTE, "user-1");
+    }
+
+    private void knownStore() {
+        when(firebaseService.findVisitableStore("store-1", "테스트 식당"))
+                .thenReturn(Optional.of(java.util.Map.of("storeId", "store-1", "storeName", "테스트 식당")));
     }
 
     private VisitRequest validRequest() {

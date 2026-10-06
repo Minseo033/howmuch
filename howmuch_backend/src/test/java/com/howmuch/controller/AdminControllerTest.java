@@ -278,7 +278,7 @@ class AdminControllerTest {
     @Test
     void returnsNotFoundWhenTheNotificationTargetDoesNotExist() throws Exception {
         when(firebaseService.sendAdminNotification(
-                "missing-user", "알림", "내용", "admin"))
+                "missing-user", "알림", "내용", "admin", null))
                 .thenThrow(new IllegalArgumentException("대상 회원을 찾을 수 없습니다."));
 
         ResponseEntity<?> response = controller.sendNotification(
@@ -295,13 +295,13 @@ class AdminControllerTest {
                 "success", false,
                 "message", "대상 회원을 찾을 수 없습니다."));
         verify(firebaseService).sendAdminNotification(
-                "missing-user", "알림", "내용", "admin");
+                "missing-user", "알림", "내용", "admin", null);
     }
 
     @Test
     void publishesANoticeThroughTheSeparateAdminContract() throws Exception {
         Map<String, Object> published = Map.of("sent", 3, "broadcast", true);
-        when(firebaseService.publishAdminNotice("서비스 안내", "새 기능을 확인해주세요."))
+        when(firebaseService.publishAdminNotice("서비스 안내", "새 기능을 확인해주세요.", null))
                 .thenReturn(published);
 
         ResponseEntity<?> response = controller.publishNotice(
@@ -310,7 +310,7 @@ class AdminControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).isEqualTo(published);
-        verify(firebaseService).publishAdminNotice("서비스 안내", "새 기능을 확인해주세요.");
+        verify(firebaseService).publishAdminNotice("서비스 안내", "새 기능을 확인해주세요.", null);
     }
 
     @Test

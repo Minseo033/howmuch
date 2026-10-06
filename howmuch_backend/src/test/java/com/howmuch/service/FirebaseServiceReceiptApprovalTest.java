@@ -18,6 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -51,7 +52,10 @@ class FirebaseServiceReceiptApprovalTest {
         when(db.collection("receipt_verifications")).thenReturn(receipts);
         when(db.collection("visits")).thenReturn(visits);
         when(receipts.document("receipt-1")).thenReturn(receiptRef);
-        when(visits.document()).thenReturn(visitRef);
+        when(visits.document(anyString())).thenReturn(visitRef);
+        DocumentSnapshot noVisitYet = mock(DocumentSnapshot.class);
+        when(transaction.get(visitRef)).thenReturn(ApiFutures.immediateFuture(noVisitYet));
+        when(transaction.create(any(DocumentReference.class), anyMap())).thenReturn(transaction);
         when(visitRef.getId()).thenReturn("visit-1");
         when(transaction.get(receiptRef)).thenReturn(ApiFutures.immediateFuture(receipt));
         when(transaction.set(any(DocumentReference.class), anyMap())).thenReturn(transaction);
@@ -88,7 +92,7 @@ class FirebaseServiceReceiptApprovalTest {
 
         assertThat(result).containsEntry("visitId", "visit-1");
         ArgumentCaptor<Map<String, Object>> visitData = ArgumentCaptor.forClass(Map.class);
-        verify(transaction).set(eq(visitRef), visitData.capture());
+        verify(transaction).create(eq(visitRef), visitData.capture());
         assertThat(visitData.getValue())
                 .containsEntry("userId", "user-1")
                 .containsEntry("verificationMethod", "RECEIPT_OCR");
@@ -144,7 +148,7 @@ class FirebaseServiceReceiptApprovalTest {
         ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of("storeId", "store-1", "storeName", "테스트 식당",
                 "menu1", "무료 국밥", "price1", "0", "free1", true)));
         service.approveReceiptVerification("receipt-1", "ADMIN");
-        verify(transaction).set(eq(visitRef), argThat(data -> Boolean.TRUE.equals(data.get("isFree"))
+        verify(transaction).create(eq(visitRef), argThat(data -> Boolean.TRUE.equals(data.get("isFree"))
                 && Long.valueOf(0L).equals(data.get("price")) && Long.valueOf(0L).equals(data.get("savedAmount"))));
     }
 
@@ -162,7 +166,7 @@ class FirebaseServiceReceiptApprovalTest {
         Map<String, Object> result = service.approveReceiptVerification("receipt-1", "ADMIN");
 
         assertThat(result).containsEntry("status", "APPROVED");
-        verify(transaction).set(any(DocumentReference.class), anyMap());
+        verify(transaction).create(any(DocumentReference.class), anyMap());
         verify(transaction).update(any(DocumentReference.class), anyMap());
     }
 

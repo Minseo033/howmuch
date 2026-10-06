@@ -190,7 +190,7 @@ class FirebaseServiceReportApprovalTransactionTest {
         when(latest.getString("status")).thenReturn("APPROVED");
         when(transaction.get(reportRef)).thenReturn(ApiFutures.immediateFuture(latest));
         var edit = new com.howmuch.dto.UserReportRequest(); edit.setStoreId("store_a"); edit.setStoreName("국밥집");
-        edit.setReportType("STORE_INFO"); edit.setChangeType("other"); edit.setAddress("서울 중구");
+        edit.setReportType("STORE_INFO"); edit.setChangeType("price_mismatch"); edit.setAddress("서울 중구");
         assertThatThrownBy(() -> service.updateUserReport("report_a", "user-1", edit))
                 .isInstanceOf(IllegalStateException.class).hasMessageContaining("승인");
         verify(transaction, never()).update(any(DocumentReference.class), anyMap());
@@ -208,7 +208,7 @@ class FirebaseServiceReportApprovalTransactionTest {
             return ApiFutures.immediateFuture(result);
         });
         var edit = new com.howmuch.dto.UserReportRequest(); edit.setStoreId("store_a"); edit.setStoreName("국밥집");
-        edit.setReportType("STORE_INFO"); edit.setChangeType("other"); edit.setAddress("서울 중구");
+        edit.setReportType("STORE_INFO"); edit.setChangeType("price_mismatch"); edit.setAddress("서울 중구");
         service.updateUserReport("report_a", "user-1", edit);
         var cached = (List<Map<String, Object>>) ReflectionTestUtils.getField(service, "cachedUserStores");
         assertThat(cached.getFirst()).containsEntry("status", "APPROVED");

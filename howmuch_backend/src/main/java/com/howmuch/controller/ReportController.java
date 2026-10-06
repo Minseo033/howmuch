@@ -182,6 +182,11 @@ public class ReportController {
         }
 
         try {
+            // 계약 C7: 검증 전에 요청에 없는 유형·대상·설명을 기존 제보 값으로 채워,
+            // 가격 변동·정보 신고가 일반 신규 매장 제보로 검증·저장되지 않게 합니다.
+            normalizeReport(report);
+            Map<String, Object> existing = firebaseService.getOwnedReportForEdit(id, reporterUid);
+            FirebaseService.preserveReportIdentity(existing, report);
             ResponseEntity<?> validationError = validateReport(report);
             if (validationError != null) return validationError;
             validatePriceDirection(report);

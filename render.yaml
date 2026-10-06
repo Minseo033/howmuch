@@ -26,6 +26,9 @@ services:
         sync: false
       - key: KAKAO_REST_API_KEY
         sync: false
+      # 카카오 개발자 콘솔 > 내 애플리케이션 > 앱 ID(숫자). 넣으면 다른 앱용 카카오 토큰을 거부합니다.
+      - key: KAKAO_APP_ID
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: WEATHER_API_KEY

@@ -109,7 +109,6 @@ public class ReviewController {
             }
             if (request.getStoreId().length() > 200
                     || request.getStoreName().length() > 100
-                    || request.getAuthorName().length() > 50
                     || request.getMenu().length() > 100) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
@@ -117,10 +116,11 @@ public class ReviewController {
                 ));
             }
 
-            String reviewId = firebaseService.saveReview(authorUid, request);
+            FirebaseService.SavedReview saved = firebaseService.createReview(authorUid, request);
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "reviewId", reviewId,
+                    "reviewId", saved.reviewId(),
+                    "authorName", saved.authorName(),
                     "message", "리뷰가 등록되었습니다."
             ));
         } catch (IllegalArgumentException e) {
@@ -140,9 +140,8 @@ public class ReviewController {
         request.setStoreName(trimToNull(request.getStoreName()));
         request.setMenu(trimToNull(request.getMenu()));
         request.setContent(trimToNull(request.getContent()));
-
-        String authorName = trimToNull(request.getAuthorName());
-        request.setAuthorName(authorName == null ? "사용자" : authorName);
+        // 작성자 표시명은 서버가 회원 정보로 정합니다. 클라이언트가 보낸 값은 저장하지 않습니다.
+        request.setAuthorName(null);
     }
 
     private boolean isBlank(String value) {

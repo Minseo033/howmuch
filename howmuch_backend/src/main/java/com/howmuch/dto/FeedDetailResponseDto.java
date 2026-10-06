@@ -44,4 +44,8 @@ public class FeedDetailResponseDto {
     private boolean free4;
     private boolean visitedRecently;
     private boolean checkedMenuPrice;
+    /** 피드 목록과 같은 의미의 가격 변동 유형·제보 종류·시도(없으면 null) */
+    private String changeType;
+    private String reportType;
+    private String cityProvince;
 }

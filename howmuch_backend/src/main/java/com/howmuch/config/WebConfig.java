@@ -16,6 +16,12 @@ import java.util.List;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
+    private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+    /** 브라우저는 노출 목록에 없는 응답 헤더를 스크립트에서 숨긴다(지도 범위 잘림 표시, 재시도 안내). */
+    static final List<String> EXPOSED_HEADERS = List.of("X-Stores-Truncated", "Retry-After");
+    /** 인증 요청마다 사전 요청(OPTIONS)이 반복되지 않도록 결과를 1시간 재사용하게 한다. */
+    static final long PREFLIGHT_MAX_AGE_SECONDS = 3600L;
+
     private final List<String> allowedOriginPatterns;
 
     public WebConfig(@Value("${cors.allowed-origin-patterns}") String allowedOriginPatterns) {
@@ -26,8 +32,10 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOriginPatterns(allowedOriginPatterns.toArray(String[]::new))
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                .allowedHeaders("*");
+                .allowedMethods(ALLOWED_METHODS.toArray(String[]::new))
+                .allowedHeaders("*")
+                .exposedHeaders(EXPOSED_HEADERS.toArray(String[]::new))
+                .maxAge(PREFLIGHT_MAX_AGE_SECONDS);
     }
 
     /**
@@ -39,17 +47,22 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilterRegistration() {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(allowedOriginPatterns);
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
+        source.registerCorsConfiguration("/**", corsConfiguration());
 
         FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(new CorsFilter(source));
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
         return bean;
+    }
+
+    CorsConfiguration corsConfiguration() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOriginPatterns(allowedOriginPatterns);
+        config.setAllowedMethods(ALLOWED_METHODS);
+        config.setAllowedHeaders(List.of("*"));
+        config.setExposedHeaders(EXPOSED_HEADERS);
+        config.setMaxAge(PREFLIGHT_MAX_AGE_SECONDS);
+        return config;
     }
 
     static List<String> parseOriginPatterns(String rawPatterns) {
