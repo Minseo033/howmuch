@@ -13,6 +13,8 @@ import 'package:howmuch/features/recommendation/presentation/widgets/recommendat
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
 import 'package:howmuch/features/store/presentation/screens/directions_external_app_screen.dart';
+import 'package:howmuch/features/store/presentation/screens/store_detail_screen.dart';
+import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/choice_semantics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -384,6 +386,28 @@ void main() {
       );
       semantics.dispose();
     });
+
+    testWidgets('store detail actions are buttons a screen reader can press', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openStoreDetail(tester);
+
+      for (final name in ['전화', '가격 제보', '방문 인증', '길찾기', '전체보기']) {
+        expect(readerElementsNamed(name), findsOne, reason: name);
+        expect(
+          readerElementsNamed(name),
+          isSemantics(isButton: true, hasTapAction: true),
+          reason: name,
+        );
+      }
+      expect(readerElements('🍲'), findsNothing);
+
+      tester.semantics.tap(readerElementsNamed('길찾기'));
+      await tester.pumpAndSettle();
+      expect(find.text('길찾기 화면'), findsOneWidget);
+      semantics.dispose();
+    });
   });
 }
 
@@ -521,6 +545,46 @@ Future<void> _openAiChat(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+Future<void> _openStoreDetail(WidgetTester tester) async {
+  _setViewport(tester, const Size(390, 844));
+  final store = Store.fromJson({
+    'storeName': '24시 옛날집',
+    'address': '서울특별시 중구 세종대로 110',
+    'industry': '한식',
+    'phoneNumber': '02-123-4567',
+    'menu1': '김치찌개',
+    'price1': '9000',
+    'latitude': 37.5665,
+    'longitude': 126.978,
+    'source': 'GOV',
+  });
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [storeReviewProvider.overrideWith((ref) => _LocalReviews())],
+      child: MaterialApp.router(
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (_, _) => StoreDetailScreen(store: store),
+            ),
+            GoRoute(
+              path: AppRoutes.directionsExternalApp,
+              builder: (_, _) => const Scaffold(body: Text('길찾기 화면')),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+class _LocalReviews extends StoreReviewNotifier {
+  @override
+  Future<void> loadReviews(String storeId, {bool force = false}) async {}
 }
 
 void _setViewport(WidgetTester tester, Size size) {
