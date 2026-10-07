@@ -110,37 +110,32 @@ void main() {
     },
   );
 
-  testWidgets(
-    'NO_CHANGE is listed under 수정 없음 instead of the approved list',
-    (tester) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      container.read(userReportsProvider.notifier).setReports([noChange]);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            home: Scaffold(body: MyReportsApprovedTab()),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('기존 매장'), findsNothing);
+  testWidgets('NO_CHANGE is listed under 수정 없음 instead of the approved list', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(userReportsProvider.notifier).setReports([noChange]);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: MyReportsApprovedTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기존 매장'), findsNothing);
 
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            home: Scaffold(body: MyReportsNoChangeTab()),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('기존 매장'), findsOneWidget);
-      expect(find.text('수정 없음'), findsOneWidget);
-      expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
-    },
-  );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: MyReportsNoChangeTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기존 매장'), findsOneWidget);
+    expect(find.text('수정 없음'), findsOneWidget);
+    expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
+  });
 
   for (final size in [
     const Size(568, 320),

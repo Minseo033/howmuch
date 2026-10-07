@@ -712,7 +712,8 @@ class _PriceChangeLines extends ConsumerWidget {
     final reported = report.menuPrices.firstOrNull;
     final menuName = reported?.menu.trim() ?? '';
     final storeId = report.storeId.trim();
-    final store = !report.isApproved && storeId.isNotEmpty && menuName.isNotEmpty
+    final store =
+        !report.isApproved && storeId.isNotEmpty && menuName.isNotEmpty
         ? ref.watch(reportTargetStoreProvider(storeId)).valueOrNull
         : null;
     final existingPrice = store == null

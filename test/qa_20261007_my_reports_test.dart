@@ -250,17 +250,13 @@ void main() {
   testWidgets('an approved price change does not present the applied price as '
       'the old one (QA #15)', (tester) async {
     final storeRequests = <String>[];
-    await _pumpDetail(
-      tester,
-      {
-        ..._priceRejected,
-        'id': 'price-approved',
-        'status': 'APPROVED',
-        'resolution': 'PRICE',
-        'rejectReason': '',
-      },
-      service: _service(storeRequests: storeRequests),
-    );
+    await _pumpDetail(tester, {
+      ..._priceRejected,
+      'id': 'price-approved',
+      'status': 'APPROVED',
+      'resolution': 'PRICE',
+      'rejectReason': '',
+    }, service: _service(storeRequests: storeRequests));
     expect(storeRequests, isEmpty);
     expect(find.text('기존 가격'), findsNothing);
     expect(find.text('제보한 가격'), findsOneWidget);

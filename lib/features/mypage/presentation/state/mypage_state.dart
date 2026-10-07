@@ -318,7 +318,10 @@ class UserReportStatus {
   String get summaryText => isInformationReport
       ? '$kindLabel · $informationTypeLabel'
       : isPriceChangeReport
-      ? [priceChangeTypeLabel, menu].where((part) => part.isNotEmpty).join(' · ')
+      ? [
+          priceChangeTypeLabel,
+          menu,
+        ].where((part) => part.isNotEmpty).join(' · ')
       : menu;
 
   /// 제보한 날짜(yyyy.MM.dd, 기기 시간대)입니다. 읽을 수 없으면 빈 문자열입니다.
