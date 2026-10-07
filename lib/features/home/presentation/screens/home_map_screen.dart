@@ -25,6 +25,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart'
@@ -3340,64 +3341,69 @@ class _TodayPickCard extends StatelessWidget {
             ),
           ],
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final narrow = constraints.maxWidth < 320;
-            return Row(
-              children: [
-                SizedBox(
-                  width: compact ? 44 : 55.99431610107422,
-                  height: double.infinity,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+        // The banner floats over the map at a fixed height, so its text stops
+        // at the compact chrome scale (QA 10/7 #5).
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: AppTextScale.compactChrome,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 320;
+              return Row(
+                children: [
+                  SizedBox(
+                    width: compact ? 44 : 55.99431610107422,
+                    height: double.infinity,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.thunderstorm_outlined,
+                            color: HomeMapScreen.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 1.989),
+                          // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
+                          Text(
+                            '오늘',
+                            style: TextStyle(
+                              color: HomeMapScreen.blue,
+                              fontFamily: HomeMapScreen.fontFamily,
+                              fontFamilyFallback: HomeMapScreen.fontFallback,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.thunderstorm_outlined,
-                          color: HomeMapScreen.blue,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 1.989),
-                        // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
-                        Text(
-                          '오늘',
-                          style: TextStyle(
-                            color: HomeMapScreen.blue,
-                            fontFamily: HomeMapScreen.fontFamily,
-                            fontFamilyFallback: HomeMapScreen.fontFallback,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
-                SizedBox(width: narrow ? 8 : 11.988616943359375),
-                const Expanded(child: _TodayPickText()),
-                if (!compact) ...[
-                  const _RankDot(label: '1', color: HomeMapScreen.blue),
-                  const _RankDot(label: '2', color: HomeMapScreen.orange),
-                  const _RankDot(label: '3', color: HomeMapScreen.green),
+                  SizedBox(width: narrow ? 8 : 11.988616943359375),
+                  const Expanded(child: _TodayPickText()),
+                  if (!compact) ...[
+                    const _RankDot(label: '1', color: HomeMapScreen.blue),
+                    const _RankDot(label: '2', color: HomeMapScreen.orange),
+                    const _RankDot(label: '3', color: HomeMapScreen.green),
+                  ],
+                  SizedBox(width: narrow ? 4 : 9.985779),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: HomeMapScreen.muted,
+                    size: 17,
+                  ),
+                  SizedBox(width: narrow ? 8 : 12),
                 ],
-                SizedBox(width: narrow ? 4 : 9.985779),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: HomeMapScreen.muted,
-                  size: 17,
-                ),
-                SizedBox(width: narrow ? 8 : 12),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -3409,58 +3415,74 @@ class _TodayPickText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final lines = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '오늘의 픽',
-              style: TextStyle(
-                color: Color(0xFFF59E0B),
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
-                letterSpacing: .4,
-              ),
+            Row(
+              children: [
+                const Text(
+                  '오늘의 픽',
+                  style: TextStyle(
+                    color: Color(0xFFF59E0B),
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                    letterSpacing: .4,
+                  ),
+                ),
+                const SizedBox(width: 5.994),
+                Expanded(
+                  child: Text(
+                    '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: HomeMapScreen.muted,
+                      fontFamily: HomeMapScreen.fontFamily,
+                      fontFamilyFallback: HomeMapScreen.fontFallback,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 5.994),
-            Expanded(
+            const SizedBox(height: .994),
+            // Shrinks to the space left by the rank dots instead of ending in
+            // an ellipsis when the text is enlarged.
+            const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(
-                '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                '날씨와 거리로 매장 추천',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: HomeMapScreen.muted,
+                  color: HomeMapScreen.ink,
                   fontFamily: HomeMapScreen.fontFamily,
                   fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                   height: 1.5,
+                  letterSpacing: 0,
                 ),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: .994),
-        const Text(
-          '날씨와 거리로 매장 추천',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: HomeMapScreen.ink,
-            fontFamily: HomeMapScreen.fontFamily,
-            fontFamilyFallback: HomeMapScreen.fontFallback,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
+        );
+        // The short landscape banner (44px) cannot hold both lines at the
+        // capped scale; shrink them together instead of cutting the title.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(width: constraints.maxWidth, child: lines),
+        );
+      },
     );
   }
 }
@@ -3602,129 +3624,149 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x240F172A),
-            blurRadius: 16,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 24,
-              child: Row(
-                children: [
-                  _SourceBadge(isUserReported: store.isUserReported),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      store.address.split(' ').take(3).join(' '),
-                      style: _muted11,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+    // The card has a fixed height on the map, so its text stops at the
+    // compact chrome scale; the full details scale on the store page
+    // (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x240F172A),
+              blurRadius: 16,
+              offset: Offset(0, 12),
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 60,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textScaler = MediaQuery.textScalerOf(context);
-                  final textDirection = Directionality.of(context);
-                  if (constraints.maxWidth < 300) {
-                    final industryWidth = math.min(
-                      64.0,
-                      _textWidth(store.industry, _muted11, textScaler),
-                    );
-                    final priceLineHeight = math.max(
-                      _textHeight(_muted12, textScaler),
-                      _textHeight(_tightCompactPriceStyle, textScaler),
-                    );
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 24,
+                child: Row(
+                  children: [
+                    _SourceBadge(isUserReported: store.isUserReported),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        store.address.split(' ').take(3).join(' '),
+                        style: _muted11,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              SizedBox(
+                height: 60,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScaler = MediaQuery.textScalerOf(context);
+                    final textDirection = Directionality.of(context);
+                    if (constraints.maxWidth < 300) {
+                      final industryWidth = math.min(
+                        64.0,
+                        _textWidth(store.industry, _muted11, textScaler),
+                      );
+                      final priceLineHeight = math.max(
+                        _textHeight(_muted12, textScaler),
+                        _textHeight(_tightCompactPriceStyle, textScaler),
+                      );
+                      final wrapName = _storeNameWrapsInCard(
+                        name: store.storeName,
+                        width: constraints.maxWidth - 8 - industryWidth,
+                        height: constraints.maxHeight - 2 - priceLineHeight,
+                        textScaler: textScaler,
+                        textDirection: textDirection,
+                      );
+                      // Enlarged text also needs the tight price line, or the
+                      // name and price no longer fit the 60px row.
+                      final roomyHeight =
+                          _textHeight(_storeNameStyle, textScaler) +
+                          4 +
+                          math.max(
+                            _textHeight(_muted12, textScaler),
+                            _textHeight(_compactPriceStyle, textScaler),
+                          );
+                      final tight =
+                          wrapName || roomyHeight > constraints.maxHeight;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StoreInfo(
+                                  store: store,
+                                  compact: true,
+                                  wrapName: wrapName,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 64),
+                                child: Text(
+                                  store.industry,
+                                  style: _muted11,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: tight ? 2 : 4),
+                          _StorePrice(
+                            store: store,
+                            selection: selection,
+                            compact: true,
+                            tight: tight,
+                          ),
+                        ],
+                      );
+                    }
                     final wrapName = _storeNameWrapsInCard(
                       name: store.storeName,
-                      width: constraints.maxWidth - 8 - industryWidth,
-                      height: constraints.maxHeight - 2 - priceLineHeight,
+                      width: constraints.maxWidth - 12 - 144,
+                      height:
+                          constraints.maxHeight -
+                          4 -
+                          _textHeight(_muted12, textScaler),
                       textScaler: textScaler,
                       textDirection: textDirection,
                     );
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    return Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _StoreInfo(
-                                store: store,
-                                compact: true,
-                                wrapName: wrapName,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 64),
-                              child: Text(
-                                store.industry,
-                                style: _muted11,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        Expanded(
+                          child: _StoreInfo(store: store, wrapName: wrapName),
                         ),
-                        SizedBox(height: wrapName ? 2 : 4),
-                        _StorePrice(
-                          store: store,
-                          selection: selection,
-                          compact: true,
-                          tight: wrapName,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 144,
+                          child: _StorePrice(
+                            store: store,
+                            selection: selection,
+                          ),
                         ),
                       ],
                     );
-                  }
-                  final wrapName = _storeNameWrapsInCard(
-                    name: store.storeName,
-                    width: constraints.maxWidth - 12 - 144,
-                    height:
-                        constraints.maxHeight -
-                        4 -
-                        _textHeight(_muted12, textScaler),
-                    textScaler: textScaler,
-                    textDirection: textDirection,
-                  );
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _StoreInfo(store: store, wrapName: wrapName),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 144,
-                        child: _StorePrice(store: store, selection: selection),
-                      ),
-                    ],
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE7E9E2)),
-            SizedBox(
-              height: 54,
-              child: Center(child: _DetailButton(store: store)),
-            ),
-          ],
+              const Divider(height: 1, color: Color(0xFFE7E9E2)),
+              SizedBox(
+                height: 54,
+                child: Center(child: _DetailButton(store: store)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3812,38 +3854,37 @@ class _StorePrice extends StatelessWidget {
         ],
       );
     }
-    return SizedBox(
-      height: 52,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            menuStr,
+    // Sized by its content and centered in the 60px row: the old 52px box
+    // overflowed by 6px at 1.3x text.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          menuStr,
+          textAlign: TextAlign.right,
+          style: _muted10.copyWith(fontSize: 11),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Text(
+            priceStr,
             textAlign: TextAlign.right,
-            style: _muted10.copyWith(fontSize: 11),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Text(
-              priceStr,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: HomeMapScreen.ink,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                height: 1.5,
-              ),
+            style: const TextStyle(
+              color: HomeMapScreen.ink,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.5,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3969,6 +4010,16 @@ class _AiRecommendControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Its label used to be clipped to 'AI 추천' at large text sizes: the pill
+    // now grows with its one-line label, which stops at the compact chrome
+    // scale like the other map controls (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: _buildControl(),
+    );
+  }
+
+  Widget _buildControl() {
     if (spotlight) {
       return GestureDetector(
         onTap: onTap,
@@ -3976,9 +4027,8 @@ class _AiRecommendControl extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 78,
-              height: 28,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(minWidth: 78, minHeight: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -3990,23 +4040,31 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  height: 1.5,
+              // Factors of 1 keep the pill at its label size instead of
+              // stretching to the row height.
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -4057,9 +4115,11 @@ class _AiRecommendControl extends StatelessWidget {
         children: [
           if (!compact)
             Container(
-              width: 82,
-              height: 22.982954025268555,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(
+                minWidth: 82,
+                minHeight: 22.982954025268555,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -4071,23 +4131,29 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),

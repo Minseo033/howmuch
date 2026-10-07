@@ -188,15 +188,22 @@ class _NavItem extends StatelessWidget {
               children: [
                 Icon(icon, color: color, size: 22),
                 const SizedBox(height: 1),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontFamily: HowmuchBottomNav.fontFamily,
-                    fontFamilyFallback: HowmuchBottomNav.fontFallback,
-                    fontSize: 11,
-                    fontWeight: active ? FontWeight.w700 : FontWeight.w600,
-                    height: 1.35,
+                // The bar keeps its fixed height, so the label stops growing
+                // at the compact chrome scale instead of being cut off at
+                // large accessibility text sizes (QA 10/7 #5).
+                MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: AppTextScale.compactChrome,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      color: color,
+                      fontFamily: HowmuchBottomNav.fontFamily,
+                      fontFamilyFallback: HowmuchBottomNav.fontFallback,
+                      fontSize: 11,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
