@@ -18,6 +18,7 @@ class FigmaMobileCanvas extends StatelessWidget {
     this.backgroundColor = Colors.white,
     this.outerBackgroundColor = const Color(0xFFF4F6FA),
     this.wideWebLayout = false,
+    this.fullWidthOnApp = false,
   });
 
   /// Max width for desktop web centering
@@ -46,6 +47,13 @@ class FigmaMobileCanvas extends StatelessWidget {
   final Color backgroundColor;
   final Color outerBackgroundColor;
   final bool wideWebLayout;
+
+  /// On the installed app (not the web), spans the whole viewport when it is
+  /// wider than the product shell, such as a phone in landscape, instead of
+  /// leaving empty sides. The screen must keep its own controls inside a
+  /// [webContentWidthFor] wide column; this is meant for an edge-to-edge
+  /// background such as the home map (QA 10/7 #45).
+  final bool fullWidthOnApp;
 
   /// Returns true when running on the web platform.
   static bool get _isWeb => kIsWeb;
@@ -125,10 +133,13 @@ class FigmaMobileCanvas extends StatelessWidget {
     // On mobile web: fill 100% width
     final useWideWebLayout =
         wideWebLayout && _isWeb && viewportWidth >= wideWebBreakpoint;
-    final contentWidth = useWideWebLayout
+    final useFullAppWidth = fullWidthOnApp && !_isWeb;
+    final contentWidth = useFullAppWidth
+        ? viewportWidth
+        : useWideWebLayout
         ? wideWebContentWidthFor(viewportWidth)
         : webContentWidthFor(viewportWidth);
-    final showDesktopFrame = viewportWidth > maxWebWidth;
+    final showDesktopFrame = !useFullAppWidth && viewportWidth > maxWebWidth;
     final sideOffset = math.max(0.0, (viewportWidth - contentWidth) / 2);
     final content = _isWeb
         ? _WebSafeArea(child: SizedBox.expand(child: child))

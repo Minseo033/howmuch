@@ -2543,8 +2543,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         (isSearching || isResultActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
+    // On the app the map reaches the screen edges when the screen is wider
+    // than the shell (landscape), while every control stays in the same
+    // centered 430 column as before (QA 10/7 #45). On the web and on portrait
+    // phones the column is the whole canvas, so nothing moves.
+    Widget productColumn(List<Widget> children) => Positioned.fill(
+      child: Center(
+        child: SizedBox(
+          width: screenWidth,
+          child: Stack(children: children),
+        ),
+      ),
+    );
+
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFEFF4FF),
+      fullWidthOnApp: true,
       child: Stack(
         children: [
           Positioned.fill(
@@ -2661,314 +2675,319 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
 
-          Positioned(
-            key: const ValueKey('home-search-control'),
-            left: horizontalPadding,
-            right: horizontalPadding,
-            top: searchTop,
-            height: searchHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _SearchBar(
-                  query: _searchQuery,
-                  onTap: _openSearch,
-                  onFilterTap: () => _openSearch(openFilter: true),
-                ),
-              ),
-            ),
-          ),
-
-          if (hasFilters)
+          productColumn([
             Positioned(
-              left: 0,
-              right: 0,
-              top: 86 + topOffset + 52 + 10, // _SearchBar below
-              height: 32,
+              key: const ValueKey('home-search-control'),
+              left: horizontalPadding,
+              right: horizontalPadding,
+              top: searchTop,
+              height: searchHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.horizontalPadding,
-                  ),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: activeFilters.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(width: AppSizes.smallSpacing),
-                  itemBuilder: (context, i) {
-                    final label = activeFilters[i];
-                    return Container(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                          color: const Color(0xFF2563EB),
-                          width: 1.2,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label,
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontFamily: HomeMapScreen.fontFamily,
-                              fontFamilyFallback: HomeMapScreen.fontFallback,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _searchFilter = _searchFilter.remove(label);
-                                _refreshTransferredSearchResults();
-                              });
-                              _searchInCurrentArea();
-                            },
-                            child: const Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-          if (!isSearching && !isResultActive) ...[
-            if (!isCompactHeight)
-              Positioned(
-                left: AppSizes.horizontalPadding,
-                top: 67.98297119140625 + topOffset + topOffsetPush,
-                width: 183.67897033691406,
-                height: 28.480112075805664,
-                child: Opacity(
-                  opacity: homeChromeOpacity,
-                  child: const _SourceLegend(),
-                ),
-              ),
-            if (showCompactTodayPick)
-              Positioned(
-                key: const ValueKey('home-today-pick-card'),
-                left: horizontalPadding,
-                right: horizontalPadding,
-                top: todayPickTop + topOffsetPush,
-                height: todayPickHeight,
-                child: Opacity(
-                  opacity: homeChromeOpacity,
-                  child: _TodayPickCard(compact: isCompactHeight),
-                ),
-              ),
-          ],
-          Positioned(
-            key: const ValueKey('home-location-control'),
-            right: inlineCompactControls ? 76 : 16,
-            top: floatingLocationTop,
-            width: 52.0,
-            height: 52.0,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Tooltip(
-                message: '내 위치로 이동',
-                child: Semantics(
-                  button: true,
-                  label: '내 위치로 이동',
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _suppressMarkerClicks(
-                      const Duration(milliseconds: 1000),
-                    ),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => _suppressMarkerClicks(
-                        const Duration(milliseconds: 1000),
-                      ),
-                      onTap: () {
-                        _suppressMarkerClicks(
-                          const Duration(milliseconds: 1000),
-                        );
-                        _moveToCurrentLocation();
-                      },
-                      child: _RoundIconButton(
-                        icon: Icons.near_me_rounded,
-                        color: HomeMapScreen.blue,
-                        isLoading: _isCenteringLocation,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            key: const ValueKey('home-ai-control'),
-            right: 16,
-            top: floatingAiTop,
-            height: 51.9886360168457,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) =>
-                    _suppressMarkerClicks(const Duration(milliseconds: 800)),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) =>
-                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: Tooltip(
-                    message: 'AI 추천받기',
-                    child: Semantics(
-                      button: true,
-                      label: 'AI 추천받기',
-                      onTap: _openAiRecommend,
-                      excludeSemantics: true,
-                      child: _AiRecommendControl(
-                        onTap: _openAiRecommend,
-                        compact: inlineCompactControls,
-                      ),
-                    ),
+                  child: _SearchBar(
+                    query: _searchQuery,
+                    onTap: _openSearch,
+                    onFilterTap: () => _openSearch(openFilter: true),
                   ),
                 ),
               ),
             ),
-          ),
-          if (isAiActive) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: 64.0 + topOffset + topOffsetPush,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(
-                  child: _AiRecommendationBanner(
-                    count: _aiRecommendedStores.length,
-                    origin: _activeAiRecommendation?.origin,
-                    onReset: _clearAiRecommendation,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          if (showStoreList) ...[
-            if (_activeAiRecommendation?.origin !=
-                MapResultOrigin.approvedReport)
+
+            if (hasFilters)
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                top: 86 + topOffset + 52 + 10, // _SearchBar below
+                height: 32,
                 child: Opacity(
                   opacity: homeChromeOpacity,
-                  child: Center(
-                    child: _FloatingSearchSummary(
-                      count: _currentStores.length,
-                      title: isAiActive
-                          ? (_activeAiRecommendation?.origin ==
-                                    MapResultOrigin.todaysPick
-                                ? '오늘의 픽 '
-                                : 'AI 추천 결과 ')
-                          : null,
-                      detail: _searchResultStores == null
-                          ? null
-                          : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
                     ),
-                  ),
-                ),
-              ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 10,
-              height: storeCardHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: _blockMapTapsThrough(
-                  HomeMapStoreCarousel(
-                    controller: _pageController,
-                    itemCount: _currentStores.length,
-                    onPageChanged: _onStorePageChanged,
-                    itemBuilder: (context, index) {
-                      final store = _currentStores[index];
-                      return HomeMapStoreSummaryCard(
-                        store: store,
-                        selection: isAiActive
-                            ? _selectionFor(store)
-                            : (isSearching ? _searchSelectionFor(store) : null),
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: activeFilters.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSizes.smallSpacing),
+                    itemBuilder: (context, i) {
+                      final label = activeFilters[i];
+                      return Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFF2563EB),
+                            width: 1.2,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontFamily: HomeMapScreen.fontFamily,
+                                fontFamilyFallback: HomeMapScreen.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _searchFilter = _searchFilter.remove(label);
+                                  _refreshTransferredSearchResults();
+                                });
+                                _searchInCurrentArea();
+                              },
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 14,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),
                 ),
               ),
-            ),
-          ] else if (isSearching && _currentStores.isEmpty) ...[
+
+            if (!isSearching && !isResultActive) ...[
+              if (!isCompactHeight)
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: 67.98297119140625 + topOffset + topOffsetPush,
+                  width: 183.67897033691406,
+                  height: 28.480112075805664,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: const _SourceLegend(),
+                  ),
+                ),
+              if (showCompactTodayPick)
+                Positioned(
+                  key: const ValueKey('home-today-pick-card'),
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                  top: todayPickTop + topOffsetPush,
+                  height: todayPickHeight,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: _TodayPickCard(compact: isCompactHeight),
+                  ),
+                ),
+            ],
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 20,
+              key: const ValueKey('home-location-control'),
+              right: inlineCompactControls ? 76 : 16,
+              top: floatingLocationTop,
+              width: 52.0,
+              height: 52.0,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: Center(child: _FloatingSearchSummary(count: 0)),
-              ),
-            ),
-          ] else if (_showStoreSummary && _selectedStore != null) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: storeCardTop,
-              height: storeCardHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: _blockMapTapsThrough(
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (_) {},
-                    onHorizontalDragUpdate: (_) {},
-                    child: HomeMapStoreSummaryCard(
-                      store: _selectedStore!,
-                      selection: isAiActive
-                          ? _selectionFor(_selectedStore!)
-                          : (isSearching
-                                ? _searchSelectionFor(_selectedStore!)
-                                : null),
+                child: Tooltip(
+                  message: '내 위치로 이동',
+                  child: Semantics(
+                    button: true,
+                    label: '내 위치로 이동',
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: (_) => _suppressMarkerClicks(
+                        const Duration(milliseconds: 1000),
+                      ),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (_) => _suppressMarkerClicks(
+                          const Duration(milliseconds: 1000),
+                        ),
+                        onTap: () {
+                          _suppressMarkerClicks(
+                            const Duration(milliseconds: 1000),
+                          );
+                          _moveToCurrentLocation();
+                        },
+                        child: _RoundIconButton(
+                          icon: Icons.near_me_rounded,
+                          color: HomeMapScreen.blue,
+                          isLoading: _isCenteringLocation,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-          Positioned(
-            key: const ValueKey('home-bottom-navigation'),
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: bottomNavHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: HowmuchBottomNav(
-                  safeBottom: bottomOffset,
-                  activeTab: HowmuchBottomTab.home,
+            Positioned(
+              key: const ValueKey('home-ai-control'),
+              right: 16,
+              top: floatingAiTop,
+              height: 51.9886360168457,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (_) =>
+                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) => _suppressMarkerClicks(
+                      const Duration(milliseconds: 800),
+                    ),
+                    onVerticalDragUpdate: (_) {},
+                    onHorizontalDragUpdate: (_) {},
+                    child: Tooltip(
+                      message: 'AI 추천받기',
+                      child: Semantics(
+                        button: true,
+                        label: 'AI 추천받기',
+                        onTap: _openAiRecommend,
+                        excludeSemantics: true,
+                        child: _AiRecommendControl(
+                          onTap: _openAiRecommend,
+                          compact: inlineCompactControls,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            if (isAiActive) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: 64.0 + topOffset + topOffsetPush,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(
+                    child: _AiRecommendationBanner(
+                      count: _aiRecommendedStores.length,
+                      origin: _activeAiRecommendation?.origin,
+                      onReset: _clearAiRecommendation,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (showStoreList) ...[
+              if (_activeAiRecommendation?.origin !=
+                  MapResultOrigin.approvedReport)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: Center(
+                      child: _FloatingSearchSummary(
+                        count: _currentStores.length,
+                        title: isAiActive
+                            ? (_activeAiRecommendation?.origin ==
+                                      MapResultOrigin.todaysPick
+                                  ? '오늘의 픽 '
+                                  : 'AI 추천 결과 ')
+                            : null,
+                        detail: _searchResultStores == null
+                            ? null
+                            : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 10,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    HomeMapStoreCarousel(
+                      controller: _pageController,
+                      itemCount: _currentStores.length,
+                      onPageChanged: _onStorePageChanged,
+                      itemBuilder: (context, index) {
+                        final store = _currentStores[index];
+                        return HomeMapStoreSummaryCard(
+                          store: store,
+                          selection: isAiActive
+                              ? _selectionFor(store)
+                              : (isSearching
+                                    ? _searchSelectionFor(store)
+                                    : null),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (isSearching && _currentStores.isEmpty) ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 20,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(child: _FloatingSearchSummary(count: 0)),
+                ),
+              ),
+            ] else if (_showStoreSummary && _selectedStore != null) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: storeCardTop,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: (_) {},
+                      onHorizontalDragUpdate: (_) {},
+                      child: HomeMapStoreSummaryCard(
+                        store: _selectedStore!,
+                        selection: isAiActive
+                            ? _selectionFor(_selectedStore!)
+                            : (isSearching
+                                  ? _searchSelectionFor(_selectedStore!)
+                                  : null),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              key: const ValueKey('home-bottom-navigation'),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: bottomNavHeight,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: HowmuchBottomNav(
+                    safeBottom: bottomOffset,
+                    activeTab: HowmuchBottomTab.home,
+                  ),
+                ),
+              ),
+            ),
+          ]),
           if (_showAiSpotlight) ...[
             Positioned.fill(
               child: GestureDetector(
@@ -2985,27 +3004,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               ),
             ),
-            Positioned(
-              left: (screenWidth - 265) / 2,
-              top: spotlightCoachTop,
-              width: 265,
-              height: 38,
-              child: _AiCoachTip(onTap: _openAiRecommend),
-            ),
-            Positioned(
-              right: 16,
-              top: spotlightAiTop,
-              height: 70,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: _openAiRecommend,
-                  spotlight: true,
+            productColumn([
+              Positioned(
+                left: (screenWidth - 265) / 2,
+                top: spotlightCoachTop,
+                width: 265,
+                height: 38,
+                child: _AiCoachTip(onTap: _openAiRecommend),
+              ),
+              Positioned(
+                right: 16,
+                top: spotlightAiTop,
+                height: 70,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _AiRecommendControl(
+                    onTap: _openAiRecommend,
+                    spotlight: true,
+                  ),
                 ),
               ),
-            ),
+            ]),
           ],
           if (_locationNotice != null)
             Positioned.fill(

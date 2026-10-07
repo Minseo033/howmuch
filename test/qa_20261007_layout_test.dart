@@ -162,7 +162,7 @@ void main() {
     }
   });
 
-  group('landscape (QA 10/7 #44)', () {
+  group('landscape (QA 10/7 #44, #45)', () {
     for (final (size, insets) in [
       (_landscape, _landscapeInsets),
       // iPhone 14 Pro and an inset-free small phone.
@@ -181,6 +181,47 @@ void main() {
         });
       }
     }
+
+    testWidgets('the home map fills the screen behind the 430 controls', (
+      tester,
+    ) async {
+      _setViewport(tester, _landscape, insets: _landscapeInsets);
+      await _pumpHome(tester, 1);
+
+      expect(tester.takeException(), isNull);
+      final map = tester.getRect(
+        find.byKey(const ValueKey('kakao-map-mobile')),
+      );
+      expect(map.left, 0);
+      expect(map.right, _landscape.width);
+
+      final shellLeft = (_landscape.width - FigmaMobileCanvas.maxWebWidth) / 2;
+      final shellRight = shellLeft + FigmaMobileCanvas.maxWebWidth;
+      for (final key in const [
+        ValueKey('home-search-control'),
+        ValueKey('home-today-pick-card'),
+        ValueKey('home-location-control'),
+        ValueKey('home-ai-control'),
+        ValueKey('home-bottom-navigation'),
+      ]) {
+        final rect = tester.getRect(find.byKey(key));
+        expect(rect.left, greaterThanOrEqualTo(shellLeft), reason: '$key');
+        expect(rect.right, lessThanOrEqualTo(shellRight), reason: '$key');
+      }
+    });
+
+    testWidgets('a portrait phone keeps the map inside the screen width', (
+      tester,
+    ) async {
+      _setViewport(tester, _portrait, insets: _portraitInsets);
+      await _pumpHome(tester, 1);
+
+      final map = tester.getRect(
+        find.byKey(const ValueKey('kakao-map-mobile')),
+      );
+      expect(map.left, 0);
+      expect(map.right, _portrait.width);
+    });
 
     test('notch insets outside the centered column are dropped', () {
       const data = MediaQueryData(
