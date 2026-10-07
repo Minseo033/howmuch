@@ -974,12 +974,24 @@ class _ReportItem extends StatelessWidget {
               Positioned(
                 left: 11.9886474609375,
                 top: 10,
+                // 오른쪽 상태 배지와 겹치지 않도록 글자 폭을 제한합니다.
+                right: 90,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(report.store, style: _reportStoreText),
+                    Text(
+                      report.store,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _reportStoreText,
+                    ),
                     const SizedBox(height: .994),
-                    Text(report.menu, style: _muted11),
+                    Text(
+                      report.summaryText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _muted11,
+                    ),
                   ],
                 ),
               ),
@@ -1007,7 +1019,7 @@ class _ReportItem extends StatelessWidget {
                       ),
                       const SizedBox(width: 3.991),
                       Text(
-                        report.status,
+                        report.displayStatus,
                         style: TextStyle(
                           color: Color(report.textColor),
                           fontFamily: MypageScreen.fontFamily,

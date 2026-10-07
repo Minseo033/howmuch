@@ -95,9 +95,33 @@ class ReportCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   StatusBadge(report: report),
+                  const SizedBox(width: 8),
+                  // 같은 매장의 새 매장 제보·가격 변동 제보·정보 오류 신고를 구분합니다.
+                  Expanded(
+                    child: Text(
+                      report.source.kindLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontFamily: "Inter",
+                        fontFamilyFallback: [
+                          "Noto Sans KR",
+                          "Apple SD Gothic Neo",
+                          "AppleGothic",
+                          "Arial Unicode MS",
+                          "Malgun Gothic",
+                          "sans-serif",
+                        ],
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Text(
                     report.date,
                     style: const TextStyle(
@@ -141,9 +165,9 @@ class ReportCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '대표 메뉴',
-                    style: TextStyle(
+                  Text(
+                    report.menuLabel,
+                    style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontFamily: "Inter",
                       fontFamilyFallback: [
@@ -571,7 +595,7 @@ class StepData {
   final bool done;
 }
 
-enum ReportFilter { all, pending, approved, needsEdit, rejected }
+enum ReportFilter { all, pending, approved, noChange, needsEdit, rejected }
 
 class MyReportData {
   const MyReportData({
@@ -582,6 +606,7 @@ class MyReportData {
     required this.date,
     required this.title,
     required this.menu,
+    this.menuLabel = '대표 메뉴',
     required this.badgeBackground,
     required this.badgeColor,
     this.badgeDotColor,
@@ -603,6 +628,7 @@ class MyReportData {
   final String date;
   final String title;
   final String menu;
+  final String menuLabel;
   final Color badgeBackground;
   final Color badgeColor;
   final Color? badgeDotColor;
@@ -621,7 +647,10 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
   final riverpodReports = ref.watch(userReportsProvider);
   return riverpodReports.map((r) {
     ReportFilter filter = ReportFilter.all;
-    if (r.status.contains('검토')) {
+    // 수정 없음은 서버 상태가 승인이어도 반영된 내용이 없으므로 따로 모읍니다.
+    if (r.isResolvedWithoutChange) {
+      filter = ReportFilter.noChange;
+    } else if (r.status.contains('검토')) {
       filter = ReportFilter.pending;
     } else if (r.status.contains('승인')) {
       filter = ReportFilter.approved;
@@ -646,19 +675,15 @@ final myReportDataProvider = Provider<List<MyReportData>>((ref) {
       height = 144.134;
     }
 
-    final dateObj = DateTime.tryParse(r.createdAt)?.toLocal();
-    final dateStr = dateObj == null
-        ? ''
-        : '${dateObj.year}.${dateObj.month.toString().padLeft(2, '0')}.${dateObj.day.toString().padLeft(2, '0')}';
-
     return MyReportData(
       id: r.id,
       source: r,
       filter: filter,
-      status: r.status,
-      date: dateStr,
+      status: r.displayStatus,
+      date: r.createdDateLabel,
       title: r.store,
-      menu: r.menu,
+      menu: r.summaryValue,
+      menuLabel: r.summaryLabel,
       badgeBackground: Color(r.statusBg),
       badgeColor: Color(r.textColor),
       badgeWidth: 70.497,

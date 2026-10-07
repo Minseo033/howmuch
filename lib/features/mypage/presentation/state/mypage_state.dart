@@ -281,9 +281,59 @@ class UserReportStatus {
   bool get isApproved => status.contains('승인') || status == 'APPROVED';
   bool get isExistingStoreReport =>
       isInformationReport || changeType.isNotEmpty;
+  bool get isPriceChangeReport => !isInformationReport && changeType.isNotEmpty;
+
+  /// 검토를 마쳤지만 매장 정보를 바꾸지 않은 건(NO_CHANGE)입니다. 서버 상태는
+  /// 승인이라 수정 차단 같은 판단은 [isApproved]를 그대로 쓰고, 목록·배지에서만
+  /// 승인 완료와 따로 보여 줍니다.
+  bool get isResolvedWithoutChange => isApproved && resolution == 'NO_CHANGE';
+
+  /// 목록과 배지에 보이는 처리 상태입니다.
+  String get displayStatus => isResolvedWithoutChange ? '수정 없음' : status;
+
+  String get kindLabel => isInformationReport
+      ? '정보 오류 신고'
+      : isPriceChangeReport
+      ? '가격 변동 제보'
+      : '새 매장 제보';
+
+  String get priceChangeTypeLabel => switch (changeType) {
+    'rise' => '가격 인상',
+    'drop' => '가격 인하',
+    'delete' => '메뉴 삭제',
+    'new' || 'new_menu' => '신규 메뉴',
+    _ => '가격 변동',
+  };
+
+  /// 목록 카드 요약 줄의 이름과 값입니다. 정보 오류 신고는 신고할 때 함께 저장된
+  /// 매장 메뉴 대신 신고 유형을, 가격 변동 제보는 변동 유형과 제보한 메뉴를 보여 줍니다.
+  String get summaryLabel => isInformationReport
+      ? '신고 유형'
+      : isPriceChangeReport
+      ? priceChangeTypeLabel
+      : '대표 메뉴';
+  String get summaryValue => isInformationReport ? informationTypeLabel : menu;
+
+  /// 마이의 최근 제보처럼 한 줄로 보여 줄 때 쓰는 요약입니다.
+  String get summaryText => isInformationReport
+      ? '$kindLabel · $informationTypeLabel'
+      : isPriceChangeReport
+      ? [priceChangeTypeLabel, menu].where((part) => part.isNotEmpty).join(' · ')
+      : menu;
+
+  /// 제보한 날짜(yyyy.MM.dd, 기기 시간대)입니다. 읽을 수 없으면 빈 문자열입니다.
+  String get createdDateLabel {
+    final date = DateTime.tryParse(createdAt)?.toLocal();
+    if (date == null) return '';
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${date.year}.${twoDigits(date.month)}.${twoDigits(date.day)}';
+  }
+
   bool get hasAppliedChanges =>
       isApproved &&
       const ['NEW_STORE', 'PRICE', 'LOCATION', 'CLOSED'].contains(resolution);
+  // 처리 결과(resolution)가 없는 승인 건은 처리 결과를 기록하기 전에 승인된 제보라
+  // 반영 여부를 추측하지 않고, 사용자가 할 일이 남은 것처럼 읽히는 문구도 쓰지 않습니다.
   String get processingLabel => !isApproved
       ? status
       : switch (resolution) {
@@ -292,7 +342,7 @@ class UserReportStatus {
           'PRICE' => '승인 완료 · 가격 반영',
           'LOCATION' => '승인 완료 · 위치 반영',
           'CLOSED' => '승인 완료 · 폐업 반영',
-          _ => '검토 완료 · 처리 정보 확인 필요',
+          _ => '승인 완료',
         };
   String get informationTypeLabel => switch (changeType) {
     'closed' => '폐업됐어요',
@@ -311,7 +361,7 @@ class UserReportStatus {
           'PRICE' => '검토된 가격 변경이 대상 매장에 반영됐어요.',
           'LOCATION' => '검토된 위치 변경이 대상 매장에 반영됐어요.',
           'CLOSED' => '대상 매장의 폐업 상태가 반영됐어요.',
-          _ => '검토는 완료됐어요. 실제 변경 여부를 확인할 처리 정보가 없어요.',
+          _ => '검토를 마치고 승인된 제보예요.',
         };
   String get deletionWarning => isExistingStoreReport
       ? '신고 기록만 삭제하며 복구할 수 없어요.\n대상 매장과 반영된 수정은 유지됩니다.'
@@ -319,7 +369,9 @@ class UserReportStatus {
 
   factory UserReportStatus.fromJson(Map<String, dynamic> json) {
     final status = _statusLabel(json['status']?.toString() ?? '');
-    final colors = _statusColors(status);
+    final resolution =
+        json['resolution']?.toString().trim().toUpperCase() ?? '';
+    final colors = _statusColors(status, resolution: resolution);
     final menuPrices = _menuPricesFromJson(json);
     final menu = menuPrices.isNotEmpty ? menuPrices.first.displayText : '';
 
@@ -349,7 +401,7 @@ class UserReportStatus {
       description: json['description']?.toString() ?? '',
       reportType: json['reportType']?.toString() ?? '',
       changeType: json['changeType']?.toString() ?? '',
-      resolution: json['resolution']?.toString().trim().toUpperCase() ?? '',
+      resolution: resolution,
     );
   }
 
@@ -443,8 +495,17 @@ class UserReportStatus {
   }
 
   static ({int statusColor, int statusBg, int textColor}) _statusColors(
-    String status,
-  ) {
+    String status, {
+    String resolution = '',
+  }) {
+    if (status.contains('승인') && resolution == 'NO_CHANGE') {
+      // 수정 없음은 승인(파랑)과 구분되는 무채색 배지로 보여 줍니다.
+      return (
+        statusColor: 0xFF64748B,
+        statusBg: 0xFFE5E7EB,
+        textColor: 0xFF374151,
+      );
+    }
     if (status.contains('승인')) {
       return (
         statusColor: 0xFF2563EB,
