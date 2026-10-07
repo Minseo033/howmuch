@@ -123,11 +123,14 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
         // 💡 실제 API는 List<SavingsHistoryResponse> 직렬 배열을 반환합니다.
         final decoded = jsonDecode(utf8.decode(response.bodyBytes));
         final List<dynamic> historyData = decoded is List ? decoded : [];
+        final storeSources = await _lookUpStoreSources(historyData);
+        if (!mounted) return;
 
         final parsed = historyData.map((item) {
-          final source = item['storeSource']?.toString().trim().toUpperCase();
-          final isGov =
-              source == 'GOV' || (source == null && item['isGov'] == true);
+          final source =
+              _recordedSource(item) ??
+              storeSources[item['storeId']?.toString().trim()];
+          final isGov = source == 'GOV';
           final String badgeText = isGov
               ? '정부 인증'
               : source == 'USER'
@@ -146,8 +149,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               ? 0
               : (item['savedAmount'] as num?)?.toInt() ?? 0;
 
-          final String dateRaw =
-              item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+          final String dateRaw = _visitDateText(item);
           final String category = normalizeSavingsCategory(
             item['category'] ?? item['industry'],
           );
@@ -209,6 +211,59 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
       _errorMessage = message;
       _isLoading = false;
     });
+  }
+
+  static String _visitDateText(dynamic item) =>
+      item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
+
+  /// 방문 기록에 담긴 출처입니다. 절약 내역 응답에는 storeSource가 없어 보통
+  /// isGov로 정부 인증 여부만 알 수 있습니다.
+  static String? _recordedSource(dynamic item) {
+    final source = item['storeSource']?.toString().trim().toUpperCase();
+    if (source == 'GOV' || source == 'USER') return source;
+    if (source == null && item['isGov'] == true) return 'GOV';
+    return null;
+  }
+
+  /// 기간 안의 정부 인증이 아닌 방문 기록은 매장 정보로 실제 출처를 확인합니다.
+  /// 지도와 매장 상세도 이 매장 정보의 출처를 쓰므로 같은 매장이 화면마다 다르게
+  /// 보이지 않습니다. 조회하지 못한 매장은 출처를 추측하지 않습니다.
+  Future<Map<String, String>> _lookUpStoreSources(List<dynamic> history) async {
+    final period = _period;
+    if (period == null) return const {};
+    final storeIds = <String>{};
+    for (final item in history) {
+      if (item is! Map || _recordedSource(item) != null) continue;
+      final date = _parseDate(_visitDateText(item));
+      final storeId = item['storeId']?.toString().trim() ?? '';
+      if (date != null && period.contains(date) && storeId.isNotEmpty) {
+        storeIds.add(storeId);
+      }
+    }
+    final results = await Future.wait(
+      storeIds.map((storeId) async {
+        try {
+          final response = await ApiClient.get(
+            ApiClient.uri('/api/stores/${Uri.encodeComponent(storeId)}'),
+            headers: ApiClient.jsonHeaders(),
+            timeout: const Duration(seconds: 5),
+          );
+          if (response.statusCode != 200) return null;
+          final store = jsonDecode(utf8.decode(response.bodyBytes));
+          if (store is! Map) return null;
+          final id = (store['storeId'] ?? store['id'])?.toString();
+          final source = store['source']?.toString().trim().toUpperCase();
+          if (id != storeId || (source != 'GOV' && source != 'USER')) {
+            return null;
+          }
+          return MapEntry(storeId, source!);
+        } catch (error) {
+          debugPrint('절약 내역 매장 출처 조회 실패: $error');
+          return null;
+        }
+      }),
+    );
+    return Map.fromEntries(results.nonNulls);
   }
 
   /// ISO 8601/점 형식 날짜 문자열을 파싱 (실패 시 null)
