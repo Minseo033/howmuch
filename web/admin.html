@@ -1518,6 +1518,18 @@
   }
 
   /* ══ 뷰 5: 댓글 관리 ══ */
+  // QA 2026-10-07 #48: 리뷰 관리처럼 작성자 닉네임과 게시글(제보) 매장명·메뉴를 보여 주고, ID는 보조 정보로 둡니다.
+  function commentPostCell(c) {
+    if (!c.postStoreName) {
+      return `<span class="uid-cell" title="${esc(c.postId || '')}">${shortUid(c.postId)}</span><div style="font-size:11px;color:var(--muted);margin-top:2px">게시글 정보 없음</div>`;
+    }
+    const menu = String(c.postMenu ?? '').trim();
+    const hasPrice = String(c.postPrice ?? '').trim() !== '';
+    const price = c.postFree === true && Number(c.postPrice) === 0 ? '무료' : hasPrice ? fmtPrice(c.postPrice) : '';
+    const detail = [esc(menu), price].filter(Boolean).join(' ');
+    return `<b title="${esc(c.postId || '')}">${esc(c.postStoreName)}</b>${detail ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${detail}</div>` : ''}`;
+  }
+
   function renderCommentsView() {
     if (currentView !== 'comments') return;
     const rows = (allComments || []).map((c) => {
@@ -1525,13 +1537,16 @@
       const preview = contentText.length > 60 ? contentText.slice(0, 60) + '…' : contentText;
       const kind = c.isReply ? '<span class="badge" style="color:var(--violet);background:var(--violet-soft)">답글</span>'
                              : '<span class="badge" style="color:var(--primary);background:var(--primary-soft)">댓글</span>';
+      const replyCount = c.isReply ? 0 : (allComments || []).filter((item) => item.parentId === c.id).length;
+      const summary = [c.isReply ? '답글' : '댓글', c.postStoreName ? `${c.postStoreName} 게시글` : '', preview]
+        .filter(Boolean).join(' · ') + (replyCount ? ` (답글 ${replyCount}개 포함)` : '');
       return `<tr>
         <td>${kind}</td>
         <td style="max-width:340px"><span title="${esc(contentText)}">${esc(preview) || '-'}</span></td>
-        <td class="uid-cell">${shortUid(c.userId)}</td>
-        <td class="uid-cell">${shortUid(c.postId)}</td>
+        <td>${esc(c.authorName) || '-'}<div class="uid-cell" title="${esc(c.userId || '')}">${shortUid(c.userId)}</div></td>
+        <td>${commentPostCell(c)}</td>
         <td style="white-space:nowrap">${fmtDate(c.createdAt)}</td>
-        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(preview)}">삭제</button></td>
+        <td><button class="btn btn-danger btn-sm" data-delcomment="${esc(c.id)}" data-summary="${esc(summary)}">삭제</button></td>
       </tr>`;
     }).join('');
 
@@ -2379,12 +2394,22 @@
     const targetId = deleteCommentId;
     $('deleteCommentConfirm').disabled = true;
     try {
-      await api(`/api/admin/comments/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
-      allComments = (allComments || []).filter((c) => c.id !== targetId);
+      const result = await api(`/api/admin/comments/${encodeURIComponent(targetId)}`, { method: 'DELETE' });
+      // QA 2026-10-07 #57: 서버가 부모 댓글과 함께 지운 답글도 목록에서 바로 뺍니다.
+      // 이전 서버 응답에는 deletedIds가 없어 parentId로도 함께 찾습니다.
+      const deletedIds = Array.isArray(result?.deletedIds) ? result.deletedIds : null;
+      const removed = new Set(deletedIds || []);
+      removed.add(targetId);
+      const current = allComments || [];
+      const isRemoved = (c) => removed.has(c.id) || c.parentId === targetId;
+      const removedReplies = deletedIds
+        ? deletedIds.filter((id) => id !== targetId).length
+        : current.filter((c) => c.id !== targetId && isRemoved(c)).length;
+      allComments = current.filter((c) => !isRemoved(c));
       communityStats = null;
       if (deleteCommentId === targetId) closeModal('deleteCommentModal');
       renderCommentsView();
-      toast('댓글 삭제 완료');
+      toast(removedReplies ? `댓글 삭제 완료 · 답글 ${removedReplies}개도 함께 삭제됨` : '댓글 삭제 완료');
     } catch (e) {
       handleError(e);
     } finally {

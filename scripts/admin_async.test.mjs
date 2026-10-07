@@ -608,3 +608,36 @@ test('QA 2026-10-07 #47: saving an empty reject reason or answer explains what i
   assert.equal(el('answerInquiryError').hidden, true, 'reopening starts without the old message');
   assert.equal(calls, 0);
 });
+
+test('QA 2026-10-07 #48 #57: comment rows show post and author and replies leave with their parent', async () => {
+  let deletedIds = ['c1', 'r1'];
+  const { admin, el } = harness(async () => ({ ok: true, status: 200,
+    json: async () => ({ success: true, id: 'c1', ...(deletedIds ? { deletedIds } : {}) }) }));
+  const comments = () => [
+    { id: 'r1', parentId: 'c1', isReply: true, content: '답글', userId: 'kakao:4912345678', authorName: '기미서',
+      postId: 'post-1', postStoreName: '노랑통닭', postMenu: '알싸한 마늘 치킨', postPrice: '24000' },
+    { id: 'c1', parentId: null, isReply: false, content: '댓글', userId: 'kakao:5012345678', authorName: '태관이',
+      postId: 'post-1', postStoreName: '노랑통닭', postMenu: '알싸한 마늘 치킨', postPrice: '24000' },
+    { id: 'c2', parentId: null, isReply: false, content: '지워진 글의 댓글', userId: 'kakao:5099999999', postId: 'OQvxe3Rl0000' },
+  ];
+  admin.setComments(comments());
+  admin.setView('comments');
+  admin.renderCommentsView();
+  const html = el('content').innerHTML;
+  assert.match(html, /기미서<div class="uid-cell" title="kakao:4912345678">kakao:49…<\/div>/);
+  assert.match(html, /<b title="post-1">노랑통닭<\/b>/);
+  assert.match(html, /알싸한 마늘 치킨 24,000원/);
+  assert.match(html, /OQvxe3Rl…<\/span><div[^>]*>게시글 정보 없음/);
+  assert.match(html, /data-summary="댓글 · 노랑통닭 게시글 · 댓글 \(답글 1개 포함\)"/);
+
+  admin.setDeleteComment('c1');
+  await admin.doDeleteComment();
+  assert.deepEqual(admin.state().allComments.map((c) => c.id), ['c2']);
+  assert.equal(el('toast').textContent, '댓글 삭제 완료 · 답글 1개도 함께 삭제됨');
+
+  deletedIds = null; // 이전 서버 응답에도 답글 줄이 남지 않습니다.
+  admin.setComments(comments());
+  admin.setDeleteComment('c1');
+  await admin.doDeleteComment();
+  assert.deepEqual(admin.state().allComments.map((c) => c.id), ['c2']);
+});
