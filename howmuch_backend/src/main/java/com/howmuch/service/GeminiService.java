@@ -596,14 +596,15 @@ public class GeminiService {
     }
 
     private String buildLocalRouteRecommendation(List<Map<String, Object>> picks) {
-        List<Map<String, Object>> sorted = picks.stream()
-                .sorted((a, b) -> Double.compare(distanceOf(a), distanceOf(b)))
-                .limit(4)
-                .toList();
+        // picks arrive in route order (FirebaseService.orderRouteStops), which
+        // the cards and map numbers follow, so the text keeps that order too.
+        // Older app builds show this text as is. Apps detect it by its first
+        // words ("현재는 거리순으로"), so the heading stays.
+        List<Map<String, Object>> stops = picks.stream().limit(4).toList();
 
         StringBuilder result = new StringBuilder("현재는 거리순으로 추천 루트를 안내합니다.\n");
-        for (int i = 0; i < sorted.size(); i++) {
-            Map<String, Object> pick = sorted.get(i);
+        for (int i = 0; i < stops.size(); i++) {
+            Map<String, Object> pick = stops.get(i);
             String matchedMenu = safeText(pick.get("matchedMenu"), "", 100);
             Object selectedPrice = pick.get("price1");
             boolean selectedFree = Boolean.TRUE.equals(pick.get("free1"));
@@ -622,12 +623,8 @@ public class GeminiService {
                     .append(" (")
                     .append(matchedMenu)
                     .append(", ")
-                    .append(selectedFree ? "무료" : priceLabel(selectedPrice))
-                    .append(")");
-            if (pick.get("distanceMeters") != null) {
-                result.append(" - 현재 위치에서 가까운 순서");
-            }
-            result.append("\n");
+                    .append(selectedFree ? "무료" : wonLabel(selectedPrice))
+                    .append(")\n");
         }
         return result.toString().trim();
     }
