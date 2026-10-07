@@ -3485,6 +3485,106 @@ class _RankDot extends StatelessWidget {
   }
 }
 
+const _storeNameStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontFamilyFallback: HomeMapScreen.fontFallback,
+  fontSize: 18,
+  fontWeight: FontWeight.w700,
+  height: 1.25,
+);
+
+/// A long name on two lines, at the search list card's size.
+const _wrappedStoreNameStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontFamilyFallback: HomeMapScreen.fontFallback,
+  fontSize: 15,
+  fontWeight: FontWeight.w700,
+  height: 1.2,
+);
+
+const _compactPriceStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontWeight: FontWeight.w800,
+  fontSize: 18,
+  height: 1.5,
+);
+
+const _tightCompactPriceStyle = TextStyle(
+  color: HomeMapScreen.ink,
+  fontFamily: HomeMapScreen.fontFamily,
+  fontWeight: FontWeight.w800,
+  fontSize: 18,
+  height: 1.2,
+);
+
+TextPainter _layoutText(
+  String text,
+  TextStyle style,
+  TextScaler textScaler, {
+  int? maxLines,
+  double maxWidth = double.infinity,
+  TextDirection textDirection = TextDirection.ltr,
+}) => TextPainter(
+  text: TextSpan(text: text, style: style),
+  maxLines: maxLines,
+  ellipsis: maxLines == null ? null : '…',
+  textScaler: textScaler,
+  textDirection: textDirection,
+)..layout(maxWidth: maxWidth);
+
+double _textWidth(String text, TextStyle style, TextScaler textScaler) {
+  final painter = _layoutText(text, style, textScaler, maxLines: 1);
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
+double _textHeight(TextStyle style, TextScaler textScaler) {
+  final painter = _layoutText('0', style, textScaler, maxLines: 1);
+  final height = painter.height;
+  painter.dispose();
+  return height;
+}
+
+/// Whether a name that does not fit on one card line moves to two smaller
+/// lines, so branches of one brand stay distinguishable (QA 10/7 #29). The
+/// card height is fixed: when two lines do not fit (large text), the single
+/// line with an ellipsis stays.
+bool _storeNameWrapsInCard({
+  required String name,
+  required double width,
+  required double height,
+  required TextScaler textScaler,
+  required TextDirection textDirection,
+}) {
+  if (width <= 0 || height <= 0) return false;
+  final oneLine = _layoutText(
+    name,
+    _storeNameStyle,
+    textScaler,
+    maxLines: 1,
+    maxWidth: width,
+    textDirection: textDirection,
+  );
+  final fitsOneLine = !oneLine.didExceedMaxLines;
+  oneLine.dispose();
+  if (fitsOneLine) return false;
+  final twoLines = _layoutText(
+    name,
+    _wrappedStoreNameStyle,
+    textScaler,
+    maxLines: 2,
+    maxWidth: width,
+    textDirection: textDirection,
+  );
+  final twoLineHeight = twoLines.height;
+  twoLines.dispose();
+  return twoLineHeight <= height;
+}
+
 class HomeMapStoreSummaryCard extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
@@ -3535,7 +3635,24 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
               height: 60,
               child: LayoutBuilder(
                 builder: (context, constraints) {
+                  final textScaler = MediaQuery.textScalerOf(context);
+                  final textDirection = Directionality.of(context);
                   if (constraints.maxWidth < 300) {
+                    final industryWidth = math.min(
+                      64.0,
+                      _textWidth(store.industry, _muted11, textScaler),
+                    );
+                    final priceLineHeight = math.max(
+                      _textHeight(_muted12, textScaler),
+                      _textHeight(_tightCompactPriceStyle, textScaler),
+                    );
+                    final wrapName = _storeNameWrapsInCard(
+                      name: store.storeName,
+                      width: constraints.maxWidth - 8 - industryWidth,
+                      height: constraints.maxHeight - 2 - priceLineHeight,
+                      textScaler: textScaler,
+                      textDirection: textDirection,
+                    );
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -3543,7 +3660,11 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              child: _StoreInfo(store: store, compact: true),
+                              child: _StoreInfo(
+                                store: store,
+                                compact: true,
+                                wrapName: wrapName,
+                              ),
                             ),
                             const SizedBox(width: 8),
                             ConstrainedBox(
@@ -3557,18 +3678,31 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: wrapName ? 2 : 4),
                         _StorePrice(
                           store: store,
                           selection: selection,
                           compact: true,
+                          tight: wrapName,
                         ),
                       ],
                     );
                   }
+                  final wrapName = _storeNameWrapsInCard(
+                    name: store.storeName,
+                    width: constraints.maxWidth - 12 - 144,
+                    height:
+                        constraints.maxHeight -
+                        4 -
+                        _textHeight(_muted12, textScaler),
+                    textScaler: textScaler,
+                    textDirection: textDirection,
+                  );
                   return Row(
                     children: [
-                      Expanded(child: _StoreInfo(store: store)),
+                      Expanded(
+                        child: _StoreInfo(store: store, wrapName: wrapName),
+                      ),
                       const SizedBox(width: 12),
                       SizedBox(
                         width: 144,
@@ -3594,7 +3728,12 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
 class _StoreInfo extends StatelessWidget {
   final Store store;
   final bool compact;
-  const _StoreInfo({required this.store, this.compact = false});
+  final bool wrapName;
+  const _StoreInfo({
+    required this.store,
+    this.compact = false,
+    this.wrapName = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -3604,15 +3743,8 @@ class _StoreInfo extends StatelessWidget {
       children: [
         Text(
           store.storeName,
-          style: const TextStyle(
-            color: HomeMapScreen.ink,
-            fontFamily: HomeMapScreen.fontFamily,
-            fontFamilyFallback: HomeMapScreen.fontFallback,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            height: 1.25,
-          ),
-          maxLines: 1,
+          style: wrapName ? _wrappedStoreNameStyle : _storeNameStyle,
+          maxLines: wrapName ? 2 : 1,
           overflow: TextOverflow.ellipsis,
         ),
         if (!compact) ...[
@@ -3628,10 +3760,14 @@ class _StorePrice extends StatelessWidget {
   final Store store;
   final RecommendationMenuSelection? selection;
   final bool compact;
+
+  /// Drops the price line's extra leading to make room for a two-line name.
+  final bool tight;
   const _StorePrice({
     required this.store,
     this.selection,
     this.compact = false,
+    this.tight = false,
   });
 
   @override
@@ -3663,13 +3799,7 @@ class _StorePrice extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: Text(
                 priceStr,
-                style: const TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 18,
-                  height: 1.5,
-                ),
+                style: tight ? _tightCompactPriceStyle : _compactPriceStyle,
               ),
             ),
           ),
