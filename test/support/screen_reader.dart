@@ -16,3 +16,9 @@ SemanticsFinder readerElements(Pattern text) => find.semantics.byPredicate(
   (node) => !node.isMergedIntoParent && spokenName(node).contains(text),
   describeMatch: (_) => 'screen reader elements named "$text"',
 );
+
+/// The elements a screen reader announces exactly as [name].
+SemanticsFinder readerElementsNamed(String name) => find.semantics.byPredicate(
+  (node) => !node.isMergedIntoParent && spokenName(node) == name,
+  describeMatch: (_) => 'screen reader elements named exactly "$name"',
+);

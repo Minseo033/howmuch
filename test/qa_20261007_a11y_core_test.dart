@@ -4,7 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
@@ -236,6 +240,150 @@ void main() {
       }
       semantics.dispose();
     });
+
+    testWidgets('the search back button has a name', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _openSearch(tester);
+
+      expect(readerElements('뒤로가기'), findsOne);
+      expect(
+        readerElements('뒤로가기'),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('the AI chat back button has a name', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _openAiChat(tester);
+
+      expect(readerElements('뒤로가기'), findsOne);
+      expect(
+        readerElements('뒤로가기'),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      semantics.dispose();
+    });
+  });
+
+  group('buttons read as buttons (#54)', () {
+    testWidgets('a search result card is a button named from the store', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openSearch(tester);
+
+      final card = readerElements('다 시청 칼국수');
+      expect(card, findsOne);
+      expect(card, isSemantics(isButton: true, hasTapAction: true));
+      final name = spokenName(card.evaluate().single);
+      expect(name, startsWith('다 시청 칼국수'));
+      expect(name, contains('5,000원'));
+      expect(readerElements('🍲'), findsNothing);
+
+      tester.semantics.tap(card);
+      await tester.pumpAndSettle();
+      expect(find.text('상세 화면'), findsOneWidget);
+      semantics.dispose();
+    });
+
+    testWidgets('closing the keyboard is not a tap on the whole screen', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openSearch(tester);
+
+      expect(readerElements('검색 결과'), findsOne);
+      expect(readerElements('검색 결과'), isSemantics(hasTapAction: false));
+      semantics.dispose();
+    });
+
+    testWidgets('an active filter chip is a button that removes it', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openSearch(tester, filter: const SearchFilter(maxPrice: 5000));
+
+      final chip = readerElementsNamed('5,000원 이하 필터 해제');
+      expect(chip, findsOne);
+      expect(chip, isSemantics(isButton: true, hasTapAction: true));
+      tester.semantics.tap(chip);
+      await tester.pumpAndSettle();
+      expect(readerElementsNamed('5,000원 이하 필터 해제'), findsNothing);
+      semantics.dispose();
+    });
+
+    testWidgets('AI question chips are buttons', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _openAiChat(tester);
+
+      for (final prompt in [
+        '10,000원 이하 점심',
+        '비 오는 날 국물',
+        '혼밥 분식 추천',
+        '근처 오후 코스',
+      ]) {
+        expect(readerElementsNamed(prompt), findsOne, reason: prompt);
+        expect(
+          readerElementsNamed(prompt),
+          isSemantics(isButton: true, hasTapAction: true),
+          reason: prompt,
+        );
+      }
+      semantics.dispose();
+    });
+
+    testWidgets('AI answer store cards are read apart from the answer', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openAiChat(tester, withAnswer: true);
+
+      for (final (store, details) in [
+        ('미락칼국수', ['칼국수', '7,000원', '1.2km']),
+        ('온밥', ['비빔밥', '8,000원', '850m']),
+      ]) {
+        final card = readerElements(store);
+        expect(card, findsOne, reason: store);
+        final name = spokenName(card.evaluate().single);
+        expect(name, startsWith(store));
+        for (final detail in details) {
+          expect(name, contains(detail), reason: store);
+        }
+        // Reading a card must not trigger an action.
+        expect(card, isSemantics(hasTapAction: false), reason: store);
+      }
+
+      final summary = readerElementsNamed('3km 이내에서 두 곳을 찾았어요.');
+      expect(summary, findsOne);
+      expect(summary, isSemantics(hasTapAction: false));
+      for (final action in ['지도에서 찾기', '복사']) {
+        expect(readerElementsNamed(action), findsOne, reason: action);
+        expect(
+          readerElementsNamed(action),
+          isSemantics(isButton: true, hasTapAction: true),
+          reason: action,
+        );
+      }
+      // The header is text, not part of a tap that closes the keyboard.
+      expect(readerElementsNamed('얼마고 AI'), isSemantics(hasTapAction: false));
+      semantics.dispose();
+    });
+
+    testWidgets('a lone copy chip does not take the answer with it', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      // Without recommended stores only the copy chip is shown.
+      await _openAiChat(tester, withAnswer: true, withStores: false);
+
+      expect(readerElementsNamed('복사'), findsOne);
+      expect(
+        readerElementsNamed('3km 이내에서 두 곳을 찾았어요.'),
+        isSemantics(hasTapAction: false),
+      );
+      semantics.dispose();
+    });
   });
 }
 
@@ -313,6 +461,65 @@ Future<void> _openDirections(WidgetTester tester) async {
     ),
   );
   await tester.tap(find.text('길찾기 열기'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openSearch(
+  WidgetTester tester, {
+  SearchFilter filter = const SearchFilter(),
+}) async {
+  _setViewport(tester, const Size(390, 900));
+  await tester.pumpWidget(
+    MaterialApp.router(
+      routerConfig: GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) =>
+                SearchResultScreen(initialQuery: '칼국수', initialFilter: filter),
+          ),
+          GoRoute(
+            path: AppRoutes.storeDetail,
+            builder: (_, _) => const Scaffold(body: Text('상세 화면')),
+          ),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openAiChat(
+  WidgetTester tester, {
+  bool withAnswer = false,
+  bool withStores = true,
+}) async {
+  _setViewport(tester, const Size(390, 1600));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        aiChatHistoryProvider.overrideWith(
+          (ref) => [
+            if (withAnswer) ...[
+              const AiChatMessage(text: '점심 추천', isBot: false),
+              AiChatMessage(
+                text:
+                    '3km 이내에서 두 곳을 찾았어요.\n'
+                    '1. 미락칼국수 — 칼국수 · 7,000원 · 1.2km\n'
+                    '2. 온밥 — 비빔밥 · 8,000원 · 850m',
+                isBot: true,
+                recommendedStoreIds: withStores ? const ['near'] : const [],
+                recommendedStores: withStores
+                    ? [_store('near', '미락칼국수', '7,000', 37.5663, 126.9779)]
+                    : const [],
+              ),
+            ],
+          ],
+        ),
+      ],
+      child: const MaterialApp(home: AiRecommendChatScreen()),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
