@@ -497,81 +497,94 @@ class _UnreadNotificationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final countText = notificationCountLabel(unreadCount);
 
-    return RepaintBoundary(
-      child: Material(
-        color: AppColors.white,
-        elevation: 2,
-        shadowColor: const Color(0x1A0F172A),
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.primary.withValues(alpha: .24)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  color: AppColors.primaryLight,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.notifications_active_outlined,
-                  color: AppColors.primary,
-                  size: 18,
-                ),
+    // The banner sits above the navigator. Without its own semantics node
+    // its text, and the close button's name and button role, were merged
+    // into the app's root node, so screen readers announced the whole screen
+    // as one button.
+    return Semantics(
+      container: true,
+      child: RepaintBoundary(
+        child: Material(
+          color: AppColors.white,
+          elevation: 2,
+          shadowColor: const Color(0x1A0F172A),
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: .24),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      countText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryLight,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_active_outlined,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        countText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        '알림함에서 확인해 보세요.',
+                        style: TextStyle(color: AppColors.muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: onOpen,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(44, 44),
+                  ),
+                  child: const Text(
+                    '알림함 보기',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                // One button node that carries its name.
+                MergeSemantics(
+                  child: Semantics(
+                    label: '알림 안내 닫기',
+                    child: IconButton(
+                      onPressed: onDismiss,
+                      icon: const Icon(Icons.close_rounded, size: 18),
+                      color: AppColors.muted,
+                      style: IconButton.styleFrom(
+                        minimumSize: const Size(44, 44),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      '알림함에서 확인해 보세요.',
-                      style: TextStyle(color: AppColors.muted, fontSize: 11),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              TextButton(
-                onPressed: onOpen,
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(44, 44),
-                ),
-                child: const Text(
-                  '알림함 보기',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                ),
-              ),
-              Semantics(
-                label: '알림 안내 닫기',
-                button: true,
-                child: IconButton(
-                  onPressed: onDismiss,
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                  color: AppColors.muted,
-                  style: IconButton.styleFrom(minimumSize: const Size(44, 44)),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

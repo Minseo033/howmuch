@@ -155,6 +155,29 @@ void main() {
       expect(_bannerShown(tester), isTrue);
       expect(find.text('읽지 않은 알림 1건'), findsOneWidget);
     });
+
+    testWidgets('screen readers get the banner and a named close button', (
+      tester,
+    ) async {
+      // Placed above the navigator as in the app, where the labels used to
+      // merge into the root node and turn the whole screen into a button.
+      await _pumpPromptApp(
+        tester,
+        _SeededNotificationsNotifier([_notification(id: 'a')]),
+      );
+
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('알림 안내 닫기')),
+        isSemantics(label: '알림 안내 닫기', isButton: true, hasTapAction: true),
+      );
+      final banner = tester.getSemantics(find.text('읽지 않은 알림 1건'));
+      expect(banner, isSemantics(isButton: false));
+      expect(banner.rect.height, lessThan(120));
+
+      await tester.tap(find.bySemanticsLabel('알림 안내 닫기'));
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isFalse);
+    });
   });
 
   test('prompt positions stay below the home search and page header', () {
