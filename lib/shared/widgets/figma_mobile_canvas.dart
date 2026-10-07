@@ -76,6 +76,30 @@ class FigmaMobileCanvas extends StatelessWidget {
     );
   }
 
+  /// Removes the part of the side insets that lies outside a centered column
+  /// [sideOffset] away from each viewport edge.
+  ///
+  /// A landscape phone reports its notch insets (about 60 on each side) for
+  /// the whole screen. The 430 column never reaches them, but a SafeArea
+  /// inside it still reserved them and squeezed the store detail buttons
+  /// (QA 10/7 #44).
+  static MediaQueryData insetsInsideColumn(
+    MediaQueryData data,
+    double sideOffset,
+  ) {
+    if (sideOffset <= 0) return data;
+    EdgeInsets trim(EdgeInsets insets) => insets.copyWith(
+      left: math.max(0.0, insets.left - sideOffset),
+      right: math.max(0.0, insets.right - sideOffset),
+    );
+    return data.copyWith(
+      padding: trim(data.padding),
+      viewPadding: trim(data.viewPadding),
+      viewInsets: trim(data.viewInsets),
+      systemGestureInsets: trim(data.systemGestureInsets),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,6 +129,10 @@ class FigmaMobileCanvas extends StatelessWidget {
         ? wideWebContentWidthFor(viewportWidth)
         : webContentWidthFor(viewportWidth);
     final showDesktopFrame = viewportWidth > maxWebWidth;
+    final sideOffset = math.max(0.0, (viewportWidth - contentWidth) / 2);
+    final content = _isWeb
+        ? _WebSafeArea(child: SizedBox.expand(child: child))
+        : SizedBox.expand(child: child);
 
     return Align(
       alignment: Alignment.topCenter,
@@ -132,9 +160,12 @@ class FigmaMobileCanvas extends StatelessWidget {
           child: ClipRect(
             child: ColoredBox(
               color: backgroundColor,
-              child: _isWeb
-                  ? _WebSafeArea(child: SizedBox.expand(child: child))
-                  : SizedBox.expand(child: child),
+              // Always present, even without a side offset, so rotating the
+              // device does not rebuild the screen and lose its state.
+              child: MediaQuery(
+                data: insetsInsideColumn(MediaQuery.of(context), sideOffset),
+                child: content,
+              ),
             ),
           ),
         ),

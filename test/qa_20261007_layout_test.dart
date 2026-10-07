@@ -9,6 +9,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/store/presentation/screens/store_detail_screen.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter_platform_interface/webview_flutter_platform_interface.dart';
@@ -22,6 +23,8 @@ const _textScales = [1.0, 1.3, _ax2, 2.0, _ax5];
 /// iPhone 17 Pro.
 const _portrait = Size(402, 874);
 const _portraitInsets = EdgeInsets.only(top: 62, bottom: 34);
+const _landscape = Size(874, 402);
+const _landscapeInsets = EdgeInsets.only(left: 62, right: 62, bottom: 21);
 
 void main() {
   setUpAll(() async {
@@ -157,6 +160,68 @@ void main() {
         });
       }
     }
+  });
+
+  group('landscape (QA 10/7 #44)', () {
+    for (final (size, insets) in [
+      (_landscape, _landscapeInsets),
+      // iPhone 14 Pro and an inset-free small phone.
+      (const Size(852, 393), const EdgeInsets.fromLTRB(59, 0, 59, 21)),
+      (const Size(568, 320), EdgeInsets.zero),
+    ]) {
+      for (final scale in [1.0, 1.3, _ax2]) {
+        testWidgets('store detail actions fit at $size, text x$scale', (
+          tester,
+        ) async {
+          _setViewport(tester, size, insets: insets);
+          await _pumpStoreDetail(tester, scale);
+
+          expect(tester.takeException(), isNull);
+          _expectStoreActionsFit(tester, size);
+        });
+      }
+    }
+
+    test('notch insets outside the centered column are dropped', () {
+      const data = MediaQueryData(
+        padding: EdgeInsets.fromLTRB(62, 0, 62, 21),
+        viewPadding: EdgeInsets.fromLTRB(62, 0, 62, 21),
+      );
+      final inside = FigmaMobileCanvas.insetsInsideColumn(data, 222);
+      expect(inside.padding, const EdgeInsets.only(bottom: 21));
+      expect(inside.viewPadding, const EdgeInsets.only(bottom: 21));
+      // A column close to the edge keeps the part of the inset it overlaps.
+      final near = FigmaMobileCanvas.insetsInsideColumn(data, 30);
+      expect(near.padding, const EdgeInsets.fromLTRB(32, 0, 32, 21));
+    });
+
+    testWidgets('rotating keeps the screen state inside the canvas', (
+      tester,
+    ) async {
+      _setViewport(tester, _portrait, insets: _portraitInsets);
+      EdgeInsets? padding;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FigmaMobileCanvas(
+            child: Builder(
+              builder: (context) {
+                padding = MediaQuery.paddingOf(context);
+                return const TextField(key: ValueKey('draft'));
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byKey(const ValueKey('draft')), '초안');
+      final state = tester.state(find.byType(EditableText));
+
+      _setViewport(tester, _landscape, insets: _landscapeInsets);
+      await tester.pump();
+
+      expect(tester.state(find.byType(EditableText)), same(state));
+      expect(find.text('초안'), findsOneWidget);
+      expect(padding, const EdgeInsets.only(bottom: 21));
+    });
   });
 }
 
