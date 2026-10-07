@@ -263,6 +263,31 @@ void main() {
     expect(find.text('승인된 제보 · 수정 불가'), findsOneWidget);
   });
 
+  testWidgets('an approved price change shows the price the server recorded '
+      'before applying it (QA #15)', (tester) async {
+    final approved = <String, Object>{
+      ..._priceRejected,
+      'id': 'price-approved',
+      'status': 'APPROVED',
+      'resolution': 'PRICE',
+      'rejectReason': '',
+      'previousPrice': '15000',
+      'previousFree': false,
+    };
+    final storeRequests = <String>[];
+    await _pumpDetail(
+      tester,
+      approved,
+      service: _service(reports: [approved], storeRequests: storeRequests),
+    );
+    // 매장에는 이미 새 가격이 반영돼 있어 다시 조회하지 않습니다.
+    expect(storeRequests, isEmpty);
+    expect(find.text('기존 가격'), findsOneWidget);
+    expect(find.text('15,000원'), findsOneWidget);
+    expect(find.text('제보한 가격'), findsOneWidget);
+    expect(find.text('16,000원'), findsOneWidget);
+  });
+
   testWidgets('MY recent reports use the same kind summary and no-change '
       'badge (QA #13, #15)', (tester) async {
     await ApiClient.setSessionToken('active-token');
