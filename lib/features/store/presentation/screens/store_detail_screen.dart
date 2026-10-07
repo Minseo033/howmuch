@@ -18,6 +18,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/core/utils/text_initial.dart';
@@ -724,74 +725,87 @@ class _StoreDetailContent extends ConsumerWidget {
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    child: Row(
-                      children: [
-                        // 전화 버튼
-                        _BottomIconBtn(
-                          icon: Icons.phone_rounded,
-                          label: '전화',
-                          onTap: () => _call(context),
-                        ),
-                        const SizedBox(width: 10),
-                        // 제보 버튼
-                        _BottomIconBtn(
-                          icon: Icons.campaign_rounded,
-                          label: '가격 제보',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.priceChangeReport,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 방문 인증 버튼 (프리젠테이션 시연용)
-                        _BottomIconBtn(
-                          icon: Icons.verified_rounded,
-                          label: '방문 인증',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.visitVerification,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 길찾기 버튼 (메인 CTA)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _map(context),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: _blue,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.navigation_rounded,
-                                    color: AppColors.white,
-                                    size: 18,
+                    // Toolbar-like buttons keep their 48px height, so their
+                    // labels stop at the compact chrome scale instead of
+                    // spilling out at large text sizes (QA 10/7 #5).
+                    child: MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: AppTextScale.compactChrome,
+                      child: Row(
+                        children: [
+                          // 전화 버튼
+                          _BottomIconBtn(
+                            icon: Icons.phone_rounded,
+                            label: '전화',
+                            onTap: () => _call(context),
+                          ),
+                          const SizedBox(width: 10),
+                          // 제보 버튼
+                          _BottomIconBtn(
+                            icon: Icons.campaign_rounded,
+                            label: '가격 제보',
+                            onTap: store.isClosed
+                                ? null
+                                : () => context.push(
+                                    AppRoutes.priceChangeReport,
+                                    extra: store,
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    '길찾기',
-                                    style: TextStyle(
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 방문 인증 버튼 (프리젠테이션 시연용)
+                          _BottomIconBtn(
+                            icon: Icons.verified_rounded,
+                            label: '방문 인증',
+                            onTap: store.isClosed
+                                ? null
+                                : () => context.push(
+                                    AppRoutes.visitVerification,
+                                    extra: store,
+                                  ),
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 길찾기 버튼 (메인 CTA)
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _map(context),
+                              child: Container(
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: _blue,
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.navigation_rounded,
                                       color: AppColors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
+                                      size: 18,
                                     ),
-                                  ),
-                                ],
+                                    SizedBox(width: 6),
+                                    // Shrinks instead of being cut ('길찾') when
+                                    // the button is narrow (QA 10/7 #44).
+                                    Flexible(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          '길찾기',
+                                          style: TextStyle(
+                                            color: AppColors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1064,12 +1078,18 @@ class _BottomIconBtn extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: color),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: FontWeight.w500,
+              // One line that shrinks to the button width rather than
+              // wrapping '가격 제보' onto a second line.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],

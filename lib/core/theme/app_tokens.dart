@@ -37,6 +37,18 @@ abstract final class AppMotion {
   static const Curve standard = Curves.easeOutCubic;
 }
 
+/// How far the system text size may grow inside compact, fixed-size chrome:
+/// the tab bar, toolbar-like button rows and controls floating over the map.
+///
+/// Body text keeps the full system scale so large-text users can read it.
+/// Chrome labels are short and repeated by icons and screen reader labels,
+/// and letting them grow would cover the content they sit on. 1.3 is the cap
+/// Material's NavigationBar uses for its labels; iOS tab bars do not grow
+/// their labels at all (QA 10/7 #5).
+abstract final class AppTextScale {
+  static const double compactChrome = 1.3;
+}
+
 abstract final class AppElevation {
   static const List<BoxShadow> raised = [
     BoxShadow(color: Color(0x0F0F172A), blurRadius: 3, offset: Offset(0, 1)),

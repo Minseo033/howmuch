@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/app/widgets/web_notification_prompt.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
@@ -10,22 +13,171 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('unread signature changes when a notification is replaced', () {
-    final first = notificationSignature([
-      _notification(id: 'notification-a'),
-      _notification(id: 'notification-b'),
-    ]);
-    final sameSetInDifferentOrder = notificationSignature([
-      _notification(id: 'notification-b'),
-      _notification(id: 'notification-a'),
-    ]);
-    final replacementWithSameCount = notificationSignature([
-      _notification(id: 'notification-a'),
-      _notification(id: 'notification-c'),
-    ]);
+  test('notifications without an id are told apart by their content', () {
+    expect(
+      notificationKey(_notification(id: 'notification-a')),
+      'notification-a',
+    );
+    expect(
+      notificationKey(_notification(id: '', title: '반려')),
+      isNot(notificationKey(_notification(id: '', title: '승인'))),
+    );
+  });
 
-    expect(first, sameSetInDifferentOrder);
-    expect(first, isNot(replacementWithSameCount));
+  group('unread banner shows once (QA 10/7 #21)', () {
+    testWidgets(
+      'reading one after closing keeps it closed; a new one returns',
+      (tester) async {
+        final notifier = _SeededNotificationsNotifier([
+          _notification(id: 'a'),
+          _notification(id: 'b'),
+          _notification(id: 'c'),
+        ]);
+        await _pumpPromptApp(tester, notifier);
+        expect(_bannerShown(tester), isTrue);
+
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
+        expect(_bannerShown(tester), isFalse);
+
+        // Opening a notification marks it read: the old banner came back here.
+        notifier.replace([
+          _notification(id: 'a'),
+          _notification(id: 'b'),
+          _notification(id: 'c', isUnread: false),
+        ]);
+        await tester.pumpAndSettle();
+        expect(_bannerShown(tester), isFalse);
+
+        notifier.replace([
+          _notification(id: 'd'),
+          _notification(id: 'a'),
+          _notification(id: 'b'),
+          _notification(id: 'c', isUnread: false),
+        ]);
+        await tester.pumpAndSettle();
+        expect(_bannerShown(tester), isTrue);
+        expect(find.text('읽지 않은 알림 3건'), findsOneWidget);
+      },
+    );
+
+    testWidgets('moving to another page retires the banner', (tester) async {
+      final tracker = AppNavigationTracker();
+      addTearDown(tracker.dispose);
+      final notifier = _SeededNotificationsNotifier([
+        _notification(id: 'a'),
+        _notification(id: 'b'),
+      ]);
+      final navigatorKey = await _pumpPromptApp(
+        tester,
+        notifier,
+        tracker: tracker,
+      );
+      expect(_bannerShown(tester), isTrue);
+
+      navigatorKey.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('제보 상세')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('제보 상세'), findsOneWidget);
+      expect(_bannerShown(tester), isFalse);
+
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isFalse);
+
+      notifier.replace([
+        _notification(id: 'c'),
+        _notification(id: 'a'),
+        _notification(id: 'b'),
+      ]);
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isTrue);
+      expect(find.text('읽지 않은 알림 3건'), findsOneWidget);
+    });
+
+    testWidgets('the banner steps aside while a dialog is open', (
+      tester,
+    ) async {
+      final tracker = AppNavigationTracker();
+      addTearDown(tracker.dispose);
+      final navigatorKey = await _pumpPromptApp(
+        tester,
+        _SeededNotificationsNotifier([_notification(id: 'a')]),
+        tracker: tracker,
+      );
+      expect(_bannerShown(tester), isTrue);
+
+      unawaited(
+        showDialog<void>(
+          context: navigatorKey.currentContext!,
+          builder: (_) => const AlertDialog(title: Text('반려 사유를 확인해주세요')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('반려 사유를 확인해주세요'), findsOneWidget);
+      expect(_bannerShown(tester), isFalse);
+      expect(find.text('알림함 보기').hitTestable(), findsNothing);
+
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isTrue);
+      expect(find.text('알림함 보기').hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('one that arrives behind a dialog shows after it closes', (
+      tester,
+    ) async {
+      final tracker = AppNavigationTracker();
+      addTearDown(tracker.dispose);
+      final notifier = _SeededNotificationsNotifier(const []);
+      final navigatorKey = await _pumpPromptApp(
+        tester,
+        notifier,
+        tracker: tracker,
+      );
+      unawaited(
+        showDialog<void>(
+          context: navigatorKey.currentContext!,
+          builder: (_) => const AlertDialog(title: Text('안내')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      notifier.replace([_notification(id: 'a')]);
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isFalse);
+
+      navigatorKey.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isTrue);
+      expect(find.text('읽지 않은 알림 1건'), findsOneWidget);
+    });
+
+    testWidgets('screen readers get the banner and a named close button', (
+      tester,
+    ) async {
+      // Placed above the navigator as in the app, where the labels used to
+      // merge into the root node and turn the whole screen into a button.
+      await _pumpPromptApp(
+        tester,
+        _SeededNotificationsNotifier([_notification(id: 'a')]),
+      );
+
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('알림 안내 닫기')),
+        isSemantics(label: '알림 안내 닫기', isButton: true, hasTapAction: true),
+      );
+      final banner = tester.getSemantics(find.text('읽지 않은 알림 1건'));
+      expect(banner, isSemantics(isButton: false));
+      expect(banner.rect.height, lessThan(120));
+
+      await tester.tap(find.bySemanticsLabel('알림 안내 닫기'));
+      await tester.pumpAndSettle();
+      expect(_bannerShown(tester), isFalse);
+    });
   });
 
   test('prompt positions stay below the home search and page header', () {
@@ -386,6 +538,54 @@ Future<void> _pumpNotice(
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// The prompt above a navigator, as the app's router builder places it.
+Future<GlobalKey<NavigatorState>> _pumpPromptApp(
+  WidgetTester tester,
+  NotificationsNotifier notifier, {
+  AppNavigationTracker? tracker,
+}) async {
+  final navigatorKey = GlobalKey<NavigatorState>();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        authStateProvider.overrideWith(
+          (ref) => const AuthState(
+            isLoggedIn: true,
+            provider: '카카오',
+            email: 'qa@example.com',
+          ),
+        ),
+        notificationsProvider.overrideWith((ref) => notifier),
+      ],
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
+        navigatorObservers: [?tracker],
+        home: const Scaffold(body: Text('홈')),
+        builder: (context, child) => WebNotificationPrompt(
+          isHome: false,
+          onOpenNotifications: () {},
+          navigatorKey: navigatorKey,
+          navigation: tracker,
+          child: child ?? const SizedBox.expand(),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return navigatorKey;
+}
+
+bool _bannerShown(WidgetTester tester) {
+  final offset = tester
+      .widget<Transform>(
+        find.byKey(const ValueKey('web-notification-banner-visibility')),
+      )
+      .transform
+      .getTranslation()
+      .y;
+  return offset == 0;
 }
 
 NotificationModel _notification({

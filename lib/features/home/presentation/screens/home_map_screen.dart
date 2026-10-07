@@ -25,6 +25,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart'
@@ -2542,8 +2543,22 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         (isSearching || isResultActive) && _currentStores.isNotEmpty;
     final topOffsetPush = hasFilters ? 44.0 : 0.0;
 
+    // On the app the map reaches the screen edges when the screen is wider
+    // than the shell (landscape), while every control stays in the same
+    // centered 430 column as before (QA 10/7 #45). On the web and on portrait
+    // phones the column is the whole canvas, so nothing moves.
+    Widget productColumn(List<Widget> children) => Positioned.fill(
+      child: Center(
+        child: SizedBox(
+          width: screenWidth,
+          child: Stack(children: children),
+        ),
+      ),
+    );
+
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFEFF4FF),
+      fullWidthOnApp: true,
       child: Stack(
         children: [
           Positioned.fill(
@@ -2660,314 +2675,319 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               ),
             ),
 
-          Positioned(
-            key: const ValueKey('home-search-control'),
-            left: horizontalPadding,
-            right: horizontalPadding,
-            top: searchTop,
-            height: searchHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _SearchBar(
-                  query: _searchQuery,
-                  onTap: _openSearch,
-                  onFilterTap: () => _openSearch(openFilter: true),
-                ),
-              ),
-            ),
-          ),
-
-          if (hasFilters)
+          productColumn([
             Positioned(
-              left: 0,
-              right: 0,
-              top: 86 + topOffset + 52 + 10, // _SearchBar below
-              height: 32,
+              key: const ValueKey('home-search-control'),
+              left: horizontalPadding,
+              right: horizontalPadding,
+              top: searchTop,
+              height: searchHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSizes.horizontalPadding,
-                  ),
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: activeFilters.length,
-                  separatorBuilder: (_, _) =>
-                      const SizedBox(width: AppSizes.smallSpacing),
-                  itemBuilder: (context, i) {
-                    final label = activeFilters[i];
-                    return Container(
-                      height: 32,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(
-                          color: const Color(0xFF2563EB),
-                          width: 1.2,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            label,
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontFamily: HomeMapScreen.fontFamily,
-                              fontFamilyFallback: HomeMapScreen.fontFallback,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _searchFilter = _searchFilter.remove(label);
-                                _refreshTransferredSearchResults();
-                              });
-                              _searchInCurrentArea();
-                            },
-                            child: const Icon(
-                              Icons.close_rounded,
-                              size: 14,
-                              color: Color(0xFF2563EB),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-
-          if (!isSearching && !isResultActive) ...[
-            if (!isCompactHeight)
-              Positioned(
-                left: AppSizes.horizontalPadding,
-                top: 67.98297119140625 + topOffset + topOffsetPush,
-                width: 183.67897033691406,
-                height: 28.480112075805664,
-                child: Opacity(
-                  opacity: homeChromeOpacity,
-                  child: const _SourceLegend(),
-                ),
-              ),
-            if (showCompactTodayPick)
-              Positioned(
-                key: const ValueKey('home-today-pick-card'),
-                left: horizontalPadding,
-                right: horizontalPadding,
-                top: todayPickTop + topOffsetPush,
-                height: todayPickHeight,
-                child: Opacity(
-                  opacity: homeChromeOpacity,
-                  child: _TodayPickCard(compact: isCompactHeight),
-                ),
-              ),
-          ],
-          Positioned(
-            key: const ValueKey('home-location-control'),
-            right: inlineCompactControls ? 76 : 16,
-            top: floatingLocationTop,
-            width: 52.0,
-            height: 52.0,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Tooltip(
-                message: '내 위치로 이동',
-                child: Semantics(
-                  button: true,
-                  label: '내 위치로 이동',
-                  child: Listener(
-                    behavior: HitTestBehavior.opaque,
-                    onPointerDown: (_) => _suppressMarkerClicks(
-                      const Duration(milliseconds: 1000),
-                    ),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTapDown: (_) => _suppressMarkerClicks(
-                        const Duration(milliseconds: 1000),
-                      ),
-                      onTap: () {
-                        _suppressMarkerClicks(
-                          const Duration(milliseconds: 1000),
-                        );
-                        _moveToCurrentLocation();
-                      },
-                      child: _RoundIconButton(
-                        icon: Icons.near_me_rounded,
-                        color: HomeMapScreen.blue,
-                        isLoading: _isCenteringLocation,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            key: const ValueKey('home-ai-control'),
-            right: 16,
-            top: floatingAiTop,
-            height: 51.9886360168457,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: (_) =>
-                    _suppressMarkerClicks(const Duration(milliseconds: 800)),
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapDown: (_) =>
-                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
                   onVerticalDragUpdate: (_) {},
                   onHorizontalDragUpdate: (_) {},
-                  child: Tooltip(
-                    message: 'AI 추천받기',
-                    child: Semantics(
-                      button: true,
-                      label: 'AI 추천받기',
-                      onTap: _openAiRecommend,
-                      excludeSemantics: true,
-                      child: _AiRecommendControl(
-                        onTap: _openAiRecommend,
-                        compact: inlineCompactControls,
-                      ),
-                    ),
+                  child: _SearchBar(
+                    query: _searchQuery,
+                    onTap: _openSearch,
+                    onFilterTap: () => _openSearch(openFilter: true),
                   ),
                 ),
               ),
             ),
-          ),
-          if (isAiActive) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: 64.0 + topOffset + topOffsetPush,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: Center(
-                  child: _AiRecommendationBanner(
-                    count: _aiRecommendedStores.length,
-                    origin: _activeAiRecommendation?.origin,
-                    onReset: _clearAiRecommendation,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          if (showStoreList) ...[
-            if (_activeAiRecommendation?.origin !=
-                MapResultOrigin.approvedReport)
+
+            if (hasFilters)
               Positioned(
                 left: 0,
                 right: 0,
-                bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                top: 86 + topOffset + 52 + 10, // _SearchBar below
+                height: 32,
                 child: Opacity(
                   opacity: homeChromeOpacity,
-                  child: Center(
-                    child: _FloatingSearchSummary(
-                      count: _currentStores.length,
-                      title: isAiActive
-                          ? (_activeAiRecommendation?.origin ==
-                                    MapResultOrigin.todaysPick
-                                ? '오늘의 픽 '
-                                : 'AI 추천 결과 ')
-                          : null,
-                      detail: _searchResultStores == null
-                          ? null
-                          : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSizes.horizontalPadding,
                     ),
-                  ),
-                ),
-              ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 10,
-              height: storeCardHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: _blockMapTapsThrough(
-                  HomeMapStoreCarousel(
-                    controller: _pageController,
-                    itemCount: _currentStores.length,
-                    onPageChanged: _onStorePageChanged,
-                    itemBuilder: (context, index) {
-                      final store = _currentStores[index];
-                      return HomeMapStoreSummaryCard(
-                        store: store,
-                        selection: isAiActive
-                            ? _selectionFor(store)
-                            : (isSearching ? _searchSelectionFor(store) : null),
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemCount: activeFilters.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: AppSizes.smallSpacing),
+                    itemBuilder: (context, i) {
+                      final label = activeFilters[i];
+                      return Container(
+                        height: 32,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(
+                            color: const Color(0xFF2563EB),
+                            width: 1.2,
+                          ),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              label,
+                              style: const TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontFamily: HomeMapScreen.fontFamily,
+                                fontFamilyFallback: HomeMapScreen.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _searchFilter = _searchFilter.remove(label);
+                                  _refreshTransferredSearchResults();
+                                });
+                                _searchInCurrentArea();
+                              },
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 14,
+                                color: Color(0xFF2563EB),
+                              ),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),
                 ),
               ),
-            ),
-          ] else if (isSearching && _currentStores.isEmpty) ...[
+
+            if (!isSearching && !isResultActive) ...[
+              if (!isCompactHeight)
+                Positioned(
+                  left: AppSizes.horizontalPadding,
+                  top: 67.98297119140625 + topOffset + topOffsetPush,
+                  width: 183.67897033691406,
+                  height: 28.480112075805664,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: const _SourceLegend(),
+                  ),
+                ),
+              if (showCompactTodayPick)
+                Positioned(
+                  key: const ValueKey('home-today-pick-card'),
+                  left: horizontalPadding,
+                  right: horizontalPadding,
+                  top: todayPickTop + topOffsetPush,
+                  height: todayPickHeight,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: _TodayPickCard(compact: isCompactHeight),
+                  ),
+                ),
+            ],
             Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomNavHeight + 20,
+              key: const ValueKey('home-location-control'),
+              right: inlineCompactControls ? 76 : 16,
+              top: floatingLocationTop,
+              width: 52.0,
+              height: 52.0,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: Center(child: _FloatingSearchSummary(count: 0)),
-              ),
-            ),
-          ] else if (_showStoreSummary && _selectedStore != null) ...[
-            Positioned(
-              left: AppSizes.horizontalPadding,
-              right: AppSizes.horizontalPadding,
-              top: storeCardTop,
-              height: storeCardHeight,
-              child: Opacity(
-                opacity: homeChromeOpacity,
-                child: _blockMapTapsThrough(
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onVerticalDragUpdate: (_) {},
-                    onHorizontalDragUpdate: (_) {},
-                    child: HomeMapStoreSummaryCard(
-                      store: _selectedStore!,
-                      selection: isAiActive
-                          ? _selectionFor(_selectedStore!)
-                          : (isSearching
-                                ? _searchSelectionFor(_selectedStore!)
-                                : null),
+                child: Tooltip(
+                  message: '내 위치로 이동',
+                  child: Semantics(
+                    button: true,
+                    label: '내 위치로 이동',
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: (_) => _suppressMarkerClicks(
+                        const Duration(milliseconds: 1000),
+                      ),
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTapDown: (_) => _suppressMarkerClicks(
+                          const Duration(milliseconds: 1000),
+                        ),
+                        onTap: () {
+                          _suppressMarkerClicks(
+                            const Duration(milliseconds: 1000),
+                          );
+                          _moveToCurrentLocation();
+                        },
+                        child: _RoundIconButton(
+                          icon: Icons.near_me_rounded,
+                          color: HomeMapScreen.blue,
+                          isLoading: _isCenteringLocation,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-          Positioned(
-            key: const ValueKey('home-bottom-navigation'),
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: bottomNavHeight,
-            child: Opacity(
-              opacity: homeChromeOpacity,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: HowmuchBottomNav(
-                  safeBottom: bottomOffset,
-                  activeTab: HowmuchBottomTab.home,
+            Positioned(
+              key: const ValueKey('home-ai-control'),
+              right: 16,
+              top: floatingAiTop,
+              height: 51.9886360168457,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: (_) =>
+                      _suppressMarkerClicks(const Duration(milliseconds: 800)),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTapDown: (_) => _suppressMarkerClicks(
+                      const Duration(milliseconds: 800),
+                    ),
+                    onVerticalDragUpdate: (_) {},
+                    onHorizontalDragUpdate: (_) {},
+                    child: Tooltip(
+                      message: 'AI 추천받기',
+                      child: Semantics(
+                        button: true,
+                        label: 'AI 추천받기',
+                        onTap: _openAiRecommend,
+                        excludeSemantics: true,
+                        child: _AiRecommendControl(
+                          onTap: _openAiRecommend,
+                          compact: inlineCompactControls,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            if (isAiActive) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: 64.0 + topOffset + topOffsetPush,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(
+                    child: _AiRecommendationBanner(
+                      count: _aiRecommendedStores.length,
+                      origin: _activeAiRecommendation?.origin,
+                      onReset: _clearAiRecommendation,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (showStoreList) ...[
+              if (_activeAiRecommendation?.origin !=
+                  MapResultOrigin.approvedReport)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: bottomNavHeight + 10 + storeCardHeight + 4,
+                  child: Opacity(
+                    opacity: homeChromeOpacity,
+                    child: Center(
+                      child: _FloatingSearchSummary(
+                        count: _currentStores.length,
+                        title: isAiActive
+                            ? (_activeAiRecommendation?.origin ==
+                                      MapResultOrigin.todaysPick
+                                  ? '오늘의 픽 '
+                                  : 'AI 추천 결과 ')
+                            : null,
+                        detail: _searchResultStores == null
+                            ? null
+                            : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                      ),
+                    ),
+                  ),
+                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 10,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    HomeMapStoreCarousel(
+                      controller: _pageController,
+                      itemCount: _currentStores.length,
+                      onPageChanged: _onStorePageChanged,
+                      itemBuilder: (context, index) {
+                        final store = _currentStores[index];
+                        return HomeMapStoreSummaryCard(
+                          store: store,
+                          selection: isAiActive
+                              ? _selectionFor(store)
+                              : (isSearching
+                                    ? _searchSelectionFor(store)
+                                    : null),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ] else if (isSearching && _currentStores.isEmpty) ...[
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomNavHeight + 20,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: Center(child: _FloatingSearchSummary(count: 0)),
+                ),
+              ),
+            ] else if (_showStoreSummary && _selectedStore != null) ...[
+              Positioned(
+                left: AppSizes.horizontalPadding,
+                right: AppSizes.horizontalPadding,
+                top: storeCardTop,
+                height: storeCardHeight,
+                child: Opacity(
+                  opacity: homeChromeOpacity,
+                  child: _blockMapTapsThrough(
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onVerticalDragUpdate: (_) {},
+                      onHorizontalDragUpdate: (_) {},
+                      child: HomeMapStoreSummaryCard(
+                        store: _selectedStore!,
+                        selection: isAiActive
+                            ? _selectionFor(_selectedStore!)
+                            : (isSearching
+                                  ? _searchSelectionFor(_selectedStore!)
+                                  : null),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            Positioned(
+              key: const ValueKey('home-bottom-navigation'),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: bottomNavHeight,
+              child: Opacity(
+                opacity: homeChromeOpacity,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: HowmuchBottomNav(
+                    safeBottom: bottomOffset,
+                    activeTab: HowmuchBottomTab.home,
+                  ),
+                ),
+              ),
+            ),
+          ]),
           if (_showAiSpotlight) ...[
             Positioned.fill(
               child: GestureDetector(
@@ -2984,27 +3004,29 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 ),
               ),
             ),
-            Positioned(
-              left: (screenWidth - 265) / 2,
-              top: spotlightCoachTop,
-              width: 265,
-              height: 38,
-              child: _AiCoachTip(onTap: _openAiRecommend),
-            ),
-            Positioned(
-              right: 16,
-              top: spotlightAiTop,
-              height: 70,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onVerticalDragUpdate: (_) {},
-                onHorizontalDragUpdate: (_) {},
-                child: _AiRecommendControl(
-                  onTap: _openAiRecommend,
-                  spotlight: true,
+            productColumn([
+              Positioned(
+                left: (screenWidth - 265) / 2,
+                top: spotlightCoachTop,
+                width: 265,
+                height: 38,
+                child: _AiCoachTip(onTap: _openAiRecommend),
+              ),
+              Positioned(
+                right: 16,
+                top: spotlightAiTop,
+                height: 70,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (_) {},
+                  onHorizontalDragUpdate: (_) {},
+                  child: _AiRecommendControl(
+                    onTap: _openAiRecommend,
+                    spotlight: true,
+                  ),
                 ),
               ),
-            ),
+            ]),
           ],
           if (_locationNotice != null)
             Positioned.fill(
@@ -3340,64 +3362,69 @@ class _TodayPickCard extends StatelessWidget {
             ),
           ],
         ),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final narrow = constraints.maxWidth < 320;
-            return Row(
-              children: [
-                SizedBox(
-                  width: compact ? 44 : 55.99431610107422,
-                  height: double.infinity,
-                  child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+        // The banner floats over the map at a fixed height, so its text stops
+        // at the compact chrome scale (QA 10/7 #5).
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: AppTextScale.compactChrome,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final narrow = constraints.maxWidth < 320;
+              return Row(
+                children: [
+                  SizedBox(
+                    width: compact ? 44 : 55.99431610107422,
+                    height: double.infinity,
+                    child: DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [Color(0xFFEFF4FF), Color(0xFFEFF4FF)],
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.thunderstorm_outlined,
+                            color: HomeMapScreen.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 1.989),
+                          // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
+                          Text(
+                            '오늘',
+                            style: TextStyle(
+                              color: HomeMapScreen.blue,
+                              fontFamily: HomeMapScreen.fontFamily,
+                              fontFamilyFallback: HomeMapScreen.fontFallback,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.thunderstorm_outlined,
-                          color: HomeMapScreen.blue,
-                          size: 20,
-                        ),
-                        const SizedBox(height: 1.989),
-                        // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
-                        Text(
-                          '오늘',
-                          style: TextStyle(
-                            color: HomeMapScreen.blue,
-                            fontFamily: HomeMapScreen.fontFamily,
-                            fontFamilyFallback: HomeMapScreen.fontFallback,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w800,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
-                ),
-                SizedBox(width: narrow ? 8 : 11.988616943359375),
-                const Expanded(child: _TodayPickText()),
-                if (!compact) ...[
-                  const _RankDot(label: '1', color: HomeMapScreen.blue),
-                  const _RankDot(label: '2', color: HomeMapScreen.orange),
-                  const _RankDot(label: '3', color: HomeMapScreen.green),
+                  SizedBox(width: narrow ? 8 : 11.988616943359375),
+                  const Expanded(child: _TodayPickText()),
+                  if (!compact) ...[
+                    const _RankDot(label: '1', color: HomeMapScreen.blue),
+                    const _RankDot(label: '2', color: HomeMapScreen.orange),
+                    const _RankDot(label: '3', color: HomeMapScreen.green),
+                  ],
+                  SizedBox(width: narrow ? 4 : 9.985779),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: HomeMapScreen.muted,
+                    size: 17,
+                  ),
+                  SizedBox(width: narrow ? 8 : 12),
                 ],
-                SizedBox(width: narrow ? 4 : 9.985779),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: HomeMapScreen.muted,
-                  size: 17,
-                ),
-                SizedBox(width: narrow ? 8 : 12),
-              ],
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );
@@ -3409,58 +3436,74 @@ class _TodayPickText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final lines = Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '오늘의 픽',
-              style: TextStyle(
-                color: Color(0xFFF59E0B),
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                height: 1.5,
-                letterSpacing: .4,
-              ),
+            Row(
+              children: [
+                const Text(
+                  '오늘의 픽',
+                  style: TextStyle(
+                    color: Color(0xFFF59E0B),
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                    letterSpacing: .4,
+                  ),
+                ),
+                const SizedBox(width: 5.994),
+                Expanded(
+                  child: Text(
+                    '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: HomeMapScreen.muted,
+                      fontFamily: HomeMapScreen.fontFamily,
+                      fontFamilyFallback: HomeMapScreen.fontFallback,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w400,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 5.994),
-            Expanded(
+            const SizedBox(height: .994),
+            // Shrinks to the space left by the rank dots instead of ending in
+            // an ellipsis when the text is enlarged.
+            const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
               child: Text(
-                '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
+                '날씨와 거리로 매장 추천',
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: HomeMapScreen.muted,
+                  color: HomeMapScreen.ink,
                   fontFamily: HomeMapScreen.fontFamily,
                   fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w400,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                   height: 1.5,
+                  letterSpacing: 0,
                 ),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: .994),
-        const Text(
-          '날씨와 거리로 매장 추천',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: HomeMapScreen.ink,
-            fontFamily: HomeMapScreen.fontFamily,
-            fontFamilyFallback: HomeMapScreen.fontFallback,
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            height: 1.5,
-            letterSpacing: 0,
-          ),
-        ),
-      ],
+        );
+        // The short landscape banner (44px) cannot hold both lines at the
+        // capped scale; shrink them together instead of cutting the title.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: SizedBox(width: constraints.maxWidth, child: lines),
+        );
+      },
     );
   }
 }
@@ -3602,129 +3645,149 @@ class HomeMapStoreSummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x240F172A),
-            blurRadius: 16,
-            offset: Offset(0, 12),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              height: 24,
-              child: Row(
-                children: [
-                  _SourceBadge(isUserReported: store.isUserReported),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      store.address.split(' ').take(3).join(' '),
-                      style: _muted11,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
+    // The card has a fixed height on the map, so its text stops at the
+    // compact chrome scale; the full details scale on the store page
+    // (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x240F172A),
+              blurRadius: 16,
+              offset: Offset(0, 12),
             ),
-            const SizedBox(height: 3),
-            SizedBox(
-              height: 60,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final textScaler = MediaQuery.textScalerOf(context);
-                  final textDirection = Directionality.of(context);
-                  if (constraints.maxWidth < 300) {
-                    final industryWidth = math.min(
-                      64.0,
-                      _textWidth(store.industry, _muted11, textScaler),
-                    );
-                    final priceLineHeight = math.max(
-                      _textHeight(_muted12, textScaler),
-                      _textHeight(_tightCompactPriceStyle, textScaler),
-                    );
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: 24,
+                child: Row(
+                  children: [
+                    _SourceBadge(isUserReported: store.isUserReported),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        store.address.split(' ').take(3).join(' '),
+                        style: _muted11,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 3),
+              SizedBox(
+                height: 60,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScaler = MediaQuery.textScalerOf(context);
+                    final textDirection = Directionality.of(context);
+                    if (constraints.maxWidth < 300) {
+                      final industryWidth = math.min(
+                        64.0,
+                        _textWidth(store.industry, _muted11, textScaler),
+                      );
+                      final priceLineHeight = math.max(
+                        _textHeight(_muted12, textScaler),
+                        _textHeight(_tightCompactPriceStyle, textScaler),
+                      );
+                      final wrapName = _storeNameWrapsInCard(
+                        name: store.storeName,
+                        width: constraints.maxWidth - 8 - industryWidth,
+                        height: constraints.maxHeight - 2 - priceLineHeight,
+                        textScaler: textScaler,
+                        textDirection: textDirection,
+                      );
+                      // Enlarged text also needs the tight price line, or the
+                      // name and price no longer fit the 60px row.
+                      final roomyHeight =
+                          _textHeight(_storeNameStyle, textScaler) +
+                          4 +
+                          math.max(
+                            _textHeight(_muted12, textScaler),
+                            _textHeight(_compactPriceStyle, textScaler),
+                          );
+                      final tight =
+                          wrapName || roomyHeight > constraints.maxHeight;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _StoreInfo(
+                                  store: store,
+                                  compact: true,
+                                  wrapName: wrapName,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 64),
+                                child: Text(
+                                  store.industry,
+                                  style: _muted11,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: tight ? 2 : 4),
+                          _StorePrice(
+                            store: store,
+                            selection: selection,
+                            compact: true,
+                            tight: tight,
+                          ),
+                        ],
+                      );
+                    }
                     final wrapName = _storeNameWrapsInCard(
                       name: store.storeName,
-                      width: constraints.maxWidth - 8 - industryWidth,
-                      height: constraints.maxHeight - 2 - priceLineHeight,
+                      width: constraints.maxWidth - 12 - 144,
+                      height:
+                          constraints.maxHeight -
+                          4 -
+                          _textHeight(_muted12, textScaler),
                       textScaler: textScaler,
                       textDirection: textDirection,
                     );
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    return Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _StoreInfo(
-                                store: store,
-                                compact: true,
-                                wrapName: wrapName,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 64),
-                              child: Text(
-                                store.industry,
-                                style: _muted11,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        Expanded(
+                          child: _StoreInfo(store: store, wrapName: wrapName),
                         ),
-                        SizedBox(height: wrapName ? 2 : 4),
-                        _StorePrice(
-                          store: store,
-                          selection: selection,
-                          compact: true,
-                          tight: wrapName,
+                        const SizedBox(width: 12),
+                        SizedBox(
+                          width: 144,
+                          child: _StorePrice(
+                            store: store,
+                            selection: selection,
+                          ),
                         ),
                       ],
                     );
-                  }
-                  final wrapName = _storeNameWrapsInCard(
-                    name: store.storeName,
-                    width: constraints.maxWidth - 12 - 144,
-                    height:
-                        constraints.maxHeight -
-                        4 -
-                        _textHeight(_muted12, textScaler),
-                    textScaler: textScaler,
-                    textDirection: textDirection,
-                  );
-                  return Row(
-                    children: [
-                      Expanded(
-                        child: _StoreInfo(store: store, wrapName: wrapName),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 144,
-                        child: _StorePrice(store: store, selection: selection),
-                      ),
-                    ],
-                  );
-                },
+                  },
+                ),
               ),
-            ),
-            const Divider(height: 1, color: Color(0xFFE7E9E2)),
-            SizedBox(
-              height: 54,
-              child: Center(child: _DetailButton(store: store)),
-            ),
-          ],
+              const Divider(height: 1, color: Color(0xFFE7E9E2)),
+              SizedBox(
+                height: 54,
+                child: Center(child: _DetailButton(store: store)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3812,38 +3875,37 @@ class _StorePrice extends StatelessWidget {
         ],
       );
     }
-    return SizedBox(
-      height: 52,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            menuStr,
+    // Sized by its content and centered in the 60px row: the old 52px box
+    // overflowed by 6px at 1.3x text.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          menuStr,
+          textAlign: TextAlign.right,
+          style: _muted10.copyWith(fontSize: 11),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerRight,
+          child: Text(
+            priceStr,
             textAlign: TextAlign.right,
-            style: _muted10.copyWith(fontSize: 11),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Text(
-              priceStr,
-              textAlign: TextAlign.right,
-              style: const TextStyle(
-                color: HomeMapScreen.ink,
-                fontFamily: HomeMapScreen.fontFamily,
-                fontFamilyFallback: HomeMapScreen.fontFallback,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                height: 1.5,
-              ),
+            style: const TextStyle(
+              color: HomeMapScreen.ink,
+              fontFamily: HomeMapScreen.fontFamily,
+              fontFamilyFallback: HomeMapScreen.fontFallback,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              height: 1.5,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -3969,6 +4031,16 @@ class _AiRecommendControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Its label used to be clipped to 'AI 추천' at large text sizes: the pill
+    // now grows with its one-line label, which stops at the compact chrome
+    // scale like the other map controls (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: _buildControl(),
+    );
+  }
+
+  Widget _buildControl() {
     if (spotlight) {
       return GestureDetector(
         onTap: onTap,
@@ -3976,9 +4048,8 @@ class _AiRecommendControl extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 78,
-              height: 28,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(minWidth: 78, minHeight: 28),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -3990,23 +4061,31 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  height: 1.5,
+              // Factors of 1 keep the pill at its label size instead of
+              // stretching to the row height.
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
@@ -4057,9 +4136,11 @@ class _AiRecommendControl extends StatelessWidget {
         children: [
           if (!compact)
             Container(
-              width: 82,
-              height: 22.982954025268555,
-              alignment: Alignment.center,
+              constraints: const BoxConstraints(
+                minWidth: 82,
+                minHeight: 22.982954025268555,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(999),
@@ -4071,23 +4152,29 @@ class _AiRecommendControl extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'AI',
-                      style: TextStyle(color: HomeMapScreen.blue),
-                    ),
-                    TextSpan(text: ' 추천받기'),
-                  ],
-                ),
-                style: TextStyle(
-                  color: HomeMapScreen.ink,
-                  fontFamily: HomeMapScreen.fontFamily,
-                  fontFamilyFallback: HomeMapScreen.fontFallback,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
+              child: const Center(
+                widthFactor: 1,
+                heightFactor: 1,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'AI',
+                        style: TextStyle(color: HomeMapScreen.blue),
+                      ),
+                      TextSpan(text: ' 추천받기'),
+                    ],
+                  ),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(
+                    color: HomeMapScreen.ink,
+                    fontFamily: HomeMapScreen.fontFamily,
+                    fontFamilyFallback: HomeMapScreen.fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),

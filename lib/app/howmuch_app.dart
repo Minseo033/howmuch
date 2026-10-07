@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_routes.dart';
+import 'app_route_observer.dart';
 import 'app_router.dart';
 import 'app_theme.dart';
 import 'widgets/route_page_title.dart';
@@ -105,6 +106,7 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
                 onOpenNotifications: () => router.push(AppRoutes.notifications),
                 isHome: isHome,
                 navigatorKey: router.routerDelegate.navigatorKey,
+                navigation: ref.read(appNavigationTrackerProvider),
                 child: child ?? const SizedBox.shrink(),
               );
             },
