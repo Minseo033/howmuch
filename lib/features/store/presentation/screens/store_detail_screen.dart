@@ -478,10 +478,19 @@ class _StoreDetailContent extends ConsumerWidget {
                                       color: _ink,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    store.menuSourceLabel,
-                                    style: TextStyle(fontSize: 11, color: _sub),
+                                  const SizedBox(width: 8),
+                                  // Right-aligned as before, but wraps under
+                                  // large text instead of overflowing the
+                                  // row (37px at 3.1x on a 320 screen, #5).
+                                  Expanded(
+                                    child: Text(
+                                      store.menuSourceLabel,
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: _sub,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -883,15 +892,19 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           SizedBox(
             width: 68,
-            height: 20,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.textMuted,
+            // A minimum rather than a fixed height: large text grows the row
+            // instead of cutting the label off (QA 10/7 #5).
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
             ),
