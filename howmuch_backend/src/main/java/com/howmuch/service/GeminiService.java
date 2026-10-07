@@ -93,6 +93,37 @@ public class GeminiService {
             "비빔", "볶음", "김밥", "콩국수", "막국수", "메밀국수", "모밀", "밀면", "열무국수", "물회",
             "쫄면", "탕수", "탕후루", "국화빵");
 
+    /**
+     * 음식점이 아닌 업종. 공공데이터의 기타비요식업(증명사진 등)·미용업·이용업·세탁업·숙박업·목욕업과
+     * 제보 업종의 생활서비스·숙박·교통·주차. 음식을 찾는 요청에서는 메뉴 이름과 상관없이 뺀다.
+     */
+    private static final List<String> NON_FOOD_INDUSTRIES = List.of(
+            "비요식", "미용", "이용업", "이발", "헤어", "네일", "세탁", "수선", "목욕", "사우나",
+            "숙박", "생활서비스", "교통", "주차");
+
+    /** 분식으로 보는 메뉴. 순대국·쌀국수는 이름에 순대·국수가 들어 있어도 분식이 아니다. */
+    private static final List<String> BUNSIK_MENUS = List.of(
+            "분식", "김밥", "떡볶이", "라볶이", "순대", "튀김", "어묵", "오뎅", "라면", "쫄면", "우동",
+            "국수", "수제비", "만두", "돈가스", "돈까스", "주먹밥", "유부초밥", "핫도그", "떡꼬치",
+            "토스트", "컵밥", "오므라이스");
+    private static final List<String> NOT_BUNSIK_MENUS = List.of("순대국", "순댓국", "쌀국수");
+    /** 분식 메뉴가 있어도 분식집으로 보지 않는 다른 음식 업종(중식당의 우동·만두, 카페의 토스트 등). */
+    private static final List<String> NOT_BUNSIK_VENUES = List.of(
+            "중식", "중화", "일식", "양식", "카페", "커피", "베이커리", "제과", "치킨", "패스트푸드", "고기");
+
+    /**
+     * 음식 종류를 말한 요청과 그 종류로 보는 업종. 분식은 분식 메뉴로도 판단한다.
+     * '중화'만으로는 찾지 않는다(중화역·중화동 같은 지명).
+     */
+    private record CuisineRequest(List<String> queryWords, List<String> venueWords, boolean bunsikMenus) { }
+
+    private static final List<CuisineRequest> CUISINE_REQUESTS = List.of(
+            new CuisineRequest(List.of("분식"), List.of("분식"), true),
+            new CuisineRequest(List.of("한식"), List.of("한식"), false),
+            new CuisineRequest(List.of("중식", "중국집", "중화요리"), List.of("중식", "중화"), false),
+            new CuisineRequest(List.of("일식"), List.of("일식"), false),
+            new CuisineRequest(List.of("양식"), List.of("양식"), false));
+
     private static final String GOMI_SYSTEM_INSTRUCTION = """
         당신의 이름은 '고미'입니다.
         고미는 '얼마고?' 서비스의 친근하고 센스 있는 동네 가성비 맛집·절약 가이드입니다.
@@ -379,6 +410,19 @@ public class GeminiService {
      */
     public String verifiedRecommendationText(List<Map<String, Object>> recommendations,
                                             int radiusMeters, boolean fallback) {
+        return verifiedRecommendationText(recommendations, radiusMeters, fallback,
+                recommendations == null ? 0 : recommendations.size());
+    }
+
+    /** 질문이 원한 개수보다 적게 찾았으면, 다른 매장으로 채우지 않았다는 안내를 함께 붙입니다. */
+    public String verifiedRecommendationText(String userMessage, List<Map<String, Object>> recommendations,
+                                            int radiusMeters, boolean fallback) {
+        return verifiedRecommendationText(recommendations, radiusMeters, fallback,
+                requestedRecommendationCount(userMessage));
+    }
+
+    private String verifiedRecommendationText(List<Map<String, Object>> recommendations,
+                                             int radiusMeters, boolean fallback, int requestedCount) {
         if (recommendations == null || recommendations.isEmpty()) {
             return "선택한 " + radiusMeters / 1_000
                     + "km 이내에서 메뉴·예산 조건을 모두 만족하는 매장을 찾지 못했어요. "
@@ -387,6 +431,9 @@ public class GeminiService {
         StringBuilder text = new StringBuilder(fallback ? "AI 연결이 원활하지 않아, " : "");
         text.append(radiusMeters / 1_000).append("km 이내에서 조건을 만족하는 ")
                 .append(recommendations.size()).append("곳을 가까운 순서로 안내해요.\n");
+        if (recommendations.size() < requestedCount) {
+            text.append("조건에 맞는 매장이 부족해 다른 매장으로 채우지 않았어요.\n");
+        }
         for (int index = 0; index < recommendations.size(); index++) {
             Map<String, Object> item = recommendations.get(index);
             text.append(index + 1).append(". ").append(item.get("storeName"))
@@ -427,7 +474,8 @@ public class GeminiService {
         return "UNKNOWN";
     }
 
-    private boolean menuMatchesIntent(String message, String menu, Map<String, Object> store) {
+    /** 앱의 menuMatchesRecommendationQuery와 같은 규칙이다(test/ai_shared_rules_test.dart와 같은 표). */
+    boolean menuMatchesIntent(String message, String menu, Map<String, Object> store) {
         String query = message == null ? "" : message.toLowerCase().replace(" ", "");
         String item = menu.toLowerCase().replace(" ", "");
         String industry = safeText(store.get("industry"), "", 100).toLowerCase();
@@ -447,7 +495,13 @@ public class GeminiService {
         if (cafe && !item.endsWith("차")
                 && List.of("커피", "아메리카노", "라떼", "카푸치노", "음료", "빵", "케이크", "디저트")
                 .stream().noneMatch(item::contains)) return false;
-        boolean meal = soup || List.of("점심", "저녁", "아침", "식사", "밥", "음식", "맛집", "국수", "분식")
+        // '분식'·'중식'처럼 음식 종류를 말하면 그 종류의 메뉴·업종만 맞는다(삼겹살·증명사진은 분식이 아니다).
+        List<CuisineRequest> cuisines = CUISINE_REQUESTS.stream()
+                .filter(cuisine -> cuisine.queryWords().stream().anyMatch(query::contains)).toList();
+        if (!cuisines.isEmpty() && cuisines.stream()
+                .noneMatch(cuisine -> matchesCuisine(cuisine, item, industry))) return false;
+        boolean meal = soup || !cuisines.isEmpty()
+                || List.of("점심", "저녁", "아침", "식사", "밥", "음식", "맛집", "국수", "분식")
                 .stream().anyMatch(query::contains);
         // A nearby cheap drink is not a meal. Do not exclude a cafe's actual food menu.
         boolean drink = item.endsWith("차") || List.of("커피", "아메리카노", "라떼", "카푸치노",
@@ -459,12 +513,23 @@ public class GeminiService {
                 .stream().anyMatch(item::contains);
         // Unknown cafe menu names can be branded drinks (e.g. 메가리카노), not verified meals.
         if (meal && !cafe && cafeVenue && !cafeFood) return false;
+        // 음식을 찾는 요청(식사·카페·메뉴·코스)에서는 음식점이 아닌 업종을 메뉴 이름과 상관없이 뺀다.
+        boolean foodRequest = meal || cafe || !dishes.isEmpty() || query.contains("코스");
+        if (foodRequest && NON_FOOD_INDUSTRIES.stream().anyMatch(industry::contains)) return false;
         if (meal && List.of("미용", "헤어", "이발", "세탁", "수선", "네일", "목욕", "숙박")
                 .stream().anyMatch((industry + " " + item)::contains)) return false;
         for (String service : List.of("미용", "세탁", "목욕", "이발", "수선")) {
             if (query.contains(service) && !(industry + " " + item).contains(service)) return false;
         }
         return true;
+    }
+
+    private static boolean matchesCuisine(CuisineRequest cuisine, String item, String industry) {
+        if (cuisine.venueWords().stream().anyMatch(industry::contains)) return true;
+        return cuisine.bunsikMenus()
+                && BUNSIK_MENUS.stream().anyMatch(item::contains)
+                && NOT_BUNSIK_MENUS.stream().noneMatch(item::contains)
+                && NOT_BUNSIK_VENUES.stream().noneMatch(industry::contains);
     }
 
     private int requestedRecommendationCount(String message) {

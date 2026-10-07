@@ -73,7 +73,7 @@ void main() {
       );
       expect(result!.stores.map((item) => item.id), ['가까운 국수']);
       expect(result.menuSelections.single.menu, '칼국수');
-      expect(result.text, contains('부족해 먼 매장으로 채우지 않았어요'));
+      expect(result.text, contains('부족해 다른 매장으로 채우지 않았어요'));
     },
   );
   test('radius 1, 3 and 15 km is respected by local recommendations', () {
