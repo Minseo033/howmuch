@@ -241,4 +241,21 @@ class GeminiServiceTest {
         assertThat(service.verifiedRecommendationText(result, 3000, false))
                 .contains("무료", "3,000 / 3,500원").doesNotContain("30,003,500");
     }
+
+    /** QA 10/7 #27: AI 답변도 다른 화면처럼 7,000원·약 1.5km로 쓴다. */
+    @Test
+    void chatAnswerWritesPricesWithCommasAndLongDistancesInKilometres() {
+        GeminiService service = new GeminiService("", 1_000, false);
+        var result = service.verifiedRecommendations("추천 네 곳", List.of(
+                Map.of("storeId", "a", "storeName", "가까운 식당", "menu1", "백반", "price1", "7000", "distanceMeters", 504),
+                Map.of("storeId", "b", "storeName", "경계 식당", "menu1", "백반", "price1", "10000", "distanceMeters", 999.6),
+                Map.of("storeId", "c", "storeName", "먼 식당", "menu1", "백반", "price1", "8000원", "distanceMeters", 1478),
+                Map.of("storeId", "d", "storeName", "선택 식당", "menu1", "백반", "price1", "3000~5000", "distanceMeters", 2950)),
+                3000);
+
+        assertThat(service.verifiedRecommendationText(result, 3000, false))
+                .contains("가까운 식당 — 백반 · 7,000원 · 약 504m", "경계 식당 — 백반 · 10,000원 · 약 1.0km",
+                        "먼 식당 — 백반 · 8,000원 · 약 1.5km", "선택 식당 — 백반 · 3,000 ~ 5,000원 · 약 3.0km")
+                .doesNotContain("7000원", "10000원", "1478m", "원원");
+    }
 }

@@ -20,9 +20,11 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -390,8 +392,8 @@ public class GeminiService {
             text.append(index + 1).append(". ").append(item.get("storeName"))
                     .append(" — ").append(item.get("matchedMenu"))
                     .append(" · ").append(Boolean.TRUE.equals(item.get("free"))
-                            ? "무료" : priceLabel(item.get("rawPrice")))
-                    .append(" · 약 ").append(Math.round(distanceOf(item))).append("m");
+                            ? "무료" : wonLabel(item.get("rawPrice")))
+                    .append(" · ").append(distanceLabel(distanceOf(item)));
             String source = String.valueOf(item.get("source"));
             if ("GOV".equals(source)) text.append(" · 정부 인증");
             else if ("USER".equals(source)) text.append(" · 사용자 제보");
@@ -399,6 +401,23 @@ public class GeminiService {
             text.append("\n");
         }
         return text.toString().trim();
+    }
+
+    /** 다른 화면과 같은 금액 표기: 7000 → 7,000원, 3000~5000 → 3,000 ~ 5,000원. */
+    private String wonLabel(Object rawPrice) {
+        return WonPrice.parse(rawPrice)
+                .map(value -> value.amounts().stream()
+                        .map(amount -> String.format(Locale.ROOT, "%,d", amount))
+                        .collect(Collectors.joining(value.range() ? " ~ " : " / ")) + "원")
+                .orElseGet(() -> priceLabel(rawPrice));
+    }
+
+    /** 다른 화면과 같은 거리 표기: 1km 미만은 m, 1km부터는 소수 한 자리 km(1478m → 약 1.5km). */
+    private String distanceLabel(double meters) {
+        long rounded = Math.round(meters);
+        if (rounded < 1_000) return "약 " + rounded + "m";
+        long tenths = Math.round(meters / 100.0);
+        return "약 " + tenths / 10 + "." + tenths % 10 + "km";
     }
 
     private String normalizedSource(Object value) {
