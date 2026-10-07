@@ -422,6 +422,9 @@
     font-size: 13px; font-family: inherit; line-height: 1.5;
   }
   .modal textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+  /* 필수 입력을 비운 채 저장하면 입력칸 아래에 이유를 보여 줍니다(QA 2026-10-07 #47). */
+  .modal .field-error { margin-top: 8px; color: var(--red); font-size: 13px; font-weight: 700; }
+  .modal textarea[aria-invalid="true"] { border-color: var(--red-fill); }
   .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .act-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 16px; }
   .act-cell { background: var(--bg); border-radius: 12px; padding: 12px; text-align: center; }
@@ -565,7 +568,8 @@
     <h3 id="rejectModalHeading">제보 반려</h3>
     <p id="rejectTarget"></p>
     <label class="sr-only" for="rejectReason">반려 사유</label>
-    <textarea id="rejectReason" name="reject-reason" placeholder="반려 사유를 입력하세요 (제보자에게 표시됩니다)"></textarea>
+    <textarea id="rejectReason" name="reject-reason" aria-describedby="rejectReasonError" placeholder="반려 사유를 입력하세요 (제보자에게 표시됩니다)"></textarea>
+    <p class="field-error" id="rejectReasonError" role="alert" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-ghost" data-close="rejectModal">취소</button>
       <button class="btn btn-danger" id="rejectConfirm">반려하기</button>
@@ -666,7 +670,8 @@
     <p id="answerInquiryTarget"></p>
     <div id="answerInquiryOriginal" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:16px 0"></div>
     <label class="sr-only" for="answerInquiryText">문의 답변</label>
-    <textarea id="answerInquiryText" name="inquiry-answer" maxlength="2000" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <textarea id="answerInquiryText" name="inquiry-answer" maxlength="2000" aria-describedby="answerInquiryError" placeholder="사용자에게 보낼 답변을 입력하세요"></textarea>
+    <p class="field-error" id="answerInquiryError" role="alert" hidden></p>
     <div class="modal-actions">
       <button class="btn btn-ghost" data-close="answerInquiryModal">취소</button>
       <button class="btn btn-primary" id="answerInquiryConfirm">답변 저장</button>
@@ -2019,6 +2024,7 @@
     rejectTargetId = id;
     $('rejectTarget').textContent = `「${name || id}」 제보를 반려합니다.`;
     $('rejectReason').value = '';
+    clearFieldError('rejectReason', 'rejectReasonError');
     openModal('rejectModal');
   }
 
@@ -2027,12 +2033,33 @@
     rejectTargetId = id;
     $('rejectTarget').textContent = `「${name || id}」 영수증 인증을 반려합니다.`;
     $('rejectReason').value = '';
+    clearFieldError('rejectReason', 'rejectReasonError');
     openModal('rejectModal');
+  }
+
+  // QA 2026-10-07 #47: 필수 입력을 비운 채 저장하면 포커스만 옮기지 않고 입력칸 아래에 이유를 보여 줍니다.
+  function showFieldError(inputId, errorId, message) {
+    const error = $(errorId);
+    error.textContent = message;
+    error.hidden = false;
+    $(inputId).setAttribute('aria-invalid', 'true');
+    $(inputId).focus();
+  }
+
+  function clearFieldError(inputId, errorId) {
+    const error = $(errorId);
+    error.hidden = true;
+    error.textContent = '';
+    $(inputId).removeAttribute('aria-invalid');
   }
 
   async function doReject() {
     const reason = $('rejectReason').value.trim();
-    if (!reason) { $('rejectReason').focus(); return; }
+    if (!reason) {
+      showFieldError('rejectReason', 'rejectReasonError',
+        rejectTargetType === 'receipt' ? '반려 사유를 입력해주세요.' : '반려 사유를 입력해주세요. 제보자에게 표시됩니다.');
+      return;
+    }
     $('rejectConfirm').disabled = true;
     const targetId = rejectTargetId;
     const targetType = rejectTargetType;
@@ -2094,6 +2121,7 @@
     $('answerInquiryTarget').textContent = `「${inquiry.title || id}」 문의에 답변합니다.`;
     $('answerInquiryOriginal').innerHTML = inquiryOriginal(inquiry);
     $('answerInquiryText').value = inquiry.answer || '';
+    clearFieldError('answerInquiryText', 'answerInquiryError');
     openModal('answerInquiryModal');
     wireImageLinks();
   }
@@ -2643,6 +2671,8 @@
     $('navMore').setAttribute('aria-label', atEnd ? '관리자 메뉴 처음으로' : '관리자 메뉴 더보기');
   });
   $('rejectConfirm').onclick = doReject;
+  $('rejectReason').oninput = () => clearFieldError('rejectReason', 'rejectReasonError');
+  $('answerInquiryText').oninput = () => clearFieldError('answerInquiryText', 'answerInquiryError');
   $('deleteReportConfirm').onclick = doDeleteReport;
   $('deleteUserConfirm').onclick = doDeleteUser;
   $('deleteReviewConfirm').onclick = doDeleteReview;

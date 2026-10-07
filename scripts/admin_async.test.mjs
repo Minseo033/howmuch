@@ -585,3 +585,26 @@ test('QA 2026-10-07 #13: the information report dialog does not call a NO_CHANGE
   await pending;
   assert.equal(el('toast').textContent, '수정 없음으로 처리 완료');
 });
+
+test('QA 2026-10-07 #47: saving an empty reject reason or answer explains what is missing', async () => {
+  let calls = 0;
+  const { admin, el } = harness(async () => { calls += 1; return { ok: true, status: 200, json: async () => ({}) }; });
+  admin.openRejectModal('r1', '학식당');
+  assert.equal(el('rejectReasonError').hidden, true);
+  el('rejectReason').value = '   ';
+  await admin.doReject();
+  assert.equal(el('rejectReasonError').hidden, false);
+  assert.match(el('rejectReasonError').textContent, /반려 사유를 입력해주세요/);
+  el('rejectReason').oninput();
+  assert.equal(el('rejectReasonError').hidden, true, 'typing clears the message');
+
+  admin.setInquiries([{ id: 'q1', title: '문의', content: '내용' }]);
+  admin.openAnswerInquiryModal('q1');
+  el('answerInquiryText').value = '';
+  await admin.doAnswerInquiry();
+  assert.equal(el('answerInquiryError').hidden, false);
+  assert.match(el('answerInquiryError').textContent, /답변 내용을 입력해주세요/);
+  admin.openAnswerInquiryModal('q1');
+  assert.equal(el('answerInquiryError').hidden, true, 'reopening starts without the old message');
+  assert.equal(calls, 0);
+});
