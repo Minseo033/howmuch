@@ -5,10 +5,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+GoRouter _startupRouter() => GoRouter(
+  initialLocation: AppRoutes.splash,
+  routes: [
+    GoRoute(path: AppRoutes.splash, builder: (_, _) => const SplashScreen()),
+    for (final (path, label) in [
+      (AppRoutes.home, '홈 화면'),
+      (AppRoutes.communityFeed, '탐색 화면'),
+      (AppRoutes.mypage, '마이 화면'),
+      (AppRoutes.login, '로그인 화면'),
+    ])
+      GoRoute(
+        path: path,
+        builder: (_, _) => Scaffold(body: Text(label)),
+      ),
+  ],
+);
 
 void main() {
   setUp(() async {
@@ -77,5 +96,56 @@ void main() {
     expect(find.text('로그인 화면'), findsOneWidget);
     expect(find.text('가입 화면'), findsNothing);
     expect(ApiClient.sessionToken, isNull);
+  });
+
+  for (final (requested, screen) in [
+    (AppRoutes.communityFeed, '탐색 화면'),
+    (AppRoutes.mypage, '마이 화면'),
+    (null, '홈 화면'),
+  ]) {
+    testWidgets('세션 확인 뒤 새로고침한 주소($requested)의 화면을 연다', (tester) async {
+      final router = _startupRouter();
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            startupProfileLoaderProvider.overrideWithValue(
+              () async => {'nickname': '절약왕'},
+            ),
+            startupLocationProvider.overrideWithValue(
+              StartupLocation(requested),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      expect(find.text(screen), findsOneWidget);
+    });
+  }
+
+  testWidgets('로그인이 필요하면 요청한 주소를 로그인 뒤로 미룬다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'onboarding_completed': true,
+      authTermsAcceptedPreferenceKey: true,
+    });
+    final startup = StartupLocation(AppRoutes.mypage);
+    final router = _startupRouter();
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [startupLocationProvider.overrideWithValue(startup)],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+    expect(find.text('로그인 화면'), findsOneWidget);
+    expect(startup.pending, AppRoutes.mypage);
   });
 }

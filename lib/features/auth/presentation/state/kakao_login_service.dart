@@ -13,6 +13,7 @@ import 'kakao_account_login_stub.dart'
 import 'kakao_popup_code.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_router.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
@@ -222,7 +223,10 @@ class KakaoLoginService {
             profileImageUrl: profileImageUrl,
           );
         }
-        _ref.read(appRouterProvider).go(AppRoutes.home);
+        // The address requested before login, otherwise home.
+        _ref
+            .read(appRouterProvider)
+            .go(_ref.read(startupLocationProvider).take());
       } else {
         // 신규 사용자: 프로필 설정 화면으로 이동
         _ref

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -140,7 +141,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         profileImageUrl: profileImageUrl,
         kakaoEmail: kakaoEmail,
       );
-      context.go(AppRoutes.home);
+      // A reloaded or typed address reopens that screen instead of home.
+      context.go(ref.read(startupLocationProvider).take());
     } on UserProfileAuthException {
       await ApiClient.setSessionToken(null);
       if (!mounted) return;
