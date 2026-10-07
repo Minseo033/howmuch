@@ -920,27 +920,35 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                     const Divider(height: 1, color: ReportCreateStyle.border),
                 itemBuilder: (context, index) {
                   final option = options[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      option,
-                      style: const TextStyle(
-                        color: ReportCreateStyle.ink,
-                        fontFamily: ReportCreateStyle.fontFamily,
-                        fontFamilyFallback: ReportCreateStyle.fontFallback,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.5,
+                  final isCurrent = option == initialValue;
+                  // The check mark alone did not tell screen readers which
+                  // option is current (QA 10/7 #53). `selected` only marks
+                  // it: the title and the check keep their own colors.
+                  return Semantics(
+                    inMutuallyExclusiveGroup: true,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      selected: isCurrent,
+                      title: Text(
+                        option,
+                        style: const TextStyle(
+                          color: ReportCreateStyle.ink,
+                          fontFamily: ReportCreateStyle.fontFamily,
+                          fontFamilyFallback: ReportCreateStyle.fontFallback,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.5,
+                        ),
                       ),
+                      trailing: isCurrent
+                          ? const Icon(
+                              Icons.check_rounded,
+                              color: ReportCreateStyle.blue,
+                              size: 18,
+                            )
+                          : null,
+                      onTap: () => Navigator.of(context).pop(option),
                     ),
-                    trailing: option == initialValue
-                        ? const Icon(
-                            Icons.check_rounded,
-                            color: ReportCreateStyle.blue,
-                            size: 18,
-                          )
-                        : null,
-                    onTap: () => Navigator.of(context).pop(option),
                   );
                 },
               ),
@@ -1997,6 +2005,7 @@ class _PriceInfoCard extends StatelessWidget {
           for (var index = 0; index < menuPrices.length; index++) ...[
             _MenuPriceRow(
               key: ObjectKey(menuPrices[index]),
+              index: index,
               menuPrice: menuPrices[index],
               showRemove: menuPrices.length > 1,
               onRemove: () => onRemove(index),
@@ -2045,12 +2054,15 @@ class _PriceInfoCard extends StatelessWidget {
 class _MenuPriceRow extends StatelessWidget {
   const _MenuPriceRow({
     super.key,
+    required this.index,
     required this.menuPrice,
     required this.showRemove,
     required this.onRemove,
     required this.onChanged,
   });
 
+  /// Position in the menu list, starting at 0 for the main menu.
+  final int index;
   final _MenuPriceControllers menuPrice;
   final bool showRemove;
   final VoidCallback onRemove;
@@ -2058,6 +2070,10 @@ class _MenuPriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Every row shows the '대표 메뉴' label, so screen readers heard the same
+    // name for all of them. Added rows are named by their order, like the
+    // completion screen (QA 10/7 #53).
+    final name = index == 0 ? '대표 메뉴' : '메뉴 ${index + 1}';
     return SizedBox(
       child: Column(
         children: [
@@ -2067,6 +2083,7 @@ class _MenuPriceRow extends StatelessWidget {
               Expanded(
                 child: _EditableFormRow(
                   label: '대표 메뉴',
+                  semanticLabel: index == 0 ? null : name,
                   required: true,
                   controller: menuPrice.menu,
                 ),
@@ -2075,6 +2092,7 @@ class _MenuPriceRow extends StatelessWidget {
               Expanded(
                 child: _EditableFormRow(
                   label: '가격',
+                  semanticLabel: index == 0 ? null : '$name 가격',
                   required: true,
                   controller: menuPrice.price,
                   keyboardType: TextInputType.number,
@@ -2130,7 +2148,7 @@ class _MenuPriceRow extends StatelessWidget {
           ),
           Semantics(
             container: true,
-            label: '무료 메뉴 여부',
+            label: index == 0 ? '무료 메뉴 여부' : '$name 무료 여부',
             child: Material(
               type: MaterialType.transparency,
               child: CheckboxListTile(
@@ -2157,6 +2175,7 @@ class _EditableFormRow extends StatelessWidget {
   const _EditableFormRow({
     required this.label,
     required this.controller,
+    this.semanticLabel,
     this.trailing,
     this.keyboardType,
     this.textInputAction,
@@ -2170,6 +2189,11 @@ class _EditableFormRow extends StatelessWidget {
 
   final String label;
   final TextEditingController controller;
+
+  /// The name screen readers hear for the field when it differs from the
+  /// visible [label]. The visible label is then left out of the semantics so
+  /// the field is not announced under two names.
+  final String? semanticLabel;
   final Widget? trailing;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
@@ -2182,34 +2206,38 @@ class _EditableFormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleLabel = Text.rich(
+      TextSpan(
+        text: label,
+        children: [
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(
+                color: ReportCreateStyle.orange,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+        ],
+      ),
+      style: const TextStyle(
+        color: ReportCreateStyle.muted,
+        fontFamily: ReportCreateStyle.fontFamily,
+        fontFamilyFallback: ReportCreateStyle.fontFallback,
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        height: 1.5,
+      ),
+    );
     return SizedBox(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text.rich(
-            TextSpan(
-              text: label,
-              children: [
-                if (required)
-                  const TextSpan(
-                    text: ' *',
-                    style: TextStyle(
-                      color: ReportCreateStyle.orange,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-              ],
-            ),
-            style: const TextStyle(
-              color: ReportCreateStyle.muted,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-              height: 1.5,
-            ),
-          ),
+          if (semanticLabel == null)
+            visibleLabel
+          else
+            ExcludeSemantics(child: visibleLabel),
           const SizedBox(height: 5.994),
           Container(
             height: 44,
@@ -2223,7 +2251,8 @@ class _EditableFormRow extends StatelessWidget {
               children: [
                 Expanded(
                   child: Semantics(
-                    label: '$label${required ? ', 필수 입력' : ''}',
+                    label:
+                        '${semanticLabel ?? label}${required ? ', 필수 입력' : ''}',
                     child: TextField(
                       controller: controller,
                       readOnly: readOnly,
@@ -2695,41 +2724,53 @@ class _CheckLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        children: [
-          Container(
-            width: 17.997,
-            height: 17.997,
-            decoration: BoxDecoration(
-              color: value ? ReportCreateStyle.blue : Colors.white,
-              border: Border.all(
-                color: value
-                    ? ReportCreateStyle.blue
-                    : ReportCreateStyle.border,
-                width: .909,
+    // A hand-drawn check box: say what it confirms and whether it is checked
+    // (it read as plain text, QA 10/7 #53). Without the enabled flag iOS reads
+    // a checked item as a disabled switch.
+    return Semantics(
+      container: true,
+      checked: value,
+      enabled: true,
+      child: GestureDetector(
+        onTap: () => onChanged(!value),
+        behavior: HitTestBehavior.opaque,
+        child: Row(
+          children: [
+            Container(
+              width: 17.997,
+              height: 17.997,
+              decoration: BoxDecoration(
+                color: value ? ReportCreateStyle.blue : Colors.white,
+                border: Border.all(
+                  color: value
+                      ? ReportCreateStyle.blue
+                      : ReportCreateStyle.border,
+                  width: .909,
+                ),
+                borderRadius: BorderRadius.circular(4),
               ),
-              borderRadius: BorderRadius.circular(4),
+              child: value
+                  ? const Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 13,
+                    )
+                  : null,
             ),
-            child: value
-                ? const Icon(Icons.check_rounded, color: Colors.white, size: 13)
-                : null,
-          ),
-          const SizedBox(width: 7.997),
-          Text(
-            label,
-            style: const TextStyle(
-              color: ReportCreateStyle.ink,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-              height: 1.5,
+            const SizedBox(width: 7.997),
+            Text(
+              label,
+              style: const TextStyle(
+                color: ReportCreateStyle.ink,
+                fontFamily: ReportCreateStyle.fontFamily,
+                fontFamilyFallback: ReportCreateStyle.fontFallback,
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+                height: 1.5,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

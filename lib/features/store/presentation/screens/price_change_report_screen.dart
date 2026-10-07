@@ -1099,17 +1099,22 @@ class _PriceChangeReportScreenState
   }
 
   Widget _buildCheckbox() {
-    return Row(
-      children: [
-        Checkbox(
-          value: _isConfirmed,
-          onChanged: (v) => setState(() => _isConfirmed = v ?? false),
-          activeColor: AppColors.primary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          side: BorderSide(color: Colors.grey.shade300),
-        ),
-        const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
-      ],
+    // One node: the check box alone read only its value (QA 10/7 #53).
+    return MergeSemantics(
+      child: Row(
+        children: [
+          Checkbox(
+            value: _isConfirmed,
+            onChanged: (v) => setState(() => _isConfirmed = v ?? false),
+            activeColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            side: BorderSide(color: Colors.grey.shade300),
+          ),
+          const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
+        ],
+      ),
     );
   }
 }
