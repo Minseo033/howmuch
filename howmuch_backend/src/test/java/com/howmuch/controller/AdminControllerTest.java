@@ -14,7 +14,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -320,5 +322,40 @@ class AdminControllerTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(firebaseService);
+    }
+
+    /** QA 2026-10-07 #57: 함께 지운 답글 ID를 돌려줘 관리자 목록이 새로고침 없이 정리됩니다. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void commentDeletionReportsTheRepliesRemovedWithIt() throws Exception {
+        when(firebaseService.deleteComment("comment-1")).thenReturn(List.of("comment-1", "reply-1"));
+
+        ResponseEntity<?> response = controller.deleteComment("comment-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat((Map<String, Object>) response.getBody()).containsEntry("success", true)
+                .containsEntry("deletedIds", List.of("comment-1", "reply-1"));
+    }
+
+    /** QA 2026-10-07 #3: 회수는 관리자 키가 있어야 하고, 없는 공지·잘못된 ID는 서버 오류가 아니라 요청 오류로 답합니다. */
+    @Test
+    void recallingSentMessagesNeedsTheAdminKeyAndMapsMissingOrMalformedIds() throws Exception {
+        String id = "2026-09-10T06:00:00.123456Z~0123456789abcdef";
+        when(firebaseService.recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, id))
+                .thenReturn(Map.of("success", true, "id", id, "deleted", 7));
+        when(firebaseService.recallAdminMessage(FirebaseService.AdminMessageKind.GENERAL, id))
+                .thenThrow(new NoSuchElementException("이미 회수했거나 찾을 수 없는 공지·알림입니다."));
+        when(firebaseService.recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, "not-an-id"))
+                .thenThrow(new IllegalArgumentException("회수할 공지·알림 ID 형식이 올바르지 않습니다."));
+
+        assertThat(controller.recallNotice(id, request).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(controller.recallNotification(id, request).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(controller.recallNotice("not-an-id", request).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        MockHttpServletRequest anonymous = new MockHttpServletRequest();
+        assertThat(controller.recallNotice(id, anonymous).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(controller.getNotices(anonymous).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(firebaseService, org.mockito.Mockito.times(1))
+                .recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, id);
     }
 }

@@ -1793,7 +1793,10 @@ public class FirebaseService {
         if (reporterId == null || reporterId.isBlank()) return;
         String type = approved ? "REPORT_APPROVED" : "REPORT_REJECTED";
         String name = storeName == null || storeName.isBlank() ? "매장" : "'" + storeName + "'";
-        String title = approved ? "제보가 승인됐어요" : "제보가 반려됐어요";
+        // QA 2026-10-07 #13: 수정 없음은 신고 내용이 반영된 것으로 오해하지 않게 '승인' 대신 검토 완료 제목을 씁니다.
+        // 이미 설치된 앱의 분류·이동과 푸시 설정이 그대로 동작하도록 type은 REPORT_APPROVED를 유지합니다.
+        String title = !approved ? "제보가 반려됐어요"
+                : "NO_CHANGE".equals(resolution) ? "제보 검토가 끝났어요" : "제보가 승인됐어요";
         String body;
         if (!approved) {
             String reason = rejectReason == null ? "" : rejectReason.trim();
@@ -2017,11 +2020,14 @@ public class FirebaseService {
 
     // 💡 [어드민] 대시보드 개요 지표 (매장 수는 인메모리 캐시 사용 — Firestore 읽기 0)
     public Map<String, Object> getAdminOverview() throws Exception {
-        long pending = 0, approved = 0, rejected = 0, legacy = 0;
+        long pending = 0, approved = 0, rejected = 0, legacy = 0, noChange = 0;
         for (Map<String, Object> store : cachedUserStores) {
             switch (String.valueOf(store.getOrDefault("status", ""))) {
                 case "PENDING" -> pending++;
-                case "APPROVED" -> approved++;
+                case "APPROVED" -> {
+                    approved++;
+                    if ("NO_CHANGE".equals(store.get("resolution"))) noChange++;
+                }
                 case "REJECTED" -> rejected++;
                 default -> legacy++;
             }
@@ -2029,6 +2035,8 @@ public class FirebaseService {
         Map<String, Object> userStores = new HashMap<>();
         userStores.put("pending", pending);
         userStores.put("approved", approved);
+        // QA 2026-10-07 #13: approved는 기존처럼 승인 상태 전체이고, 그중 수정 없이 처리한 건수를 따로 알려 줍니다.
+        userStores.put("noChange", noChange);
         userStores.put("rejected", rejected);
         userStores.put("legacy", legacy);
         userStores.put("total", cachedUserStores.size());
@@ -4667,7 +4675,11 @@ public class FirebaseService {
     // ==================== 어드민: 댓글·알림·통계 ====================
 
     // 💡 [어드민] 전체 댓글/답글 목록 (최신순) — 부적절 댓글 모더레이션용
+    // QA 2026-10-07 #48: 문서 ID 대신 알아볼 수 있게 게시글(제보) 매장명·메뉴와 작성자 닉네임을 함께 내려 줍니다.
+    // 게시글은 메모리 캐시에서 먼저 찾고, 닉네임은 작성자마다 한 번만 조회합니다.
     public List<Map<String, Object>> getAllComments() throws Exception {
+        Map<String, Map<String, Object>> posts = new HashMap<>();
+        Map<String, String> authorNames = new HashMap<>();
         List<Map<String, Object>> comments = new ArrayList<>(db.collection("comments")
                 .orderBy("createdAt", com.google.cloud.firestore.Query.Direction.DESCENDING)
                 .limit(adminListLimit()).get().get().getDocuments().stream()
@@ -4681,14 +4693,58 @@ public class FirebaseService {
                     item.put("createdAt", data.get("createdAt"));
                     item.put("parentId", data.get("parentId"));
                     item.put("isReply", data.get("parentId") != null);
+                    String authorName = adminCommentAuthorName(strOrNull(data.get("userId")), authorNames);
+                    if (!authorName.isEmpty()) item.put("authorName", authorName);
+                    Map<String, Object> post = adminCommentPost(strOrNull(data.get("postId")), posts);
+                    if (!post.isEmpty()) {
+                        item.put("postStoreName", post.get("storeName"));
+                        item.put("postMenu", post.get("menu1"));
+                        item.put("postPrice", post.get("price1"));
+                        item.put("postFree", Boolean.TRUE.equals(post.get("free1")));
+                    }
                     return item;
                 })
                 .toList());
         return comments;
     }
 
+    /** 관리자 화면용 작성자 닉네임입니다. 회원 문서가 없으면 그렇게 표시하고, 조회에 실패하면 빈 값(화면은 계정 ID만 표시)입니다. */
+    private String adminCommentAuthorName(String uid, Map<String, String> cache) {
+        if (uid == null || uid.isBlank()) return "";
+        return cache.computeIfAbsent(uid, key -> {
+            try {
+                UserProfileResponse user = getUserProfile(key);
+                if (user == null) return "회원 정보 없음";
+                String nickname = user.getNickname();
+                return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
+            } catch (Exception exception) {
+                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                return "";
+            }
+        });
+    }
+
+    /** 댓글이 달린 게시글(동네 제보)입니다. 캐시에 없으면 문서를 한 번 읽고, 지워졌으면 빈 맵입니다. */
+    private Map<String, Object> adminCommentPost(String postId, Map<String, Map<String, Object>> cache) {
+        if (postId == null || postId.isBlank()) return Map.of();
+        return cache.computeIfAbsent(postId, key -> {
+            for (Map<String, Object> report : cachedUserStores) {
+                if (key.equals(report.get("id"))) return report;
+            }
+            try {
+                DocumentSnapshot snapshot = db.collection("stores_user").document(key).get().get();
+                Map<String, Object> data = snapshot.exists() ? snapshot.getData() : null;
+                return data == null ? Map.of() : data;
+            } catch (Exception exception) {
+                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                return Map.of();
+            }
+        });
+    }
+
     // 💡 [어드민] 댓글/답글 삭제 — 답글이면 부모 댓글 replyCount 감소, 댓글이면 답글도 함께 삭제 + 게시글 카운터 갱신
-    public void deleteComment(String commentId) throws Exception {
+    /** 함께 지운 답글까지 지운 댓글 ID 전체를 돌려줍니다(QA 2026-10-07 #57: 관리자 목록에서 바로 빼기 위함). */
+    public List<String> deleteComment(String commentId) throws Exception {
         DocumentReference docRef = db.collection("comments").document(commentId);
         DocumentSnapshot doc = docRef.get().get();
         if (!doc.exists()) {
@@ -4715,6 +4771,7 @@ public class FirebaseService {
         deleteCommentNotifications(deletedCommentIds);
         // 게시글 comments/likes 카운터 갱신
         if (postId != null) syncFeedCounts(postId);
+        return List.copyOf(deletedCommentIds);
     }
 
     // 💡 [어드민] 알림 발송 — 특정 유저 1명 또는 전체 유저에게 notifications 문서 생성
@@ -4827,6 +4884,155 @@ public class FirebaseService {
         notification.set(data).get();
         if (deliverPush) {
             dispatchPushNotification(userId, notification.getId(), title, body, type);
+        }
+    }
+
+    // ==================== 어드민: 보낸 공지·알림 목록과 회수 (QA 2026-10-07 #3) ====================
+
+    /**
+     * 관리자 화면별로 관리하는 알림 유형입니다. admin은 공지 분리(2026-09-10) 전 알림 발송이 쓰던 유형으로
+     * 앱에서 공지사항으로 보이고, admin_message는 앱이 일반 알림으로 분류하는 예전 이름입니다.
+     */
+    public enum AdminMessageKind {
+        NOTICE(List.of("notice", "admin")),
+        GENERAL(List.of("general", "admin_message"));
+
+        private final List<String> types;
+
+        AdminMessageKind(List<String> types) { this.types = types; }
+
+        public List<String> types() { return types; }
+    }
+
+    /** 목록 한 번에 읽는 알림 문서 상한입니다. 넘으면 truncated로 알립니다. */
+    private static final int ADMIN_MESSAGE_SCAN_LIMIT = 5000;
+    /** 회수 ID: 발송 시각(createdAt) ~ 유형·제목·내용 해시 16자리. */
+    private static final java.util.regex.Pattern ADMIN_MESSAGE_ID =
+            java.util.regex.Pattern.compile("([0-9][0-9T:.+\\-]{8,38}Z?)~([0-9a-f]{16})");
+
+    /**
+     * 관리자가 보낸 공지·알림 목록입니다. 공지·알림은 별도 원본 없이 회원마다 notifications 문서로 복제되고,
+     * 한 번의 발송은 모든 문서가 같은 createdAt·제목·내용을 가지므로 그 묶음을 한 건으로 보여 줍니다.
+     */
+    public Map<String, Object> listAdminMessages(AdminMessageKind kind) throws Exception {
+        List<? extends DocumentSnapshot> documents = db.collection("notifications")
+                .whereIn("type", kind.types())
+                .limit(ADMIN_MESSAGE_SCAN_LIMIT)
+                .get().get().getDocuments();
+        Map<String, AdminMessageGroup> groups = new LinkedHashMap<>();
+        for (DocumentSnapshot document : documents) {
+            Map<String, Object> data = document.getData();
+            if (data == null || !(data.get("createdAt") instanceof String createdAt) || createdAt.isBlank()) continue;
+            String type = String.valueOf(data.get("type"));
+            if (!kind.types().contains(type)) continue;
+            String title = data.get("title") == null ? "" : data.get("title").toString();
+            String body = data.get("body") == null ? "" : data.get("body").toString();
+            String id = adminMessageId(createdAt, type, title, body);
+            groups.computeIfAbsent(id, key -> new AdminMessageGroup(key, type, title, body, createdAt))
+                    .add(strOrNull(data.get("userId")), Boolean.TRUE.equals(parseBooleanSafely(data.get("isRead"))));
+        }
+        List<Map<String, Object>> items = new ArrayList<>();
+        groups.values().stream()
+                .sorted(Comparator.comparing((AdminMessageGroup group) -> group.createdAt).reversed())
+                .limit(adminListLimit())
+                .forEach(group -> items.add(group.toMap(this::adminRecipientName)));
+        Map<String, Object> result = new HashMap<>();
+        result.put("items", items);
+        result.put("truncated", documents.size() >= ADMIN_MESSAGE_SCAN_LIMIT);
+        return result;
+    }
+
+    /**
+     * 보낸 공지·알림을 모든 회원 알림함에서 지웁니다. 같은 발송 시각에 만든 문서 중 유형·제목·내용까지 같은
+     * 것만 지우므로 다른 알림은 건드리지 않습니다. 이미 기기에 도착한 푸시는 회수할 수 없습니다.
+     */
+    public Map<String, Object> recallAdminMessage(AdminMessageKind kind, String messageId) throws Exception {
+        java.util.regex.Matcher matcher = ADMIN_MESSAGE_ID.matcher(messageId == null ? "" : messageId);
+        if (!matcher.matches()) throw new IllegalArgumentException("회수할 공지·알림 ID 형식이 올바르지 않습니다.");
+        String createdAt = matcher.group(1);
+        List<DocumentReference> targets = new ArrayList<>();
+        for (DocumentSnapshot document : db.collection("notifications")
+                .whereEqualTo("createdAt", createdAt).get().get().getDocuments()) {
+            Map<String, Object> data = document.getData();
+            if (data == null) continue;
+            String type = String.valueOf(data.get("type"));
+            if (!kind.types().contains(type)) continue;
+            String title = data.get("title") == null ? "" : data.get("title").toString();
+            String body = data.get("body") == null ? "" : data.get("body").toString();
+            if (messageId.equals(adminMessageId(createdAt, type, title, body))) targets.add(document.getReference());
+        }
+        if (targets.isEmpty()) throw new NoSuchElementException("이미 회수했거나 찾을 수 없는 공지·알림입니다.");
+        // 한 배치는 500건까지라 나눠 지웁니다. 중간에 실패하면 남은 문서는 같은 ID로 다시 회수할 수 있습니다.
+        for (int start = 0; start < targets.size(); start += 400) {
+            WriteBatch batch = db.batch();
+            for (DocumentReference target : targets.subList(start, Math.min(targets.size(), start + 400))) {
+                batch.delete(target);
+            }
+            batch.commit().get();
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("id", messageId);
+        result.put("deleted", targets.size());
+        return result;
+    }
+
+    private String adminMessageId(String createdAt, String type, String title, String body) {
+        return createdAt + "~" + sha256Hex(type + "\n" + title + "\n" + body).substring(0, 16);
+    }
+
+    /** 한 명에게만 간 알림은 받은 회원의 닉네임을 보여 줍니다. 조회에 실패하면 null(화면은 계정 ID만 표시)입니다. */
+    private String adminRecipientName(String uid) {
+        try {
+            UserProfileResponse user = getUserProfile(uid);
+            if (user == null) return "회원 정보 없음";
+            String nickname = user.getNickname();
+            return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
+        } catch (Exception exception) {
+            if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+            return null;
+        }
+    }
+
+    private static final class AdminMessageGroup {
+        private final String id;
+        private final String type;
+        private final String title;
+        private final String body;
+        private final String createdAt;
+        private int recipients;
+        private int readCount;
+        private String firstRecipient;
+
+        private AdminMessageGroup(String id, String type, String title, String body, String createdAt) {
+            this.id = id;
+            this.type = type;
+            this.title = title;
+            this.body = body;
+            this.createdAt = createdAt;
+        }
+
+        private void add(String userId, boolean read) {
+            recipients++;
+            if (read) readCount++;
+            if (firstRecipient == null) firstRecipient = userId;
+        }
+
+        private Map<String, Object> toMap(java.util.function.Function<String, String> recipientName) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", id);
+            item.put("type", type);
+            item.put("title", title);
+            item.put("body", body);
+            item.put("createdAt", createdAt);
+            item.put("recipients", recipients);
+            item.put("readCount", readCount);
+            if (recipients == 1 && firstRecipient != null && !firstRecipient.isBlank()) {
+                item.put("targetUid", firstRecipient);
+                String name = recipientName.apply(firstRecipient);
+                if (name != null) item.put("targetName", name);
+            }
+            return item;
         }
     }
 
