@@ -1151,7 +1151,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
-        var ignoreBoundsUntil = 0;
+        // When the pan and zoom started by a card swipe or marker tap end.
+        var cardMoveEndsAt = 0;
         // Search results are filtered locally and may span the country. The
         // normal map stays within the bounds endpoint's 10-degree span.
         var searchMode = false;
@@ -1195,13 +1196,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           map.setMaxLevel(maxMapLevel());
 
           kakao.maps.event.addListener(map, 'idle', function() {
-            if (Date.now() < ignoreBoundsUntil) {
-              return;
-            }
             if (boundsTimer) clearTimeout(boundsTimer);
+            // Report the viewport after that move ends instead of dropping
+            // it: the search count must follow the zoomed map (QA 10/7 #30).
+            var wait = Math.max(600, cardMoveEndsAt - Date.now() + 100);
             boundsTimer = setTimeout(function() {
               requestBounds();
-            }, 600);
+            }, wait);
           });
           kakao.maps.event.addListener(map, 'dragstart', function() {
             Print.postMessage('MOVE_START');
@@ -1377,7 +1378,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
         function setMapCenterFromSwipe(lat, lng) {
           if (map) {
-            ignoreBoundsUntil = Date.now() + 1000;
+            cardMoveEndsAt = Date.now() + 1000;
             var moveLatLon = new kakao.maps.LatLng(lat, lng);
             map.panTo(moveLatLon);
             if (map.getLevel() !== 3) {
