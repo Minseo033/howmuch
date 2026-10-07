@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/howmuch_app.dart' show CustomWebScrollBehavior;
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/system/presentation/screens/notifications_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
@@ -17,6 +19,90 @@ final _loggedIn = authStateProvider.overrideWith(
 );
 
 void main() {
+  group('the inbox reloads when dragged down (QA 2026-10-07 #22)', () {
+    for (final kind in [PointerDeviceKind.mouse, PointerDeviceKind.touch]) {
+      testWidgets('with a ${kind.name} drag', (tester) async {
+        var fetches = 0;
+        final notifier = NotificationsNotifier(
+          NotificationApiService(
+            MockClient((request) async {
+              fetches++;
+              return http.Response(
+                jsonEncode([
+                  if (fetches > 1)
+                    {'id': 'n2', 'title': '새 알림', 'body': '새로 온 알림'},
+                  {
+                    'id': 'n1',
+                    'title': '기존 알림',
+                    'body': '먼저 온 알림',
+                    'isRead': true,
+                  },
+                ]),
+                200,
+                headers: const {
+                  'content-type': 'application/json; charset=utf-8',
+                },
+              );
+            }),
+          ),
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              notificationsProvider.overrideWith((ref) => notifier),
+              _loggedIn,
+            ],
+            // The web app lets a mouse drag lists (CustomWebScrollBehavior).
+            child: MaterialApp(
+              scrollBehavior: CustomWebScrollBehavior(),
+              home: const NotificationsScreen(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(fetches, 1);
+        expect(find.text('새로 온 알림'), findsNothing);
+
+        await tester.drag(
+          find.text('먼저 온 알림'),
+          const Offset(0, 400),
+          kind: kind,
+        );
+        await tester.pumpAndSettle();
+
+        expect(fetches, 2);
+        expect(find.text('새로 온 알림'), findsOneWidget);
+      });
+    }
+
+    testWidgets('also from the empty inbox', (tester) async {
+      var fetches = 0;
+      final notifier = NotificationsNotifier(
+        NotificationApiService(
+          MockClient((_) async {
+            fetches++;
+            return http.Response('[]', 200);
+          }),
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            notificationsProvider.overrideWith((ref) => notifier),
+            _loggedIn,
+          ],
+          child: const MaterialApp(home: NotificationsScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('받은 알림이 없어요'), findsOneWidget);
+
+      await tester.drag(find.text('받은 알림이 없어요'), const Offset(0, 400));
+      await tester.pumpAndSettle();
+      expect(fetches, 2);
+    });
+  });
+
   testWidgets('notice opens a scrollable full body and closes at 320px', (
     tester,
   ) async {
