@@ -641,9 +641,12 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
-            firebaseService.deleteComment(id);
-            log.warn("[AdminController] 댓글 삭제 - id: {}", id);
-            return ResponseEntity.ok(Map.of("success", true, "id", id));
+            List<String> deletedIds = firebaseService.deleteComment(id);
+            log.warn("[AdminController] 댓글 삭제 - id: {}, 함께 삭제한 답글: {}", id,
+                    deletedIds == null ? 0 : Math.max(0, deletedIds.size() - 1));
+            // QA 2026-10-07 #57: 함께 지운 답글 ID까지 돌려줘 관리자 목록에서 바로 뺄 수 있게 합니다.
+            return ResponseEntity.ok(Map.of("success", true, "id", id,
+                    "deletedIds", deletedIds == null ? List.of(id) : deletedIds));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {
@@ -775,6 +778,67 @@ public class AdminController {
                     "success", false,
                     "message", "공지사항 등록 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
             ));
+        }
+    }
+
+    /** 등록한 공지 목록 (GET /api/admin/notices) — 회원 알림함에 복제된 공지를 발송 단위로 묶어 보여줍니다(QA 2026-10-07 #3). */
+    @GetMapping("/notices")
+    public ResponseEntity<?> getNotices(HttpServletRequest httpRequest) {
+        return listAdminMessages(FirebaseService.AdminMessageKind.NOTICE, httpRequest,
+                "공지 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 공지 회수 (DELETE /api/admin/notices/{id}) — 모든 회원의 알림함과 웹 접속 팝업에서 지웁니다. */
+    @DeleteMapping("/notices/{id}")
+    public ResponseEntity<?> recallNotice(@PathVariable String id, HttpServletRequest httpRequest) {
+        return recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, id, httpRequest,
+                "공지를 회수하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 보낸 일반 알림 목록 (GET /api/admin/notifications) — 알림 발송 화면에서 회수할 수 있게 발송 단위로 묶습니다. */
+    @GetMapping("/notifications")
+    public ResponseEntity<?> getSentNotifications(HttpServletRequest httpRequest) {
+        return listAdminMessages(FirebaseService.AdminMessageKind.GENERAL, httpRequest,
+                "보낸 알림 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    /** 일반 알림 회수 (DELETE /api/admin/notifications/{id}) — 회원 알림함에서 지웁니다. 이미 도착한 기기 푸시는 남습니다. */
+    @DeleteMapping("/notifications/{id}")
+    public ResponseEntity<?> recallNotification(@PathVariable String id, HttpServletRequest httpRequest) {
+        return recallAdminMessage(FirebaseService.AdminMessageKind.GENERAL, id, httpRequest,
+                "알림을 회수하지 못했습니다. 잠시 후 다시 시도해주세요.");
+    }
+
+    private ResponseEntity<?> listAdminMessages(FirebaseService.AdminMessageKind kind,
+                                                HttpServletRequest httpRequest, String failureMessage) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        try {
+            return ResponseEntity.ok(firebaseService.listAdminMessages(kind));
+        } catch (Exception e) {
+            log.error("[AdminController] 보낸 공지·알림 목록 조회 중 오류 발생: kind={}", kind, e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", failureMessage));
+        }
+    }
+
+    private ResponseEntity<?> recallAdminMessage(FirebaseService.AdminMessageKind kind, String id,
+                                                 HttpServletRequest httpRequest, String failureMessage) {
+        ResponseEntity<?> denied = guard(httpRequest);
+        if (denied != null) return denied;
+        ResponseEntity<?> invalidId = validateDocumentId(id);
+        if (invalidId != null) return invalidId;
+        try {
+            Map<String, Object> result = firebaseService.recallAdminMessage(kind, id);
+            log.warn("[AdminController] 보낸 공지·알림 회수 - kind: {}, id: {}, 삭제 알림: {}",
+                    kind, id, result.get("deleted"));
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[AdminController] 보낸 공지·알림 회수 중 오류 발생: kind={}, id={}", kind, id, e);
+            return ResponseEntity.status(500).body(Map.of("success", false, "message", failureMessage));
         }
     }
 

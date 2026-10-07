@@ -153,7 +153,7 @@ class FirebaseServiceNotificationContractTest {
         verify(notificationRef).create(approved.capture());
         assertThat(approved.getValue()).containsEntry("userId", "user-9").containsEntry("type", "REPORT_APPROVED")
                 .containsEntry("relatedReportId", "report_new").containsEntry("storeId", "store_user_1")
-                .containsEntry("isRead", false);
+                .containsEntry("isRead", false).containsEntry("title", "제보가 승인됐어요");
         assertThat(String.valueOf(approved.getValue().get("body"))).contains("새식당").contains("지도에 등록");
 
         report.put("status", "PENDING");
@@ -163,7 +163,8 @@ class FirebaseServiceNotificationContractTest {
         ArgumentCaptor<Map<String, Object>> both = ArgumentCaptor.forClass(Map.class);
         verify(notificationRef, org.mockito.Mockito.times(2)).create(both.capture());
         Map<String, Object> rejected = both.getAllValues().get(1);
-        assertThat(rejected).containsEntry("type", "REPORT_REJECTED").containsEntry("relatedReportId", "report_new");
+        assertThat(rejected).containsEntry("type", "REPORT_REJECTED").containsEntry("relatedReportId", "report_new")
+                .containsEntry("title", "제보가 반려됐어요");
         assertThat(String.valueOf(rejected.get("body"))).contains("메뉴판 사진이 흐려요");
     }
 
@@ -222,4 +223,3 @@ class FirebaseServiceNotificationContractTest {
         return document;
     }
 }
-
