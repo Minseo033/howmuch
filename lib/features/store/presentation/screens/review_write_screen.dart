@@ -618,22 +618,29 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
                 Positioned(
                   top: -6,
                   right: -6,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        _selectedImages.remove(image);
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 14,
+                  // The bare X had no name (QA 10/7 #50); named like the
+                  // other report forms' photo remove buttons.
+                  child: Semantics(
+                    container: true,
+                    button: true,
+                    label: '첨부 사진 ${_selectedImages.indexOf(image) + 1} 제거',
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedImages.remove(image);
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.white,
+                          size: 14,
+                        ),
                       ),
                     ),
                   ),
@@ -651,24 +658,30 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     bool value,
     ValueChanged<bool?> onChanged,
   ) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: () => onChanged(!value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          children: [
-            Checkbox(
-              value: value,
-              onChanged: onChanged,
-              activeColor: AppColors.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(4),
+    // One node: the check box alone read only its value and the text had no
+    // checked state (QA 10/7 #53).
+    return MergeSemantics(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              Checkbox(
+                value: value,
+                onChanged: onChanged,
+                activeColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                side: BorderSide(color: Colors.grey.shade300),
               ),
-              side: BorderSide(color: Colors.grey.shade300),
-            ),
-            Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
-          ],
+              Expanded(
+                child: Text(label, style: const TextStyle(fontSize: 14)),
+              ),
+            ],
+          ),
         ),
       ),
     );

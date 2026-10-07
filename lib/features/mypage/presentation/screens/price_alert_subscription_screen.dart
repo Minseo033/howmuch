@@ -403,20 +403,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: PriceAlertSubscriptionScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: PriceAlertSubscriptionScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -625,9 +630,12 @@ class _ToggleSm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without an enabled flag iOS reads the switch as disabled even when it
+    // is on and works (QA 10/7 #50).
     return Semantics(
       label: label,
       toggled: value,
+      enabled: true,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(

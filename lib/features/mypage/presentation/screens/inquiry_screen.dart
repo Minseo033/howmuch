@@ -467,20 +467,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: InquiryScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: InquiryScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -504,15 +509,15 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Tooltip(
-                message: '내 문의 내역',
-                child: IconButton(
-                  onPressed: onHistory,
-                  icon: const Icon(
-                    Icons.receipt_long_outlined,
-                    color: InquiryScreen.ink,
-                    size: 22,
-                  ),
+              // A Tooltip around the button named a separate node and left
+              // the button itself unnamed (QA 10/7 #50).
+              child: IconButton(
+                tooltip: '내 문의 내역',
+                onPressed: onHistory,
+                icon: const Icon(
+                  Icons.receipt_long_outlined,
+                  color: InquiryScreen.ink,
+                  size: 22,
                 ),
               ),
             ),
@@ -588,31 +593,36 @@ class _TitleField extends StatelessWidget {
         const SizedBox(height: 7.997),
         _InputShell(
           height: 45.99431610107422,
-          child: TextField(
-            controller: controller,
-            cursorColor: InquiryScreen.blue,
-            enableSuggestions: false,
-            autocorrect: false,
-            maxLines: 1,
-            maxLength: 100,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            style: _inputText,
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              filled: false,
-              fillColor: AppColors.transparent,
-              counterText: '',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: EdgeInsets.only(
-                left: 12.9091796875,
-                right: 12.9091796875,
-                top: 13.2,
+          // iOS read the field without a name (QA 10/7 #50).
+          child: Semantics(
+            label: '제목',
+            child: TextField(
+              controller: controller,
+              cursorColor: InquiryScreen.blue,
+              enableSuggestions: false,
+              autocorrect: false,
+              maxLines: 1,
+              maxLength: 100,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              style: _inputText,
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                fillColor: AppColors.transparent,
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.only(
+                  left: 12.9091796875,
+                  right: 12.9091796875,
+                  top: 13.2,
+                ),
               ),
             ),
           ),
@@ -644,32 +654,36 @@ class _BodyField extends StatelessWidget {
         const SizedBox(height: 7.997),
         _InputShell(
           height: 109.99999237060547,
-          child: TextField(
-            controller: controller,
-            cursorColor: InquiryScreen.blue,
-            enableSuggestions: false,
-            autocorrect: false,
-            maxLines: 4,
-            maxLength: 500,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-            style: _bodyText,
-            decoration: const InputDecoration(
-              isCollapsed: true,
-              filled: false,
-              fillColor: AppColors.transparent,
-              counterText: '',
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              focusedErrorBorder: InputBorder.none,
-              contentPadding: EdgeInsets.fromLTRB(
-                12.897705078125,
-                11.806640625,
-                12.897705078125,
-                0,
+          child: Semantics(
+            label: '문의 내용',
+            child: TextField(
+              controller: controller,
+              cursorColor: InquiryScreen.blue,
+              enableSuggestions: false,
+              autocorrect: false,
+              maxLines: 4,
+              maxLength: 500,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              style: _bodyText,
+              decoration: const InputDecoration(
+                isCollapsed: true,
+                filled: false,
+                fillColor: AppColors.transparent,
+                counterText: '',
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
+                contentPadding: EdgeInsets.fromLTRB(
+                  12.897705078125,
+                  11.806640625,
+                  12.897705078125,
+                  0,
+                ),
               ),
             ),
           ),

@@ -711,13 +711,20 @@ class _CommunityPostDetailScreenState
                                 ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () => setState(() => _replyTarget = null),
-                              behavior: HitTestBehavior.opaque,
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: CommunityPostDetailScreen.muted,
+                            // The bare X had no name (QA 10/7 #50).
+                            Semantics(
+                              container: true,
+                              button: true,
+                              label: '답글 취소',
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _replyTarget = null),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: CommunityPostDetailScreen.muted,
+                                ),
                               ),
                             ),
                           ],
@@ -1299,51 +1306,59 @@ class _PostCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: notificationInFlight ? null : onNotifyTap,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: notificationEnabled
-                        ? const Color(0xFFEFF4FF)
-                        : const Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
+              // An on/off button like IconButton(isSelected), not plain
+              // text (QA 10/7 #54).
+              Semantics(
+                container: true,
+                button: true,
+                selected: notificationEnabled,
+                enabled: !notificationInFlight,
+                child: GestureDetector(
+                  onTap: notificationInFlight ? null : onNotifyTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
                       color: notificationEnabled
                           ? const Color(0xFFEFF4FF)
-                          : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        notificationEnabled
-                            ? Icons.notifications_active_rounded
-                            : Icons.notifications_none_rounded,
-                        size: 14,
+                          : const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color: notificationEnabled
-                            ? CommunityPostDetailScreen.blue
-                            : CommunityPostDetailScreen.muted,
+                            ? const Color(0xFFEFF4FF)
+                            : const Color(0xFFE5E7EB),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
-                        style: TextStyle(
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          notificationEnabled
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_none_rounded,
+                          size: 14,
                           color: notificationEnabled
                               ? CommunityPostDetailScreen.blue
                               : CommunityPostDetailScreen.muted,
-                          fontFamily: CommunityPostDetailScreen.fontFamily,
-                          fontFamilyFallback:
-                              CommunityPostDetailScreen.fontFallback,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
+                          style: TextStyle(
+                            color: notificationEnabled
+                                ? CommunityPostDetailScreen.blue
+                                : CommunityPostDetailScreen.muted,
+                            fontFamily: CommunityPostDetailScreen.fontFamily,
+                            fontFamilyFallback:
+                                CommunityPostDetailScreen.fontFallback,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1589,6 +1604,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                         Icons.close_rounded,
                         color: Colors.white,
                         size: 28,
+                        // The bare X had no name (QA 10/7 #50).
+                        semanticLabel: '사진 닫기',
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -1773,7 +1790,7 @@ class _PostMetric extends StatelessWidget {
         ? CommunityPostDetailScreen.blue
         : CommunityPostDetailScreen.muted;
 
-    return GestureDetector(
+    final metric = GestureDetector(
       onTap: busy ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(
@@ -1804,6 +1821,16 @@ class _PostMetric extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return metric;
+    // The reaction toggles: a button that says whether it is on, like
+    // IconButton(isSelected), not plain text (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      selected: active,
+      enabled: !busy,
+      child: metric,
     );
   }
 }
@@ -1915,15 +1942,19 @@ class _CommentCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: onReply,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Text(
-                        '답글',
-                        style: TextStyle(
-                          color: CommunityPostDetailScreen.blue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                    Semantics(
+                      container: true,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onReply,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Text(
+                          '답글',
+                          style: TextStyle(
+                            color: CommunityPostDetailScreen.blue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

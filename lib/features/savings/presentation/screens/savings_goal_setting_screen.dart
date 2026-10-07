@@ -188,65 +188,73 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
                               const SizedBox(height: 6),
                               SizedBox(
                                 height: 56,
-                                child: TextField(
-                                  controller: _goalController,
-                                  enabled:
-                                      !_isLoading &&
-                                      !_isSaving &&
-                                      _loadError == null,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) =>
-                                      FocusScope.of(context).unfocus(),
-                                  cursorColor: const Color(0xFF2563EB),
-                                  keyboardType: TextInputType.number,
-                                  textAlignVertical: TextAlignVertical.center,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    // 1,000,000,000 is the largest accepted goal.
-                                    LengthLimitingTextInputFormatter(10),
-                                  ],
-                                  style: const TextStyle(
-                                    fontFamily: 'Noto Sans KR',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF0F172A),
-                                    fontSize: 22,
-                                    height: 1.2,
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: '예: 50000',
-                                    hintStyle: const TextStyle(
-                                      color: Color(0xFFCBD5E1),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    suffixText: '원',
-                                    suffixStyle: const TextStyle(
+                                // iOS read the field only by its hint, and
+                                // not at all while it was disabled during
+                                // loading with no value (QA 10/7 #53). A label
+                                // keeps it named and reachable.
+                                child: Semantics(
+                                  label: '이번 달 절약 목표 금액',
+                                  child: TextField(
+                                    controller: _goalController,
+                                    enabled:
+                                        !_isLoading &&
+                                        !_isSaving &&
+                                        _loadError == null,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) =>
+                                        FocusScope.of(context).unfocus(),
+                                    cursorColor: const Color(0xFF2563EB),
+                                    keyboardType: TextInputType.number,
+                                    textAlignVertical: TextAlignVertical.center,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      // 1,000,000,000 is the largest accepted goal.
+                                      LengthLimitingTextInputFormatter(10),
+                                    ],
+                                    style: const TextStyle(
                                       fontFamily: 'Noto Sans KR',
                                       fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFF64748B),
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F172A),
+                                      fontSize: 22,
+                                      height: 1.2,
                                     ),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF4F6FA),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 14,
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFFE5E7EB),
-                                        width: 0.909,
+                                    decoration: InputDecoration(
+                                      hintText: '예: 50000',
+                                      hintStyle: const TextStyle(
+                                        color: Color(0xFFCBD5E1),
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      borderSide: const BorderSide(
-                                        color: Color(0xFF2563EB),
-                                        width: 1.4,
+                                      suffixText: '원',
+                                      suffixStyle: const TextStyle(
+                                        fontFamily: 'Noto Sans KR',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFF64748B),
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      filled: true,
+                                      fillColor: const Color(0xFFF4F6FA),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 14,
+                                          ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFE5E7EB),
+                                          width: 0.909,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFF2563EB),
+                                          width: 1.4,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -427,7 +435,11 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
 
   Widget _buildCurrentProgress() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      // Tells screen readers why the field and '목표 저장하기' are still
+      // disabled while the goal loads (QA 10/7 #53).
+      return const Center(
+        child: CircularProgressIndicator(semanticsLabel: '절약 목표를 불러오는 중'),
+      );
     }
     if (_loadError != null) {
       return OutlinedButton.icon(
