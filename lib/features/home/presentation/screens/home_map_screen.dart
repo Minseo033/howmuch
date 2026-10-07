@@ -33,6 +33,9 @@ import 'package:permission_handler/permission_handler.dart'
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
 const double maxHomeMapBoundsSpanDegrees = 10;
 
+/// The plain map's zoom-out limit. Search results may zoom out to 14.
+const int maxHomeMapLevel = 10;
+
 bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
   return bounds['maxLat']! - bounds['minLat']! <= maxHomeMapBoundsSpanDegrees &&
       bounds['maxLng']! - bounds['minLng']! <= maxHomeMapBoundsSpanDegrees;
@@ -230,6 +233,18 @@ class HomeMapScreen extends StatefulWidget {
   static bool hasRequestedLocationWeb = false;
   static bool hasDismissedLocationNotice = false;
 
+  // A tab switch replaces this screen. The next one reopens the spot and the
+  // store card the user left instead of jumping back to the user's position
+  // (QA 10/7 #7). Store detail keeps this screen alive and needs neither.
+  static MobileMapViewport? _savedViewport;
+  static Store? _savedSelectedStore;
+
+  @visibleForTesting
+  static void clearSavedMapState() {
+    _savedViewport = null;
+    _savedSelectedStore = null;
+  }
+
   final bool showAiSpotlight;
   final AiMapRecommendationResult? initialRecommendation;
   final Map<String, dynamic>? initialSearchResult;
@@ -319,6 +334,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   // The viewport whose stores are loading right now.
   String? _inFlightBoundsKey;
   int? _inFlightBoundsGeneration;
+  // The viewport became the user's: they moved the map, chose a store or a
+  // result was shown. Only then is it kept for the next home screen.
+  bool _keepsViewport = false;
+  // Where the previous home screen left the map. It opens there instead of
+  // at the user's position.
+  MobileMapViewport? _restoredViewport;
 
   Future<void> _openAiRecommend() async {
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);
@@ -363,6 +384,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
     _invalidatePendingMapRequest();
     _setMapSearchMode(false);
+    _keepViewport();
 
     setState(() {
       _isAiRecommendationActive = true;
@@ -471,6 +493,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _pendingSearchResult = result;
       return;
     }
+    _keepViewport();
     setState(() {
       _isAiRecommendationActive = false;
       _activeAiRecommendation = null;
@@ -584,6 +607,35 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     unawaited(_searchInCurrentArea());
   }
 
+  /// The user dragged or zoomed the map (or a result zoomed it).
+  void _onMapMoveStart() {
+    _keepViewport();
+    _invalidatePendingMapRequest();
+  }
+
+  /// From now on the viewport is the user's choice. Keep it for the next home
+  /// screen, starting with the viewport shown right now.
+  void _keepViewport() {
+    if (_keepsViewport) return;
+    _keepsViewport = true;
+    _rememberViewport(_currentViewport());
+  }
+
+  MobileMapViewport? _currentViewport() {
+    if (!kIsWeb) return _lastMobileViewport;
+    final boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
+    return boundsJson == null ? null : parseMobileMapViewport(boundsJson);
+  }
+
+  /// Keeps the latest viewport for the next home screen once it is the
+  /// user's. Search can zoom out past the plain map's limit; such a view is
+  /// not kept because the plain map cannot show it.
+  void _rememberViewport(MobileMapViewport? viewport) {
+    if (viewport == null || !_keepsViewport) return;
+    if (viewport.level > maxHomeMapLevel) return;
+    HomeMapScreen._savedViewport = viewport;
+  }
+
   void _invalidatePendingMapRequest() {
     _viewportPolicy.invalidate();
     _pendingMapCenterGeneration = null;
@@ -632,6 +684,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } else if (index >= 0 && index < _currentStores.length) {
       _viewportPolicy.invalidate();
       final store = _currentStores[index];
+      _keepViewport();
       setState(() {
         _selectedStore = store;
         _showStoreSummary = true;
@@ -767,6 +820,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _onStorePageChanged(int index) {
     if (index < 0 || index >= _currentStores.length) return;
     final store = _currentStores[index];
+    _keepViewport();
     if (!identical(_selectedStore, store)) {
       setState(() => _selectedStore = store);
     }
@@ -787,6 +841,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     super.initState();
     _pendingAiResult = widget.initialRecommendation;
     _pendingSearchResult = widget.initialSearchResult;
+    // A result handed over by another screen moves the map itself.
+    if (_pendingAiResult == null && _pendingSearchResult == null) {
+      final viewport = HomeMapScreen._savedViewport;
+      if (viewport != null) {
+        _restoredViewport = viewport;
+        _keepsViewport = true;
+        final selected = HomeMapScreen._savedSelectedStore;
+        if (selected != null) {
+          _selectedStore = selected;
+          _showStoreSummary = true;
+        }
+      }
+    }
     unawaited(_restoreCachedStores());
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
@@ -802,7 +869,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       web_helper.registerWebCallbacks(
         _viewId,
         _onWebMapIdle,
-        _invalidatePendingMapRequest,
+        _onMapMoveStart,
         _onRenderedMarkerClicked,
         _onMapReady,
         _onMapError,
@@ -898,6 +965,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   @override
   void dispose() {
+    HomeMapScreen._savedSelectedStore = _showStoreSummary
+        ? _selectedStore
+        : null;
     WidgetsBinding.instance.removeObserver(this);
     _positionStream?.cancel();
     _compassStream?.cancel();
@@ -913,6 +983,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _initMobileController() {
+    final viewport = _restoredViewport;
+    _lastMobileViewport = viewport;
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
@@ -924,7 +996,16 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         onMessageReceived: (JavaScriptMessage message) =>
             _onMobileMapMessage(message.message),
       )
-      ..loadHtmlString(_getMobileMapHtml(), baseUrl: kakaoMapAuthorizedOrigin);
+      ..loadHtmlString(
+        viewport == null
+            ? _getMobileMapHtml()
+            : _getMobileMapHtml(
+                initialLat: viewport.lat,
+                initialLng: viewport.lng,
+                initialLevel: viewport.level,
+              ),
+        baseUrl: kakaoMapAuthorizedOrigin,
+      );
   }
 
   void _onMobileMapMessage(String message) {
@@ -938,14 +1019,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _onMapError(message.substring('MAP_ERROR:'.length));
     } else if (message.startsWith('BOUNDS:')) {
       final boundsJson = message.substring('BOUNDS:'.length);
-      _lastMobileViewport =
-          parseMobileMapViewport(boundsJson) ?? _lastMobileViewport;
+      final viewport = parseMobileMapViewport(boundsJson);
+      _lastMobileViewport = viewport ?? _lastMobileViewport;
+      _rememberViewport(viewport);
       _boundsDebouncer?.cancel();
       _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
         if (mounted) unawaited(_fetchAndAddLatestMarkers(boundsJson));
       });
     } else if (message == 'MOVE_START') {
-      _invalidatePendingMapRequest();
+      _onMapMoveStart();
     } else if (message.startsWith('CLICK:')) {
       final click = parseMobileMarkerClick(message.substring('CLICK:'.length));
       if (click == null) return;
@@ -1410,7 +1492,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     try {
       // index.html의 SDK 로더가 준비되지 않았으면 JS 측 짧은 재시도가
       // 이어진다. 고정 대기 없이 플랫폼 뷰가 생긴 즉시 초기화를 요청한다.
-      web_helper.initKakaoWebMap(_viewId);
+      final viewport = _restoredViewport;
+      if (viewport == null) {
+        web_helper.initKakaoWebMap(_viewId);
+      } else {
+        web_helper.initKakaoWebMap(
+          _viewId,
+          lat: viewport.lat,
+          lng: viewport.lng,
+          level: viewport.level,
+        );
+      }
     } catch (e) {
       debugPrint('지도 초기화 에러: $e');
     }
@@ -1424,7 +1516,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 _pendingSearchResult != null ||
                 _activeAiRecommendation != null ||
                 _searchResultStores != null ||
-                _selectedStore != null,
+                _selectedStore != null ||
+                _restoredViewport != null,
           )
         : null;
     final requestInitialPermission = initial && centerGeneration != null;
@@ -1986,6 +2079,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
         _webBoundsRetryTimer?.cancel();
         _webBoundsRetryCount = 0;
+        _rememberViewport(parseMobileMapViewport(boundsJson));
         await _fetchAndAddLatestMarkers(boundsJson);
       } catch (e) {
         debugPrint('웹 범위 검색 에러: $e');

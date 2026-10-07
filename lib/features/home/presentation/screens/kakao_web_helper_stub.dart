@@ -1,6 +1,11 @@
 const kakaoWebViewType = 'howmuch-kakao-map';
 void registerKakaoWebViewFactory(String viewId) {}
-void initKakaoWebMap(String viewId) {}
+void initKakaoWebMap(
+  String viewId, {
+  double lat = 37.5665,
+  double lng = 126.9780,
+  int? level,
+}) {}
 void disposeKakaoWebMap(String viewId) {}
 void recoverKakaoWebMap(String viewId) {}
 String? getKakaoMapBoundsWeb(String viewId) => null;
