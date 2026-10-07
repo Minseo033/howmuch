@@ -363,51 +363,57 @@ class _DialogAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Material(
-        color: Colors.white,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            height: 54.4886360168457,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: showDivider
-                  ? const Border(
-                      right: BorderSide(
-                        color: ReportDeleteConfirmScreen.border,
-                        width: .909,
+      // Read as a button, not as plain text (QA 10/7 #54).
+      child: Semantics(
+        button: true,
+        enabled: onTap != null,
+        child: Material(
+          color: Colors.white,
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              height: 54.4886360168457,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: showDivider
+                    ? const Border(
+                        right: BorderSide(
+                          color: ReportDeleteConfirmScreen.border,
+                          width: .909,
+                        ),
+                      )
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showProgress) ...[
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
                       ),
-                    )
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showProgress) ...[
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: onTap == null && !showProgress
+                          ? color.withValues(alpha: .45)
+                          : color,
+                      fontFamily: ReportDeleteConfirmScreen.fontFamily,
+                      fontFamilyFallback:
+                          ReportDeleteConfirmScreen.fontFallback,
+                      fontSize: 15,
+                      fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                      height: 1.5,
                     ),
                   ),
-                  const SizedBox(width: 7),
                 ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: onTap == null && !showProgress
-                        ? color.withValues(alpha: .45)
-                        : color,
-                    fontFamily: ReportDeleteConfirmScreen.fontFamily,
-                    fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
-                    fontSize: 15,
-                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-                    height: 1.5,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

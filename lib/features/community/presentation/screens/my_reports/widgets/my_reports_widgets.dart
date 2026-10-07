@@ -78,32 +78,55 @@ class ReportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
-        onTap: onTap,
+    // Opens the report: read as a button, not plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Color(0xFFE5E7EB), width: .909),
-          ),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  StatusBadge(report: report),
-                  const SizedBox(width: 8),
-                  // 같은 매장의 새 매장 제보·가격 변동 제보·정보 오류 신고를 구분합니다.
-                  Expanded(
-                    child: Text(
-                      report.source.kindLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: Color(0xFFE5E7EB), width: .909),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    StatusBadge(report: report),
+                    const SizedBox(width: 8),
+                    // 같은 매장의 새 매장 제보·가격 변동 제보·정보 오류 신고를 구분합니다.
+                    Expanded(
+                      child: Text(
+                        report.source.kindLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontFamily: "Inter",
+                          fontFamilyFallback: [
+                            "Noto Sans KR",
+                            "Apple SD Gothic Neo",
+                            "AppleGothic",
+                            "Arial Unicode MS",
+                            "Malgun Gothic",
+                            "sans-serif",
+                          ],
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      report.date,
                       style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontFamily: "Inter",
@@ -116,83 +139,39 @@ class ReportCard extends StatelessWidget {
                           "sans-serif",
                         ],
                         fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         height: 1.5,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    report.date,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontFamily: "Inter",
-                      fontFamilyFallback: [
-                        "Noto Sans KR",
-                        "Apple SD Gothic Neo",
-                        "AppleGothic",
-                        "Arial Unicode MS",
-                        "Malgun Gothic",
-                        "sans-serif",
-                      ],
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                report.title,
-                style: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontFamily: "Inter",
-                  fontFamilyFallback: [
-                    "Noto Sans KR",
-                    "Apple SD Gothic Neo",
-                    "AppleGothic",
-                    "Arial Unicode MS",
-                    "Malgun Gothic",
-                    "sans-serif",
                   ],
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  height: 1.5,
                 ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    report.menuLabel,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontFamily: "Inter",
-                      fontFamilyFallback: [
-                        "Noto Sans KR",
-                        "Apple SD Gothic Neo",
-                        "AppleGothic",
-                        "Arial Unicode MS",
-                        "Malgun Gothic",
-                        "sans-serif",
-                      ],
-                      fontSize: 12,
-                      fontWeight: FontWeight.w400,
-                      height: 1.5,
-                    ),
+                const SizedBox(height: 12),
+                Text(
+                  report.title,
+                  style: const TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontFamily: "Inter",
+                    fontFamilyFallback: [
+                      "Noto Sans KR",
+                      "Apple SD Gothic Neo",
+                      "AppleGothic",
+                      "Arial Unicode MS",
+                      "Malgun Gothic",
+                      "sans-serif",
+                    ],
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.5,
                   ),
-                  const SizedBox(width: 12),
-                  // 긴 메뉴명은 오른쪽에서 말줄임해 카드 밖으로 넘치지 않습니다.
-                  Expanded(
-                    child: Text(
-                      report.menu,
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      report.menuLabel,
                       style: const TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: Color(0xFF64748B),
                         fontFamily: "Inter",
                         fontFamilyFallback: [
                           "Noto Sans KR",
@@ -202,91 +181,68 @@ class ReportCard extends StatelessWidget {
                           "Malgun Gothic",
                           "sans-serif",
                         ],
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
                         height: 1.5,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              if (!isCompact && report.filter == ReportFilter.pending) ...[
-                const SizedBox(height: 16),
-                const SizedBox(height: 40, child: MiniProgressSteps()),
-              ],
-              if (!isCompact && report.notice != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3EA),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        color: Color(0xFFF97316),
-                        size: 13,
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          report.notice!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF92400E),
-                            fontFamily: "Inter",
-                            fontFamilyFallback: [
-                              "Noto Sans KR",
-                              "Apple SD Gothic Neo",
-                              "AppleGothic",
-                              "Arial Unicode MS",
-                              "Malgun Gothic",
-                              "sans-serif",
-                            ],
-                            fontSize: 11,
-                            fontWeight: FontWeight.w400,
-                            height: 1.4,
-                          ),
+                    const SizedBox(width: 12),
+                    // 긴 메뉴명은 오른쪽에서 말줄임해 카드 밖으로 넘치지 않습니다.
+                    Expanded(
+                      child: Text(
+                        report.menu,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF0F172A),
+                          fontFamily: "Inter",
+                          fontFamilyFallback: [
+                            "Noto Sans KR",
+                            "Apple SD Gothic Neo",
+                            "AppleGothic",
+                            "Arial Unicode MS",
+                            "Malgun Gothic",
+                            "sans-serif",
+                          ],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-              if (!isCompact && report.filter == ReportFilter.approved) ...[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF0E6),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.location_on,
-                        color: Color(0xFF10B981),
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
+                if (!isCompact && report.filter == ReportFilter.pending) ...[
+                  const SizedBox(height: 16),
+                  const SizedBox(height: 40, child: MiniProgressSteps()),
+                ],
+                if (!isCompact && report.notice != null) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3EA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Color(0xFFF97316),
+                          size: 13,
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
                           child: Text(
-                            report.source.resolution == 'NEW_STORE'
-                                ? '지도에 사용자 제보 매장으로 표시 중'
-                                : report.source.processingLabel,
+                            report.notice!,
                             maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Color(0xFF2563EB),
+                              color: Color(0xFF92400E),
                               fontFamily: "Inter",
                               fontFamilyFallback: [
                                 "Noto Sans KR",
@@ -297,85 +253,136 @@ class ReportCard extends StatelessWidget {
                                 "sans-serif",
                               ],
                               fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              height: 1.5,
+                              fontWeight: FontWeight.w400,
+                              height: 1.4,
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (!isCompact && report.filter == ReportFilter.approved) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF0E6),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.location_on,
+                          color: Color(0xFF10B981),
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              report.source.resolution == 'NEW_STORE'
+                                  ? '지도에 사용자 제보 매장으로 표시 중'
+                                  : report.source.processingLabel,
+                              maxLines: 1,
+                              style: const TextStyle(
+                                color: Color(0xFF2563EB),
+                                fontFamily: "Inter",
+                                fontFamilyFallback: [
+                                  "Noto Sans KR",
+                                  "Apple SD Gothic Neo",
+                                  "AppleGothic",
+                                  "Arial Unicode MS",
+                                  "Malgun Gothic",
+                                  "sans-serif",
+                                ],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: onTap,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            side: const BorderSide(color: Color(0xFFE5E7EB)),
+                          ),
+                          child: const Text(
+                            '상세보기',
+                            style: TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontFamily: "Inter",
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: onPrimaryTap,
+                          icon: const Icon(
+                            Icons.location_on_outlined,
+                            size: 14,
+                          ),
+                          label: const Text(
+                            '지도에서 보기',
+                            style: TextStyle(
+                              fontFamily: "Inter",
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onTap,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          side: const BorderSide(color: Color(0xFFE5E7EB)),
-                        ),
-                        child: const Text(
-                          '상세보기',
-                          style: TextStyle(
-                            color: Color(0xFF0F172A),
-                            fontFamily: "Inter",
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                ],
+                if (!isCompact &&
+                    report.actionLabel != null &&
+                    report.filter != ReportFilter.approved) ...[
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: SizedBox(
+                      width: report.actionWidth,
+                      height: 33.991,
+                      child: SmallActionButton(
+                        label: report.actionLabel!,
+                        color: report.actionColor,
+                        icon: report.actionIcon,
+                        onTap: onPrimaryTap,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: onPrimaryTap,
-                        icon: const Icon(Icons.location_on_outlined, size: 14),
-                        label: const Text(
-                          '지도에서 보기',
-                          style: TextStyle(
-                            fontFamily: "Inter",
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2563EB),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (!isCompact &&
-                  report.actionLabel != null &&
-                  report.filter != ReportFilter.approved) ...[
-                const SizedBox(height: 16),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: SizedBox(
-                    width: report.actionWidth,
-                    height: 33.991,
-                    child: SmallActionButton(
-                      label: report.actionLabel!,
-                      color: report.actionColor,
-                      icon: report.actionIcon,
-                      onTap: onPrimaryTap,
                     ),
                   ),
-                ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -453,36 +460,39 @@ class SmallActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: color,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      child: Material(
+        color: color,
         borderRadius: BorderRadius.circular(10),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: Colors.white, size: 13),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontFamily: "Inter",
-                fontFamilyFallback: [
-                  "Noto Sans KR",
-                  "Apple SD Gothic Neo",
-                  "AppleGothic",
-                  "Arial Unicode MS",
-                  "Malgun Gothic",
-                  "sans-serif",
-                ],
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 13),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: "Inter",
+                  fontFamilyFallback: [
+                    "Noto Sans KR",
+                    "Apple SD Gothic Neo",
+                    "AppleGothic",
+                    "Arial Unicode MS",
+                    "Malgun Gothic",
+                    "sans-serif",
+                  ],
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

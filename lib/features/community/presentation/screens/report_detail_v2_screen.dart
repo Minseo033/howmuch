@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
@@ -304,117 +305,133 @@ class _RejectReasonDialog extends StatelessWidget {
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFFF3EA),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.warning_amber_rounded,
-                          color: ReportDetailV2Screen._orange,
-                          size: 25,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        '반려 사유를 확인해주세요',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: ReportDetailV2Screen._ink,
-                          fontFamily: ReportDetailV2Screen._fontFamily,
-                          fontFamilyFallback:
-                              ReportDetailV2Screen._fontFallback,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: ReportDetailV2Screen._muted,
-                          fontFamily: ReportDetailV2Screen._fontFamily,
-                          fontFamilyFallback:
-                              ReportDetailV2Screen._fontFallback,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Container(
-                        width: double.infinity,
-                        constraints: const BoxConstraints(maxHeight: 132),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF3EA),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFDE68A),
-                            width: .909,
+            // Without its own node, the dialog merged the title and the
+            // confirm button into one label, so screen readers could not
+            // reach '확인' (QA 10/7 #55). Each part now gets its own node.
+            child: Semantics(
+              container: true,
+              explicitChildNodes: true,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 18),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFF3EA),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.warning_amber_rounded,
+                            color: ReportDetailV2Screen._orange,
+                            size: 25,
                           ),
                         ),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            reason,
-                            style: const TextStyle(
-                              color: ReportDetailV2Screen._black,
+                        const SizedBox(height: 16),
+                        // Names the dialog like AlertDialog's title; iOS
+                        // focuses the title itself, so it is not read twice.
+                        Semantics(
+                          namesRoute:
+                              defaultTargetPlatform != TargetPlatform.iOS,
+                          child: const Text(
+                            '반려 사유를 확인해주세요',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: ReportDetailV2Screen._ink,
                               fontFamily: ReportDetailV2Screen._fontFamily,
                               fontFamilyFallback:
                                   ReportDetailV2Screen._fontFallback,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w400,
-                              height: 1.6,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              height: 1.5,
                             ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(
-                  height: .909,
-                  thickness: .909,
-                  color: ReportDetailV2Screen._border,
-                ),
-                Material(
-                  color: Colors.white,
-                  child: InkWell(
-                    onTap: onConfirm,
-                    child: const SizedBox(
-                      height: 55,
-                      child: Center(
-                        child: Text(
-                          '확인',
-                          style: TextStyle(
-                            color: ReportDetailV2Screen._orange,
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: ReportDetailV2Screen._muted,
                             fontFamily: ReportDetailV2Screen._fontFamily,
                             fontFamilyFallback:
                                 ReportDetailV2Screen._fontFallback,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
                             height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(maxHeight: 132),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF3EA),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: const Color(0xFFFDE68A),
+                              width: .909,
+                            ),
+                          ),
+                          child: SingleChildScrollView(
+                            child: Text(
+                              reason,
+                              style: const TextStyle(
+                                color: ReportDetailV2Screen._black,
+                                fontFamily: ReportDetailV2Screen._fontFamily,
+                                fontFamilyFallback:
+                                    ReportDetailV2Screen._fontFallback,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                                height: 1.6,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(
+                    height: .909,
+                    thickness: .909,
+                    color: ReportDetailV2Screen._border,
+                  ),
+                  Semantics(
+                    button: true,
+                    child: Material(
+                      color: Colors.white,
+                      child: InkWell(
+                        onTap: onConfirm,
+                        child: const SizedBox(
+                          height: 55,
+                          child: Center(
+                            child: Text(
+                              '확인',
+                              style: TextStyle(
+                                color: ReportDetailV2Screen._orange,
+                                fontFamily: ReportDetailV2Screen._fontFamily,
+                                fontFamilyFallback:
+                                    ReportDetailV2Screen._fontFallback,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                height: 1.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1197,42 +1214,47 @@ class _OutlineActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: () => context.push(AppRoutes.reportDeleteConfirm, extra: report),
+    // An InkWell alone reads as plain text on iOS (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: ReportDetailV2Screen._border,
-              width: .909,
+        child: InkWell(
+          onTap: () =>
+              context.push(AppRoutes.reportDeleteConfirm, extra: report),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: ReportDetailV2Screen._border,
+                width: .909,
+              ),
             ),
-          ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.delete_outline_rounded,
-                size: 14,
-                color: Color(0xFFEF4444),
-              ),
-              const SizedBox(width: 6),
-              const Text(
-                '삭제하기',
-                style: TextStyle(
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.delete_outline_rounded,
+                  size: 14,
                   color: Color(0xFFEF4444),
-                  fontFamily: ReportDetailV2Screen._fontFamily,
-                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.5,
                 ),
-              ),
-            ],
+                const SizedBox(width: 6),
+                const Text(
+                  '삭제하기',
+                  style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontFamily: ReportDetailV2Screen._fontFamily,
+                    fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

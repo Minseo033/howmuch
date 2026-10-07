@@ -263,34 +263,37 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
                 safeBottom: safePadding.bottom,
                 child: SizedBox(
                   height: 56,
-                  child: Material(
-                    color: MyReportsV2Screen.blue,
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      onTap: () => context.push(AppRoutes.reportCreate),
+                  child: Semantics(
+                    button: true,
+                    child: Material(
+                      color: MyReportsV2Screen.blue,
                       borderRadius: BorderRadius.circular(14),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            '새 제보 등록하기',
-                            style: TextStyle(
+                      child: InkWell(
+                        onTap: () => context.push(AppRoutes.reportCreate),
+                        borderRadius: BorderRadius.circular(14),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_rounded,
                               color: Colors.white,
-                              fontFamily: MyReportsV2Screen.fontFamily,
-                              fontFamilyFallback:
-                                  MyReportsV2Screen.fontFallback,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              height: 1.5,
+                              size: 20,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 4),
+                            Text(
+                              '새 제보 등록하기',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: MyReportsV2Screen.fontFamily,
+                                fontFamilyFallback:
+                                    MyReportsV2Screen.fontFallback,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -428,73 +431,83 @@ class _TabButton extends StatelessWidget {
         ? MyReportsV2Screen.blue
         : MyReportsV2Screen.hint;
 
-    return InkWell(
+    // The tabs filter the list like chips: read each as a button with its
+    // count and whether it is the current filter (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      label: '$label $count건',
       onTap: onTap,
-      child: SizedBox.expand(
-        child: Stack(
-          children: [
-            Align(
-              alignment: const Alignment(0, -0.02),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: color,
-                        fontFamily: MyReportsV2Screen.fontFamily,
-                        fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                        fontSize: 12,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        height: 1.5,
-                        letterSpacing: 0,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox.expand(
+          child: Stack(
+            children: [
+              Align(
+                alignment: const Alignment(0, -0.02),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: color,
+                          fontFamily: MyReportsV2Screen.fontFamily,
+                          fontFamilyFallback: MyReportsV2Screen.fontFallback,
+                          fontSize: 12,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          height: 1.5,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$count',
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: countColor,
-                        fontFamily: MyReportsV2Screen.fontFamily,
-                        fontFamilyFallback: MyReportsV2Screen.fontFallback,
-                        fontSize: 12,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        height: 1.5,
-                        letterSpacing: 0,
+                      const SizedBox(width: 4),
+                      Text(
+                        '$count',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: countColor,
+                          fontFamily: MyReportsV2Screen.fontFamily,
+                          fontFamilyFallback: MyReportsV2Screen.fontFallback,
+                          fontSize: 12,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          height: 1.5,
+                          letterSpacing: 0,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (selected)
-              const Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 1.989,
-                child: Center(
-                  child: SizedBox(
-                    width: 35.185,
-                    height: 1.989,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: MyReportsV2Screen.blue,
-                        borderRadius: BorderRadius.all(Radius.circular(99)),
+              if (selected)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 1.989,
+                  child: Center(
+                    child: SizedBox(
+                      width: 35.185,
+                      height: 1.989,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: MyReportsV2Screen.blue,
+                          borderRadius: BorderRadius.all(Radius.circular(99)),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
