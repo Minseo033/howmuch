@@ -58,6 +58,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   String? _lastRoutePath;
   bool _hasLoadedSummary = false;
   String? _loadedSessionToken;
+  // 내 제보 목록을 받아 온 세션입니다. 지금 세션과 다르면 아직 불러오는 중입니다.
+  String? _reportsSessionToken;
+  bool _reportsLoadFailed = false;
 
   @override
   void initState() {
@@ -131,9 +134,19 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   Future<void> _loadMyReports() async {
     final sessionToken = ApiClient.sessionToken;
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
-    if (reports != null && mounted && sessionToken == ApiClient.sessionToken) {
+    _applyMyReports(reports, sessionToken);
+  }
+
+  /// 내 제보 조회 결과를 반영합니다. 실패해도 이미 받은 목록은 지우지 않습니다.
+  void _applyMyReports(List<UserReportStatus>? reports, String? sessionToken) {
+    if (!mounted || sessionToken != ApiClient.sessionToken) return;
+    if (reports != null) {
       ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
     }
+    setState(() {
+      _reportsSessionToken = sessionToken;
+      _reportsLoadFailed = reports == null;
+    });
   }
 
   /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
@@ -217,14 +230,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         .read(reportServiceProvider)
         .fetchMyReports()
         .then<int?>((reports) {
-          if (reports == null) return null;
-          if (mounted && sessionToken == ApiClient.sessionToken) {
-            ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
-          }
-          return reports.length;
+          _applyMyReports(reports, sessionToken);
+          return reports?.length;
         })
         .catchError((Object e) {
           debugPrint('마이페이지 제보 로드 오류: $e');
+          _applyMyReports(null, sessionToken);
           return null;
         });
 
@@ -454,6 +465,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                       height: 189.23294067382812,
                       child: _ReportStatusCard(
                         reports: reports,
+                        isLoading:
+                            auth.isLoggedIn &&
+                            _reportsSessionToken != ApiClient.sessionToken,
+                        loadFailed: _reportsLoadFailed,
                         onViewAll: () => context.push(AppRoutes.myReportsV2),
                         onReportTap: (report) => context.push(
                           '${AppRoutes.reportDetailV2}?id=${report.id}',
@@ -712,8 +727,9 @@ class _ProfileCard extends StatelessWidget {
                   Expanded(
                     child: _ProfileMetric(
                       key: const ValueKey('mypage-metric-report-count'),
-                      value: '${profile.reportCount}곳',
-                      label: '제보 매장',
+                      // 내 제보 목록의 건수입니다. 같은 매장에 여러 번 제보해도 한 건씩 셉니다.
+                      value: '${profile.reportCount}건',
+                      label: '내 제보',
                       bordered: true,
                       isLoading: isLoadingMetrics,
                     ),
@@ -894,11 +910,15 @@ class _QuickMenu extends StatelessWidget {
 class _ReportStatusCard extends StatelessWidget {
   const _ReportStatusCard({
     required this.reports,
+    required this.isLoading,
+    required this.loadFailed,
     required this.onViewAll,
     required this.onReportTap,
   });
 
   final List<UserReportStatus> reports;
+  final bool isLoading;
+  final bool loadFailed;
   final VoidCallback onViewAll;
   final Function(UserReportStatus) onReportTap;
 
@@ -936,7 +956,15 @@ class _ReportStatusCard extends StatelessWidget {
           ),
           const SizedBox(height: 11.989),
           if (visibleReports.isEmpty)
-            const _EmptyReportItem()
+            // 목록을 받기 전에는 빈 상태로 단정하지 않습니다.
+            _EmptyReportItem(
+              loading: isLoading,
+              message: isLoading
+                  ? '내 제보를 불러오는 중이에요'
+                  : loadFailed
+                  ? '내 제보를 불러오지 못했어요'
+                  : '아직 제보한 내역이 없어요',
+            )
           else
             for (var index = 0; index < visibleReports.length; index++) ...[
               _ReportItem(
@@ -1042,7 +1070,10 @@ class _ReportItem extends StatelessWidget {
 }
 
 class _EmptyReportItem extends StatelessWidget {
-  const _EmptyReportItem();
+  const _EmptyReportItem({required this.message, this.loading = false});
+
+  final String message;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -1054,7 +1085,23 @@ class _EmptyReportItem extends StatelessWidget {
         color: MypageScreen.surface,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: const Text('진행 중인 제보가 없어요', style: _muted11),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (loading) ...[
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: MypageScreen.blue,
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Text(message, style: _muted11),
+        ],
+      ),
     );
   }
 }
