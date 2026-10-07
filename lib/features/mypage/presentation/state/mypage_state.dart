@@ -363,9 +363,26 @@ class UserReportStatus {
           'CLOSED' => '대상 매장의 폐업 상태가 반영됐어요.',
           _ => '검토를 마치고 승인된 제보예요.',
         };
-  String get deletionWarning => isExistingStoreReport
-      ? '신고 기록만 삭제하며 복구할 수 없어요.\n대상 매장과 반영된 수정은 유지됩니다.'
-      : '삭제 후에는 되돌릴 수 없어요.\n승인 완료된 신규 매장 제보는 지도에서도 제거됩니다.';
+
+  /// 삭제 확인창 안내입니다. 서버는 제보를 지울 때 탐색 글의 댓글·반응과
+  /// 이 제보에 연결된 알림(처리 결과·새 댓글)도 함께 지웁니다. 정보 오류 신고와
+  /// 반려된 제보는 탐색에 올라가지 않습니다.
+  String get deletionWarning {
+    final noun = isInformationReport ? '신고' : '제보';
+    final isFeedPost = !isInformationReport && !status.contains('반려');
+    final isReviewed = !status.contains('검토');
+    return [
+      if (isExistingStoreReport) ...[
+        '$noun 기록만 삭제하며 복구할 수 없어요.',
+        '대상 매장 정보는 그대로 유지돼요.',
+      ] else ...[
+        '삭제 후에는 되돌릴 수 없어요.',
+        if (isApproved) '지도에 등록된 이 매장도 함께 사라져요.',
+      ],
+      if (isFeedPost) '탐색에 올라간 글의 댓글·반응도 함께 삭제돼요.',
+      if (isFeedPost || isReviewed) '이 $noun와 관련된 알림도 알림함에서 함께 삭제돼요.',
+    ].join('\n');
+  }
 
   factory UserReportStatus.fromJson(Map<String, dynamic> json) {
     final status = _statusLabel(json['status']?.toString() ?? '');
