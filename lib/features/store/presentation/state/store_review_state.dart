@@ -237,7 +237,12 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
       return;
     }
 
-    state = const AsyncValue.loading();
+    // A reload keeps the loaded list on screen, so the count and the average
+    // do not drop to zero while new data is on its way (QA #11).
+    final previous = state;
+    state = previous.hasValue
+        ? const AsyncLoading<List<Review>>().copyWithPrevious(previous)
+        : const AsyncValue.loading();
     try {
       final response = await ApiClient.get(
         ApiClient.uri('/api/review/me'),
@@ -263,7 +268,11 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
     } catch (error, stackTrace) {
       debugPrint('내 리뷰 조회 통신 에러: $error');
       if (!mounted || generation != _generation) return;
-      state = AsyncValue.error(error, stackTrace);
+      // The last loaded list stays available after a failed reload.
+      state = AsyncError<List<Review>>(
+        error,
+        stackTrace,
+      ).copyWithPrevious(state);
     }
   }
 }

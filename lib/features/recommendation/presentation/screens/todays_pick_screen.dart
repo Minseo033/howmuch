@@ -80,6 +80,9 @@ AiMapRecommendationResult buildTodaysPickMapResult(
         )
         .toList(growable: false),
     queryText: stores.map((store) => store.storeName).join(' '),
+    // Today's pick is chosen by weather and distance, so the map must not
+    // call it an AI recommendation (QA #23).
+    origin: MapResultOrigin.todaysPick,
   );
 }
 

@@ -356,7 +356,7 @@ class LocalAiRecommendation {
   final List<RecommendationMenuSelection> menuSelections;
 }
 
-enum MapResultOrigin { aiRecommendation, approvedReport }
+enum MapResultOrigin { aiRecommendation, approvedReport, todaysPick }
 
 class AiMapRecommendationResult {
   const AiMapRecommendationResult({

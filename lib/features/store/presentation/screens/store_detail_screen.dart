@@ -1188,9 +1188,13 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   void initState() {
     super.initState();
+    // Reload on every visit so reviews written elsewhere since the last
+    // visit appear; the reviews already loaded stay meanwhile (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(storeReviewProvider.notifier).loadReviews(widget.storeKey);
+      ref
+          .read(storeReviewProvider.notifier)
+          .loadReviews(widget.storeKey, force: true);
     });
   }
 
@@ -1208,6 +1212,7 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(storeReviewProvider)[widget.storeKey];
+    final hasReviews = reviewState?.hasValue == true;
     final reviews = reviewState?.valueOrNull ?? const <Review>[];
     final shown = reviews.take(3).toList();
     final avg = reviews.isEmpty
@@ -1270,12 +1275,12 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
             ],
           ),
           const SizedBox(height: 14),
-          if (reviewState == null || reviewState.isLoading)
+          if (reviewState == null || (reviewState.isLoading && !hasReviews))
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text('리뷰를 불러오고 있어요'),
             )
-          else if (reviewState.hasError)
+          else if (reviewState.hasError && !hasReviews)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

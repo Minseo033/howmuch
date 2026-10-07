@@ -23,6 +23,48 @@ import 'package:howmuch/features/recommendation/presentation/widgets/recommendat
 /// this sentence. Such a route must not be labelled as an AI recommendation.
 const localRouteTextPrefix = '현재는 거리순으로';
 
+/// The server orders the route so the walk from the current location through
+/// every stop is as short as possible (FE-STORE-13). That is not the same as
+/// sorting the stops by their distance from the current location.
+const routeOrderLabel = '총 이동 거리가 짧도록 정한 동선';
+
+/// A subtitle that matches the stops the route actually has (QA #25).
+String routeSubtitleFor(Iterable<Map<String, dynamic>> picks) {
+  var meals = 0;
+  var desserts = 0;
+  for (final pick in picks) {
+    if (isDessertRecommendation(pick)) {
+      desserts++;
+    } else {
+      meals++;
+    }
+  }
+  if (meals > 0 && desserts > 0) return '식사부터 카페까지 저렴한 동선을 추천해요';
+  if (desserts > 0) return '저렴한 카페·디저트 $desserts곳을 들르는 동선을 추천해요';
+  return '저렴한 음식점 $meals곳을 들르는 동선을 추천해요';
+}
+
+/// The guide for a route that AI did not write.
+///
+/// The server's text lists the stops by distance from the current location,
+/// while the cards and map numbers follow the route order of `picks`. The
+/// guide is built from the same stops in the same order, with the menu and
+/// price format of the cards (QA #6, #27).
+String buildRouteGuideText(List<Map<String, dynamic>> picks) {
+  final lines = ['현재 위치에서 출발해 총 이동 거리가 짧도록 정한 순서예요.'];
+  for (var index = 0; index < picks.length; index++) {
+    final selection = RecommendationMenuSelection.fromPick(picks[index]);
+    final name = selection.storeName.isEmpty ? '알 수 없음' : selection.storeName;
+    final menu = selection.menu.isEmpty ? '메뉴 정보 없음' : selection.menu;
+    final price = formatRecommendationPrice(
+      selection.price,
+      free: selection.free,
+    );
+    lines.add('${index + 1}. $name ($menu, $price)');
+  }
+  return lines.join('\n');
+}
+
 class OptimalRouteScreen extends ConsumerStatefulWidget {
   const OptimalRouteScreen({super.key});
 
@@ -217,9 +259,12 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return formatRecommendationDistance(_number(value));
   }
 
-  String _formatLegDuration(double? legDistance) {
+  /// Travel time of the leg that ends at stop [index]: from the current
+  /// location for the first stop, otherwise from the previous stop.
+  String? _legTimeText(int index) {
+    final legDistance = _legDistanceMeters(index);
     if (legDistance == null || !legDistance.isFinite || legDistance < 0) {
-      return '이동';
+      return null;
     }
     if (legDistance <= 1500) {
       final walkMinutes = math.max(1, (legDistance / 80).round());
@@ -398,9 +443,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                         children: [
                           const RecommendationRadiusButton(),
                           const SizedBox(height: 12),
-                          const Text(
-                            '식사부터 카페까지 저렴한 동선을 추천해요',
-                            style: TextStyle(
+                          Text(
+                            routeSubtitleFor(_picks),
+                            style: const TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: 13,
                             ),
@@ -471,9 +516,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final distance = _distanceText(
                                 p['distanceMeters'],
                               );
-                              final nextLegDistance = idx < _picks.length - 1
-                                  ? _legDistanceMeters(idx + 1)
-                                  : null;
+                              final legTime = _legTimeText(idx);
 
                               return Column(
                                 children: [
@@ -487,6 +530,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   Align(
                                     alignment: Alignment.centerRight,
                                     child: TextButton.icon(
+                                      key: ValueKey('route-leg-${idx + 1}'),
                                       onPressed: _canOpenLeg(idx)
                                           ? () => _openLeg(idx)
                                           : null,
@@ -494,15 +538,29 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                         Icons.directions_outlined,
                                         size: 18,
                                       ),
-                                      label: Text(
-                                        '${idx + 1}구간: ${_legStartName(idx)} → $storeName',
+                                      // Each leg shows its own travel time.
+                                      // It used to sit under the previous
+                                      // leg's button (QA #24).
+                                      label: Text.rich(
+                                        TextSpan(
+                                          text:
+                                              '${idx + 1}구간: ${_legStartName(idx)} → $storeName',
+                                          children: [
+                                            if (legTime != null)
+                                              TextSpan(
+                                                text: ' · $legTime',
+                                                style: const TextStyle(
+                                                  color: Color(0xFF64748B),
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                   if (idx < _picks.length - 1)
-                                    _buildConnection(
-                                      _formatLegDuration(nextLegDistance),
-                                    ),
+                                    _buildConnection(),
                                 ],
                               );
                             }),
@@ -581,7 +639,7 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      _isAiRoute ? 'AI 추천 동선' : '가까운 순서로 정한 동선',
+                                      _isAiRoute ? 'AI 추천 동선' : routeOrderLabel,
                                       style: const TextStyle(
                                         color: Color(0xFF64748B),
                                         fontSize: 11,
@@ -616,7 +674,9 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    _routeData!['route'].toString(),
+                                    _isAiRoute
+                                        ? _routeData!['route'].toString()
+                                        : buildRouteGuideText(_picks),
                                     style: const TextStyle(
                                       color: Color(0xFF374151),
                                       fontSize: 12,
@@ -819,18 +879,11 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     if (mounted && index != null) _openLeg(index);
   }
 
-  Widget _buildConnection(String timeText) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+  Widget _buildConnection() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
-        children: [
-          const Icon(Icons.more_vert, color: Color(0xFFE5E7EB), size: 20),
-          const SizedBox(width: 12),
-          Text(
-            timeText,
-            style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
-          ),
-        ],
+        children: [Icon(Icons.more_vert, color: Color(0xFFE5E7EB), size: 20)],
       ),
     );
   }
