@@ -10,6 +10,7 @@ import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 
 class ReviewListScreen extends ConsumerStatefulWidget {
   final Store? store;
@@ -29,15 +30,36 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
   @override
   void initState() {
     super.initState();
+    // Reviews loaded earlier in this session stay on screen while the list
+    // reloads, so reviews written elsewhere since then appear (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(storeReviewProvider.notifier).loadReviews(_storeId);
+      ref.read(storeReviewProvider.notifier).loadReviews(_storeId, force: true);
     });
+  }
+
+  Future<void> _refresh() async {
+    await ref
+        .read(storeReviewProvider.notifier)
+        .loadReviews(_storeId, force: true);
+    if (!mounted) return;
+    final reviewState = ref.read(storeReviewProvider)[_storeId];
+    // A failed refresh keeps the list, so say that it is not up to date.
+    if (reviewState != null && reviewState.hasError && reviewState.hasValue) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(
+            content: const Text('리뷰를 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          ),
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(storeReviewProvider)[_storeId];
+    final hasReviews = reviewState?.hasValue == true;
     final reviews =
         List<Review>.from(reviewState?.valueOrNull ?? const <Review>[])
           ..sort((a, b) {
@@ -68,9 +90,10 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
               Expanded(
                 child: _storeId.isEmpty
                     ? const Center(child: Text('매장을 선택한 뒤 리뷰를 확인해주세요.'))
-                    : reviewState == null || reviewState.isLoading
+                    : reviewState == null ||
+                          (reviewState.isLoading && !hasReviews)
                     ? const Center(child: CircularProgressIndicator())
-                    : reviewState.hasError
+                    : reviewState.hasError && !hasReviews
                     ? SingleChildScrollView(
                         physics: const ClampingScrollPhysics(),
                         child: ConstrainedBox(
@@ -97,9 +120,7 @@ class _ReviewListScreenState extends ConsumerState<ReviewListScreen> {
                     : reviews.isEmpty
                     ? const Center(child: Text('아직 리뷰가 없어요. 첫 리뷰를 남겨보세요!'))
                     : RefreshIndicator(
-                        onRefresh: () => ref
-                            .read(storeReviewProvider.notifier)
-                            .loadReviews(_storeId, force: true),
+                        onRefresh: _refresh,
                         child: ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(

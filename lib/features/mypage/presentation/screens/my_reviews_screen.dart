@@ -5,6 +5,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
@@ -21,9 +22,29 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
   @override
   void initState() {
     super.initState();
+    // The list is shared by the whole app. Opening the screen reloads it so
+    // reviews written elsewhere (another device, the web) show up; the last
+    // list stays on screen meanwhile (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(myReviewsProvider.notifier).loadReviews();
+      if (!mounted) return;
+      ref.read(myReviewsProvider.notifier).loadReviews(force: true);
     });
+  }
+
+  Future<void> _refresh() async {
+    await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
+    if (!mounted) return;
+    final reviews = ref.read(myReviewsProvider);
+    // A failed refresh keeps the list, so say that it is not up to date.
+    if (reviews.hasError && reviews.hasValue) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(
+            content: const Text('내 리뷰를 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          ),
+        );
+    }
   }
 
   @override
@@ -66,6 +87,8 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         ),
         body: SafeArea(
           child: reviewsState.when(
+            // An error with a loaded list keeps showing that list.
+            skipError: true,
             loading: () => _buildLoadingBody(),
             error: (error, stackTrace) => _buildErrorBody(error),
             data: _buildReviewBody,
@@ -88,9 +111,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
           child: reviews.isEmpty
               ? _buildEmptyState()
               : RefreshIndicator(
-                  onRefresh: () => ref
-                      .read(myReviewsProvider.notifier)
-                      .loadReviews(force: true),
+                  onRefresh: _refresh,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.symmetric(
@@ -256,8 +277,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
 
   Widget _buildEmptyState() {
     return RefreshIndicator(
-      onRefresh: () =>
-          ref.read(myReviewsProvider.notifier).loadReviews(force: true),
+      onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 28),
