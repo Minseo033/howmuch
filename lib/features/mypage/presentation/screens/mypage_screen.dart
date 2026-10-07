@@ -332,8 +332,11 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final bottomOffset = safePadding.bottom;
     final bottomNavHeight = HowmuchBottomNav.heightFor(bottomOffset);
     const settingsCardHeight = 316.0;
-    final scrollContentHeight =
-        659.98583984375 + topOffset + settingsCardHeight + bottomNavHeight + 16;
+    // The report status card sits right below the menus; from there the page
+    // flows so the card can grow with large text and push the settings card
+    // down instead of overlapping it (QA 10/7 #5). At the default text size
+    // every block keeps its design position.
+    const reportCardTop = 458.76416015625;
 
     return FigmaMobileCanvas(
       backgroundColor: MypageScreen.surface,
@@ -344,125 +347,133 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
               physics: const AlwaysScrollableScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                height: scrollContentHeight,
-                child: Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 0,
-                      height: 50.96590805053711 + topOffset,
-                      child: _Header(topOffset: topOffset),
-                    ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 66.96044921875 + topOffset,
-                      height: 163.23863220214844,
-                      child: _ProfileCard(
-                        profile: profile,
-                        email: displayEmail,
-                        onEdit: () => context.push(AppRoutes.profileEdit),
-                        isLoadingMetrics:
-                            auth.isLoggedIn &&
-                            (!_hasLoadedSummary ||
-                                _loadedSessionToken != ApiClient.sessionToken),
-                      ),
-                    ),
-                    // QuickMenu row 1
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 246.193359375 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 제보',
-                                icon: Icons.description_outlined,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.myReportsV2),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '찜한 매장',
-                                icon: Icons.favorite_border_rounded,
-                                color: MypageScreen.orange,
-                                onTap: () =>
-                                    context.push(AppRoutes.favoriteStores),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '내 리뷰',
-                                icon: Icons.rate_review_outlined,
-                                color: MypageScreen.blue,
-                                onTap: () => context.push(AppRoutes.myReviews),
-                              ),
-                            ),
-                          ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: reportCardTop + topOffset,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 0,
+                          height: 50.96590805053711 + topOffset,
+                          child: _Header(topOffset: topOffset),
                         ),
-                      ),
-                    ),
-                    // QuickMenu row 2
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 348.47998046875 + topOffset,
-                      height: 90,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '방문 기록',
-                                icon: Icons.location_on_outlined,
-                                color: MypageScreen.green,
-                                onTap: () =>
-                                    context.push(AppRoutes.visitHistory),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '절약 리포트',
-                                icon: Icons.bar_chart_rounded,
-                                color: MypageScreen.green,
-                                onTap: () => context.go(
-                                  AppRoutes.savingsReportDashboard,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _QuickMenu(
-                                label: '알림 설정',
-                                icon: Icons.notifications_none_rounded,
-                                color: MypageScreen.blue,
-                                onTap: () => context.push(
-                                  AppRoutes.notificationSettings,
-                                ),
-                              ),
-                            ),
-                          ],
+                        Positioned(
+                          left: 20,
+                          right: 20,
+                          top: 66.96044921875 + topOffset,
+                          height: 163.23863220214844,
+                          child: _ProfileCard(
+                            profile: profile,
+                            email: displayEmail,
+                            onEdit: () => context.push(AppRoutes.profileEdit),
+                            isLoadingMetrics:
+                                auth.isLoggedIn &&
+                                (!_hasLoadedSummary ||
+                                    _loadedSessionToken !=
+                                        ApiClient.sessionToken),
+                          ),
                         ),
-                      ),
+                        // QuickMenu row 1
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 246.193359375 + topOffset,
+                          height: 90,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '내 제보',
+                                    icon: Icons.description_outlined,
+                                    color: MypageScreen.orange,
+                                    onTap: () =>
+                                        context.push(AppRoutes.myReportsV2),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '찜한 매장',
+                                    icon: Icons.favorite_border_rounded,
+                                    color: MypageScreen.orange,
+                                    onTap: () =>
+                                        context.push(AppRoutes.favoriteStores),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '내 리뷰',
+                                    icon: Icons.rate_review_outlined,
+                                    color: MypageScreen.blue,
+                                    onTap: () =>
+                                        context.push(AppRoutes.myReviews),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // QuickMenu row 2
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: 348.47998046875 + topOffset,
+                          height: 90,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '방문 기록',
+                                    icon: Icons.location_on_outlined,
+                                    color: MypageScreen.green,
+                                    onTap: () =>
+                                        context.push(AppRoutes.visitHistory),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '절약 리포트',
+                                    icon: Icons.bar_chart_rounded,
+                                    color: MypageScreen.green,
+                                    onTap: () => context.go(
+                                      AppRoutes.savingsReportDashboard,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _QuickMenu(
+                                    label: '알림 설정',
+                                    icon: Icons.notifications_none_rounded,
+                                    color: MypageScreen.blue,
+                                    onTap: () => context.push(
+                                      AppRoutes.notificationSettings,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 458.76416015625 + topOffset,
-                      height: 189.23294067382812,
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minHeight: 189.23294067382812,
+                      ),
                       child: _ReportStatusCard(
                         reports: reports,
                         isLoading:
@@ -476,10 +487,11 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                         ),
                       ),
                     ),
-                    Positioned(
-                      left: 20,
-                      right: 20,
-                      top: 659.98583984375 + topOffset,
+                  ),
+                  const SizedBox(height: 11.98873901367187),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
                       height: settingsCardHeight,
                       child: _SettingsCard(
                         onNotificationTap: () =>
@@ -491,8 +503,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                         onInquiryTap: () => context.push(AppRoutes.inquiry),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: bottomNavHeight + 16),
+                ],
               ),
             ),
           ),
@@ -871,35 +884,39 @@ class _QuickMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          height: 94.2897720336914,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: MypageScreen.border, width: .909),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: .09),
-                  shape: BoxShape.circle,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            height: 94.2897720336914,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: MypageScreen.border, width: .909),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: .09),
+                    shape: BoxShape.circle,
+                  ),
+                  child: SizedBox(
+                    width: 37.99715805053711,
+                    height: 37.99715805053711,
+                    child: Icon(icon, color: color, size: 18),
+                  ),
                 ),
-                child: SizedBox(
-                  width: 37.99715805053711,
-                  height: 37.99715805053711,
-                  child: Icon(icon, color: color, size: 18),
-                ),
-              ),
-              const SizedBox(height: 5.994),
-              Text(label, style: _quickMenuText),
-            ],
+                const SizedBox(height: 5.994),
+                Text(label, style: _quickMenuText),
+              ],
+            ),
           ),
         ),
       ),
@@ -940,16 +957,23 @@ class _ReportStatusCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          SizedBox(
-            height: 19.488636016845703,
+          // Grows with large text instead of cutting the title (QA 10/7 #5).
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 19.488636016845703),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('내 제보 상태', style: _sectionTitleText),
-                GestureDetector(
-                  onTap: onViewAll,
-                  behavior: HitTestBehavior.opaque,
-                  child: const Text('전체보기', style: _linkText),
+                const Flexible(
+                  child: Text('내 제보 상태', style: _sectionTitleText),
+                ),
+                Semantics(
+                  container: true,
+                  button: true,
+                  child: GestureDetector(
+                    onTap: onViewAll,
+                    behavior: HitTestBehavior.opaque,
+                    child: const Text('전체보기', style: _linkText),
+                  ),
                 ),
               ],
             ),
@@ -988,80 +1012,102 @@ class _ReportItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: MypageScreen.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
+    // Opens the report: read as a button (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: MypageScreen.surface,
         borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: SizedBox(
-          width: 301.647705078125,
-          height: 56.974430084228516,
-          child: Stack(
-            children: [
-              Positioned(
-                left: 11.9886474609375,
-                top: 10,
-                // 오른쪽 상태 배지와 겹치지 않도록 글자 폭을 제한합니다.
-                right: 90,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          // The design height fits the default text size. Larger text grows
+          // the row instead of cutting the second line (QA 10/7 #5).
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 56.974430084228516),
+            child: SizedBox(
+              width: 301.647705078125,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  11.9886474609375,
+                  10,
+                  11.9886474609375,
+                  9.98,
+                ),
+                child: Row(
                   children: [
-                    Text(
-                      report.store,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _reportStoreText,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            report.store,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _reportStoreText,
+                          ),
+                          const SizedBox(height: .994),
+                          Text(
+                            report.summaryText,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _muted11,
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: .994),
-                    Text(
-                      report.summaryText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _muted11,
+                    // 오른쪽 상태 배지와 겹치지 않도록 글자 폭을 제한합니다(배지 영역 90px).
+                    // 글자가 커져 배지가 넓어지면 글자 쪽이 줄어듭니다.
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 90 - 11.9886474609375,
+                      ),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        widthFactor: 1,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minHeight: 20.99431800842285,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8.99151611328125,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Color(report.statusBg),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: Color(report.statusColor),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const SizedBox(width: 5, height: 5),
+                              ),
+                              const SizedBox(width: 3.991),
+                              Text(
+                                report.displayStatus,
+                                style: TextStyle(
+                                  color: Color(report.textColor),
+                                  fontFamily: MypageScreen.fontFamily,
+                                  fontFamilyFallback: MypageScreen.fontFallback,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              Positioned(
-                right: 11.9886474609375,
-                top: 17.98291015625,
-                child: Container(
-                  height: 20.99431800842285,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8.99151611328125,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Color(report.statusBg),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: Color(report.statusColor),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const SizedBox(width: 5, height: 5),
-                      ),
-                      const SizedBox(width: 3.991),
-                      Text(
-                        report.displayStatus,
-                        style: TextStyle(
-                          color: Color(report.textColor),
-                          fontFamily: MypageScreen.fontFamily,
-                          fontFamilyFallback: MypageScreen.fontFallback,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1079,7 +1125,8 @@ class _EmptyReportItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 301.647705078125,
-      height: 88,
+      // Grows with large text instead of overflowing (QA 10/7 #5).
+      constraints: const BoxConstraints(minHeight: 88),
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: MypageScreen.surface,
@@ -1099,7 +1146,9 @@ class _EmptyReportItem extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          Text(message, style: _muted11),
+          Flexible(
+            child: Text(message, textAlign: TextAlign.center, style: _muted11),
+          ),
         ],
       ),
     );
@@ -1269,10 +1318,12 @@ class _ToggleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The row text names the switch, so no extra label (it was read twice).
+    // A switch without an enabled flag reads as disabled on iOS (QA 10/7 #50).
     return Semantics(
       button: true,
       toggled: value,
-      label: title,
+      enabled: true,
       child: Material(
         color: AppColors.transparent,
         child: InkWell(
@@ -1356,48 +1407,52 @@ class _PermissionRow extends StatelessWidget {
       null => '확인 중',
       _ => '허용 안 됨',
     };
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          key: const ValueKey('mypage-location-row'),
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              const _SettingsIcon(icon: Icons.location_on_outlined),
-              const SizedBox(width: 10),
-              const Text('위치 권한 설정', style: _settingText),
-              const Spacer(),
-              SizedBox(
-                key: const ValueKey('mypage-location-action'),
-                height: 24,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      value,
-                      key: const ValueKey('mypage-location-status'),
-                      style:
-                          (access == DeviceAccess.allowed
-                                  ? _allowedText
-                                  : _muted11)
-                              .copyWith(height: 1),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      key: ValueKey('mypage-location-chevron'),
-                      color: MypageScreen.muted,
-                      size: 18,
-                    ),
-                  ],
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            key: const ValueKey('mypage-location-row'),
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                const _SettingsIcon(icon: Icons.location_on_outlined),
+                const SizedBox(width: 10),
+                const Text('위치 권한 설정', style: _settingText),
+                const Spacer(),
+                SizedBox(
+                  key: const ValueKey('mypage-location-action'),
+                  height: 24,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        value,
+                        key: const ValueKey('mypage-location-status'),
+                        style:
+                            (access == DeviceAccess.allowed
+                                    ? _allowedText
+                                    : _muted11)
+                                .copyWith(height: 1),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        key: ValueKey('mypage-location-chevron'),
+                        color: MypageScreen.muted,
+                        size: 18,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-            ],
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),
@@ -1418,26 +1473,30 @@ class _SettingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              const SizedBox(width: 16),
-              _SettingsIcon(icon: icon),
-              const SizedBox(width: 10),
-              Text(title, style: _settingText),
-              const Spacer(),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: MypageScreen.muted,
-                size: 18,
-              ),
-              const SizedBox(width: 16),
-            ],
+    // Read as a button, not as plain text (QA 10/7 #54).
+    return Semantics(
+      button: true,
+      child: Material(
+        color: AppColors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                _SettingsIcon(icon: icon),
+                const SizedBox(width: 10),
+                Text(title, style: _settingText),
+                const Spacer(),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: MypageScreen.muted,
+                  size: 18,
+                ),
+                const SizedBox(width: 16),
+              ],
+            ),
           ),
         ),
       ),
