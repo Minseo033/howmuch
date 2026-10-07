@@ -252,6 +252,8 @@ class UserReportStatus {
     this.reportType = '',
     this.changeType = '',
     this.resolution = '',
+    this.previousPrice = '',
+    this.previousFree = false,
   });
 
   final String id;
@@ -276,6 +278,11 @@ class UserReportStatus {
   final String reportType;
   final String changeType;
   final String resolution;
+
+  /// 승인된 가격 변동 제보가 바꾸기 전 매장에 공개돼 있던 가격입니다. 서버가 보내지
+  /// 않은 제보(승인 전·반영 기록이 없는 옛 승인)는 빈 문자열입니다.
+  final String previousPrice;
+  final bool previousFree;
 
   bool get isInformationReport => reportType.toUpperCase() == 'STORE_INFO';
   bool get isApproved => status.contains('승인') || status == 'APPROVED';
@@ -422,6 +429,8 @@ class UserReportStatus {
       reportType: json['reportType']?.toString() ?? '',
       changeType: json['changeType']?.toString() ?? '',
       resolution: resolution,
+      previousPrice: json['previousPrice']?.toString().trim() ?? '',
+      previousFree: json['previousFree'] == true,
     );
   }
 
@@ -448,6 +457,8 @@ class UserReportStatus {
     String? reportType,
     String? changeType,
     String? resolution,
+    String? previousPrice,
+    bool? previousFree,
   }) {
     return UserReportStatus(
       id: id ?? this.id,
@@ -472,6 +483,8 @@ class UserReportStatus {
       reportType: reportType ?? this.reportType,
       changeType: changeType ?? this.changeType,
       resolution: resolution ?? this.resolution,
+      previousPrice: previousPrice ?? this.previousPrice,
+      previousFree: previousFree ?? this.previousFree,
     );
   }
 

@@ -216,7 +216,8 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
   static String _visitDateText(dynamic item) =>
       item['date']?.toString() ?? item['visitedAt']?.toString() ?? '';
 
-  /// 방문 기록에 담긴 출처입니다. 절약 내역 응답에는 storeSource가 없어 보통
+  /// 절약 내역에 담긴 매장 출처입니다. 서버는 지도·매장 상세와 같은 출처를
+  /// storeSource로 보냅니다. 매장을 찾지 못했거나 이전 서버라 이 값이 없으면
   /// isGov로 정부 인증 여부만 알 수 있습니다.
   static String? _recordedSource(dynamic item) {
     final source = item['storeSource']?.toString().trim().toUpperCase();
@@ -225,7 +226,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
     return null;
   }
 
-  /// 기간 안의 정부 인증이 아닌 방문 기록은 매장 정보로 실제 출처를 확인합니다.
+  /// 출처를 받지 못한 기간 안의 방문 기록은 매장 정보로 실제 출처를 확인합니다.
   /// 지도와 매장 상세도 이 매장 정보의 출처를 쓰므로 같은 매장이 화면마다 다르게
   /// 보이지 않습니다. 조회하지 못한 매장은 출처를 추측하지 않습니다.
   Future<Map<String, String>> _lookUpStoreSources(List<dynamic> history) async {

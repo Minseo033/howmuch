@@ -2652,6 +2652,10 @@ public class FirebaseService {
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments();
 
+        // QA 2026-10-07 #41: 매장 출처는 지도·매장 상세와 같은 공개 매장 목록에서 정합니다. 방문 저장 때
+        // isGov를 정한 방식처럼 storeId, 없으면 매장명으로 찾고 같은 매장은 한 번만 찾습니다.
+        List<Map<String, Object>> catalog = getStoreCatalogEntry().stores();
+        Map<String, Map<String, Object>> storesByKey = new HashMap<>();
         List<com.howmuch.dto.SavingsHistoryResponse> historyList = new ArrayList<>();
         for (DocumentSnapshot doc : documents) {
             Map<String, Object> data = doc.getData();
@@ -2668,10 +2672,14 @@ public class FirebaseService {
             if (industry == null || industry.isBlank()) {
                 industry = findIndustryByStoreName(storeName);
             }
+            String storeId = data.get("storeId") != null ? data.get("storeId").toString() : null;
+            String storeKey = storeId != null && !storeId.isBlank() ? storeId : storeName;
+            Map<String, Object> store = storeKey == null ? null
+                    : storesByKey.computeIfAbsent(storeKey, key -> resolveReviewStore(key, catalog));
 
             com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
                     .id(doc.getId())
-                    .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
+                    .storeId(storeId)
                     .storeName(storeName)
                     .category(industry)
                     .visitedAt(visitedAtStr)
@@ -2681,6 +2689,7 @@ public class FirebaseService {
                     .savedAmount(savedAmt != null ? savedAmt : 0L)
                     .isGov(isGov)
                     .isFree(Boolean.TRUE.equals(data.get("isFree")))
+                    .storeSource(store == null ? null : strOrNull(store.get("source")))
                     .build();
 
             historyList.add(dto);

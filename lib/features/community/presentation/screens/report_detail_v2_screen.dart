@@ -701,7 +701,8 @@ class _PriceLine extends StatelessWidget {
 
 /// 가격 변동 제보의 변동 유형·메뉴·가격입니다. 승인 전에는 대상 매장에 아직
 /// 반영되지 않았으므로 지금 등록된 가격을 기존 가격으로 보여 줍니다. 승인된 제보는
-/// 이미 반영돼 같은 값이 보이므로 조회하지 않습니다.
+/// 매장에 이미 새 가격이 반영돼 있어 조회하지 않고, 서버가 보낸 반영 전 가격을
+/// 씁니다. 이 값이 없는 옛 승인 건은 기존 가격 줄을 숨깁니다.
 class _PriceChangeLines extends ConsumerWidget {
   const _PriceChangeLines({required this.report});
 
@@ -716,7 +717,9 @@ class _PriceChangeLines extends ConsumerWidget {
         !report.isApproved && storeId.isNotEmpty && menuName.isNotEmpty
         ? ref.watch(reportTargetStoreProvider(storeId)).valueOrNull
         : null;
-    final existingPrice = store == null
+    final existingPrice = report.isApproved
+        ? _previousPrice(report)
+        : store == null
         ? null
         : _registeredPrice(store, menuName);
     final reportedPrice =
@@ -770,6 +773,11 @@ class _PriceChangeLines extends ConsumerWidget {
     }
     return null;
   }
+
+  static String? _previousPrice(UserReportStatus report) =>
+      report.previousPrice.isEmpty && !report.previousFree
+      ? null
+      : formatMenuPrice(report.previousPrice, free: report.previousFree);
 }
 
 class _ProgressCard extends StatelessWidget {

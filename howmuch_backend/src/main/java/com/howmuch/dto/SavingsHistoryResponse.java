@@ -25,4 +25,5 @@ public class SavingsHistoryResponse {
     private Long savedAmount;   // 절약 금액 (원)
     private Boolean isGov;      // 착한가격업소 여부 (정부인증 여부)
     private Boolean isFree;     // Explicitly approved free use; savings are not invented
+    private String storeSource; // 지도·매장 상세와 같은 매장 출처(GOV·USER). 매장을 찾지 못하면 null
 }
