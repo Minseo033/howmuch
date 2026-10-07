@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -86,6 +87,10 @@ class _CommunityPostDetailScreenState
   static const _lengthHintThreshold = 900;
   int _composerLength = 0;
 
+  /// Whether the composer has something to send. An empty comment cannot be
+  /// sent, so the send button looks off like the AI chat's (QA #39).
+  bool _composerHasText = false;
+
   @override
   void initState() {
     super.initState();
@@ -97,8 +102,12 @@ class _CommunityPostDetailScreenState
   void _onComposerChanged() {
     final length = _controller.text.characters.length;
     final hintWasVisible = _composerLength >= _lengthHintThreshold;
+    final hasText = _controller.text.trim().isNotEmpty;
+    final canSendChanged = hasText != _composerHasText;
     _composerLength = length;
-    if ((hintWasVisible || length >= _lengthHintThreshold) && mounted) {
+    _composerHasText = hasText;
+    if ((hintWasVisible || length >= _lengthHintThreshold || canSendChanged) &&
+        mounted) {
       setState(() {});
     }
   }
@@ -702,13 +711,20 @@ class _CommunityPostDetailScreenState
                                 ),
                               ),
                             ),
-                            GestureDetector(
-                              onTap: () => setState(() => _replyTarget = null),
-                              behavior: HitTestBehavior.opaque,
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 16,
-                                color: CommunityPostDetailScreen.muted,
+                            // The bare X had no name (QA 10/7 #50).
+                            Semantics(
+                              container: true,
+                              button: true,
+                              label: '답글 취소',
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _replyTarget = null),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 16,
+                                  color: CommunityPostDetailScreen.muted,
+                                ),
                               ),
                             ),
                           ],
@@ -823,30 +839,36 @@ class _CommunityPostDetailScreenState
                             width: 52,
                             height: composerHeight,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitComment,
+                              onPressed: _isSubmitting || !_composerHasText
+                                  ? null
+                                  : _submitComment,
                               style: FilledButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 backgroundColor: CommunityPostDetailScreen.blue,
-                                disabledBackgroundColor:
-                                    CommunityPostDetailScreen.muted,
+                                disabledBackgroundColor: _isSubmitting
+                                    ? CommunityPostDetailScreen.muted
+                                    : AppColors.disabledSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                              child: Semantics(
+                                label: replyTarget == null ? '댓글 등록' : '답글 등록',
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 18,
                                         color: Colors.white,
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
+                              ),
                             ),
                           ),
                         ],
@@ -1284,51 +1306,59 @@ class _PostCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: notificationInFlight ? null : onNotifyTap,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: notificationEnabled
-                        ? const Color(0xFFEFF4FF)
-                        : const Color(0xFFFFFFFF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
+              // An on/off button like IconButton(isSelected), not plain
+              // text (QA 10/7 #54).
+              Semantics(
+                container: true,
+                button: true,
+                selected: notificationEnabled,
+                enabled: !notificationInFlight,
+                child: GestureDetector(
+                  onTap: notificationInFlight ? null : onNotifyTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
                       color: notificationEnabled
                           ? const Color(0xFFEFF4FF)
-                          : const Color(0xFFE5E7EB),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        notificationEnabled
-                            ? Icons.notifications_active_rounded
-                            : Icons.notifications_none_rounded,
-                        size: 14,
+                          : const Color(0xFFFFFFFF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
                         color: notificationEnabled
-                            ? CommunityPostDetailScreen.blue
-                            : CommunityPostDetailScreen.muted,
+                            ? const Color(0xFFEFF4FF)
+                            : const Color(0xFFE5E7EB),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
-                        style: TextStyle(
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          notificationEnabled
+                              ? Icons.notifications_active_rounded
+                              : Icons.notifications_none_rounded,
+                          size: 14,
                           color: notificationEnabled
                               ? CommunityPostDetailScreen.blue
                               : CommunityPostDetailScreen.muted,
-                          fontFamily: CommunityPostDetailScreen.fontFamily,
-                          fontFamilyFallback:
-                              CommunityPostDetailScreen.fontFallback,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          notificationEnabled ? '알림 켜짐' : '새 댓글 알림',
+                          style: TextStyle(
+                            color: notificationEnabled
+                                ? CommunityPostDetailScreen.blue
+                                : CommunityPostDetailScreen.muted,
+                            fontFamily: CommunityPostDetailScreen.fontFamily,
+                            fontFamilyFallback:
+                                CommunityPostDetailScreen.fontFallback,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1574,6 +1604,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
                         Icons.close_rounded,
                         color: Colors.white,
                         size: 28,
+                        // The bare X had no name (QA 10/7 #50).
+                        semanticLabel: '사진 닫기',
                       ),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
@@ -1758,7 +1790,7 @@ class _PostMetric extends StatelessWidget {
         ? CommunityPostDetailScreen.blue
         : CommunityPostDetailScreen.muted;
 
-    return GestureDetector(
+    final metric = GestureDetector(
       onTap: busy ? null : onTap,
       behavior: HitTestBehavior.opaque,
       child: Row(
@@ -1789,6 +1821,16 @@ class _PostMetric extends StatelessWidget {
           ),
         ],
       ),
+    );
+    if (onTap == null) return metric;
+    // The reaction toggles: a button that says whether it is on, like
+    // IconButton(isSelected), not plain text (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      selected: active,
+      enabled: !busy,
+      child: metric,
     );
   }
 }
@@ -1900,15 +1942,19 @@ class _CommentCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    GestureDetector(
-                      onTap: onReply,
-                      behavior: HitTestBehavior.opaque,
-                      child: const Text(
-                        '답글',
-                        style: TextStyle(
-                          color: CommunityPostDetailScreen.blue,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                    Semantics(
+                      container: true,
+                      button: true,
+                      child: GestureDetector(
+                        onTap: onReply,
+                        behavior: HitTestBehavior.opaque,
+                        child: const Text(
+                          '답글',
+                          style: TextStyle(
+                            color: CommunityPostDetailScreen.blue,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -2110,7 +2156,8 @@ String _formatCommentDate(String value) {
     final parsed = DateTime.parse(value).toLocal();
     final now = DateTime.now();
     final diff = now.difference(parsed);
-    if (diff.inSeconds < 45) return '방금 전';
+    // QA #40: 45-59 seconds used to read '0분 전'.
+    if (diff.inMinutes < 1) return '방금 전';
     if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';

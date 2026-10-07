@@ -176,9 +176,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         final pastNotifications = filteredNotifications
                             .where((n) => n.section == '이전')
                             .toList();
+                        final refreshEdge =
+                            topOffset +
+                            HowmuchTopBar.height +
+                            HowmuchTopBar.height;
 
                         if (filteredNotifications.isEmpty) {
-                          return Center(
+                          final emptyState = Center(
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
@@ -216,10 +220,25 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               ),
                             ),
                           );
+                          return _pullToRefresh(
+                            edgeOffset: refreshEdge,
+                            child: LayoutBuilder(
+                              builder: (context, constraints) =>
+                                  SingleChildScrollView(
+                                    physics: _refreshPhysics,
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: constraints.maxHeight,
+                                      ),
+                                      child: emptyState,
+                                    ),
+                                  ),
+                            ),
+                          );
                         }
 
-                        return SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
+                        final list = SingleChildScrollView(
+                          physics: _refreshPhysics,
                           padding: EdgeInsets.only(
                             top:
                                 topOffset +
@@ -300,6 +319,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                               ],
                             ],
                           ),
+                        );
+                        return _pullToRefresh(
+                          edgeOffset: refreshEdge,
+                          child: list,
                         );
                       },
                     ),
@@ -419,6 +442,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       return;
     }
     context.go(AppRoutes.home);
+  }
+
+  static const _refreshPhysics = AlwaysScrollableScrollPhysics(
+    parent: BouncingScrollPhysics(),
+  );
+
+  /// Pull down to reload the inbox, like the other lists. On the web the app
+  /// lets a mouse drag the list too, so this also works there (QA #22).
+  Widget _pullToRefresh({required double edgeOffset, required Widget child}) {
+    return RefreshIndicator(
+      color: const Color(0xFF2563EB),
+      edgeOffset: edgeOffset,
+      onRefresh: () => ref
+          .read(notificationsProvider.notifier)
+          .loadNotifications(isRefresh: true),
+      child: child,
+    );
   }
 
   Widget _buildRefreshError() => Padding(

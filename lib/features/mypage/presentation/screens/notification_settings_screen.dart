@@ -597,20 +597,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: NotificationSettingsScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: NotificationSettingsScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -667,7 +672,9 @@ class _AllNotificationCard extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 알림을 켜고 끌 수 있어요',
+                  // 아래 알림 유형을 한꺼번에 바꾸는 스위치입니다. 이 기기로 푸시를
+                  // 받을지는 마이의 '이 기기 푸시 알림'이 따로 정합니다.
+                  subtitle: '알림 유형을 한 번에 켜고 꺼요',
                 ),
               ),
             ),
@@ -1105,9 +1112,12 @@ class _HowmuchToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without an enabled flag iOS reads the switch as disabled even when it
+    // is on and works (QA 10/7 #50).
     return Semantics(
       button: true,
       toggled: value,
+      enabled: true,
       label: semanticLabel ?? '알림 설정',
       child: GestureDetector(
         onTap: onTap,

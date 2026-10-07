@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
+import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class RecommendationRadiusButton extends ConsumerWidget {
   const RecommendationRadiusButton({super.key});
@@ -15,6 +17,11 @@ class RecommendationRadiusButton extends ConsumerWidget {
           context: context,
           isScrollControlled: true,
           showDragHandle: true,
+          // Stays inside the 430 app column on a wide browser window instead
+          // of Material's 640 default, like the search filter sheet.
+          constraints: const BoxConstraints(
+            maxWidth: FigmaMobileCanvas.maxWebWidth,
+          ),
           builder: (sheetContext) => SafeArea(
             child: ConstrainedBox(
               constraints: BoxConstraints(
@@ -46,8 +53,11 @@ class RecommendationRadiusButton extends ConsumerWidget {
                       itemCount: 15,
                       itemBuilder: (_, index) {
                         final meters = (index + 1) * 1000;
-                        return Semantics(
+                        // One element per option that says which one is
+                        // picked; the check mark alone was silent (#52).
+                        return ChoiceSemantics(
                           selected: meters == radius,
+                          singleChoice: true,
                           child: ListTile(
                             title: Text('${index + 1}km 이내'),
                             trailing: meters == radius

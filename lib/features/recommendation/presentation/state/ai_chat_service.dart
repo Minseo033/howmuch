@@ -356,7 +356,7 @@ class LocalAiRecommendation {
   final List<RecommendationMenuSelection> menuSelections;
 }
 
-enum MapResultOrigin { aiRecommendation, approvedReport }
+enum MapResultOrigin { aiRecommendation, approvedReport, todaysPick }
 
 class AiMapRecommendationResult {
   const AiMapRecommendationResult({
@@ -531,11 +531,97 @@ List<({String menu, Object? price, bool free})> _storeMenuEntries(Store store) {
   return eligible.isEmpty ? null : eligible.first;
 }
 
+/// 음식점이 아닌 업종(공공데이터 기타비요식업·미용업·이용업·세탁업·숙박업·목욕업,
+/// 제보 업종 생활서비스·숙박·교통·주차). 음식을 찾는 요청에서는 메뉴와 상관없이 뺀다.
+const _nonFoodIndustries = [
+  '비요식',
+  '미용',
+  '이용업',
+  '이발',
+  '헤어',
+  '네일',
+  '세탁',
+  '수선',
+  '목욕',
+  '사우나',
+  '숙박',
+  '생활서비스',
+  '교통',
+  '주차',
+];
+
+/// 분식으로 보는 메뉴. 순대국·쌀국수는 순대·국수가 들어 있어도 분식이 아니다.
+const _bunsikMenus = [
+  '분식',
+  '김밥',
+  '떡볶이',
+  '라볶이',
+  '순대',
+  '튀김',
+  '어묵',
+  '오뎅',
+  '라면',
+  '쫄면',
+  '우동',
+  '국수',
+  '수제비',
+  '만두',
+  '돈가스',
+  '돈까스',
+  '주먹밥',
+  '유부초밥',
+  '핫도그',
+  '떡꼬치',
+  '토스트',
+  '컵밥',
+  '오므라이스',
+];
+const _notBunsikMenus = ['순대국', '순댓국', '쌀국수'];
+
+/// 분식 메뉴가 있어도 분식집으로 보지 않는 다른 음식 업종(중식당의 우동·만두 등).
+const _notBunsikVenues = [
+  '중식',
+  '중화',
+  '일식',
+  '양식',
+  '카페',
+  '커피',
+  '베이커리',
+  '제과',
+  '치킨',
+  '패스트푸드',
+  '고기',
+];
+
+/// 음식 종류를 말한 요청: (질문 단어, 그 종류로 보는 업종, 분식 메뉴로도 판단하는지).
+/// '중화'만으로는 찾지 않는다(중화역·중화동 같은 지명).
+const _cuisineRequests = <(List<String>, List<String>, bool)>[
+  (['분식'], ['분식'], true),
+  (['한식'], ['한식'], false),
+  (['중식', '중국집', '중화요리'], ['중식', '중화'], false),
+  (['일식'], ['일식'], false),
+  (['양식'], ['양식'], false),
+];
+
+bool _matchesCuisine(
+  (List<String>, List<String>, bool) cuisine,
+  String item,
+  String venue,
+) {
+  final (_, venueWords, bunsikMenus) = cuisine;
+  if (venueWords.any(venue.contains)) return true;
+  return bunsikMenus &&
+      _bunsikMenus.any(item.contains) &&
+      !_notBunsikMenus.any(item.contains) &&
+      !_notBunsikVenues.any(venue.contains);
+}
+
 /// Mirrors GeminiService.menuMatchesIntent, which decides the server's AI and
 /// fallback recommendations. The local fallback (server unreachable) must pick
-/// stores by the same rules, e.g. "혼밥 분식 추천" keeps 칼국수 on both sides.
-/// Soup requests also exclude 콩국수 and 탕수육 (FE-STORE-12); the server rule
-/// needs the same two entries.
+/// stores by the same rules; test/ai_shared_rules_test.dart holds the shared
+/// table. "혼밥 분식 추천" keeps 분식 menus such as 칼국수 and 김밥 but not
+/// 삼겹살 or a photo studio (QA 2026-10-07 #1). Soup requests also exclude
+/// 콩국수 and 탕수육 (FE-STORE-12).
 bool menuMatchesRecommendationQuery(
   String menu,
   String query, {
@@ -613,8 +699,17 @@ bool menuMatchesRecommendationQuery(
       ].any(item.contains)) {
     return false;
   }
+  // '분식'·'중식'처럼 음식 종류를 말하면 그 종류의 메뉴·업종만 맞는다.
+  final cuisines = _cuisineRequests
+      .where((cuisine) => cuisine.$1.any(q.contains))
+      .toList(growable: false);
+  if (cuisines.isNotEmpty &&
+      !cuisines.any((cuisine) => _matchesCuisine(cuisine, item, venue))) {
+    return false;
+  }
   final meal =
       soup ||
+      cuisines.isNotEmpty ||
       const [
         '점심',
         '저녁',
@@ -663,6 +758,9 @@ bool menuMatchesRecommendationQuery(
   ].any(item.contains);
   // Unknown cafe menu names can be branded drinks (e.g. 메가리카노).
   if (meal && !cafe && cafeVenue && !cafeFood) return false;
+  // 음식을 찾는 요청(식사·카페·메뉴·코스)에서는 음식점이 아닌 업종을 뺀다.
+  final foodRequest = meal || cafe || dishes.isNotEmpty || q.contains('코스');
+  if (foodRequest && _nonFoodIndustries.any(venue.contains)) return false;
   final serviceText = '$venue $item';
   if (meal &&
       const [
@@ -746,7 +844,7 @@ LocalAiRecommendation? buildLocalAiFallbackResult({
   }
   final lines = <String>[
     'AI 연결 대신 확인된 매장 정보를 안내해요. ${radiusMeters ~/ 1000}km 안에서 조건에 맞는 매장 ${selected.length}곳이에요.',
-    if (selected.length < count) '조건에 맞는 매장이 부족해 먼 매장으로 채우지 않았어요.',
+    if (selected.length < count) '조건에 맞는 매장이 부족해 다른 매장으로 채우지 않았어요.',
     for (var index = 0; index < selected.length; index++)
       '${index + 1}. ${selected[index].store.storeName} — ${selected[index].menu} · ${formatRecommendationPrice(selected[index].price, free: selected[index].free)} · ${formatRecommendationDistance(selected[index].distance)}',
   ];

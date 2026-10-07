@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
@@ -9,6 +10,7 @@ import 'package:howmuch/features/store/store_model.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
@@ -32,6 +34,8 @@ class StoreInfoReportScreen extends ConsumerStatefulWidget {
 class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   int _selectedTypeIndex = 1; // 기본: '가격이 달라요'
   bool _isSubmitting = false;
+  bool _saved = false;
+  bool _leaving = false;
   bool _isFree = false;
   int? _selectedMenuSlot;
   String? _priceError;
@@ -41,6 +45,12 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
 
   final _priceController = TextEditingController();
   final _descController = TextEditingController();
+
+  /// The form as it opened, so leaving without changes does not ask (QA #35).
+  late final String _initialSnapshot;
+
+  /// Whether the last build asked [PopScope] to stop the back gesture.
+  bool _blocksPop = false;
 
   Store? get _store {
     if (widget.store != null) return widget.store;
@@ -82,19 +92,77 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     final slots = _registeredMenuSlots;
     _selectedMenuSlot = slots.isEmpty ? null : slots.first.slot;
     final initial = widget.initialReport;
-    if (initial == null) return;
-    _selectedTypeIndex = _types.indexWhere(
-      (type) => type['value'] == initial.changeType,
-    );
-    _descController.text = initial.description;
-    if (initial.menuPrices.isNotEmpty &&
-        initial.changeType == 'price_mismatch') {
-      _priceController.text = initial.menuPrices.first.price;
-      _isFree = initial.menuPrices.first.free;
-      final reportedMenu = initial.menuPrices.first.menu.trim();
-      final matching = slots.where((item) => item.menu == reportedMenu);
-      if (matching.isNotEmpty) _selectedMenuSlot = matching.first.slot;
+    if (initial != null) {
+      _selectedTypeIndex = _types.indexWhere(
+        (type) => type['value'] == initial.changeType,
+      );
+      _descController.text = initial.description;
+      if (initial.menuPrices.isNotEmpty &&
+          initial.changeType == 'price_mismatch') {
+        _priceController.text = initial.menuPrices.first.price;
+        _isFree = initial.menuPrices.first.free;
+        final reportedMenu = initial.menuPrices.first.menu.trim();
+        final matching = slots.where((item) => item.menu == reportedMenu);
+        if (matching.isNotEmpty) _selectedMenuSlot = matching.first.slot;
+      }
     }
+    _initialSnapshot = _formSnapshot();
+    _priceController.addListener(_onDraftEdited);
+    _descController.addListener(_onDraftEdited);
+  }
+
+  String _formSnapshot() => [
+    _selectedTypeIndex,
+    _selectedMenuSlot,
+    _priceController.text.trim(),
+    _isFree,
+    _descController.text.trim(),
+  ].join('\n');
+
+  bool get _hasUnsavedChanges =>
+      !_saved && !_leaving && _formSnapshot() != _initialSnapshot;
+
+  void _onDraftEdited() {
+    if (mounted && _hasUnsavedChanges != _blocksPop) setState(() {});
+  }
+
+  void _closeForm() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(
+        widget.initialReport == null ? AppRoutes.home : AppRoutes.myReportsV2,
+      );
+    }
+  }
+
+  void _handleBack() {
+    if (_isSubmitting) return;
+    if (_hasUnsavedChanges) {
+      _confirmLeave();
+      return;
+    }
+    _closeForm();
+  }
+
+  Future<void> _confirmLeave() async {
+    final editing = widget.initialReport != null;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: editing ? '수정 중인 신고를 나갈까요?' : '작성 중인 신고를 나갈까요?',
+        description: editing ? '수정한 내용은 저장되지 않아요.' : '입력한 신고 내용은 저장되지 않아요.',
+        cancelLabel: editing ? '계속 수정' : '계속 작성',
+        confirmLabel: '나가기',
+        cancelFlex: 1,
+        confirmFlex: 1,
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (leave != true || !mounted || _isSubmitting) return;
+    setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _closeForm();
   }
 
   final List<Map<String, String>> _types = [
@@ -221,6 +289,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       if (reports != null) {
         ref.read(userReportsProvider.notifier).setReports(reports);
       }
+      _saved = true;
       ScaffoldMessenger.of(context).showSnackBar(
         HowmuchSnackBar(
           content: Text(
@@ -242,9 +311,13 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   }
 
   void _showMessage(String message) {
+    // Replaces the notice on screen at once and floats above the submit
+    // button, so the button can be tapped again while it shows (QA #37).
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   @override
@@ -258,7 +331,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FigmaMobileCanvas(
+    final form = FigmaMobileCanvas(
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
@@ -392,6 +465,14 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
         ),
       ),
     );
+    _blocksPop = _hasUnsavedChanges;
+    return PopScope(
+      canPop: !_isSubmitting && !_blocksPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: form,
+    );
   }
 
   Widget _buildStoreCard() {
@@ -513,6 +594,10 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       controller: _priceController,
       focusNode: _firstInvalidFocus,
       keyboardType: TextInputType.number,
+      // An error about the old value goes away once it is being fixed.
+      onChanged: (_) {
+        if (_priceError != null) setState(() => _priceError = null);
+      },
       style: const TextStyle(fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: '실제 가격 (필수)',
@@ -543,6 +628,12 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       controller: _descController,
       focusNode: _descriptionFocus,
       maxLines: 3,
+      // QA #36: '신고 내용을 입력해주세요' disappears as soon as there is text.
+      onChanged: (value) {
+        if (_descriptionError != null && value.trim().isNotEmpty) {
+          setState(() => _descriptionError = null);
+        }
+      },
       decoration: InputDecoration(
         labelText: '신고 내용 (필수)',
         hintStyle: const TextStyle(color: Colors.grey),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/app_route_observer.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
@@ -64,6 +65,9 @@ import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final routeObserver = ref.watch(appRouteObserverProvider);
+  final navigationTracker = ref.watch(appNavigationTrackerProvider);
+  // Read before the router reports the splash address to the browser.
+  final startupLocation = ref.watch(startupLocationProvider);
   final platformUri = Uri.tryParse(
     WidgetsBinding.instance.platformDispatcher.defaultRouteName,
   );
@@ -71,14 +75,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
   return GoRouter(
     initialLocation: AppRoutes.splash,
-    observers: [routeObserver],
+    observers: [routeObserver, navigationTracker],
     // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
     // 카카오 OAuth 콜백은 SDK가 처리할 수 있도록 원래 경로를 보존합니다.
+    // 요청한 주소는 startupLocation이 보관했다가 세션 확인·로그인 뒤 엽니다.
+    // 탭 위에 push한 화면은 탭 주소를 유지하므로 새로고침하면 그 탭으로 돌아갑니다.
     overridePlatformDefaultLocation: !isOauthCallback,
     redirect: (context, state) {
       if (state.uri.host == 'oauth' || state.uri.path == '/oauth') {
         return '/oauth_loading';
       }
+      if (!isStartupPath(state.uri.path)) startupLocation.clear();
       return null;
     },
     routes: [

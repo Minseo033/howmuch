@@ -5,7 +5,7 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -271,7 +271,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
         }
       }
 
-      if (mounted) context.go(AppRoutes.home);
+      // A new member also reaches the address requested before sign-up.
+      if (mounted) context.go(ref.read(startupLocationProvider).take());
     } catch (e) {
       _showErrorSnackBar('저장 중 오류가 발생했어요. 다시 시도해 주세요.');
     } finally {

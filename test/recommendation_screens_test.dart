@@ -149,7 +149,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('가까운 순서로 정한 동선'), findsOneWidget);
+    expect(find.text('총 이동 거리가 짧도록 정한 동선'), findsOneWidget);
     expect(find.text('동선 안내'), findsOneWidget);
     expect(find.textContaining('AI 추천'), findsNothing);
 
@@ -319,7 +319,111 @@ void main() {
     expect(find.textContaining('삼겹살 · 10,000원'), findsNothing);
     _expectNoFlutterError(tester);
   });
+
+  testWidgets('the route guide follows the card order (QA #6, #27)', (
+    tester,
+  ) async {
+    await _setMobileViewport(tester, const Size(360, 800));
+    final service = _FakeTodaysPickService(
+      route: {
+        // The server text sorts the stops by distance from the current
+        // location, while the picks come in the route order.
+        'route':
+            '현재는 거리순으로 추천 루트를 안내합니다.\n'
+            '1. 등촌샤브칼국수 (버섯칼국수, 10000원) - 현재 위치에서 가까운 순서\n'
+            '2. 온밥 (제육덮밥, 7500원) - 현재 위치에서 가까운 순서\n'
+            '3. 아콘스톨 (김밥, 3000원) - 현재 위치에서 가까운 순서',
+        'picks': [
+          _routePick('온밥', '제육덮밥', '7500', 615),
+          _routePick('등촌샤브칼국수', '버섯칼국수', '10000', 542),
+          _routePick('아콘스톨', '김밥', '3000', 688),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(_app(service, const OptimalRouteScreen()));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('route-step-1')),
+        matching: find.text('온밥'),
+      ),
+      findsOneWidget,
+    );
+    final guide = tester.widget<Text>(find.textContaining('1. 온밥')).data!;
+    expect(
+      guide.split('\n').where((line) => RegExp(r'^\d+\. ').hasMatch(line)),
+      [
+        '1. 온밥 (제육덮밥, 7,500원)',
+        '2. 등촌샤브칼국수 (버섯칼국수, 10,000원)',
+        '3. 아콘스톨 (김밥, 3,000원)',
+      ],
+    );
+    expect(find.textContaining('1. 등촌샤브칼국수'), findsNothing);
+    expect(find.textContaining('10000원'), findsNothing);
+    expect(find.text('가까운 순서로 정한 동선'), findsNothing);
+    _expectNoFlutterError(tester);
+  });
+
+  for (final (stops, picks, subtitle) in [
+    (
+      'three meals',
+      [
+        _routePick('국숫집', '잔치국수', '5000', 100),
+        _routePick('백반집', '백반', '7000', 200),
+        _routePick('김밥집', '김밥', '3000', 300),
+      ],
+      '저렴한 음식점 3곳을 들르는 동선을 추천해요',
+    ),
+    (
+      'a meal and a cafe',
+      [
+        _routePick('백반집', '백반', '7000', 200),
+        _routePick('동네카페', '아메리카노', '2000', 300, industry: '카페'),
+      ],
+      '식사부터 카페까지 저렴한 동선을 추천해요',
+    ),
+    (
+      'two dessert places',
+      [
+        _routePick('동네카페', '아메리카노', '2000', 300, industry: '카페'),
+        _routePick('소금빵집', '소금빵', '2500', 400, industry: '제과점'),
+      ],
+      '저렴한 카페·디저트 2곳을 들르는 동선을 추천해요',
+    ),
+  ]) {
+    testWidgets('the route subtitle describes $stops (QA #25)', (tester) async {
+      await _setMobileViewport(tester, const Size(360, 800));
+      await tester.pumpWidget(
+        _app(
+          _FakeTodaysPickService(
+            route: {'route': '현재는 거리순으로 추천 루트를 안내합니다.', 'picks': picks},
+          ),
+          const OptimalRouteScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(subtitle), findsOneWidget);
+      _expectNoFlutterError(tester);
+    });
+  }
 }
+
+Map<String, dynamic> _routePick(
+  String name,
+  String menu,
+  String price,
+  int distanceMeters, {
+  String industry = '한식',
+}) => {
+  'storeName': name,
+  'industry': industry,
+  'menu1': menu,
+  'price1': price,
+  'distanceMeters': distanceMeters,
+};
 
 Widget _app(TodaysPickService service, Widget child) {
   return ProviderScope(

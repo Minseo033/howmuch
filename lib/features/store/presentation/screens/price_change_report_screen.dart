@@ -16,6 +16,7 @@ import 'package:howmuch/features/community/presentation/state/user_report_model.
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 
 /// 등록 가격이 범위나 여러 값이면 서버가 인상·인하 방향을 비교할 수 없습니다.
@@ -127,9 +128,16 @@ class _PriceChangeReportScreenState
   bool _isFree = false;
   bool _isSubmitting = false;
   bool _saved = false;
+  bool _leaving = false;
   int? _selectedMenuIndex;
   Store? _loadedStore;
   bool _loadingStore = false;
+
+  /// The form as it opened, so leaving without changes does not ask (QA #35).
+  late final String _initialSnapshot;
+
+  /// Whether the last build asked [PopScope] to stop the back gesture.
+  bool _blocksPop = false;
 
   final _menuController = TextEditingController();
   final _priceController = TextEditingController();
@@ -336,17 +344,73 @@ class _PriceChangeReportScreenState
         ),
       ),
     );
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go(editing ? AppRoutes.myReportsV2 : AppRoutes.home);
-    }
+    _closeForm();
   }
 
   void _showMessage(String message) {
+    // Replaces the notice on screen at once and floats above the submit
+    // button, so the button can be tapped again while it shows (QA #37).
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(HowmuchSnackBar(content: Text(message)));
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
+  }
+
+  String _formSnapshot() => [
+    _selectedType,
+    _menuController.text.trim(),
+    _priceController.text.trim(),
+    _isFree,
+    _descController.text.trim(),
+    _isConfirmed,
+    for (final image in _selectedImages) image.path,
+  ].join('\n');
+
+  bool get _hasUnsavedChanges =>
+      !_saved && !_leaving && _formSnapshot() != _initialSnapshot;
+
+  void _onDraftEdited() {
+    if (mounted && _hasUnsavedChanges != _blocksPop) setState(() {});
+  }
+
+  void _closeForm() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(_isEditing ? AppRoutes.myReportsV2 : AppRoutes.home);
+    }
+  }
+
+  void _handleBack() {
+    if (_isSubmitting) return;
+    if (_hasUnsavedChanges) {
+      _confirmLeave();
+      return;
+    }
+    _closeForm();
+  }
+
+  Future<void> _confirmLeave() async {
+    final editing = _isEditing;
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: editing ? '수정 중인 제보를 나갈까요?' : '작성 중인 제보를 나갈까요?',
+        description: editing
+            ? '수정한 내용은 저장되지 않아요.'
+            : '입력한 내용과 첨부한 사진은 저장되지 않아요.',
+        cancelLabel: editing ? '계속 수정' : '계속 작성',
+        confirmLabel: '나가기',
+        cancelFlex: 1,
+        confirmFlex: 1,
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (leave != true || !mounted || _isSubmitting) return;
+    setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _closeForm();
   }
 
   Future<void> _pickImages() async {
@@ -392,7 +456,10 @@ class _PriceChangeReportScreenState
         _menuController.text = menus.first.menu;
       }
     }
+    _initialSnapshot = _formSnapshot();
     _menuController.addListener(_onMenuChanged);
+    _priceController.addListener(_onDraftEdited);
+    _descController.addListener(_onDraftEdited);
     if (initial != null &&
         widget.store == null &&
         initial.storeId.trim().isNotEmpty) {
@@ -497,7 +564,7 @@ class _PriceChangeReportScreenState
         hasInexactRegisteredPrice(selectedMenu.price);
     final submitLocked =
         _isSubmitting || _saved || (widget.initialReport?.isApproved ?? false);
-    return FigmaMobileCanvas(
+    final form = FigmaMobileCanvas(
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
@@ -706,6 +773,14 @@ class _PriceChangeReportScreenState
           ),
         ),
       ),
+    );
+    _blocksPop = _hasUnsavedChanges;
+    return PopScope(
+      canPop: !_isSubmitting && !_blocksPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: form,
     );
   }
 
@@ -1024,17 +1099,22 @@ class _PriceChangeReportScreenState
   }
 
   Widget _buildCheckbox() {
-    return Row(
-      children: [
-        Checkbox(
-          value: _isConfirmed,
-          onChanged: (v) => setState(() => _isConfirmed = v ?? false),
-          activeColor: AppColors.primary,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-          side: BorderSide(color: Colors.grey.shade300),
-        ),
-        const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
-      ],
+    // One node: the check box alone read only its value (QA 10/7 #53).
+    return MergeSemantics(
+      child: Row(
+        children: [
+          Checkbox(
+            value: _isConfirmed,
+            onChanged: (v) => setState(() => _isConfirmed = v ?? false),
+            activeColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(4),
+            ),
+            side: BorderSide(color: Colors.grey.shade300),
+          ),
+          const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
+        ],
+      ),
     );
   }
 }

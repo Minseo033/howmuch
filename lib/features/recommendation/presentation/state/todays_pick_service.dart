@@ -272,32 +272,6 @@ bool _isFoodStore(Store store) {
 }
 
 bool _isDessertStore(Store store) {
-  const keywords = [
-    '카페',
-    '커피',
-    '아메리카노',
-    '라떼',
-    '에이드',
-    '주스',
-    '스무디',
-    '녹차',
-    '홍차',
-    '밀크티',
-    '디저트',
-    '베이커리',
-    '제과',
-    '빵',
-    '케이크',
-    '쿠키',
-    '도넛',
-    '꽈배기',
-    '크로플',
-    '와플',
-    '아이스크림',
-    '빙수',
-    '마카롱',
-    '샌드위치',
-  ];
   final text = [
     store.industry,
     store.storeName,
@@ -306,8 +280,53 @@ bool _isDessertStore(Store store) {
     store.menu3,
     store.menu4,
   ].join(' ').toLowerCase();
-  return keywords.any(text.contains);
+  return _dessertKeywords.any(text.contains);
 }
+
+/// Whether a recommended stop is a cafe or dessert place, judged the same way
+/// the server splits meals from desserts when it picks the stops.
+bool isDessertRecommendation(Map<String, dynamic> pick) {
+  final text = [
+    for (final key in const [
+      'industry',
+      'storeName',
+      'menu1',
+      'menu2',
+      'menu3',
+      'menu4',
+    ])
+      pick[key]?.toString() ?? '',
+  ].join(' ').toLowerCase();
+  return _dessertKeywords.any(text.contains);
+}
+
+/// Mirrors DESSERT_KEYWORDS in the server's FirebaseService.
+const _dessertKeywords = [
+  '카페',
+  '커피',
+  '아메리카노',
+  '라떼',
+  '에이드',
+  '주스',
+  '스무디',
+  '녹차',
+  '홍차',
+  '밀크티',
+  '디저트',
+  '베이커리',
+  '제과',
+  '빵',
+  '케이크',
+  '쿠키',
+  '도넛',
+  '꽈배기',
+  '크로플',
+  '와플',
+  '아이스크림',
+  '빙수',
+  '마카롱',
+  '샌드위치',
+];
 
 double _distanceMeters(double lat1, double lng1, double lat2, double lng2) {
   const earthRadius = 6371000.0;

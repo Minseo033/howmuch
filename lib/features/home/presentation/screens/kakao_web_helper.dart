@@ -4,7 +4,12 @@ import 'dart:ui_web' as ui_web;
 import 'package:web/web.dart' as web;
 
 @JS('initKakaoMap')
-external void _initKakaoMap(JSString viewId, JSNumber lat, JSNumber lng);
+external void _initKakaoMap(
+  JSString viewId,
+  JSNumber lat,
+  JSNumber lng, [
+  JSNumber? level,
+]);
 
 @JS('getKakaoMapBounds')
 external JSString? _getKakaoMapBounds(JSString viewId);
@@ -102,8 +107,18 @@ void fitKakaoMapStoresWeb(String viewId, String coordinates) =>
 void setKakaoMapSearchModeWeb(String viewId, bool enabled) =>
     _setKakaoMapSearchMode(viewId.toJS, enabled.toJS);
 
-void initKakaoWebMap(String viewId) {
-  _initKakaoMap(viewId.toJS, 37.5665.toJS, 126.9780.toJS);
+/// Starts the map at Seoul City Hall, or where a previous home screen left it.
+void initKakaoWebMap(
+  String viewId, {
+  double lat = 37.5665,
+  double lng = 126.9780,
+  int? level,
+}) {
+  if (level == null) {
+    _initKakaoMap(viewId.toJS, lat.toJS, lng.toJS);
+  } else {
+    _initKakaoMap(viewId.toJS, lat.toJS, lng.toJS, level.toJS);
+  }
 }
 
 void disposeKakaoWebMap(String viewId) {

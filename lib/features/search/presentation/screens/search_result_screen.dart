@@ -444,7 +444,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
         stores.sort(
-          (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: query),
+          (a, b) => SearchFilterPolicy.compareByPrice(
+            a,
+            b,
+            query: query,
+            // QA #31: the same price lists the nearer store first.
+            distanceOf: pos == null ? null : _distanceFor,
+          ),
         );
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
@@ -568,7 +574,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final topOffset = MediaQuery.of(context).padding.top;
     final activeFilters = _filter.activeLabels;
 
-    return FigmaMobileCanvas(
+    final screen = FigmaMobileCanvas(
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
@@ -781,6 +787,15 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
         ),
       ),
     );
+    // QA #33: like the store report form, tapping outside the search box
+    // closes the keyboard. Buttons and cards keep their own taps.
+    // It stays out of the semantics tree: as a tap action it turned the
+    // result count line into one tappable element holding the whole screen.
+    return GestureDetector(
+      excludeFromSemantics: true,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: screen,
+    );
   }
 }
 
@@ -828,6 +843,8 @@ class _SearchHeader extends StatelessWidget {
               children: [
                 // 뒤로가기
                 IconButton(
+                  // Unnamed before (QA 10/7 #50); same name as the app bars.
+                  tooltip: '뒤로가기',
                   onPressed: onBack,
                   icon: const Icon(
                     Icons.arrow_back_rounded,
@@ -962,42 +979,51 @@ class _SearchHeader extends StatelessWidget {
                       const SizedBox(width: 6),
                   itemBuilder: (_, i) {
                     final f = activeFilters[i];
-                    return GestureDetector(
+                    // A tap removes the filter, which the X shows on screen;
+                    // the chip read as plain text before (QA 10/7 #54).
+                    return Semantics(
+                      container: true,
+                      button: true,
+                      label: '$f 필터 해제',
+                      excludeSemantics: true,
                       onTap: () => onRemoveFilter(f),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: SearchResultScreen.blue,
-                            width: 0.9,
+                      child: GestureDetector(
+                        onTap: () => onRemoveFilter(f),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              f,
-                              style: const TextStyle(
-                                fontFamily: SearchResultScreen.fontFamily,
-                                fontFamilyFallback:
-                                    SearchResultScreen.fontFallback,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEEF2FF),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: SearchResultScreen.blue,
+                              width: 0.9,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                f,
+                                style: const TextStyle(
+                                  fontFamily: SearchResultScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      SearchResultScreen.fontFallback,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: SearchResultScreen.blue,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.close_rounded,
+                                size: 10,
                                 color: SearchResultScreen.blue,
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.close_rounded,
-                              size: 10,
-                              color: SearchResultScreen.blue,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -1083,163 +1109,171 @@ class _StoreCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(22),
-      child: InkWell(
+    // One button per card, read from the store name on; the industry emoji
+    // was read first and alone (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      child: Material(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: SearchResultScreen.border, width: 0.9),
-            borderRadius: BorderRadius.circular(22),
-          ),
-          child: Row(
-            children: [
-              // 이모지 박스
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2FF),
-                  borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              border: Border.all(color: SearchResultScreen.border, width: 0.9),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Row(
+              children: [
+                // 이모지 박스
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: ExcludeSemantics(
+                      child: Text(emoji, style: const TextStyle(fontSize: 26)),
+                    ),
+                  ),
                 ),
-                child: Center(
-                  child: Text(emoji, style: const TextStyle(fontSize: 26)),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // 정보
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Keep the full card width for identifying long store names.
-                    Text(
-                      store.storeName,
-                      style: const TextStyle(
-                        fontFamily: SearchResultScreen.fontFamily,
-                        fontFamilyFallback: SearchResultScreen.fontFallback,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: SearchResultScreen.ink,
-                        letterSpacing: -0.2,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (distance.isNotEmpty) ...[
-                          Text(
-                            distance,
-                            style: const TextStyle(
-                              fontFamily: SearchResultScreen.fontFamily,
-                              fontFamilyFallback:
-                                  SearchResultScreen.fontFallback,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: SearchResultScreen.blue,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                        _IndustryChip(label: store.industry),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    // 주소
-                    Text(
-                      store.address,
-                      style: const TextStyle(
-                        fontFamily: SearchResultScreen.fontFamily,
-                        fontFamilyFallback: SearchResultScreen.fontFallback,
-                        fontSize: 12,
-                        color: SearchResultScreen.muted,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    // 대표메뉴 + 가격
-                    Row(
-                      children: [
-                        if (isMatchedMenu) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF4FF),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: const Color(0xFFEFF4FF),
-                                width: 0.8,
-                              ),
-                            ),
-                            child: const Text(
-                              '검색 메뉴',
-                              style: TextStyle(
-                                fontFamily: SearchResultScreen.fontFamily,
-                                fontFamilyFallback:
-                                    SearchResultScreen.fontFallback,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: SearchResultScreen.blue,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                        ],
-                        const Icon(
-                          Icons.restaurant_menu_rounded,
-                          size: 12,
-                          color: SearchResultScreen.blue,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            menuLabel,
-                            style: const TextStyle(
-                              fontFamily: SearchResultScreen.fontFamily,
-                              fontFamilyFallback:
-                                  SearchResultScreen.fontFallback,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: SearchResultScreen.blue,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (priceLabel.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                const SizedBox(width: 14),
+                // 정보
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Keep the full card width for identifying long store names.
                       Text(
-                        priceLabel,
+                        store.storeName,
                         style: const TextStyle(
                           fontFamily: SearchResultScreen.fontFamily,
                           fontFamilyFallback: SearchResultScreen.fontFallback,
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: SearchResultScreen.blue,
+                          color: SearchResultScreen.ink,
+                          letterSpacing: -0.2,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (distance.isNotEmpty) ...[
+                            Text(
+                              distance,
+                              style: const TextStyle(
+                                fontFamily: SearchResultScreen.fontFamily,
+                                fontFamilyFallback:
+                                    SearchResultScreen.fontFallback,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: SearchResultScreen.blue,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          _IndustryChip(label: store.industry),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      // 주소
+                      Text(
+                        store.address,
+                        style: const TextStyle(
+                          fontFamily: SearchResultScreen.fontFamily,
+                          fontFamilyFallback: SearchResultScreen.fontFallback,
+                          fontSize: 12,
+                          color: SearchResultScreen.muted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      // 대표메뉴 + 가격
+                      Row(
+                        children: [
+                          if (isMatchedMenu) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF4FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: const Color(0xFFEFF4FF),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: const Text(
+                                '검색 메뉴',
+                                style: TextStyle(
+                                  fontFamily: SearchResultScreen.fontFamily,
+                                  fontFamilyFallback:
+                                      SearchResultScreen.fontFallback,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: SearchResultScreen.blue,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          const Icon(
+                            Icons.restaurant_menu_rounded,
+                            size: 12,
+                            color: SearchResultScreen.blue,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              menuLabel,
+                              style: const TextStyle(
+                                fontFamily: SearchResultScreen.fontFamily,
+                                fontFamilyFallback:
+                                    SearchResultScreen.fontFallback,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: SearchResultScreen.blue,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (priceLabel.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          priceLabel,
+                          style: const TextStyle(
+                            fontFamily: SearchResultScreen.fontFamily,
+                            fontFamilyFallback: SearchResultScreen.fontFallback,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: SearchResultScreen.blue,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: SearchResultScreen.hint,
-              ),
-            ],
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 18,
+                  color: SearchResultScreen.hint,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -373,7 +373,7 @@ void main() {
     expect(find.text('찜한 매장 정보를 찾을 수 없어요'), findsOneWidget);
     expect(
       tester
-          .widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '찜 취소'))
+          .widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '찜 해제'))
           .onPressed,
       isNull,
     );
@@ -390,7 +390,7 @@ void main() {
         ),
       ),
     );
-    await tester.tap(find.text('찜 취소'));
+    await tester.tap(find.text('찜 해제'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('login_required_dialog')), findsOneWidget);
   });

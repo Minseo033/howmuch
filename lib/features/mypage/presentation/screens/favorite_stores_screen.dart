@@ -7,6 +7,7 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/errors/presentation/screens/favorite_cancel_confirm_screen.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/store/store_model.dart';
 
@@ -355,6 +356,8 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                         Icons.arrow_back_rounded,
                         size: 20,
                         color: AppColors.black,
+                        // The bare arrow had no name (QA 10/7 #50).
+                        semanticLabel: '뒤로가기',
                       ),
                     ),
                   ),
@@ -620,9 +623,14 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
   }
 
   Future<void> _confirmFavoriteRemoval(FavoriteStoreModel store) async {
-    final removed = await context.push<bool>(
-      AppRoutes.favoriteCancelConfirm,
-      extra: {'storeId': store.id, 'storeName': store.storeName},
+    // 전체 화면으로 이동하면 뒤의 찜 목록이 사라지므로 목록 위에 대화상자로 띄웁니다.
+    final removed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => FavoriteCancelConfirmDialog(
+        storeId: store.id,
+        storeName: store.storeName,
+        onClose: (removed) => Navigator.of(dialogContext).pop(removed),
+      ),
     );
     if (removed == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

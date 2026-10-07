@@ -6,6 +6,7 @@ import 'package:howmuch/features/search/presentation/screens/search_result_scree
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/report_complete_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_approved_tab.dart';
+import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_no_change_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/report_detail_v2_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 
@@ -103,28 +104,38 @@ void main() {
         tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
         isNull,
       );
+      // 수정 없음은 승인과 다른 결과라 하단 버튼도 '승인된 제보'라고 하지 않습니다(10/7 QA #13).
+      expect(find.text('검토 완료 · 수정 불가'), findsOneWidget);
+      expect(find.text('승인된 제보 · 수정 불가'), findsNothing);
     },
   );
 
-  testWidgets(
-    'approved list also labels NO_CHANGE without claiming a new store',
-    (tester) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      container.read(userReportsProvider.notifier).setReports([noChange]);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: const MaterialApp(
-            home: Scaffold(body: MyReportsApprovedTab()),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('검토 완료 · 수정 없음'), findsOneWidget);
-      expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
-    },
-  );
+  testWidgets('NO_CHANGE is listed under 수정 없음 instead of the approved list', (
+    tester,
+  ) async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    container.read(userReportsProvider.notifier).setReports([noChange]);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: MyReportsApprovedTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기존 매장'), findsNothing);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: Scaffold(body: MyReportsNoChangeTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('기존 매장'), findsOneWidget);
+    expect(find.text('수정 없음'), findsOneWidget);
+    expect(find.text('지도에 사용자 제보 매장으로 표시 중'), findsNothing);
+  });
 
   for (final size in [
     const Size(568, 320),

@@ -18,6 +18,7 @@ import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/core/utils/text_initial.dart';
@@ -360,9 +361,13 @@ class _StoreDetailContent extends ConsumerWidget {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Center(
-                                child: Text(
-                                  _emoji(),
-                                  style: const TextStyle(fontSize: 28),
+                                // Decorative: read first and alone, and it
+                                // put the industry before the store name.
+                                child: ExcludeSemantics(
+                                  child: Text(
+                                    _emoji(),
+                                    style: const TextStyle(fontSize: 28),
+                                  ),
                                 ),
                               ),
                             ),
@@ -477,10 +482,19 @@ class _StoreDetailContent extends ConsumerWidget {
                                       color: _ink,
                                     ),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    store.menuSourceLabel,
-                                    style: TextStyle(fontSize: 11, color: _sub),
+                                  const SizedBox(width: 8),
+                                  // Right-aligned as before, but wraps under
+                                  // large text instead of overflowing the
+                                  // row (37px at 3.1x on a 320 screen, #5).
+                                  Expanded(
+                                    child: Text(
+                                      store.menuSourceLabel,
+                                      textAlign: TextAlign.end,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: _sub,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -724,74 +738,96 @@ class _StoreDetailContent extends ConsumerWidget {
                       horizontal: 16,
                       vertical: 10,
                     ),
-                    child: Row(
-                      children: [
-                        // 전화 버튼
-                        _BottomIconBtn(
-                          icon: Icons.phone_rounded,
-                          label: '전화',
-                          onTap: () => _call(context),
-                        ),
-                        const SizedBox(width: 10),
-                        // 제보 버튼
-                        _BottomIconBtn(
-                          icon: Icons.campaign_rounded,
-                          label: '가격 제보',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.priceChangeReport,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 방문 인증 버튼 (프리젠테이션 시연용)
-                        _BottomIconBtn(
-                          icon: Icons.verified_rounded,
-                          label: '방문 인증',
-                          onTap: store.isClosed
-                              ? null
-                              : () => context.push(
-                                  AppRoutes.visitVerification,
-                                  extra: store,
-                                ),
-                          muted: store.isClosed,
-                        ),
-                        const SizedBox(width: 10),
-                        // 길찾기 버튼 (메인 CTA)
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _map(context),
-                            child: Container(
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: _blue,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.navigation_rounded,
-                                    color: AppColors.white,
-                                    size: 18,
+                    // Toolbar-like buttons keep their 48px height, so their
+                    // labels stop at the compact chrome scale instead of
+                    // spilling out at large text sizes (QA 10/7 #5).
+                    child: MediaQuery.withClampedTextScaling(
+                      maxScaleFactor: AppTextScale.compactChrome,
+                      child: Row(
+                        children: [
+                          // 전화 버튼
+                          _BottomIconBtn(
+                            icon: Icons.phone_rounded,
+                            label: '전화',
+                            onTap: () => _call(context),
+                          ),
+                          const SizedBox(width: 10),
+                          // 제보 버튼
+                          _BottomIconBtn(
+                            icon: Icons.campaign_rounded,
+                            label: '가격 제보',
+                            onTap: store.isClosed
+                                ? null
+                                : () => context.push(
+                                    AppRoutes.priceChangeReport,
+                                    extra: store,
                                   ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    '길찾기',
-                                    style: TextStyle(
-                                      color: AppColors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 방문 인증 버튼 (프리젠테이션 시연용)
+                          _BottomIconBtn(
+                            icon: Icons.verified_rounded,
+                            label: '방문 인증',
+                            onTap: store.isClosed
+                                ? null
+                                : () => context.push(
+                                    AppRoutes.visitVerification,
+                                    extra: store,
                                   ),
-                                ],
+                            muted: store.isClosed,
+                          ),
+                          const SizedBox(width: 10),
+                          // 길찾기 버튼 (메인 CTA)
+                          Expanded(
+                            // A button like the three beside it; it read as
+                            // plain text (QA 10/7 #54).
+                            child: Semantics(
+                              container: true,
+                              button: true,
+                              label: '길찾기',
+                              excludeSemantics: true,
+                              onTap: () => _map(context),
+                              child: GestureDetector(
+                                onTap: () => _map(context),
+                                child: Container(
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: _blue,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.navigation_rounded,
+                                        color: AppColors.white,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 6),
+                                      // Shrinks instead of being cut ('길찾') when
+                                      // the button is narrow (QA 10/7 #44).
+                                      Flexible(
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            '길찾기',
+                                            style: TextStyle(
+                                              color: AppColors.white,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -869,15 +905,19 @@ class _InfoRow extends StatelessWidget {
           const SizedBox(width: 12),
           SizedBox(
             width: 68,
-            height: 20,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.textMuted,
+            // A minimum rather than a fixed height: large text grows the row
+            // instead of cutting the label off (QA 10/7 #5).
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ),
             ),
@@ -1043,9 +1083,13 @@ class _BottomIconBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = muted ? AppColors.textLight : AppColors.textBody;
     return Semantics(
+      container: true,
       label: label,
       button: true,
       enabled: onTap != null,
+      // The InkWell is kept out of the semantics tree, so the tap is
+      // declared here; without it the button had no action to activate.
+      onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
         excludeFromSemantics: true,
@@ -1064,12 +1108,18 @@ class _BottomIconBtn extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: color),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: FontWeight.w500,
+              // One line that shrinks to the button width rather than
+              // wrapping '가격 제보' onto a second line.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: color,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
             ],
@@ -1188,9 +1238,13 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   void initState() {
     super.initState();
+    // Reload on every visit so reviews written elsewhere since the last
+    // visit appear; the reviews already loaded stay meanwhile (QA #11).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(storeReviewProvider.notifier).loadReviews(widget.storeKey);
+      ref
+          .read(storeReviewProvider.notifier)
+          .loadReviews(widget.storeKey, force: true);
     });
   }
 
@@ -1208,6 +1262,7 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
   @override
   Widget build(BuildContext context) {
     final reviewState = ref.watch(storeReviewProvider)[widget.storeKey];
+    final hasReviews = reviewState?.hasValue == true;
     final reviews = reviewState?.valueOrNull ?? const <Review>[];
     final shown = reviews.take(3).toList();
     final avg = reviews.isEmpty
@@ -1255,27 +1310,32 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
                 ),
               ],
               const Spacer(),
-              GestureDetector(
-                onTap: () =>
-                    context.push(AppRoutes.reviewList, extra: widget.store),
-                child: const Text(
-                  '전체보기',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+              // Read as a button rather than text with a tap action.
+              Semantics(
+                container: true,
+                button: true,
+                child: GestureDetector(
+                  onTap: () =>
+                      context.push(AppRoutes.reviewList, extra: widget.store),
+                  child: const Text(
+                    '전체보기',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          if (reviewState == null || reviewState.isLoading)
+          if (reviewState == null || (reviewState.isLoading && !hasReviews))
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 8),
               child: Text('리뷰를 불러오고 있어요'),
             )
-          else if (reviewState.hasError)
+          else if (reviewState.hasError && !hasReviews)
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

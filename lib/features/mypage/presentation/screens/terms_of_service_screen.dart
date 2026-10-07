@@ -183,21 +183,26 @@ class _TermsHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        key: ValueKey('terms-of-service-back-icon'),
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: TermsOfServiceScreen.ink,
+              // The bare icons had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          key: ValueKey('terms-of-service-back-icon'),
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: TermsOfServiceScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -221,19 +226,23 @@ class _TermsHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onAction,
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Icon(
-                      key: ValueKey('terms-of-service-action-icon'),
-                      Icons.content_copy_rounded,
-                      size: 22,
-                      color: TermsOfServiceScreen.ink,
+              child: Semantics(
+                button: true,
+                label: '서비스 이용약관 링크 복사',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onAction,
+                    child: const Align(
+                      alignment: Alignment.center,
+                      child: Icon(
+                        key: ValueKey('terms-of-service-action-icon'),
+                        Icons.content_copy_rounded,
+                        size: 22,
+                        color: TermsOfServiceScreen.ink,
+                      ),
                     ),
                   ),
                 ),

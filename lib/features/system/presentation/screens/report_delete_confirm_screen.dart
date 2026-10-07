@@ -177,8 +177,8 @@ class _DeleteDialog extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text(
-                      '제보를 삭제할까요?',
+                    Text(
+                      _title,
                       textAlign: TextAlign.center,
                       style: _dialogTitleText,
                     ),
@@ -190,6 +190,16 @@ class _DeleteDialog extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: _dialogSubtitleText,
                     ),
+                    for (final line in _details) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        line,
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: _dialogDetailText,
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _WarningPanel(report: report),
                   ],
@@ -207,11 +217,31 @@ class _DeleteDialog extends StatelessWidget {
     );
   }
 
+  String get _title {
+    final value = report;
+    return value == null ? '제보를 삭제할까요?' : '${value.kindLabel}를 삭제할까요?';
+  }
+
   String get _subtitle {
     final value = report;
     if (value == null) return '제보 정보를 찾을 수 없어요.';
-    final menu = value.menu.trim();
-    return menu.isEmpty ? value.store : '${value.store} · $menu';
+    return value.store.trim().isEmpty ? '매장명 없음' : value.store;
+  }
+
+  /// 같은 매장의 다른 제보와 구분되도록 제보 내용과 날짜·처리 상태를 보여 줍니다.
+  List<String> get _details {
+    final value = report;
+    if (value == null) return const [];
+    final content = value.isPriceChangeReport
+        ? value.summaryText
+        : value.summaryValue.trim().isEmpty
+        ? ''
+        : '${value.summaryLabel} ${value.summaryValue}';
+    final meta = [
+      value.createdDateLabel,
+      value.displayStatus,
+    ].where((part) => part.isNotEmpty).join(' · ');
+    return [content, meta].where((line) => line.isNotEmpty).toList();
   }
 }
 
@@ -333,51 +363,57 @@ class _DialogAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Material(
-        color: Colors.white,
-        child: InkWell(
-          onTap: onTap,
-          child: Container(
-            height: 54.4886360168457,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: showDivider
-                  ? const Border(
-                      right: BorderSide(
-                        color: ReportDeleteConfirmScreen.border,
-                        width: .909,
+      // Read as a button, not as plain text (QA 10/7 #54).
+      child: Semantics(
+        button: true,
+        enabled: onTap != null,
+        child: Material(
+          color: Colors.white,
+          child: InkWell(
+            onTap: onTap,
+            child: Container(
+              height: 54.4886360168457,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: showDivider
+                    ? const Border(
+                        right: BorderSide(
+                          color: ReportDeleteConfirmScreen.border,
+                          width: .909,
+                        ),
+                      )
+                    : null,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showProgress) ...[
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
                       ),
-                    )
-                  : null,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (showProgress) ...[
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
+                    ),
+                    const SizedBox(width: 7),
+                  ],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: onTap == null && !showProgress
+                          ? color.withValues(alpha: .45)
+                          : color,
+                      fontFamily: ReportDeleteConfirmScreen.fontFamily,
+                      fontFamilyFallback:
+                          ReportDeleteConfirmScreen.fontFallback,
+                      fontSize: 15,
+                      fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                      height: 1.5,
                     ),
                   ),
-                  const SizedBox(width: 7),
                 ],
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: onTap == null && !showProgress
-                        ? color.withValues(alpha: .45)
-                        : color,
-                    fontFamily: ReportDeleteConfirmScreen.fontFamily,
-                    fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
-                    fontSize: 15,
-                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-                    height: 1.5,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -400,6 +436,15 @@ const _dialogSubtitleText = TextStyle(
   fontFamily: ReportDeleteConfirmScreen.fontFamily,
   fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
   fontSize: 13,
+  fontWeight: FontWeight.w400,
+  height: 1.5,
+);
+
+const _dialogDetailText = TextStyle(
+  color: ReportDeleteConfirmScreen.muted,
+  fontFamily: ReportDeleteConfirmScreen.fontFamily,
+  fontFamilyFallback: ReportDeleteConfirmScreen.fontFallback,
+  fontSize: 12,
   fontWeight: FontWeight.w400,
   height: 1.5,
 );

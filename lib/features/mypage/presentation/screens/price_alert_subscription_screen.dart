@@ -403,20 +403,25 @@ class _Header extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: PriceAlertSubscriptionScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: PriceAlertSubscriptionScreen.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -469,12 +474,13 @@ class _AllAlertCard extends StatelessWidget {
               const Expanded(
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 매장의 변동 알림을 받습니다',
+                  // 이 화면의 대상은 찜한 매장뿐이라 '모든 매장'이라고 하지 않습니다.
+                  subtitle: '찜한 매장 알림을 한 번에 켜고 꺼요',
                   titleWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 8),
-              _ToggleSm(label: '전체 매장 가격 알림', value: value, onTap: onTap),
+              _ToggleSm(label: '찜한 매장 전체 가격 알림', value: value, onTap: onTap),
             ],
           ),
         ),
@@ -624,9 +630,12 @@ class _ToggleSm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Without an enabled flag iOS reads the switch as disabled even when it
+    // is on and works (QA 10/7 #50).
     return Semantics(
       label: label,
       toggled: value,
+      enabled: true,
       onTap: onTap,
       excludeSemantics: true,
       child: InkWell(
