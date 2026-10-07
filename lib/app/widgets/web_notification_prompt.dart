@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
@@ -18,6 +19,7 @@ class WebNotificationPrompt extends ConsumerStatefulWidget {
     required this.onOpenNotifications,
     required this.isHome,
     required this.navigatorKey,
+    this.navigation,
   });
 
   final Widget child;
@@ -25,16 +27,77 @@ class WebNotificationPrompt extends ConsumerStatefulWidget {
   final bool isHome;
   final GlobalKey<NavigatorState> navigatorKey;
 
+  /// Lets the banner step aside while a dialog is open and retire when the
+  /// user moves to another page.
+  final AppNavigationTracker? navigation;
+
   @override
   ConsumerState<WebNotificationPrompt> createState() =>
       _WebNotificationPromptState();
 }
 
 class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
-  String? _dismissedUnreadSignature;
+  /// Unread notifications the banner has already announced. It returns only
+  /// for one that is not here, so reading notifications or moving between
+  /// pages does not bring it back (QA 10/7 #21).
+  final Set<String> _announcedUnread = {};
+
+  /// Unread notifications the banner showed in its last build.
+  Set<String> _shownUnread = const {};
+  int _seenPageChanges = 0;
   String? _dismissedNoticeId;
   String? _pendingNoticeId;
   String? _suppressedNoticeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenTo(widget.navigation);
+  }
+
+  @override
+  void didUpdateWidget(covariant WebNotificationPrompt oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.navigation != widget.navigation) {
+      oldWidget.navigation?.removeListener(_onNavigationChanged);
+      _listenTo(widget.navigation);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.navigation?.removeListener(_onNavigationChanged);
+    super.dispose();
+  }
+
+  void _listenTo(AppNavigationTracker? navigation) {
+    _seenPageChanges = navigation?.pageChanges ?? 0;
+    navigation?.addListener(_onNavigationChanged);
+  }
+
+  void _onNavigationChanged() {
+    if (!mounted) return;
+    final pageChanges = widget.navigation?.pageChanges ?? _seenPageChanges;
+    final pageChanged = pageChanges != _seenPageChanges;
+    _seenPageChanges = pageChanges;
+    setState(() {
+      // The banner belonged to the page the user just left; it would
+      // otherwise cover the next page's header.
+      if (pageChanged && _shownUnread.isNotEmpty) {
+        _announcedUnread.addAll(_shownUnread);
+        _suppressedNoticeId = _latestNoticeId();
+        _pendingNoticeId = null;
+      }
+    });
+  }
+
+  String? _latestNoticeId() {
+    final notifications = ref.read(notificationsProvider).valueOrNull;
+    for (final notification in notifications ?? const <NotificationModel>[]) {
+      if (notification.type == '공지사항') return notification.id;
+    }
+    return null;
+  }
 
   void _scheduleNoticePopup(NotificationModel notice) {
     if (_suppressedNoticeId == notice.id ||
@@ -103,9 +166,9 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
     });
   }
 
-  void _dismissUnreadPrompt(String unreadSignature, String? noticeId) {
+  void _dismissUnreadPrompt(Set<String> unreadKeys, String? noticeId) {
     setState(() {
-      _dismissedUnreadSignature = unreadSignature;
+      _announcedUnread.addAll(unreadKeys);
       _suppressedNoticeId = noticeId;
       _pendingNoticeId = null;
     });
@@ -114,7 +177,12 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
   @override
   Widget build(BuildContext context) {
     final isLoggedIn = ref.watch(authStateProvider).isLoggedIn;
-    if (!isLoggedIn) return widget.child;
+    if (!isLoggedIn) {
+      // The next sign-in announces its unread notifications again.
+      _announcedUnread.clear();
+      _shownUnread = const {};
+      return widget.child;
+    }
 
     final notifications = ref.watch(notificationsProvider);
     final allNotifications = notifications.valueOrNull ?? const [];
@@ -122,14 +190,17 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
         .where((notification) => notification.isUnread)
         .toList(growable: false);
     final unreadCount = unreadNotifications.length;
-    final unreadSignature = notificationSignature(unreadNotifications);
+    final unreadKeys = unreadNotifications.map(notificationKey).toSet();
     final notices = allNotifications
         .where((notification) => notification.type == '공지사항')
         .toList(growable: false);
     final currentNoticeId = notices.isEmpty ? null : notices.first.id;
-    final shouldShow =
-        unreadCount > 0 && _dismissedUnreadSignature != unreadSignature;
-    if (notices.isNotEmpty && !shouldShow) {
+    final hasNewUnread = !_announcedUnread.containsAll(unreadKeys);
+    // Dialogs open above this overlay's navigator; the banner must not sit
+    // on top of them (QA 10/7 #21).
+    final shouldShow = hasNewUnread && !(widget.navigation?.hasPopup ?? false);
+    _shownUnread = shouldShow ? unreadKeys : const {};
+    if (notices.isNotEmpty && !hasNewUnread) {
       _scheduleNoticePopup(notices.first);
     }
     final bannerTop = notificationPromptTop(
@@ -165,15 +236,10 @@ class _WebNotificationPromptState extends ConsumerState<WebNotificationPrompt> {
                       child: _UnreadNotificationBanner(
                         key: const ValueKey('web-notification-banner'),
                         unreadCount: unreadCount,
-                        onDismiss: () => _dismissUnreadPrompt(
-                          unreadSignature,
-                          currentNoticeId,
-                        ),
+                        onDismiss: () =>
+                            _dismissUnreadPrompt(unreadKeys, currentNoticeId),
                         onOpen: () {
-                          _dismissUnreadPrompt(
-                            unreadSignature,
-                            currentNoticeId,
-                          );
+                          _dismissUnreadPrompt(unreadKeys, currentNoticeId);
                           widget.onOpenNotifications();
                         },
                       ),
@@ -407,17 +473,13 @@ double notificationPromptTop({required bool isHome, required double safeTop}) {
 
 String notificationCountLabel(int unreadCount) => '읽지 않은 알림 $unreadCount건';
 
-/// Produces a stable identity for the current unread set. Using only the count
-/// would miss a newly arrived notification that replaces one just read.
-String notificationSignature(Iterable<NotificationModel> notifications) {
-  final ids =
-      notifications
-          .map((notification) => notification.id)
-          .where((id) => id.isNotEmpty)
-          .toList(growable: false)
-        ..sort();
-  return ids.join('\u0000');
-}
+/// Identifies a notification for the banner. A notification without an id
+/// falls back to its content, so it is still announced only once.
+String notificationKey(NotificationModel notification) =>
+    notification.id.isNotEmpty
+    ? notification.id
+    : '${notification.type}\u0000${notification.title}\u0000'
+          '${notification.messageText}';
 
 class _UnreadNotificationBanner extends StatelessWidget {
   const _UnreadNotificationBanner({

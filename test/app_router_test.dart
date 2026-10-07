@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/app/app_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +57,48 @@ void main() {
       expect(startup.take(), AppRoutes.home);
     },
   );
+
+  // The web unread banner relies on this to stay off dialogs and retire when
+  // the page changes (QA 10/7 #21).
+  testWidgets('the navigation tracker follows router pages and dialogs', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final router = container.read(appRouterProvider);
+    addTearDown(router.dispose);
+    final tracker = container.read(appNavigationTrackerProvider);
+
+    router.go(AppRoutes.login);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final pagesAtLogin = tracker.pageChanges;
+
+    router.go(AppRoutes.privacyPolicy);
+    await tester.pumpAndSettle();
+    expect(tracker.pageChanges, greaterThan(pagesAtLogin));
+    expect(tracker.hasPopup, isFalse);
+
+    final navigator = router.routerDelegate.navigatorKey;
+    unawaited(
+      showDialog<void>(
+        context: navigator.currentContext!,
+        builder: (_) => const AlertDialog(title: Text('확인')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tracker.hasPopup, isTrue);
+
+    navigator.currentState!.pop();
+    await tester.pumpAndSettle();
+    expect(tracker.hasPopup, isFalse);
+  });
 
   test('reloaded addresses reopen their screen, their tab or home', () {
     const reopened = {
