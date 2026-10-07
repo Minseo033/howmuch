@@ -20,6 +20,7 @@ import 'package:howmuch/features/store/presentation/screens/store_detail_screen.
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/shared/widgets/choice_semantics.dart';
+import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/screen_reader.dart';
@@ -267,6 +268,35 @@ void main() {
         readerElements('뒤로가기'),
         isSemantics(isButton: true, hasTapAction: true),
       );
+      semantics.dispose();
+    });
+
+    testWidgets('bottom tabs are named once', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.bottomCenter,
+              child: SizedBox(
+                height: HowmuchBottomNav.heightFor(0),
+                child: const HowmuchBottomNav(safeBottom: 0),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      for (final tab in ['홈', '탐색', '제보', '리포트', '마이']) {
+        // Not '홈 탭, 홈'.
+        expect(readerElements(tab), findsOne, reason: tab);
+        expect(
+          readerElementsNamed('$tab 탭'),
+          isSemantics(isButton: true, hasTapAction: true),
+          reason: tab,
+        );
+      }
+      expect(readerElementsNamed('홈 탭'), isSemantics(isSelected: true));
       semantics.dispose();
     });
   });
