@@ -667,7 +667,9 @@ class _AllNotificationCard extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 알림을 켜고 끌 수 있어요',
+                  // 아래 알림 유형을 한꺼번에 바꾸는 스위치입니다. 이 기기로 푸시를
+                  // 받을지는 마이의 '이 기기 푸시 알림'이 따로 정합니다.
+                  subtitle: '알림 유형을 한 번에 켜고 꺼요',
                 ),
               ),
             ),

@@ -1196,9 +1196,11 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
               onTap: () => _location(location ?? DeviceAccess.unknown),
             ),
             const _SettingsDivider(),
+            // 이 기기의 OS 권한과 푸시 등록 상태입니다. 어떤 알림을 받을지는 계정의
+            // 알림 설정(유형별)이 정하고, 둘 다 켜져 있어야 이 기기로 푸시가 옵니다.
             _ToggleRow(
               icon: Icons.notifications_active_outlined,
-              title: '푸시 알림',
+              title: '이 기기 푸시 알림',
               value: pushOn,
               onToggle: () => _push(push ?? DeviceAccess.unknown),
             ),
