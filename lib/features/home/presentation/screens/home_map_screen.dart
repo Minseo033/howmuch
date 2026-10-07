@@ -963,6 +963,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         _markerTapGuard = null;
         return;
       }
+      // So can a tap on a card or button drawn over the map (QA 10/7 #32).
+      if (DateTime.now().millisecondsSinceEpoch < _suppressMarkerClicksUntil) {
+        return;
+      }
       _hideStore();
     } else {
       debugPrint('WebView: $message');
@@ -2312,6 +2316,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         .join('\n');
   }
 
+  /// A tap on a store card can also reach the map below as a background tap
+  /// and close the card (QA 10/7 #32). Like the location button, map taps
+  /// are ignored while the card is pressed and right after it is released.
+  Widget _blockMapTapsThrough(Widget child) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: (_) =>
+          _suppressMarkerClicks(const Duration(milliseconds: 800)),
+      onPointerUp: (_) =>
+          _suppressMarkerClicks(const Duration(milliseconds: 800)),
+      child: child,
+    );
+  }
+
   Widget _buildWebMap() {
     return Stack(
       children: [
@@ -2776,19 +2794,21 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: HomeMapStoreCarousel(
-                  controller: _pageController,
-                  itemCount: _currentStores.length,
-                  onPageChanged: _onStorePageChanged,
-                  itemBuilder: (context, index) {
-                    final store = _currentStores[index];
-                    return HomeMapStoreSummaryCard(
-                      store: store,
-                      selection: isAiActive
-                          ? _selectionFor(store)
-                          : (isSearching ? _searchSelectionFor(store) : null),
-                    );
-                  },
+                child: _blockMapTapsThrough(
+                  HomeMapStoreCarousel(
+                    controller: _pageController,
+                    itemCount: _currentStores.length,
+                    onPageChanged: _onStorePageChanged,
+                    itemBuilder: (context, index) {
+                      final store = _currentStores[index];
+                      return HomeMapStoreSummaryCard(
+                        store: store,
+                        selection: isAiActive
+                            ? _selectionFor(store)
+                            : (isSearching ? _searchSelectionFor(store) : null),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -2810,17 +2830,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               height: storeCardHeight,
               child: Opacity(
                 opacity: homeChromeOpacity,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onVerticalDragUpdate: (_) {},
-                  onHorizontalDragUpdate: (_) {},
-                  child: HomeMapStoreSummaryCard(
-                    store: _selectedStore!,
-                    selection: isAiActive
-                        ? _selectionFor(_selectedStore!)
-                        : (isSearching
-                              ? _searchSelectionFor(_selectedStore!)
-                              : null),
+                child: _blockMapTapsThrough(
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onVerticalDragUpdate: (_) {},
+                    onHorizontalDragUpdate: (_) {},
+                    child: HomeMapStoreSummaryCard(
+                      store: _selectedStore!,
+                      selection: isAiActive
+                          ? _selectionFor(_selectedStore!)
+                          : (isSearching
+                                ? _searchSelectionFor(_selectedStore!)
+                                : null),
+                    ),
                   ),
                 ),
               ),

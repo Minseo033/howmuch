@@ -429,6 +429,50 @@ void main() {
     await disposeHome(tester);
   });
 
+  testWidgets('a press on the store card that also reaches the map keeps it', (
+    tester,
+  ) async {
+    final controller = await pumpHome(
+      tester,
+      HomeMapScreen(
+        storeLoader:
+            ({
+              required Map<String, double> bounds,
+              required List<Store> cachedStores,
+            }) async => HomeMapStoreLoadResult(
+              stores: [_store('a', 37.56, 126.97, name: '시청 백반')],
+              hasFreshResponse: true,
+            ),
+      ),
+    );
+    controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await tester.pump(const Duration(milliseconds: 350));
+    controller.send(_click(0, 'a'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final card = find.byType(HomeMapStoreSummaryCard);
+    expect(card, findsOneWidget);
+
+    final press = await tester.startGesture(tester.getCenter(card));
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsOneWidget, reason: 'the press reached the map below');
+
+    await press.up();
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsOneWidget, reason: 'the tap reached it on release');
+
+    // The guard is measured on the wall clock, like the location button's.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 900)),
+    );
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsNothing, reason: 'a background tap still closes it');
+    await disposeHome(tester);
+  });
+
   testWidgets('compass bursts are redrawn at most every 100ms', (tester) async {
     final controller = await pumpHome(
       tester,
