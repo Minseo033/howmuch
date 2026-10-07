@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
 
 // ──────────────────────────────────────────────────────────────
 // 2-3  필터 화면 (바텀 시트)
@@ -126,18 +127,24 @@ class _SearchFilterSheetState extends State<SearchFilterSheet> {
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: surface,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: ink,
+                // The X had a tap action but no name or role (QA 10/7 #50).
+                Semantics(
+                  container: true,
+                  button: true,
+                  label: '검색 필터 닫기',
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        color: surface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: ink,
+                      ),
                     ),
                   ),
                 ),
@@ -361,29 +368,34 @@ class _ChipWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? _SearchFilterSheetState.blue : Colors.white,
-          border: Border.all(
-            color: selected
-                ? _SearchFilterSheetState.blue
-                : _SearchFilterSheetState.border,
-            width: 1.2,
+    // Read as a button that says whether the chip is on, not as plain text
+    // whose state only shows in its color (QA 10/7 #52).
+    return ChoiceSemantics(
+      selected: selected,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? _SearchFilterSheetState.blue : Colors.white,
+            border: Border.all(
+              color: selected
+                  ? _SearchFilterSheetState.blue
+                  : _SearchFilterSheetState.border,
+              width: 1.2,
+            ),
+            borderRadius: BorderRadius.circular(999),
           ),
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontFamily: _SearchFilterSheetState.fontFamily,
-            fontFamilyFallback: _SearchFilterSheetState.fontFallback,
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? Colors.white : _SearchFilterSheetState.ink,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: _SearchFilterSheetState.fontFamily,
+              fontFamilyFallback: _SearchFilterSheetState.fontFallback,
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? Colors.white : _SearchFilterSheetState.ink,
+            ),
           ),
         ),
       ),
@@ -404,25 +416,29 @@ class _SwitchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: _SearchFilterSheetState.fontFamily,
-            fontFamilyFallback: _SearchFilterSheetState.fontFallback,
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: _SearchFilterSheetState.ink,
+    // One element: the switch is read with its on/off state under the row's
+    // text instead of as a nameless switch next to a separate label (#52).
+    return MergeSemantics(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: _SearchFilterSheetState.fontFamily,
+              fontFamilyFallback: _SearchFilterSheetState.fontFallback,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _SearchFilterSheetState.ink,
+            ),
           ),
-        ),
-        CupertinoSwitch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: _SearchFilterSheetState.blue,
-        ),
-      ],
+          CupertinoSwitch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: _SearchFilterSheetState.blue,
+          ),
+        ],
+      ),
     );
   }
 }

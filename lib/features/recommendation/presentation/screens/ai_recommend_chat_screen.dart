@@ -340,7 +340,11 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
     final contentTop = topOffset + 57;
     final contentBottomPadding = composerHeight + 12.0;
 
+    // Tapping outside the composer closes the keyboard. Kept out of the
+    // semantics tree: as a tap action it merged the header text into one
+    // tappable element that held the whole screen.
     return GestureDetector(
+      excludeFromSemantics: true,
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: FigmaMobileCanvas(
         backgroundColor: const Color(0xFFF9FAFB),
@@ -490,6 +494,8 @@ class _ChatHeader extends StatelessWidget {
             width: 40,
             height: 40,
             child: IconButton(
+              // Unnamed before (QA 10/7 #50); same name as the app bars.
+              tooltip: '뒤로가기',
               onPressed: () {
                 if (context.canPop()) {
                   context.pop();
@@ -731,42 +737,47 @@ class _PromptChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width ?? 163.5,
-      height: 52,
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        child: InkWell(
-          onTap: onTap,
+    // Read as a button rather than text with a tap action (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      child: SizedBox(
+        width: width ?? 163.5,
+        height: 52,
+        child: Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(999),
-          child: Container(
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFEEF2FF)),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(prompt.icon, color: const Color(0xFF2563EB), size: 16),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: Text(
-                    prompt.label,
-                    maxLines: 2,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _AiUi.ink,
-                      fontFamily: _AiUi.fontFamily,
-                      fontFamilyFallback: _AiUi.fontFallback,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFEEF2FF)),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(prompt.icon, color: const Color(0xFF2563EB), size: 16),
+                  const SizedBox(width: 7),
+                  Flexible(
+                    child: Text(
+                      prompt.label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: _AiUi.ink,
+                        fontFamily: _AiUi.fontFamily,
+                        fontFamilyFallback: _AiUi.fontFallback,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -974,47 +985,53 @@ class _BotMessageBubble extends StatelessWidget {
               if (structured != null) ...[
                 const SizedBox(height: 12),
                 for (final item in structured.$2) ...[
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF6F8FC),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.$1,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _AiUi.ink,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                  // Each store card is its own element. Before, the cards,
+                  // the summary and the copy chip were one tappable element,
+                  // so a double tap on the answer copied it (QA 10/7 #54).
+                  Semantics(
+                    container: true,
+                    child: Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF6F8FC),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.$1,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _AiUi.ink,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 7,
-                          runSpacing: 5,
-                          children: [
-                            for (final detail
-                                in item.$2
-                                    .split(' · ')
-                                    .where((value) => value.isNotEmpty))
-                              Text(
-                                detail,
-                                style: const TextStyle(
-                                  color: Color(0xFF475569),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 5,
+                            children: [
+                              for (final detail
+                                  in item.$2
+                                      .split(' · ')
+                                      .where((value) => value.isNotEmpty))
+                                Text(
+                                  detail,
+                                  style: const TextStyle(
+                                    color: Color(0xFF475569),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ],
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -1079,34 +1096,40 @@ class _MessageActionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFEEF2FF)),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 12, color: const Color(0xFF64748B)),
-              const SizedBox(width: 4),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Color(0xFF64748B),
-                  fontFamily: _AiUi.fontFamily,
-                  fontFamilyFallback: _AiUi.fontFallback,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+    // Its own button: before, a single chip ('복사') merged into the whole
+    // answer, which a double tap then copied (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: const Color(0xFFEEF2FF)),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 12, color: const Color(0xFF64748B)),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -596,6 +596,39 @@ void main() {
     });
   });
 
+  testWidgets(
+    'cheapest-first map results list the nearer store first at the same price',
+    (tester) async {
+      // Same price; the names sort the other way round from the distances.
+      final far = _store('far', 37.585, 126.995, name: '가 국밥');
+      final middle = _store('middle', 37.575, 126.985, name: '나 국밥');
+      final near = _store('near', 37.5666, 126.9781, name: '다 국밥');
+      HomeMapScreen.setSearchCatalog([far, middle, near]);
+      final semantics = tester.ensureSemantics();
+      final controller = await pumpHome(
+        tester,
+        HomeMapScreen(
+          storeLoader: _emptyLoader,
+          initialSearchResult: buildSearchMapResult(
+            query: '국밥',
+            filter: const SearchFilter(maxPrice: 10000, sortOrder: '저렴한순'),
+            stores: [near, middle, far],
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Removing a filter on the map sorts the catalog again (QA #31).
+      await tester.tap(find.bySemanticsLabel('10,000원 이하 필터 해제'));
+      await tester.pump();
+      controller.send(_bounds(37.5, 37.6, 126.9, 127.05));
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(_renderedStoreIds(controller), ['near', 'middle', 'far']);
+      semantics.dispose();
+      await disposeHome(tester);
+    },
+  );
+
   testWidgets('compass bursts are redrawn at most every 100ms', (tester) async {
     final controller = await pumpHome(
       tester,

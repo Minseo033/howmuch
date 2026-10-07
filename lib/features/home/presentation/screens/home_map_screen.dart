@@ -590,7 +590,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }).toList();
     if (_searchFilter.sortOrder == '저렴한순') {
       results.sort(
-        (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: _searchQuery),
+        (a, b) => SearchFilterPolicy.compareByPrice(
+          a,
+          b,
+          query: _searchQuery,
+          distanceOf: _priceTieDistance,
+        ),
       );
     } else {
       results.sort(
@@ -2301,6 +2306,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             a.store,
             b.store,
             query: _searchQuery,
+            distanceOf: _priceTieDistance,
           ),
         );
       } else {
@@ -2402,6 +2408,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       store.longitude,
     );
   }
+
+  /// '저렴한순' lists stores at the same price nearest first, like the search
+  /// screen (QA #31). Without a position they stay in name order.
+  double Function(Store store)? get _priceTieDistance =>
+      _lastKnownPosition == null
+      ? null
+      : (store) => _distanceFromUser(store) ?? double.infinity;
 
   String _markerListSignature(List<Map<String, dynamic>> markers) {
     return markers
@@ -2741,18 +2754,25 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                               ),
                             ),
                             const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _searchFilter = _searchFilter.remove(label);
-                                  _refreshTransferredSearchResults();
-                                });
-                                _searchInCurrentArea();
-                              },
-                              child: const Icon(
-                                Icons.close_rounded,
-                                size: 14,
-                                color: Color(0xFF2563EB),
+                            // The X was a nameless tap target (QA 10/7 #50);
+                            // same name as the search screen's chips.
+                            Semantics(
+                              container: true,
+                              button: true,
+                              label: '$label 필터 해제',
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _searchFilter = _searchFilter.remove(label);
+                                    _refreshTransferredSearchResults();
+                                  });
+                                  _searchInCurrentArea();
+                                },
+                                child: const Icon(
+                                  Icons.close_rounded,
+                                  size: 14,
+                                  color: Color(0xFF2563EB),
+                                ),
                               ),
                             ),
                           ],

@@ -839,6 +839,10 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     final index = await showModalBottomSheet<int>(
       context: context,
       showDragHandle: true,
+      // Same 430 column as the radius sheet on a wide browser window.
+      constraints: const BoxConstraints(
+        maxWidth: FigmaMobileCanvas.maxWebWidth,
+      ),
       builder: (sheetContext) => SafeArea(
         child: SingleChildScrollView(
           child: Column(

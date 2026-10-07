@@ -79,9 +79,11 @@ void main() {
 
     for (final (size, insets, scales) in [
       (_portrait, _portraitInsets, [1.0, _ax2, 2.0, _ax5]),
-      // The menu header of the page body needs more than 320 at 3.1x; that
-      // size is outside this QA round.
-      (const Size(320, 568), const EdgeInsets.only(top: 20), [1.0, _ax2, 2.0]),
+      (
+        const Size(320, 568),
+        const EdgeInsets.only(top: 20),
+        [1.0, _ax2, 2.0, _ax5],
+      ),
     ]) {
       for (final scale in scales) {
         testWidgets('store detail actions fit at $size, text x$scale', (
@@ -92,6 +94,24 @@ void main() {
 
           expect(tester.takeException(), isNull);
           _expectStoreActionsFit(tester, size);
+        });
+
+        // The info labels sat in a 68x20 box and lost their top at large
+        // text; the menu header overflowed by 37px at 3.1x on a 320 screen.
+        testWidgets('store detail body labels fit at $size, text x$scale', (
+          tester,
+        ) async {
+          _setViewport(tester, size, insets: insets);
+          await _pumpStoreDetail(tester, scale);
+
+          expect(tester.takeException(), isNull);
+          for (final label in ['메뉴', '공공데이터 기준', '영업시간', '전화번호', '주소']) {
+            _expectTextFits(tester, find.text(label));
+          }
+          final menuHeader = find
+              .ancestor(of: find.text('메뉴'), matching: find.byType(Row))
+              .first;
+          _expectTextFits(tester, find.text('공공데이터 기준'), inside: menuHeader);
         });
       }
     }
@@ -317,6 +337,8 @@ Future<void> _pumpStoreDetail(WidgetTester tester, double textScale) async {
     'price1': '9000',
     'latitude': 37.5665,
     'longitude': 126.978,
+    // '공공데이터 기준' is the menu source line of the QA report.
+    'source': 'GOV',
   });
   await tester.pumpWidget(
     ProviderScope(
