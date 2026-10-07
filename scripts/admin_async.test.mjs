@@ -67,15 +67,23 @@ function harness(fetchImpl, { crypto } = {}) {
       openUserActivity, openDeleteReportModal, doDeleteReport,
       doSendNotification, doPublishNotice, doApprove,
       openReportResolution, approveReportResolution,
+      renderResolutionFields, renderDashboard, renderCommentsView, doDeleteComment,
+      openRejectModal, doReject, openAnswerInquiryModal, doAnswerInquiry,
+      selectNotificationTarget,
       setReports: (reports) => { allReports = reports; },
       setReviews: (reviews) => { allReviews = reviews; },
+      setComments: (comments) => { allComments = comments; },
+      setDeleteComment: (id) => { deleteCommentId = id; },
+      setInquiries: (inquiries) => { allInquiries = inquiries; },
+      setUsers: (members) => { users = members; },
+      setOverview: (value) => { overview = value; },
       setView: (view) => { currentView = view; },
       invalidateAdminSession,
       newSession() {
         adminSessionGeneration += 1;
         sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: 'new-key', savedAt: Date.now() }));
       },
-      state: () => ({ allReports, reportsLoaded, currentView, adminSessionGeneration }),
+      state: () => ({ allReports, reportsLoaded, currentView, adminSessionGeneration, allComments }),
     };
   `;
   vm.runInContext(source.replace(/\n  boot\(\);\n\}\)\(\);\s*$/, `\n${exports}\n})();`), context);
@@ -107,7 +115,8 @@ test('actual report card includes type, original description, and explicit free 
   const { admin } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
   const card = admin.reportCard({id:'info',status:'PENDING',reportType:'STORE_INFO',changeType:'other',description:'<img> 검토해주세요',menu1:'무료 서비스',price1:'0',free1:true});
   assert.match(card, /매장 정보 신고/);
-  assert.match(card, /other/);
+  assert.match(card, /유형: 기타/);
+  assert.doesNotMatch(card, /other/);
   assert.match(card, /&lt;img&gt; 검토해주세요/);
   assert.match(card, /무료/);
 });
@@ -515,4 +524,64 @@ test('price correction defaults to the current menu slot named in the report and
   await pending;
   assert.equal(el('reportResolutionError').textContent, sameValue);
   assert.equal(el('toast').textContent, sameValue);
+});
+
+test('QA 2026-10-07 #13 #14: NO_CHANGE is counted apart from approvals and codes read as Korean labels', () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const noChange = { id: 'nc', status: 'APPROVED', reportType: 'STORE_INFO', changeType: 'other',
+    resolution: 'NO_CHANGE', reviewReason: '현재 정보가 맞음', storeName: '학식당' };
+  const price = { id: 'p', status: 'APPROVED', changeType: 'rise', resolution: 'PRICE', storeName: '국밥집' };
+  const pendingInfo = { id: 'i', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'location_wrong', storeName: '분식집' };
+  const unknown = { id: 'u', status: 'REJECTED', changeType: 'mystery_code', storeName: '카페' };
+  admin.setReports([noChange, price, pendingInfo, unknown]);
+  const counts = admin.reportCounts();
+  assert.equal(counts.APPROVED, 1);
+  assert.equal(counts.NO_CHANGE, 1);
+
+  const card = admin.reportCard(noChange);
+  assert.match(card, /<span class="badge NO_CHANGE">수정 없음<\/span>/);
+  assert.match(card, /유형: 기타/);
+  assert.match(card, /확정 처리: 수정 없음 · 검토 사유: 현재 정보가 맞음/);
+  assert.doesNotMatch(card, /NO_CHANGE<|other|>승인</);
+  assert.match(admin.reportCard(price), /유형: 가격 인상/);
+  assert.match(admin.reportCard(price), /확정 처리: 메뉴·가격 수정/);
+  assert.match(admin.reportCard(pendingInfo), />검토하기</);
+  assert.match(admin.reportCard(pendingInfo), /유형: 위치 정보가 틀려요/);
+  assert.doesNotMatch(admin.reportCard(pendingInfo), />승인</);
+  assert.match(admin.reportCard(unknown), /유형: mystery_code/, 'unknown codes stay visible');
+
+  admin.setView('reports');
+  admin.original.renderReportsView();
+  assert.match(el('content').innerHTML, /data-status="APPROVED">승인<span class="count">1<\/span>/);
+  assert.match(el('content').innerHTML, /data-status="NO_CHANGE">수정 없음<span class="count">1<\/span>/);
+
+  admin.setOverview({ users: 7, userStores: { total: 15, pending: 1, approved: 5, noChange: 1, rejected: 2, legacy: 7 } });
+  admin.setView('dashboard');
+  admin.renderDashboard();
+  assert.match(el('content').innerHTML, /승인 4 · 수정 없음 1 · 반려 2/);
+});
+
+test('QA 2026-10-07 #13: the information report dialog does not call a NO_CHANGE decision an approval', async () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  const report = { id: 'info', status: 'PENDING', reportType: 'STORE_INFO', changeType: 'other', storeName: '학식당',
+    storeId: 's1', currentStore: { storeId: 's1', menu1: '한식', price1: '6500', correctionRevision: 0 } };
+  admin.setReports([report]);
+  admin.openReportResolution(report);
+  assert.equal(el('reportResolutionKind').value, 'NO_CHANGE');
+  assert.equal(el('reportResolutionConfirm').textContent, '수정 없음으로 처리');
+  assert.match(el('reportResolutionOriginal').textContent, /유형: 기타/);
+  el('reportResolutionKind').value = 'PRICE';
+  admin.renderResolutionFields();
+  assert.equal(el('reportResolutionConfirm').textContent, '변경 확인 후 승인');
+
+  el('reportResolutionKind').value = 'NO_CHANGE';
+  admin.renderResolutionFields();
+  el('reportResolutionReason').value = '현재 정보가 맞음';
+  const pending = admin.approveReportResolution();
+  assert.equal(el('confirmActionHeading').textContent, '수정 없음 처리 확인');
+  assert.match(el('confirmActionMessage').textContent, /매장 정보 수정 없음/);
+  assert.match(el('confirmActionMessage').textContent, /수정 없음으로 처리할까요\?$/);
+  el('confirmActionAccept').onclick();
+  await pending;
+  assert.equal(el('toast').textContent, '수정 없음으로 처리 완료');
 });

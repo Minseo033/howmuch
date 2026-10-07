@@ -295,6 +295,7 @@
   }
   .badge.PENDING  { color: var(--amber); background: var(--amber-soft); }
   .badge.APPROVED { color: var(--green); background: var(--green-soft); }
+  .badge.NO_CHANGE { color: #475569; background: #F1F5F9; }
   .badge.ANSWERED { color: var(--primary); background: var(--primary-soft); }
   .badge.REJECTED { color: var(--red);   background: var(--red-soft); }
   .stars { color: var(--amber-fill); font-size:13px; letter-spacing: 1px; }
@@ -858,7 +859,7 @@
   const listCapNotice = (items) => items.length >= ADMIN_LIST_CAP
     ? `<span class="cap-note">최근 ${ADMIN_LIST_CAP}건까지 표시</span>` : '';
   const reportCapNotice = (withCounts = true) => [
-    reportListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 제보만 불러왔습니다${withCounts ? ` · 승인·반려·미분류 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
+    reportListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 제보만 불러왔습니다${withCounts ? ` · 승인·수정 없음·반려·미분류 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
     pendingListCapped ? `대기 제보도 최신 ${ADMIN_LIST_CAP}건까지만 불러왔습니다 · 처리 후 새로고침하면 나머지가 보입니다` : '',
   ].filter(Boolean).map((note) => `<span class="cap-note">${note}</span>`).join('');
 
@@ -919,9 +920,28 @@
 
   const shortUidText = (uid) => uid ? String(uid).slice(0, 8) + '…' : '-';
   const shortUid = (uid) => esc(shortUidText(uid));
-  const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', REJECTED: '반려', LEGACY: '미분류' };
-  const reportStatus = (report) => ['PENDING', 'APPROVED', 'REJECTED'].includes(report.status)
-    ? report.status : 'LEGACY';
+  const STATUS_LABEL = { PENDING: '대기', APPROVED: '승인', NO_CHANGE: '수정 없음', REJECTED: '반려', LEGACY: '미분류' };
+  // QA 2026-10-07 #13: 정보 신고를 수정 없이 처리한 건은 서버 상태가 APPROVED여도 승인과 따로 셉니다.
+  const reportStatus = (report) => {
+    if (report.status === 'APPROVED' && String(report.resolution ?? '').trim().toUpperCase() === 'NO_CHANGE') return 'NO_CHANGE';
+    return ['PENDING', 'APPROVED', 'REJECTED'].includes(report.status) ? report.status : 'LEGACY';
+  };
+  // QA 2026-10-07 #14: 제보 카드에 내부 코드 대신 앱에서 고른 유형 이름과 관리자 처리 이름을 보여 줍니다.
+  // 모르는 코드는 숨기지 않고 그대로 보여 줍니다.
+  const CHANGE_TYPE_LABEL = {
+    rise: '가격 인상', drop: '가격 인하', new: '신규 메뉴', delete: '메뉴 삭제',
+    closed: '폐업됐어요', price_mismatch: '가격이 달라요', location_wrong: '위치 정보가 틀려요', other: '기타',
+  };
+  const RESOLUTION_LABEL = {
+    NEW_STORE: '신규 매장 등록', PRICE: '메뉴·가격 수정', LOCATION: '주소·위치 수정', CLOSED: '폐업 처리', NO_CHANGE: '수정 없음',
+  };
+  const codeLabel = (labels, code, normalize) => {
+    const raw = String(code ?? '').trim();
+    const key = normalize(raw);
+    return Object.prototype.hasOwnProperty.call(labels, key) ? labels[key] : raw;
+  };
+  const changeTypeLabel = (code) => codeLabel(CHANGE_TYPE_LABEL, code, (value) => value.toLowerCase());
+  const resolutionLabel = (code) => codeLabel(RESOLUTION_LABEL, code, (value) => value.toUpperCase());
   const AVATAR_COLORS = ['#2563EB','#8B5CF6','#10B981','#F59E0B','#EF4444','#0EA5E9','#EC4899'];
 
   const avatarColor = (seed) => {
@@ -1104,10 +1124,15 @@
     const o = overview;
     const us = o.userStores || {};
     const legacyCount = Number(us.legacy ?? Math.max(0, Number(us.total ?? 0) - Number(us.pending ?? 0) - Number(us.approved ?? 0) - Number(us.rejected ?? 0)));
+    // QA 2026-10-07 #13: 서버가 수정 없음 건수를 주면 승인 건수에서 빼고 따로 보여 줍니다(이전 서버는 그대로 표시).
+    const noChangeCount = us.noChange == null || !Number.isFinite(Number(us.noChange)) ? null : Number(us.noChange);
+    const approvedText = noChangeCount === null
+      ? `승인 ${us.approved ?? 0}`
+      : `승인 ${Math.max(0, Number(us.approved ?? 0) - noChangeCount)} · 수정 없음 ${noChangeCount}`;
     const priorityCards = [
       ['검토 대기 제보', us.pending, '지금 확인할 항목', 'priority'],
       ['미분류 제보', legacyCount, '상태 확인 필요', 'neutral'],
-      ['전체 제보', us.total, `승인 ${us.approved ?? 0} · 반려 ${us.rejected ?? 0}`, 'neutral'],
+      ['전체 제보', us.total, `${approvedText} · 반려 ${us.rejected ?? 0}`, 'neutral'],
     ];
     const secondaryCards = [
       ['전체 회원', o.users],
@@ -1152,7 +1177,7 @@
 
   /* ══ 뷰 2: 제보 관리 ══ */
   function reportCounts() {
-    const c = { PENDING: 0, APPROVED: 0, REJECTED: 0, LEGACY: 0 };
+    const c = { PENDING: 0, APPROVED: 0, NO_CHANGE: 0, REJECTED: 0, LEGACY: 0 };
     allReports.forEach((r) => { c[reportStatus(r)]++; });
     return c;
   }
@@ -1170,15 +1195,17 @@
       <div class="tabs">
         <button class="tab ${currentTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${pendingCount}</span></button>
         <button class="tab ${currentTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+        <button class="tab ${currentTab==='NO_CHANGE'?'active':''}" data-status="NO_CHANGE">수정 없음<span class="count">${c.NO_CHANGE||''}</span></button>
         <button class="tab ${currentTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
         <button class="tab ${currentTab==='LEGACY'?'active':''}" data-status="LEGACY">미분류<span class="count">${c.LEGACY||''}</span></button>
         <button class="tab ${currentTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
       </div>`;
 
     const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => reportStatus(r) === currentTab);
+    const emptyTitle = currentTab === 'NO_CHANGE' ? '수정 없음으로 처리한 제보가 없습니다' : `${STATUS_LABEL[currentTab]||''} 제보가 없습니다`;
     const listHtml = filtered.length
       ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
-      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${STATUS_LABEL[currentTab]||''} 제보가 없습니다</h2><p>다른 탭을 확인해보세요.</p></div>`;
+      : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${emptyTitle}</h2><p>다른 탭을 확인해보세요.</p></div>`;
 
     content.innerHTML = reportCapNotice() + tabsHtml + (currentTab === 'LEGACY' && c.LEGACY
       ? '<div class="legacy-note">상태가 없는 과거 제보입니다. 공개 여부와 원본 데이터를 확인한 뒤 처리해주세요. 자동으로 승인·반려하지 않습니다.</div>'
@@ -1240,8 +1267,10 @@
       r.phoneNumber ? 'Tel. ' + esc(r.phoneNumber) : null,
     ].filter(Boolean).map((f) => `<span class="flag">${f}</span>`).join('');
 
+    // QA 2026-10-07 #13: 정보 신고는 처리 창에서 수정 없음·가격·위치·폐업 중 하나를 고르므로 '승인' 대신 '검토하기'입니다.
+    const infoReport = r.reportType === 'STORE_INFO';
     const reviewActions = r.status === 'PENDING' ? `
-        <button class="btn btn-approve" data-approve="${esc(r.id)}">승인</button>
+        <button class="btn ${infoReport ? 'btn-primary' : 'btn-approve'}" data-approve="${esc(r.id)}">${infoReport ? '검토하기' : '승인'}</button>
         <button class="btn btn-reject" data-reject="${esc(r.id)}" data-name="${esc(r.storeName)}">반려</button>` : '';
     const actions = `
       <div class="report-actions">
@@ -1268,9 +1297,9 @@
         </div>
         ${menuRows(r)}
         ${currentPriceLine(r)}
-        <div class="report-meta">종류: ${esc(r.reportType === 'STORE_INFO' ? '매장 정보 신고' : r.changeType ? '가격·메뉴 변경' : '신규 매장 제보')} · 유형: ${esc(r.changeType || '일반')} · 대상 매장 ID: ${esc(r.storeId || '미지정')}</div>
+        <div class="report-meta">종류: ${esc(r.reportType === 'STORE_INFO' ? '매장 정보 신고' : r.changeType ? '가격·메뉴 변경' : '신규 매장 제보')} · 유형: ${esc(changeTypeLabel(r.changeType) || '일반')} · 대상 매장 ID: ${esc(r.storeId || '미지정')}</div>
         ${r.description ? `<p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(r.description)}</p>` : ''}
-        ${r.resolution ? `<div class="report-meta">확정 처리: ${esc(r.resolution)} · 검토 사유: ${esc(r.reviewReason || '')}</div>` : ''}
+        ${r.resolution ? `<div class="report-meta">확정 처리: ${esc(resolutionLabel(r.resolution))} · 검토 사유: ${esc(r.reviewReason || '')}</div>` : ''}
         ${r.status === 'PENDING' && stalePriceReport(r) ? `<div class="legacy-note">${esc(STALE_PRICE_REPORT_MESSAGE)}</div>` : ''}
         ${flags ? `<div class="report-flags">${flags}</div>` : ''}
         ${parkingMismatch ? `<div class="legacy-note">매장명에 주차장이 포함되어 있어 업종 확인이 필요합니다. <button class="btn btn-light" data-fix-parking="${esc(r.id)}">주차장 업종으로 수정</button></div>` : ''}
@@ -2098,17 +2127,19 @@
     resolutionReportId = report.id;
     $('reportResolutionReason').value = '';
     $('reportResolutionError').textContent = '';
-    $('reportResolutionOriginal').textContent = `대상: ${report.storeName}\n주소: ${report.currentStore?.address || report.address}\n유형: ${report.changeType || '기타'}\n신고 설명: ${report.description || '(내용 없음)'}`;
+    $('reportResolutionOriginal').textContent = `대상: ${report.storeName}\n주소: ${report.currentStore?.address || report.address}\n유형: ${changeTypeLabel(report.changeType) || '기타'}\n신고 설명: ${report.description || '(내용 없음)'}`;
     $('reportResolutionKind').value = ({price_mismatch:'PRICE',location_wrong:'LOCATION',closed:'CLOSED'})[report.changeType] || 'NO_CHANGE';
     renderResolutionFields();
     openModal('reportResolutionModal');
   }
 
   function renderResolutionFields() {
+    const kind = $('reportResolutionKind').value;
+    // QA 2026-10-07 #13: 수정 없음은 승인이 아니므로 확정 버튼도 처리 종류에 맞춰 부릅니다.
+    $('reportResolutionConfirm').textContent = kind === 'NO_CHANGE' ? '수정 없음으로 처리' : '변경 확인 후 승인';
     const r = allReports.find((report) => report.id === resolutionReportId);
     if (!r) return;
     const before = r.currentStore || {};
-    const kind = $('reportResolutionKind').value;
     const fields = $('reportResolutionFields');
     // 앱의 '가격이 달라요' 신고는 고른 메뉴를 menu1에 담습니다. 이름이 같은 현재 메뉴 칸을 기본으로 고르고, 없으면 1번 칸입니다.
     const reportedMenu = String(r.menu1 ?? '').trim();
@@ -2158,7 +2189,9 @@
     } else if (resolution === 'CLOSED') after = {isClosed:true};
     const shiftKm = resolution === 'LOCATION' ? locationShiftKm(before, after) : null;
     const farMove = shiftKm !== null && shiftKm >= LOCATION_SHIFT_WARNING_KM;
-    if (!await confirmAction(resolutionSummary(r.storeName, resolution, before, after, reviewReason), farMove ? '먼 위치로 옮기는지 확인' : '매장 정보 반영 확인')) return;
+    const confirmHeading = farMove ? '먼 위치로 옮기는지 확인'
+      : resolution === 'NO_CHANGE' ? '수정 없음 처리 확인' : '매장 정보 반영 확인';
+    if (!await confirmAction(resolutionSummary(r.storeName, resolution, before, after, reviewReason), confirmHeading)) return;
     const button = $('reportResolutionConfirm');
     button.disabled = true;
     try {
@@ -2168,7 +2201,7 @@
       overview = null;
       reportsLoaded = false;
       await loadReports();
-      toast('검토 내용 반영 완료');
+      toast(resolution === 'NO_CHANGE' ? '수정 없음으로 처리 완료' : '검토 내용 반영 완료');
     } catch (error) { $('reportResolutionError').textContent = error.message || '처리하지 못했습니다. 최신 정보를 다시 조회해주세요.'; handleError(error); }
     finally { button.disabled = false; }
   }
@@ -2190,12 +2223,16 @@
     } else {
       change = '매장 정보 수정 없음';
     }
-    return `「${storeName}」\n${change}\n검토 사유: ${reason}\n위 내용을 반영할까요?`;
+    const question = kind === 'NO_CHANGE' ? '매장 정보를 바꾸지 않고 수정 없음으로 처리할까요?' : '위 내용을 반영할까요?';
+    return `「${storeName}」\n${change}\n검토 사유: ${reason}\n${question}`;
   }
 
   async function doAnswerInquiry() {
     const answer = $('answerInquiryText').value.trim();
-    if (!answer) { $('answerInquiryText').focus(); return; }
+    if (!answer) {
+      showFieldError('answerInquiryText', 'answerInquiryError', '답변 내용을 입력해주세요.');
+      return;
+    }
     if (!answerInquiryId) return;
 
     $('answerInquiryConfirm').disabled = true;
