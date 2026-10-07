@@ -33,6 +33,7 @@ void main() {
     HomeMapScreen.setSearchCatalog(const []);
     HomeMapScreen.globalUserPosition = null;
     HomeMapScreen.hasDismissedLocationNotice = false;
+    HomeMapScreen.clearSavedMapState();
   });
 
   tearDown(() {
@@ -427,6 +428,172 @@ void main() {
     await tester.pump();
     expect(find.byType(HomeMapStoreSummaryCard), findsNothing);
     await disposeHome(tester);
+  });
+
+  testWidgets('a press on the store card that also reaches the map keeps it', (
+    tester,
+  ) async {
+    final controller = await pumpHome(
+      tester,
+      HomeMapScreen(
+        storeLoader:
+            ({
+              required Map<String, double> bounds,
+              required List<Store> cachedStores,
+            }) async => HomeMapStoreLoadResult(
+              stores: [_store('a', 37.56, 126.97, name: '시청 백반')],
+              hasFreshResponse: true,
+            ),
+      ),
+    );
+    controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await tester.pump(const Duration(milliseconds: 350));
+    controller.send(_click(0, 'a'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    final card = find.byType(HomeMapStoreSummaryCard);
+    expect(card, findsOneWidget);
+
+    final press = await tester.startGesture(tester.getCenter(card));
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsOneWidget, reason: 'the press reached the map below');
+
+    await press.up();
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsOneWidget, reason: 'the tap reached it on release');
+
+    // The guard is measured on the wall clock, like the location button's.
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 900)),
+    );
+    controller.send('MAP_CLICK');
+    await tester.pump();
+    expect(card, findsNothing, reason: 'a background tap still closes it');
+    await disposeHome(tester);
+  });
+
+  group('after another tab replaced home', () {
+    Future<HomeMapStoreLoadResult> busanLoader({
+      required Map<String, double> bounds,
+      required List<Store> cachedStores,
+    }) async => HomeMapStoreLoadResult(
+      stores: [_store('busan', 35.15, 129.05, name: '부산 돼지국밥')],
+      hasFreshResponse: true,
+    );
+
+    Future<void> moveToBusanAndOpenCard(WidgetTester tester) async {
+      final first = await pumpHome(
+        tester,
+        HomeMapScreen(storeLoader: busanLoader),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      // The user drags and zooms the map to Busan, then opens a store card.
+      first.send('MOVE_START');
+      first.send(
+        _bounds(
+          35.1,
+          35.2,
+          129.0,
+          129.1,
+          centerLat: 35.15,
+          centerLng: 129.05,
+          level: 6,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      first.send(_click(0, 'busan'));
+      await tester.pump();
+      expect(find.text('부산 돼지국밥'), findsOneWidget);
+      await disposeHome(tester);
+      webViews.controllers.clear();
+    }
+
+    testWidgets('the map reopens where the user left it with its card', (
+      tester,
+    ) async {
+      await moveToBusanAndOpenCard(tester);
+
+      final second = await pumpHome(
+        tester,
+        HomeMapScreen(storeLoader: busanLoader),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        second.htmlLoads.single,
+        contains('new kakao.maps.LatLng(35.15, 129.05), level: 6'),
+      );
+      expect(
+        second.scripts.where((script) => script.startsWith('setMapCenter(')),
+        isEmpty,
+        reason: 'the map must not jump back to the user',
+      );
+      expect(find.text('부산 돼지국밥'), findsOneWidget);
+
+      // Closing the card is kept too.
+      second.send('MAP_CLICK');
+      await tester.pump();
+      expect(find.text('부산 돼지국밥'), findsNothing);
+      await disposeHome(tester);
+      webViews.controllers.clear();
+      await pumpHome(tester, HomeMapScreen(storeLoader: busanLoader));
+      expect(find.text('부산 돼지국밥'), findsNothing);
+      await disposeHome(tester);
+    });
+
+    testWidgets('an untouched map still opens at the user', (tester) async {
+      final first = await pumpHome(
+        tester,
+        const HomeMapScreen(storeLoader: _emptyLoader),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      // The map reports a viewport, but the user never moved it.
+      first.send(
+        _bounds(37.54, 37.56, 126.98, 127.0, centerLat: 37.55, level: 4),
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await disposeHome(tester);
+      webViews.controllers.clear();
+
+      final second = await pumpHome(
+        tester,
+        const HomeMapScreen(storeLoader: _emptyLoader),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        second.htmlLoads.single,
+        contains('new kakao.maps.LatLng(37.5665, 126.978), level: 3'),
+      );
+      expect(second.scripts, contains('setMapCenter(37.5665, 126.978);'));
+      await disposeHome(tester);
+    });
+
+    testWidgets('a result handed over by another screen moves the map', (
+      tester,
+    ) async {
+      await moveToBusanAndOpenCard(tester);
+      final aiStore = _store('ai', 37.57, 126.98, name: 'AI 백반집', menu: '백반');
+
+      final second = await pumpHome(
+        tester,
+        HomeMapScreen(
+          storeLoader: _emptyLoader,
+          initialRecommendation: AiMapRecommendationResult(
+            storeIds: const ['ai'],
+            stores: [aiStore],
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(
+        second.htmlLoads.single,
+        contains('new kakao.maps.LatLng(37.5665, 126.978), level: 3'),
+      );
+      expect(second.scripts, contains('setMapCenterFromSwipe(37.57, 126.98);'));
+      expect(find.text('부산 돼지국밥'), findsNothing);
+      await disposeHome(tester);
+    });
   });
 
   testWidgets('compass bursts are redrawn at most every 100ms', (tester) async {

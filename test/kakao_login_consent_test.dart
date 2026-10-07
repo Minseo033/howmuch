@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_router.dart';
+import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_popup_code.dart';
@@ -158,6 +159,45 @@ void main() {
       reason: 'the stored visibility choice must reach the profile screen',
     );
     expect(saved, isEmpty, reason: 'nothing new from Kakao means no re-save');
+  });
+
+  test('login opens the address requested before login, once', () async {
+    final router = GoRouter(
+      initialLocation: '/login',
+      routes: [
+        for (final path in ['/login', '/home', '/mypage'])
+          GoRoute(path: path, builder: (_, _) => const SizedBox()),
+      ],
+    );
+    final container = ProviderContainer(
+      overrides: [
+        appRouterProvider.overrideWithValue(router),
+        startupLocationProvider.overrideWithValue(StartupLocation('/mypage')),
+        kakaoLoginServiceProvider.overrideWith(
+          (ref) => KakaoLoginService(
+            ref,
+            talkInstalled: () async => false,
+            accountLogin: () async => _token(),
+            loadKakaoUser: () async =>
+                _kakaoUserWith(email: 'saver@example.com'),
+            beginConsent: () => _FakeConsent((_) async => _token()),
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final result = await http.runWithClient(
+      () => container.read(kakaoLoginServiceProvider).login(),
+      () => _backend(
+        storedProfile: {'nickname': '절약왕', 'email': 'saver@example.com'},
+        savedProfiles: [],
+      ),
+    );
+
+    expect(result.status, KakaoLoginStatus.success);
+    expect(router.routeInformationProvider.value.uri.path, '/mypage');
+    expect(container.read(startupLocationProvider).take(), '/home');
   });
 
   test('login saves only what Kakao adds and keeps visibility flags', () async {

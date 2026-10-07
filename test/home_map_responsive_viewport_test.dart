@@ -16,6 +16,7 @@ void main() {
     HomeMapScreen.globalAllStores = [];
     HomeMapScreen.globalUserPosition = null;
     HomeMapScreen.hasRequestedLocationWeb = true;
+    HomeMapScreen.clearSavedMapState();
   });
 
   for (final size in [const Size(320, 568), const Size(393, 852)]) {

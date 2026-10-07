@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app_routes.dart';
 import 'app_router.dart';
 import 'app_theme.dart';
+import 'widgets/route_page_title.dart';
 import 'widgets/web_notification_prompt.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
@@ -88,23 +89,26 @@ class _HowmuchAppState extends ConsumerState<HowmuchApp>
         if (!kIsWeb) return child ?? const SizedBox.shrink();
         // This builder only reruns when the app rebuilds, so listen to the
         // router: otherwise the banner kept the first page's home offset.
-        return ListenableBuilder(
-          listenable: router.routerDelegate,
-          builder: (context, _) {
-            final currentPath =
-                router.routerDelegate.currentConfiguration.uri.path;
-            final isHome =
-                currentPath == AppRoutes.home ||
-                currentPath == AppRoutes.homeAiFab;
-            return WebNotificationPrompt(
-              // Keep the current page in the navigation stack so the inbox
-              // back button returns to where the user opened the prompt.
-              onOpenNotifications: () => router.push(AppRoutes.notifications),
-              isHome: isHome,
-              navigatorKey: router.routerDelegate.navigatorKey,
-              child: child ?? const SizedBox.shrink(),
-            );
-          },
+        return RoutePageTitle(
+          router: router,
+          child: ListenableBuilder(
+            listenable: router.routerDelegate,
+            builder: (context, _) {
+              final currentPath =
+                  router.routerDelegate.currentConfiguration.uri.path;
+              final isHome =
+                  currentPath == AppRoutes.home ||
+                  currentPath == AppRoutes.homeAiFab;
+              return WebNotificationPrompt(
+                // Keep the current page in the navigation stack so the inbox
+                // back button returns to where the user opened the prompt.
+                onOpenNotifications: () => router.push(AppRoutes.notifications),
+                isHome: isHome,
+                navigatorKey: router.routerDelegate.navigatorKey,
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
+          ),
         );
       },
     );
