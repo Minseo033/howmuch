@@ -2743,6 +2743,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 child: Center(
                   child: _AiRecommendationBanner(
                     count: _aiRecommendedStores.length,
+                    origin: _activeAiRecommendation?.origin,
                     onReset: _clearAiRecommendation,
                   ),
                 ),
@@ -2761,7 +2762,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                   child: Center(
                     child: _FloatingSearchSummary(
                       count: _currentStores.length,
-                      title: isAiActive ? 'AI 추천 결과 ' : null,
+                      title: isAiActive
+                          ? (_activeAiRecommendation?.origin ==
+                                    MapResultOrigin.todaysPick
+                                ? '오늘의 픽 '
+                                : 'AI 추천 결과 ')
+                          : null,
                       detail: _searchResultStores == null
                           ? null
                           : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
@@ -4166,10 +4172,15 @@ class _FloatingSearchSummary extends StatelessWidget {
 }
 
 class _AiRecommendationBanner extends StatelessWidget {
-  const _AiRecommendationBanner({required this.count, required this.onReset});
+  const _AiRecommendationBanner({
+    required this.count,
+    required this.onReset,
+    this.origin,
+  });
 
   final int count;
   final VoidCallback onReset;
+  final MapResultOrigin? origin;
 
   @override
   Widget build(BuildContext context) {
@@ -4193,7 +4204,10 @@ class _AiRecommendationBanner extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              'AI 추천 매장 $count곳',
+              // Today's pick is not an AI result (QA #23).
+              origin == MapResultOrigin.todaysPick
+                  ? '오늘의 픽 $count곳'
+                  : 'AI 추천 매장 $count곳',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
