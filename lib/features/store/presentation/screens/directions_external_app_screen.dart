@@ -12,6 +12,7 @@ import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
     as howmuch_home;
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_distance.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 typedef DirectionsPositionLookup = Future<Position?> Function();
@@ -442,10 +443,12 @@ class _DirectionsExternalAppScreenState
       children: List.generate(_transports.length, (i) {
         final selected = _selectedTransport == i;
         return Expanded(
-          child: Semantics(
+          // The picked mode is now also announced on the web, where a
+          // selected button was ignored (QA 10/7 #52).
+          child: ChoiceSemantics(
             label: '${_transports[i]['label']} 이동 방식',
             selected: selected,
-            button: true,
+            singleChoice: true,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -469,35 +472,43 @@ class _DirectionsExternalAppScreenState
                       width: selected ? 2 : 1,
                     ),
                   ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        _transports[i]['icon'] as IconData,
-                        color: selected
-                            ? AppColors.primary
-                            : Colors.grey.shade500,
-                        size: 28,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _transports[i]['label'] as String,
-                        style: TextStyle(
-                          color: selected ? AppColors.primary : Colors.black87,
-                          fontWeight: selected
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontSize: 13,
+                  // The label above already names the option; the visible
+                  // text read it a second time.
+                  child: ExcludeSemantics(
+                    child: Column(
+                      children: [
+                        Icon(
+                          _transports[i]['icon'] as IconData,
+                          color: selected
+                              ? AppColors.primary
+                              : Colors.grey.shade500,
+                          size: 28,
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '지도 앱에서 확인',
-                        style: TextStyle(
-                          color: selected ? AppColors.primary : AppColors.muted,
-                          fontSize: 11,
+                        const SizedBox(height: 6),
+                        Text(
+                          _transports[i]['label'] as String,
+                          style: TextStyle(
+                            color: selected
+                                ? AppColors.primary
+                                : Colors.black87,
+                            fontWeight: selected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 2),
+                        Text(
+                          '지도 앱에서 확인',
+                          style: TextStyle(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.muted,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -530,38 +541,42 @@ class _DirectionsExternalAppScreenState
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Text(
-                      badge,
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+            // Named by the label above. The badge letter and the visible
+            // text made it "네이버지도에서 열기, N, 네이버지도에서 열기".
+            child: ExcludeSemantics(
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        badge,
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 15,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 15,
+                      ),
                     ),
                   ),
-                ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
-              ],
+                  Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                ],
+              ),
             ),
           ),
         ),
