@@ -356,6 +356,8 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                         Icons.arrow_back_rounded,
                         size: 20,
                         color: AppColors.black,
+                        // The bare arrow had no name (QA 10/7 #50).
+                        semanticLabel: '뒤로가기',
                       ),
                     ),
                   ),

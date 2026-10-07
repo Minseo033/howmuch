@@ -399,21 +399,26 @@ class _LegalHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        key: ValueKey('privacy-policy-back-icon'),
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: _PrivacyPolicyScreenState.ink,
+              // The bare icons had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          key: ValueKey('privacy-policy-back-icon'),
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: _PrivacyPolicyScreenState.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -437,19 +442,23 @@ class _LegalHeader extends StatelessWidget {
               top: topOffset,
               width: 72,
               height: 48.877838134765625,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  onTap: onAction,
-                  child: const Padding(
-                    padding: EdgeInsets.only(right: 20),
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Icon(
-                        key: ValueKey('privacy-policy-action-icon'),
-                        Icons.open_in_new_rounded,
-                        size: 24,
-                        color: _PrivacyPolicyScreenState.ink,
+              child: Semantics(
+                button: true,
+                label: '개인정보 처리방침 안내 복사',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    onTap: onAction,
+                    child: const Padding(
+                      padding: EdgeInsets.only(right: 20),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Icon(
+                          key: ValueKey('privacy-policy-action-icon'),
+                          Icons.open_in_new_rounded,
+                          size: 24,
+                          color: _PrivacyPolicyScreenState.ink,
+                        ),
                       ),
                     ),
                   ),

@@ -193,6 +193,8 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
                 Icons.arrow_back_rounded,
                 color: _Colors.black,
                 size: 20,
+                // The bare arrow had no name (QA 10/7 #50).
+                semanticLabel: '뒤로가기',
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),

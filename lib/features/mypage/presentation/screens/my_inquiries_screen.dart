@@ -96,20 +96,25 @@ class _InquiriesHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: MyInquiriesScreen._headerHeight,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  hoverColor: AppColors.primaryLight,
-                  onTap: onBack,
-                  child: const Padding(
-                    padding: EdgeInsets.zero,
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.arrow_back_rounded,
-                        size: 24,
-                        color: AppColors.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    hoverColor: AppColors.primaryLight,
+                    onTap: onBack,
+                    child: const Padding(
+                      padding: EdgeInsets.zero,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.arrow_back_rounded,
+                          size: 24,
+                          color: AppColors.ink,
+                        ),
                       ),
                     ),
                   ),
@@ -140,15 +145,15 @@ class _InquiriesHeader extends StatelessWidget {
               top: topOffset,
               width: 48,
               height: MyInquiriesScreen._headerHeight,
-              child: Tooltip(
-                message: '문의 작성',
-                child: IconButton(
-                  onPressed: onCreate,
-                  icon: const Icon(
-                    Icons.edit_outlined,
-                    color: AppColors.ink,
-                    size: 22,
-                  ),
+              // A Tooltip around the button named a separate node and left
+              // the button itself unnamed (QA 10/7 #50).
+              child: IconButton(
+                tooltip: '문의 작성',
+                onPressed: onCreate,
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.ink,
+                  size: 22,
                 ),
               ),
             ),

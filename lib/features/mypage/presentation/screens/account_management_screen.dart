@@ -207,17 +207,22 @@ class _Header extends StatelessWidget {
               top: 3.97705078125 + topOffset,
               width: 44,
               height: 44,
-              child: Material(
-                color: AppColors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
-                  onTap: onBack,
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.arrow_back_rounded,
-                      size: 22,
-                      color: AccountManagementScreen.ink,
+              // The bare arrow had no name (QA 10/7 #50).
+              child: Semantics(
+                button: true,
+                label: '뒤로가기',
+                child: Material(
+                  color: AppColors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22),
+                    onTap: onBack,
+                    child: const Align(
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: AccountManagementScreen.ink,
+                      ),
                     ),
                   ),
                 ),

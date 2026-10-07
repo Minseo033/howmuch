@@ -91,7 +91,8 @@ class _ConnectedSocialAccountsScreenState
                 context.go(AppRoutes.accountManagement);
               }
             },
-            icon: const Icon(Icons.arrow_back_rounded),
+            // The bare arrow had no name (QA 10/7 #50).
+            icon: const Icon(Icons.arrow_back_rounded, semanticLabel: '뒤로가기'),
           ),
         ),
         body: SafeArea(
