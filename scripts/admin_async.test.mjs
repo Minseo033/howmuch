@@ -69,7 +69,7 @@ function harness(fetchImpl, { crypto } = {}) {
       openReportResolution, approveReportResolution,
       renderResolutionFields, renderDashboard, renderCommentsView, doDeleteComment,
       openRejectModal, doReject, openAnswerInquiryModal, doAnswerInquiry,
-      selectNotificationTarget,
+      selectNotificationTarget, updateNotificationPreview, loadSentHistory, recallSentMessage,
       setReports: (reports) => { allReports = reports; },
       setReviews: (reviews) => { allReviews = reviews; },
       setComments: (comments) => { allComments = comments; },
@@ -640,4 +640,113 @@ test('QA 2026-10-07 #48 #57: comment rows show post and author and replies leave
   admin.setDeleteComment('c1');
   await admin.doDeleteComment();
   assert.deepEqual(admin.state().allComments.map((c) => c.id), ['c2']);
+});
+
+test('QA 2026-10-07 #3: sent notices are listed per send and a recall removes that send', async () => {
+  const calls = [];
+  const items = [
+    { id: '2026-09-10T06:00:00.123Z~0123456789abcdef', type: 'notice', title: '점검 안내', body: '내일 점검합니다',
+      createdAt: '2026-09-10T06:00:00.123Z', recipients: 7, readCount: 3 },
+    { id: '2026-08-20T01:00:00.5Z~fedcba9876543210', type: 'admin', title: 'dd', body: '테스트',
+      createdAt: '2026-08-20T01:00:00.5Z', recipients: 1, readCount: 0, targetUid: 'kakao:4912345678', targetName: '기미서' },
+  ];
+  const { admin, el } = harness(async (url, options = {}) => {
+    calls.push({ url, method: options.method || 'GET' });
+    return { ok: true, status: 200, json: async () => (options.method === 'DELETE'
+      ? { success: true, deleted: 7 } : { items, truncated: false }) };
+  });
+  await admin.loadSentHistory('notice');
+  const html = el('noticeHistory').innerHTML;
+  assert.match(html, /점검 안내/);
+  assert.match(html, /받은 회원 7명 · 읽음 3명/);
+  assert.match(html, /받은 회원: 기미서 \(kakao:49…\) · 안 읽음/);
+  assert.match(html, /이전 방식 발송/);
+  assert.equal(el('noticeHistoryCount').textContent, '2건');
+
+  const pending = admin.recallSentMessage('notice', items[0].id, { disabled: false });
+  assert.match(el('confirmActionMessage').textContent, /^「점검 안내」\n받은 회원 7명 · 읽음 3명\n/);
+  assert.match(el('confirmActionMessage').textContent, /알림함과 웹 접속 팝업에서 지워지며 되돌릴 수 없습니다\.$/);
+  assert.equal(el('confirmActionAccept').textContent, '회수');
+  el('confirmActionAccept').onclick();
+  await pending;
+  const recall = calls.find((call) => call.method === 'DELETE');
+  assert.ok(recall.url.endsWith('/api/admin/notices/' + encodeURIComponent(items[0].id)));
+  assert.doesNotMatch(el('noticeHistory').innerHTML, /점검 안내/);
+  assert.match(el('noticeHistory').innerHTML, /dd/);
+  assert.equal(el('toast').textContent, '공지 회수 완료 — 회원 7명의 알림함에서 삭제됨');
+
+  const pendingDecline = admin.recallSentMessage('notice', items[1].id, { disabled: false });
+  el('confirmActionCancel').onclick();
+  await pendingDecline;
+  assert.equal(calls.filter((call) => call.method === 'DELETE').length, 1, 'a cancelled recall must not reach the server');
+});
+
+test('QA 2026-10-07 #3: sent-list failures stay in the list and older responses are ignored', async () => {
+  const old = harness(async () => ({ ok: false, status: 405, json: async () => ({}) }));
+  old.el('toast').textContent = '이전 안내';
+  await old.admin.loadSentHistory('general');
+  assert.match(old.el('notificationHistory').innerHTML, /서버를 새 버전으로 배포한 뒤 사용할 수 있습니다/);
+  assert.equal(old.el('toast').textContent, '이전 안내', 'a list failure must not replace another notice');
+
+  const first = deferred(), second = deferred();
+  let calls = 0;
+  const { admin, el } = harness(async () => ({ ok: true, status: 200,
+    json: () => (++calls === 1 ? first.promise : second.promise) }));
+  const a = admin.loadSentHistory('notice');
+  const b = admin.loadSentHistory('notice');
+  await Promise.resolve();
+  second.resolve({ items: [{ id: 'x', title: '새 목록', recipients: 2, readCount: 0 }] });
+  await b;
+  first.resolve({ items: [{ id: 'y', title: '옛 목록', recipients: 2, readCount: 0 }] });
+  await a;
+  assert.match(el('noticeHistory').innerHTML, /새 목록/);
+  assert.doesNotMatch(el('noticeHistory').innerHTML, /옛 목록/);
+});
+
+test('QA 2026-10-07 #4: a targeted notification confirmation names the recipient first', async () => {
+  const posted = [];
+  const { admin, el } = harness(async (_url, options = {}) => {
+    if (options.method === 'POST') posted.push(options.body);
+    return { ok: true, status: 200, json: async () => ({}) };
+  });
+  admin.setUsers([
+    { id: 'kakao:4912345678', nickname: '기미서', email: 'kim@example.com' },
+    { id: 'kakao:5012345678', nickname: '태관이', email: 'tae@example.com' },
+  ]);
+  el('notifTargetPicker').hidden = false;
+  el('notifTargetResults').hidden = false;
+  admin.selectNotificationTarget('kakao:4912345678');
+  assert.equal(el('notifTargetResults').hidden, true, 'choosing a member closes the list');
+  el('notifTitle').value = '점검 안내';
+  el('notifBody').value = '오늘 밤 점검합니다';
+  const pending = admin.doSendNotification();
+  assert.equal(el('confirmActionMessage').textContent,
+    '받는 회원: 기미서\nkim@example.com · kakao:49…\n제목: 점검 안내\n이 회원에게만 알림을 보낼까요?');
+  assert.equal(el('confirmActionHeading').textContent, '특정 회원 알림 발송 확인');
+  assert.equal(el('confirmActionAccept').textContent, '발송하기');
+  el('confirmActionCancel').onclick();
+  await pending;
+  assert.equal(posted.length, 0);
+
+  admin.setReports([{ id: 'p', status: 'PENDING', storeName: '국밥집' }]);
+  const approval = admin.doApprove('p', { disabled: false });
+  assert.equal(el('confirmActionAccept').textContent, '확인', 'other confirmations keep the default button');
+  el('confirmActionCancel').onclick();
+  await approval;
+});
+
+test('QA 2026-10-07 #49: the notification composer shows character counts and an inbox preview', () => {
+  const { admin, el } = harness(async () => ({ ok: true, status: 200, json: async () => [] }));
+  el('notifTitle').value = '점검 안내';
+  el('notifBody').value = '  오늘 밤 10시부터 점검합니다  ';
+  admin.updateNotificationPreview();
+  assert.equal(el('notifTitleCount').textContent, '5 / 100');
+  assert.equal(el('notifBodyCount').textContent, '20 / 500');
+  assert.equal(el('notifPreviewTitle').textContent, '점검 안내');
+  assert.equal(el('notifPreviewBody').textContent, '오늘 밤 10시부터 점검합니다');
+  el('notifTitle').value = '';
+  el('notifBody').value = '';
+  admin.updateNotificationPreview();
+  assert.equal(el('notifPreviewTitle').textContent, '알림 제목이 여기에 표시됩니다');
+  assert.equal(el('notifBodyCount').textContent, '0 / 500');
 });
