@@ -71,6 +71,8 @@ void main() {
           await tester.tap(find.text('답글'));
           await tester.pump();
           await tester.enterText(find.byType(TextField), '세 번째 답글');
+          // The send button turns on once the typed text is shown.
+          await tester.pump();
           await tester.tap(find.byType(FilledButton));
           await tester.pumpAndSettle();
 
@@ -161,11 +163,17 @@ void main() {
         () async {
           await _pumpDetail(tester);
           await tester.enterText(find.byType(TextField), '새 댓글');
+          await tester.pump();
           await tester.tap(find.byType(FilledButton));
           await tester.pumpAndSettle();
 
           expect(find.text('원 댓글'), findsOneWidget);
           expect(find.text('새 댓글'), findsOneWidget);
+          // Sent: the composer is empty again.
+          expect(
+            tester.widget<TextField>(find.byType(TextField)).controller!.text,
+            isEmpty,
+          );
           expect(find.text('댓글을 불러오지 못했어요.'), findsNothing);
         },
         () => MockClient((request) async {
@@ -231,6 +239,7 @@ void main() {
             ),
           );
           await tester.enterText(find.byType(TextField), '금지된 단어');
+          await tester.pump();
           await tester.tap(find.byType(FilledButton));
           await tester.pumpAndSettle();
           expect(find.text('부적절한 표현이 포함되어 있어요.'), findsOneWidget);
@@ -333,6 +342,81 @@ void main() {
         replies: [],
       ).initial,
       '익',
+    );
+  });
+
+  testWidgets('an empty comment cannot be sent and the button is named '
+      '(QA 2026-10-07 #39)', (tester) async {
+    final semantics = tester.ensureSemantics();
+    await http.runWithClient(
+      () async {
+        await _pumpDetail(tester);
+        FilledButton sendButton() =>
+            tester.widget<FilledButton>(find.byType(FilledButton));
+
+        expect(sendButton().onPressed, isNull);
+        expect(find.bySemanticsLabel('댓글 등록'), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), '   ');
+        await tester.pump();
+        expect(sendButton().onPressed, isNull, reason: 'spaces only');
+
+        await tester.enterText(find.byType(TextField), '가격 그대로예요');
+        await tester.pump();
+        expect(sendButton().onPressed, isNotNull);
+
+        await tester.tap(find.text('답글'));
+        await tester.pump();
+        expect(find.bySemanticsLabel('답글 등록'), findsOneWidget);
+      },
+      () => MockClient((request) async {
+        final path = request.url.path;
+        if (path == '/api/community/feed/p1') return _json(_post());
+        if (path == '/api/community/feed/p1/comments') {
+          return _json([
+            {'id': 'c1', 'author': '민서', 'content': '원 댓글'},
+          ]);
+        }
+        return _json({}, 404);
+      }),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('a comment under a minute old still reads 방금 전 '
+      '(QA 2026-10-07 #40)', (tester) async {
+    String secondsAgo(int seconds) => DateTime.now()
+        .toUtc()
+        .subtract(Duration(seconds: seconds))
+        .toIso8601String();
+    await http.runWithClient(
+      () async {
+        await _pumpDetail(tester);
+        expect(find.text('방금 전'), findsOneWidget);
+        expect(find.text('0분 전'), findsNothing);
+        expect(find.text('2분 전'), findsOneWidget);
+      },
+      () => MockClient((request) async {
+        final path = request.url.path;
+        if (path == '/api/community/feed/p1') return _json(_post());
+        if (path == '/api/community/feed/p1/comments') {
+          return _json([
+            {
+              'id': 'c1',
+              'author': '민서',
+              'content': '방금 단 댓글',
+              'createdAt': secondsAgo(50),
+            },
+            {
+              'id': 'c2',
+              'author': '다나',
+              'content': '조금 전 댓글',
+              'createdAt': secondsAgo(130),
+            },
+          ]);
+        }
+        return _json({}, 404);
+      }),
     );
   });
 }

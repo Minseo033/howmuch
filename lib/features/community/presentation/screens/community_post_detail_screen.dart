@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
@@ -86,6 +87,10 @@ class _CommunityPostDetailScreenState
   static const _lengthHintThreshold = 900;
   int _composerLength = 0;
 
+  /// Whether the composer has something to send. An empty comment cannot be
+  /// sent, so the send button looks off like the AI chat's (QA #39).
+  bool _composerHasText = false;
+
   @override
   void initState() {
     super.initState();
@@ -97,8 +102,12 @@ class _CommunityPostDetailScreenState
   void _onComposerChanged() {
     final length = _controller.text.characters.length;
     final hintWasVisible = _composerLength >= _lengthHintThreshold;
+    final hasText = _controller.text.trim().isNotEmpty;
+    final canSendChanged = hasText != _composerHasText;
     _composerLength = length;
-    if ((hintWasVisible || length >= _lengthHintThreshold) && mounted) {
+    _composerHasText = hasText;
+    if ((hintWasVisible || length >= _lengthHintThreshold || canSendChanged) &&
+        mounted) {
       setState(() {});
     }
   }
@@ -823,30 +832,36 @@ class _CommunityPostDetailScreenState
                             width: 52,
                             height: composerHeight,
                             child: FilledButton(
-                              onPressed: _isSubmitting ? null : _submitComment,
+                              onPressed: _isSubmitting || !_composerHasText
+                                  ? null
+                                  : _submitComment,
                               style: FilledButton.styleFrom(
                                 padding: EdgeInsets.zero,
                                 backgroundColor: CommunityPostDetailScreen.blue,
-                                disabledBackgroundColor:
-                                    CommunityPostDetailScreen.muted,
+                                disabledBackgroundColor: _isSubmitting
+                                    ? CommunityPostDetailScreen.muted
+                                    : AppColors.disabledSurface,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
                               ),
-                              child: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                              child: Semantics(
+                                label: replyTarget == null ? '댓글 등록' : '답글 등록',
+                                child: _isSubmitting
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.arrow_upward_rounded,
+                                        size: 18,
                                         color: Colors.white,
                                       ),
-                                    )
-                                  : const Icon(
-                                      Icons.arrow_upward_rounded,
-                                      size: 18,
-                                      color: Colors.white,
-                                    ),
+                              ),
                             ),
                           ),
                         ],
@@ -2110,7 +2125,8 @@ String _formatCommentDate(String value) {
     final parsed = DateTime.parse(value).toLocal();
     final now = DateTime.now();
     final diff = now.difference(parsed);
-    if (diff.inSeconds < 45) return '방금 전';
+    // QA #40: 45-59 seconds used to read '0분 전'.
+    if (diff.inMinutes < 1) return '방금 전';
     if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';
