@@ -110,15 +110,20 @@ void main() {
         findsOneWidget,
       );
 
-      // Inter-store legs 1->2 (~166m) and 2->3 (~166m) must be labeled as walking (~2 min)
-      expect(find.text('도보 약 2분'), findsNWidgets(2));
-
-      // Far leg 3->4 (~2.3km) must NOT be labeled as walking (e.g. not "도보 약 28분")
+      // Each leg button carries the time of its own leg (QA #24): the first
+      // leg starts at the current location (~55m), the others at the
+      // previous stop (~166m, ~166m, ~2.3km).
+      expect(_legLabel(tester, 1), '1구간: 현재 위치 → 1호점 국수 · 도보 약 1분');
+      expect(_legLabel(tester, 2), '2구간: 1호점 국수 → 2호점 김밥 · 도보 약 2분');
+      expect(_legLabel(tester, 3), '3구간: 2호점 김밥 → 3호점 카페 · 도보 약 2분');
+      // A far leg is not labelled as a walk (e.g. not "도보 약 28분").
       expect(
-        find.textContaining('도보 약 2'),
-        findsNWidgets(2),
-      ); // only the two 2-minute walks
-      expect(find.text('대중교통/차량 이동 (2.3km)'), findsOneWidget);
+        _legLabel(tester, 4),
+        '4구간: 3호점 카페 → 4호점 디저트 · 대중교통/차량 이동 (2.3km)',
+      );
+      // No time is left between the cards, where it read as the time of the
+      // leg above it.
+      expect(find.text('도보 약 2분'), findsNothing);
 
       // Total distance is aggregated safely
       expect(find.text('총 거리'), findsOneWidget);
@@ -186,14 +191,12 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Between Store 1 and Store 2 (~222m): 도보 약 3분
-      // Between Store 2 and Store 3 (~222m): 도보 약 3분
-      expect(find.text('도보 약 3분'), findsNWidgets(2));
-
-      // Before the fix, the leg between Store 3 and Store 4 mistakenly used leg index 1 or 2 (도보 약 3분).
-      // With the fix, it MUST show 대중교통/차량 이동 (22.0km), NEVER a third "도보 약 3분"!
-      expect(find.text('도보 약 3분'), findsNWidgets(2)); // exactly 2, NOT 3
-      expect(find.text('대중교통/차량 이동 (22.0km)'), findsNothing);
+      // Store 1 -> Store 2 and Store 2 -> Store 3 are ~222m walks.
+      expect(_legLabel(tester, 2), endsWith('· 도보 약 3분'));
+      expect(_legLabel(tester, 3), endsWith('· 도보 약 3분'));
+      // The 22.4km store is outside the radius: no card and no leg to it.
+      expect(find.byKey(const ValueKey('route-leg-4')), findsNothing);
+      expect(find.textContaining('대중교통/차량 이동'), findsNothing);
       expect(find.byKey(const ValueKey('route-step-4')), findsNothing);
     },
   );
@@ -250,6 +253,17 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 }
+
+/// The full label of the "N구간" button, including its travel time.
+String _legLabel(WidgetTester tester, int leg) => tester
+    .widget<Text>(
+      find.descendant(
+        of: find.byKey(ValueKey('route-leg-$leg')),
+        matching: find.byType(Text),
+      ),
+    )
+    .textSpan!
+    .toPlainText();
 
 class _FakeRouteService extends TodaysPickService {
   _FakeRouteService({required this.route});
