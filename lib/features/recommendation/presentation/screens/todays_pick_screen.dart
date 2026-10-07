@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/shared/widgets/choice_semantics.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -241,8 +242,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   Future<void> _openLocationSettings() async {
     // Browsers do not expose an app settings page; Geolocator throws there.
     final opened =
-        !kIsWeb &&
-        await openLocationSettingsForStatus(serviceDisabled: false);
+        !kIsWeb && await openLocationSettingsForStatus(serviceDisabled: false);
     if (opened || !mounted) return;
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
@@ -854,31 +854,37 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 ),
                                               ),
                                               alignment: Alignment.center,
-                                              child: const Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.map_outlined,
-                                                    color: Color(0xFF0F172A),
-                                                    size: 16,
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Text(
-                                                    '지도에서 보기',
-                                                    style: TextStyle(
-                                                      fontFamily:
-                                                          'Noto Sans KR',
-                                                      fontFamilyFallback: [
-                                                        'Noto Sans KR',
-                                                      ],
+                                              // Named by the label above; the
+                                              // text read it a second time.
+                                              child: const ExcludeSemantics(
+                                                child: Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.map_outlined,
                                                       color: Color(0xFF0F172A),
-                                                      fontSize: 13,
-                                                      fontWeight:
-                                                          FontWeight.bold,
+                                                      size: 16,
                                                     ),
-                                                  ),
-                                                ],
+                                                    SizedBox(width: 8),
+                                                    Text(
+                                                      '지도에서 보기',
+                                                      style: TextStyle(
+                                                        fontFamily:
+                                                            'Noto Sans KR',
+                                                        fontFamilyFallback: [
+                                                          'Noto Sans KR',
+                                                        ],
+                                                        color: Color(
+                                                          0xFF0F172A,
+                                                        ),
+                                                        fontSize: 13,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -887,51 +893,55 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
-                                      child: GestureDetector(
-                                        onTap: () => context.push(
-                                          AppRoutes.optimalRoute,
-                                        ),
-                                        child: Container(
-                                          height: 48,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF2563EB),
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: const Color(
-                                                  0xFF2563EB,
-                                                ).withValues(alpha: 0.3),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 6),
-                                              ),
-                                            ],
+                                      // Read as a button, not as text.
+                                      child: Semantics(
+                                        container: true,
+                                        button: true,
+                                        child: GestureDetector(
+                                          onTap: () => context.push(
+                                            AppRoutes.optimalRoute,
                                           ),
-                                          alignment: Alignment.center,
-                                          child: const Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                Icons.route,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                              SizedBox(width: 8),
-                                              Text(
-                                                '이 루트로 보기',
-                                                style: TextStyle(
-                                                  fontFamily: 'Noto Sans KR',
-                                                  fontFamilyFallback: [
-                                                    'Noto Sans KR',
-                                                  ],
-                                                  color: Colors.white,
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
+                                          child: Container(
+                                            height: 48,
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF2563EB),
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(
+                                                    0xFF2563EB,
+                                                  ).withValues(alpha: 0.3),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 6),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons.route,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  '이 루트로 보기',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Noto Sans KR',
+                                                    fontFamilyFallback: [
+                                                      'Noto Sans KR',
+                                                    ],
+                                                    color: Colors.white,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -954,40 +964,48 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
   Widget _buildFilterChip(String text, Color baseColor) {
     bool isSelected = _selectedFilter == text;
 
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _selectedFilter = text;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? baseColor.withValues(alpha: 0.15) : Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: isSelected
-              ? Border.all(color: baseColor)
-              : Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.circle,
-              color: isSelected ? baseColor : const Color(0xFFCBD5E1),
-              size: 6,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              text,
-              style: TextStyle(
-                fontFamily: 'Noto Sans KR',
-                fontFamilyFallback: const ['Noto Sans KR'],
-                color: isSelected ? baseColor : const Color(0xFF374151),
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+    // One of the three is always picked; it showed only in the colors
+    // (same issue as QA 10/7 #52).
+    return ChoiceSemantics(
+      selected: isSelected,
+      singleChoice: true,
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedFilter = text;
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? baseColor.withValues(alpha: 0.15)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(30),
+            border: isSelected
+                ? Border.all(color: baseColor)
+                : Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.circle,
+                color: isSelected ? baseColor : const Color(0xFFCBD5E1),
+                size: 6,
               ),
-            ),
-          ],
+              const SizedBox(width: 4),
+              Text(
+                text,
+                style: TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: const ['Noto Sans KR'],
+                  color: isSelected ? baseColor : const Color(0xFF374151),
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1008,215 +1026,220 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     String? theme,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: indexBgColor,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'PICK',
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: ['Noto Sans KR'],
-                          color: Color(0xFF64748B),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+    // A card that opens the store is read as a button (QA 10/7 #54).
+    return Semantics(
+      container: true,
+      button: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: indexBgColor,
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'PICK',
+                          style: TextStyle(
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: Color(0xFF64748B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      Text(
-                        index,
-                        style: TextStyle(
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: const ['Noto Sans KR'],
-                          color: indexTextColor,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                        Text(
+                          index,
+                          style: TextStyle(
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: const ['Noto Sans KR'],
+                            color: indexTextColor,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: badgeBg,
-                                  borderRadius: BorderRadius.circular(30),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 6,
-                                      height: 6,
-                                      decoration: BoxDecoration(
-                                        color: badgeColor,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      badgeText,
-                                      style: TextStyle(
-                                        fontFamily: 'Noto Sans KR',
-                                        fontFamilyFallback: const [
-                                          'Noto Sans KR',
-                                        ],
-                                        color: badgeColor,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
-                              if (theme != null && theme.isNotEmpty) ...[
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
                                     vertical: 2,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3EA),
+                                    color: badgeBg,
                                     borderRadius: BorderRadius.circular(30),
                                   ),
-                                  child: Text(
-                                    theme,
-                                    style: const TextStyle(
-                                      fontFamily: 'Noto Sans KR',
-                                      fontFamilyFallback: ['Noto Sans KR'],
-                                      color: Color(0xFFF97316),
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: BoxDecoration(
+                                          color: badgeColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        badgeText,
+                                        style: TextStyle(
+                                          fontFamily: 'Noto Sans KR',
+                                          fontFamilyFallback: const [
+                                            'Noto Sans KR',
+                                          ],
+                                          color: badgeColor,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                // 백엔드 테마 칩 (이열치열/비 오면 파전 등)
+                                if (theme != null && theme.isNotEmpty) ...[
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFF3EA),
+                                      borderRadius: BorderRadius.circular(30),
+                                    ),
+                                    child: Text(
+                                      theme,
+                                      style: const TextStyle(
+                                        fontFamily: 'Noto Sans KR',
+                                        fontFamilyFallback: ['Noto Sans KR'],
+                                        color: Color(0xFFF97316),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          distance,
-                          style: const TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF64748B),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      storeName,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Noto Sans KR',
-                        fontFamilyFallback: ['Noto Sans KR'],
-                        color: Color(0xFF0F172A),
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            menuName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 8),
+                          Text(
+                            distance,
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
                               color: Color(0xFF64748B),
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          price,
-                          style: const TextStyle(
-                            fontFamily: 'Noto Sans KR',
-                            fontFamilyFallback: ['Noto Sans KR'],
-                            color: Color(0xFF0F172A),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF4F6FA),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              tipText,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontFamily: 'Noto Sans KR',
-                                fontFamilyFallback: ['Noto Sans KR'],
-                                color: Color(0xFF374151),
-                                fontSize: 11,
-                              ),
+                              fontSize: 11,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        storeName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Noto Sans KR',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: Color(0xFF0F172A),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              menuName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: 'Noto Sans KR',
+                                fontFamilyFallback: ['Noto Sans KR'],
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              fontFamily: 'Noto Sans KR',
+                              fontFamilyFallback: ['Noto Sans KR'],
+                              color: Color(0xFF0F172A),
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF4F6FA),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                tipText,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'Noto Sans KR',
+                                  fontFamilyFallback: ['Noto Sans KR'],
+                                  color: Color(0xFF374151),
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -8,7 +8,10 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/screens/ai_recommend_chat_screen.dart';
+import 'package:howmuch/features/recommendation/presentation/screens/todays_pick_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
+import 'package:howmuch/features/recommendation/presentation/state/recommendation_failure.dart';
+import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
 import 'package:howmuch/features/recommendation/presentation/widgets/recommendation_radius_button.dart';
 import 'package:howmuch/features/search/presentation/screens/search_filter_screen.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
@@ -408,6 +411,38 @@ void main() {
       expect(find.text('길찾기 화면'), findsOneWidget);
       semantics.dispose();
     });
+
+    testWidgets("today's pick reads its tabs, cards and buttons", (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openTodaysPick(tester);
+
+      expect(readerElements('뒤로가기'), findsOne);
+      expect(
+        readerElementsNamed('날씨 기반'),
+        isSemantics(isButton: true, hasTapAction: true, isSelected: true),
+      );
+      expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: false));
+      expect(
+        readerElements('다 시청 칼국수'),
+        isSemantics(isButton: true, hasTapAction: true),
+      );
+      for (final action in ['지도에서 보기', '이 루트로 보기']) {
+        expect(readerElements(action), findsOne, reason: action);
+        expect(
+          readerElementsNamed(action),
+          isSemantics(isButton: true, hasTapAction: true),
+          reason: action,
+        );
+      }
+
+      tester.semantics.tap(readerElementsNamed('가까운 거리'));
+      await tester.pumpAndSettle();
+      expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: true));
+      expect(readerElementsNamed('날씨 기반'), isSemantics(isSelected: false));
+      semantics.dispose();
+    });
   });
 }
 
@@ -580,6 +615,38 @@ Future<void> _openStoreDetail(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
+}
+
+/// Today's pick with the server down, so it lists the nearest stores of the
+/// catalog.
+Future<void> _openTodaysPick(WidgetTester tester) async {
+  _setViewport(tester, const Size(390, 1400));
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        todaysPickServiceProvider.overrideWithValue(_DownTodaysPickService()),
+      ],
+      child: const MaterialApp(home: TodaysPickScreen()),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+class _DownTodaysPickService extends TodaysPickService {
+  @override
+  Future<Map<String, dynamic>> getTodaysPick({
+    double? lat,
+    double? lng,
+    int radiusMeters = 3000,
+  }) async =>
+      recommendationError(RecommendationFailure.server, statusCode: 500);
+
+  @override
+  Future<Map<String, dynamic>> getRoute({
+    double? lat,
+    double? lng,
+    int radiusMeters = 3000,
+  }) async => const {};
 }
 
 class _LocalReviews extends StoreReviewNotifier {
