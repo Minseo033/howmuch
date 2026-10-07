@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -280,6 +282,8 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 class _FakePlatformWebViewController extends PlatformWebViewController {
   _FakePlatformWebViewController(super.params) : super.implementation();
 
+  final _channels = <JavaScriptChannelParams>[];
+
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
 
@@ -287,7 +291,19 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   Future<void> setBackgroundColor(Color color) async {}
 
   @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {}
+  Future<void> addJavaScriptChannel(JavaScriptChannelParams params) async {
+    _channels.add(params);
+  }
+
+  /// Like a page whose map is drawn at once, it reports back after loading.
+  @override
+  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    scheduleMicrotask(() {
+      for (final channel in _channels) {
+        channel.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+      }
+    });
+  }
 
   @override
   Future<void> runJavaScript(String javaScript) async {}

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,12 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'route_map_point.dart';
+
+/// The page posts to this channel once the map is drawn or has failed.
+const routeMapReadyChannel = 'RouteMapReady';
+
+/// Hides the loading indicator even if the page never reports back.
+const routeMapReadyFallback = Duration(seconds: 12);
 
 Widget buildRouteMapView({
   required List<RouteMapPoint> points,
@@ -47,6 +54,10 @@ class _RouteMapMobileView extends StatefulWidget {
 class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   late final WebViewController _controller;
   late String _routeKey;
+  // The WebView stays blank while the map SDK and tiles load, which took a
+  // few seconds on iOS. A loading indicator covers that time (QA #26).
+  bool _mapReady = false;
+  Timer? _readyFallback;
 
   @override
   void initState() {
@@ -59,7 +70,12 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.transparent)
+      ..addJavaScriptChannel(
+        routeMapReadyChannel,
+        onMessageReceived: (_) => _markMapReady(),
+      )
       ..loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
+    _startReadyFallback();
   }
 
   @override
@@ -74,7 +90,26 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     );
     if (routeKey == _routeKey) return;
     _routeKey = routeKey;
+    _mapReady = false;
     _controller.loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
+    _startReadyFallback();
+  }
+
+  @override
+  void dispose() {
+    _readyFallback?.cancel();
+    super.dispose();
+  }
+
+  void _startReadyFallback() {
+    _readyFallback?.cancel();
+    _readyFallback = Timer(routeMapReadyFallback, _markMapReady);
+  }
+
+  void _markMapReady() {
+    _readyFallback?.cancel();
+    if (!mounted || _mapReady) return;
+    setState(() => _mapReady = true);
   }
 
   String get _html {
@@ -103,8 +138,15 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     var userLng = $userLng;
 
     var initAttempts = 0;
+    var readySent = false;
+    function notifyReady() {
+      if (readySent) return;
+      readySent = true;
+      try { $routeMapReadyChannel.postMessage('ready'); } catch (error) {}
+    }
     function showMapError(message) {
       document.getElementById('map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:#475569;font:12px sans-serif;text-align:center;">' + message + '</div>';
+      notifyReady();
     }
     function initRouteMap() {
       if (typeof kakao === 'undefined' || !kakao.maps) {
@@ -122,6 +164,9 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
         center: new kakao.maps.LatLng(first.latitude, first.longitude),
         level: 5
       });
+      kakao.maps.event.addListener(map, 'tilesloaded', notifyReady);
+      // Some tiles may never report back; the route is drawn by then.
+      setTimeout(notifyReady, 4000);
       var bounds = new kakao.maps.LatLngBounds();
       var linePath = [];
 
@@ -173,7 +218,21 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
-      child: WebViewWidget(controller: _controller),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          WebViewWidget(controller: _controller),
+          if (!_mapReady)
+            const IgnorePointer(
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF2563EB),
+                  semanticsLabel: '지도를 불러오는 중',
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
