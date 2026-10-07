@@ -10,6 +10,7 @@ import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_pending_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_approved_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_needs_edit_tab.dart';
+import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_no_change_tab.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/tabs/my_reports_rejected_tab.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
@@ -84,6 +85,8 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
         return const MyReportsPendingTab();
       case ReportFilter.approved:
         return const MyReportsApprovedTab();
+      case ReportFilter.noChange:
+        return const MyReportsNoChangeTab();
       case ReportFilter.needsEdit:
         return const MyReportsNeedsEditTab();
       case ReportFilter.rejected:
@@ -113,19 +116,10 @@ class _MyReportsV2ScreenState extends ConsumerState<MyReportsV2Screen> {
         )
         .length;
     final counts = <ReportFilter, int>{
-      ReportFilter.all: reports.length,
-      ReportFilter.pending: reports
-          .where((report) => report.filter == ReportFilter.pending)
-          .length,
-      ReportFilter.approved: reports
-          .where((report) => report.filter == ReportFilter.approved)
-          .length,
-      ReportFilter.needsEdit: reports
-          .where((report) => report.filter == ReportFilter.needsEdit)
-          .length,
-      ReportFilter.rejected: reports
-          .where((report) => report.filter == ReportFilter.rejected)
-          .length,
+      for (final filter in ReportFilter.values)
+        filter: filter == ReportFilter.all
+            ? reports.length
+            : reports.where((report) => report.filter == filter).length,
     };
 
     return FigmaMobileCanvas(
@@ -328,6 +322,8 @@ class _Header extends StatelessWidget {
         return '검토 중';
       case ReportFilter.approved:
         return '승인 완료';
+      case ReportFilter.noChange:
+        return '수정 없음';
       case ReportFilter.needsEdit:
         return '보완 요청';
       case ReportFilter.rejected:
@@ -362,9 +358,16 @@ class _Tabs extends StatelessWidget {
     (ReportFilter.all, '전체'),
     (ReportFilter.pending, '검토 중'),
     (ReportFilter.approved, '승인 완료'),
+    (ReportFilter.noChange, '수정 없음'),
     (ReportFilter.needsEdit, '보완 요청'),
     (ReportFilter.rejected, '반려'),
   ];
+
+  // 서버에 아직 없는 보완 요청과 드물게 생기는 수정 없음은 비어 있으면 탭을 숨깁니다.
+  static const _hiddenWhenEmpty = {
+    ReportFilter.noChange,
+    ReportFilter.needsEdit,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -377,12 +380,11 @@ class _Tabs extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // 서버에 아직 '보완 요청' 상태가 없어 비어 있을 때는 탭을 숨깁니다.
           final items = [
             for (final item in _items)
-              if (item.$1 != ReportFilter.needsEdit ||
-                  (counts[ReportFilter.needsEdit] ?? 0) > 0 ||
-                  selected == ReportFilter.needsEdit)
+              if (!_hiddenWhenEmpty.contains(item.$1) ||
+                  (counts[item.$1] ?? 0) > 0 ||
+                  selected == item.$1)
                 item,
           ];
           final tabWidth = constraints.maxWidth / items.length;

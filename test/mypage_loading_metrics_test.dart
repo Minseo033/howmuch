@@ -15,7 +15,7 @@ void main() {
   });
 
   testWidgets(
-    'logged-in user does not flash misleading 0원/0곳 during initial profile summary loading',
+    'logged-in user does not flash misleading 0원/0건/0곳 during initial profile summary loading',
     (tester) async {
       await ApiClient.setSessionToken('active-test-token');
       addTearDown(() => ApiClient.setSessionToken(null));
@@ -58,7 +58,7 @@ void main() {
       // First frame: profile summary request is in-flight and not yet completed
       await tester.pump();
 
-      // Must NOT flash misleading 0원 or 0곳 inside profile metrics
+      // Must NOT flash misleading 0원, 0건 or 0곳 inside profile metrics
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('mypage-metric-saved-amount')),
@@ -69,7 +69,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('mypage-metric-report-count')),
-          matching: find.text('0곳'),
+          matching: find.text('0건'),
         ),
         findsNothing,
       );
@@ -83,7 +83,13 @@ void main() {
 
       // Metric labels are still rendered correctly
       expect(find.text('이번 달 절약'), findsOneWidget);
-      expect(find.text('제보 매장'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('mypage-metric-report-count')),
+          matching: find.text('내 제보'),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('mypage-metric-favorite-count')),
@@ -116,7 +122,7 @@ void main() {
       expect(
         find.descendant(
           of: find.byKey(const ValueKey('mypage-metric-report-count')),
-          matching: find.text('2곳'),
+          matching: find.text('2건'),
         ),
         findsOneWidget,
       );
@@ -169,7 +175,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('mypage-metric-report-count')),
-        matching: find.text('0곳'),
+        matching: find.text('0건'),
       ),
       findsOneWidget,
     );

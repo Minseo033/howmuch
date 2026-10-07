@@ -469,12 +469,13 @@ class _AllAlertCard extends StatelessWidget {
               const Expanded(
                 child: _TitleSubtitle(
                   title: '전체 알림',
-                  subtitle: '모든 매장의 변동 알림을 받습니다',
+                  // 이 화면의 대상은 찜한 매장뿐이라 '모든 매장'이라고 하지 않습니다.
+                  subtitle: '찜한 매장 알림을 한 번에 켜고 꺼요',
                   titleWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 8),
-              _ToggleSm(label: '전체 매장 가격 알림', value: value, onTap: onTap),
+              _ToggleSm(label: '찜한 매장 전체 가격 알림', value: value, onTap: onTap),
             ],
           ),
         ),

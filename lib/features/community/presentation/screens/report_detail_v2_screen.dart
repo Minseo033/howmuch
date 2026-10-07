@@ -10,9 +10,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/report_edit_route.dart';
+import 'package:howmuch/features/store/store_model.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_action_bar.dart';
+
+/// 가격 변동 제보 대상 매장의 현재 정보입니다. 제보 수정 화면과 같은 조회를 쓰며,
+/// 조회하지 못하면 null이라 기존 가격 줄을 숨깁니다.
+final reportTargetStoreProvider = FutureProvider.autoDispose
+    .family<Store?, String>(
+      (ref, storeId) => ref.watch(reportServiceProvider).fetchStore(storeId),
+    );
 
 class ReportDetailV2Screen extends ConsumerStatefulWidget {
   const ReportDetailV2Screen({super.key, this.reportId, this.initialReport});
@@ -471,7 +479,10 @@ class _ReportInfoCard extends StatelessWidget {
             valueColor: ReportDetailV2Screen._ink,
           ),
           const SizedBox(height: AppSizes.smallSpacing),
-          _PriceLine(report: report),
+          if (report.isPriceChangeReport)
+            _PriceChangeLines(report: report)
+          else
+            _PriceLine(report: report),
           if (report.isInformationReport) ...[
             const SizedBox(height: AppSizes.smallSpacing),
             _InfoLine(
@@ -516,9 +527,9 @@ class _UserBadgeRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            const Text(
-              '사용자 제보',
-              style: TextStyle(
+            Text(
+              report.kindLabel,
+              style: const TextStyle(
                 color: ReportDetailV2Screen._orange,
                 fontFamily: ReportDetailV2Screen._fontFamily,
                 fontFamilyFallback: ReportDetailV2Screen._fontFallback,
@@ -688,6 +699,79 @@ class _PriceLine extends StatelessWidget {
   }
 }
 
+/// 가격 변동 제보의 변동 유형·메뉴·가격입니다. 승인 전에는 대상 매장에 아직
+/// 반영되지 않았으므로 지금 등록된 가격을 기존 가격으로 보여 줍니다. 승인된 제보는
+/// 이미 반영돼 같은 값이 보이므로 조회하지 않습니다.
+class _PriceChangeLines extends ConsumerWidget {
+  const _PriceChangeLines({required this.report});
+
+  final UserReportStatus report;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reported = report.menuPrices.firstOrNull;
+    final menuName = reported?.menu.trim() ?? '';
+    final storeId = report.storeId.trim();
+    final store =
+        !report.isApproved && storeId.isNotEmpty && menuName.isNotEmpty
+        ? ref.watch(reportTargetStoreProvider(storeId)).valueOrNull
+        : null;
+    final existingPrice = store == null
+        ? null
+        : _registeredPrice(store, menuName);
+    final reportedPrice =
+        report.changeType != 'delete' &&
+            reported != null &&
+            (reported.price.trim().isNotEmpty || reported.free)
+        ? formatMenuPrice(reported.price, free: reported.free)
+        : null;
+
+    return Column(
+      children: [
+        _InfoLine(
+          label: '변동 유형',
+          value: report.priceChangeTypeLabel,
+          valueWeight: FontWeight.w600,
+        ),
+        const SizedBox(height: AppSizes.smallSpacing),
+        _InfoLine(
+          label: '메뉴',
+          value: menuName.isEmpty ? '입력 없음' : menuName,
+          valueWeight: FontWeight.w600,
+        ),
+        if (existingPrice != null) ...[
+          const SizedBox(height: AppSizes.smallSpacing),
+          _InfoLine(
+            label: '기존 가격',
+            value: existingPrice,
+            valueWeight: FontWeight.w600,
+          ),
+        ],
+        if (reportedPrice != null) ...[
+          const SizedBox(height: AppSizes.smallSpacing),
+          _InfoLine(
+            label: '제보한 가격',
+            value: reportedPrice,
+            valueWeight: FontWeight.w700,
+            valueColor: ReportDetailV2Screen._orange,
+          ),
+        ],
+      ],
+    );
+  }
+
+  static String? _registeredPrice(Store store, String menuName) {
+    for (var slot = 1; slot <= 4; slot++) {
+      if (store.menuAt(slot).trim() != menuName) continue;
+      final price = store.priceAt(slot).trim();
+      final free = store.freeAt(slot);
+      if (price.isEmpty && !free) return null;
+      return formatMenuPrice(price, free: free);
+    }
+    return null;
+  }
+}
+
 class _ProgressCard extends StatelessWidget {
   const _ProgressCard({required this.report});
 
@@ -844,6 +928,8 @@ class _ProgressSteps extends StatelessWidget {
             ? '지도 반영'
             : report.resolution == 'NO_CHANGE'
             ? '수정 없음'
+            : report.isApproved
+            ? '승인 완료'
             : '처리 확인',
         3,
         currentIndex >= 3
@@ -1168,7 +1254,11 @@ class _PrimaryActionButton extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              report.isApproved ? '승인된 제보 · 수정 불가' : '제보 수정하기',
+              !report.isApproved
+                  ? '제보 수정하기'
+                  : report.isResolvedWithoutChange
+                  ? '검토 완료 · 수정 불가'
+                  : '승인된 제보 · 수정 불가',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white,
