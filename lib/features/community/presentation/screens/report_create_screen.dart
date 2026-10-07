@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
+import 'package:howmuch/core/location/browser_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart'
+    show HomeMapScreen, isFreshHomeLocation;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -129,6 +133,68 @@ typedef PlaceSearch =
     );
 typedef LocationLookup =
     Future<({double latitude, double longitude})?> Function();
+
+/// Why the store search cannot use the current position at all.
+enum ReportLocationIssue { permissionDenied, serviceDisabled }
+
+/// Thrown by a [LocationLookup] when the position cannot be used at all. A
+/// lookup that only failed to get a fix in time returns null instead, so the
+/// search does not blame a permission the user granted (QA #34).
+class ReportLocationUnavailable implements Exception {
+  const ReportLocationUnavailable(this.issue);
+
+  final ReportLocationIssue issue;
+}
+
+/// The current position for the store search.
+///
+/// Uses the home map's position when it is recent. Otherwise it takes the
+/// same steps as the home map and search: on the web the shared browser
+/// request (reuses a fix up to two minutes old and does not count the time
+/// spent on the permission prompt); in the app the location service,
+/// permission, a recent fix, then a fresh one.
+Future<({double latitude, double longitude})?> lookUpReportLocation() async {
+  final known = HomeMapScreen.globalUserPosition;
+  if (known != null && isFreshHomeLocation(known.timestamp, DateTime.now())) {
+    return (latitude: known.latitude, longitude: known.longitude);
+  }
+  try {
+    final position = await _currentReportPosition();
+    return (latitude: position.latitude, longitude: position.longitude);
+  } on ReportLocationUnavailable {
+    rethrow;
+  } on PermissionDeniedException {
+    throw const ReportLocationUnavailable(ReportLocationIssue.permissionDenied);
+  } on LocationServiceDisabledException {
+    throw const ReportLocationUnavailable(ReportLocationIssue.serviceDisabled);
+  } catch (_) {
+    // A slow or failed fix: the permission may well be granted.
+    return null;
+  }
+}
+
+Future<Position> _currentReportPosition() async {
+  if (kIsWeb) return requestBrowserLocation();
+  if (!await Geolocator.isLocationServiceEnabled()) {
+    throw const ReportLocationUnavailable(ReportLocationIssue.serviceDisabled);
+  }
+  var permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+  }
+  if (permission == LocationPermission.denied ||
+      permission == LocationPermission.deniedForever) {
+    throw const ReportLocationUnavailable(ReportLocationIssue.permissionDenied);
+  }
+  final cached = await Geolocator.getLastKnownPosition();
+  if (cached != null && isFreshHomeLocation(cached.timestamp, DateTime.now())) {
+    return cached;
+  }
+  return Geolocator.getCurrentPosition(
+    desiredAccuracy: LocationAccuracy.medium,
+    timeLimit: const Duration(seconds: 8),
+  ).timeout(const Duration(seconds: 10));
+}
 
 const maxReportMenuCount = 4;
 
@@ -747,25 +813,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     final injectedLookup = widget.locationLookup;
     if (injectedLookup != null) return injectedLookup();
     if (widget.placeSearch != null) return null;
-
-    try {
-      if (!await Geolocator.isLocationServiceEnabled()) return null;
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return null;
-      }
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 8),
-      ).timeout(const Duration(seconds: 10));
-      return (latitude: position.latitude, longitude: position.longitude);
-    } catch (_) {
-      return null;
-    }
+    return lookUpReportLocation();
   }
 
   Future<void> _pickPlace({
@@ -1480,6 +1528,20 @@ class _BasicInfoCard extends StatelessWidget {
   }
 }
 
+/// What the store search knows about the current position. Only a refused
+/// permission is described as one (QA #34).
+enum _SheetLocation {
+  locating('현재 위치 확인 중…'),
+  located('현재 위치에서 가까운 순으로 보여드려요.'),
+  permissionDenied('위치 권한이 없어 검색 관련도순으로 보여드려요.'),
+  serviceDisabled('위치 서비스가 꺼져 있어 검색 관련도순으로 보여드려요.'),
+  unavailable('현재 위치를 확인하지 못해 검색 관련도순으로 보여드려요.');
+
+  const _SheetLocation(this.message);
+
+  final String message;
+}
+
 class _AddressSearchSheet extends StatefulWidget {
   const _AddressSearchSheet({
     required this.search,
@@ -1496,30 +1558,53 @@ class _AddressSearchSheet extends StatefulWidget {
 }
 
 class _AddressSearchSheetState extends State<_AddressSearchSheet> {
+  /// Searches typed while the position is still being found wait this long
+  /// for it, so the first results are already ordered by distance (QA #34).
+  static const _locationWait = Duration(seconds: 3);
+
   late final TextEditingController _controller;
   Timer? _debounce;
+  Timer? _locationWaitTimer;
   List<ReportPlaceSuggestion> _results = const [];
   bool _isLoading = false;
-  bool _isLocating = true;
+  _SheetLocation _locationStatus = _SheetLocation.locating;
   bool _hasSearched = false;
   bool _hasError = false;
   int _requestId = 0;
   ({double latitude, double longitude})? _location;
 
+  bool get _isLocating => _locationStatus == _SheetLocation.locating;
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialQuery);
-    _isLoading = widget.initialQuery.trim().length >= 2;
+    final initialQuery = widget.initialQuery.trim();
+    _isLoading = initialQuery.length >= 2;
     _loadLocation();
+    if (_isLoading) _searchWhenLocated(initialQuery);
   }
 
   Future<void> _loadLocation() async {
-    final location = await widget.locate();
+    ({double latitude, double longitude})? location;
+    var status = _SheetLocation.unavailable;
+    try {
+      location = await widget.locate();
+      if (location != null) status = _SheetLocation.located;
+    } on ReportLocationUnavailable catch (error) {
+      status = switch (error.issue) {
+        ReportLocationIssue.permissionDenied => _SheetLocation.permissionDenied,
+        ReportLocationIssue.serviceDisabled => _SheetLocation.serviceDisabled,
+      };
+    } catch (_) {
+      // Treated as a position that could not be found.
+    }
     if (!mounted) return;
+    _locationWaitTimer?.cancel();
+    _locationWaitTimer = null;
     setState(() {
       _location = location;
-      _isLocating = false;
+      _locationStatus = status;
     });
     final query = _controller.text.trim();
     if (query.length >= 2) {
@@ -1532,6 +1617,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _locationWaitTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -1554,7 +1640,23 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
       _isLoading = true;
       _hasError = false;
     });
-    _debounce = Timer(const Duration(milliseconds: 300), () => _search(query));
+    _debounce = Timer(
+      const Duration(milliseconds: 300),
+      () => _searchWhenLocated(query),
+    );
+  }
+
+  void _searchWhenLocated(String query) {
+    if (!_isLocating) {
+      _search(query);
+      return;
+    }
+    // _loadLocation searches with the latest query once the position is in.
+    _locationWaitTimer ??= Timer(_locationWait, () {
+      _locationWaitTimer = null;
+      final latest = _controller.text.trim();
+      if (mounted && _isLocating && latest.length >= 2) _search(latest);
+    });
   }
 
   Future<void> _search(String query) async {
@@ -1656,11 +1758,7 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      _isLocating
-                          ? '현재 위치 확인 중…'
-                          : _location != null
-                          ? '현재 위치에서 가까운 순으로 보여드려요.'
-                          : '위치 권한이 없어 검색 관련도순으로 보여드려요.',
+                      _locationStatus.message,
                       style: const TextStyle(
                         color: ReportCreateStyle.muted,
                         fontFamily: ReportCreateStyle.fontFamily,
@@ -1681,7 +1779,9 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                 onChanged: _onQueryChanged,
                 onSubmitted: (value) {
                   _debounce?.cancel();
-                  if (value.trim().length >= 2) _search(value.trim());
+                  if (value.trim().length >= 2) {
+                    _searchWhenLocated(value.trim());
+                  }
                 },
                 style: const TextStyle(
                   color: ReportCreateStyle.ink,
