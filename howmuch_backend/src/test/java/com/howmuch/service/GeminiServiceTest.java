@@ -36,8 +36,8 @@ class GeminiServiceTest {
                         "price1", "5000",
                         "distanceMeters", 300)));
 
-        assertThat(route).contains("2,000원", "5000원");
-        assertThat(route).doesNotContain("원원");
+        assertThat(route).contains("2,000원", "5,000원");
+        assertThat(route).doesNotContain("원원", "5000원");
     }
 
     @Test
@@ -49,7 +49,29 @@ class GeminiServiceTest {
                 Map.of("storeName", "가까운 매장", "menu1", "김밥", "price1", "3,000", "distanceMeters", 100)));
 
         assertThat(route).contains("가까운 매장", "거리순으로 추천 루트");
-        assertThat(route.indexOf("가까운 매장")).isLessThan(route.indexOf("먼 매장"));
+        // The picks are already in route order; the text does not re-sort them.
+        assertThat(route.indexOf("먼 매장")).isLessThan(route.indexOf("가까운 매장"));
+    }
+
+    /** QA 2026-10-07 #6, #27: older app builds show this text under the route cards. */
+    @Test
+    void localRouteKeepsTheRouteOrderOfPicksWithTheUsualWonFormat() {
+        GeminiService service = new GeminiService("", 1_000, false);
+
+        // Route order from FirebaseService.orderRouteStops, not straight distance.
+        String route = service.getRouteRecommendation(List.of(
+                Map.of("storeName", "온밥", "menu1", "제육덮밥", "price1", "7500", "distanceMeters", 900),
+                Map.of("storeName", "등촌샤브칼국수", "menu1", "버섯칼국수", "price1", "9000~10000",
+                        "distanceMeters", 100),
+                Map.of("storeName", "아콘스톨", "menu1", "김밥", "price1", "0", "free1", true,
+                        "distanceMeters", 400)));
+
+        assertThat(route).startsWith("현재는 거리순으로");
+        assertThat(route.lines().skip(1).toList()).containsExactly(
+                "1. 온밥 (제육덮밥, 7,500원)",
+                "2. 등촌샤브칼국수 (버섯칼국수, 9,000 ~ 10,000원)",
+                "3. 아콘스톨 (김밥, 무료)");
+        assertThat(route).doesNotContain("가까운 순서");
     }
 
     @Test

@@ -7,9 +7,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/custom_bottom_button.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
+import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
@@ -36,6 +39,11 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   bool _isPriceChecked = false;
   bool _isSubmitting = false;
   bool _showValidationErrors = false;
+  bool _saved = false;
+  bool _leaving = false;
+
+  /// Whether the last build asked [PopScope] to stop the back gesture.
+  bool _blocksPop = false;
 
   late final TextEditingController _menuController;
   late final TextEditingController _priceController;
@@ -61,8 +69,9 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   @override
   void initState() {
     super.initState();
-    _menuController = TextEditingController();
-    _priceController = TextEditingController();
+    _menuController = TextEditingController()..addListener(_onDraftEdited);
+    _priceController = TextEditingController()..addListener(_onDraftEdited);
+    _contentController.addListener(_onDraftEdited);
   }
 
   @override
@@ -71,6 +80,59 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     _priceController.dispose();
     _contentController.dispose();
     super.dispose();
+  }
+
+  /// Anything typed, rated, checked or attached (QA #35). An untouched form
+  /// closes without asking.
+  bool get _hasUnsavedChanges =>
+      !_saved &&
+      !_leaving &&
+      (_menuController.text.trim().isNotEmpty ||
+          _priceController.text.trim().isNotEmpty ||
+          _contentController.text.trim().isNotEmpty ||
+          _starRating > 0 ||
+          _isVisitedRecently ||
+          _isPriceChecked ||
+          _selectedImages.isNotEmpty);
+
+  void _onDraftEdited() {
+    if (mounted && _hasUnsavedChanges != _blocksPop) setState(() {});
+  }
+
+  void _closeForm() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  void _handleBack() {
+    if (_isSubmitting) return;
+    if (_hasUnsavedChanges) {
+      _confirmLeave();
+      return;
+    }
+    _closeForm();
+  }
+
+  Future<void> _confirmLeave() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: '작성 중인 리뷰를 나갈까요?',
+        description: '입력한 리뷰 내용은 저장되지 않아요.',
+        cancelLabel: '계속 작성',
+        confirmLabel: '나가기',
+        cancelFlex: 1,
+        confirmFlex: 1,
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (leave != true || !mounted || _isSubmitting) return;
+    setState(() => _leaving = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (mounted) _closeForm();
   }
 
   Future<void> _submitReview() async {
@@ -136,7 +198,11 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     } else if (success) {
       // 내 리뷰 화면 캐시 무효화 — 다음 진입 시 최신 목록/개수/평균 별점이 갱신됩니다.
       ref.read(myReviewsProvider.notifier).invalidate();
-      _showSnackBar('리뷰가 성공적으로 등록되었습니다.');
+      _saved = true;
+      // Shown on the screen the form returns to, in its usual place.
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(HowmuchSnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')));
       context.pop();
     } else {
       _showSnackBar('리뷰 등록에 실패했습니다. 로그인 상태를 확인해주세요.');
@@ -144,14 +210,18 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(HowmuchSnackBar(content: Text(message)));
+    // Replaces the notice on screen at once and floats above the submit
+    // button, so the button can be tapped again while it shows (QA #37).
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
-    return FigmaMobileCanvas(
+    final form = FigmaMobileCanvas(
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
@@ -283,6 +353,14 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
           ),
         ),
       ),
+    );
+    _blocksPop = _hasUnsavedChanges;
+    return PopScope(
+      canPop: !_isSubmitting && !_blocksPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
+      child: form,
     );
   }
 
@@ -424,13 +502,18 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
 
   Widget _buildPriceField() {
     final storePrice = widget.store?.price1 ?? '';
+    // Same format as the price elsewhere (6,500원 참고), and no reference when
+    // the registered price is not a usable amount (QA #27).
+    final referencePrice = minimumMenuPrice(storePrice) == null
+        ? null
+        : formatWon(storePrice);
     return TextFormField(
       controller: _priceController,
       keyboardType: TextInputType.number,
       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9,]'))],
       validator: ReviewFormValidator.validatePrice,
       decoration: InputDecoration(
-        hintText: storePrice.isEmpty ? '실제 결제 가격' : '$storePrice 참고',
+        hintText: referencePrice == null ? '실제 결제 가격' : '$referencePrice 참고',
         hintStyle: const TextStyle(color: AppColors.muted),
         suffixText: '원',
         suffixStyle: const TextStyle(color: AppColors.muted),

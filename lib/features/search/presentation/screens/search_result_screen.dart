@@ -444,7 +444,13 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
       // 정렬 적용
       if (_filter.sortOrder == '저렴한순') {
         stores.sort(
-          (a, b) => SearchFilterPolicy.compareByPrice(a, b, query: query),
+          (a, b) => SearchFilterPolicy.compareByPrice(
+            a,
+            b,
+            query: query,
+            // QA #31: the same price lists the nearer store first.
+            distanceOf: pos == null ? null : _distanceFor,
+          ),
         );
       } else {
         // 기본 정렬: 거리순 (가장 가까운 매장부터)
@@ -568,7 +574,7 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
     final topOffset = MediaQuery.of(context).padding.top;
     final activeFilters = _filter.activeLabels;
 
-    return FigmaMobileCanvas(
+    final screen = FigmaMobileCanvas(
       child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
@@ -780,6 +786,12 @@ class _SearchResultScreenState extends State<SearchResultScreen> {
           ),
         ),
       ),
+    );
+    // QA #33: like the store report form, tapping outside the search box
+    // closes the keyboard. Buttons and cards keep their own taps.
+    return GestureDetector(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: screen,
     );
   }
 }

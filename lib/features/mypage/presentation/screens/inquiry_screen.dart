@@ -102,11 +102,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final remainingCount = 3 - _attachments.length;
     if (remainingCount <= 0) {
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
-        );
+      _showFormNotice(messenger, '사진은 최대 3장까지 첨부할 수 있어요.');
       return;
     }
 
@@ -127,19 +123,13 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       });
 
       if (pickedImages.length > remainingCount) {
-        messenger
-          ..clearSnackBars()
-          ..showSnackBar(
-            HowmuchSnackBar(content: Text('사진은 최대 3장까지 첨부할 수 있어요.')),
-          );
+        _showFormNotice(messenger, '사진은 최대 3장까지 첨부할 수 있어요.');
       }
     } on PlatformException {
       if (!mounted) {
         return;
       }
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text('사진 접근 권한을 확인해주세요.')));
+      _showFormNotice(messenger, '사진 접근 권한을 확인해주세요.');
     }
   }
 
@@ -342,11 +332,11 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final category = _types[_selectedType];
 
     if (title.isEmpty) {
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('제목을 입력해주세요.')));
+      _showFormNotice(messenger, '제목을 입력해주세요.');
       return;
     }
     if (content.isEmpty) {
-      messenger.showSnackBar(HowmuchSnackBar(content: Text('내용을 입력해주세요.')));
+      _showFormNotice(messenger, '내용을 입력해주세요.');
       return;
     }
 
@@ -389,13 +379,10 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
           await reportService.cleanupReportImages(urls);
         }
         if (!mounted) return;
-        messenger
-          ..clearSnackBars()
-          ..showSnackBar(
-            HowmuchSnackBar(
-              content: Text(result['message']?.toString() ?? '문의 등록에 실패했습니다.'),
-            ),
-          );
+        _showFormNotice(
+          messenger,
+          result['message']?.toString() ?? '문의 등록에 실패했습니다.',
+        );
         return;
       }
 
@@ -403,19 +390,24 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       _finishSubmitted(messenger);
     } on ReportServiceException catch (error) {
       if (!mounted) return;
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text(error.message)));
+      _showFormNotice(messenger, error.message);
     } catch (_) {
       if (!mounted) return;
-      messenger
-        ..clearSnackBars()
-        ..showSnackBar(
-          HowmuchSnackBar(content: Text('문의 등록에 실패했습니다. 다시 시도해주세요.')),
-        );
+      _showFormNotice(messenger, '문의 등록에 실패했습니다. 다시 시도해주세요.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  /// A notice for the form that stays open. It replaces the one on screen at
+  /// once and floats above the send button, so the button can be tapped again
+  /// while it shows (QA #37).
+  void _showFormNotice(ScaffoldMessengerState messenger, String message) {
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   Future<bool> _wasStored(String title, String content) async {

@@ -89,15 +89,11 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     if (_isSaving || _isLoading || _loadError != null) return;
     final newGoal = int.tryParse(_goalController.text.replaceAll(',', ''));
     if (newGoal == null || newGoal <= 0) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('목표 금액을 입력해주세요.')));
+      _showNotice('목표 금액을 입력해주세요.');
       return;
     }
     if (newGoal > maxSavingsGoalAmount) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('절약 목표는 10억원 이하로 입력해주세요.')),
-      );
+      _showNotice('절약 목표는 10억원 이하로 입력해주세요.');
       return;
     }
     setState(() => _isSaving = true);
@@ -116,13 +112,21 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     } catch (e) {
       debugPrint('절약 목표 저장 실패: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('목표를 저장하지 못했어요. 다시 시도해주세요.')),
-        );
+        _showNotice('목표를 저장하지 못했어요. 다시 시도해주세요.');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  /// Replaces the notice on screen at once instead of queueing behind it, and
+  /// floats above the save button so it can be tapped again (QA #37).
+  void _showNotice(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        HowmuchSnackBar(content: Text(message), aboveNavigation: true),
+      );
   }
 
   @override
