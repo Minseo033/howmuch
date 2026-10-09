@@ -28,7 +28,7 @@ void main() {
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
     expect(find.text('정부 인증 · 공공데이터'), findsOneWidget);
-    expect(find.text('내 주변 착한가격업소를 한눈에'), findsOneWidget);
+    expect(find.bySemanticsLabel('내 주변 착한가격업소를 한눈에'), findsOneWidget);
   });
 
   testWidgets(
@@ -40,12 +40,12 @@ void main() {
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('절약 리포트'), findsOneWidget);
-      expect(find.text('오늘 아낀 금액이 쌓여요'), findsOneWidget);
+      expect(find.bySemanticsLabel('오늘 아낀 금액이 쌓여요'), findsOneWidget);
 
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
-      expect(find.text('좋은 가격은 함께 나눠요'), findsOneWidget);
+      expect(find.bySemanticsLabel('좋은 가격은 함께 나눠요'), findsOneWidget);
 
       await tester.tap(find.text('시작하기'));
       await tester.pumpAndSettle();
