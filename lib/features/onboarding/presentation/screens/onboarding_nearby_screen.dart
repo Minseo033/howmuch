@@ -44,7 +44,7 @@ const _slides = [
     eyebrowBackgroundColor: Color(0xFFEFF4FF),
     artwork: OnboardingArtwork.nearby,
     title: '내 주변 착한가격업소를 한눈에',
-    description: '공공데이터 기반으로 인증된 저렴한 매장을 지도에서 쉽게 찾아보세요.',
+    description: '공공데이터 기반으로 인증된 저렴한 매장을\n지도에서 쉽게 찾아보세요.',
     primaryLabel: '다음',
   ),
   OnboardingSlideData(
@@ -54,7 +54,7 @@ const _slides = [
     eyebrowBackgroundColor: Color(0xFFEFF4FF),
     artwork: OnboardingArtwork.savings,
     title: '오늘 아낀 금액이 쌓여요',
-    description: '공공 가격 데이터와 비교해 얼마나 절약했는지 월별 리포트로 확인할 수 있어요.',
+    description: '공공 가격 데이터와 비교해 얼마나 절약했는지\n월별 리포트로 확인할 수 있어요.',
     primaryLabel: '다음',
   ),
   OnboardingSlideData(
@@ -64,7 +64,7 @@ const _slides = [
     eyebrowBackgroundColor: Color(0xFFFFF3EA),
     artwork: OnboardingArtwork.storeReport,
     title: '좋은 가격은 함께 나눠요',
-    description: '지도에 없는 동네 가성비 매장을 제보하고, 더 정확한 가격 정보를 만들어보세요.',
+    description: '지도에 없는 동네 가성비 매장을 제보하고,\n더 정확한 가격 정보를 만들어보세요.',
     primaryLabel: '시작하기',
   ),
 ];
