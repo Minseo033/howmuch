@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -157,6 +158,17 @@ class _StoreDetailContent extends ConsumerWidget {
   void _snack(BuildContext ctx, String msg) => ScaffoldMessenger.of(
     ctx,
   ).showSnackBar(HowmuchSnackBar(content: Text(msg)));
+
+  /// The savings estimate and the visit record both need an account, so a
+  /// guest is asked before the screen opens instead of after checking in.
+  Future<void> _openVisitVerification(BuildContext ctx) async {
+    final loggedIn = await requireLogin(
+      ctx,
+      message: '로그인하면 방문을 인증하고 아낀 금액을 절약 리포트에 모을 수 있어요.',
+    );
+    if (!loggedIn || !ctx.mounted) return;
+    await ctx.push(AppRoutes.visitVerification, extra: store);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -771,10 +783,7 @@ class _StoreDetailContent extends ConsumerWidget {
                             label: '방문 인증',
                             onTap: store.isClosed
                                 ? null
-                                : () => context.push(
-                                    AppRoutes.visitVerification,
-                                    extra: store,
-                                  ),
+                                : () => _openVisitVerification(context),
                             muted: store.isClosed,
                           ),
                           const SizedBox(width: 10),
@@ -1158,31 +1167,51 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
 
   Future<void> _toggleFavorite() async {
     if (_busy) return;
+    // The heart as the visitor saw it decides the action. A guest's heart is
+    // empty, so logging in from here only ever adds the store.
+    final add = !ref.read(favoriteStoresProvider.notifier).isFavorite(_storeId);
+    // Logged-in visitors go on without waiting, so a quick second tap still
+    // finds the button busy.
     if (!ApiClient.isAuthenticated) {
-      ScaffoldMessenger.of(
+      final loggedIn = await requireLogin(
         context,
-      ).showSnackBar(HowmuchSnackBar(content: Text('로그인이 필요해요.')));
-      return;
+        message: '찜한 매장은 로그인하면 저장돼요.',
+      );
+      if (!loggedIn || !mounted) return;
     }
     setState(() => _busy = true);
 
-    final notifier = ref.read(favoriteStoresProvider.notifier);
-    final wasFavorite = notifier.isFavorite(_storeId);
-
     try {
-      if (wasFavorite) {
-        await notifier.removeFavorite(_storeId);
-      } else {
+      // Right after a login the account's favorites are not loaded yet. Read
+      // them first: a store the account already has stays saved, and the
+      // favorites count is not rebuilt from an empty list.
+      if (!ref.read(favoriteStoresProvider).hasValue) {
+        await ref
+            .read(favoriteStoresProvider.notifier)
+            .loadFavorites(force: true);
+        if (!mounted) return;
+        if (!ref.read(favoriteStoresProvider).hasValue) {
+          throw StateError('favorites not loaded');
+        }
+      }
+      final notifier = ref.read(favoriteStoresProvider.notifier);
+      if (add && notifier.isFavorite(_storeId)) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(HowmuchSnackBar(content: Text('이미 찜한 매장이에요.')));
+        return;
+      }
+      if (add) {
         await notifier.addFavorite(
           storeId: _storeId,
           storeName: widget.store.storeName,
         );
+      } else {
+        await notifier.removeFavorite(_storeId);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(
-          content: Text(wasFavorite ? '찜을 해제했어요.' : '찜한 매장에 추가했어요.'),
-        ),
+        HowmuchSnackBar(content: Text(add ? '찜한 매장에 추가했어요.' : '찜을 해제했어요.')),
       );
     } catch (_) {
       if (!mounted) return;
@@ -1196,6 +1225,12 @@ class _FavoriteStoreButtonState extends ConsumerState<_FavoriteStoreButton> {
 
   @override
   Widget build(BuildContext context) {
+    // A login on a screen opened from here (review, report) starts a new
+    // favorites list for the account. Load it so the heart shows the
+    // account's choice when the visitor comes back.
+    ref.listen(favoriteStoresProvider.notifier, (_, notifier) {
+      if (ApiClient.isAuthenticated) notifier.loadFavorites();
+    });
     final favorites = ref.watch(favoriteStoresProvider);
     final isFavorite =
         favorites.valueOrNull?.any((store) => store.id == _storeId) ?? false;

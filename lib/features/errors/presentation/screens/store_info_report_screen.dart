@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
@@ -190,10 +191,6 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       _showMessage('신고 유형을 선택해주세요.');
       return;
     }
-    if (!ApiClient.isAuthenticated) {
-      _showMessage('정보 신고는 로그인 후 이용할 수 있어요.');
-      return;
-    }
     final description = _descController.text.trim();
     final price = _priceController.text.trim();
     setState(() {
@@ -221,6 +218,16 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       setState(() => _descriptionError = '신고 내용을 입력해주세요.');
       _descriptionFocus.requestFocus();
       return;
+    }
+    // A guest is asked once the report is complete. The form stays as written
+    // beneath the login screens and is sent right after. Logged-in visitors
+    // go on without waiting, so a quick second tap finds the form submitting.
+    if (!ApiClient.isAuthenticated) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '로그인하면 작성한 신고가 바로 접수돼요.',
+      );
+      if (!loggedIn || !mounted) return;
     }
     setState(() => _isSubmitting = true);
     try {

@@ -18,6 +18,7 @@ import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/features/store/store_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/store/presentation/state/review_form_validator.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
@@ -146,10 +147,6 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
       _showSnackBar('매장 정보가 없어 리뷰를 등록할 수 없습니다.');
       return;
     }
-    if (!ApiClient.isAuthenticated) {
-      _showSnackBar('리뷰를 등록하려면 로그인이 필요합니다.');
-      return;
-    }
 
     setState(() => _showValidationErrors = true);
     final textFieldsValid = _formKey.currentState?.validate() ?? false;
@@ -167,6 +164,17 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
     if (price == null) {
       _showSnackBar('실제 결제 가격을 확인해주세요.');
       return;
+    }
+
+    // A guest is asked once the review is complete. The form stays as written
+    // beneath the login screens and is sent right after. Logged-in visitors
+    // go on without waiting, so a quick second tap finds the form submitting.
+    if (!ApiClient.isAuthenticated) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '로그인하면 작성한 리뷰가 바로 등록돼요.',
+      );
+      if (!loggedIn || !mounted) return;
     }
 
     final nickname = ref.read(userProfileProvider).nickname;

@@ -17,6 +17,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
 import 'package:howmuch/features/search/presentation/screens/search_result_screen.dart';
@@ -343,6 +344,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   MobileMapViewport? _restoredViewport;
 
   Future<void> _openAiRecommend() async {
+    // The server answers AI questions only for an account, so a guest is
+    // asked before the chat opens instead of after the first question.
+    final loggedIn = await requireLogin(
+      context,
+      message: 'AI 추천은 로그인 후 이용할 수 있어요.',
+    );
+    if (!loggedIn || !mounted) return;
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);
     if (result is AiMapRecommendationResult && mounted) {
       _applyAiRecommendationResult(result);

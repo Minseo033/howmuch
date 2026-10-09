@@ -309,7 +309,10 @@ void main() {
   test('client and rate-limit errors are not disguised as AI outages', () {
     expect(isAiUnavailableResponse('서버 응답 에러: 400'), isFalse);
     expect(isAiUnavailableResponse('서버 응답 에러: 429'), isFalse);
-    expect(isAiUnavailableResponse('로그인이 필요한 기능입니다.'), isFalse);
+    expect(
+      isAiUnavailableResponse('로그인이 필요한 기능이에요. 로그인한 뒤 다시 시도해 주세요.'),
+      isFalse,
+    );
   });
 
   test('AI request context excludes stores outside the nearby radius', () {

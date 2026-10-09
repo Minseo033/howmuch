@@ -77,7 +77,8 @@ class AiChatService {
               const [],
         );
       } else if (response.statusCode == 401) {
-        return const AiChatReply(text: '로그인이 필요한 기능입니다. 다시 로그인해주세요.');
+        // Worded for a guest as well as for an expired session.
+        return const AiChatReply(text: '로그인이 필요한 기능이에요. 로그인한 뒤 다시 시도해 주세요.');
       } else if (response.statusCode == 429) {
         return const AiChatReply(
           text: 'AI 채팅 사용 횟수를 모두 사용했어요. 잠시 후 다시 시도해주세요.',
