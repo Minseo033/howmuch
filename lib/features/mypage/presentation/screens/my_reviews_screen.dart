@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
@@ -44,6 +43,15 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
             content: const Text('내 리뷰를 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'),
           ),
         );
+    }
+  }
+
+  /// Login opens on top of this screen and comes back here. The new
+  /// account's list is only loaded by this screen, so load it once the
+  /// visitor has logged in.
+  Future<void> _logIn() async {
+    if (await openLoginFlow(context) && mounted) {
+      await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
     }
   }
 
@@ -253,10 +261,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   const SizedBox(height: 16),
                   if (authRequired)
                     // A login-required state needs a way to log in.
-                    FilledButton(
-                      onPressed: () => context.go(AppRoutes.login),
-                      child: const Text('로그인하기'),
-                    )
+                    FilledButton(onPressed: _logIn, child: const Text('로그인하기'))
                   else
                     OutlinedButton(
                       onPressed: () {

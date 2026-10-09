@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -78,6 +79,16 @@ class _NotificationSettingsScreenState
     setState(() => _isLeaving = true);
     await WidgetsBinding.instance.endOfFrame;
     if (mounted) context.pop();
+  }
+
+  /// Login opens on top of this screen and comes back here. A new login
+  /// reloads the settings for that account by itself; a visitor who was
+  /// already logged in only needs the settings asked for again.
+  Future<void> _logIn() async {
+    if (!await openLoginFlow(context) || !mounted) return;
+    if (ref.read(notificationSettingsProvider).hasError) {
+      ref.read(notificationSettingsProvider.notifier).loadSettings();
+    }
   }
 
   @override
@@ -296,7 +307,7 @@ class _NotificationSettingsScreenState
                       child: LoginRequiredState(
                         description: '로그인한 뒤 알림 설정을 변경할 수 있어요.',
                         actionLabel: '로그인하기',
-                        onAction: () => context.go(AppRoutes.login),
+                        onAction: _logIn,
                       ),
                     );
                   }

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/system/presentation/state/notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
@@ -37,6 +38,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ref.read(notificationsProvider.notifier).loadNotifications();
       }
     });
+  }
+
+  /// Login opens on top of the inbox and comes back here. Logging in starts
+  /// a new inbox that polling may not have loaded yet, so load it here
+  /// instead of spinning.
+  Future<void> _logIn() async {
+    if (!await openLoginFlow(context) || !mounted) return;
+    if (ref.read(notificationsProvider).valueOrNull == null) {
+      ref.read(notificationsProvider.notifier).loadNotifications();
+    }
   }
 
   @override
@@ -73,7 +84,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   ? LoginRequiredState(
                       description: '로그인하면 가격 변동, 제보 결과, 댓글, 문의 답변 알림을 볼 수 있어요.',
                       actionLabel: '로그인하기',
-                      onAction: () => context.go(AppRoutes.login),
+                      onAction: _logIn,
                     )
                   : notificationsAsync.when(
                       skipError: true,
@@ -90,7 +101,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                           return LoginRequiredState(
                             description: '로그인한 뒤 다시 확인해 주세요.',
                             actionLabel: '로그인하기',
-                            onAction: () => context.go(AppRoutes.login),
+                            onAction: _logIn,
                           );
                         }
                         return Center(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
@@ -39,6 +40,13 @@ class MyInquiriesScreen extends ConsumerWidget {
                 requiresLogin:
                     error is InquiryApiException && error.isUnauthorized,
                 onRetry: () => ref.invalidate(myInquiriesProvider),
+                onLogin: () async {
+                  // Login opens on top of this screen and comes back here.
+                  // The list does not follow the login state, so ask again.
+                  if (await openLoginFlow(context) && context.mounted) {
+                    ref.invalidate(myInquiriesProvider);
+                  }
+                },
               ),
               data: (inquiries) => _InquiryList(
                 inquiries: inquiries,
@@ -274,10 +282,15 @@ class _InquirySummary extends StatelessWidget {
 }
 
 class _LoadError extends StatelessWidget {
-  const _LoadError({required this.requiresLogin, required this.onRetry});
+  const _LoadError({
+    required this.requiresLogin,
+    required this.onRetry,
+    required this.onLogin,
+  });
 
   final bool requiresLogin;
   final VoidCallback onRetry;
+  final VoidCallback onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +319,9 @@ class _LoadError extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              requiresLogin ? '로그인한 뒤 다시 확인해주세요.' : '잠시 후 다시 시도해주세요.',
+              requiresLogin
+                  ? '내가 남긴 문의와 답변은 로그인 후 확인할 수 있어요.'
+                  : '잠시 후 다시 시도해주세요.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.muted,
@@ -318,10 +333,7 @@ class _LoadError extends StatelessWidget {
             const SizedBox(height: 18),
             // A login-required state needs a way to log in.
             if (requiresLogin)
-              FilledButton(
-                onPressed: () => context.go(AppRoutes.login),
-                child: const Text('로그인하기'),
-              )
+              FilledButton(onPressed: onLogin, child: const Text('로그인하기'))
             else
               TextButton(onPressed: onRetry, child: const Text('다시 시도')),
           ],

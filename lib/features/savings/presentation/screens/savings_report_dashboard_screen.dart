@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/login_required_state.dart';
@@ -152,6 +153,16 @@ class _SavingsReportDashboardScreenState
   /// 목표 화면은 저장에 성공하면 새 목표 금액을 돌려줍니다. 달성률을 바로
   /// 반영하고, 서버 기준 값으로 다시 조회합니다.
   Future<void> _openGoalSetting() async {
+    if (_requiresLogin) {
+      // A goal belongs to an account: a guest logs in first, and the report
+      // underneath loads the account's data while the goal screen opens.
+      final loggedIn = await requireLogin(
+        context,
+        message: '절약 목표는 로그인하면 설정할 수 있어요.',
+      );
+      if (!loggedIn || !mounted) return;
+      unawaited(_fetchAll());
+    }
     final savedGoal = await context.push<int>(AppRoutes.savingsGoalSetting);
     if (!mounted || savedGoal == null) return;
     final current = _statsData;
@@ -167,6 +178,20 @@ class _SavingsReportDashboardScreenState
       });
     }
     await _fetchAll(keepContent: true);
+  }
+
+  /// Login opens on top of the report and comes back here, so the report
+  /// loads once the visitor has logged in.
+  Future<void> _logIn() async {
+    if (await openLoginFlow(context) && mounted) await _fetchAll();
+  }
+
+  /// A guest can log in from the inbox, so the report reloads on return.
+  Future<void> _openNotifications() async {
+    await context.push<void>(AppRoutes.notifications);
+    if (mounted && _requiresLogin && ApiClient.isAuthenticated) {
+      await _fetchAll();
+    }
   }
 
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
@@ -403,7 +428,7 @@ class _SavingsReportDashboardScreenState
     return LoginRequiredState(
       description: '절약 리포트를 보려면 로그인해주세요',
       actionLabel: '로그인하기',
-      onAction: () => context.go(AppRoutes.login),
+      onAction: _logIn,
     );
   }
 
@@ -483,7 +508,7 @@ class _SavingsReportDashboardScreenState
                           ),
                           const SizedBox(width: AppSizes.itemSpacing),
                           GestureDetector(
-                            onTap: () => context.push(AppRoutes.notifications),
+                            onTap: _openNotifications,
                             child: const Icon(
                               Icons.notifications_none_rounded,
                               color: Color(0xFF0F172A),
