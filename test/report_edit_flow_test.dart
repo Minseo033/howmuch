@@ -68,13 +68,9 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await ApiClient.setSessionToken('report-flow-session');
-    ReportDraftStash.discard();
   });
 
-  tearDown(() async {
-    await ApiClient.setSessionToken(null);
-    ReportDraftStash.discard();
-  });
+  tearDown(() => ApiClient.setSessionToken(null));
 
   group('price change report edit (P1-6)', () {
     late List<http.Request> requests;

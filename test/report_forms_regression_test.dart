@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
@@ -61,10 +60,6 @@ GoRouter _routerWith(Widget screen, {String path = '/form'}) => GoRouter(
       builder: (_, _) => const Scaffold(body: Text('이전 화면')),
     ),
     GoRoute(path: path, builder: (_, _) => screen),
-    GoRoute(
-      path: AppRoutes.login,
-      builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
-    ),
   ],
 );
 
@@ -72,13 +67,9 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await ApiClient.setSessionToken('forms-session');
-    ReportDraftStash.discard();
   });
 
-  tearDown(() async {
-    await ApiClient.setSessionToken(null);
-    ReportDraftStash.discard();
-  });
+  tearDown(() => ApiClient.setSessionToken(null));
 
   testWidgets('price mismatch report targets the chosen menu (FE-COMM-9)', (
     tester,
@@ -199,61 +190,33 @@ void main() {
     );
   });
 
-  testWidgets('a draft restored after login reads each photo once while typing '
-      '(FE-COMM-14, FE-COMM-11)', (tester) async {
+  testWidgets('a picked photo is read once while typing (FE-COMM-11)', (
+    tester,
+  ) async {
     _useTallView(tester, height: 1600);
     final photo = _CountingPhoto(base64Decode(_onePixelPng));
-    ReportDraftStash.save(
-      ReportDraft(
-        store: '로그인 전 식당',
-        category: '음식점 · 한식',
-        address: '서울 구로구 중앙로 1',
-        menus: const [(menu: '국수', price: '5000', free: false)],
-        photos: [photo],
-        visitedRecently: true,
-        checkedMenuPrice: false,
-      ),
-    );
     await tester.pumpWidget(
       ProviderScope(
         overrides: [_loggedIn],
-        child: const MaterialApp(home: ReportCreateScreen()),
+        child: MaterialApp(
+          home: ReportCreateScreen(photoPicker: () async => photo),
+        ),
       ),
     );
+    await tester.ensureVisible(find.text('메뉴판 사진 첨부'));
+    await tester.tap(find.text('메뉴판 사진 첨부'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('로그인 전 식당'), findsOneWidget);
-    expect(find.text('로그인 전에 작성하던 제보를 불러왔어요.'), findsOneWidget);
+    expect(find.text('사진 1장 첨부됨'), findsOneWidget);
     expect(photo.reads, 1);
 
-    for (final value in ['로그인 전', '로그인 전 식당 본점', '로그인 전 식당']) {
+    for (final value in ['동네', '동네 식당 본점', '동네 식당']) {
       await tester.enterText(find.byType(TextField).first, value);
       await tester.pump();
     }
     expect(photo.reads, 1);
   });
-
-  testWidgets(
-    'guests are told to log in first and keep their draft (FE-COMM-14)',
-    (tester) async {
-      _useTallView(tester, height: 1600);
-      final router = _routerWith(const ReportCreateScreen());
-      addTearDown(router.dispose);
-      await tester.pumpWidget(
-        ProviderScope(child: MaterialApp.router(routerConfig: router)),
-      );
-      router.push('/form');
-      await tester.pumpAndSettle();
-
-      await tester.enterText(find.byType(TextField).first, '게스트 식당');
-      await tester.tap(find.byKey(const ValueKey('report-guest-login-tip')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('로그인 화면'), findsOneWidget);
-      expect(ReportDraftStash.take()?.store, '게스트 식당');
-    },
-  );
 
   testWidgets('leaving a filled form asks first (FE-COMM-31)', (tester) async {
     _useTallView(tester, height: 1600);
