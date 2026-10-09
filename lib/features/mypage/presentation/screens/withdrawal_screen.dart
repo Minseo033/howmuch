@@ -261,7 +261,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     if (!mounted) return;
 
     messenger.clearSnackBars();
-    context.go(AppRoutes.login);
+    context.go(AppRoutes.home);
     messenger.showSnackBar(
       HowmuchSnackBar(
         content: Text(

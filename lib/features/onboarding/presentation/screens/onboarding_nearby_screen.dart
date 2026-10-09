@@ -16,23 +16,19 @@ class OnboardingNearbyScreen extends ConsumerWidget {
     return OnboardingPage(
       initialStep: initialStep,
       slides: _slides,
-      onComplete: () async {
-        ref.read(onboardingCompletedProvider.notifier).state = true;
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool('onboarding_completed', true);
-        if (!context.mounted) return;
-        context.go(AppRoutes.authTerms);
-      },
-      onSkipPressed: () async {
-        ref.read(onboardingCompletedProvider.notifier).state = true;
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool('onboarding_completed', true);
-        if (!context.mounted) return;
-        // Browsing without an account follows the login screen's guest path
-        // (permission setup, then home) instead of repeating '시작하기'.
-        context.go(AppRoutes.permissionSetup);
-      },
+      // Everyone starts as a guest: permission setup, then home. Features
+      // that need an account ask for login when they are used.
+      onComplete: () => _finish(context, ref, AppRoutes.permissionSetup),
+      onLoginPressed: () => _finish(context, ref, AppRoutes.login),
     );
+  }
+
+  Future<void> _finish(BuildContext context, WidgetRef ref, String next) async {
+    ref.read(onboardingCompletedProvider.notifier).state = true;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('onboarding_completed', true);
+    if (!context.mounted) return;
+    context.go(next);
   }
 }
 

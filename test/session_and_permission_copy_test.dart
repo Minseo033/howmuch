@@ -16,7 +16,7 @@ class _PendingLoginService extends KakaoLoginService {
   var clearCalls = 0;
 
   @override
-  Future<KakaoLoginResult> login() {
+  Future<KakaoLoginResult> login({bool navigate = true}) {
     loginCalls++;
     return pending.future;
   }

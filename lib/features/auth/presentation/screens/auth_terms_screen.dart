@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthTermsScreen extends StatefulWidget {
-  const AuthTermsScreen({super.key});
+  const AuthTermsScreen({super.key, this.entry = LoginEntry.startup});
+
+  /// With [LoginEntry.returnToCaller] the screen closes with whether the
+  /// visitor agreed, instead of moving on to login.
+  final LoginEntry entry;
 
   @override
   State<AuthTermsScreen> createState() => _AuthTermsScreenState();
@@ -35,7 +40,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
     final preferences = await SharedPreferences.getInstance();
     // Stored on this device only; the server keeps no consent record yet.
     await preferences.setBool(authTermsAcceptedPreferenceKey, true);
-    if (mounted) context.go(AppRoutes.login);
+    if (!mounted) return;
+    if (widget.entry == LoginEntry.returnToCaller) {
+      context.pop(true);
+    } else {
+      context.go(AppRoutes.login);
+    }
   }
 
   @override
@@ -56,7 +66,21 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _ProgressLabel(),
+                if (widget.entry == LoginEntry.returnToCaller)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      tooltip: '뒤로가기',
+                      onPressed: () => context.pop(false),
+                      icon: const Icon(
+                        Icons.arrow_back_rounded,
+                        size: 22,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  )
+                else
+                  const _ProgressLabel(),
                 SizedBox(height: constraints.maxHeight > 680 ? 90 : 22),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),

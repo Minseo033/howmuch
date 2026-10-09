@@ -12,9 +12,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final skip in [false, true]) {
+  for (final login in [false, true]) {
     testWidgets(
-      'onboarding ${skip ? 'guest browsing' : 'completion'} persists its choice',
+      'onboarding ${login ? 'login link' : 'completion'} persists its choice',
       (tester) async {
         _setViewport(tester, const Size(390, 844));
         final container = ProviderContainer();
@@ -27,8 +27,8 @@ void main() {
               builder: (_, _) => const OnboardingNearbyScreen(initialStep: 2),
             ),
             GoRoute(
-              path: AppRoutes.authTerms,
-              builder: (_, _) => const Scaffold(body: Text('약관 화면 도착')),
+              path: AppRoutes.login,
+              builder: (_, _) => const Scaffold(body: Text('로그인 화면 도착')),
             ),
             GoRoute(
               path: AppRoutes.permissionSetup,
@@ -44,12 +44,12 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.text(skip ? '로그인 없이 둘러보기' : '시작하기'));
+        await tester.tap(find.text(login ? '이미 계정이 있나요? 로그인' : '시작하기'));
         await tester.pumpAndSettle();
 
-        // '시작하기' signs up through the terms; browsing skips straight to
-        // the guest path that the login screen also offers.
-        expect(find.text(skip ? '권한 화면 도착' : '약관 화면 도착'), findsOneWidget);
+        // '시작하기' starts as a guest (permission setup, then home); members
+        // log in from the link instead.
+        expect(find.text(login ? '로그인 화면 도착' : '권한 화면 도착'), findsOneWidget);
         expect(container.read(onboardingCompletedProvider), isTrue);
         final preferences = await SharedPreferences.getInstance();
         expect(preferences.getBool('onboarding_completed'), isTrue);

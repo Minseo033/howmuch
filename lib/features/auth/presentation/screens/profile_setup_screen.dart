@@ -8,12 +8,17 @@ import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key});
+  const ProfileSetupScreen({super.key, this.entry = LoginEntry.startup});
+
+  /// With [LoginEntry.returnToCaller] the screen closes with whether the
+  /// profile was saved, instead of moving on to home.
+  final LoginEntry entry;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -272,7 +277,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       }
 
       // A new member also reaches the address requested before sign-up.
-      if (mounted) context.go(ref.read(startupLocationProvider).take());
+      if (!mounted) return;
+      if (widget.entry == LoginEntry.returnToCaller) {
+        context.pop(true);
+      } else {
+        context.go(ref.read(startupLocationProvider).take());
+      }
     } catch (e) {
       _showErrorSnackBar('저장 중 오류가 발생했어요. 다시 시도해 주세요.');
     } finally {
@@ -338,7 +348,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       centerTitle: true,
       leading: IconButton(
         onPressed: () {
-          if (context.canPop()) context.pop();
+          if (context.canPop()) context.pop(false);
         },
         icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
         splashRadius: 20,

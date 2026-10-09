@@ -31,23 +31,42 @@ void main() {
     expect(find.bySemanticsLabel('내 주변 착한가격업소를 한눈에'), findsOneWidget);
   });
 
+  testWidgets('starts as a guest: onboarding moves on to permission setup', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    expect(find.text('절약 리포트'), findsOneWidget);
+    expect(find.bySemanticsLabel('오늘 아낀 금액이 쌓여요'), findsOneWidget);
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
+    expect(find.bySemanticsLabel('좋은 가격은 함께 나눠요'), findsOneWidget);
+
+    // No terms or login before using the app; features that need an account
+    // ask for login when they are used.
+    await tester.tap(find.text('시작하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsNothing);
+    expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
+    expect(find.text('앱 시작하기'), findsOneWidget);
+  });
+
   testWidgets(
-    'moves through onboarding, required terms, login, and permission setup',
+    'members log in from onboarding through the required terms and Kakao only',
     (tester) async {
       _setMobileViewport(tester);
       await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
-      expect(find.text('절약 리포트'), findsOneWidget);
-      expect(find.bySemanticsLabel('오늘 아낀 금액이 쌓여요'), findsOneWidget);
-
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
-      expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
-      expect(find.bySemanticsLabel('좋은 가격은 함께 나눠요'), findsOneWidget);
-
-      await tester.tap(find.text('시작하기'));
+      await tester.tap(find.text('이미 계정이 있나요? 로그인'));
       await tester.pumpAndSettle();
       expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsOneWidget);
       expect(find.text('필수 약관 전체 동의'), findsOneWidget);
@@ -68,29 +87,6 @@ void main() {
       expect(find.text('앱 시작하기'), findsOneWidget);
     },
   );
-
-  testWidgets('login only presents supported Kakao authentication', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
-
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('시작하기'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('필수 약관 전체 동의'));
-    await tester.pump();
-    await tester.tap(find.text('동의하고 로그인하기'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('카카오로 계속하기'), findsOneWidget);
-    expect(find.text('네이버로 계속하기'), findsNothing);
-    expect(find.text('Google로 계속하기'), findsNothing);
-  });
 
   testWidgets('opens mypage', (tester) async {
     _setMobileViewport(tester);

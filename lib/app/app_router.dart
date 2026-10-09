@@ -9,6 +9,7 @@ import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/my_reports/my_reports_v2_screen.dart';
@@ -247,10 +248,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         AppRoutes.onboardingStoreReport,
         const OnboardingStoreReportScreen(),
       ),
-      _route(AppRoutes.authTerms, const AuthTermsScreen()),
-      _route(AppRoutes.login, const LoginScreen()),
-      _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
-      _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
+      // Pushed with LoginEntry.returnToCaller, these screens close with
+      // their result instead of moving on to home.
+      GoRoute(
+        path: AppRoutes.authTerms,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: AuthTermsScreen(entry: loginEntryOf(state.extra)),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.login,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: LoginScreen(entry: loginEntryOf(state.extra)),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.permissionSetup,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: PermissionSetupScreen(
+            backTo: state.extra is String
+                ? state.extra as String
+                : AppRoutes.onboardingStoreReport,
+          ),
+        ),
+      ),
+      GoRoute(
+        path: AppRoutes.profileSetup,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: ProfileSetupScreen(entry: loginEntryOf(state.extra)),
+        ),
+      ),
       GoRoute(
         path: AppRoutes.home,
         pageBuilder: (_, state) => NoTransitionPage<void>(

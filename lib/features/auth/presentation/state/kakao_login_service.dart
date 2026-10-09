@@ -24,9 +24,18 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 enum KakaoLoginStatus { success, cancelled, failed }
 
 class KakaoLoginResult {
-  const KakaoLoginResult(this.status, [this.errorMessage]);
+  const KakaoLoginResult(this.status, [this.errorMessage]) : isNewUser = false;
+
+  /// Kakao login worked but this account has no profile here yet, so sign-up
+  /// continues with profile setup.
+  const KakaoLoginResult.newUser()
+    : status = KakaoLoginStatus.success,
+      errorMessage = null,
+      isNewUser = true;
+
   final KakaoLoginStatus status;
   final String? errorMessage;
+  final bool isNewUser;
 }
 
 /// Outcome of the explicit "카카오 계정 정보 불러오기" consent request.
@@ -101,10 +110,16 @@ class KakaoLoginService {
 
   /// Repeated taps (login screen, session-expired screen) share one attempt so
   /// a second Kakao window or backend session never starts concurrently.
-  Future<KakaoLoginResult> login() {
+  ///
+  /// With [navigate] the service also moves on afterwards: to the address
+  /// requested before login (otherwise home) for a member, to profile setup
+  /// for a new account, and back to the login screen after a failure. A login
+  /// screen opened on top of another screen passes false and returns to that
+  /// screen itself.
+  Future<KakaoLoginResult> login({bool navigate = true}) {
     final inFlight = _loginInFlight;
     if (inFlight != null) return inFlight;
-    final attempt = _login();
+    final attempt = _login(navigate: navigate);
     _loginInFlight = attempt;
     void release() {
       if (identical(_loginInFlight, attempt)) _loginInFlight = null;
@@ -114,7 +129,7 @@ class KakaoLoginService {
     return attempt;
   }
 
-  Future<KakaoLoginResult> _login() async {
+  Future<KakaoLoginResult> _login({required bool navigate}) async {
     var backendSessionEstablished = false;
     try {
       OAuthToken token;
@@ -145,7 +160,7 @@ class KakaoLoginService {
 
       final session = await _authenticateWithBackend(token.accessToken);
       if (session == null) {
-        _ref.read(appRouterProvider).go(AppRoutes.login);
+        if (navigate) _ref.read(appRouterProvider).go(AppRoutes.login);
         return const KakaoLoginResult(KakaoLoginStatus.failed, '백엔드 인증 실패');
       }
       backendSessionEstablished = true;
@@ -224,9 +239,11 @@ class KakaoLoginService {
           );
         }
         // The address requested before login, otherwise home.
-        _ref
-            .read(appRouterProvider)
-            .go(_ref.read(startupLocationProvider).take());
+        if (navigate) {
+          _ref
+              .read(appRouterProvider)
+              .go(_ref.read(startupLocationProvider).take());
+        }
       } else {
         // 신규 사용자: 프로필 설정 화면으로 이동
         _ref
@@ -237,7 +254,8 @@ class KakaoLoginService {
                 profileImageUrl: profileImageUrl,
               ),
             );
-        _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
+        if (navigate) _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
+        return const KakaoLoginResult.newUser();
       }
 
       return const KakaoLoginResult(KakaoLoginStatus.success);
@@ -246,7 +264,7 @@ class KakaoLoginService {
       if (backendSessionEstablished) {
         await clearLocalSession(unregisterDevice: false);
       }
-      _ref.read(appRouterProvider).go(AppRoutes.login);
+      if (navigate) _ref.read(appRouterProvider).go(AppRoutes.login);
       return const KakaoLoginResult(
         KakaoLoginStatus.failed,
         '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',

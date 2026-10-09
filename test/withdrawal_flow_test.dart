@@ -48,8 +48,8 @@ Future<_RecordingLoginService Function()> _pumpWithdrawal(
         builder: (_, _) => const WithdrawalScreen(),
       ),
       GoRoute(
-        path: AppRoutes.login,
-        builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
+        path: AppRoutes.home,
+        builder: (_, _) => const Scaffold(body: Text('홈 화면')),
       ),
     ],
   );
@@ -95,7 +95,8 @@ void main() {
 
         expect(requests, ['DELETE /api/user', 'GET /api/user/profile']);
         expect(service().calls, ['unlink', 'clear']);
-        expect(find.text('로그인 화면'), findsOneWidget);
+        // Former members keep browsing as guests.
+        expect(find.text('홈 화면'), findsOneWidget);
         expect(find.textContaining('회원 탈퇴 요청이 접수됐어요'), findsOneWidget);
       },
       () => MockClient((request) async {
@@ -119,7 +120,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(service().calls, isEmpty);
-        expect(find.text('로그인 화면'), findsNothing);
+        expect(find.text('홈 화면'), findsNothing);
         expect(find.textContaining('탈퇴 요청이 처리되지 않았어요'), findsOneWidget);
         expect(find.text('탈퇴하기'), findsOneWidget, reason: 'button is usable');
       },

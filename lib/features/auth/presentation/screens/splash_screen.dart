@@ -77,10 +77,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (!ApiClient.isAuthenticated) {
       _markLoggedOut();
       _startupInFlight = false;
+      // Guests use the app without an account; a feature that needs one asks
+      // for login when it is used.
       context.go(
-        prefs.getBool(authTermsAcceptedPreferenceKey) == true
-            ? AppRoutes.login
-            : AppRoutes.authTerms,
+        guestStartupLocation(ref.read(startupLocationProvider).take()),
       );
       return;
     }
