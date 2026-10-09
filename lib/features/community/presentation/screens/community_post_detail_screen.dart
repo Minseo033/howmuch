@@ -9,10 +9,10 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/community/presentation/state/community_service.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
-import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/core/utils/text_initial.dart';
 
@@ -268,10 +268,14 @@ class _CommunityPostDetailScreenState
     if (text.isEmpty || _isSubmitting) {
       return;
     }
-    if (!await _requireAuthentication() || !mounted) return;
+    final message = _replyTarget == null
+        ? '댓글은 로그인 후 남길 수 있어요. 쓴 내용은 그대로 있어요.'
+        : '답글은 로그인 후 남길 수 있어요. 쓴 내용은 그대로 있어요.';
+    if (!await _continueWithAccount(message, () => _isSubmitting = true)) {
+      return;
+    }
 
     FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _isSubmitting = true);
 
     try {
       final replyTarget = _replyTarget;
@@ -466,11 +470,21 @@ class _CommunityPostDetailScreenState
 
   Future<void> _toggleLike() async {
     if (_likeInFlight || _postData == null) return;
-    if (!await _requireAuthentication() || !mounted) return;
-    final currentCount = (_postData!['likes'] as num?)?.toInt() ?? 0;
+    // 누른 순간 보이던 상태로 할 일을 정해 둡니다. 로그인 뒤 다시 불러온 계정이
+    // 이미 그 상태면 보내지 않아, 전에 누른 도움이 돼요가 취소되지 않습니다.
     final nextLiked = !_likedByMe;
+    if (!await _continueWithAccount(
+      "'도움이 돼요'는 로그인 후 누를 수 있어요.",
+      () => _likeInFlight = true,
+    )) {
+      return;
+    }
+    if (_likedByMe == nextLiked) {
+      setState(() => _likeInFlight = false);
+      return;
+    }
+    final currentCount = (_postData!['likes'] as num?)?.toInt() ?? 0;
 
-    setState(() => _likeInFlight = true);
     try {
       final result = await _service.setLike(
         postId: widget.postId,
@@ -494,10 +508,19 @@ class _CommunityPostDetailScreenState
 
   Future<void> _toggleNotification() async {
     if (_notificationInFlight || _postData == null) return;
-    if (!await _requireAuthentication() || !mounted) return;
+    // 도움이 돼요와 같이, 로그인 뒤 다시 불러온 상태를 뒤집지 않습니다.
     final nextEnabled = !_notificationEnabled;
+    if (!await _continueWithAccount(
+      '새 댓글 알림은 로그인 후 받을 수 있어요.',
+      () => _notificationInFlight = true,
+    )) {
+      return;
+    }
+    if (_notificationEnabled == nextEnabled) {
+      setState(() => _notificationInFlight = false);
+      return;
+    }
 
-    setState(() => _notificationInFlight = true);
     try {
       final enabled = await _service.setNotification(
         postId: widget.postId,
@@ -517,15 +540,23 @@ class _CommunityPostDetailScreenState
     }
   }
 
-  /// 게스트에게는 로그인 안내를 띄우고, 로그인을 고르면 로그인 화면으로 보냅니다.
-  Future<bool> _requireAuthentication() async {
-    if (ApiClient.isAuthenticated) return true;
-    final shouldLogin = await showLoginRequiredDialog(
-      context,
-      message: '도움이 돼요·댓글·알림은 로그인 후 이용할 수 있어요.',
-    );
-    if (shouldLogin && mounted) context.push(AppRoutes.login);
-    return false;
+  /// 게스트에게 [message]로 로그인을 권하고, 이어 갈 수 있으면 true를 돌려줍니다.
+  /// 방금 로그인했다면 게스트 화면에는 없던 그 계정의 도움이 돼요·알림 상태와
+  /// 내 댓글을 먼저 다시 불러옵니다. 그동안 [markBusy]로 진행 중임을 보여
+  /// 같은 동작이 두 번 시작되지 않게 합니다.
+  Future<bool> _continueWithAccount(
+    String message,
+    VoidCallback markBusy,
+  ) async {
+    final wasGuest = !ApiClient.isAuthenticated;
+    if (!await requireLogin(context, message: message) || !mounted) {
+      return false;
+    }
+    setState(markBusy);
+    if (wasGuest) {
+      await Future.wait([_refreshDetailCounts(), _fetchComments()]);
+    }
+    return mounted;
   }
 
   @override
