@@ -3,10 +3,13 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 class PriceAlertSubscriptionScreen extends ConsumerStatefulWidget {
   const PriceAlertSubscriptionScreen({super.key});
@@ -77,14 +80,26 @@ class _PriceAlertSubscriptionScreenState
     return settingsState.when(
       loading: () =>
           _PriceAlertLoading(onBack: _closeOrGoToNotificationSettings),
-      error: (error, _) => _PriceAlertError(
-        message: error is PriceAlertApiException
-            ? error.message
-            : '가격 알림 매장 목록을 불러오지 못했어요.',
-        onRetry: () =>
-            ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
-        onBack: _closeOrGoToNotificationSettings,
-      ),
+      // A guest has no alerts to load, and retrying fails the same way.
+      // After login the settings reload by themselves: the provider follows
+      // the account.
+      error: (error, _) => !ApiClient.isAuthenticated
+          ? _PriceAlertStatusFrame(
+              onBack: _closeOrGoToNotificationSettings,
+              child: LoginRequiredState(
+                description: '로그인하면 찜한 매장의 가격 변동 알림을 받을 수 있어요.',
+                actionLabel: '로그인하기',
+                onAction: () => openLoginFlow(context),
+              ),
+            )
+          : _PriceAlertError(
+              message: error is PriceAlertApiException
+                  ? error.message
+                  : '가격 알림 매장 목록을 불러오지 못했어요.',
+              onRetry: () =>
+                  ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
+              onBack: _closeOrGoToNotificationSettings,
+            ),
       data: (settings) {
         _savedSettings ??= settings;
         return _buildContent(context, settings);

@@ -119,26 +119,31 @@ void main() {
     expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
     expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
 
-    final profileEditButton = tester.getRect(
+    // A guest gets a login button where a member edits the profile.
+    expect(
       find.byKey(const ValueKey('mypage-profile-edit-button')),
+      findsNothing,
     );
-    final profileEditContent = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-content')),
+    final profileLoginButton = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-button')),
     );
-    final profileEditLabel = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-label')),
+    final profileLoginContent = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-content')),
     );
-    final profileEditChevron = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-chevron')),
+    final profileLoginLabel = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-label')),
+    );
+    final profileLoginChevron = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-chevron')),
     );
     expect(
-      profileEditContent.center.dx,
-      closeTo(profileEditButton.center.dx, 0.1),
+      profileLoginContent.center.dx,
+      closeTo(profileLoginButton.center.dx, 0.1),
     );
-    final profileEditScale = profileEditButton.height / 30;
+    final profileLoginScale = profileLoginButton.height / 30;
     expect(
-      profileEditLabel.center.dy,
-      closeTo(profileEditChevron.center.dy - profileEditScale, 0.1),
+      profileLoginLabel.center.dy,
+      closeTo(profileLoginChevron.center.dy - profileLoginScale, 0.1),
     );
 
     await _goToRoute(tester, AppRoutes.favoriteStores);
@@ -252,6 +257,9 @@ void main() {
   ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+    // 계정 관리 opens for members; a guest's tap asks for login first
+    // (test/mypage_guest_login_test.dart).
+    await ApiClient.setSessionToken('member-session');
 
     for (final label in ['계정 관리', '공공데이터 출처 안내', '문의하기']) {
       await _goToRoute(tester, AppRoutes.mypage);
@@ -277,6 +285,8 @@ void main() {
   ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+    // 계정 관리 opens for members; a guest's tap asks for login first.
+    await ApiClient.setSessionToken('member-session');
 
     await _goToRoute(tester, AppRoutes.mypage);
     final account = find.text('계정 관리').last;
@@ -423,9 +433,8 @@ void main() {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.tap(find.text('프로필 수정'));
-    await tester.pumpAndSettle();
+    // MY shows a guest a login button where members find 프로필 수정.
+    await _goToRoute(tester, AppRoutes.profileEdit);
 
     expect(find.text('프로필 수정'), findsAtLeastNWidgets(1));
     expect(find.text('저장하기'), findsOneWidget);
@@ -562,6 +571,9 @@ void main() {
     await tester.enterText(fields.at(0), '가격 정보 확인 요청');
     await tester.enterText(fields.at(1), '표시된 가격이 현재 가격과 다른지 확인해주세요.');
     await tester.pump();
+    // Sending needs an account; a guest is asked to log in first
+    // (test/mypage_guest_login_test.dart).
+    await ApiClient.setSessionToken('member-session');
     await tester.tap(find.text('문의 보내기'));
     await tester.pumpAndSettle();
     expect(find.text('마이'), findsAtLeastNWidgets(1));

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
@@ -303,7 +304,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                   topOffset: topOffset,
                   title: '문의하기',
                   onBack: _leave,
-                  onHistory: () => context.push(AppRoutes.inquiryHistory),
+                  onHistory: _openHistory,
                 ),
                 Positioned(
                   left: 0,
@@ -325,6 +326,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     );
   }
 
+  /// Past inquiries belong to an account, so a guest logs in before the list
+  /// opens. The draft on this screen stays as it is.
+  Future<void> _openHistory() async {
+    if (!await requireLogin(context, message: '로그인하면 보낸 문의와 답변을 볼 수 있어요.')) {
+      return;
+    }
+    if (mounted) context.push(AppRoutes.inquiryHistory);
+  }
+
   Future<void> _submitInquiry() async {
     final messenger = ScaffoldMessenger.of(context);
     final title = _titleController.text.trim();
@@ -339,6 +349,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       _showFormNotice(messenger, '내용을 입력해주세요.');
       return;
     }
+    // Answers go to an account, so a guest logs in here. Login opens on top
+    // of this form, which is then sent as written, photos included.
+    if (!await requireLogin(
+      context,
+      message: '문의는 로그인 후 보낼 수 있어요. 작성한 내용은 그대로 있어요.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
 
     setState(() => _isSubmitting = true);
     final reportService = _reportService;
