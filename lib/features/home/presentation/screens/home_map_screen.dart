@@ -1252,6 +1252,120 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var customOverlays = [];
         var markerDataCache = [];
         var selectedMarkerIndex = -1;
+        var markerClusterer = null;
+        var clusterMarkers = [];
+
+        function markerClusterStyles() {
+          function style(size, background, fontSize) {
+            return {
+              width: size + 'px',
+              height: size + 'px',
+              background: background,
+              border: '4px solid rgba(255,255,255,0.94)',
+              borderRadius: '999px',
+              boxShadow: '0 5px 16px rgba(15,23,42,0.24)',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              fontSize: fontSize + 'px',
+              fontWeight: '800',
+              letterSpacing: '-0.3px',
+              lineHeight: (size - 8) + 'px',
+              textAlign: 'center',
+              transform: 'translateZ(0)'
+            };
+          }
+          return [
+            style(44, '#2563EB', 13),
+            style(48, '#1D4ED8', 14),
+            style(52, '#1E40AF', 14),
+            style(56, '#172554', 14)
+          ];
+        }
+
+        function clearMarkerCluster() {
+          if (markerClusterer) {
+            if (markerClusterer._howmuchClusteredHandler) {
+              kakao.maps.event.removeListener(
+                markerClusterer,
+                'clustered',
+                markerClusterer._howmuchClusteredHandler
+              );
+            }
+            if (markerClusterer._howmuchClickHandler) {
+              kakao.maps.event.removeListener(
+                markerClusterer,
+                'clusterclick',
+                markerClusterer._howmuchClickHandler
+              );
+            }
+            markerClusterer.clear();
+            markerClusterer = null;
+          }
+          for (var i = 0; i < clusterMarkers.length; i++) {
+            clusterMarkers[i].setMap(null);
+          }
+          clusterMarkers = [];
+        }
+
+        function rebuildMarkerCluster() {
+          clearMarkerCluster();
+          if (!map || typeof kakao.maps.Marker !== 'function' ||
+              typeof kakao.maps.MarkerClusterer !== 'function' ||
+              markerDataCache.length < 2) return;
+          for (var overlayIndex = 0; overlayIndex < customOverlays.length; overlayIndex++) {
+            customOverlays[overlayIndex].setMap(map);
+          }
+
+          for (var i = 0; i < markerDataCache.length; i++) {
+            if (i === selectedMarkerIndex) continue;
+            var item = markerDataCache[i];
+            var marker = new kakao.maps.Marker({
+              position: new kakao.maps.LatLng(item.lat, item.lng),
+              clickable: false,
+              opacity: 0
+            });
+            marker._howmuchIndex = i;
+            clusterMarkers.push(marker);
+          }
+          if (clusterMarkers.length < 2) return;
+
+          markerClusterer = new kakao.maps.MarkerClusterer({
+            map: map,
+            averageCenter: true,
+            minLevel: 4,
+            minClusterSize: 2,
+            gridSize: 72,
+            disableClickZoom: true,
+            calculator: [10, 30, 100],
+            styles: markerClusterStyles(),
+            texts: function(size) { return size > 99 ? '99+' : String(size); }
+          });
+          var clusteredHandler = function(clusters) {
+            var hidden = {};
+            for (var i = 0; i < clusters.length; i++) {
+              var members = clusters[i].getMarkers();
+              if (members.length < 2) continue;
+              for (var j = 0; j < members.length; j++) {
+                hidden[members[j]._howmuchIndex] = true;
+              }
+            }
+            for (var index = 0; index < customOverlays.length; index++) {
+              customOverlays[index].setMap(hidden[index] ? null : map);
+            }
+          };
+          var clickHandler = function(cluster) {
+            if (!cluster || typeof cluster.getCenter !== 'function') return;
+            map.setLevel(Math.max(1, map.getLevel() - 2), {
+              anchor: cluster.getCenter(),
+              animate: { duration: 300 }
+            });
+          };
+          markerClusterer._howmuchClusteredHandler = clusteredHandler;
+          markerClusterer._howmuchClickHandler = clickHandler;
+          kakao.maps.event.addListener(markerClusterer, 'clustered', clusteredHandler);
+          kakao.maps.event.addListener(markerClusterer, 'clusterclick', clickHandler);
+          markerClusterer.addMarkers(clusterMarkers);
+        }
 
         // Flutter resolves the store by its ID: markers can be a subset of the
         // cards, so the marker position alone is not a card position.
@@ -1271,6 +1385,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             return item.selected === true;
           });
 
+          clearMarkerCluster();
           for (var i = 0; i < customOverlays.length; i++) {
             customOverlays[i].setMap(null);
           }
@@ -1356,11 +1471,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             })(i);
           }
           highlightMarker(selectedMarkerIndex);
+          rebuildMarkerCluster();
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
         function highlightMarker(selectedIndex) {
-          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
+          var normalizedIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
+          var membershipChanged = normalizedIndex !== selectedMarkerIndex;
+          selectedMarkerIndex = normalizedIndex;
           for (var i = 0; i < markerDataCache.length; i++) {
             var wrapper = document.getElementById('marker-wrapper-' + i);
             if (!wrapper) continue;
@@ -1382,6 +1500,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               if (customOverlays[i]) customOverlays[i].setZIndex(3);
             }
           }
+          if (membershipChanged) rebuildMarkerCluster();
         }
 
         function setMapCenter(lat, lng) {

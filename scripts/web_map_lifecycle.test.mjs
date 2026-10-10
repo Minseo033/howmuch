@@ -8,11 +8,12 @@ const mapScript = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi
   .find((source) => source.includes('function initKakaoMap'));
 assert.ok(mapScript, 'Kakao map runtime script is present');
 
-function createRuntime() {
+function createRuntime({ withClusterer = false } = {}) {
   let nextTimerId = 1;
   const timers = new globalThis.Map();
   const observers = [];
   const overlays = [];
+  const clusterers = [];
   const elements = new globalThis.Map();
   const listeners = [];
 
@@ -67,6 +68,27 @@ function createRuntime() {
     this.setZIndex = (zIndex) => { this.zIndex = zIndex; };
     overlays.push(this);
   }
+  function Marker(options) {
+    this.options = options;
+    this.map = null;
+    this.setMap = (map) => { this.map = map; };
+  }
+  function MarkerClusterer(options) {
+    this.options = options;
+    this.markers = [];
+    this.cleared = false;
+    this.addMarkers = (markers) => {
+      this.markers = markers;
+      this.lastCluster = {
+        getMarkers: () => markers,
+        getCenter: () => markers[0].options.position,
+      };
+      const listener = listeners.find((item) => item.map === this && item.type === 'clustered');
+      if (listener) listener.handler([this.lastCluster]);
+    };
+    this.clear = () => { this.cleared = true; this.markers = []; };
+    clusterers.push(this);
+  }
   const context = {
     console: { error() {}, log() {} },
     document: {
@@ -94,6 +116,10 @@ function createRuntime() {
       },
     },
   };
+  if (withClusterer) {
+    context.kakao.maps.Marker = Marker;
+    context.kakao.maps.MarkerClusterer = MarkerClusterer;
+  }
   vm.createContext(context);
   vm.runInContext(mapScript, context, { filename: 'web/index.html' });
   context.kakaoMapCallbacks.map = {};
@@ -106,6 +132,7 @@ function createRuntime() {
     context,
     observers,
     overlays,
+    clusterers,
     listeners,
     runTimers() {
       const pending = [...timers.entries()];
@@ -113,6 +140,47 @@ function createRuntime() {
       for (const [, callback] of pending) callback();
     },
   };
+}
+
+{
+  const { context, overlays, clusterers, listeners } = createRuntime({ withClusterer: true });
+  const map = {
+    level: 7,
+    relayout() {},
+    getLevel() { return this.level; },
+    setLevel(level, options) { this.level = level; this.levelOptions = options; },
+  };
+  context.kakaoMapObjects.map = map;
+  context.addMobileMarkers('map', JSON.stringify([
+    { storeId: 'one', lat: 37.5, lng: 127, title: '첫 매장', menu: '백반', price: '8,000원' },
+    { storeId: 'two', lat: 37.5001, lng: 127.0001, title: '둘째 매장', menu: '국밥', price: '9,000원' },
+    { storeId: 'picked', lat: 37.5002, lng: 127.0002, title: '선택 매장', menu: '비빔밥', price: '10,000원', selected: true },
+  ]));
+
+  assert.equal(clusterers.length, 1, 'nearby marker labels are managed by one clusterer');
+  assert.equal(clusterers[0].options.minLevel, 4, 'close zoom keeps individual store labels');
+  assert.equal(clusterers[0].options.gridSize, 72, 'cluster spacing prevents label collisions');
+  assert.equal(clusterers[0].options.styles[0].background, '#2563EB',
+    'small clusters use the product blue');
+  assert.deepEqual(Array.from(clusterers[0].markers, (marker) => marker._howmuchIndex), [0, 1],
+    'the selected store remains outside the cluster');
+  assert.deepEqual(overlays.map((overlay) => overlay.map), [null, null, map],
+    'clustered labels hide while the selected store stays visible');
+
+  const clusterClick = listeners.find(
+    (item) => item.map === clusterers[0] && item.type === 'clusterclick',
+  );
+  clusterClick.handler(clusterers[0].lastCluster);
+  assert.equal(map.level, 5, 'a cluster tap zooms in two levels');
+  assert.equal(map.levelOptions.anchor.lat, 37.5, 'cluster zoom stays anchored on the group');
+
+  const oldClusterer = clusterers[0];
+  context.highlightKakaoMapMarker('map', 0);
+  assert.equal(oldClusterer.cleared, true, 'selection rebuilds stale cluster membership');
+  assert.deepEqual(Array.from(clusterers[1].markers, (marker) => marker._howmuchIndex), [1, 2],
+    'the newly selected store is separated from the rebuilt cluster');
+  assert.deepEqual(overlays.map((overlay) => overlay.map), [map, null, null],
+    'only the selected label remains above its cluster');
 }
 
 {
