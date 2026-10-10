@@ -85,6 +85,54 @@ void main() {
   });
 
   testWidgets(
+    'the complete catalog renders once and map movement makes no request',
+    (tester) async {
+      var catalogLoads = 0;
+      final stores = [
+        for (var i = 0; i < 150; i++)
+          _store('all-$i', 33.2 + (i % 50) * .08, 126.1 + (i ~/ 50) * .4),
+      ];
+      final controller = await pumpHome(
+        tester,
+        HomeMapScreen(
+          catalogLoader: () async {
+            catalogLoads++;
+            return stores;
+          },
+        ),
+      );
+      await tester.pump();
+
+      expect(catalogLoads, 1);
+      expect(
+        _renderedStoreIds(controller),
+        [for (final store in stores) store.id],
+        reason: 'the old 100-store marker cap is gone',
+      );
+      final rendersBeforeMove = controller.scripts
+          .where((script) => script.startsWith('addMobileMarkers('))
+          .length;
+
+      controller.send(_bounds(35.0, 38.0, 126.0, 129.0, level: 9));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(catalogLoads, 1, reason: 'panning reuses the in-memory catalog');
+      expect(
+        controller.scripts
+            .where((script) => script.startsWith('addMobileMarkers('))
+            .length,
+        rendersBeforeMove,
+        reason: 'the JavaScript clusterer keeps the existing complete catalog',
+      );
+      expect(
+        controller.scripts.where((script) => script == 'requestBounds();'),
+        isEmpty,
+      );
+      await disposeHome(tester);
+    },
+  );
+
+  testWidgets(
     'a search marker opens the tapped store, not the card at that position',
     (tester) async {
       final far = _store('far', 35.1796, 129.0756, name: '부산 국밥');

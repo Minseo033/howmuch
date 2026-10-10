@@ -168,10 +168,14 @@ function createRuntime({ withClusterer = false } = {}) {
     'cluster counts retain the product blue');
   assert.equal(clusterers[0].options.styles[0].boxSizing, 'border-box',
     'the soft halo stays inside the declared cluster size');
-  assert.deepEqual(Array.from(clusterers[0].markers, (marker) => marker._howmuchIndex), [0, 1],
-    'the selected store remains outside the cluster');
-  assert.deepEqual(overlays.map((overlay) => overlay.map), [null, null, map],
-    'clustered labels hide while the selected store stays visible');
+  assert.deepEqual(Array.from(clusterers[0].markers, (marker) => marker._howmuchIndex), [0, 1, 2],
+    'every loaded store contributes to the cluster count');
+  assert.deepEqual(overlays.map((overlay) => overlay.map), [map],
+    'only the selected store creates a label inside a cluster');
+  assert.equal(clusterers[0].options.texts(1200), '1.2천',
+    'large clusters show a useful compact count');
+  assert.equal(clusterers[0].options.texts(12000), '1.2만',
+    'nationwide clusters use a readable Korean count');
 
   const clusterClick = listeners.find(
     (item) => item.map === clusterers[0] && item.type === 'clusterclick',
@@ -182,11 +186,38 @@ function createRuntime({ withClusterer = false } = {}) {
 
   const oldClusterer = clusterers[0];
   context.highlightKakaoMapMarker('map', 0);
-  assert.equal(oldClusterer.cleared, true, 'selection rebuilds stale cluster membership');
-  assert.deepEqual(Array.from(clusterers[1].markers, (marker) => marker._howmuchIndex), [1, 2],
-    'the newly selected store is separated from the rebuilt cluster');
-  assert.deepEqual(overlays.map((overlay) => overlay.map), [map, null, null],
-    'only the selected label remains above its cluster');
+  assert.equal(oldClusterer.cleared, false, 'selection does not rebuild the full catalog');
+  assert.equal(clusterers.length, 1, 'one clusterer survives marker selection');
+  assert.deepEqual(overlays.map((overlay) => overlay.map), [null, map],
+    'only the newly selected label remains above its cluster');
+}
+
+{
+  const { context, overlays, clusterers } = createRuntime({ withClusterer: true });
+  const map = {
+    level: 10,
+    relayout() {},
+    getLevel() { return this.level; },
+    setLevel(level) { this.level = level; },
+  };
+  context.kakaoMapObjects.map = map;
+  const catalogSize = 11397;
+  context.addMobileMarkers('map', JSON.stringify(Array.from(
+    { length: catalogSize },
+    (_, index) => ({
+      storeId: `catalog-${index}`,
+      lat: 33 + (index % 400) * 0.01,
+      lng: 125 + (index % 300) * 0.01,
+      title: `매장 ${index}`,
+      menu: '대표 메뉴',
+      price: '8,000원',
+    }),
+  )));
+
+  assert.equal(clusterers[0].markers.length, catalogSize,
+    'the current nationwide catalog reaches the clusterer without a marker cap');
+  assert.equal(overlays.length, 0,
+    'a nationwide cluster does not create thousands of price-label DOM overlays');
 }
 
 {
@@ -211,7 +242,7 @@ function createRuntime({ withClusterer = false } = {}) {
   context.setKakaoMapSearchMode('map', true);
   assert.equal(context.kakaoMapObjects.map.maxLevel, 14, 'local result mode can fit nationwide results without a bounds API query');
   context.setKakaoMapSearchMode('map', false);
-  assert.equal(context.kakaoMapObjects.map.maxLevel, 10, 'normal map mode restores backend-safe zoom limit');
+  assert.equal(context.kakaoMapObjects.map.maxLevel, 14, 'normal map mode keeps nationwide zoom');
 }
 
 {
@@ -296,12 +327,12 @@ function createRuntime({ withClusterer = false } = {}) {
   let idleCalls = 0;
   context.onKakaoMapIdle = () => { idleCalls += 1; };
   context.initKakaoMap('map', 37.5, 127.0);
-  assert.equal(context.kakaoMapObjects.map.maxLevel, 10,
-    'the web map limits zoom-out to the bounds endpoint supported range');
+  assert.equal(context.kakaoMapObjects.map.maxLevel, 14,
+    'the web map allows nationwide zoom with the complete catalog');
   assert.equal(observers.length, 1, 'one observer is attached for a map instance');
   context.initKakaoMap('map', 37.6, 127.1);
-  assert.equal(context.kakaoMapObjects.map.maxLevel, 10,
-    'reused maps keep the same zoom-out limit');
+  assert.equal(context.kakaoMapObjects.map.maxLevel, 14,
+    'reused maps keep the nationwide zoom limit');
   assert.equal(listeners.length, 4, 'reinitializing replaces rather than accumulates event listeners');
   assert.equal(observers.length, 2, 'a reused map refreshes its observer generation');
   assert.equal(observers[0].disconnected, true, 'the prior observer is released before reuse');
@@ -600,7 +631,7 @@ function createRuntime({ withClusterer = false } = {}) {
   observers[0].callback();
   context.setKakaoMapSearchMode('map', true);
   context.fitKakaoMapStores('map', JSON.stringify([{ lat: 37.5, lng: 127 }, { lat: 35.1, lng: 129.0 }]));
-  assert.equal(map.maxLevel, 10, 'a hidden map is not manipulated');
+  assert.equal(map.maxLevel, 14, 'a hidden map keeps the nationwide zoom limit');
   map.node.offsetWidth = 360;
   observers[0].callback();
   assert.equal(map.maxLevel, 14, 'returning to search results restores the search zoom limit');
@@ -611,8 +642,8 @@ function createRuntime({ withClusterer = false } = {}) {
   context.setKakaoMapSearchMode('map', false);
   map.node.offsetWidth = 360;
   runTimers();
-  assert.equal(map.maxLevel, 10, 'clearing a search while hidden restores the backend-safe limit');
-  assert.equal(map.level, 10, 'a zoomed-out search view comes back inside the supported span');
+  assert.equal(map.maxLevel, 14, 'clearing a search keeps the nationwide zoom limit');
+  assert.equal(map.level, 13, 'a nationwide viewport stays unchanged when search clears');
 }
 
 {

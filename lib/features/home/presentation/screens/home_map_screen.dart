@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:howmuch/features/store/store_model.dart';
+import 'package:howmuch/features/store/store_catalog_loader.dart';
 import 'package:howmuch/features/home/home_map_store_loader.dart';
 import 'package:howmuch/features/home/home_map_viewport_policy.dart';
 import 'kakao_web_helper_stub.dart'
@@ -35,8 +36,8 @@ import 'package:permission_handler/permission_handler.dart'
 const Duration maxHomeLocationCacheAge = Duration(minutes: 2);
 const double maxHomeMapBoundsSpanDegrees = 10;
 
-/// The plain map's zoom-out limit. Search results may zoom out to 14.
-const int maxHomeMapLevel = 10;
+/// The complete catalog supports nationwide zoom without another API query.
+const int maxHomeMapLevel = 14;
 
 bool isHomeMapBoundsWithinBackendLimit(Map<String, double> bounds) {
   return bounds['maxLat']! - bounds['minLat']! <= maxHomeMapBoundsSpanDegrees &&
@@ -212,15 +213,15 @@ class HomeMapScreen extends StatefulWidget {
     this.initialRecommendation,
     this.initialSearchResult,
     this.storeLoader,
+    this.catalogLoader,
   });
 
-  // `globalAllStores` is the current map/viewport result. It must not be used
-  // as the nationwide search catalog: the bounds endpoint intentionally
-  // returns only a subset of stores.
+  // Stores that can be drawn on the map. Production keeps the complete
+  // visible catalog here; injected viewport loaders retain the legacy subset.
   static List<Store> globalAllStores = [];
   static List<Store> _globalSearchCatalog = [];
 
-  /// Full nationwide catalog loaded by search (never a map-bounds response).
+  /// Full nationwide catalog shared with search and recommendation flows.
   static List<Store> get globalSearchCatalog => _globalSearchCatalog;
 
   static void setMapStores(List<Store> stores) {
@@ -251,8 +252,12 @@ class HomeMapScreen extends StatefulWidget {
   final AiMapRecommendationResult? initialRecommendation;
   final Map<String, dynamic>? initialSearchResult;
 
-  /// Loads stores for a map viewport. Defaults to the bounds endpoint.
+  /// Optional legacy viewport loader used by focused tests.
+  /// When omitted, the production map loads the complete catalog once.
   final HomeMapStoreLoader? storeLoader;
+
+  /// Loads the complete catalog once so moving the map never waits on HTTP.
+  final StoreCatalogLoader? catalogLoader;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -342,6 +347,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   // Where the previous home screen left the map. It opens there instead of
   // at the user's position.
   MobileMapViewport? _restoredViewport;
+
+  bool get _usesFullCatalog => widget.storeLoader == null;
 
   Future<void> _openAiRecommend() async {
     // The coach mark has done its job once the AI control is tapped.
@@ -622,6 +629,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   void _onWebMapIdle() {
     _webBoundsRetryTimer?.cancel();
     _webBoundsRetryCount = 0;
+    if (_usesFullCatalog) {
+      _rememberViewport(_currentViewport());
+      return;
+    }
     unawaited(_searchInCurrentArea());
   }
 
@@ -645,9 +656,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     return boundsJson == null ? null : parseMobileMapViewport(boundsJson);
   }
 
-  /// Keeps the latest viewport for the next home screen once it is the
-  /// user's. Search can zoom out past the plain map's limit; such a view is
-  /// not kept because the plain map cannot show it.
+  /// Keeps the user's latest valid viewport for the next home screen.
   void _rememberViewport(MobileMapViewport? viewport) {
     if (viewport == null || !_keepsViewport) return;
     if (viewport.level > maxHomeMapLevel) return;
@@ -738,9 +747,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Resolves a tapped marker to its card. Markers can be a subset of the
-  /// cards (search draws at most 100 inside the viewport), so the store ID,
-  /// not the marker position, identifies the store.
+  /// Resolves a tapped marker to its card. Filtered search results can contain
+  /// stores without markers, so the store ID identifies the card reliably.
   void _onRenderedMarkerClicked(int markerIndex, String storeId) {
     if (!mounted) return;
     if (markerIndex < 0) {
@@ -803,8 +811,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     }
   }
 
-  /// Search results may span the country (zoom limit 14); the normal map
-  /// stays inside the bounds endpoint's span (10).
+  /// Search mode still controls result fitting; all modes can zoom nationwide.
   void _setMapSearchMode(bool enabled) {
     if (kIsWeb) {
       web_helper.setKakaoMapSearchModeWeb(_viewId, enabled);
@@ -872,7 +879,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
       }
     }
-    unawaited(_restoreCachedStores());
+    if (_usesFullCatalog) {
+      unawaited(_loadFullStoreCatalog());
+    } else {
+      // Injected viewport loaders keep the legacy path for focused widget tests.
+      unawaited(_restoreCachedStores());
+    }
     WidgetsBinding.instance.addObserver(this); // 앱 생명주기 감지 등록
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _prepareInitialLocation(initial: true),
@@ -915,6 +927,36 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
     } catch (error) {
       debugPrint('저장된 매장 캐시 복원 실패: $error');
+    }
+  }
+
+  Future<void> _loadFullStoreCatalog() async {
+    try {
+      final stores = await (widget.catalogLoader ?? loadStoreCatalog)();
+      if (!mounted) return;
+      final visibleStores = stores
+          .where(isHomeMapStoreVisible)
+          .where((store) => !store.isClosed)
+          .toList(growable: false);
+      if (visibleStores.isEmpty) {
+        throw const FormatException('Empty map catalog');
+      }
+      setState(() {
+        _allStores = visibleStores;
+        _isAllStoresLoaded = true;
+        _hasLoadError = false;
+        _usingCachedStores = false;
+      });
+      HomeMapScreen.setMapStores(List<Store>.unmodifiable(visibleStores));
+      HomeMapScreen.setSearchCatalog(List<Store>.unmodifiable(stores));
+      if (_isMapReady) await _searchInCurrentArea();
+    } catch (error) {
+      if (!mounted) return;
+      debugPrint('전체 매장 카탈로그 로드 실패: $error');
+      setState(() {
+        _isAllStoresLoaded = false;
+        _hasLoadError = true;
+      });
     }
   }
 
@@ -1040,6 +1082,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       final viewport = parseMobileMapViewport(boundsJson);
       _lastMobileViewport = viewport ?? _lastMobileViewport;
       _rememberViewport(viewport);
+      if (_usesFullCatalog) return;
       _boundsDebouncer?.cancel();
       _boundsDebouncer = Timer(const Duration(milliseconds: 300), () {
         if (mounted) unawaited(_fetchAndAddLatestMarkers(boundsJson));
@@ -1171,12 +1214,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var boundsTimer = null;
         // When the pan and zoom started by a card swipe or marker tap end.
         var cardMoveEndsAt = 0;
-        // Search results are filtered locally and may span the country. The
-        // normal map stays within the bounds endpoint's 10-degree span.
+        // The complete catalog is loaded once, so every mode can zoom nationwide.
         var searchMode = false;
 
         function maxMapLevel() {
-          return searchMode ? 14 : 10;
+          return 14;
         }
 
         function setSearchMode(enabled) {
@@ -1254,6 +1296,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var selectedMarkerIndex = -1;
         var markerClusterer = null;
         var clusterMarkers = [];
+        var clusterHidden = {};
+
+        function clusterCountText(size) {
+          if (size >= 10000) {
+            var tenThousands = size / 10000;
+            return tenThousands.toFixed(1).replace('.0', '') + '만';
+          }
+          if (size < 1000) return String(size);
+          var thousands = size / 1000;
+          return (thousands >= 10 ? Math.round(thousands) : thousands.toFixed(1).replace('.0', '')) + '천';
+        }
 
         function markerClusterStyles() {
           function style(size, background, color, halo, fontSize) {
@@ -1284,6 +1337,97 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ];
         }
 
+        function isStoreInViewport(item) {
+          if (!map || typeof map.getBounds !== 'function') return true;
+          var bounds = map.getBounds();
+          if (!bounds) return true;
+          var sw = bounds.getSouthWest();
+          var ne = bounds.getNorthEast();
+          return item.lat >= sw.getLat() && item.lat <= ne.getLat() &&
+            item.lng >= sw.getLng() && item.lng <= ne.getLng();
+        }
+
+        function createStoreOverlay(index) {
+          var item = markerDataCache[index];
+          if (!item) return null;
+          if (customOverlays[index]) return customOverlays[index];
+
+          var wrapper = document.createElement('div');
+          wrapper.id = 'marker-wrapper-' + index;
+          wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
+
+          var bubble = document.createElement('div');
+          bubble.className = 'kakao-map-marker';
+          bubble.setAttribute('role', 'button');
+          bubble.setAttribute('tabindex', '0');
+          bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
+          bubble.setAttribute('aria-pressed', 'false');
+          var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
+          bubble.style.cssText = [
+            'cursor:pointer', 'background:' + bgColor, 'color:#fff',
+            'border-radius:20px', 'padding:5px 10px', 'font-size:12px',
+            'font-weight:700', 'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
+            'white-space:nowrap', 'display:flex', 'flex-direction:column',
+            'align-items:center', 'gap:1px', 'line-height:1.3',
+            'border:1.5px solid rgba(255,255,255,0.3)',
+            'transition:background 0.2s ease'
+          ].join(';');
+
+          var nameEl = document.createElement('span');
+          nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
+          nameEl.innerText = item.title;
+          var priceEl = document.createElement('span');
+          priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
+          priceEl.innerText = item.menu + '  ' + item.price;
+          var tail = document.createElement('div');
+          tail.style.cssText = [
+            'width:0', 'height:0', 'border-left:5px solid transparent',
+            'border-right:5px solid transparent', 'border-top:6px solid ' + bgColor,
+            'margin-top:-1px', 'transition:border-top-color 0.2s ease'
+          ].join(';');
+
+          bubble.appendChild(nameEl);
+          bubble.appendChild(priceEl);
+          bubble.onclick = function(event) {
+            if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+            onMarkerClick(index);
+          };
+          bubble.onkeydown = function(event) {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              bubble.onclick(event);
+            }
+          };
+          wrapper.appendChild(bubble);
+          wrapper.appendChild(tail);
+
+          var overlay = new kakao.maps.CustomOverlay({
+            position: new kakao.maps.LatLng(item.lat, item.lng),
+            content: wrapper,
+            yAnchor: 1.0,
+            zIndex: index === selectedMarkerIndex ? 10 : 3
+          });
+          customOverlays[index] = overlay;
+          return overlay;
+        }
+
+        function syncStoreOverlays(hidden) {
+          if (!map) return;
+          clusterHidden = hidden || {};
+          for (var i = 0; i < markerDataCache.length; i++) {
+            var shouldShow = i === selectedMarkerIndex ||
+              (!clusterHidden[i] && isStoreInViewport(markerDataCache[i]));
+            var overlay = customOverlays[i];
+            if (shouldShow) {
+              overlay = overlay || createStoreOverlay(i);
+              if (overlay) overlay.setMap(map);
+            } else if (overlay) {
+              overlay.setMap(null);
+            }
+          }
+          applyMarkerHighlight();
+        }
+
         function clearMarkerCluster() {
           if (markerClusterer) {
             if (markerClusterer._howmuchClusteredHandler) {
@@ -1307,19 +1451,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             clusterMarkers[i].setMap(null);
           }
           clusterMarkers = [];
+          clusterHidden = {};
         }
 
         function rebuildMarkerCluster() {
           clearMarkerCluster();
-          if (!map || typeof kakao.maps.Marker !== 'function' ||
-              typeof kakao.maps.MarkerClusterer !== 'function' ||
-              markerDataCache.length < 2) return;
-          for (var overlayIndex = 0; overlayIndex < customOverlays.length; overlayIndex++) {
-            customOverlays[overlayIndex].setMap(map);
+          if (!map) return;
+          if (markerDataCache.length < 2 ||
+              typeof kakao.maps.Marker !== 'function' ||
+              typeof kakao.maps.MarkerClusterer !== 'function') {
+            syncStoreOverlays({});
+            return;
           }
 
           for (var i = 0; i < markerDataCache.length; i++) {
-            if (i === selectedMarkerIndex) continue;
             var item = markerDataCache[i];
             var marker = new kakao.maps.Marker({
               position: new kakao.maps.LatLng(item.lat, item.lng),
@@ -1340,7 +1485,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             disableClickZoom: true,
             calculator: [10, 30, 100],
             styles: markerClusterStyles(),
-            texts: function(size) { return size > 99 ? '99+' : String(size); }
+            texts: clusterCountText
           });
           var clusteredHandler = function(clusters) {
             var hidden = {};
@@ -1351,9 +1496,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 hidden[members[j]._howmuchIndex] = true;
               }
             }
-            for (var index = 0; index < customOverlays.length; index++) {
-              customOverlays[index].setMap(hidden[index] ? null : map);
-            }
+            syncStoreOverlays(hidden);
           };
           var clickHandler = function(cluster) {
             if (!cluster || typeof cluster.getCenter !== 'function') return;
@@ -1367,6 +1510,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           kakao.maps.event.addListener(markerClusterer, 'clustered', clusteredHandler);
           kakao.maps.event.addListener(markerClusterer, 'clusterclick', clickHandler);
           markerClusterer.addMarkers(clusterMarkers);
+          if (map.getLevel() < 4) syncStoreOverlays({});
         }
 
         // Flutter resolves the store by its ID: markers can be a subset of the
@@ -1389,98 +1533,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
           clearMarkerCluster();
           for (var i = 0; i < customOverlays.length; i++) {
-            customOverlays[i].setMap(null);
+            if (customOverlays[i]) customOverlays[i].setMap(null);
           }
           customOverlays = [];
-
-          for (var i = 0; i < markerData.length; i++) {
-            (function(idx) {
-              var item = markerData[idx];
-
-              var wrapper = document.createElement('div');
-              wrapper.id = 'marker-wrapper-' + idx;
-              wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;transition:transform 0.2s ease;';
-
-              var bubble = document.createElement('div');
-              bubble.className = 'kakao-map-marker';
-              bubble.setAttribute('role', 'button');
-              bubble.setAttribute('tabindex', '0');
-              bubble.setAttribute('aria-label', item.title + ', ' + item.menu + ', ' + item.price);
-              bubble.setAttribute('aria-pressed', 'false');
-              var bgColor = item.source === 'USER' ? '#F97316' : '#2563EB';
-              bubble.style.cssText = [
-                'cursor:pointer',
-                'background:' + bgColor,
-                'color:#fff',
-                'border-radius:20px',
-                'padding:5px 10px',
-                'font-size:12px',
-                'font-weight:700',
-                'box-shadow:0 2px 8px rgba(0,0,0,0.25)',
-                'white-space:nowrap',
-                'display:flex',
-                'flex-direction:column',
-                'align-items:center',
-                'gap:1px',
-                'line-height:1.3',
-                'border:1.5px solid rgba(255,255,255,0.3)',
-                'transition:background 0.2s ease'
-              ].join(';');
-
-              var nameEl = document.createElement('span');
-              nameEl.style.cssText = 'font-size:11px;font-weight:800;letter-spacing:-0.3px;';
-              nameEl.innerText = item.title;
-
-              var priceEl = document.createElement('span');
-              priceEl.style.cssText = 'font-size:10px;font-weight:500;opacity:0.88;';
-              priceEl.innerText = item.menu + '  ' + item.price;
-
-              var tail = document.createElement('div');
-              tail.style.cssText = [
-                'width:0',
-                'height:0',
-                'border-left:5px solid transparent',
-                'border-right:5px solid transparent',
-                'border-top:6px solid ' + bgColor,
-                'margin-top:-1px',
-                'transition:border-top-color 0.2s ease'
-              ].join(';');
-
-              bubble.appendChild(nameEl);
-              bubble.appendChild(priceEl);
-              bubble.onclick = function(event) {
-                // A marker tap must not also reach the map as a background tap.
-                if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
-                onMarkerClick(idx);
-              };
-              bubble.onkeydown = function(event) {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  bubble.onclick(event);
-                }
-              };
-              wrapper.appendChild(bubble);
-              wrapper.appendChild(tail);
-
-              var customOverlay = new kakao.maps.CustomOverlay({
-                  position: new kakao.maps.LatLng(item.lat, item.lng),
-                  content: wrapper,
-                  yAnchor: 1.0,
-                  zIndex: idx === selectedMarkerIndex ? 10 : 3
-              });
-              customOverlay.setMap(map);
-              customOverlays.push(customOverlay);
-            })(i);
-          }
-          highlightMarker(selectedMarkerIndex);
           rebuildMarkerCluster();
           Print.postMessage('Markers added: ' + markerData.length);
         }
 
-        function highlightMarker(selectedIndex) {
-          var normalizedIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
-          var membershipChanged = normalizedIndex !== selectedMarkerIndex;
-          selectedMarkerIndex = normalizedIndex;
+        function applyMarkerHighlight() {
           for (var i = 0; i < markerDataCache.length; i++) {
             var wrapper = document.getElementById('marker-wrapper-' + i);
             if (!wrapper) continue;
@@ -1502,7 +1562,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               if (customOverlays[i]) customOverlays[i].setZIndex(3);
             }
           }
-          if (membershipChanged) rebuildMarkerCluster();
+        }
+
+        function highlightMarker(selectedIndex) {
+          selectedMarkerIndex = Number.isInteger(selectedIndex) ? selectedIndex : -1;
+          syncStoreOverlays(clusterHidden);
         }
 
         function setMapCenter(lat, lng) {
@@ -2210,6 +2274,10 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   Future<void> _searchInCurrentArea() async {
+    if (_usesFullCatalog) {
+      _renderFullCatalogMarkers();
+      return;
+    }
     if (kIsWeb) {
       try {
         final String? boundsJson = web_helper.getKakaoMapBoundsWeb(_viewId);
@@ -2227,6 +2295,37 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     } else {
       _safeRunJavaScript('requestBounds();');
     }
+  }
+
+  void _renderFullCatalogMarkers() {
+    if (!mounted || !_isMapReady || !_isAllStoresLoaded) return;
+
+    final List<Store> stores;
+    RecommendationMenuSelection? Function(Store) selectionFor;
+    if (_isAiRecommendationActive && _aiRecommendedStores.isNotEmpty) {
+      stores = _aiRecommendedStores;
+      selectionFor = _selectionFor;
+    } else if (_searchResultStores != null) {
+      stores = _searchResultStores!;
+      selectionFor = _searchSelectionFor;
+    } else {
+      stores = _allStores;
+      selectionFor = (_) => null;
+    }
+
+    final markerStores = stores
+        .where(isHomeMapStoreVisible)
+        .where((store) => !store.isClosed)
+        .toList(growable: false);
+    _currentStores = stores;
+    _searchViewportCount = markerStores.length;
+    final markerList = markerStores
+        .map((store) => _storeMarker(store, selectionFor(store)))
+        .toList(growable: false);
+    if (_markerListSignature(markerList) == _lastRenderedMarkerSignature) {
+      return;
+    }
+    _renderMarkers(markerList);
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {
@@ -2818,7 +2917,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             setState(() {
                               _hasLoadError = false;
                             });
-                            _searchInCurrentArea();
+                            if (_usesFullCatalog) {
+                              unawaited(_loadFullStoreCatalog());
+                            } else {
+                              unawaited(_searchInCurrentArea());
+                            }
                           },
                           icon: const Icon(Icons.refresh_rounded, size: 18),
                           label: const Text('다시 시도'),
@@ -3084,7 +3187,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                             : null,
                         detail: _searchResultStores == null
                             ? null
-                            : '검색 전체 ${_searchResultStores!.length}곳 · 지도 안 $_searchViewportCount곳${_searchViewportCount > 100 ? ' (마커 100곳 표시)' : ''}${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
+                            : '검색 전체 ${_searchResultStores!.length}곳 · 지도 표시 $_searchViewportCount곳${_searchResultStores!.any((store) => !store.hasValidCoordinates) ? ' · 위치 없는 매장 ${_searchResultStores!.where((store) => !store.hasValidCoordinates).length}곳' : ''}',
                       ),
                     ),
                   ),
