@@ -1,5 +1,3 @@
-import 'dart:ui' show CheckedState, Tristate;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -43,40 +41,34 @@ void main() {
   });
 
   group('selection state (#52)', () {
-    for (final web in [false, true]) {
-      final platform = web ? 'web' : 'app';
-      testWidgets(
-        'the radius sheet reads which distance is picked ($platform)',
-        (tester) async {
-          ChoiceSemantics.debugIsWebOverride = web;
-          final semantics = tester.ensureSemantics();
-          await _openRadiusSheet(tester);
+    testWidgets('the radius slider reads the distance and steps it by 1km', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openRadiusSheet(tester);
 
-          expect(readerElements('3km 이내'), findsOne);
-          expect(
-            readerElements('3km 이내'),
-            isSemantics(
-              isButton: true,
-              hasTapAction: true,
-              isSelected: web ? null : true,
-              isChecked: web ? true : null,
-              isInMutuallyExclusiveGroup: web ? true : null,
-            ),
-          );
-          expect(
-            readerElements('2km 이내'),
-            isSemantics(
-              isSelected: web ? null : false,
-              isChecked: web ? false : null,
-            ),
-          );
-          // The picked state lives on the option itself, not on an empty node
-          // around it.
-          expect(_pickedElements(web), findsOne);
-          semantics.dispose();
-        },
+      // One element names the setting and says the picked distance, and a
+      // screen reader swipe moves it one stop either way.
+      expect(_radiusSlider(), findsOne);
+      expect(
+        _radiusSlider(),
+        isSemantics(
+          isSlider: true,
+          label: '추천 거리',
+          value: '3km 이내',
+          increasedValue: '4km 이내',
+          decreasedValue: '2km 이내',
+          hasIncreaseAction: true,
+          hasDecreaseAction: true,
+        ),
       );
-    }
+
+      tester.semantics.increase(_radiusSlider());
+      await tester.pumpAndSettle();
+      expect(_radiusSlider(), isSemantics(value: '4km 이내'));
+      expect(readerElements('4km 이내로 적용하기'), findsOne);
+      semantics.dispose();
+    });
 
     testWidgets('the radius sheet stays in the app column on a wide window', (
       tester,
@@ -476,15 +468,13 @@ void main() {
   });
 }
 
-/// Elements that say they are picked: selected in the app, checked on the
-/// web.
-SemanticsFinder _pickedElements(bool web) => find.semantics.byPredicate((node) {
-  if (node.isMergedIntoParent) return false;
-  final flags = node.getSemanticsData().flagsCollection;
-  return web
-      ? flags.isChecked == CheckedState.isTrue
-      : flags.isSelected == Tristate.isTrue;
-});
+/// The distance slider in the radius sheet.
+SemanticsFinder _radiusSlider() => find.semantics.byPredicate(
+  (node) =>
+      !node.isMergedIntoParent &&
+      node.getSemanticsData().flagsCollection.isSlider,
+  describeMatch: (_) => 'the distance slider',
+);
 
 Future<void> _openRadiusSheet(WidgetTester tester) async {
   await tester.pumpWidget(
