@@ -81,6 +81,18 @@ class _FavoriteCancelConfirmDialogState
     }
     setState(() => _busy = true);
     try {
+      // Right after a login the account's favorites are not loaded yet. Read
+      // them first, like the store screen's heart: removing from a list that
+      // was never loaded would set the favorites count to 0.
+      if (!ref.read(favoriteStoresProvider).hasValue) {
+        await ref
+            .read(favoriteStoresProvider.notifier)
+            .loadFavorites(force: true);
+        if (!mounted) return;
+        if (!ref.read(favoriteStoresProvider).hasValue) {
+          throw StateError('favorites not loaded');
+        }
+      }
       await ref
           .read(favoriteStoresProvider.notifier)
           .removeFavorite(widget.storeId);
@@ -96,6 +108,10 @@ class _FavoriteCancelConfirmDialogState
 
   @override
   Widget build(BuildContext context) {
+    // Keeps the favorites list alive while the dialog is open. Opened from
+    // its address nothing else watches it, and an unwatched list would be
+    // dropped between loading it and removing the store.
+    ref.watch(favoriteStoresProvider);
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: Padding(

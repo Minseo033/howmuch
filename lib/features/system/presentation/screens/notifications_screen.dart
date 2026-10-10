@@ -5,6 +5,7 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
@@ -42,9 +43,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
   /// Login opens on top of the inbox and comes back here. Logging in starts
   /// a new inbox that polling may not have loaded yet, so load it here
-  /// instead of spinning.
+  /// instead of spinning. A visitor who comes back as a guest (left login, or
+  /// a new account that left profile setup) gets the login prompt, which
+  /// follows the login state.
   Future<void> _logIn() async {
-    if (!await openLoginFlow(context) || !mounted) return;
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
     if (ref.read(notificationsProvider).valueOrNull == null) {
       ref.read(notificationsProvider.notifier).loadNotifications();
     }
@@ -55,6 +59,12 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
+    // Every login state change starts a new inbox. Load one that belongs to
+    // an account, also when a login finishes after the visitor left it
+    // (polling may load it too; one load runs at a time).
+    ref.listen(notificationsProvider.notifier, (_, notifier) {
+      if (ApiClient.isAuthenticated) notifier.loadNotifications();
+    });
     final isLoggedIn = ref.watch(
       authStateProvider.select((auth) => auth.isLoggedIn),
     );
@@ -94,10 +104,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                         ),
                       ),
                       error: (err, stack) {
-                        final unauthorized =
-                            err is NotificationApiException &&
-                            err.isUnauthorized;
-                        if (unauthorized) {
+                        // Only a guest can fix an error by logging in. A
+                        // member turned down (403) would come straight back
+                        // from login, so they get the retry below.
+                        if (!ApiClient.isAuthenticated) {
                           return LoginRequiredState(
                             description: '로그인한 뒤 다시 확인해 주세요.',
                             actionLabel: '로그인하기',

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -45,16 +46,20 @@ class _FakeLoginService extends KakaoLoginService {
 }
 
 /// Favorites on the server; like the server, it answers only an account.
+/// With [listAnswer] the list arrives only once that completes.
 class _FakeFavoriteApi extends FavoriteApiService {
-  _FakeFavoriteApi({this.saved = const []});
+  _FakeFavoriteApi({this.saved = const [], this.listAnswer});
 
   final List<String> saved;
+  final Future<void>? listAnswer;
   final added = <String>[];
   final removed = <String>[];
 
   @override
   Future<List<FavoriteStoreModel>> fetchFavorites() async {
     if (!ApiClient.isAuthenticated) throw Exception('401');
+    final answer = listAnswer;
+    if (answer != null) await answer;
     return [
       for (final id in saved)
         FavoriteStoreModel.fromJson({'storeId': id, 'storeName': '매장 $id'}),
@@ -408,7 +413,11 @@ void main() {
     tester,
   ) async {
     const message = '로그인하면 이 매장의 찜을 바로 해제해요.';
-    final favorites = _FakeFavoriteApi(saved: ['store-1']);
+    final listAnswered = Completer<void>();
+    final favorites = _FakeFavoriteApi(
+      saved: ['store-1', 'store-2', 'store-3'],
+      listAnswer: listAnswered.future,
+    );
     await _open(
       tester,
       AppRoutes.favoriteCancelConfirm,
@@ -423,7 +432,17 @@ void main() {
 
     await _tapAndSettle(tester, remove);
     await _logIn(tester, message);
+    // The account's list arrives some frames later, as over a network.
+    expect(find.text('해제 중...'), findsOneWidget);
+    listAnswered.complete();
+    await tester.pumpAndSettle();
     expect(favorites.removed, ['store-1']);
     expect(find.text('이전 화면'), findsOneWidget);
+    // The account's favorites are read before the store is removed, so the
+    // count keeps the other two instead of dropping to 0.
+    final container = ProviderScope.containerOf(
+      tester.element(find.text('이전 화면')),
+    );
+    expect(container.read(userProfileProvider).favoriteStoreCount, 2);
   });
 }

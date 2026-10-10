@@ -74,22 +74,40 @@ class _PriceAlertSubscriptionScreenState
     if (mounted) context.pop();
   }
 
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The alerts follow the account and load by themselves
+  /// on every login state change; a load that failed while login was still
+  /// finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(priceAlertSettingsProvider).hasError) {
+      ref.read(priceAlertSettingsProvider.notifier).loadSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A login state change loads another account's alerts (or none), so the
+    // next alerts shown become the saved ones.
+    ref.listen(
+      priceAlertSettingsProvider.notifier,
+      (_, _) => _savedSettings = null,
+    );
     final settingsState = ref.watch(priceAlertSettingsProvider);
     return settingsState.when(
       loading: () =>
           _PriceAlertLoading(onBack: _closeOrGoToNotificationSettings),
-      // A guest has no alerts to load, and retrying fails the same way.
-      // After login the settings reload by themselves: the provider follows
-      // the account.
+      // A guest has no alerts to load, and retrying fails the same way. A
+      // member turned down (403) would come straight back from login, so
+      // they get the retry.
       error: (error, _) => !ApiClient.isAuthenticated
           ? _PriceAlertStatusFrame(
               onBack: _closeOrGoToNotificationSettings,
               child: LoginRequiredState(
                 description: '로그인하면 찜한 매장의 가격 변동 알림을 받을 수 있어요.',
                 actionLabel: '로그인하기',
-                onAction: () => openLoginFlow(context),
+                onAction: _logIn,
               ),
             )
           : _PriceAlertError(

@@ -76,6 +76,15 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileSummary();
     });
+    // Kakao can answer after the visitor already closed login, so the
+    // account can change while MY is showing. Load for it then; coming back
+    // from a screen on top reloads through didPopNext instead.
+    ref.listenManual(
+      authStateProvider.select((auth) => (auth.isLoggedIn, auth.sessionToken)),
+      (_, _) {
+        if (_route?.isCurrent ?? true) _refreshSummary();
+      },
+    );
   }
 
   @override
@@ -1255,24 +1264,32 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
       _message('브라우저 푸시는 지원하지 않아요. 앱의 알림함을 이용해 주세요.');
       return;
     }
-    // Pushes are sent to an account, so a guest logs in first. Logging in
-    // registers this device by itself (HowmuchApp), so the switch only needs
-    // to read the permission again.
+    final pushService = ref.read(pushNotificationServiceProvider);
+    // Pushes are sent to an account, so a guest logs in first and then goes
+    // on like a member's tap. Logging in registers this device by itself
+    // (HowmuchApp), but only when the phone allows notifications: a blocked
+    // permission still opens the settings, and a failed registration still
+    // says so.
     if (!ApiClient.isAuthenticated) {
       final loggedIn = await requireLogin(
         context,
         message: '로그인하면 이 기기로 푸시 알림을 받을 수 있어요.',
       );
-      if (loggedIn && mounted) ref.invalidate(pushAccessProvider);
-      return;
+      if (!loggedIn || !mounted) return;
+      access = await service.push();
+      if (!mounted) return;
+      if (access == DeviceAccess.allowed && pushService.isRegistered) {
+        ref.invalidate(pushAccessProvider);
+        return;
+      }
     }
-    final pushService = ref.read(pushNotificationServiceProvider);
     if (access == DeviceAccess.blocked ||
         (access == DeviceAccess.allowed && pushService.isRegistered)) {
       await service.openSettings();
     } else {
       // OS permission alone does not deliver pushes; the server must also
       // hold this device's token, so retry registration and report failure.
+      // Right after a login this joins the registration logging in started.
       _busy = true;
       final registered = await pushService.registerForCurrentSession();
       _busy = false;

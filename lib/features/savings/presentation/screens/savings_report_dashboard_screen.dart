@@ -53,10 +53,13 @@ class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
   bool _isLoading = false;
-  bool _isRefreshing = false;
   bool _loadFailed = false;
   bool _requiresLogin = false;
   Map<String, dynamic>? _statsData;
+
+  /// The load that is running, if any. Calls made meanwhile share it, and a
+  /// goal saved meanwhile waits for it (see [_openGoalSetting]).
+  Future<void>? _currentLoad;
 
   /// 탭 라벨 → 백엔드 period 파라미터 매핑
   static const Map<String, String> _tabToPeriod = {
@@ -73,8 +76,13 @@ class _SavingsReportDashboardScreenState
 
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
   /// [keepContent]면 이미 보이는 리포트를 유지한 채 조용히 다시 조회합니다.
-  Future<void> _fetchAll({bool keepContent = false}) async {
-    if (_isLoading || _isRefreshing) return;
+  Future<void> _fetchAll({bool keepContent = false}) {
+    return _currentLoad ??= _load(
+      keepContent: keepContent,
+    ).whenComplete(() => _currentLoad = null);
+  }
+
+  Future<void> _load({required bool keepContent}) async {
     if (!ApiClient.isAuthenticated) {
       setState(() {
         _requiresLogin = true;
@@ -84,15 +92,13 @@ class _SavingsReportDashboardScreenState
       return;
     }
     final silent = keepContent && _statsData != null;
-    setState(() {
-      if (silent) {
-        _isRefreshing = true;
-      } else {
+    if (!silent) {
+      setState(() {
         _isLoading = true;
         _loadFailed = false;
         _requiresLogin = false;
-      }
-    });
+      });
+    }
 
     try {
       final now = DateTime.now();
@@ -134,7 +140,6 @@ class _SavingsReportDashboardScreenState
           _loadFailed = true;
         }
         _isLoading = false;
-        _isRefreshing = false;
       });
     } catch (e) {
       debugPrint('절약 대시보드 통계 조회 오류: $e');
@@ -145,7 +150,6 @@ class _SavingsReportDashboardScreenState
           _loadFailed = true;
         }
         _isLoading = false;
-        _isRefreshing = false;
       });
     }
   }
@@ -165,6 +169,11 @@ class _SavingsReportDashboardScreenState
     }
     final savedGoal = await context.push<int>(AppRoutes.savingsGoalSetting);
     if (!mounted || savedGoal == null) return;
+    // A load that started before the save (the one after login, or any
+    // other) still carries the old goal. Let it finish first so it cannot
+    // replace the new goal, then show the new goal and load again.
+    await _currentLoad;
+    if (!mounted) return;
     final current = _statsData;
     if (current != null) {
       setState(() {
@@ -180,10 +189,12 @@ class _SavingsReportDashboardScreenState
     await _fetchAll(keepContent: true);
   }
 
-  /// Login opens on top of the report and comes back here, so the report
-  /// loads once the visitor has logged in.
+  /// Login opens on top of the report and comes back here. Load for whoever
+  /// came back: the account's report, or the login prompt again for a
+  /// visitor who is still a guest.
   Future<void> _logIn() async {
-    if (await openLoginFlow(context) && mounted) await _fetchAll();
+    await openLoginFlow(context);
+    if (mounted) await _fetchAll();
   }
 
   /// A guest can log in from the inbox, so the report reloads on return.

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 
 final inquiryHttpClientProvider = Provider<http.Client>((ref) {
   final client = ApiClient.createHttpClient();
@@ -165,6 +166,13 @@ class InquiryService {
   }
 }
 
+/// The logged-in account's inquiries. They are asked for again whenever the
+/// login state changes, like the account's other lists.
 final myInquiriesProvider = FutureProvider.autoDispose<List<Inquiry>>((ref) {
+  ref.watch(
+    authStateProvider.select(
+      (auth) => (auth.isLoggedIn, auth.firebaseUid, auth.sessionToken),
+    ),
+  );
   return ref.watch(inquiryServiceProvider).getMyInquiries();
 });

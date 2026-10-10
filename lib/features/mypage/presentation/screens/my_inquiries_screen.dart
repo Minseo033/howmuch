@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
@@ -37,13 +38,20 @@ class MyInquiriesScreen extends ConsumerWidget {
                 child: CircularProgressIndicator(color: AppColors.primary),
               ),
               error: (error, _) => _LoadError(
-                requiresLogin:
-                    error is InquiryApiException && error.isUnauthorized,
+                // Only a guest can fix an error by logging in. A member
+                // turned down (403) would come straight back from login, so
+                // they get a retry.
+                requiresLogin: !ApiClient.isAuthenticated,
                 onRetry: () => ref.invalidate(myInquiriesProvider),
                 onLogin: () async {
                   // Login opens on top of this screen and comes back here.
-                  // The list does not follow the login state, so ask again.
-                  if (await openLoginFlow(context) && context.mounted) {
+                  // The list follows the login state; a load that failed
+                  // while login was still finishing is asked for again.
+                  await openLoginFlow(context);
+                  if (!context.mounted || !ApiClient.isAuthenticated) return;
+                  // A reload keeps the guest's error until it answers.
+                  final inquiries = ref.read(myInquiriesProvider);
+                  if (inquiries.hasError && !inquiries.isLoading) {
                     ref.invalidate(myInquiriesProvider);
                   }
                 },

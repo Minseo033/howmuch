@@ -61,8 +61,13 @@ class _AccountReports extends ReportService {
   ];
 }
 
-/// A phone that supports pushes but has not allowed them yet.
+/// A phone that supports pushes; by default it has not allowed them yet.
 class _PhonePermissions extends DevicePermissionService {
+  _PhonePermissions({this.pushAccess = DeviceAccess.denied});
+
+  final DeviceAccess pushAccess;
+  var settingsOpened = 0;
+
   @override
   bool get supportsPush => true;
 
@@ -70,18 +75,25 @@ class _PhonePermissions extends DevicePermissionService {
   Future<DeviceAccess> location() async => DeviceAccess.allowed;
 
   @override
-  Future<DeviceAccess> push() async => DeviceAccess.denied;
+  Future<DeviceAccess> push() async => pushAccess;
+
+  @override
+  Future<bool> openSettings({bool locationService = false}) async {
+    settingsOpened++;
+    return true;
+  }
 }
 
 class _RecordingPush extends PushNotificationService {
-  _RecordingPush(super.ref, this.registrations);
+  _RecordingPush(super.ref, this.registrations, {this.registers = true});
 
   final List<String?> registrations;
+  final bool registers;
 
   @override
   Future<bool> registerForCurrentSession() async {
     registrations.add(ApiClient.sessionToken);
-    return true;
+    return registers;
   }
 }
 
@@ -182,12 +194,15 @@ Future<void> _tapKakaoLogin(WidgetTester tester) async {
 
 /// Opens MY as a guest. The server answers account requests for the session
 /// the fake login creates, and [requests] records their paths. The body gets
-/// the sessions this device registered for pushes with.
+/// the sessions this device registered for pushes with; registering succeeds
+/// when [pushRegisters] is set.
 Future<void> _withGuestMypage(
   WidgetTester tester,
   Future<void> Function(GoRouter router, List<String?> pushRegistrations)
   body, {
   List<String>? requests,
+  _PhonePermissions? permissions,
+  bool pushRegisters = true,
 }) async {
   // Tall enough to reach every MY row without scrolling.
   _phone(tester, height: 1200);
@@ -217,10 +232,14 @@ Future<void> _withGuestMypage(
           appRouteObserverProvider.overrideWithValue(observer),
           reportServiceProvider.overrideWithValue(_AccountReports()),
           devicePermissionServiceProvider.overrideWithValue(
-            _PhonePermissions(),
+            permissions ?? _PhonePermissions(),
           ),
           pushNotificationServiceProvider.overrideWith(
-            (ref) => _RecordingPush(ref, pushRegistrations),
+            (ref) => _RecordingPush(
+              ref,
+              pushRegistrations,
+              registers: pushRegisters,
+            ),
           ),
         ]),
       );
@@ -376,6 +395,68 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('알뜰한 민'), findsOneWidget);
         expect(find.text('2곳'), findsOneWidget);
+      });
+    });
+
+    // Logging in registers a phone for pushes only when it allows them, so
+    // the switch carries on like a member's tap once the guest is logged in.
+    for (final blocked in [true, false]) {
+      testWidgets(
+        blocked
+            ? 'a guest turning on pushes on a phone that blocks them logs in '
+                  'and lands in its settings'
+            : 'a guest turning on pushes logs in and hears when this phone '
+                  'could not be registered',
+        (tester) async {
+          final permissions = _PhonePermissions(
+            pushAccess: blocked ? DeviceAccess.blocked : DeviceAccess.denied,
+          );
+          await _withGuestMypage(
+            tester,
+            permissions: permissions,
+            pushRegisters: false,
+            (_, pushRegistrations) async {
+              await tester.tap(_row('이 기기 푸시 알림'));
+              await tester.pumpAndSettle();
+              expect(find.text('로그인하면 이 기기로 푸시 알림을 받을 수 있어요.'), findsOneWidget);
+              await tester.tap(find.byKey(const Key('login_required_confirm')));
+              await tester.pumpAndSettle();
+              await _tapKakaoLogin(tester);
+
+              expect(find.byType(LoginFlowScreen), findsNothing);
+              expect(permissions.settingsOpened, blocked ? 1 : 0);
+              expect(pushRegistrations, blocked ? isEmpty : [_session]);
+              expect(
+                find.text('푸시 알림을 켜지 못했어요. 기기 알림 권한과 네트워크를 확인한 뒤 다시 시도해 주세요.'),
+                blocked ? findsNothing : findsOneWidget,
+              );
+            },
+          );
+        },
+      );
+    }
+
+    testWidgets('shows the account when a login finishes after the visitor '
+        'left login', (tester) async {
+      await _withGuestMypage(tester, (_, _) async {
+        expect(find.text('게스트'), findsOneWidget);
+
+        // Kakao answered after login was closed: the account changes under
+        // MY.
+        await ApiClient.setSessionToken(_session);
+        ProviderScope.containerOf(
+          tester.element(find.byType(MypageScreen)),
+        ).read(authStateProvider.notifier).state = const AuthState(
+          isLoggedIn: true,
+          provider: '카카오',
+          email: 'saver@example.com',
+          sessionToken: _session,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('알뜰한 민'), findsOneWidget);
+        expect(find.text('12,000원'), findsOneWidget);
+        expect(find.text('정장군숯불구이'), findsOneWidget);
       });
     });
 

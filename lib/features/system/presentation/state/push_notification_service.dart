@@ -48,6 +48,8 @@ class PushNotificationService {
   Future<bool>? _startup;
   bool _isRegistered = false;
   String? _registeredToken;
+  Future<bool>? _registration;
+  String? _registrationSession;
 
   /// Whether the server holds this device's token, i.e. pushes can arrive.
   bool get isRegistered => _isRegistered;
@@ -60,7 +62,27 @@ class PushNotificationService {
     });
   }
 
-  Future<bool> registerForCurrentSession() async {
+  /// Registers this device for the logged-in session. A call made while a
+  /// registration for the same session is running shares it: logging in
+  /// registers by itself (HowmuchApp), and a guest who logged in from the
+  /// push switch must not ask for the permission or send the token twice at
+  /// once.
+  Future<bool> registerForCurrentSession() {
+    final session = ApiClient.sessionToken;
+    final running = _registration;
+    if (running != null && session == _registrationSession) return running;
+    final attempt = _registerForCurrentSession();
+    _registration = attempt;
+    _registrationSession = session;
+    unawaited(
+      attempt.whenComplete(() {
+        if (identical(_registration, attempt)) _registration = null;
+      }),
+    );
+    return attempt;
+  }
+
+  Future<bool> _registerForCurrentSession() async {
     try {
       if (!await start()) return false;
 
