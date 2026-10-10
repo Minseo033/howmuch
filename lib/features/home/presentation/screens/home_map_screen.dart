@@ -2658,42 +2658,73 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      Text(
-                        _hasLoadError
-                            ? '데이터를 불러오지 못했어요.\n서버 연결을 확인해주세요.'
-                            : _usingCachedStores
-                            ? '저장된 매장 데이터로 먼저 보여드리고 있어요.'
-                            : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _hasLoadError
-                              ? Colors.red
-                              : const Color(0xFF2563EB),
-                          fontFamily: 'Noto Sans KR',
-                          fontFamilyFallback: const [
-                            'Apple SD Gothic Neo',
-                            'Noto Sans KR',
-                          ],
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          height: 1.5,
+                      if (_hasLoadError) ...[
+                        // Same treatment as the map error above: a plain
+                        // title, a muted hint and the app's retry button.
+                        const Text(
+                          '데이터를 불러오지 못했어요',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: HomeMapScreen.ink,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.5,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSizes.largeSpacing),
-                      if (_hasLoadError)
-                        ElevatedButton(
+                        const SizedBox(height: 4),
+                        const Text(
+                          '서버 연결을 확인해주세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: HomeMapScreen.muted,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton.icon(
                           onPressed: () {
                             setState(() {
                               _hasLoadError = false;
                             });
                             _searchInCurrentArea();
                           },
-                          child: const Text('다시 시도'),
-                        )
-                      else
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('다시 시도'),
+                        ),
+                      ] else ...[
+                        Text(
+                          _usingCachedStores
+                              ? '저장된 매장 데이터로 먼저 보여드리고 있어요.'
+                              : '가성비 식당 데이터를\n열심히 불러오고 있어요...',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: HomeMapScreen.blue,
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: [
+                              'Apple SD Gothic Neo',
+                              'Noto Sans KR',
+                            ],
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: AppSizes.largeSpacing),
                         const CircularProgressIndicator(
                           color: Color(0xFF2563EB),
                         ),
+                      ],
                     ],
                   ),
                 ),
