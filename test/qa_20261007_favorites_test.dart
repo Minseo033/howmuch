@@ -64,7 +64,7 @@ void main() {
 
     await tester.tap(find.text('찜 해제'));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ElevatedButton, '찜 해제'));
+    await tester.tap(find.widgetWithText(FilledButton, '찜 해제'));
     await tester.pumpAndSettle();
     expect(api.removed, ['store-1']);
     expect(find.text('찜을 해제할까요?'), findsNothing);

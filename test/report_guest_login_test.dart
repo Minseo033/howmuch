@@ -152,7 +152,10 @@ Future<void> _fillReport(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 300));
   await tester.pumpAndSettle();
   await tester.tap(
-    find.descendant(of: find.byType(ListTile), matching: find.text('새 식당')),
+    find.descendant(
+      of: find.byKey(const ValueKey('report-place-result-0')),
+      matching: find.text('새 식당'),
+    ),
   );
   await tester.pumpAndSettle();
   await tester.enterText(find.byType(TextField).at(3), '국수');

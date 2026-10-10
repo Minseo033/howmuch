@@ -5,7 +5,9 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_state.dart';
 
 /// Same ceiling as the server (POST /api/savings/goal rejects larger values).
@@ -79,10 +81,20 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _loadError = '절약 정보를 불러오지 못했어요.';
+          _loadError = '절약 정보를 불러오지 못했어요';
         });
       }
     }
+  }
+
+  /// Shows the spinner again while retrying, so the tap visibly does
+  /// something and cannot start a second load.
+  void _retryLoadGoal() {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    _loadGoal();
   }
 
   Future<void> _saveGoal() async {
@@ -442,11 +454,7 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
       );
     }
     if (_loadError != null) {
-      return OutlinedButton.icon(
-        onPressed: _loadGoal,
-        icon: const Icon(Icons.refresh_rounded),
-        label: Text(_loadError!),
-      );
+      return _GoalLoadError(title: _loadError!, onRetry: _retryLoadGoal);
     }
     final saved = _state.currentSaved.value;
     final goal = _state.monthlyGoal.value;
@@ -537,4 +545,91 @@ class _SavingsGoalSettingScreenState extends State<SavingsGoalSettingScreen> {
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
     (match) => '${match[1]},',
   );
+}
+
+/// Takes the place of the "이번 달 실제 기록" card when the goal and this
+/// month's record could not be loaded.
+class _GoalLoadError extends StatelessWidget {
+  const _GoalLoadError({required this.title, required this.onRetry});
+
+  final String title;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSizes.horizontalPadding,
+        vertical: 24,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border, width: 0.909),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.error_outline_rounded,
+              color: AppColors.muted,
+              size: 22,
+            ),
+          ),
+          const SizedBox(height: 12),
+          KeepAllText(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const KeepAllText(
+            '연결 상태를 확인하고 다시 시도해 주세요.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.muted,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onRetry,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryLight,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size(0, 44),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('다시 시도'),
+          ),
+        ],
+      ),
+    );
+  }
 }

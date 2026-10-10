@@ -114,7 +114,7 @@ void main() {
 
       expect(find.text('리뷰 a'), findsOneWidget);
       expect(find.text('총 2 개', findRichText: true), findsOneWidget);
-      expect(find.text('내 리뷰를 불러오지 못했어요.'), findsNothing);
+      expect(find.text('내 리뷰를 불러오지 못했어요'), findsNothing);
       expect(find.text('내 리뷰를 새로고침하지 못했어요. 잠시 후 다시 시도해주세요.'), findsOneWidget);
     }, () => server.client);
   });

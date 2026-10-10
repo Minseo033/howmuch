@@ -90,7 +90,8 @@ void main() {
       await tester.tap(find.text('다시 시도'));
       await tester.pumpAndSettle();
       expect(notifier.loads, 2);
-      expect(find.text('아직 리뷰가 없어요. 첫 리뷰를 남겨보세요!'), findsOneWidget);
+      expect(find.text('아직 리뷰가 없어요.'), findsOneWidget);
+      expect(find.text('첫 리뷰를 남겨보세요!'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

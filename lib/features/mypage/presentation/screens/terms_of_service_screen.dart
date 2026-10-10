@@ -121,31 +121,58 @@ class TermsOfServiceScreen extends StatelessWidget {
         return SafeArea(
           key: const ValueKey('terms-detail-bottom-sheet'),
           top: false,
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(item.title, style: _sheetTitleText),
-                  const SizedBox(height: 8),
-                  Text(item.body, style: _sheetBodyText),
-                  const SizedBox(height: 18),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: () => Navigator.of(sheetContext).pop(),
-                      child: const Text('확인'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const _SheetHandle(),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(item.title, style: _sheetTitleText),
+                        const SizedBox(height: 8),
+                        Text(item.body, style: _sheetBodyText),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: FilledButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: const Text('확인'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
+    );
+  }
+}
+
+/// The grab handle the app's other sheets show at the top, such as the
+/// quiet-time picker in 알림 설정.
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      width: 36,
+      height: 4,
+      decoration: BoxDecoration(
+        color: AppColors.disabled,
+        borderRadius: BorderRadius.circular(2),
+      ),
     );
   }
 }

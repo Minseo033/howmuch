@@ -3,6 +3,7 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -138,11 +139,17 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                   // List Header
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // Wraps the sort control under the count when large text
+                    // no longer fits both on one line.
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
                       children: [
-                        RichText(
-                          text: TextSpan(
+                        // Text.rich grows with the system text size; RichText
+                        // stayed at 12px.
+                        Text.rich(
+                          TextSpan(
                             style: const TextStyle(
                               fontFamily: 'Noto Sans KR',
                               fontFamilyFallback: ['Noto Sans KR'],
@@ -168,48 +175,9 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                             ],
                           ),
                         ),
-                        PopupMenuButton<FavoriteStoreSort>(
-                          tooltip: '정렬 방식 선택',
-                          initialValue: _sort,
-                          onSelected: (value) => setState(() => _sort = value),
-                          itemBuilder: (_) => const [
-                            PopupMenuItem(
-                              value: FavoriteStoreSort.recent,
-                              child: Text('최근 추가순'),
-                            ),
-                            PopupMenuItem(
-                              value: FavoriteStoreSort.name,
-                              child: Text('매장 이름순'),
-                            ),
-                          ],
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 4,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _sort.label,
-                                  style: const TextStyle(
-                                    fontFamily: 'Noto Sans KR',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary,
-                                    fontSize: 11,
-                                    height: 16.5 / 11,
-                                  ),
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 16,
-                                  color: AppColors.primary,
-                                ),
-                              ],
-                            ),
-                          ),
+                        _SortToggle(
+                          value: _sort,
+                          onChanged: (value) => setState(() => _sort = value),
                         ),
                       ],
                     ),
@@ -699,6 +667,114 @@ extension on FavoriteStoreSort {
     FavoriteStoreSort.recent => '최근 추가순',
     FavoriteStoreSort.name => '매장 이름순',
   };
+}
+
+/// Both sort orders side by side in a pill track, the current one filled.
+///
+/// Each option takes taps across the full 44px row; the track is drawn 3px
+/// around the pills, so it grows with them when the text is larger.
+class _SortToggle extends StatelessWidget {
+  const _SortToggle({required this.value, required this.onChanged});
+
+  final FavoriteStoreSort value;
+  final ValueChanged<FavoriteStoreSort> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: AppSizes.compactTouchTarget),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            top: 5,
+            bottom: 5,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(AppRadii.pill),
+                border: Border.all(color: AppColors.border, width: 0.909),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final sort in FavoriteStoreSort.values)
+                  _SortOption(
+                    label: sort.label,
+                    selected: sort == value,
+                    onTap: () => onChanged(sort),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SortOption extends StatelessWidget {
+  const _SortOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Read like radio buttons: which order is on, out of the two.
+    return Semantics(
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: AppSizes.compactTouchTarget,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Center(
+              child: AnimatedContainer(
+                duration: AppMotion.fast,
+                curve: AppMotion.standard,
+                constraints: const BoxConstraints(minHeight: 28),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: selected ? AppColors.primaryLight : AppColors.white,
+                  borderRadius: BorderRadius.circular(AppRadii.pill),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'Noto Sans KR',
+                    fontFamilyFallback: const ['Noto Sans KR'],
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: selected ? AppColors.primary : AppColors.muted,
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 @visibleForTesting

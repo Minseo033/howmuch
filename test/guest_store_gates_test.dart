@@ -423,7 +423,7 @@ void main() {
       AppRoutes.favoriteCancelConfirm,
       overrides: [favoriteApiServiceProvider.overrideWithValue(favorites)],
     );
-    final remove = find.widgetWithText(ElevatedButton, '찜 해제');
+    final remove = find.widgetWithText(FilledButton, '찜 해제');
 
     await _tapAndSettle(tester, remove);
     await _later(tester, message);
@@ -434,6 +434,13 @@ void main() {
     await _logIn(tester, message);
     // The account's list arrives some frames later, as over a network.
     expect(find.text('해제 중...'), findsOneWidget);
+    // Once the removal runs, '유지하기' can no longer keep the store.
+    expect(
+      tester
+          .widget<TextButton>(find.widgetWithText(TextButton, '유지하기'))
+          .onPressed,
+      isNull,
+    );
     listAnswered.complete();
     await tester.pumpAndSettle();
     expect(favorites.removed, ['store-1']);

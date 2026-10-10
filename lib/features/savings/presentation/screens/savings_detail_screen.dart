@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'dart:convert';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/savings/presentation/state/savings_period.dart';
@@ -193,11 +195,11 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
           _isLoading = false;
         });
       } else {
-        _setLoadError('절약 내역을 불러오지 못했어요.');
+        _setLoadError('잠시 후 다시 시도해 주세요.');
       }
     } catch (e) {
       debugPrint('절약 내역 조회 오류: $e');
-      if (mounted) _setLoadError('네트워크 오류로 절약 내역을 불러오지 못했어요.');
+      if (mounted) _setLoadError('인터넷 연결을 확인하고 다시 시도해 주세요.');
     }
   }
 
@@ -482,46 +484,21 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
                               ),
                             )
                           else if (_errorMessage != null)
-                            Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 40,
-                                ),
-                                child: Column(
-                                  children: [
-                                    Text(
-                                      _errorMessage!,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontFamily: 'Noto Sans KR',
-                                        fontFamilyFallback: ['Noto Sans KR'],
-                                        color: Color(0xFF64748B),
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextButton(
-                                      onPressed: _fetchSavingsHistory,
-                                      child: const Text('다시 시도'),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            _SavingsListState(
+                              icon: Icons.error_outline_rounded,
+                              title: '절약 내역을 불러오지 못했어요',
+                              message: _errorMessage!,
+                              // Without a valid period a retry fails the same
+                              // way; the message points back to the report.
+                              onRetry: _period == null
+                                  ? null
+                                  : _fetchSavingsHistory,
                             )
                           else if (filteredItems.isEmpty)
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 40),
-                                child: Text(
-                                  '절약 내역이 없습니다.',
-                                  style: TextStyle(
-                                    fontFamily: 'Noto Sans KR',
-                                    fontFamilyFallback: ['Noto Sans KR'],
-                                    color: Color(0xFF64748B),
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
+                            const _SavingsListState(
+                              icon: Icons.receipt_long_outlined,
+                              title: '절약 내역이 없어요',
+                              message: '방문 인증을 하면 아낀 금액이 여기에 쌓여요.',
                             )
                           else
                             ...filteredItems.map((item) {
@@ -753,6 +730,96 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The error and empty states of the savings list: a quiet card in the
+/// list's place, styled like the saving cards it stands in for.
+class _SavingsListState extends StatelessWidget {
+  const _SavingsListState({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: AppColors.muted, size: 22),
+          ),
+          const SizedBox(height: 12),
+          KeepAllText(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          KeepAllText(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              color: AppColors.muted,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          if (onRetry != null) ...[
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryLight,
+                foregroundColor: AppColors.primary,
+                minimumSize: const Size(0, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('다시 시도'),
+            ),
+          ],
         ],
       ),
     );

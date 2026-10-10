@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 
 enum OnboardingArtwork { nearby, savings, storeReport }
 
@@ -325,8 +326,9 @@ class _SlideCopy extends StatelessWidget {
       children: [
         _Eyebrow(slide: slide),
         const SizedBox(height: 14),
-        _KeepAllText(
+        KeepAllText(
           slide.title,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: OnboardingPage.ink,
             fontFamily: OnboardingPage.fontFamily,
@@ -337,8 +339,9 @@ class _SlideCopy extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _KeepAllText(
+        KeepAllText(
           slide.description,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: OnboardingPage.muted,
             fontFamily: OnboardingPage.fontFamily,
@@ -347,73 +350,6 @@ class _SlideCopy extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Centered text that wraps only between words, like CSS
-/// `word-break: keep-all`.
-///
-/// Flutter can wrap Korean between any two syllables, splitting words such as
-/// '찾아보세요' across lines. Whole words are packed into lines that fit the
-/// width instead; a single word wider than the line still wraps on its own.
-class _KeepAllText extends StatelessWidget {
-  const _KeepAllText(this.text, {required this.style});
-
-  final String text;
-  final TextStyle style;
-
-  @override
-  Widget build(BuildContext context) {
-    // Measure with the same style, text size and bold text setting that the
-    // Text below resolves.
-    var measuredStyle = DefaultTextStyle.of(context).style.merge(style);
-    if (MediaQuery.boldTextOf(context)) {
-      measuredStyle = measuredStyle.merge(
-        const TextStyle(fontWeight: FontWeight.bold),
-      );
-    }
-    final textScaler = MediaQuery.textScalerOf(context);
-    final textDirection = Directionality.of(context);
-    final locale = Localizations.maybeLocaleOf(context);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          textDirection: textDirection,
-          textScaler: textScaler,
-          locale: locale,
-        );
-        // The 1px margin keeps rounding from wrapping a line measured to fit.
-        bool fits(String line) {
-          painter
-            ..text = TextSpan(text: line, style: measuredStyle)
-            ..layout();
-          return painter.width <= constraints.maxWidth - 1;
-        }
-
-        final lines = <String>[];
-        for (final hardLine in text.split('\n')) {
-          var line = '';
-          for (final word in hardLine.split(' ')) {
-            if (line.isEmpty || fits('$line $word')) {
-              line = line.isEmpty ? word : '$line $word';
-            } else {
-              lines.add(line);
-              line = word;
-            }
-          }
-          lines.add(line);
-        }
-        painter.dispose();
-
-        return Text(
-          lines.join('\n'),
-          semanticsLabel: text.replaceAll('\n', ' '),
-          textAlign: TextAlign.center,
-          style: style,
-        );
-      },
     );
   }
 }

@@ -846,6 +846,10 @@ class _StickyButton extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: ProfileEditScreen.blue,
                 foregroundColor: AppColors.white,
+                // Only saving turns the button off; it keeps its color so
+                // '저장 중...' reads as progress, not as a dead button.
+                disabledBackgroundColor: ProfileEditScreen.blue,
+                disabledForegroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),

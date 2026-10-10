@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
@@ -342,16 +344,8 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(
-          backgroundColor: const Color(0xFFF4F6FA),
-          appBar: const CustomAppBar(
-            title: '정보 신고',
-            actions: [
-              Padding(
-                padding: EdgeInsets.only(right: 20),
-                child: Icon(Icons.flag_outlined, color: Colors.grey),
-              ),
-            ],
-          ),
+          backgroundColor: AppColors.surface,
+          appBar: const CustomAppBar(title: '정보 신고'),
           body: SafeArea(
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -363,21 +357,17 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                   const SizedBox(height: 24),
 
                   // 신고 유형 선택
-                  RichText(
-                    text: const TextSpan(
+                  const Text.rich(
+                    TextSpan(
                       text: '신고 유형 선택 ',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
                       children: [
                         TextSpan(
                           text: '*',
-                          style: TextStyle(color: Color(0xFFF97316)),
+                          style: TextStyle(color: AppColors.reportAccent),
                         ),
                       ],
                     ),
+                    style: _sectionTitleStyle,
                   ),
                   const SizedBox(height: 12),
                   _buildTypeList(),
@@ -385,71 +375,40 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
 
                   // 실제 가격 (가격이 달라요 선택 시)
                   if (_selectedTypeIndex == 1) ...[
-                    const Text(
-                      '실제 가격 (필수)',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    const Text('실제 가격 (필수)', style: _sectionTitleStyle),
                     const SizedBox(height: 8),
                     if (_registeredMenuSlots.isNotEmpty) ...[
                       const Text(
                         '가격이 다른 메뉴를 골라주세요',
-                        style: TextStyle(fontSize: 13, color: Colors.grey),
+                        style: TextStyle(fontSize: 13, color: AppColors.muted),
                       ),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
-                        runSpacing: 8,
                         children: [
                           for (final item in _registeredMenuSlots)
-                            ChoiceChip(
-                              key: ValueKey('info-report-menu-${item.slot}'),
-                              label: Text(
-                                item.price.isEmpty
-                                    ? item.menu
-                                    : '${item.menu} (${formatWon(item.price, fallback: item.price)})',
-                              ),
-                              selected: _selectedMenuSlot == item.slot,
-                              onSelected: (_) => setState(() {
-                                _selectedMenuSlot = item.slot;
-                                _priceError = null;
-                              }),
-                            ),
+                            _buildMenuChip(item),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 4),
                     ],
                     _buildPriceField(),
-                    Semantics(
-                      label: '무료 메뉴 여부',
-                      child: CheckboxListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('무료 (정확히 0원)'),
-                        value: _isFree,
-                        onChanged: (value) => setState(() {
-                          _isFree = value ?? false;
-                          if (_isFree) _priceController.text = '0';
-                          _priceError = null;
-                        }),
-                      ),
-                    ),
                     if (_priceError != null) _inlineError(_priceError!),
+                    const SizedBox(height: 4),
+                    _ReportCheckRow(
+                      label: '무료 (정확히 0원)',
+                      value: _isFree,
+                      onChanged: (value) => setState(() {
+                        _isFree = value;
+                        if (_isFree) _priceController.text = '0';
+                        _priceError = null;
+                      }),
+                    ),
                     const SizedBox(height: 20),
                   ],
 
                   // 추가 설명
-                  const Text(
-                    '신고 내용 (필수)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  const Text('신고 내용 (필수)', style: _sectionTitleStyle),
                   const SizedBox(height: 8),
                   _buildDescField(),
                   if (_descriptionError != null)
@@ -464,7 +423,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           ),
           bottomNavigationBar: CustomBottomButton(
             text: _isSubmitting ? '접수 중...' : '신고 접수하기',
-            backgroundColor: const Color(0xFFF97316),
+            backgroundColor: AppColors.reportAccent,
             onPressed: _isSubmitting || widget.initialReport?.isApproved == true
                 ? null
                 : _submit,
@@ -486,20 +445,22 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFFFF),
-        borderRadius: BorderRadius.circular(22),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            width: 44,
+            height: 44,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.surface,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.location_on_outlined,
-              color: Colors.grey,
+              color: AppColors.muted,
               size: 22,
             ),
           ),
@@ -510,12 +471,16 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
               children: [
                 Text(
                   _store?.storeName ?? '매장 정보 없음',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   _store?.address ?? '매장 주소 정보 없음',
-                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 13),
                 ),
               ],
             ),
@@ -526,72 +491,75 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
   }
 
   Widget _buildTypeList() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.grey.shade200),
+    return Column(
+      children: [
+        for (var i = 0; i < _types.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _TypeCard(
+            title: _types[i]['title']!,
+            description: _types[i]['desc']!,
+            selected: _selectedTypeIndex == i,
+            onTap: () => setState(() => _selectedTypeIndex = i),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMenuChip(({int slot, String menu, String price}) item) {
+    final selected = _selectedMenuSlot == item.slot;
+    return ChoiceChip(
+      key: ValueKey('info-report-menu-${item.slot}'),
+      label: Text(
+        item.price.isEmpty
+            ? item.menu
+            : '${item.menu} (${formatWon(item.price, fallback: item.price)})',
+        style: TextStyle(
+          fontSize: 12,
+          color: selected ? AppColors.white : AppColors.ink,
+          fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+        ),
       ),
-      child: Column(
-        children: List.generate(_types.length, (i) {
-          final selected = _selectedTypeIndex == i;
-          return Column(
-            children: [
-              InkWell(
-                onTap: () => setState(() => _selectedTypeIndex = i),
-                borderRadius: i == 0
-                    ? const BorderRadius.vertical(top: Radius.circular(16))
-                    : i == _types.length - 1
-                    ? const BorderRadius.vertical(bottom: Radius.circular(16))
-                    : BorderRadius.zero,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        selected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        color: selected
-                            ? const Color(0xFF10B981)
-                            : Colors.grey.shade400,
-                        size: 22,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _types[i]['title']!,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _types[i]['desc']!,
-                              style: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (i < _types.length - 1)
-                Divider(height: 1, thickness: 1, color: Colors.grey.shade100),
-            ],
-          );
-        }),
+      selected: selected,
+      showCheckmark: false,
+      selectedColor: AppColors.reportAccent,
+      backgroundColor: AppColors.white,
+      side: BorderSide(
+        color: selected ? AppColors.reportAccent : AppColors.borderMedium,
+      ),
+      onSelected: (_) => setState(() {
+        _selectedMenuSlot = item.slot;
+        _priceError = null;
+      }),
+    );
+  }
+
+  /// Hint-only field on a white fill, with the form's accent on focus and a
+  /// red outline while the field has an error.
+  InputDecoration _fieldDecoration({
+    required String hint,
+    required bool hasError,
+    EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 16,
+    ),
+  }) {
+    OutlineInputBorder outline(Color color, {double width = 1}) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: color, width: width),
+        );
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(color: AppColors.muted),
+      filled: true,
+      fillColor: AppColors.white,
+      contentPadding: contentPadding,
+      border: outline(AppColors.border),
+      enabledBorder: outline(hasError ? AppColors.errorText : AppColors.border),
+      focusedBorder: outline(
+        hasError ? AppColors.errorText : AppColors.reportAccent,
+        width: 1.5,
       ),
     );
   }
@@ -605,28 +573,19 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
       onChanged: (_) {
         if (_priceError != null) setState(() => _priceError = null);
       },
-      style: const TextStyle(fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        labelText: '실제 가격 (필수)',
-        suffixText: '원',
-        suffixStyle: const TextStyle(color: Colors.grey),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF10B981)),
-        ),
+      style: const TextStyle(
+        color: AppColors.ink,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
       ),
+      decoration:
+          _fieldDecoration(
+            hint: '실제 가격을 입력해주세요',
+            hasError: _priceError != null,
+          ).copyWith(
+            suffixText: '원',
+            suffixStyle: const TextStyle(color: AppColors.muted),
+          ),
     );
   }
 
@@ -641,31 +600,19 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
           setState(() => _descriptionError = null);
         }
       },
-      decoration: InputDecoration(
-        labelText: '신고 내용 (필수)',
-        hintStyle: const TextStyle(color: Colors.grey),
+      decoration: _fieldDecoration(
+        hint: '신고할 내용을 알려주세요.',
+        hasError: _descriptionError != null,
         contentPadding: const EdgeInsets.all(16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF10B981)),
-        ),
       ),
     );
   }
 
   Widget _inlineError(String message) => Padding(
-    padding: const EdgeInsets.only(top: 6),
+    padding: const EdgeInsets.only(top: 6, left: 4),
     child: Text(
       message,
-      style: const TextStyle(color: Colors.red, fontSize: 12),
+      style: const TextStyle(color: AppColors.errorText, fontSize: 12),
     ),
   );
 
@@ -673,13 +620,13 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3EA),
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(AppRadii.input),
       ),
-      child: Row(
+      child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 18),
+        children: [
+          Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
           SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -688,7 +635,7 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                 Text(
                   '신고는 운영팀이 확인 후 처리돼요.',
                   style: TextStyle(
-                    color: Colors.orange,
+                    color: AppColors.warning,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
@@ -696,12 +643,146 @@ class _StoreInfoReportScreenState extends ConsumerState<StoreInfoReportScreen> {
                 SizedBox(height: 2),
                 Text(
                   '허위 신고 시 이용이 제한될 수 있어요.',
-                  style: TextStyle(color: Colors.black54, fontSize: 12),
+                  style: TextStyle(color: AppColors.textBody, fontSize: 12),
                 ),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+const _sectionTitleStyle = TextStyle(
+  color: AppColors.ink,
+  fontSize: 14,
+  fontWeight: FontWeight.bold,
+);
+
+/// One report type as a selectable card: the chosen one gets the report
+/// accent outline and fill plus a check mark.
+class _TypeCard extends StatelessWidget {
+  const _TypeCard({
+    required this.title,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadii.input);
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        selected: selected,
+        child: Material(
+          color: selected ? AppColors.orangeLight : AppColors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: radius,
+            side: BorderSide(
+              color: selected ? AppColors.reportAccent : AppColors.border,
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: radius,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            color: AppColors.ink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          description,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  AnimatedOpacity(
+                    opacity: selected ? 1 : 0,
+                    duration: AppMotion.fast,
+                    child: const Icon(
+                      Icons.check_circle_rounded,
+                      color: AppColors.reportAccent,
+                      size: 22,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A check box with its label to the right. The whole row toggles it, as in
+/// the review form.
+class _ReportCheckRow extends StatelessWidget {
+  const _ReportCheckRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // One node: the check box alone read only its value and the text had no
+    // checked state (QA 10/7 #53).
+    return MergeSemantics(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              Checkbox(
+                value: value,
+                onChanged: (checked) => onChanged(checked ?? false),
+                activeColor: AppColors.reportAccent,
+              ),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textBody,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

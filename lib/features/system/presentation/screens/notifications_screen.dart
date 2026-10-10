@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
@@ -755,64 +756,131 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
       builder: (sheetContext) => SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: Column(
-            key: const ValueKey('notification-detail'),
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+        child: Column(
+          key: const ValueKey('notification-detail'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // The same grab handle as the app's other sheets.
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 6),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.disabled,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Icon, kind and time as on the notification card it opened from.
+            Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.lg, right: 6),
+              child: Row(
                 children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: notification.iconBgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      notification.iconData,
+                      color: notification.iconColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      notification.type.isEmpty ? '알림' : notification.type,
-                      style: Theme.of(context).textTheme.labelLarge,
+                    child: Text.rich(
+                      TextSpan(
+                        text: notification.type.isEmpty
+                            ? '알림'
+                            : notification.type,
+                        style: TextStyle(
+                          color: notification.categoryColor,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        children: [
+                          if (notification.timeText.isNotEmpty)
+                            TextSpan(
+                              text: ' ${notification.timeText}',
+                              style: const TextStyle(
+                                color: AppColors.muted,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Noto Sans KR',
+                        fontFamilyFallback: ['Noto Sans KR'],
+                        height: 1.4,
+                      ),
                     ),
                   ),
                   IconButton(
                     tooltip: '알림 상세 닫기',
                     onPressed: () => Navigator.of(sheetContext).pop(),
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: AppColors.muted,
+                      size: 22,
+                    ),
                   ),
                 ],
               ),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: SelectionArea(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (notification.title.isNotEmpty &&
-                            notification.title != notification.messageText) ...[
-                          Text(
-                            notification.title,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                        ],
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.lg,
+                  AppSpacing.sm,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                ),
+                child: SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (notification.title.isNotEmpty &&
+                          notification.title != notification.messageText) ...[
                         Text(
-                          notification.messageText.isEmpty
-                              ? '추가 안내 내용이 없어요.'
-                              : notification.messageText,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyLarge?.copyWith(height: 1.6),
-                        ),
-                        if (notification.timeText.isNotEmpty) ...[
-                          const SizedBox(height: AppSpacing.xl),
-                          Text(
-                            notification.timeText,
-                            style: Theme.of(context).textTheme.bodySmall,
+                          notification.title,
+                          style: const TextStyle(
+                            fontFamily: 'Noto Sans KR',
+                            fontFamilyFallback: ['Noto Sans KR'],
+                            color: AppColors.ink,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
                           ),
-                        ],
+                        ),
+                        const SizedBox(height: 10),
                       ],
-                    ),
+                      Text(
+                        notification.messageText.isEmpty
+                            ? '추가 안내 내용이 없어요.'
+                            : notification.messageText,
+                        style: const TextStyle(
+                          fontFamily: 'Noto Sans KR',
+                          fontFamilyFallback: ['Noto Sans KR'],
+                          color: AppColors.textBody,
+                          fontSize: 15,
+                          height: 1.65,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

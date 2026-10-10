@@ -373,7 +373,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         color: verified ? AppColors.primarySubtle : AppColors.white,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: verified ? AppColors.primary : Colors.grey.shade200,
+          color: verified ? AppColors.primary : AppColors.border,
           width: verified ? 2 : 1,
         ),
       ),
@@ -422,7 +422,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
                 verified
                     ? Icons.check_circle_rounded
                     : Icons.location_searching_rounded,
-                color: verified ? AppColors.primary : Colors.grey.shade400,
+                color: verified ? AppColors.primary : AppColors.disabled,
                 size: 24,
               ),
             ],
@@ -430,12 +430,30 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
-            child: OutlinedButton.icon(
+            // The screen's first step, so it is the solid button until the
+            // location is verified. After that it only re-checks, and the
+            // record button below takes over.
+            child: FilledButton.icon(
               onPressed: _isCheckingLocation ? null : _checkLocation,
+              style: FilledButton.styleFrom(
+                backgroundColor: verified ? AppColors.white : AppColors.primary,
+                foregroundColor: verified ? AppColors.primary : AppColors.white,
+                disabledBackgroundColor: AppColors.primaryLight,
+                disabledForegroundColor: AppColors.primary,
+                side: verified
+                    ? const BorderSide(color: AppColors.primaryAlpha)
+                    : null,
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               icon: Icon(
                 _isCheckingLocation
                     ? Icons.hourglass_top_rounded
                     : Icons.my_location_rounded,
+                size: 20,
               ),
               label: Text(_isCheckingLocation ? '현재 위치 확인 중' : '현재 위치 확인'),
             ),

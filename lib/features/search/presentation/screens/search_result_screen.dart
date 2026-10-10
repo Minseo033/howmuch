@@ -1316,6 +1316,7 @@ class _IndustryChip extends StatelessWidget {
 // ──────────────────────────────────────────────────────────────
 //  검색 오류
 // ──────────────────────────────────────────────────────────────
+/// Laid out like [_EmptyResult] so the two states of this screen match.
 class _SearchLoadError extends StatelessWidget {
   const _SearchLoadError({required this.message, required this.onRetry});
 
@@ -1325,38 +1326,72 @@ class _SearchLoadError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.cloud_off_rounded,
-              color: SearchResultScreen.muted,
-              size: 36,
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              '매장 정보를 불러오지 못했어요',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: SearchResultScreen.ink,
+            Container(
+              width: 72,
+              height: 72,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: SearchResultScreen.border,
+                  width: .909,
+                ),
+              ),
+              child: const Icon(
+                Icons.cloud_off_rounded,
+                color: SearchResultScreen.muted,
+                size: 32,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 20),
+            const Text(
+              '매장 정보를 불러오지 못했어요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: SearchResultScreen.ink,
+                fontFamily: SearchResultScreen.fontFamily,
+                fontFamilyFallback: SearchResultScreen.fontFallback,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 13,
                 color: SearchResultScreen.muted,
-                height: 1.5,
+                fontFamily: SearchResultScreen.fontFamily,
+                fontFamilyFallback: SearchResultScreen.fontFallback,
+                fontSize: 13,
+                height: 1.7,
               ),
             ),
-            const SizedBox(height: 18),
-            OutlinedButton.icon(
+            const SizedBox(height: 24),
+            FilledButton.icon(
               onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: SearchResultScreen.blue,
+                foregroundColor: Colors.white,
+                minimumSize: const Size(140, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: SearchResultScreen.fontFamily,
+                  fontFamilyFallback: SearchResultScreen.fontFallback,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               icon: const Icon(Icons.refresh_rounded, size: 18),
               label: const Text('다시 시도'),
             ),

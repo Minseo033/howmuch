@@ -1,21 +1,14 @@
 import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../../core/network/api_client.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_tokens.dart';
+import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
-
-abstract class _Colors {
-  static const backgroundDark = Color(0xFFF4F6FA);
-  static const muted = Color(0xFF64748B);
-  static const black = Color(0xFF0F172A);
-  static const primary = Color(0xFF2563EB);
-  static const primarySubtle = Color(0xFFEEF2FF);
-  static const orangeTheme = Color(0xFFF97316);
-  static const orangeLight = Color(0xFFFFF3EA);
-  static const success = Color(0xFF2563EB);
-  static const successSubtle = Color(0xFFFFF0E6);
-  static const white = Colors.white;
-}
+import '../../../../shared/widgets/howmuch_top_bar.dart';
 
 String? formatVisitVerification(String? method, double? distanceMeters) {
   if (method == 'LOCATION' && distanceMeters != null) {
@@ -63,11 +56,15 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
     _fetchVisits();
   }
 
-  Future<void> _fetchVisits() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  /// A pull to refresh keeps what is on screen under its indicator; the
+  /// first load and a retry show the spinner instead.
+  Future<void> _fetchVisits({bool refreshing = false}) async {
+    if (!refreshing) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final response = await ApiClient.get(
@@ -108,19 +105,19 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
               verificationMethod,
               verificationDistance,
             ),
-            'icon': isGov ? Icons.smart_toy_rounded : Icons.local_cafe_rounded,
           };
         }).toList();
 
         setState(() {
           _visits = parsed;
+          _errorMessage = null;
           _isLoading = false;
         });
       } else {
         _showFetchError(
           response.statusCode == 401
               ? '로그인 후 방문 기록을 확인할 수 있어요.'
-              : '방문 기록을 불러오지 못했어요.',
+              : '잠시 후 다시 시도해 주세요.',
         );
       }
     } catch (e) {
@@ -179,276 +176,295 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final errorMessage = _errorMessage;
     return FigmaMobileCanvas(
-      backgroundColor: _Colors.backgroundDark,
+      backgroundColor: AppColors.surface,
       child: Scaffold(
-        backgroundColor: _Colors.backgroundDark,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: AppBar(
-            backgroundColor: _Colors.white,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(
-                Icons.arrow_back_rounded,
-                color: _Colors.black,
-                size: 20,
-                // The bare arrow had no name (QA 10/7 #50).
-                semanticLabel: '뒤로가기',
-              ),
-              onPressed: () => Navigator.of(context).pop(),
+        backgroundColor: AppColors.surface,
+        appBar: CustomAppBar(
+          title: '방문 기록',
+          // Named by the tooltip alone (QA 10/7 #50, #51).
+          leading: IconButton(
+            padding: EdgeInsets.zero,
+            alignment: Alignment.center,
+            tooltip: '뒤로가기',
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              size: HowmuchTopBar.iconSize,
             ),
-            title: const Text(
-              '방문 기록',
-              style: TextStyle(
-                color: _Colors.black,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            centerTitle: true,
-            actions: [
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 20),
-                  child: RichText(
-                    text: TextSpan(
-                      text: '총 ',
-                      style: const TextStyle(
-                        color: _Colors.muted,
-                        fontSize: 14,
-                      ),
-                      children: [
-                        TextSpan(
-                          text: '${_visits.length}',
-                          style: const TextStyle(
-                            color: _Colors.black,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const TextSpan(text: '회'),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ),
         body: SafeArea(
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: _Colors.primary),
+                  child: CircularProgressIndicator(color: AppColors.primary),
                 )
+              // A flat pale-blue disc: no Material shadow, and it stays
+              // visible over the white cards it slides across.
               : RefreshIndicator(
-                  onRefresh: _fetchVisits,
-                  color: _Colors.primary,
-                  child: Column(
-                    children: [
-                      _buildSummaryCard(),
-                      Expanded(
-                        child: _errorMessage != null
-                            ? ListView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                children: [
-                                  const SizedBox(height: 88),
-                                  const Icon(
-                                    Icons.cloud_off_rounded,
-                                    color: _Colors.muted,
-                                    size: 36,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Center(
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: const TextStyle(
-                                        color: _Colors.muted,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Center(
-                                    child: OutlinedButton(
-                                      onPressed: _fetchVisits,
-                                      child: const Text('다시 시도'),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : _visits.isEmpty
-                            ? ListView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                children: const [
-                                  SizedBox(height: 100),
-                                  Center(
-                                    child: Text(
-                                      '아직 방문 기록이 없습니다.',
-                                      style: TextStyle(
-                                        color: _Colors.muted,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : ListView.separated(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                itemCount: _visits.length,
-                                separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 10),
-                                itemBuilder: (context, index) =>
-                                    _buildVisitCard(_visits[index]),
-                              ),
-                      ),
-                    ],
-                  ),
+                  onRefresh: () => _fetchVisits(refreshing: true),
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.primaryLight,
+                  elevation: 0,
+                  child: errorMessage != null
+                      // Zeros above a failed load would read as no visits.
+                      ? _ScrollableMessage(
+                          child: _LoadError(
+                            message: errorMessage,
+                            onRetry: _fetchVisits,
+                          ),
+                        )
+                      : Column(
+                          children: [
+                            _buildSummary(),
+                            Expanded(
+                              child: _visits.isEmpty
+                                  ? const _ScrollableMessage(
+                                      child: _EmptyVisits(),
+                                    )
+                                  : _buildList(),
+                            ),
+                          ],
+                        ),
                 ),
         ),
       ),
     );
   }
 
-  Widget _buildSummaryCard() {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 4),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: _Colors.successSubtle,
-        borderRadius: BorderRadius.circular(22),
+  Widget _buildSummary() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+      // Both cards keep one height when large text wraps a label.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _StatCard(
+                label: '이번 달 방문',
+                value: '${_thisMonthVisits.length}회',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _StatCard(
+                label: '이번 달 절약',
+                value: '${_formatCurrency(_totalSavedAmount)}원',
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildList() {
+    return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      itemCount: _visits.length + 1,
+      separatorBuilder: (_, index) => SizedBox(height: index == 0 ? 12 : 10),
+      itemBuilder: (context, index) => index == 0
+          ? _ListHeader(count: _visits.length)
+          : _VisitCard(item: _visits[index - 1]),
+    );
+  }
+}
+
+/// One monthly figure in a white card, like the 내 리뷰 stats.
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return MergeSemantics(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: AppColors.border, width: .909),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AppColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 2),
+            // A figure stays on one line; '원' never wraps on its own.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -.3,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The list title with every visit counted, like 내 문의's '문의 내역 N건'.
+class _ListHeader extends StatelessWidget {
+  const _ListHeader({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return MergeSemantics(
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  '${_thisMonthVisits.length}',
-                  style: const TextStyle(
-                    color: _Colors.success,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '이번 달 방문',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-              ],
+          const Text(
+            '방문 내역',
+            style: TextStyle(
+              color: AppColors.ink,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              height: 1.5,
             ),
           ),
-          Container(width: 1, height: 44, color: Colors.green.shade200),
-          Expanded(
-            child: Column(
-              children: [
-                Text(
-                  '${_formatCurrency(_totalSavedAmount)}원',
-                  style: const TextStyle(
-                    color: _Colors.success,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  '이번 달 절약',
-                  style: TextStyle(color: Colors.black54, fontSize: 13),
-                ),
-              ],
+          const SizedBox(width: 6),
+          Text(
+            '총 $count회',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildVisitCard(Map<String, dynamic> item) {
+class _VisitCard extends StatelessWidget {
+  const _VisitCard({required this.item});
+
+  final Map<String, dynamic> item;
+
+  @override
+  Widget build(BuildContext context) {
     final isGov = item['isGov'] as bool;
+    final verification = item['verification'] as String?;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.border, width: .909),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 아이콘
           Container(
-            width: 46,
-            height: 46,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: isGov ? _Colors.primarySubtle : _Colors.orangeLight,
-              borderRadius: BorderRadius.circular(16),
+              color: isGov ? AppColors.primaryLight : AppColors.orangeLight,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
-              item['icon'] as IconData,
-              color: isGov ? _Colors.primary : _Colors.orangeTheme,
-              size: 26,
+              Icons.storefront_rounded,
+              color: isGov ? AppColors.primary : AppColors.orangeTheme,
+              size: 22,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 배지 + 이름 + 날짜
+                // Badge and date on top and the name on its own line, like
+                // the 내 리뷰 cards, so a long name or large text keeps room.
                 Row(
                   children: [
                     _VisitBadge(isGov: isGov),
+                    const Spacer(),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        item['name'] as String,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
                     Text(
                       item['date'] as String,
                       style: const TextStyle(
-                        color: _Colors.muted,
+                        color: AppColors.muted,
                         fontSize: 12,
+                        height: 1.5,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 5),
-                // 메뉴 · 가격
+                const SizedBox(height: 6),
+                Text(
+                  item['name'] as String,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   '${item['menu']} · ${item['price']}',
-                  style: const TextStyle(color: _Colors.muted, fontSize: 13),
+                  style: const TextStyle(
+                    color: AppColors.muted,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
                 ),
-                if (item['verification'] != null) ...[
-                  const SizedBox(height: 4),
+                if (verification != null) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    item['verification'] as String,
+                    verification,
                     style: const TextStyle(
-                      color: _Colors.primary,
+                      color: AppColors.primary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
+                      height: 1.5,
                     ),
                   ),
                 ],
-                const SizedBox(height: 6),
-                // 절약 금액
+                const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Text('🪙', style: TextStyle(fontSize: 13)),
-                    const SizedBox(width: 4),
-                    Text(
-                      item['saving'] as String,
-                      style: const TextStyle(
-                        color: _Colors.success,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    const Icon(
+                      Icons.savings_rounded,
+                      color: AppColors.primary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 5),
+                    Flexible(
+                      child: Text(
+                        item['saving'] as String,
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                   ],
@@ -469,19 +485,149 @@ class _VisitBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: isGov ? _Colors.primarySubtle : _Colors.orangeLight,
-        borderRadius: BorderRadius.circular(6),
+        color: isGov ? AppColors.primaryLight : AppColors.orangeLight,
+        borderRadius: BorderRadius.circular(AppRadii.pill),
       ),
       child: Text(
         isGov ? '정부인증' : '사용자제보',
         style: TextStyle(
-          color: isGov ? _Colors.primary : _Colors.orangeTheme,
+          // The darker orange keeps the small label readable (WCAG AA).
+          color: isGov ? AppColors.primary : AppColors.warning,
           fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w700,
+          height: 1.6,
         ),
       ),
+    );
+  }
+}
+
+/// Places a message a little above the middle of the space left while it
+/// still scrolls, so pull to refresh works on empty and error states too.
+class _ScrollableMessage extends StatelessWidget {
+  const _ScrollableMessage({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: math.max(0, constraints.maxHeight - 48),
+          ),
+          child: Align(alignment: const Alignment(0, -.2), child: child),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyVisits extends StatelessWidget {
+  const _EmptyVisits();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.where_to_vote_outlined, color: AppColors.muted, size: 48),
+        SizedBox(height: 14),
+        Text(
+          '아직 방문 기록이 없어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            height: 1.5,
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          '매장 상세 화면에서 방문 인증을 하면 여기에 모여요.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: AppColors.muted, fontSize: 13, height: 1.5),
+        ),
+      ],
+    );
+  }
+}
+
+/// The app's load error: what failed, why, and a retry.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 60,
+          height: 60,
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.border, width: .909),
+          ),
+          child: const Icon(
+            Icons.error_outline_rounded,
+            color: AppColors.warning,
+            size: 30,
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '방문 기록을 불러오지 못했어요',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.ink,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: AppColors.muted,
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+        const SizedBox(height: 20),
+        FilledButton(
+          onPressed: onRetry,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.white,
+            // 40 tall like the other error blocks, with a 48px tap area.
+            minimumSize: const Size(140, 40),
+            tapTargetSize: MaterialTapTargetSize.padded,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.button),
+            ),
+            textStyle: const TextStyle(
+              fontFamily: 'Noto Sans KR',
+              fontFamilyFallback: ['Noto Sans KR'],
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          child: const Text('다시 시도'),
+        ),
+      ],
     );
   }
 }

@@ -496,7 +496,7 @@ void main() {
 
       await tester.tap(find.byTooltip('업종 선택'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('음식점 · 중식'));
+      await tester.tap(find.text('중식'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('업종 선택'));
       await tester.pumpAndSettle();
@@ -598,6 +598,29 @@ void main() {
       final semantics = tester.ensureSemantics();
       await _pumpSubScreen(tester, const MyInquiriesScreen());
       expect(_single('문의 작성'), _button);
+      semantics.dispose();
+    });
+
+    testWidgets('favorites: the sort options say which one is on (#54)', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _pumpSubScreen(tester, const FavoriteStoresScreen());
+      expect(
+        _single('최근 추가순'),
+        isSemantics(
+          isButton: true,
+          hasTapAction: true,
+          isSelected: true,
+          isInMutuallyExclusiveGroup: true,
+        ),
+      );
+      expect(_single('매장 이름순'), isSemantics(isButton: true, isSelected: false));
+
+      tester.semantics.tap(_named('매장 이름순'));
+      await tester.pumpAndSettle();
+      expect(_single('매장 이름순'), isSemantics(isSelected: true));
+      expect(_single('최근 추가순'), isSemantics(isSelected: false));
       semantics.dispose();
     });
 

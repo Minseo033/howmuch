@@ -231,32 +231,36 @@ class _AllTermsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFEFF4FF),
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
+    // The whole tile is one check box for screen readers, like the rows.
+    return Semantics(
+      container: true,
+      checked: value,
+      enabled: true,
+      child: Material(
+        color: const Color(0xFFEFF4FF),
         borderRadius: BorderRadius.circular(16),
-        onTap: () => onChanged(!value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-          child: Row(
-            children: [
-              Checkbox(
-                value: value,
-                onChanged: (next) => onChanged(next ?? false),
-                activeColor: const Color(0xFF2563EB),
-              ),
-              const SizedBox(width: 4),
-              const Text(
-                '필수 약관 전체 동의',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontFamily: 'Noto Sans KR',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => onChanged(!value),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
+              children: [
+                _TermsCheck(value: value),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '필수 약관 전체 동의',
+                    style: TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontFamily: 'Noto Sans KR',
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -279,47 +283,94 @@ class _RequiredTermsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    final onOpen = this.onOpen;
+    return Material(
+      color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        side: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        child: Row(
-          children: [
-            Checkbox(
-              value: value,
-              onChanged: (next) => onChanged(next ?? false),
-              activeColor: const Color(0xFF2563EB),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '[필수] $title',
-                style: const TextStyle(
-                  color: Color(0xFF374151),
-                  fontFamily: 'Noto Sans KR',
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
+      child: Row(
+        children: [
+          // The row toggles the agreement; the arrow opens the document.
+          Expanded(
+            child: Semantics(
+              container: true,
+              checked: value,
+              enabled: true,
+              child: InkWell(
+                onTap: () => onChanged(!value),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    14,
+                    onOpen == null ? 16 : 4,
+                    14,
+                  ),
+                  child: Row(
+                    children: [
+                      _TermsCheck(value: value),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          '[필수] $title',
+                          style: const TextStyle(
+                            color: Color(0xFF374151),
+                            fontFamily: 'Noto Sans KR',
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            if (onOpen != null)
-              IconButton(
+          ),
+          if (onOpen != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                tooltip: '$title 보기',
                 onPressed: onOpen,
                 icon: const Icon(
                   Icons.chevron_right_rounded,
                   color: Color(0xFF64748B),
                 ),
-              )
-            else
-              // Same row height as the tiles that open a document.
-              const SizedBox(width: 48, height: 48),
-          ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The app's hand-drawn check box (as in the report form), sized for these
+/// larger rows.
+class _TermsCheck extends StatelessWidget {
+  const _TermsCheck({required this.value});
+
+  final bool value;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        color: value ? const Color(0xFF2563EB) : Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: value ? const Color(0xFF2563EB) : const Color(0xFFD1D5DB),
+          width: 1.5,
         ),
       ),
+      child: value
+          ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+          : null,
     );
   }
 }

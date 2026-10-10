@@ -182,7 +182,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final resultTitle = find.descendant(
-      of: find.byType(ListTile),
+      of: find.byKey(const ValueKey('report-place-result-0')),
       matching: find.text('동네 카페'),
     );
     expect(resultTitle, findsOneWidget);
@@ -194,37 +194,47 @@ void main() {
     expect(find.text('카페·디저트 · 카페·커피'), findsOneWidget);
   });
 
-  testWidgets('offers and selects detailed report industries', (tester) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
+  for (final size in [const Size(390, 844), const Size(320, 568)]) {
+    testWidgets('offers and selects detailed report industries at '
+        '${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(
-      const ProviderScope(child: MaterialApp(home: ReportCreateScreen())),
-    );
-    await tester.tap(find.byTooltip('업종 선택'));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: ReportCreateScreen())),
+      );
+      await tester.tap(find.byTooltip('업종 선택'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('음식점 · 한식'), findsOneWidget);
-    final categoryList = find.byType(Scrollable).last;
-    await tester.scrollUntilVisible(
-      find.text('카페·디저트 · 카페·커피'),
-      180,
-      scrollable: categoryList,
-    );
-    expect(find.text('카페·디저트 · 카페·커피'), findsOneWidget);
-    await tester.scrollUntilVisible(
-      find.text('숙박 · 호텔·모텔'),
-      220,
-      scrollable: categoryList,
-    );
-    await tester.tap(find.text('숙박 · 호텔·모텔'));
-    await tester.pumpAndSettle();
+      // Each group is a heading over chips named after the detailed industry.
+      final picker = find.byKey(const ValueKey('report-category-picker'));
+      Finder inPicker(String text) =>
+          find.descendant(of: picker, matching: find.text(text));
+      for (final group in ['음식점', '카페·디저트', '숙박', '교통·주차']) {
+        expect(inPicker(group), findsOneWidget, reason: group);
+      }
+      expect(inPicker('한식'), findsOneWidget);
+      expect(inPicker('카페·커피'), findsOneWidget);
 
-    expect(find.text('숙박 · 호텔·모텔'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+      // The sheet scrolls when the chips are taller than the screen.
+      await tester.scrollUntilVisible(
+        inPicker('호텔·모텔'),
+        120,
+        scrollable: find.descendant(
+          of: picker,
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(inPicker('호텔·모텔'));
+      await tester.pumpAndSettle();
+
+      expect(picker, findsNothing);
+      expect(find.text('숙박 · 호텔·모텔'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   test('normalizes detailed Kakao and operating industries', () {
     expect(normalizeReportIndustry('음식점 > 한식 > 육류, 고기요리'), '음식점 · 고기·구이');

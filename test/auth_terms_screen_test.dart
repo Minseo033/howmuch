@@ -65,9 +65,8 @@ void main() {
     expect(find.text('로그인 화면'), findsOneWidget);
   });
 
-  testWidgets('age confirmation is a separate mandatory agreement', (
-    tester,
-  ) async {
+  testWidgets('age confirmation is a separate mandatory agreement and each '
+      'row toggles its agreement', (tester) async {
     final router = GoRouter(
       initialLocation: AppRoutes.authTerms,
       routes: [
@@ -79,6 +78,10 @@ void main() {
           path: AppRoutes.login,
           builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
         ),
+        GoRoute(
+          path: AppRoutes.termsOfService,
+          builder: (_, _) => const Scaffold(body: Text('이용약관 문서')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -86,16 +89,34 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     expect(find.text('[필수] 만 14세 이상입니다'), findsOneWidget);
 
-    await tester.tap(find.byType(Checkbox).at(1));
-    await tester.tap(find.byType(Checkbox).at(2));
+    final semantics = tester.ensureSemantics();
+    // The arrow opens the document without agreeing to it.
+    await tester.tap(find.byTooltip('서비스 이용약관 보기'));
+    await tester.pumpAndSettle();
+    expect(find.text('이용약관 문서'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('[필수] 서비스 이용약관')),
+      isSemantics(hasCheckedState: true, isChecked: false),
+    );
+
+    // The whole row is the target, not only the box.
+    await tester.tap(find.text('[필수] 서비스 이용약관'));
+    await tester.tap(find.text('[필수] 개인정보 처리방침'));
     await tester.pump();
+    expect(
+      tester.getSemantics(find.bySemanticsLabel('[필수] 서비스 이용약관')),
+      isSemantics(hasCheckedState: true, isChecked: true),
+    );
+    semantics.dispose();
     await tester.ensureVisible(find.text('동의하고 로그인하기'));
     await tester.tap(find.text('동의하고 로그인하기'));
     await tester.pumpAndSettle();
     expect(find.text('로그인 화면'), findsNothing);
 
-    await tester.ensureVisible(find.byType(Checkbox).at(3));
-    await tester.tap(find.byType(Checkbox).at(3));
+    await tester.ensureVisible(find.text('[필수] 만 14세 이상입니다'));
+    await tester.tap(find.text('[필수] 만 14세 이상입니다'));
     await tester.pump();
     await tester.ensureVisible(find.text('동의하고 로그인하기'));
     await tester.tap(find.text('동의하고 로그인하기'));

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
+import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 import '../../../../shared/widgets/custom_app_bar.dart';
 import '../../../../shared/widgets/figma_mobile_canvas.dart';
@@ -72,17 +74,18 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
     final reviewCount = reviewsState.valueOrNull?.length ?? 0;
 
     return FigmaMobileCanvas(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.surface,
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: AppColors.surface,
         appBar: CustomAppBar(
           title: '내 리뷰',
           actions: [
             Center(
               child: Padding(
                 padding: const EdgeInsets.only(right: 20),
-                child: RichText(
-                  text: TextSpan(
+                // Text.rich picks up the app font; RichText did not.
+                child: Text.rich(
+                  TextSpan(
                     text: '총 ',
                     style: const TextStyle(
                       color: AppColors.muted,
@@ -129,7 +132,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         Expanded(
           child: reviews.isEmpty
               ? _buildEmptyState()
-              : RefreshIndicator(
+              : _FlatRefresh(
                   onRefresh: _refresh,
                   child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -157,8 +160,8 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         children: [
           Expanded(
             child: _StatsCard(
-              child: RichText(
-                text: TextSpan(
+              child: Text.rich(
+                TextSpan(
                   text: '$count',
                   style: const TextStyle(
                     color: AppColors.primary,
@@ -227,72 +230,23 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
   }
 
   Widget _buildErrorBody(Object error) {
-    final authRequired = error is MyReviewsAuthRequiredException;
-    final title = authRequired ? '로그인이 필요해요.' : '내 리뷰를 불러오지 못했어요.';
-    final description = authRequired
-        ? '내가 작성한 리뷰는 로그인 후 확인할 수 있어요.'
-        : '잠시 후 다시 시도해주세요.';
-
-    return Column(
-      children: [
-        _buildStatsHeader(0, 0),
-        Expanded(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    authRequired
-                        ? Icons.lock_outline_rounded
-                        : Icons.wifi_off_rounded,
-                    color: AppColors.muted,
-                    size: 44,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    description,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (authRequired)
-                    // A login-required state needs a way to log in.
-                    FilledButton(onPressed: _logIn, child: const Text('로그인하기'))
-                  else
-                    OutlinedButton(
-                      onPressed: () {
-                        ref
-                            .read(myReviewsProvider.notifier)
-                            .loadReviews(force: true);
-                      },
-                      child: const Text('다시 불러오기'),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+    // No stats above these: zeros would read as no reviews written.
+    if (error is MyReviewsAuthRequiredException) {
+      // A login-required state needs a way to log in.
+      return LoginRequiredState(
+        description: '내가 작성한 리뷰는 로그인 후 확인할 수 있어요.',
+        actionLabel: '로그인하기',
+        onAction: _logIn,
+      );
+    }
+    return _LoadError(
+      onRetry: () =>
+          ref.read(myReviewsProvider.notifier).loadReviews(force: true),
     );
   }
 
   Widget _buildEmptyState() {
-    return RefreshIndicator(
+    return _FlatRefresh(
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -372,7 +326,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                     Icons.star_rounded,
                     color: index < review.stars
                         ? AppColors.warning
-                        : Colors.grey.shade300,
+                        : AppColors.disabled,
                     size: 16,
                   );
                 }),
@@ -383,7 +337,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   menuText,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  style: const TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
               ),
             ],
@@ -393,7 +347,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
             review.content,
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black87,
+              color: AppColors.textBody,
               height: 1.4,
             ),
           ),
@@ -439,6 +393,103 @@ class _StatsCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderLight),
       ),
       child: child,
+    );
+  }
+}
+
+/// Pull to refresh as a flat pale-blue disc: no Material shadow, and it stays
+/// visible over the white cards it slides across.
+class _FlatRefresh extends StatelessWidget {
+  const _FlatRefresh({required this.onRefresh, required this.child});
+
+  final RefreshCallback onRefresh;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: AppColors.primary,
+      backgroundColor: AppColors.primaryLight,
+      elevation: 0,
+      child: child,
+    );
+  }
+}
+
+/// The app's load error: what failed, what to do, and a retry.
+class _LoadError extends StatelessWidget {
+  const _LoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: AppColors.border, width: .909),
+              ),
+              child: const Icon(
+                Icons.error_outline_rounded,
+                color: AppColors.warning,
+                size: 30,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '내 리뷰를 불러오지 못했어요',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '잠시 후 다시 시도해주세요.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.muted,
+                fontSize: 13,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: onRetry,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.white,
+                // 40 tall like the other error blocks, with a 48px tap area.
+                minimumSize: const Size(140, 40),
+                tapTargetSize: MaterialTapTargetSize.padded,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: 'Noto Sans KR',
+                  fontFamilyFallback: ['Noto Sans KR'],
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('다시 불러오기'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
