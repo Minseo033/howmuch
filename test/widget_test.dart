@@ -51,7 +51,7 @@ void main() {
     // ask for login when they are used.
     await tester.tap(find.text('시작하기'));
     await tester.pumpAndSettle();
-    expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsNothing);
+    expect(find.text('로그인 전에\n약관을 확인해주세요'), findsNothing);
     expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
     expect(find.text('앱 시작하기'), findsOneWidget);
   });
@@ -68,7 +68,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('이미 계정이 있나요? 로그인'));
       await tester.pumpAndSettle();
-      expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsOneWidget);
+      expect(find.text('로그인 전에\n약관을 확인해주세요'), findsOneWidget);
       expect(find.text('필수 약관 전체 동의'), findsOneWidget);
 
       await tester.tap(find.text('필수 약관 전체 동의'));
@@ -81,10 +81,11 @@ void main() {
       expect(find.text('네이버로 계속하기'), findsNothing);
       expect(find.text('Google로 계속하기'), findsNothing);
 
-      await tester.tap(find.text('로그인 없이 둘러보기'));
+      // Login opened on top of the slides: leaving it comes back to them.
+      await tester.tap(find.text('나중에 할게요'));
       await tester.pumpAndSettle();
-      expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
-      expect(find.text('앱 시작하기'), findsOneWidget);
+      expect(find.text('이미 계정이 있나요? 로그인'), findsOneWidget);
+      expect(find.text('시작하기'), findsOneWidget);
     },
   );
 

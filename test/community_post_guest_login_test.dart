@@ -6,10 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/login_flow_screen.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/screens/community_post_detail_screen.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -128,8 +127,8 @@ Future<void> _pumpPost(WidgetTester tester) async {
         builder: (_, _) => const CommunityPostDetailScreen(postId: 'p1'),
       ),
       GoRoute(
-        path: AppRoutes.login,
-        builder: (_, state) => LoginScreen(entry: loginEntryOf(state.extra)),
+        path: AppRoutes.loginFlow,
+        builder: (_, _) => const LoginFlowScreen(),
       ),
     ],
   );
@@ -153,7 +152,11 @@ Future<void> _logInFromPrompt(WidgetTester tester, String message) async {
   await tester.pumpAndSettle();
   await tester.tap(find.text('카카오로 계속하기'));
   await tester.pumpAndSettle();
-  expect(find.byType(LoginScreen), findsNothing, reason: 'back on the post');
+  expect(
+    find.byType(LoginFlowScreen),
+    findsNothing,
+    reason: 'back on the post',
+  );
 }
 
 Future<void> _send(WidgetTester tester, String text) async {
@@ -275,7 +278,7 @@ void main() {
       await tester.tap(find.text('나중에'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(LoginScreen), findsNothing);
+      expect(find.byType(LoginFlowScreen), findsNothing);
       expect(find.byIcon(Icons.thumb_up_alt_outlined), findsOneWidget);
       expect(backend.writes, isEmpty);
       expect(ApiClient.isAuthenticated, isFalse);

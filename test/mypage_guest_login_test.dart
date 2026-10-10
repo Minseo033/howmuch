@@ -7,10 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/login_flow_screen.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
 import 'package:howmuch/features/mypage/presentation/screens/mypage_screen.dart';
@@ -153,8 +152,8 @@ const _mypageDestinations = [
 ];
 
 GoRoute _loginRoute() => GoRoute(
-  path: AppRoutes.login,
-  builder: (_, state) => LoginScreen(entry: loginEntryOf(state.extra)),
+  path: AppRoutes.loginFlow,
+  builder: (_, _) => const LoginFlowScreen(),
 );
 
 ProviderScope _app(GoRouter router, List<Override> overrides) => ProviderScope(
@@ -310,7 +309,7 @@ void main() {
         expect(find.text('로그인이 필요해요'), findsNothing);
         await _tapKakaoLogin(tester);
 
-        expect(find.byType(LoginScreen), findsNothing);
+        expect(find.byType(LoginFlowScreen), findsNothing);
         expect(find.text('알뜰한 민'), findsOneWidget);
         expect(find.text('saver@example.com'), findsOneWidget);
         expect(find.text('12,000원'), findsOneWidget);
@@ -353,7 +352,7 @@ void main() {
           await tester.tap(find.text('나중에'));
           await tester.pumpAndSettle();
           expect(find.textContaining('도착'), findsNothing, reason: name);
-          expect(find.byType(LoginScreen), findsNothing, reason: name);
+          expect(find.byType(LoginFlowScreen), findsNothing, reason: name);
         }
         expect(pushRegistrations, isEmpty);
         expect(find.textContaining('푸시 알림을 켜지 못했어요'), findsNothing);

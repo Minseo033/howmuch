@@ -344,6 +344,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   MobileMapViewport? _restoredViewport;
 
   Future<void> _openAiRecommend() async {
+    // The coach mark has done its job once the AI control is tapped.
+    if (_showAiSpotlight) setState(() => _showAiSpotlight = false);
     // The server answers AI questions only for an account, so a guest is
     // asked before the chat opens instead of after the first question.
     final loggedIn = await requireLogin(

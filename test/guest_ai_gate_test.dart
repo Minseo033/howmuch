@@ -4,10 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
-import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/login_flow_screen.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/home/presentation/screens/home_map_screen.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:http/http.dart' as http;
@@ -61,8 +60,8 @@ void main() {
           builder: (_, _) => const HomeMapScreen(showAiSpotlight: false),
         ),
         GoRoute(
-          path: AppRoutes.login,
-          builder: (_, state) => LoginScreen(entry: loginEntryOf(state.extra)),
+          path: AppRoutes.loginFlow,
+          builder: (_, _) => const LoginFlowScreen(),
         ),
         GoRoute(
           path: AppRoutes.aiRecommend,

@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthTermsScreen extends StatefulWidget {
-  const AuthTermsScreen({super.key, this.entry = LoginEntry.startup});
+  const AuthTermsScreen({super.key, this.onAgreed, this.onBack});
 
-  /// With [LoginEntry.returnToCaller] the screen closes with whether the
-  /// visitor agreed, instead of moving on to login.
-  final LoginEntry entry;
+  /// Inside the login flow opened on top of a screen: called once the terms
+  /// are saved, instead of moving on to the login screen.
+  final VoidCallback? onAgreed;
+
+  /// Inside that login flow: a back button that leaves login.
+  final VoidCallback? onBack;
 
   @override
   State<AuthTermsScreen> createState() => _AuthTermsScreenState();
@@ -41,8 +43,9 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
     // Stored on this device only; the server keeps no consent record yet.
     await preferences.setBool(authTermsAcceptedPreferenceKey, true);
     if (!mounted) return;
-    if (widget.entry == LoginEntry.returnToCaller) {
-      context.pop(true);
+    final onAgreed = widget.onAgreed;
+    if (onAgreed != null) {
+      onAgreed();
     } else {
       context.go(AppRoutes.login);
     }
@@ -51,6 +54,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
   @override
   Widget build(BuildContext context) {
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
+    final onBack = widget.onBack;
     return FigmaMobileCanvas(
       backgroundColor: const Color(0xFFF4F6FA),
       child: SafeArea(
@@ -66,12 +70,12 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (widget.entry == LoginEntry.returnToCaller)
+                if (onBack != null)
                   Align(
                     alignment: Alignment.centerLeft,
                     child: IconButton(
                       tooltip: '뒤로가기',
-                      onPressed: () => context.pop(false),
+                      onPressed: onBack,
                       icon: const Icon(
                         Icons.arrow_back_rounded,
                         size: 22,
@@ -98,7 +102,8 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 ),
                 const SizedBox(height: 22),
                 const Text(
-                  '서비스 이용 전\n약관을 확인해주세요',
+                  // Guests already use the app; the terms come with an account.
+                  '로그인 전에\n약관을 확인해주세요',
                   style: TextStyle(
                     color: Color(0xFF0F172A),
                     fontFamily: 'Noto Sans KR',
@@ -169,7 +174,7 @@ class _AuthTermsScreenState extends State<AuthTermsScreen> {
                 const SizedBox(height: 12),
                 const Center(
                   child: Text(
-                    '필수 약관에 동의해야 서비스를 이용할 수 있어요.',
+                    '필수 약관에 동의해야 로그인할 수 있어요.',
                     style: TextStyle(
                       color: Color(0xFF64748B),
                       fontFamily: 'Noto Sans KR',

@@ -12,6 +12,7 @@ const Set<String> _startupPaths = {
   AppRoutes.onboardingStoreReport,
   AppRoutes.authTerms,
   AppRoutes.login,
+  AppRoutes.loginFlow,
   AppRoutes.permissionSetup,
   AppRoutes.profileSetup,
   '/oauth',

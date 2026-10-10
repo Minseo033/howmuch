@@ -8,17 +8,20 @@ import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key, this.entry = LoginEntry.startup});
+  const ProfileSetupScreen({super.key, this.onSaved, this.onBack});
 
-  /// With [LoginEntry.returnToCaller] the screen closes with whether the
-  /// profile was saved, instead of moving on to home.
-  final LoginEntry entry;
+  /// Inside the login flow opened on top of a screen: called once the
+  /// profile is saved, instead of moving on to the address requested before
+  /// sign-up.
+  final VoidCallback? onSaved;
+
+  /// Inside that login flow: the back button leaves sign-up.
+  final VoidCallback? onBack;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -278,8 +281,9 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
 
       // A new member also reaches the address requested before sign-up.
       if (!mounted) return;
-      if (widget.entry == LoginEntry.returnToCaller) {
-        context.pop(true);
+      final onSaved = widget.onSaved;
+      if (onSaved != null) {
+        onSaved();
       } else {
         context.go(ref.read(startupLocationProvider).take());
       }
@@ -347,9 +351,11 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       scrolledUnderElevation: 0,
       centerTitle: true,
       leading: IconButton(
-        onPressed: () {
-          if (context.canPop()) context.pop(false);
-        },
+        onPressed:
+            widget.onBack ??
+            () {
+              if (context.canPop()) context.pop();
+            },
         icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
         splashRadius: 20,
       ),

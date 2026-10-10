@@ -14,7 +14,9 @@ void main() {
 
   for (final login in [false, true]) {
     testWidgets(
-      'onboarding ${login ? 'login link' : 'completion'} persists its choice',
+      login
+          ? 'onboarding login link opens login on top of the slides'
+          : 'onboarding completion persists its choice',
       (tester) async {
         _setViewport(tester, const Size(390, 844));
         final container = ProviderContainer();
@@ -27,7 +29,7 @@ void main() {
               builder: (_, _) => const OnboardingNearbyScreen(initialStep: 2),
             ),
             GoRoute(
-              path: AppRoutes.login,
+              path: AppRoutes.loginFlow,
               builder: (_, _) => const Scaffold(body: Text('로그인 화면 도착')),
             ),
             GoRoute(
@@ -48,11 +50,15 @@ void main() {
         await tester.pumpAndSettle();
 
         // '시작하기' starts as a guest (permission setup, then home); members
-        // log in from the link instead.
+        // log in from the link, and onboarding counts as done only once the
+        // login succeeds (guest_login_return_test.dart).
         expect(find.text(login ? '로그인 화면 도착' : '권한 화면 도착'), findsOneWidget);
-        expect(container.read(onboardingCompletedProvider), isTrue);
+        expect(container.read(onboardingCompletedProvider), !login);
         final preferences = await SharedPreferences.getInstance();
-        expect(preferences.getBool('onboarding_completed'), isTrue);
+        expect(
+          preferences.getBool('onboarding_completed'),
+          login ? isNull : isTrue,
+        );
       },
     );
   }

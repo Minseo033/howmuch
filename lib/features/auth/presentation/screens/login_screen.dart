@@ -5,17 +5,24 @@ import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
-import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key, this.entry = LoginEntry.startup});
+  const LoginScreen({super.key}) : onKakaoPressed = null, onClose = null;
 
-  /// With [LoginEntry.returnToCaller] the screen closes with whether login
-  /// succeeded, instead of moving on to home.
-  final LoginEntry entry;
+  /// Login inside the login flow opened on top of a screen that needs an
+  /// account. The flow runs Kakao login, and [onClose] goes back to that
+  /// screen.
+  const LoginScreen.inFlow({
+    super.key,
+    required VoidCallback this.onKakaoPressed,
+    required VoidCallback this.onClose,
+  });
+
+  final VoidCallback? onKakaoPressed;
+  final VoidCallback? onClose;
 
   static const blue = Color(0xFF2563EB);
   static const ink = Color(0xFF0F172A);
@@ -38,12 +45,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _termsCheckComplete = false;
   bool _isLoggingIn = false;
 
-  bool get _returnsToCaller => widget.entry == LoginEntry.returnToCaller;
+  bool get _inFlow => widget.onClose != null;
 
   @override
   void initState() {
     super.initState();
-    _verifyTermsAcceptance();
+    // The login flow asks for the terms itself before this step.
+    if (_inFlow) {
+      _termsCheckComplete = true;
+    } else {
+      _verifyTermsAcceptance();
+    }
   }
 
   Future<void> _verifyTermsAcceptance() async {
@@ -52,20 +64,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         preferences.getBool(authTermsAcceptedPreferenceKey) == true;
     if (!mounted) return;
     if (!accepted) {
-      if (!_returnsToCaller) {
-        context.go(AppRoutes.authTerms);
-        return;
-      }
-      // A first login asks for the required terms, then comes back here.
-      final agreed = await context.push<bool>(
-        AppRoutes.authTerms,
-        extra: LoginEntry.returnToCaller,
-      );
-      if (!mounted) return;
-      if (agreed != true) {
-        context.pop(false);
-        return;
-      }
+      context.go(AppRoutes.authTerms);
+      return;
     }
     setState(() => _termsCheckComplete = true);
   }
@@ -162,7 +162,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     backgroundColor: const Color(0xFFFEE500),
                                     foregroundColor: const Color(0xFF191600),
                                     mark: const _KakaoMark(),
-                                    onPressed: () => _loginWithKakao(context),
+                                    onPressed:
+                                        widget.onKakaoPressed ??
+                                        () => _loginWithKakao(context),
                                   ),
                                 ],
                               ),
@@ -176,12 +178,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 width: double.infinity,
                                 height: 50,
                                 child: TextButton(
-                                  onPressed: _returnsToCaller
-                                      ? () => context.pop(false)
-                                      : () => context.go(
-                                          AppRoutes.permissionSetup,
-                                          extra: AppRoutes.login,
-                                        ),
+                                  onPressed:
+                                      widget.onClose ??
+                                      () => context.go(
+                                        AppRoutes.permissionSetup,
+                                        extra: AppRoutes.login,
+                                      ),
                                   style: TextButton.styleFrom(
                                     backgroundColor: const Color(0xFFF4F6FA),
                                     foregroundColor: LoginScreen.ink,
@@ -198,9 +200,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
                                   child: Text(
-                                    _returnsToCaller
-                                        ? '나중에 할게요'
-                                        : '로그인 없이 둘러보기',
+                                    _inFlow ? '나중에 할게요' : '로그인 없이 둘러보기',
                                   ),
                                 ),
                               ),
@@ -222,21 +222,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  /// Opened on top of another screen, login gets a back button that returns
-  /// to it.
+  /// Inside the login flow, login gets a back button that returns to the
+  /// screen below.
   Widget _withBackBar(double topOffset, Widget content) {
-    if (!_returnsToCaller) return content;
+    final onClose = widget.onClose;
+    if (onClose == null) return content;
     return Column(
       children: [
         SizedBox(
           height: HowmuchTopBar.height + topOffset,
           child: Padding(
             padding: EdgeInsets.only(top: topOffset),
-            child: HowmuchTopBar(
-              title: '',
-              showBorder: false,
-              onBack: () => context.pop(false),
-            ),
+            child: HowmuchTopBar(title: '', showBorder: false, onBack: onClose),
           ),
         ),
         Expanded(child: content),
@@ -248,21 +245,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final messenger = ScaffoldMessenger.of(context);
     if (_isLoggingIn) return;
     _isLoggingIn = true;
-    final result = await ref
-        .read(kakaoLoginServiceProvider)
-        .login(navigate: !_returnsToCaller);
-    if (_returnsToCaller &&
-        result.isNewUser &&
-        !await _finishSignUp(messenger)) {
-      _isLoggingIn = false;
-      return;
-    }
+    final result = await ref.read(kakaoLoginServiceProvider).login();
     _isLoggingIn = false;
     if (result.status == KakaoLoginStatus.cancelled) return;
     if (result.status == KakaoLoginStatus.success) {
       if (context.mounted) {
         messenger.showSnackBar(HowmuchSnackBar(content: Text('카카오로 로그인했어요.')));
-        if (_returnsToCaller) context.pop(true);
       }
     } else {
       if (context.mounted) {
@@ -271,22 +259,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
       }
     }
-  }
-
-  /// A new account finishes sign-up with profile setup before returning.
-  /// Leaving profile setup ends the session, so the visitor stays a guest.
-  Future<bool> _finishSignUp(ScaffoldMessengerState messenger) async {
-    final saved = await context.push<bool>(
-      AppRoutes.profileSetup,
-      extra: LoginEntry.returnToCaller,
-    );
-    if (saved == true) return true;
-    if (!mounted) return false;
-    await ref.read(kakaoLoginServiceProvider).logout();
-    messenger.showSnackBar(
-      HowmuchSnackBar(content: Text('프로필을 저장해야 가입이 끝나요.')),
-    );
-    return false;
   }
 }
 
