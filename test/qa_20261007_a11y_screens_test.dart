@@ -100,8 +100,8 @@ Iterable<SemanticsNode> _containing(String text) =>
 
 final Matcher _button = isSemantics(isButton: true, hasTapAction: true);
 
-void _phone(WidgetTester tester, {double height = 844}) {
-  tester.view.physicalSize = Size(390, height);
+void _phone(WidgetTester tester, {double width = 390, double height = 844}) {
+  tester.view.physicalSize = Size(width, height);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -127,10 +127,12 @@ const _approved = {
   'createdAt': '2026-09-01T03:00:00Z',
 };
 
-ReportService _reportService() => ReportService(
+ReportService _reportService([
+  List<Object> reports = const [_rejected, _approved],
+]) => ReportService(
   MockClient((request) async {
     if (request.url.path == '/api/report/my') {
-      return _json([_rejected, _approved]);
+      return _json(reports);
     }
     return http.Response('', 404);
   }),
@@ -662,6 +664,26 @@ void main() {
       }
       semantics.dispose();
     });
+
+    testWidgets('MY forms fit a 320px phone with 130% text', (tester) async {
+      final screens = <String, Widget>{
+        'favorites': const FavoriteStoresScreen(),
+        'notification settings': const NotificationSettingsScreen(),
+        'profile edit': const ProfileEditScreen(),
+        'inquiry': const InquiryScreen(),
+      };
+
+      for (final entry in screens.entries) {
+        await _pumpSubScreen(
+          tester,
+          entry.value,
+          width: 320,
+          height: 568,
+          textScale: 1.3,
+        );
+        expect(tester.takeException(), isNull, reason: entry.key);
+      }
+    });
   });
 
   testWidgets('MY shortcuts, rows, switches and recent reports (#50, #54)', (
@@ -708,6 +730,44 @@ void main() {
     final recent = _containing('정장군숯불구이전문점').single;
     expect(recent, _button);
     semantics.dispose();
+  });
+
+  testWidgets('MY recent reports card ends under its last row with one '
+      'report or none', (tester) async {
+    _phone(tester, height: 1200);
+    final card = _byType('_ReportStatusCard');
+
+    for (final reports in [
+      <Object>[_rejected],
+      <Object>[],
+    ]) {
+      await _pumpMypage(tester, reports: reports);
+      final last = _byType(
+        reports.isEmpty ? '_EmptyReportItem' : '_ReportItem',
+      );
+      // The card used to keep the two-row design height, so a single report
+      // or the empty notice sat above a blank row's worth of space.
+      expect(
+        tester.getBottomLeft(card).dy - tester.getBottomLeft(last).dy,
+        lessThan(20),
+        reason: '${reports.length} report(s)',
+      );
+    }
+  });
+
+  testWidgets('MY keeps the member email visible on a 320px phone', (
+    tester,
+  ) async {
+    _phone(tester, width: 320);
+    await _pumpMypage(tester, reports: const []);
+
+    _expectTextFits(
+      tester,
+      find.text('saver@example.com'),
+      inside: _byType('_ProfileCard'),
+    );
+    expect(find.text('수정'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('MY recent reports grow with large text instead of cutting '
@@ -823,7 +883,11 @@ void _expectTextFits(
   );
 }
 
-Future<void> _pumpMypage(WidgetTester tester, {double textScale = 1}) async {
+Future<void> _pumpMypage(
+  WidgetTester tester, {
+  double textScale = 1,
+  List<Object> reports = const [_rejected, _approved],
+}) async {
   await http.runWithClient(
     () async {
       final router = GoRouter(
@@ -837,7 +901,7 @@ Future<void> _pumpMypage(WidgetTester tester, {double textScale = 1}) async {
         ProviderScope(
           key: UniqueKey(),
           overrides: [
-            reportServiceProvider.overrideWithValue(_reportService()),
+            reportServiceProvider.overrideWithValue(_reportService(reports)),
             authStateProvider.overrideWith(
               (ref) => const AuthState(
                 isLoggedIn: true,
@@ -878,8 +942,14 @@ Iterable<SemanticsNode> _unnamedCheckboxes() =>
           data.label.trim().isEmpty;
     }).evaluate();
 
-Future<void> _pumpSubScreen(WidgetTester tester, Widget screen) async {
-  _phone(tester);
+Future<void> _pumpSubScreen(
+  WidgetTester tester,
+  Widget screen, {
+  double width = 390,
+  double height = 844,
+  double textScale = 1,
+}) async {
+  _phone(tester, width: width, height: height);
   await http.runWithClient(
     () async {
       final router = GoRouter(
@@ -904,7 +974,15 @@ Future<void> _pumpSubScreen(WidgetTester tester, Widget screen) async {
             myInquiriesProvider.overrideWith((ref) async => const []),
             favoriteApiServiceProvider.overrideWithValue(_Favorites()),
           ],
-          child: MaterialApp.router(routerConfig: router),
+          child: MaterialApp.router(
+            routerConfig: router,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -951,7 +1029,16 @@ class _Inquiries extends InquiryService {
 
 class _Favorites extends FavoriteApiService {
   @override
-  Future<List<FavoriteStoreModel>> fetchFavorites() async => const [];
+  Future<List<FavoriteStoreModel>> fetchFavorites() async => [
+    FavoriteStoreModel.fromJson({
+      'storeId': 'layout-store',
+      'storeName': '동네커피 구로점',
+      'source': 'GOV',
+      'industry': '카페',
+      'menu1': '아메리카노',
+      'price1': '2000',
+    }),
+  ];
 }
 
 class _Reviews extends StoreReviewNotifier {

@@ -703,11 +703,14 @@ class _PrivacyRow extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: SizedBox(
+        child: ConstrainedBox(
           key: rowKey,
-          height: 64.84375,
+          constraints: const BoxConstraints(minHeight: 64.84375),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.9033203125),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.9033203125,
+              vertical: 4,
+            ),
             child: Row(
               children: [
                 Expanded(

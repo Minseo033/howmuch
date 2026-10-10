@@ -177,7 +177,6 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final footerHeight = _StickyButton.heightFor(bottomOffset);
-    final scrollContentHeight = 592.8974609375 + topOffset + footerHeight + 24;
     final canPop = Navigator.of(context).canPop();
 
     return PopScope(
@@ -204,104 +203,81 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                     physics: const AlwaysScrollableScrollPhysics(
                       parent: BouncingScrollPhysics(),
                     ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: scrollContentHeight,
-                      child: Stack(
-                        children: [
-                          Positioned(
-                            left: 20,
-                            top: 64.8720703125 + topOffset,
-                            child: const Text('문의 유형', style: _labelText),
-                          ),
-                          Positioned(
-                            left: 20,
-                            right: 20,
-                            top: 90.8662109375 + topOffset,
-                            height: 91.60794830322266,
-                            child: Column(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      64.8720703125 + topOffset,
+                      20,
+                      footerHeight + 24,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text('문의 유형', style: _labelText),
+                        ),
+                        const SizedBox(height: 7.994140625),
+                        Column(
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[0],
-                                        selected: _selectedType == 0,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 0),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[1],
-                                        selected: _selectedType == 1,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 1),
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[0],
+                                    selected: _selectedType == 0,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 0),
+                                  ),
                                 ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[2],
-                                        selected: _selectedType == 2,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 2),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: _InquiryChip(
-                                        text: _types[3],
-                                        selected: _selectedType == 3,
-                                        onTap: () =>
-                                            setState(() => _selectedType = 3),
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[1],
+                                    selected: _selectedType == 1,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 1),
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 202.4716796875 + topOffset,
-                            right: 20,
-                            height: 72.4,
-                            child: _TitleField(controller: _titleController),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 290.45458984375 + topOffset,
-                            right: 20,
-                            height: 136.4,
-                            child: _BodyField(controller: _bodyController),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 442.44287109375 + topOffset,
-                            right: 20,
-                            height: 90.4,
-                            child: _PhotoAttachBox(
-                              attachments: _attachments,
-                              thumbnailBytes: _thumbnailBytes,
-                              onAdd: _pickPhotos,
-                              onRemove: _removePhoto,
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[2],
+                                    selected: _selectedType == 2,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 2),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _InquiryChip(
+                                    text: _types[3],
+                                    selected: _selectedType == 3,
+                                    onTap: () =>
+                                        setState(() => _selectedType = 3),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                          Positioned(
-                            left: 20,
-                            top: 552.4287109375 + topOffset,
-                            right: 20,
-                            height: 40.46875,
-                            child: _EmailBox(email: email, isGuest: isGuest),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        _TitleField(controller: _titleController),
+                        const SizedBox(height: 15.58291015625),
+                        _BodyField(controller: _bodyController),
+                        const SizedBox(height: 15.5882890625),
+                        _PhotoAttachBox(
+                          attachments: _attachments,
+                          thumbnailBytes: _thumbnailBytes,
+                          onAdd: _pickPhotos,
+                          onRemove: _removePhoto,
+                        ),
+                        const SizedBox(height: 19.58583984375),
+                        _EmailBox(email: email, isGuest: isGuest),
+                      ],
                     ),
                   ),
                 ),
