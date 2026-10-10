@@ -269,8 +269,8 @@ class _CommunityPostDetailScreenState
       return;
     }
     final message = _replyTarget == null
-        ? '댓글은 로그인 후 남길 수 있어요. 쓴 내용은 그대로 있어요.'
-        : '답글은 로그인 후 남길 수 있어요. 쓴 내용은 그대로 있어요.';
+        ? '로그인하면 작성한 댓글이 바로 등록돼요.'
+        : '로그인하면 작성한 답글이 바로 등록돼요.';
     if (!await _continueWithAccount(message, () => _isSubmitting = true)) {
       return;
     }
@@ -474,7 +474,7 @@ class _CommunityPostDetailScreenState
     // 이미 그 상태면 보내지 않아, 전에 누른 도움이 돼요가 취소되지 않습니다.
     final nextLiked = !_likedByMe;
     if (!await _continueWithAccount(
-      "'도움이 돼요'는 로그인 후 누를 수 있어요.",
+      "로그인하면 '도움이 돼요'가 바로 반영돼요.",
       () => _likeInFlight = true,
     )) {
       return;
@@ -511,7 +511,7 @@ class _CommunityPostDetailScreenState
     // 도움이 돼요와 같이, 로그인 뒤 다시 불러온 상태를 뒤집지 않습니다.
     final nextEnabled = !_notificationEnabled;
     if (!await _continueWithAccount(
-      '새 댓글 알림은 로그인 후 받을 수 있어요.',
+      '로그인하면 새 댓글 알림을 바로 받을 수 있어요.',
       () => _notificationInFlight = true,
     )) {
       return;

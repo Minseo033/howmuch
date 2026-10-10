@@ -406,7 +406,7 @@ void main() {
       await tester.enterText(find.byType(TextField).at(1), '매장 위치가 달라요');
       await tester.tap(find.text('문의 보내기'));
       await tester.pumpAndSettle();
-      expect(find.text('문의는 로그인 후 보낼 수 있어요. 작성한 내용은 그대로 있어요.'), findsOneWidget);
+      expect(find.text('로그인하면 작성한 문의가 바로 접수돼요.'), findsOneWidget);
 
       await tester.tap(find.text('나중에'));
       await tester.pumpAndSettle();
@@ -416,10 +416,22 @@ void main() {
       expect(find.text('매장 위치가 달라요'), findsOneWidget);
     });
 
-    testWidgets('a guest who logs in at send sends the inquiry they wrote', (
-      tester,
-    ) async {
+    testWidgets('a guest is told answers go to the account email, and logging '
+        'in at send sends the inquiry they wrote', (tester) async {
       final inquiries = await _pumpInquiry(tester);
+      // A guest has no account email yet, so the box says where answers go.
+      expect(
+        find.text('로그인하면 계정 이메일로 답변을 받아요', findRichText: true),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('이메일 정보 없음', findRichText: true),
+        findsNothing,
+      );
+      expect(
+        find.textContaining('답변 받을 이메일', findRichText: true),
+        findsNothing,
+      );
       await tester.tap(find.text('기타'));
       await tester.enterText(find.byType(TextField).at(0), '지도 오류');
       await tester.enterText(find.byType(TextField).at(1), '매장 위치가 달라요');

@@ -505,7 +505,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     // 같은 제보를 보냅니다.
     final loggedIn = await requireLogin(
       context,
-      message: '제보는 로그인 후 보낼 수 있어요. 작성한 내용은 그대로 있어요.',
+      message: '로그인하면 작성한 제보가 바로 접수돼요.',
     );
     if (!loggedIn || !mounted) return;
 
@@ -1286,7 +1286,7 @@ class _TipBox extends StatelessWidget {
         child: Text(
           loginTap == null
               ? '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.'
-              : '제보는 로그인 후 보낼 수 있어요.\n여기를 눌러 미리 로그인할 수도 있어요.',
+              : '보낼 때 로그인하면 제보가 바로 접수돼요.\n여기를 눌러 미리 로그인할 수도 있어요.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: const Color(0xFF92400E),

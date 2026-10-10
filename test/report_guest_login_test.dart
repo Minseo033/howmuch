@@ -188,7 +188,7 @@ void main() {
     await _tapSubmit(tester);
 
     expect(find.text('로그인이 필요해요'), findsOneWidget);
-    expect(find.text('제보는 로그인 후 보낼 수 있어요. 작성한 내용은 그대로 있어요.'), findsOneWidget);
+    expect(find.text('로그인하면 작성한 제보가 바로 접수돼요.'), findsOneWidget);
     await tester.tap(find.text('나중에'));
     await tester.pumpAndSettle();
 
@@ -260,7 +260,7 @@ void main() {
     final (:requests, :login) = await _openForm(tester);
     await tester.enterText(find.byType(TextField).first, '게스트 식당');
     expect(
-      find.text('제보는 로그인 후 보낼 수 있어요.\n여기를 눌러 미리 로그인할 수도 있어요.'),
+      find.text('보낼 때 로그인하면 제보가 바로 접수돼요.\n여기를 눌러 미리 로그인할 수도 있어요.'),
       findsOneWidget,
     );
 

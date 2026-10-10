@@ -16,7 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _session = 'community-guest-session';
 const _typed = '아직 5000원이에요';
-const _likeMessage = "'도움이 돼요'는 로그인 후 누를 수 있어요.";
+const _likeMessage = "로그인하면 '도움이 돼요'가 바로 반영돼요.";
 
 http.Response _json(Object body, [int status = 200]) => http.Response(
   jsonEncode(body),
@@ -191,7 +191,7 @@ void main() {
           await tester.pump();
         }
         await _send(tester, _typed);
-        await _logInFromPrompt(tester, '$kind은 로그인 후 남길 수 있어요. 쓴 내용은 그대로 있어요.');
+        await _logInFromPrompt(tester, '로그인하면 작성한 $kind이 바로 등록돼요.');
 
         expect(backend.writeTargets, [
           kind == '답글'
@@ -243,7 +243,7 @@ void main() {
           await _pumpPost(tester);
           await tester.tap(find.text('새 댓글 알림'));
           await tester.pumpAndSettle();
-          await _logInFromPrompt(tester, '새 댓글 알림은 로그인 후 받을 수 있어요.');
+          await _logInFromPrompt(tester, '로그인하면 새 댓글 알림을 바로 받을 수 있어요.');
 
           expect(backend.writeTargets, [
             if (!alertsBefore) 'POST /api/community/feed/p1/notification',
