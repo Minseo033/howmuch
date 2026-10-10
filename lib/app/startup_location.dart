@@ -12,6 +12,7 @@ const Set<String> _startupPaths = {
   AppRoutes.onboardingStoreReport,
   AppRoutes.authTerms,
   AppRoutes.login,
+  AppRoutes.loginFlow,
   AppRoutes.permissionSetup,
   AppRoutes.profileSetup,
   '/oauth',
@@ -19,6 +20,20 @@ const Set<String> _startupPaths = {
 };
 
 bool isStartupPath(String path) => _startupPaths.contains(path);
+
+/// Reopenable addresses that only make sense with an account.
+const Set<String> _accountOnlyPaths = {
+  AppRoutes.myReportsV2,
+  AppRoutes.reportDetailV2,
+  AppRoutes.accountManagement,
+};
+
+/// Where a guest lands for a [location] taken from [StartupLocation]: MY,
+/// which offers login, instead of a screen that needs an account.
+String guestStartupLocation(String location) {
+  final path = Uri.tryParse(location)?.path ?? location;
+  return _accountOnlyPaths.contains(path) ? AppRoutes.mypage : location;
+}
 
 /// Addresses that reopen the same screen after a reload: the bottom tabs and
 /// the screens the app itself opens with `go`, so they can be in the address

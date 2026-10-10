@@ -12,7 +12,14 @@ import 'package:howmuch/core/location/browser_location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PermissionSetupScreen extends ConsumerWidget {
-  const PermissionSetupScreen({super.key});
+  const PermissionSetupScreen({
+    super.key,
+    this.backTo = AppRoutes.onboardingStoreReport,
+  });
+
+  /// Where the back button goes: onboarding, or the login screen when the
+  /// visitor chose to browse without login there.
+  final String backTo;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -44,10 +51,7 @@ class PermissionSetupScreen extends ConsumerWidget {
             height: HowmuchTopBar.height + topOffset,
             child: Padding(
               padding: EdgeInsets.only(top: topOffset),
-              child: HowmuchTopBar(
-                title: '',
-                onBack: () => context.go(AppRoutes.login),
-              ),
+              child: HowmuchTopBar(title: '', onBack: () => context.go(backTo)),
             ),
           ),
           Expanded(

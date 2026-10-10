@@ -31,25 +31,44 @@ void main() {
     expect(find.bySemanticsLabel('내 주변 착한가격업소를 한눈에'), findsOneWidget);
   });
 
+  testWidgets('starts as a guest: onboarding moves on to permission setup', (
+    tester,
+  ) async {
+    _setMobileViewport(tester);
+    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    expect(find.text('절약 리포트'), findsOneWidget);
+    expect(find.bySemanticsLabel('오늘 아낀 금액이 쌓여요'), findsOneWidget);
+
+    await tester.tap(find.text('다음'));
+    await tester.pumpAndSettle();
+    expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
+    expect(find.bySemanticsLabel('좋은 가격은 함께 나눠요'), findsOneWidget);
+
+    // No terms or login before using the app; features that need an account
+    // ask for login when they are used.
+    await tester.tap(find.text('시작하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('로그인 전에\n약관을 확인해주세요'), findsNothing);
+    expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
+    expect(find.text('앱 시작하기'), findsOneWidget);
+  });
+
   testWidgets(
-    'moves through onboarding, required terms, login, and permission setup',
+    'members log in from onboarding through the required terms and Kakao only',
     (tester) async {
       _setMobileViewport(tester);
       await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
-      expect(find.text('절약 리포트'), findsOneWidget);
-      expect(find.bySemanticsLabel('오늘 아낀 금액이 쌓여요'), findsOneWidget);
-
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
-      expect(find.text('사용자 제보'), findsAtLeastNWidgets(1));
-      expect(find.bySemanticsLabel('좋은 가격은 함께 나눠요'), findsOneWidget);
-
-      await tester.tap(find.text('시작하기'));
+      await tester.tap(find.text('이미 계정이 있나요? 로그인'));
       await tester.pumpAndSettle();
-      expect(find.text('서비스 이용 전\n약관을 확인해주세요'), findsOneWidget);
+      expect(find.text('로그인 전에\n약관을 확인해주세요'), findsOneWidget);
       expect(find.text('필수 약관 전체 동의'), findsOneWidget);
 
       await tester.tap(find.text('필수 약관 전체 동의'));
@@ -62,35 +81,13 @@ void main() {
       expect(find.text('네이버로 계속하기'), findsNothing);
       expect(find.text('Google로 계속하기'), findsNothing);
 
-      await tester.tap(find.text('로그인 없이 둘러보기'));
+      // Login opened on top of the slides: leaving it comes back to them.
+      await tester.tap(find.text('나중에 할게요'));
       await tester.pumpAndSettle();
-      expect(find.text('더 정확한 추천을 위해\n권한이 필요해요'), findsOneWidget);
-      expect(find.text('앱 시작하기'), findsOneWidget);
+      expect(find.text('이미 계정이 있나요? 로그인'), findsOneWidget);
+      expect(find.text('시작하기'), findsOneWidget);
     },
   );
-
-  testWidgets('login only presents supported Kakao authentication', (
-    tester,
-  ) async {
-    _setMobileViewport(tester);
-    await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
-
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('시작하기'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('필수 약관 전체 동의'));
-    await tester.pump();
-    await tester.tap(find.text('동의하고 로그인하기'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('카카오로 계속하기'), findsOneWidget);
-    expect(find.text('네이버로 계속하기'), findsNothing);
-    expect(find.text('Google로 계속하기'), findsNothing);
-  });
 
   testWidgets('opens mypage', (tester) async {
     _setMobileViewport(tester);
@@ -123,26 +120,31 @@ void main() {
     expect(locationAction.center.dy, closeTo(locationRow.center.dy, 0.1));
     expect(locationStatus.center.dy, closeTo(locationChevron.center.dy, 0.1));
 
-    final profileEditButton = tester.getRect(
+    // A guest gets a login button where a member edits the profile.
+    expect(
       find.byKey(const ValueKey('mypage-profile-edit-button')),
+      findsNothing,
     );
-    final profileEditContent = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-content')),
+    final profileLoginButton = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-button')),
     );
-    final profileEditLabel = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-label')),
+    final profileLoginContent = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-content')),
     );
-    final profileEditChevron = tester.getRect(
-      find.byKey(const ValueKey('mypage-profile-edit-chevron')),
+    final profileLoginLabel = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-label')),
+    );
+    final profileLoginChevron = tester.getRect(
+      find.byKey(const ValueKey('mypage-profile-login-chevron')),
     );
     expect(
-      profileEditContent.center.dx,
-      closeTo(profileEditButton.center.dx, 0.1),
+      profileLoginContent.center.dx,
+      closeTo(profileLoginButton.center.dx, 0.1),
     );
-    final profileEditScale = profileEditButton.height / 30;
+    final profileLoginScale = profileLoginButton.height / 30;
     expect(
-      profileEditLabel.center.dy,
-      closeTo(profileEditChevron.center.dy - profileEditScale, 0.1),
+      profileLoginLabel.center.dy,
+      closeTo(profileLoginChevron.center.dy - profileLoginScale, 0.1),
     );
 
     await _goToRoute(tester, AppRoutes.favoriteStores);
@@ -256,6 +258,9 @@ void main() {
   ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+    // 계정 관리 opens for members; a guest's tap asks for login first
+    // (test/mypage_guest_login_test.dart).
+    await ApiClient.setSessionToken('member-session');
 
     for (final label in ['계정 관리', '공공데이터 출처 안내', '문의하기']) {
       await _goToRoute(tester, AppRoutes.mypage);
@@ -281,6 +286,8 @@ void main() {
   ) async {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
+    // 계정 관리 opens for members; a guest's tap asks for login first.
+    await ApiClient.setSessionToken('member-session');
 
     await _goToRoute(tester, AppRoutes.mypage);
     final account = find.text('계정 관리').last;
@@ -427,9 +434,8 @@ void main() {
     _setMobileViewport(tester);
     await _pumpApp(tester, const ProviderScope(child: HowmuchApp()));
 
-    await _goToRoute(tester, AppRoutes.mypage);
-    await tester.tap(find.text('프로필 수정'));
-    await tester.pumpAndSettle();
+    // MY shows a guest a login button where members find 프로필 수정.
+    await _goToRoute(tester, AppRoutes.profileEdit);
 
     expect(find.text('프로필 수정'), findsAtLeastNWidgets(1));
     expect(find.text('저장하기'), findsOneWidget);
@@ -566,6 +572,9 @@ void main() {
     await tester.enterText(fields.at(0), '가격 정보 확인 요청');
     await tester.enterText(fields.at(1), '표시된 가격이 현재 가격과 다른지 확인해주세요.');
     await tester.pump();
+    // Sending needs an account; a guest is asked to log in first
+    // (test/mypage_guest_login_test.dart).
+    await ApiClient.setSessionToken('member-session');
     await tester.tap(find.text('문의 보내기'));
     await tester.pumpAndSettle();
     expect(find.text('마이'), findsAtLeastNWidgets(1));

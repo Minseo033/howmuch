@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/startup_location.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/onboarding/presentation/state/onboarding_state.dart';
 import 'package:howmuch/features/onboarding/presentation/widgets/onboarding_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,23 +18,26 @@ class OnboardingNearbyScreen extends ConsumerWidget {
     return OnboardingPage(
       initialStep: initialStep,
       slides: _slides,
-      onComplete: () async {
-        ref.read(onboardingCompletedProvider.notifier).state = true;
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool('onboarding_completed', true);
-        if (!context.mounted) return;
-        context.go(AppRoutes.authTerms);
-      },
-      onSkipPressed: () async {
-        ref.read(onboardingCompletedProvider.notifier).state = true;
-        final preferences = await SharedPreferences.getInstance();
-        await preferences.setBool('onboarding_completed', true);
-        if (!context.mounted) return;
-        // Browsing without an account follows the login screen's guest path
-        // (permission setup, then home) instead of repeating '시작하기'.
-        context.go(AppRoutes.permissionSetup);
-      },
+      // Everyone starts as a guest: permission setup, then home. Features
+      // that need an account ask for login when they are used.
+      onComplete: () => _finish(context, ref, AppRoutes.permissionSetup),
+      onLoginPressed: () => _logIn(context, ref),
     );
+  }
+
+  /// Members log in on top of the slides. Leaving login comes back here;
+  /// logging in opens the address requested before, otherwise home.
+  Future<void> _logIn(BuildContext context, WidgetRef ref) async {
+    if (!await openLoginFlow(context) || !context.mounted) return;
+    await _finish(context, ref, ref.read(startupLocationProvider).take());
+  }
+
+  Future<void> _finish(BuildContext context, WidgetRef ref, String next) async {
+    ref.read(onboardingCompletedProvider.notifier).state = true;
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('onboarding_completed', true);
+    if (!context.mounted) return;
+    context.go(next);
   }
 }
 

@@ -31,13 +31,16 @@ class OnboardingPage extends StatefulWidget {
     required this.slides,
     required this.onComplete,
     this.initialStep = 0,
-    this.onSkipPressed,
+    this.onLoginPressed,
   });
 
   final List<OnboardingSlideData> slides;
   final int initialStep;
   final VoidCallback onComplete;
-  final VoidCallback? onSkipPressed;
+
+  /// Shown under the last slide's button for visitors who already have an
+  /// account.
+  final VoidCallback? onLoginPressed;
 
   static const blue = Color(0xFF2563EB);
   static const orange = Color(0xFFF97316);
@@ -164,7 +167,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 step: index,
                 totalSteps: widget.slides.length,
                 onNext: _goNext,
-                onSkip: widget.onSkipPressed,
+                onLogin: widget.onLoginPressed,
               );
             },
           ),
@@ -180,14 +183,14 @@ class _OnboardingSlideView extends StatelessWidget {
     required this.step,
     required this.totalSteps,
     required this.onNext,
-    this.onSkip,
+    this.onLogin,
   });
 
   final OnboardingSlideData slide;
   final int step;
   final int totalSteps;
   final VoidCallback onNext;
-  final VoidCallback? onSkip;
+  final VoidCallback? onLogin;
 
   @override
   Widget build(BuildContext context) {
@@ -248,13 +251,13 @@ class _OnboardingSlideView extends StatelessWidget {
                       onPressed: onNext,
                     ),
                   ),
-                  if (isLast && onSkip != null) ...[
+                  if (isLast && onLogin != null) ...[
                     const SizedBox(height: 4),
                     // A full-height touch target; the text was an 18px strip.
                     SizedBox(
                       height: 44,
                       child: TextButton(
-                        onPressed: onSkip,
+                        onPressed: onLogin,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.zero,
                           foregroundColor: OnboardingPage.muted,
@@ -266,7 +269,7 @@ class _OnboardingSlideView extends StatelessWidget {
                             height: 1.5,
                           ),
                         ),
-                        child: const Text('로그인 없이 둘러보기'),
+                        child: const Text('이미 계정이 있나요? 로그인'),
                       ),
                     ),
                   ] else ...[

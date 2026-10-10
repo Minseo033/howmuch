@@ -11,6 +11,7 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -196,10 +197,6 @@ class _PriceChangeReportScreenState
     final menu = _menuController.text.trim();
     final price = _priceController.text.trim();
     final description = _descController.text.trim();
-    if (!ApiClient.isAuthenticated) {
-      _showMessage('가격 변동 제보는 로그인 후 이용할 수 있어요.');
-      return;
-    }
     if (menu.isEmpty) {
       _showMessage('변경된 메뉴를 입력해주세요.');
       return;
@@ -236,6 +233,17 @@ class _PriceChangeReportScreenState
     if (!_isConfirmed) {
       _showMessage('메뉴판 가격을 직접 확인했다는 항목을 체크해주세요.');
       return;
+    }
+    // A guest is asked once the report is complete. The form and its photos
+    // stay beneath the login screens and are sent right after. Logged-in
+    // visitors go on without waiting, so a quick second tap finds the form
+    // submitting.
+    if (!ApiClient.isAuthenticated) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '로그인하면 작성한 제보가 바로 접수돼요.',
+      );
+      if (!loggedIn || !mounted) return;
     }
 
     setState(() => _isSubmitting = true);

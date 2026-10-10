@@ -6,6 +6,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
@@ -80,8 +82,26 @@ class _NotificationSettingsScreenState
     if (mounted) context.pop();
   }
 
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The settings follow the account and load by
+  /// themselves on every login state change; a load that failed while login
+  /// was still finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(notificationSettingsProvider).hasError) {
+      ref.read(notificationSettingsProvider.notifier).loadSettings();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // A login state change loads another account's settings (or none), so
+    // the next settings shown become the saved ones.
+    ref.listen(
+      notificationSettingsProvider.notifier,
+      (_, _) => _savedSettings = null,
+    );
     final settingsAsync = ref.watch(notificationSettingsProvider);
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
@@ -284,10 +304,10 @@ class _NotificationSettingsScreenState
                   ),
                 ),
                 error: (err, stack) {
-                  final unauthorized =
-                      err is NotificationSettingsApiException &&
-                      err.isUnauthorized;
-                  if (unauthorized) {
+                  // Only a guest can fix an error by logging in. A member
+                  // turned down (403) would come straight back from login,
+                  // so they get the retry below.
+                  if (!ApiClient.isAuthenticated) {
                     return Padding(
                       padding: EdgeInsets.only(
                         top: 48.877838134765625 + topOffset,
@@ -296,7 +316,7 @@ class _NotificationSettingsScreenState
                       child: LoginRequiredState(
                         description: '로그인한 뒤 알림 설정을 변경할 수 있어요.',
                         actionLabel: '로그인하기',
-                        onAction: () => context.go(AppRoutes.login),
+                        onAction: _logIn,
                       ),
                     );
                   }

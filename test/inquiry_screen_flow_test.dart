@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/mypage/presentation/screens/inquiry_screen.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -39,10 +40,7 @@ class _FlakyInquiryService extends InquiryService {
   ];
 }
 
-Future<void> _pumpInquiry(
-  WidgetTester tester,
-  InquiryService service,
-) async {
+Future<void> _pumpInquiry(WidgetTester tester, InquiryService service) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.resetPhysicalSize);
@@ -81,7 +79,12 @@ Future<void> _pumpInquiry(
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    // A member's inquiry; guests log in at send (mypage_guest_login_test).
+    await ApiClient.setSessionToken('member-session');
+  });
+  tearDown(() => ApiClient.setSessionToken(null));
 
   testWidgets('a retry after a timeout does not send a duplicate inquiry', (
     tester,
@@ -138,10 +141,7 @@ void main() {
     );
     await tester.tap(find.text('기타'));
     await tester.pumpAndSettle();
-    expect(
-      tester.getSemantics(find.text('기타')),
-      isSemantics(isSelected: true),
-    );
+    expect(tester.getSemantics(find.text('기타')), isSemantics(isSelected: true));
     expect(
       tester.getSemantics(find.text('매장 정보 오류')),
       isSemantics(isSelected: false),

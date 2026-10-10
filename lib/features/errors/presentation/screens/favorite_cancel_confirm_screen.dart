@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
-import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
 /// 주소로 바로 들어온 찜 해제 확인 화면입니다. 찜 목록에서는 목록이 보이도록
 /// [FavoriteCancelConfirmDialog]를 대화상자로 띄웁니다.
@@ -70,16 +70,29 @@ class _FavoriteCancelConfirmDialogState
 
   Future<void> _remove() async {
     if (_busy || !_hasStore) return;
+    // Logged-in visitors go on without waiting, so a quick second tap finds
+    // the dialog busy.
     if (!ApiClient.isAuthenticated) {
-      final shouldLogin = await showLoginRequiredDialog(
+      final loggedIn = await requireLogin(
         context,
-        message: '찜 기능은 로그인 후 이용할 수 있어요.',
+        message: '로그인하면 이 매장의 찜을 바로 해제해요.',
       );
-      if (shouldLogin && mounted) context.push(AppRoutes.login);
-      return;
+      if (!loggedIn || !mounted) return;
     }
     setState(() => _busy = true);
     try {
+      // Right after a login the account's favorites are not loaded yet. Read
+      // them first, like the store screen's heart: removing from a list that
+      // was never loaded would set the favorites count to 0.
+      if (!ref.read(favoriteStoresProvider).hasValue) {
+        await ref
+            .read(favoriteStoresProvider.notifier)
+            .loadFavorites(force: true);
+        if (!mounted) return;
+        if (!ref.read(favoriteStoresProvider).hasValue) {
+          throw StateError('favorites not loaded');
+        }
+      }
       await ref
           .read(favoriteStoresProvider.notifier)
           .removeFavorite(widget.storeId);
@@ -95,6 +108,10 @@ class _FavoriteCancelConfirmDialogState
 
   @override
   Widget build(BuildContext context) {
+    // Keeps the favorites list alive while the dialog is open. Opened from
+    // its address nothing else watches it, and an unwatched list would be
+    // dropped between loading it and removing the store.
+    ref.watch(favoriteStoresProvider);
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: Padding(

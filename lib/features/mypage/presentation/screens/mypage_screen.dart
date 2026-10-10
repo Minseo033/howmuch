@@ -9,6 +9,7 @@ import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
@@ -62,6 +63,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   String? _reportsSessionToken;
   bool _reportsLoadFailed = false;
 
+  static const _reportsLoginMessage = '로그인하면 보낸 제보의 처리 상태를 볼 수 있어요.';
+  static const _notificationSettingsLoginMessage = '로그인하면 받을 알림을 고를 수 있어요.';
+  static const _accountLoginMessage = '로그인하면 계정 정보를 관리할 수 있어요.';
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +76,15 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadProfileSummary();
     });
+    // Kakao can answer after the visitor already closed login, so the
+    // account can change while MY is showing. Load for it then; coming back
+    // from a screen on top reloads through didPopNext instead.
+    ref.listenManual(
+      authStateProvider.select((auth) => (auth.isLoggedIn, auth.sessionToken)),
+      (_, _) {
+        if (_route?.isCurrent ?? true) _refreshSummary();
+      },
+    );
   }
 
   @override
@@ -111,6 +125,14 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   void _refreshSummary() {
     if (!mounted) return;
     _loadProfileSummary();
+  }
+
+  /// Opens a screen with the account's own records. A guest is asked to log
+  /// in first and then lands on the screen they chose. Coming back from login
+  /// reloads this page through [didPopNext].
+  Future<void> _openMemberScreen(String location, String loginMessage) async {
+    if (!await requireLogin(context, message: loginMessage)) return;
+    if (mounted) context.push(location);
   }
 
   void _handleRouterChange() {
@@ -359,7 +381,17 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                           right: 0,
                           top: 0,
                           height: 50.96590805053711 + topOffset,
-                          child: _Header(topOffset: topOffset),
+                          child: _Header(
+                            topOffset: topOffset,
+                            onNotifications: () => _openMemberScreen(
+                              AppRoutes.notifications,
+                              '로그인하면 제보 처리, 문의 답변, 가격 변동 알림을 볼 수 있어요.',
+                            ),
+                            onAccount: () => _openMemberScreen(
+                              AppRoutes.accountManagement,
+                              _accountLoginMessage,
+                            ),
+                          ),
                         ),
                         Positioned(
                           left: 20,
@@ -369,7 +401,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                           child: _ProfileCard(
                             profile: profile,
                             email: displayEmail,
+                            isGuest: !auth.isLoggedIn,
                             onEdit: () => context.push(AppRoutes.profileEdit),
+                            onLogin: () => openLoginFlow(context),
                             isLoadingMetrics:
                                 auth.isLoggedIn &&
                                 (!_hasLoadedSummary ||
@@ -392,8 +426,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                     label: '내 제보',
                                     icon: Icons.description_outlined,
                                     color: MypageScreen.orange,
-                                    onTap: () =>
-                                        context.push(AppRoutes.myReportsV2),
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.myReportsV2,
+                                      _reportsLoginMessage,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -402,8 +438,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                     label: '찜한 매장',
                                     icon: Icons.favorite_border_rounded,
                                     color: MypageScreen.orange,
-                                    onTap: () =>
-                                        context.push(AppRoutes.favoriteStores),
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.favoriteStores,
+                                      '로그인하면 찜한 매장을 모아 볼 수 있어요.',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -412,8 +450,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                     label: '내 리뷰',
                                     icon: Icons.rate_review_outlined,
                                     color: MypageScreen.blue,
-                                    onTap: () =>
-                                        context.push(AppRoutes.myReviews),
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.myReviews,
+                                      '로그인하면 내가 쓴 리뷰를 모아 볼 수 있어요.',
+                                    ),
                                   ),
                                 ),
                               ],
@@ -435,8 +475,10 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                     label: '방문 기록',
                                     icon: Icons.location_on_outlined,
                                     color: MypageScreen.green,
-                                    onTap: () =>
-                                        context.push(AppRoutes.visitHistory),
+                                    onTap: () => _openMemberScreen(
+                                      AppRoutes.visitHistory,
+                                      '로그인하면 방문 인증한 매장과 아낀 금액을 볼 수 있어요.',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -456,8 +498,9 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                                     label: '알림 설정',
                                     icon: Icons.notifications_none_rounded,
                                     color: MypageScreen.blue,
-                                    onTap: () => context.push(
+                                    onTap: () => _openMemberScreen(
                                       AppRoutes.notificationSettings,
+                                      _notificationSettingsLoginMessage,
                                     ),
                                   ),
                                 ),
@@ -476,11 +519,15 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                       ),
                       child: _ReportStatusCard(
                         reports: reports,
+                        isGuest: !auth.isLoggedIn,
                         isLoading:
                             auth.isLoggedIn &&
                             _reportsSessionToken != ApiClient.sessionToken,
                         loadFailed: _reportsLoadFailed,
-                        onViewAll: () => context.push(AppRoutes.myReportsV2),
+                        onViewAll: () => _openMemberScreen(
+                          AppRoutes.myReportsV2,
+                          _reportsLoginMessage,
+                        ),
                         onReportTap: (report) => context.push(
                           '${AppRoutes.reportDetailV2}?id=${report.id}',
                           extra: report,
@@ -494,10 +541,14 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                     child: SizedBox(
                       height: settingsCardHeight,
                       child: _SettingsCard(
-                        onNotificationTap: () =>
-                            context.push(AppRoutes.notificationSettings),
-                        onAccountTap: () =>
-                            context.push(AppRoutes.accountManagement),
+                        onNotificationTap: () => _openMemberScreen(
+                          AppRoutes.notificationSettings,
+                          _notificationSettingsLoginMessage,
+                        ),
+                        onAccountTap: () => _openMemberScreen(
+                          AppRoutes.accountManagement,
+                          _accountLoginMessage,
+                        ),
                         onPublicDataTap: () =>
                             context.push(AppRoutes.publicDataSource),
                         onInquiryTap: () => context.push(AppRoutes.inquiry),
@@ -526,9 +577,15 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.topOffset});
+  const _Header({
+    required this.topOffset,
+    required this.onNotifications,
+    required this.onAccount,
+  });
 
   final double topOffset;
+  final VoidCallback onNotifications;
+  final VoidCallback onAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -561,7 +618,7 @@ class _Header extends StatelessWidget {
                   button: true,
                   label: '알림',
                   child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.notifications),
+                    onTap: onNotifications,
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox(
                       width: 32,
@@ -580,7 +637,7 @@ class _Header extends StatelessWidget {
                   button: true,
                   label: '계정 설정',
                   child: GestureDetector(
-                    onTap: () => context.push(AppRoutes.accountManagement),
+                    onTap: onAccount,
                     behavior: HitTestBehavior.opaque,
                     child: const SizedBox(
                       width: 32,
@@ -608,17 +665,23 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.profile,
     required this.email,
+    required this.isGuest,
     required this.onEdit,
+    required this.onLogin,
     this.isLoadingMetrics = false,
   });
 
   final UserProfile profile;
   final String email;
+  final bool isGuest;
   final VoidCallback onEdit;
+  final VoidCallback onLogin;
   final bool isLoadingMetrics;
 
   @override
   Widget build(BuildContext context) {
+    // A guest gets a login button where a member edits the profile.
+    final action = isGuest ? 'mypage-profile-login' : 'mypage-profile-edit';
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: DecoratedBox(
@@ -664,7 +727,8 @@ class _ProfileCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          email,
+                          // A guest has no email to show; say what login adds.
+                          isGuest ? '로그인하면 기록이 남아요' : email,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: _white11.copyWith(
@@ -676,42 +740,38 @@ class _ProfileCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Material(
-                    key: const ValueKey('mypage-profile-edit-button'),
+                    key: ValueKey('$action-button'),
                     color: AppColors.white.withValues(alpha: .22),
                     borderRadius: BorderRadius.circular(999),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(999),
-                      onTap: onEdit,
+                      onTap: isGuest ? onLogin : onEdit,
                       child: SizedBox(
                         height: 30,
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Center(
                             child: Row(
-                              key: const ValueKey(
-                                'mypage-profile-edit-content',
-                              ),
+                              key: ValueKey('$action-content'),
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Transform.translate(
                                   offset: const Offset(0, -1),
-                                  child: const Text(
-                                    '프로필 수정',
-                                    key: ValueKey('mypage-profile-edit-label'),
+                                  child: Text(
+                                    isGuest ? '로그인' : '프로필 수정',
+                                    key: ValueKey('$action-label'),
                                     style: _profileEditText,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const SizedBox(
+                                SizedBox(
                                   width: 16,
                                   height: 16,
                                   child: Center(
                                     child: Icon(
                                       Icons.chevron_right_rounded,
-                                      key: ValueKey(
-                                        'mypage-profile-edit-chevron',
-                                      ),
+                                      key: ValueKey('$action-chevron'),
                                       color: AppColors.white,
                                       size: 14,
                                     ),
@@ -927,6 +987,7 @@ class _QuickMenu extends StatelessWidget {
 class _ReportStatusCard extends StatelessWidget {
   const _ReportStatusCard({
     required this.reports,
+    required this.isGuest,
     required this.isLoading,
     required this.loadFailed,
     required this.onViewAll,
@@ -934,6 +995,7 @@ class _ReportStatusCard extends StatelessWidget {
   });
 
   final List<UserReportStatus> reports;
+  final bool isGuest;
   final bool isLoading;
   final bool loadFailed;
   final VoidCallback onViewAll;
@@ -983,7 +1045,10 @@ class _ReportStatusCard extends StatelessWidget {
             // 목록을 받기 전에는 빈 상태로 단정하지 않습니다.
             _EmptyReportItem(
               loading: isLoading,
-              message: isLoading
+              // 게스트에게 '제보한 내역이 없다'고 하면 계정의 제보까지 없는 것처럼 보입니다.
+              message: isGuest
+                  ? '로그인하면 보낸 제보의 처리 상태를 볼 수 있어요'
+                  : isLoading
                   ? '내 제보를 불러오는 중이에요'
                   : loadFailed
                   ? '내 제보를 불러오지 못했어요'
@@ -1200,12 +1265,31 @@ class _SettingsCardState extends ConsumerState<_SettingsCard> {
       return;
     }
     final pushService = ref.read(pushNotificationServiceProvider);
+    // Pushes are sent to an account, so a guest logs in first and then goes
+    // on like a member's tap. Logging in registers this device by itself
+    // (HowmuchApp), but only when the phone allows notifications: a blocked
+    // permission still opens the settings, and a failed registration still
+    // says so.
+    if (!ApiClient.isAuthenticated) {
+      final loggedIn = await requireLogin(
+        context,
+        message: '로그인하면 이 기기로 푸시 알림을 받을 수 있어요.',
+      );
+      if (!loggedIn || !mounted) return;
+      access = await service.push();
+      if (!mounted) return;
+      if (access == DeviceAccess.allowed && pushService.isRegistered) {
+        ref.invalidate(pushAccessProvider);
+        return;
+      }
+    }
     if (access == DeviceAccess.blocked ||
         (access == DeviceAccess.allowed && pushService.isRegistered)) {
       await service.openSettings();
     } else {
       // OS permission alone does not deliver pushes; the server must also
       // hold this device's token, so retry registration and report failure.
+      // Right after a login this joins the registration logging in started.
       _busy = true;
       final registered = await pushService.registerForCurrentSession();
       _busy = false;

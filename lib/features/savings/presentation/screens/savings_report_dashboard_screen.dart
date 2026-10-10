@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/login_required_state.dart';
@@ -52,10 +53,13 @@ class _SavingsReportDashboardScreenState
     extends State<SavingsReportDashboardScreen> {
   String _selectedTab = '이번 달';
   bool _isLoading = false;
-  bool _isRefreshing = false;
   bool _loadFailed = false;
   bool _requiresLogin = false;
   Map<String, dynamic>? _statsData;
+
+  /// The load that is running, if any. Calls made meanwhile share it, and a
+  /// goal saved meanwhile waits for it (see [_openGoalSetting]).
+  Future<void>? _currentLoad;
 
   /// 탭 라벨 → 백엔드 period 파라미터 매핑
   static const Map<String, String> _tabToPeriod = {
@@ -72,8 +76,13 @@ class _SavingsReportDashboardScreenState
 
   /// 모든 탭 + 목표 + 찜/제보 개수를 병렬로 조회해 캐시에 담습니다.
   /// [keepContent]면 이미 보이는 리포트를 유지한 채 조용히 다시 조회합니다.
-  Future<void> _fetchAll({bool keepContent = false}) async {
-    if (_isLoading || _isRefreshing) return;
+  Future<void> _fetchAll({bool keepContent = false}) {
+    return _currentLoad ??= _load(
+      keepContent: keepContent,
+    ).whenComplete(() => _currentLoad = null);
+  }
+
+  Future<void> _load({required bool keepContent}) async {
     if (!ApiClient.isAuthenticated) {
       setState(() {
         _requiresLogin = true;
@@ -83,15 +92,13 @@ class _SavingsReportDashboardScreenState
       return;
     }
     final silent = keepContent && _statsData != null;
-    setState(() {
-      if (silent) {
-        _isRefreshing = true;
-      } else {
+    if (!silent) {
+      setState(() {
         _isLoading = true;
         _loadFailed = false;
         _requiresLogin = false;
-      }
-    });
+      });
+    }
 
     try {
       final now = DateTime.now();
@@ -133,7 +140,6 @@ class _SavingsReportDashboardScreenState
           _loadFailed = true;
         }
         _isLoading = false;
-        _isRefreshing = false;
       });
     } catch (e) {
       debugPrint('절약 대시보드 통계 조회 오류: $e');
@@ -144,7 +150,6 @@ class _SavingsReportDashboardScreenState
           _loadFailed = true;
         }
         _isLoading = false;
-        _isRefreshing = false;
       });
     }
   }
@@ -152,8 +157,23 @@ class _SavingsReportDashboardScreenState
   /// 목표 화면은 저장에 성공하면 새 목표 금액을 돌려줍니다. 달성률을 바로
   /// 반영하고, 서버 기준 값으로 다시 조회합니다.
   Future<void> _openGoalSetting() async {
+    if (_requiresLogin) {
+      // A goal belongs to an account: a guest logs in first, and the report
+      // underneath loads the account's data while the goal screen opens.
+      final loggedIn = await requireLogin(
+        context,
+        message: '절약 목표는 로그인하면 설정할 수 있어요.',
+      );
+      if (!loggedIn || !mounted) return;
+      unawaited(_fetchAll());
+    }
     final savedGoal = await context.push<int>(AppRoutes.savingsGoalSetting);
     if (!mounted || savedGoal == null) return;
+    // A load that started before the save (the one after login, or any
+    // other) still carries the old goal. Let it finish first so it cannot
+    // replace the new goal, then show the new goal and load again.
+    await _currentLoad;
+    if (!mounted) return;
     final current = _statsData;
     if (current != null) {
       setState(() {
@@ -167,6 +187,22 @@ class _SavingsReportDashboardScreenState
       });
     }
     await _fetchAll(keepContent: true);
+  }
+
+  /// Login opens on top of the report and comes back here. Load for whoever
+  /// came back: the account's report, or the login prompt again for a
+  /// visitor who is still a guest.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (mounted) await _fetchAll();
+  }
+
+  /// A guest can log in from the inbox, so the report reloads on return.
+  Future<void> _openNotifications() async {
+    await context.push<void>(AppRoutes.notifications);
+    if (mounted && _requiresLogin && ApiClient.isAuthenticated) {
+      await _fetchAll();
+    }
   }
 
   /// GET /api/savings/stats?period=... → SavingsStatsResponse
@@ -403,7 +439,7 @@ class _SavingsReportDashboardScreenState
     return LoginRequiredState(
       description: '절약 리포트를 보려면 로그인해주세요',
       actionLabel: '로그인하기',
-      onAction: () => context.go(AppRoutes.login),
+      onAction: _logIn,
     );
   }
 
@@ -483,7 +519,7 @@ class _SavingsReportDashboardScreenState
                           ),
                           const SizedBox(width: AppSizes.itemSpacing),
                           GestureDetector(
-                            onTap: () => context.push(AppRoutes.notifications),
+                            onTap: _openNotifications,
                             child: const Icon(
                               Icons.notifications_none_rounded,
                               color: Color(0xFF0F172A),

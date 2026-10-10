@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
@@ -47,8 +47,27 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
     }
   }
 
+  /// Login opens on top of this screen and comes back here, as a member or
+  /// still as a guest. The list follows the login state (see [build]); a load
+  /// that failed while login was still finishing is asked for again.
+  Future<void> _logIn() async {
+    await openLoginFlow(context);
+    if (!mounted || !ApiClient.isAuthenticated) return;
+    if (ref.read(myReviewsProvider).hasError) {
+      await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Every login state change replaces the list with one that nothing loads:
+    // the ones while login is open on top of this screen (a new account that
+    // leaves profile setup is a guest again) and a login that finishes after
+    // the visitor left it. Load it for whoever is here: the account's
+    // reviews, or the login prompt for a guest.
+    ref.listen(myReviewsProvider.notifier, (_, notifier) {
+      notifier.loadReviews(force: true);
+    });
     final reviewsState = ref.watch(myReviewsProvider);
     final reviewCount = reviewsState.valueOrNull?.length ?? 0;
 
@@ -253,10 +272,7 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   const SizedBox(height: 16),
                   if (authRequired)
                     // A login-required state needs a way to log in.
-                    FilledButton(
-                      onPressed: () => context.go(AppRoutes.login),
-                      child: const Text('로그인하기'),
-                    )
+                    FilledButton(onPressed: _logIn, child: const Text('로그인하기'))
                   else
                     OutlinedButton(
                       onPressed: () {

@@ -8,7 +8,6 @@ import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
-import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -128,24 +127,32 @@ void main() {
     });
   }
 
-  testWidgets('로그인이 필요하면 요청한 주소를 로그인 뒤로 미룬다', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'onboarding_completed': true,
-      authTermsAcceptedPreferenceKey: true,
+  // Guests use the app without logging in. An address that only makes sense
+  // with an account opens MY, which offers login.
+  for (final (requested, screen) in [
+    (AppRoutes.mypage, '마이 화면'),
+    (AppRoutes.accountManagement, '마이 화면'),
+    (null, '홈 화면'),
+  ]) {
+    testWidgets('로그인하지 않은 방문자는 주소($requested)를 게스트로 연다', (tester) async {
+      await ApiClient.setSessionToken(null);
+      final router = _startupRouter();
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            startupLocationProvider.overrideWithValue(
+              StartupLocation(requested),
+            ),
+          ],
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle(const Duration(milliseconds: 100));
+
+      expect(find.text(screen), findsOneWidget);
+      expect(find.text('로그인 화면'), findsNothing);
     });
-    final startup = StartupLocation(AppRoutes.mypage);
-    final router = _startupRouter();
-    addTearDown(router.dispose);
-
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [startupLocationProvider.overrideWithValue(startup)],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pumpAndSettle(const Duration(milliseconds: 100));
-
-    expect(find.text('로그인 화면'), findsOneWidget);
-    expect(startup.pending, AppRoutes.mypage);
-  });
+  }
 }

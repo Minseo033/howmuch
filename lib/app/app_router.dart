@@ -7,6 +7,7 @@ import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/app/startup_location.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
+import 'package:howmuch/features/auth/presentation/screens/login_flow_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/permission_setup_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/splash_screen.dart';
 import 'package:howmuch/features/community/presentation/screens/community_feed_screen.dart';
@@ -249,7 +250,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       _route(AppRoutes.authTerms, const AuthTermsScreen()),
       _route(AppRoutes.login, const LoginScreen()),
-      _route(AppRoutes.permissionSetup, const PermissionSetupScreen()),
+      // Terms, login and profile setup in one screen, opened on top of a
+      // screen that needs an account.
+      _route(AppRoutes.loginFlow, const LoginFlowScreen()),
+      GoRoute(
+        path: AppRoutes.permissionSetup,
+        pageBuilder: (_, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: PermissionSetupScreen(
+            backTo: state.extra is String
+                ? state.extra as String
+                : AppRoutes.onboardingStoreReport,
+          ),
+        ),
+      ),
       _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
       GoRoute(
         path: AppRoutes.home,

@@ -71,7 +71,7 @@ void main() {
           builder: (_, _) => const MyInquiriesScreen(),
         ),
         GoRoute(
-          path: AppRoutes.login,
+          path: AppRoutes.loginFlow,
           builder: (_, _) => const Scaffold(body: Text('로그인 화면')),
         ),
       ],

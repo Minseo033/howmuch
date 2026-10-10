@@ -19,12 +19,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/community/presentation/state/user_report_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
-import 'package:howmuch/shared/widgets/login_required_dialog.dart';
 
 class ReportPlaceSuggestion {
   const ReportPlaceSuggestion({
@@ -134,6 +134,9 @@ typedef PlaceSearch =
 typedef LocationLookup =
     Future<({double latitude, double longitude})?> Function();
 
+/// Picks one photo from the gallery, or null when the visitor picks none.
+typedef PhotoPicker = Future<XFile?> Function();
+
 /// Why the store search cannot use the current position at all.
 enum ReportLocationIssue { permissionDenied, serviceDisabled }
 
@@ -206,63 +209,19 @@ String? validateReportMenuCount(int count) => count < 1
     ? '메뉴는 최대 4개까지 저장할 수 있어요. 초과 메뉴를 제거해주세요.'
     : null;
 
-/// 게스트가 제출하려다 로그인하러 갈 때 작성 중이던 새 제보를 잠시 보관합니다.
-/// 로그인 뒤 홈으로 이동해도 제보 화면을 다시 열면 이어서 쓸 수 있습니다.
-/// 앱이 실행 중인 동안에만 유지합니다.
-class ReportDraftStash {
-  ReportDraftStash._();
-
-  static ReportDraft? _pending;
-
-  static void save(ReportDraft draft) => _pending = draft;
-
-  static ReportDraft? take() {
-    final draft = _pending;
-    _pending = null;
-    return draft;
-  }
-
-  static void discard() => _pending = null;
-}
-
-class ReportDraft {
-  const ReportDraft({
-    required this.store,
-    required this.category,
-    required this.address,
-    required this.menus,
-    required this.photos,
-    required this.visitedRecently,
-    required this.checkedMenuPrice,
-  });
-
-  final String store;
-  final String category;
-  final String address;
-  final List<({String menu, String price, bool free})> menus;
-  final List<XFile> photos;
-  final bool visitedRecently;
-  final bool checkedMenuPrice;
-
-  bool get isEmpty =>
-      store.isEmpty &&
-      category.isEmpty &&
-      address.isEmpty &&
-      photos.isEmpty &&
-      menus.every((item) => item.menu.isEmpty && item.price.isEmpty);
-}
-
 class ReportCreateScreen extends ConsumerStatefulWidget {
   const ReportCreateScreen({
     super.key,
     this.initialReport,
     this.placeSearch,
     this.locationLookup,
+    this.photoPicker,
   });
 
   final UserReportStatus? initialReport;
   final PlaceSearch? placeSearch;
   final LocationLookup? locationLookup;
+  final PhotoPicker? photoPicker;
 
   @override
   ConsumerState<ReportCreateScreen> createState() => _ReportCreateScreenState();
@@ -317,7 +276,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   void initState() {
     super.initState();
     final initialReport = widget.initialReport;
-    final draft = initialReport == null ? ReportDraftStash.take() : null;
     _storeController = TextEditingController(text: initialReport?.store ?? '');
     _categoryController = TextEditingController(
       text: initialReport?.category ?? '',
@@ -348,55 +306,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     }
     _scrollController.addListener(_syncStepWithScroll);
     _initialSnapshot = _formSnapshot();
-    if (draft != null && !draft.isEmpty) {
-      _restoreDraft(draft);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _showSnack('로그인 전에 작성하던 제보를 불러왔어요.');
-      });
-    }
-  }
-
-  void _restoreDraft(ReportDraft draft) {
-    _storeController.text = draft.store;
-    _categoryController.text = draft.category;
-    _addressController.text = draft.address;
-    for (final menuPrice in _menuPrices) {
-      menuPrice.dispose();
-    }
-    _menuPrices.clear();
-    for (final item in draft.menus.take(maxReportMenuCount)) {
-      _addInitialMenuPrice(menu: item.menu, price: item.price, free: item.free);
-    }
-    if (_menuPrices.isEmpty) _addInitialMenuPrice(menu: '', price: '');
-    _photos.addAll(draft.photos.take(ReportService.maxImageCount));
-    _visitedRecently = draft.visitedRecently;
-    _checkedMenuPrice = draft.checkedMenuPrice;
-  }
-
-  void _stashDraftForLogin() {
-    if (widget.initialReport != null) return;
-    final draft = ReportDraft(
-      store: _storeController.text.trim(),
-      category: _categoryController.text.trim(),
-      address: _addressController.text.trim(),
-      menus: [
-        for (final menuPrice in _menuPrices)
-          (
-            menu: menuPrice.menu.text.trim(),
-            price: menuPrice.price.text.trim(),
-            free: menuPrice.free,
-          ),
-      ],
-      photos: List.of(_photos),
-      visitedRecently: _visitedRecently,
-      checkedMenuPrice: _checkedMenuPrice,
-    );
-    if (!draft.isEmpty) ReportDraftStash.save(draft);
-  }
-
-  Future<void> _openLoginKeepingDraft() async {
-    _stashDraftForLogin();
-    await context.push(AppRoutes.login);
   }
 
   /// 작성 중 이탈 여부를 판단하기 위한 입력값 요약입니다.
@@ -445,7 +354,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       ),
     );
     if (leave != true || !mounted) return;
-    if (widget.initialReport == null) ReportDraftStash.discard();
     setState(() => _leaving = true);
     await WidgetsBinding.instance.endOfFrame;
     if (mounted) _closeForm();
@@ -587,23 +495,19 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
 
-    final auth = ref.read(authStateProvider);
-    if (!auth.isLoggedIn) {
-      final shouldLogin = await showLoginRequiredDialog(
-        context,
-        message:
-            '제보하려면 카카오 로그인이 필요해요. 로그인한 뒤 제보 화면을 다시 열면 작성한 내용을 이어서 쓸 수 있어요.',
-      );
-      if (shouldLogin && mounted) {
-        await _openLoginKeepingDraft();
-      }
-      return;
-    }
-
     if (!_basicInfoComplete || !_priceInfoComplete) {
       _showSnack('필수 정보를 모두 입력해주세요.');
       return;
     }
+
+    // 게스트에게는 보낼 수 있는 제보가 됐을 때 로그인을 묻습니다. 로그인 화면은
+    // 이 화면 위에 열렸다 닫히므로 입력과 사진이 그대로 남고, 로그인하면 이어서
+    // 같은 제보를 보냅니다.
+    final loggedIn = await requireLogin(
+      context,
+      message: '로그인하면 작성한 제보가 바로 접수돼요.',
+    );
+    if (!loggedIn || !mounted) return;
 
     setState(() => _isSubmitting = true);
     final reportService = ref.read(reportServiceProvider);
@@ -710,7 +614,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     String reportId,
   ) async {
     _uploads.markSaved();
-    if (widget.initialReport == null) ReportDraftStash.discard();
     // 저장된 뒤에는 같은 폼으로 다시 제출할 수 없게 잠급니다.
     _saved = true;
     // Never show an optimistic draft as if the server saved every field.
@@ -965,10 +868,13 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       return;
     }
     try {
-      final pickedImage = await _imagePicker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-      );
+      final pickPhoto = widget.photoPicker;
+      final pickedImage = pickPhoto != null
+          ? await pickPhoto()
+          : await _imagePicker.pickImage(
+              source: ImageSource.gallery,
+              imageQuality: 85,
+            );
       if (!mounted || pickedImage == null) {
         return;
       }
@@ -1071,9 +977,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
                   ),
                   children: [
                     _TipBox(
-                      onLoginTap: isGuest && widget.initialReport == null
-                          ? _openLoginKeepingDraft
-                          : null,
+                      onLoginTap: isGuest ? () => openLoginFlow(context) : null,
                     ),
                     const SizedBox(height: 11.989),
                     const _SectionLabel(title: '기본 정보', required: true),
@@ -1366,7 +1270,7 @@ class _StepLine extends StatelessWidget {
 class _TipBox extends StatelessWidget {
   const _TipBox({this.onLoginTap});
 
-  /// 게스트일 때만 전달합니다. 작성 전에 로그인하도록 안내해 입력이 사라지지 않게 합니다.
+  /// 게스트일 때만 전달합니다. 보낼 때 로그인해도 되지만 미리 로그인할 수 있게 합니다.
   final VoidCallback? onLoginTap;
 
   @override
@@ -1382,7 +1286,7 @@ class _TipBox extends StatelessWidget {
         child: Text(
           loginTap == null
               ? '동네의 좋은 가격 정보를 함께 나눠주세요.\n검토 후 지도에 표시됩니다.'
-              : '제보는 로그인 후 제출할 수 있어요.\n여기를 눌러 먼저 카카오 로그인해주세요.',
+              : '보낼 때 로그인하면 제보가 바로 접수돼요.\n여기를 눌러 미리 로그인할 수도 있어요.',
           textAlign: TextAlign.center,
           style: TextStyle(
             color: const Color(0xFF92400E),

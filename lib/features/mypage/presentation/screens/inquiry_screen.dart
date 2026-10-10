@@ -6,6 +6,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
+import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/inquiry_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
@@ -167,6 +169,9 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
   @override
   Widget build(BuildContext context) {
     final email = ref.watch(userProfileProvider).email;
+    final isGuest = !ref.watch(
+      authStateProvider.select((auth) => auth.isLoggedIn),
+    );
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -292,7 +297,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                             top: 552.4287109375 + topOffset,
                             right: 20,
                             height: 40.46875,
-                            child: _EmailBox(email: email),
+                            child: _EmailBox(email: email, isGuest: isGuest),
                           ),
                         ],
                       ),
@@ -303,7 +308,7 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
                   topOffset: topOffset,
                   title: '문의하기',
                   onBack: _leave,
-                  onHistory: () => context.push(AppRoutes.inquiryHistory),
+                  onHistory: _openHistory,
                 ),
                 Positioned(
                   left: 0,
@@ -325,6 +330,15 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
     );
   }
 
+  /// Past inquiries belong to an account, so a guest logs in before the list
+  /// opens. The draft on this screen stays as it is.
+  Future<void> _openHistory() async {
+    if (!await requireLogin(context, message: '로그인하면 보낸 문의와 답변을 볼 수 있어요.')) {
+      return;
+    }
+    if (mounted) context.push(AppRoutes.inquiryHistory);
+  }
+
   Future<void> _submitInquiry() async {
     final messenger = ScaffoldMessenger.of(context);
     final title = _titleController.text.trim();
@@ -339,6 +353,12 @@ class _InquiryScreenState extends ConsumerState<InquiryScreen> {
       _showFormNotice(messenger, '내용을 입력해주세요.');
       return;
     }
+    // Answers go to an account, so a guest logs in here. Login opens on top
+    // of this form, which is then sent as written, photos included.
+    if (!await requireLogin(context, message: '로그인하면 작성한 문의가 바로 접수돼요.')) {
+      return;
+    }
+    if (!mounted) return;
 
     setState(() => _isSubmitting = true);
     final reportService = _reportService;
@@ -928,9 +948,13 @@ class _PhotoThumbnail extends StatelessWidget {
 }
 
 class _EmailBox extends StatelessWidget {
-  const _EmailBox({required this.email});
+  const _EmailBox({required this.email, required this.isGuest});
 
   final String email;
+
+  /// A guest has no account email yet, so the box says where answers go
+  /// once they log in.
+  final bool isGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -957,19 +981,24 @@ class _EmailBox extends StatelessWidget {
               child: RichText(
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
-                text: TextSpan(
-                  style: _emailText,
-                  children: [
-                    const TextSpan(text: '답변 받을 이메일 · '),
-                    TextSpan(
-                      text: displayEmail,
-                      style: const TextStyle(
-                        color: InquiryScreen.blue,
-                        fontWeight: FontWeight.w700,
+                text: isGuest
+                    ? const TextSpan(
+                        text: '로그인하면 계정 이메일로 답변을 받아요',
+                        style: _emailText,
+                      )
+                    : TextSpan(
+                        style: _emailText,
+                        children: [
+                          const TextSpan(text: '답변 받을 이메일 · '),
+                          TextSpan(
+                            text: displayEmail,
+                            style: const TextStyle(
+                              color: InquiryScreen.blue,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],

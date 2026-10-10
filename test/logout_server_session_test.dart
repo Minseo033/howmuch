@@ -15,7 +15,7 @@ class _RecordingPush extends PushNotificationService {
   final List<String> calls;
 
   @override
-  Future<void> unregisterCurrentDevice() async {
+  Future<void> unregisterCurrentDevice({String? sessionToken}) async {
     calls.add('unregister with ${ApiClient.sessionToken ?? 'no token'}');
   }
 }

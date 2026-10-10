@@ -13,6 +13,7 @@ const Map<String, String> _screenTitles = {
   AppRoutes.onboardingStoreReport: '시작하기',
   AppRoutes.authTerms: '약관 동의',
   AppRoutes.login: '로그인',
+  AppRoutes.loginFlow: '로그인',
   '/oauth_loading': '로그인',
   AppRoutes.permissionSetup: '권한 설정',
   AppRoutes.profileSetup: '프로필 설정',

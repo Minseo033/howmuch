@@ -158,7 +158,8 @@ class _AccountManagementScreenState
                     onLogout: () async {
                       await ref.read(kakaoLoginServiceProvider).logout();
                       if (!context.mounted) return;
-                      context.go(AppRoutes.login);
+                      // Logged out visitors keep browsing as guests.
+                      context.go(AppRoutes.home);
                     },
                     onWithdrawal: () => context.push(AppRoutes.withdrawal),
                   ),

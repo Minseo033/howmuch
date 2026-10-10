@@ -24,9 +24,18 @@ final kakaoLoginServiceProvider = Provider((ref) => KakaoLoginService(ref));
 enum KakaoLoginStatus { success, cancelled, failed }
 
 class KakaoLoginResult {
-  const KakaoLoginResult(this.status, [this.errorMessage]);
+  const KakaoLoginResult(this.status, [this.errorMessage]) : isNewUser = false;
+
+  /// Kakao login worked but this account has no profile here yet, so sign-up
+  /// continues with profile setup.
+  const KakaoLoginResult.newUser()
+    : status = KakaoLoginStatus.success,
+      errorMessage = null,
+      isNewUser = true;
+
   final KakaoLoginStatus status;
   final String? errorMessage;
+  final bool isNewUser;
 }
 
 /// Outcome of the explicit "카카오 계정 정보 불러오기" consent request.
@@ -101,7 +110,15 @@ class KakaoLoginService {
 
   /// Repeated taps (login screen, session-expired screen) share one attempt so
   /// a second Kakao window or backend session never starts concurrently.
-  Future<KakaoLoginResult> login() {
+  ///
+  /// With [navigate] the service also moves on afterwards: to the address
+  /// requested before login (otherwise home) for a member, to profile setup
+  /// for a new account, and back to the login screen after a failure. A login
+  /// opened on top of another screen passes false and returns to that screen
+  /// itself. When two screens share an attempt, the one that asked last
+  /// decides.
+  Future<KakaoLoginResult> login({bool navigate = true}) {
+    _navigateAfterLogin = navigate;
     final inFlight = _loginInFlight;
     if (inFlight != null) return inFlight;
     final attempt = _login();
@@ -113,6 +130,8 @@ class KakaoLoginService {
     attempt.then((_) => release(), onError: (Object _) => release());
     return attempt;
   }
+
+  bool _navigateAfterLogin = true;
 
   Future<KakaoLoginResult> _login() async {
     var backendSessionEstablished = false;
@@ -145,7 +164,9 @@ class KakaoLoginService {
 
       final session = await _authenticateWithBackend(token.accessToken);
       if (session == null) {
-        _ref.read(appRouterProvider).go(AppRoutes.login);
+        if (_navigateAfterLogin) {
+          _ref.read(appRouterProvider).go(AppRoutes.login);
+        }
         return const KakaoLoginResult(KakaoLoginStatus.failed, '백엔드 인증 실패');
       }
       backendSessionEstablished = true;
@@ -224,9 +245,11 @@ class KakaoLoginService {
           );
         }
         // The address requested before login, otherwise home.
-        _ref
-            .read(appRouterProvider)
-            .go(_ref.read(startupLocationProvider).take());
+        if (_navigateAfterLogin) {
+          _ref
+              .read(appRouterProvider)
+              .go(_ref.read(startupLocationProvider).take());
+        }
       } else {
         // 신규 사용자: 프로필 설정 화면으로 이동
         _ref
@@ -237,7 +260,10 @@ class KakaoLoginService {
                 profileImageUrl: profileImageUrl,
               ),
             );
-        _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
+        if (_navigateAfterLogin) {
+          _ref.read(appRouterProvider).go(AppRoutes.profileSetup);
+        }
+        return const KakaoLoginResult.newUser();
       }
 
       return const KakaoLoginResult(KakaoLoginStatus.success);
@@ -246,7 +272,7 @@ class KakaoLoginService {
       if (backendSessionEstablished) {
         await clearLocalSession(unregisterDevice: false);
       }
-      _ref.read(appRouterProvider).go(AppRoutes.login);
+      if (_navigateAfterLogin) _ref.read(appRouterProvider).go(AppRoutes.login);
       return const KakaoLoginResult(
         KakaoLoginStatus.failed,
         '로그인 중 통신 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
@@ -515,17 +541,46 @@ class KakaoLoginService {
 
   /// 이 기기의 서버 세션 토큰을 폐기합니다. 같은 계정의 다른 기기 세션은 유지됩니다.
   /// 오프라인이거나 서버가 응답하지 않아도 이 기기의 로그아웃은 계속합니다.
-  Future<void> _revokeServerSession() async {
-    if (!ApiClient.isAuthenticated) return;
+  /// [sessionToken]을 주면 이 기기에서 이미 지운 세션을 폐기합니다.
+  Future<void> _revokeServerSession({String? sessionToken}) async {
+    final token = sessionToken ?? ApiClient.sessionToken;
+    if (token == null || token.isEmpty) return;
     try {
       await http
           .post(
             ApiClient.uri('/api/auth/logout'),
-            headers: ApiClient.authHeaders(auth: true),
+            headers: {
+              ...ApiClient.authHeaders(),
+              'Authorization': 'Bearer $token',
+            },
           )
           .timeout(const Duration(seconds: 3));
     } catch (_) {
       debugPrint('서버 세션 폐기 요청에 실패했습니다. 이 기기에서는 로그아웃합니다.');
+    }
+  }
+
+  /// Ends a sign-up that stopped before the profile was saved. This device is
+  /// a guest again at once, so nothing can use the unfinished account; its
+  /// Kakao token, device registration and server session are dropped after.
+  Future<void> endUnfinishedSignUp() async {
+    final sessionToken = ApiClient.sessionToken;
+    await clearLocalSession(unregisterDevice: false);
+    unawaited(_dropSession(sessionToken));
+  }
+
+  Future<void> _dropSession(String? sessionToken) async {
+    try {
+      await UserApi.instance.logout();
+    } catch (_) {
+      debugPrint('가입을 마치지 않은 카카오 세션을 정리하지 못했습니다.');
+    }
+    try {
+      await _ref
+          .read(pushNotificationServiceProvider)
+          .unregisterCurrentDevice(sessionToken: sessionToken);
+    } finally {
+      await _revokeServerSession(sessionToken: sessionToken);
     }
   }
 
