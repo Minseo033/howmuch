@@ -1256,29 +1256,31 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var clusterMarkers = [];
 
         function markerClusterStyles() {
-          function style(size, background, fontSize) {
+          function style(size, background, color, halo, fontSize) {
             return {
               width: size + 'px',
               height: size + 'px',
               background: background,
-              border: '4px solid rgba(255,255,255,0.94)',
+              border: '4px solid ' + halo,
               borderRadius: '999px',
-              boxShadow: '0 5px 16px rgba(15,23,42,0.24)',
-              color: '#FFFFFF',
+              boxShadow: '0 0 0 1px rgba(37,99,235,0.30), 0 3px 10px rgba(15,23,42,0.16)',
+              boxSizing: 'border-box',
+              color: color,
               cursor: 'pointer',
               fontSize: fontSize + 'px',
               fontWeight: '800',
-              letterSpacing: '-0.3px',
+              letterSpacing: '-0.2px',
               lineHeight: (size - 8) + 'px',
               textAlign: 'center',
               transform: 'translateZ(0)'
             };
           }
+          // A quiet count badge keeps the map readable and lets store labels lead.
           return [
-            style(44, '#2563EB', 13),
-            style(48, '#1D4ED8', 14),
-            style(52, '#1E40AF', 14),
-            style(56, '#172554', 14)
+            style(44, 'rgba(255,255,255,0.97)', '#2563EB', 'rgba(37,99,235,0.11)', 12),
+            style(46, '#F8FAFF', '#1D4ED8', 'rgba(37,99,235,0.13)', 12),
+            style(48, '#EFF6FF', '#1E40AF', 'rgba(37,99,235,0.15)', 13),
+            style(50, '#E8F0FF', '#172554', 'rgba(37,99,235,0.17)', 13)
           ];
         }
 
