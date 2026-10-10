@@ -119,6 +119,62 @@ void main() {
     },
   );
 
+  for (final saved in [true, false]) {
+    testWidgets(
+      'a failed load ${saved ? 'keeps the saved reports' : 'fills the list'} '
+      'and reloads from its retry button',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        var fail = true;
+        var fetches = 0;
+        final service = ReportService(
+          MockClient((_) async {
+            fetches++;
+            return fail
+                ? http.Response('', 500)
+                : http.Response(
+                    jsonEncode(_reports),
+                    200,
+                    headers: const {
+                      'content-type': 'application/json; charset=utf-8',
+                    },
+                  );
+          }),
+        );
+        final container = ProviderContainer(
+          overrides: [reportServiceProvider.overrideWithValue(service)],
+        );
+        addTearDown(container.dispose);
+        if (saved) {
+          container
+              .read(userReportsProvider.notifier)
+              .setReports(_reports.map(UserReportStatus.fromJson).toList());
+        }
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: MyReportsV2Screen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(saved ? '내 제보를 새로 불러오지 못했어요.' : '내 제보를 불러오지 못했어요.'),
+          findsOneWidget,
+        );
+        expect(find.text('검토 식당'), saved ? findsOneWidget : findsNothing);
+
+        fail = false;
+        await tester.tap(find.text('다시 불러오기'));
+        await tester.pumpAndSettle();
+        expect(fetches, 2);
+        expect(find.textContaining('불러오지 못했어요'), findsNothing);
+        expect(find.text('검토 식당'), findsOneWidget);
+      },
+    );
+  }
+
   testWidgets('long address and menu stay inside the completion card '
       '(FE-COMM-17)', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 800));
