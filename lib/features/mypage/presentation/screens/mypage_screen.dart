@@ -349,6 +349,8 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         usableAccountEmail(auth.email) ??
         '이메일 정보 없음';
     final reports = ref.watch(userReportsProvider);
+    final reportsLoading =
+        auth.isLoggedIn && _reportsSessionToken != ApiClient.sessionToken;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -514,15 +516,19 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        minHeight: 189.23294067382812,
+                      // The design height holds two rows. With fewer rows the
+                      // card fits them instead of keeping an empty row's
+                      // space. It keeps the height while loading so the page
+                      // doesn't jump when the usual two rows arrive.
+                      constraints: BoxConstraints(
+                        minHeight: reports.length >= 2 || reportsLoading
+                            ? 189.23294067382812
+                            : 0,
                       ),
                       child: _ReportStatusCard(
                         reports: reports,
                         isGuest: !auth.isLoggedIn,
-                        isLoading:
-                            auth.isLoggedIn &&
-                            _reportsSessionToken != ApiClient.sessionToken,
+                        isLoading: reportsLoading,
                         loadFailed: _reportsLoadFailed,
                         onViewAll: () => _openMemberScreen(
                           AppRoutes.myReportsV2,
@@ -1010,7 +1016,9 @@ class _ReportStatusCard extends StatelessWidget {
         16.903411865234375,
         16.9033203125,
         16.903411865234375,
-        .909,
+        // The space the design leaves under the second row, so a card with
+        // one row or the empty notice ends the same way.
+        12.57,
       ),
       decoration: BoxDecoration(
         color: AppColors.white,

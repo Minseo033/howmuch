@@ -127,10 +127,12 @@ const _approved = {
   'createdAt': '2026-09-01T03:00:00Z',
 };
 
-ReportService _reportService() => ReportService(
+ReportService _reportService([
+  List<Object> reports = const [_rejected, _approved],
+]) => ReportService(
   MockClient((request) async {
     if (request.url.path == '/api/report/my') {
-      return _json([_rejected, _approved]);
+      return _json(reports);
     }
     return http.Response('', 404);
   }),
@@ -710,6 +712,29 @@ void main() {
     semantics.dispose();
   });
 
+  testWidgets('MY recent reports card ends under its last row with one '
+      'report or none', (tester) async {
+    _phone(tester, height: 1200);
+    final card = _byType('_ReportStatusCard');
+
+    for (final reports in [
+      <Object>[_rejected],
+      <Object>[],
+    ]) {
+      await _pumpMypage(tester, reports: reports);
+      final last = _byType(
+        reports.isEmpty ? '_EmptyReportItem' : '_ReportItem',
+      );
+      // The card used to keep the two-row design height, so a single report
+      // or the empty notice sat above a blank row's worth of space.
+      expect(
+        tester.getBottomLeft(card).dy - tester.getBottomLeft(last).dy,
+        lessThan(20),
+        reason: '${reports.length} report(s)',
+      );
+    }
+  });
+
   testWidgets('MY recent reports grow with large text instead of cutting '
       'the title or the rows (#5)', (tester) async {
     _phone(tester, height: 1200);
@@ -823,7 +848,11 @@ void _expectTextFits(
   );
 }
 
-Future<void> _pumpMypage(WidgetTester tester, {double textScale = 1}) async {
+Future<void> _pumpMypage(
+  WidgetTester tester, {
+  double textScale = 1,
+  List<Object> reports = const [_rejected, _approved],
+}) async {
   await http.runWithClient(
     () async {
       final router = GoRouter(
@@ -837,7 +866,7 @@ Future<void> _pumpMypage(WidgetTester tester, {double textScale = 1}) async {
         ProviderScope(
           key: UniqueKey(),
           overrides: [
-            reportServiceProvider.overrideWithValue(_reportService()),
+            reportServiceProvider.overrideWithValue(_reportService(reports)),
             authStateProvider.overrideWith(
               (ref) => const AuthState(
                 isLoggedIn: true,
