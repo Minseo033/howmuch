@@ -11,6 +11,7 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({
@@ -312,16 +313,20 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     return FigmaMobileCanvas(
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
-        appBar: _buildAppBar(),
         body: SafeArea(
           child: Column(
             children: [
+              // The same bar as the login step before it.
+              SizedBox(
+                height: HowmuchTopBar.height,
+                child: HowmuchTopBar(title: '프로필 설정', onBack: _handleBack),
+              ),
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.only(
                     left: 20,
                     right: 20,
-                    top: 8,
+                    top: 16,
                     bottom: 24,
                   ),
                   child: Column(
@@ -354,40 +359,15 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
   }
 
-  // ─── AppBar
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      backgroundColor: const Color(0xFFF4F6FA),
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: true,
-      leading: IconButton(
-        // Leaving while the profile saves could drop a stored account.
-        onPressed: _isLoading
-            ? null
-            : widget.onBack ??
-                  () {
-                    if (context.canPop()) context.pop();
-                  },
-        icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
-        splashRadius: 20,
-      ),
-      title: const Text(
-        '프로필 설정',
-        style: TextStyle(
-          fontFamily: _font,
-          fontFamilyFallback: _fontFallback,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: _ink,
-          letterSpacing: -0.2,
-        ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: const Color(0xFFF4F6FA)),
-      ),
-    );
+  void _handleBack() {
+    // Leaving while the profile saves could drop a stored account.
+    if (_isLoading) return;
+    final onBack = widget.onBack;
+    if (onBack != null) {
+      onBack();
+    } else if (context.canPop()) {
+      context.pop();
+    }
   }
 
   // ─── STEP 뱃지
@@ -714,9 +694,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
           Container(
             margin: const EdgeInsets.only(top: 4),
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _border),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
@@ -725,33 +703,46 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                 ),
               ],
             ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 200),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _regionSuggestions.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final address = _regionSuggestions[index];
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: Text(
-                      address,
-                      style: const TextStyle(
-                        fontFamily: _font,
-                        fontFamilyFallback: _fontFallback,
-                        fontSize: 14,
-                        color: _ink,
+            // The white Material under the rows shows their tap ripple, which
+            // an opaque box would cover.
+            child: Material(
+              color: Colors.white,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: _border),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _regionSuggestions.length,
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final address = _regionSuggestions[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
                       ),
-                    ),
-                    onTap: () {
-                      _regionController.text = address;
-                      setState(() => _regionSuggestions.clear());
-                      FocusScope.of(context).unfocus();
-                    },
-                  );
-                },
+                      title: Text(
+                        address,
+                        style: const TextStyle(
+                          fontFamily: _font,
+                          fontFamilyFallback: _fontFallback,
+                          fontSize: 14,
+                          color: _ink,
+                        ),
+                      ),
+                      onTap: () {
+                        _regionController.text = address;
+                        setState(() => _regionSuggestions.clear());
+                        FocusScope.of(context).unfocus();
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),
