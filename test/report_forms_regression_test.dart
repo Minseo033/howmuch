@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/community/presentation/screens/report_create_screen.dart';
@@ -333,10 +334,10 @@ void main() {
         ),
       ),
     );
-    expect(find.text('찜한 매장 정보를 찾을 수 없어요'), findsOneWidget);
+    expect(find.text('찜한 매장 정보를\n찾을 수 없어요'), findsOneWidget);
     expect(
       tester
-          .widget<ElevatedButton>(find.widgetWithText(ElevatedButton, '찜 해제'))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '찜 해제'))
           .onPressed,
       isNull,
     );
@@ -356,5 +357,36 @@ void main() {
     await tester.tap(find.text('찜 해제'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('login_required_dialog')), findsOneWidget);
+  });
+
+  testWidgets('keeping a favorite opened from its address goes to the '
+      'favorites list', (tester) async {
+    await ApiClient.setSessionToken(null);
+    // Opened from its address, there is no screen beneath to go back to.
+    final router = GoRouter(
+      initialLocation: AppRoutes.favoriteCancelConfirm,
+      routes: [
+        GoRoute(
+          path: AppRoutes.favoriteCancelConfirm,
+          builder: (_, _) => const FavoriteCancelConfirmScreen(
+            storeId: 'store-1',
+            storeName: '동네 식당',
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.favoriteStores,
+          builder: (_, _) => const Scaffold(body: Text('찜 목록')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(child: MaterialApp.router(routerConfig: router)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('유지하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('찜 목록'), findsOneWidget);
   });
 }

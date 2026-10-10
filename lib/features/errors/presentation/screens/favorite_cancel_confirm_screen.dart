@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 /// 주소로 바로 들어온 찜 해제 확인 화면입니다. 찜 목록에서는 목록이 보이도록
 /// [FavoriteCancelConfirmDialog]를 대화상자로 띄웁니다.
@@ -32,7 +35,7 @@ class FavoriteCancelConfirmScreen extends StatelessWidget {
     }
 
     return FigmaMobileCanvas(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: AppColors.surface,
       child: Center(
         child: FavoriteCancelConfirmDialog(
           storeId: storeId,
@@ -112,67 +115,71 @@ class _FavoriteCancelConfirmDialogState
     // its address nothing else watches it, and an unwatched list would be
     // dropped between loading it and removing the store.
     ref.watch(favoriteStoresProvider);
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.favorite_border,
-              color: Color(0xFFF97316),
-              size: 32,
-            ),
-            const SizedBox(height: 20),
-            // 매장명은 아래 줄에 따로 보여 주고, 제목은 짧게 두어 단어 중간에서
-            // 줄이 바뀌지 않게 합니다.
-            Text(
-              _hasStore ? '찜을 해제할까요?' : '찜한 매장 정보를 찾을 수 없어요',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            if (_hasStore) ...[
-              const SizedBox(height: 8),
-              Text(
-                widget.storeName,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Color(0xFF10B981),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+    if (!_hasStore) {
+      return HowmuchDialog(
+        // Breaks between the phrases so the title does not wrap inside a word.
+        title: '찜한 매장 정보를\n찾을 수 없어요',
+        description: '찜 목록에서 다시 선택해 주세요.',
+        cancelLabel: '유지하기',
+        confirmLabel: '찜 해제',
+        destructive: true,
+        onCancel: () => widget.onClose(false),
+        onConfirm: null,
+      );
+    }
+    return HowmuchDialog(
+      title: '찜을 해제할까요?',
+      // Two phrases on two lines, so '꺼져요.' does not wrap on its own.
+      description: '찜을 해제하면 이 매장의\n가격 변동 알림도 함께 꺼져요.',
+      cancelLabel: '유지하기',
+      confirmLabel: _busy ? '해제 중...' : '찜 해제',
+      destructive: true,
+      // Once the removal is under way the store can no longer be kept.
+      cancelEnabled: !_busy,
+      onCancel: () => widget.onClose(false),
+      onConfirm: _busy ? null : _remove,
+      // 매장명은 따로 한 줄에 보여 주고, 제목은 짧게 두어 단어 중간에서 줄이 바뀌지
+      // 않게 합니다.
+      child: _FavoriteStoreRow(storeName: widget.storeName),
+    );
+  }
+}
+
+/// The store being unfavorited, shown under the dialog's description.
+class _FavoriteStoreRow extends StatelessWidget {
+  const _FavoriteStoreRow({required this.storeName});
+
+  final String storeName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: 14,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.favorite_rounded, color: AppColors.error, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              storeName,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.ink,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
               ),
-            ],
-            const SizedBox(height: 20),
-            Text(
-              _hasStore
-                  ? '찜을 해제하면 이 매장의 가격 변동 알림도 함께 꺼져요.'
-                  : '찜 목록에서 다시 선택해 주세요.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    autofocus: true,
-                    onPressed: _busy ? null : () => widget.onClose(false),
-                    child: const Text('유지하기'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _busy || !_hasStore ? null : _remove,
-                    child: Text(_busy ? '해제 중...' : '찜 해제'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
