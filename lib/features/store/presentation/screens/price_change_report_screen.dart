@@ -646,12 +646,13 @@ class _PriceChangeReportScreenState
                                 ),
                               ),
                               selected: _selectedMenuIndex == item.slot,
+                              showCheckmark: false,
                               selectedColor: AppColors.orangeTheme,
                               backgroundColor: AppColors.surface,
                               side: BorderSide(
                                 color: _selectedMenuIndex == item.slot
                                     ? AppColors.orangeTheme
-                                    : Colors.grey.shade300,
+                                    : AppColors.borderMedium,
                               ),
                               onSelected: (selected) {
                                 setState(() {
@@ -684,7 +685,9 @@ class _PriceChangeReportScreenState
                               ),
                             ),
                             backgroundColor: AppColors.white,
-                            side: BorderSide(color: Colors.grey.shade300),
+                            side: const BorderSide(
+                              color: AppColors.borderMedium,
+                            ),
                             onPressed: () {
                               setState(() {
                                 _menuController.clear();
@@ -733,16 +736,11 @@ class _PriceChangeReportScreenState
                       const SizedBox(height: 10),
                     ],
                     _buildPriceField(),
-                    Semantics(
-                      label: '무료 메뉴 여부',
-                      child: CheckboxListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('무료 (정확히 0원)'),
-                        value: _isFree,
-                        onChanged: (value) =>
-                            setState(() => _isFree = value ?? false),
-                      ),
+                    const SizedBox(height: 4),
+                    _ReportCheckRow(
+                      label: '무료 (정확히 0원)',
+                      value: _isFree,
+                      onChanged: (value) => setState(() => _isFree = value),
                     ),
                     const SizedBox(height: 20),
                   ],
@@ -766,7 +764,11 @@ class _PriceChangeReportScreenState
                   const SizedBox(height: 16),
 
                   // 확인 체크박스
-                  _buildCheckbox(),
+                  _ReportCheckRow(
+                    label: '직접 메뉴판 가격을 확인했어요',
+                    value: _isConfirmed,
+                    onChanged: (value) => setState(() => _isConfirmed = value),
+                  ),
                   const SizedBox(height: 20),
                 ],
               ),
@@ -812,7 +814,7 @@ class _PriceChangeReportScreenState
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -909,14 +911,14 @@ class _PriceChangeReportScreenState
                 border: Border.all(
                   color: selected
                       ? AppColors.orangeTheme
-                      : Colors.grey.shade300,
+                      : AppColors.borderMedium,
                   width: selected ? 2 : 1,
                 ),
               ),
               child: Text(
                 _changeTypes[i]['label']!,
                 style: TextStyle(
-                  color: selected ? AppColors.orangeTheme : Colors.black87,
+                  color: selected ? AppColors.orangeTheme : AppColors.textBody,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                   fontSize: 14,
                 ),
@@ -937,7 +939,6 @@ class _PriceChangeReportScreenState
       controller: controller,
       readOnly: readOnly,
       decoration: InputDecoration(
-        labelText: '변경된 메뉴',
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.symmetric(
@@ -946,15 +947,18 @@ class _PriceChangeReportScreenState
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.orangeTheme),
+          borderSide: const BorderSide(
+            color: AppColors.orangeTheme,
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -970,8 +974,11 @@ class _PriceChangeReportScreenState
         color: AppColors.orangeTheme,
       ),
       decoration: InputDecoration(
-        labelText: '변경된 가격',
         hintText: '새 가격을 입력해주세요',
+        hintStyle: const TextStyle(
+          color: AppColors.muted,
+          fontWeight: FontWeight.normal,
+        ),
         suffixText: '원',
         suffixStyle: const TextStyle(color: AppColors.muted),
         contentPadding: const EdgeInsets.symmetric(
@@ -980,7 +987,7 @@ class _PriceChangeReportScreenState
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
@@ -1015,20 +1022,23 @@ class _PriceChangeReportScreenState
               decoration: BoxDecoration(
                 color: AppColors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade300),
+                border: Border.all(color: AppColors.borderMedium),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.camera_alt_outlined,
-                    color: Colors.grey.shade400,
+                    color: AppColors.muted,
                     size: 28,
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${_selectedImages.length}/3',
-                    style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+                    style: const TextStyle(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
                   ),
                 ],
               ),
@@ -1044,7 +1054,7 @@ class _PriceChangeReportScreenState
                   margin: const EdgeInsets.only(left: 12),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: AppColors.border),
                     image: DecorationImage(
                       image: _thumbnailImage(image),
                       fit: BoxFit.cover,
@@ -1092,36 +1102,66 @@ class _PriceChangeReportScreenState
         contentPadding: const EdgeInsets.all(16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.grey.shade200),
+          borderSide: const BorderSide(color: AppColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.orangeTheme),
+          borderSide: const BorderSide(
+            color: AppColors.orangeTheme,
+            width: 1.5,
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildCheckbox() {
-    // One node: the check box alone read only its value (QA 10/7 #53).
+/// A check box with its label to the right. The whole row toggles it, as in
+/// the review form, and the box takes the report accent.
+class _ReportCheckRow extends StatelessWidget {
+  const _ReportCheckRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // One node: the check box alone read only its value and the text had no
+    // checked state (QA 10/7 #53).
     return MergeSemantics(
-      child: Row(
-        children: [
-          Checkbox(
-            value: _isConfirmed,
-            onChanged: (v) => setState(() => _isConfirmed = v ?? false),
-            activeColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            side: BorderSide(color: Colors.grey.shade300),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => onChanged(!value),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            children: [
+              Checkbox(
+                value: value,
+                onChanged: (checked) => onChanged(checked ?? false),
+                activeColor: AppColors.reportAccent,
+              ),
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textBody,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const Text('직접 메뉴판 가격을 확인했어요', style: TextStyle(fontSize: 14)),
-        ],
+        ),
       ),
     );
   }
