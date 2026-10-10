@@ -276,6 +276,8 @@ class AppTheme {
         backgroundColor: AppColors.surfaceOverlay,
         contentTextStyle: const TextStyle(
           color: AppColors.textBody,
+          fontFamily: 'Noto Sans KR',
+          fontFamilyFallback: ['Noto Sans KR', 'Apple SD Gothic Neo'],
           fontSize: 13,
           fontWeight: FontWeight.w600,
           height: 1.45,
