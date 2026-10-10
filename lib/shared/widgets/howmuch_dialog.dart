@@ -10,6 +10,8 @@ class HowmuchDialog extends StatelessWidget {
     required this.confirmLabel,
     required this.onConfirm,
     this.cancelLabel = '취소',
+    this.onCancel,
+    this.cancelEnabled = true,
     this.child,
     this.destructive = false,
     this.confirmKey,
@@ -23,7 +25,19 @@ class HowmuchDialog extends StatelessWidget {
   final String description;
   final String confirmLabel;
   final String cancelLabel;
-  final VoidCallback onConfirm;
+
+  /// Called by the confirm button. Null disables it, for example while the
+  /// action runs or when there is nothing to act on.
+  final VoidCallback? onConfirm;
+
+  /// Called by the cancel button instead of closing the dialog route. A
+  /// dialog shown inline on a page uses this to leave the page itself.
+  final VoidCallback? onCancel;
+
+  /// Whether the cancel button can be pressed, e.g. false while the confirmed
+  /// action is still running.
+  final bool cancelEnabled;
+
   final Widget? child;
   final bool destructive;
   final Key? confirmKey;
@@ -91,11 +105,15 @@ class HowmuchDialog extends StatelessWidget {
                     minimumSize: const Size(0, 48),
                     foregroundColor: AppColors.textBody,
                     backgroundColor: AppColors.surface,
+                    disabledForegroundColor: AppColors.textMuted,
+                    disabledBackgroundColor: AppColors.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: cancelEnabled
+                      ? (onCancel ?? () => Navigator.of(context).pop())
+                      : null,
                   child: Text(cancelLabel),
                 ),
               ),
