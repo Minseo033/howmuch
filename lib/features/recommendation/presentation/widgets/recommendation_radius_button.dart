@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_radius.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/shared/widgets/keep_all_text.dart';
 
 class RecommendationRadiusButton extends ConsumerWidget {
@@ -32,7 +33,9 @@ class RecommendationRadiusButton extends ConsumerWidget {
         final saved = await notifier.setRadius(selected);
         if (saved || !context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          // The distance is in use; it just will not outlast this visit.
+          HowmuchSnackBar(
+            tone: HowmuchSnackBarTone.info,
             content: KeepAllText(
               notifier.accountId.isEmpty
                   // A guest has no account to keep the choice under.
