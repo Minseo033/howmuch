@@ -601,6 +601,29 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('favorites: the sort options say which one is on (#54)', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _pumpSubScreen(tester, const FavoriteStoresScreen());
+      expect(
+        _single('최근 추가순'),
+        isSemantics(
+          isButton: true,
+          hasTapAction: true,
+          isSelected: true,
+          isInMutuallyExclusiveGroup: true,
+        ),
+      );
+      expect(_single('매장 이름순'), isSemantics(isButton: true, isSelected: false));
+
+      tester.semantics.tap(_named('매장 이름순'));
+      await tester.pumpAndSettle();
+      expect(_single('매장 이름순'), isSemantics(isSelected: true));
+      expect(_single('최근 추가순'), isSemantics(isSelected: false));
+      semantics.dispose();
+    });
+
     testWidgets('notification and price alert switches are enabled', (
       tester,
     ) async {
