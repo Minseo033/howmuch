@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -819,51 +820,59 @@ class _Composer extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: controller,
-              // Matches the server limit; the send path re-checks UTF-16 length.
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(aiChatMaxMessageLength),
-              ],
-              onSubmitted: (_) {
-                if (hasText && !isSending) onSend();
-              },
-              cursorColor: const Color(0xFF2563EB),
-              decoration: InputDecoration(
-                hintText: '메시지를 입력하세요',
-                labelText: 'AI에게 질문',
-                hintStyle: const TextStyle(
-                  color: Color(0xFFCBD5E1),
+            // Screen readers get the field's name here. As a labelText it
+            // floated up and cut a notch into the pill outline.
+            child: Semantics(
+              label: 'AI에게 질문',
+              child: TextField(
+                controller: controller,
+                // Matches the server limit; the send path re-checks UTF-16
+                // length.
+                inputFormatters: [
+                  LengthLimitingTextInputFormatter(aiChatMaxMessageLength),
+                ],
+                onSubmitted: (_) {
+                  if (hasText && !isSending) onSend();
+                },
+                cursorColor: AppColors.primary,
+                decoration: InputDecoration(
+                  hintText: '메시지를 입력하세요',
+                  hintStyle: const TextStyle(
+                    color: AppColors.muted,
+                    fontFamily: _AiUi.fontFamily,
+                    fontFamilyFallback: _AiUi.fontFallback,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
+                style: const TextStyle(
+                  color: _AiUi.ink,
                   fontFamily: _AiUi.fontFamily,
                   fontFamilyFallback: _AiUi.fontFallback,
                   fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFFEEF2FF)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  borderSide: const BorderSide(color: Color(0xFF2563EB)),
-                ),
-              ),
-              style: const TextStyle(
-                color: _AiUi.ink,
-                fontFamily: _AiUi.fontFamily,
-                fontFamilyFallback: _AiUi.fontFallback,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),

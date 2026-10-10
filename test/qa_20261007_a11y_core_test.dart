@@ -263,6 +263,26 @@ void main() {
       semantics.dispose();
     });
 
+    testWidgets('the AI chat field keeps its name without a floating label', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      await _openAiChat(tester);
+
+      // Read as the field's name, not drawn as a label cut into the outline.
+      expect(find.text('AI에게 질문'), findsNothing);
+      expect(readerElements('AI에게 질문'), findsOne);
+      expect(readerElements('AI에게 질문'), isSemantics(isTextField: true));
+
+      await tester.enterText(find.byType(TextField), '근처 백반집');
+      await tester.pump();
+      expect(
+        readerElements('AI에게 질문'),
+        isSemantics(isTextField: true, value: '근처 백반집'),
+      );
+      semantics.dispose();
+    });
+
     testWidgets('bottom tabs are named once', (tester) async {
       final semantics = tester.ensureSemantics();
       await tester.pumpWidget(
