@@ -450,7 +450,7 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
+                              horizontal: 4,
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
@@ -469,15 +469,21 @@ class _FavoriteStoresScreenState extends ConsumerState<FavoriteStoresScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                Text(
-                                  store.badgeText,
-                                  style: TextStyle(
-                                    fontFamily: 'Inter',
-                                    fontFamilyFallback: const ['Noto Sans KR'],
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(store.badgeColor),
-                                    fontSize: 10,
-                                    height: 15 / 10,
+                                Flexible(
+                                  child: Text(
+                                    store.badgeText,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'Inter',
+                                      fontFamilyFallback: const [
+                                        'Noto Sans KR',
+                                      ],
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(store.badgeColor),
+                                      fontSize: 10,
+                                      height: 15 / 10,
+                                    ),
                                   ),
                                 ),
                               ],

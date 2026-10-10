@@ -700,131 +700,159 @@ class _ProfileCard extends StatelessWidget {
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 22, 20, 14),
-          child: Column(
-            children: [
-              Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final useStackedSubtitle = constraints.maxWidth < 260;
+              final useCompactEditAction = !isGuest && useStackedSubtitle;
+              return Column(
                 children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.white.withValues(alpha: .25),
-                      shape: BoxShape.circle,
-                    ),
-                    child: SizedBox(
-                      width: 56,
-                      height: 56,
-                      child: ClipOval(
-                        child: _ProfileAvatarImage(
-                          imageUrl: profile.profileImageUrl,
-                          isGuest: profile.nickname == '게스트',
+                  Row(
+                    children: [
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withValues(alpha: .25),
+                          shape: BoxShape.circle,
                         ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.nickname,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _white17.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          // A guest has no email to show; say what login adds.
-                          isGuest ? '로그인하면 기록이 남아요' : email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _white11.copyWith(
-                            color: AppColors.white.withValues(alpha: .85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Material(
-                    key: ValueKey('$action-button'),
-                    color: AppColors.white.withValues(alpha: .22),
-                    borderRadius: BorderRadius.circular(999),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: isGuest ? onLogin : onEdit,
-                      child: SizedBox(
-                        height: 30,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Center(
-                            child: Row(
-                              key: ValueKey('$action-content'),
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Transform.translate(
-                                  offset: const Offset(0, -1),
-                                  child: Text(
-                                    isGuest ? '로그인' : '프로필 수정',
-                                    key: ValueKey('$action-label'),
-                                    style: _profileEditText,
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.chevron_right_rounded,
-                                      key: ValueKey('$action-chevron'),
-                                      color: AppColors.white,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        child: SizedBox(
+                          width: 56,
+                          height: 56,
+                          child: ClipOval(
+                            child: _ProfileAvatarImage(
+                              imageUrl: profile.profileImageUrl,
+                              isGuest: profile.nickname == '게스트',
                             ),
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              profile.nickname,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _white17.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            if (!useStackedSubtitle) ...[
+                              Text(
+                                // A guest has no email to show; say what login adds.
+                                isGuest ? '로그인하면 기록이 남아요' : email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _white11.copyWith(
+                                  color: AppColors.white.withValues(alpha: .85),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Material(
+                        key: ValueKey('$action-button'),
+                        color: AppColors.white.withValues(alpha: .22),
+                        borderRadius: BorderRadius.circular(999),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(999),
+                          onTap: isGuest ? onLogin : onEdit,
+                          child: SizedBox(
+                            height: 30,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: useCompactEditAction ? 8 : 12,
+                              ),
+                              child: Center(
+                                child: Row(
+                                  key: ValueKey('$action-content'),
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Transform.translate(
+                                      offset: const Offset(0, -1),
+                                      child: Text(
+                                        isGuest
+                                            ? '로그인'
+                                            : useCompactEditAction
+                                            ? '수정'
+                                            : '프로필 수정',
+                                        key: ValueKey('$action-label'),
+                                        style: _profileEditText,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: Center(
+                                        child: Icon(
+                                          Icons.chevron_right_rounded,
+                                          key: ValueKey('$action-chevron'),
+                                          color: AppColors.white,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (useStackedSubtitle)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        isGuest ? '로그인하면 기록이 남아요' : email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _white11.copyWith(
+                          color: AppColors.white.withValues(alpha: .85),
+                        ),
+                      ),
                     ),
+                  const Spacer(),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-saved-amount'),
+                          value: '${profile.savedAmountText}원',
+                          label: '이번 달 절약',
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-report-count'),
+                          // 내 제보 목록의 건수입니다. 같은 매장에 여러 번 제보해도 한 건씩 셉니다.
+                          value: '${profile.reportCount}건',
+                          label: '내 제보',
+                          bordered: true,
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProfileMetric(
+                          key: const ValueKey('mypage-metric-favorite-count'),
+                          value: '${profile.favoriteStoreCount}곳',
+                          label: '찜한 매장',
+                          bordered: true,
+                          isLoading: isLoadingMetrics,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
-              ),
-              const Spacer(),
-              Row(
-                children: [
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-saved-amount'),
-                      value: '${profile.savedAmountText}원',
-                      label: '이번 달 절약',
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-report-count'),
-                      // 내 제보 목록의 건수입니다. 같은 매장에 여러 번 제보해도 한 건씩 셉니다.
-                      value: '${profile.reportCount}건',
-                      label: '내 제보',
-                      bordered: true,
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                  Expanded(
-                    child: _ProfileMetric(
-                      key: const ValueKey('mypage-metric-favorite-count'),
-                      value: '${profile.favoriteStoreCount}곳',
-                      label: '찜한 매장',
-                      bordered: true,
-                      isLoading: isLoadingMetrics,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

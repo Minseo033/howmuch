@@ -107,8 +107,14 @@ class _NotificationSettingsScreenState
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
     final saveFooterHeight = _StickySaveButton.heightFor(bottomOffset);
+    final quietHoursTextExtra =
+        math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11) * 1.5;
     final scrollContentHeight =
-        715.5341796875 + topOffset + saveFooterHeight + 36;
+        715.5341796875 +
+        quietHoursTextExtra +
+        topOffset +
+        saveFooterHeight +
+        36;
 
     void update(NotificationSettings value) {
       if (_isSaving) return;
@@ -472,7 +478,7 @@ class _NotificationSettingsScreenState
                             left: 20,
                             right: 20,
                             top: 571.5341796875 + topOffset,
-                            height: 144,
+                            height: 144 + quietHoursTextExtra,
                             child: _QuietHoursCard(
                               settings: settings,
                               onToggle: () => update(
@@ -967,13 +973,13 @@ class _TimeBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 66,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 66),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.only(left: 11.988),
+            padding: const EdgeInsets.only(left: 10),
             child: Text(
               label,
               key: ValueKey('quiet-time-label-$label'),
@@ -996,15 +1002,19 @@ class _TimeBox extends StatelessWidget {
               child: SizedBox(
                 height: 41.9886360168457,
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 11.988),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Row(
                     children: [
-                      Text(
-                        _displayTime(value),
-                        key: ValueKey('quiet-time-value-$label'),
-                        style: _semi13,
+                      Expanded(
+                        child: Text(
+                          _displayTime(value),
+                          key: ValueKey('quiet-time-value-$label'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _semi13,
+                        ),
                       ),
-                      const Spacer(),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.keyboard_arrow_down_rounded,
                         size: 14,
@@ -1234,7 +1244,12 @@ class _TitleSubtitle extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: compact ? _bold13 : _bold14),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: compact ? _bold13 : _bold14,
+        ),
         SizedBox(height: compact ? 3.0 : 2.0),
         Text(
           subtitle,
