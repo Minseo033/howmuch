@@ -8,6 +8,7 @@ import 'package:howmuch/core/constants/feature_flags.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
@@ -641,12 +642,34 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
   }
 
   Future<void> _pickCategory() async {
-    final selected = await _showOptionPicker(
-      title: '업종 선택',
-      options: _categoryOptions,
-      initialValue: _categoryController.text,
+    FocusManager.instance.primaryFocus?.unfocus();
+    final mediaQuery = MediaQuery.of(context);
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      constraints: BoxConstraints(
+        maxWidth: math.min(
+          FigmaMobileCanvas.maxWebWidth,
+          mediaQuery.size.width,
+        ),
+        // Sized to its chips and scrolls when they do not fit, leaving a
+        // strip of the form above it.
+        maxHeight: math.max(
+          0,
+          math.min(
+            mediaQuery.size.height * .88,
+            mediaQuery.size.height - mediaQuery.padding.top - 8,
+          ),
+        ),
+      ),
+      builder: (_) => _CategoryPickerSheet(
+        options: _categoryOptions,
+        current: _categoryController.text,
+      ),
     );
-    if (selected != null) {
+    if (selected != null && mounted) {
       _categoryController.text = selected;
       setState(() {});
     }
@@ -729,7 +752,7 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -771,96 +794,6 @@ class _ReportCreateScreenState extends ConsumerState<ReportCreateScreen> {
     mode: ReportPlaceSelectionMode.address,
     initialQuery: _addressController.text.trim(),
   );
-
-  Future<String?> _showOptionPicker({
-    required String title,
-    required List<String> options,
-    required String initialValue,
-  }) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    final mediaQuery = MediaQuery.of(context);
-
-    return showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: const Color(0xFFF4F6FA),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-      ),
-      constraints: BoxConstraints(
-        maxWidth: math.min(
-          FigmaMobileCanvas.maxWebWidth,
-          mediaQuery.size.width,
-        ),
-        maxHeight: math.max(
-          0,
-          mediaQuery.size.height - mediaQuery.padding.top - 8,
-        ),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(AppSizes.horizontalPadding),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: ReportCreateStyle.ink,
-                fontFamily: ReportCreateStyle.fontFamily,
-                fontFamilyFallback: ReportCreateStyle.fontFallback,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 280),
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: options.length,
-                separatorBuilder: (_, _) =>
-                    const Divider(height: 1, color: ReportCreateStyle.border),
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  final isCurrent = option == initialValue;
-                  // The check mark alone did not tell screen readers which
-                  // option is current (QA 10/7 #53). `selected` only marks
-                  // it: the title and the check keep their own colors.
-                  return Semantics(
-                    inMutuallyExclusiveGroup: true,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      selected: isCurrent,
-                      title: Text(
-                        option,
-                        style: const TextStyle(
-                          color: ReportCreateStyle.ink,
-                          fontFamily: ReportCreateStyle.fontFamily,
-                          fontFamilyFallback: ReportCreateStyle.fontFallback,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
-                        ),
-                      ),
-                      trailing: isCurrent
-                          ? const Icon(
-                              Icons.check_rounded,
-                              color: ReportCreateStyle.blue,
-                              size: 18,
-                            )
-                          : null,
-                      onTap: () => Navigator.of(context).pop(option),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Future<void> _pickPhotos() async {
     if (_photos.length >= ReportService.maxImageCount) {
@@ -1454,6 +1387,220 @@ enum _SheetLocation {
   final String message;
 }
 
+const _sheetTitleStyle = TextStyle(
+  color: ReportCreateStyle.ink,
+  fontFamily: ReportCreateStyle.fontFamily,
+  fontFamilyFallback: ReportCreateStyle.fontFallback,
+  fontSize: 17,
+  fontWeight: FontWeight.w800,
+  height: 1.4,
+);
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.disabled,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the report's industry from chips grouped like '음식점 · 한식'.
+class _CategoryPickerSheet extends StatefulWidget {
+  const _CategoryPickerSheet({required this.options, required this.current});
+
+  /// Industries written as '그룹 · 업종', in the order they are shown.
+  final List<String> options;
+  final String current;
+
+  @override
+  State<_CategoryPickerSheet> createState() => _CategoryPickerSheetState();
+}
+
+class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
+  final _currentKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    // When the chips do not fit, the sheet opens at the current industry.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final current = _currentKey.currentContext;
+      if (current != null && current.mounted) {
+        Scrollable.ensureVisible(current, alignment: .5);
+      }
+    });
+  }
+
+  List<(String, List<String>)> get _groups {
+    final groups = <(String, List<String>)>[];
+    for (final option in widget.options) {
+      final group = option.split(' · ').first;
+      if (groups.isEmpty || groups.last.$1 != group) groups.add((group, []));
+      groups.last.$2.add(option);
+    }
+    return groups;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey('report-category-picker'),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 10),
+            const _SheetHandle(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+              child: Semantics(
+                header: true,
+                child: const Text('업종 선택', style: _sheetTitleStyle),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final (group, options) in _groups) ...[
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 14, 4, 3),
+                        child: Semantics(
+                          header: true,
+                          child: Text(
+                            group,
+                            style: const TextStyle(
+                              color: ReportCreateStyle.muted,
+                              fontFamily: ReportCreateStyle.fontFamily,
+                              fontFamilyFallback:
+                                  ReportCreateStyle.fontFallback,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Wrap(
+                        children: [
+                          for (final option in options)
+                            _CategoryChip(
+                              key: option == widget.current
+                                  ? _currentKey
+                                  : null,
+                              option: option,
+                              selected: option == widget.current,
+                              onTap: () => Navigator.of(context).pop(option),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryChip extends StatelessWidget {
+  const _CategoryChip({
+    super.key,
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  /// The whole industry, such as '음식점 · 중식'. The chip shows the part after
+  /// the group, which is the heading above it.
+  final String option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // Screen readers hear the group with the name and which chip is the
+    // current industry (QA 10/7 #53).
+    return Semantics(
+      container: true,
+      button: true,
+      inMutuallyExclusiveGroup: true,
+      selected: selected,
+      label: option,
+      onTap: onTap,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        // The space around the pill is part of its 48px tall target and
+        // makes the gaps between chips.
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 38),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? ReportCreateStyle.blue : Colors.white,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected
+                    ? ReportCreateStyle.blue
+                    : AppColors.borderMedium,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[
+                  const Icon(
+                    Icons.check_rounded,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                ],
+                Text(
+                  option.split(' · ').last,
+                  style: TextStyle(
+                    color: selected ? Colors.white : AppColors.textBody,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AddressSearchSheet extends StatefulWidget {
   const _AddressSearchSheet({
     required this.search,
@@ -1626,23 +1773,13 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                   width: 36,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: ReportCreateStyle.border,
+                    color: AppColors.disabled,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              const Text(
-                '매장 또는 주소 검색',
-                style: TextStyle(
-                  color: ReportCreateStyle.ink,
-                  fontFamily: ReportCreateStyle.fontFamily,
-                  fontFamilyFallback: ReportCreateStyle.fontFallback,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                ),
-              ),
+              const SizedBox(height: 16),
+              const Text('매장 또는 주소 검색', style: _sheetTitleStyle),
               const SizedBox(height: 4),
               const Text(
                 '매장명, 도로명 또는 지번으로 찾아보세요.',
@@ -1704,7 +1841,18 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                 ),
                 decoration: InputDecoration(
                   hintText: '예: 롯데리아, 테헤란로 123',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 21),
+                  hintStyle: const TextStyle(
+                    color: ReportCreateStyle.muted,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 21,
+                    color: ReportCreateStyle.muted,
+                  ),
                   suffixIcon: _controller.text.isEmpty
                       ? null
                       : IconButton(
@@ -1713,22 +1861,24 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
                             _controller.clear();
                             _onQueryChanged('');
                           },
-                          icon: const Icon(Icons.close_rounded, size: 19),
+                          icon: const Icon(
+                            Icons.cancel_rounded,
+                            size: 19,
+                            color: AppColors.disabled,
+                          ),
                         ),
+                  // A cream field on the white sheet, outlined only while
+                  // typing.
                   filled: true,
-                  fillColor: const Color(0xFFF4F6FA),
+                  fillColor: AppColors.surface,
                   contentPadding: const EdgeInsets.symmetric(vertical: 14),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: ReportCreateStyle.border,
-                    ),
+                    borderSide: BorderSide.none,
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: const BorderSide(
-                      color: ReportCreateStyle.border,
-                    ),
+                    borderSide: const BorderSide(color: Colors.transparent),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -1775,59 +1925,17 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
 
     return ListView.separated(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
       itemCount: _results.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: ReportCreateStyle.border),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final place = _results[index];
-        final hasPlaceName = place.name.isNotEmpty;
-        return ListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 2),
-          minVerticalPadding: 12,
-          leading: Icon(
-            hasPlaceName
-                ? Icons.storefront_outlined
-                : Icons.location_on_outlined,
-            color: ReportCreateStyle.blue,
-            size: 22,
-          ),
-          title: Text(
-            hasPlaceName ? place.name : place.address,
-            style: const TextStyle(
-              color: ReportCreateStyle.ink,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 1.45,
-            ),
-          ),
-          subtitle: hasPlaceName
-              ? Text(
-                  place.address,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: ReportCreateStyle.muted,
-                    fontFamily: ReportCreateStyle.fontFamily,
-                    fontFamilyFallback: ReportCreateStyle.fontFallback,
-                    fontSize: 12,
-                    height: 1.4,
-                  ),
-                )
+        return _PlaceResultTile(
+          key: ValueKey('report-place-result-$index'),
+          place: place,
+          distance: place.distanceMeters >= 0
+              ? _formatDistance(place.distanceMeters)
               : null,
-          trailing: place.distanceMeters >= 0
-              ? Text(
-                  _formatDistance(place.distanceMeters),
-                  style: const TextStyle(
-                    color: ReportCreateStyle.blue,
-                    fontFamily: ReportCreateStyle.fontFamily,
-                    fontFamilyFallback: ReportCreateStyle.fontFallback,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                )
-              : const Icon(Icons.chevron_right_rounded, size: 20),
           onTap: () => Navigator.of(context).pop(place),
         );
       },
@@ -1840,6 +1948,131 @@ class _AddressSearchSheetState extends State<_AddressSearchSheet> {
     return kilometers < 10
         ? '${kilometers.toStringAsFixed(1)}km'
         : '${kilometers.round()}km';
+  }
+}
+
+class _PlaceResultTile extends StatelessWidget {
+  const _PlaceResultTile({
+    super.key,
+    required this.place,
+    required this.distance,
+    required this.onTap,
+  });
+
+  final ReportPlaceSuggestion place;
+
+  /// How far the place is, such as '418m', when the search knows it.
+  final String? distance;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPlaceName = place.name.isNotEmpty;
+    final distance = this.distance;
+    // One button per result, read as its name, address and distance.
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        child: Material(
+          color: Colors.white,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: ReportCreateStyle.border),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      hasPlaceName
+                          ? Icons.storefront_outlined
+                          : Icons.location_on_outlined,
+                      color: ReportCreateStyle.blue,
+                      size: 19,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          hasPlaceName ? place.name : place.address,
+                          style: const TextStyle(
+                            color: ReportCreateStyle.ink,
+                            fontFamily: ReportCreateStyle.fontFamily,
+                            fontFamilyFallback: ReportCreateStyle.fontFallback,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            height: 1.4,
+                          ),
+                        ),
+                        if (hasPlaceName) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            place.address,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: ReportCreateStyle.muted,
+                              fontFamily: ReportCreateStyle.fontFamily,
+                              fontFamilyFallback:
+                                  ReportCreateStyle.fontFallback,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  if (distance != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        distance,
+                        style: const TextStyle(
+                          color: ReportCreateStyle.blue,
+                          fontFamily: ReportCreateStyle.fontFamily,
+                          fontFamilyFallback: ReportCreateStyle.fontFallback,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  else
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 20,
+                      color: ReportCreateStyle.muted,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1858,28 +2091,67 @@ class _AddressSearchMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 30, color: ReportCreateStyle.muted),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: ReportCreateStyle.muted,
-              fontFamily: ReportCreateStyle.fontFamily,
-              fontFamilyFallback: ReportCreateStyle.fontFallback,
-              fontSize: 13,
-              height: 1.5,
+    final actionLabel = this.actionLabel;
+    final onAction = this.onAction;
+    // Scrolls rather than overflowing when the keyboard leaves little room.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, size: 24, color: ReportCreateStyle.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: ReportCreateStyle.muted,
+                      fontFamily: ReportCreateStyle.fontFamily,
+                      fontFamilyFallback: ReportCreateStyle.fontFallback,
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                  if (actionLabel != null && onAction != null) ...[
+                    const SizedBox(height: 14),
+                    OutlinedButton(
+                      onPressed: onAction,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: ReportCreateStyle.blue,
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        side: const BorderSide(color: ReportCreateStyle.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        textStyle: const TextStyle(
+                          fontFamily: ReportCreateStyle.fontFamily,
+                          fontFamilyFallback: ReportCreateStyle.fontFallback,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      child: Text(actionLabel),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 8),
-            TextButton(onPressed: onAction, child: Text(actionLabel!)),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -2050,24 +2322,18 @@ class _MenuPriceRow extends StatelessWidget {
               ],
             ],
           ),
-          Semantics(
-            container: true,
-            label: index == 0 ? '무료 메뉴 여부' : '$name 무료 여부',
-            child: Material(
-              type: MaterialType.transparency,
-              child: CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('무료 (가격은 정확히 0원만 가능)'),
-                value: menuPrice.free,
-                onChanged: (value) {
-                  menuPrice.free = value ?? false;
-                  if (menuPrice.free) menuPrice.price.text = '0';
-                  onChanged();
-                },
-              ),
-            ),
+          // The same check as the visit confirmations below, with the row
+          // height of a list tile so it stays easy to hit.
+          _CheckLine(
+            label: '무료 (가격은 정확히 0원만 가능)',
+            semanticLabel: index == 0 ? '무료 메뉴 여부' : '$name 무료 여부',
+            value: menuPrice.free,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            onChanged: (value) {
+              menuPrice.free = value;
+              if (value) menuPrice.price.text = '0';
+              onChanged();
+            },
           ),
         ],
       ),
@@ -2620,11 +2886,20 @@ class _CheckLine extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.semanticLabel,
+    this.padding = EdgeInsets.zero,
   });
 
   final String label;
   final bool value;
   final ValueChanged<bool> onChanged;
+
+  /// Read before [label] when the line needs more context, such as the menu
+  /// row it belongs to.
+  final String? semanticLabel;
+
+  /// Space around the line that still toggles it.
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -2635,45 +2910,51 @@ class _CheckLine extends StatelessWidget {
       container: true,
       checked: value,
       enabled: true,
+      label: semanticLabel,
       child: GestureDetector(
         onTap: () => onChanged(!value),
         behavior: HitTestBehavior.opaque,
-        child: Row(
-          children: [
-            Container(
-              width: 17.997,
-              height: 17.997,
-              decoration: BoxDecoration(
-                color: value ? ReportCreateStyle.blue : Colors.white,
-                border: Border.all(
-                  color: value
-                      ? ReportCreateStyle.blue
-                      : ReportCreateStyle.border,
-                  width: .909,
+        child: Padding(
+          padding: padding,
+          child: Row(
+            children: [
+              Container(
+                width: 17.997,
+                height: 17.997,
+                decoration: BoxDecoration(
+                  color: value ? ReportCreateStyle.blue : Colors.white,
+                  border: Border.all(
+                    color: value
+                        ? ReportCreateStyle.blue
+                        : ReportCreateStyle.border,
+                    width: .909,
+                  ),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                borderRadius: BorderRadius.circular(4),
+                child: value
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 13,
+                      )
+                    : null,
               ),
-              child: value
-                  ? const Icon(
-                      Icons.check_rounded,
-                      color: Colors.white,
-                      size: 13,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 7.997),
-            Text(
-              label,
-              style: const TextStyle(
-                color: ReportCreateStyle.ink,
-                fontFamily: ReportCreateStyle.fontFamily,
-                fontFamilyFallback: ReportCreateStyle.fontFallback,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.5,
+              const SizedBox(width: 7.997),
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: ReportCreateStyle.ink,
+                    fontFamily: ReportCreateStyle.fontFamily,
+                    fontFamilyFallback: ReportCreateStyle.fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -2693,34 +2974,48 @@ class _SubmitFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final label = isEditing ? '제보 수정하기' : '제보 제출하기';
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: FilledButton(
         onPressed: isSubmitting ? null : onPressed,
-        style: FilledButton.styleFrom(
-          backgroundColor: ReportCreateStyle.blue,
-          foregroundColor: Colors.white,
-          elevation: 8,
-          shadowColor: const Color(0x4D2563EB),
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
-          ),
-        ),
+        style:
+            FilledButton.styleFrom(
+              backgroundColor: ReportCreateStyle.blue,
+              foregroundColor: Colors.white,
+              // While the report is sent the button stays blue behind its
+              // spinner; only a form that can no longer be sent turns grey.
+              disabledBackgroundColor: isSubmitting
+                  ? ReportCreateStyle.blue
+                  : AppColors.disabledSurface,
+              disabledForegroundColor: isSubmitting
+                  ? Colors.white
+                  : AppColors.textMuted,
+              shadowColor: const Color(0x4D2563EB),
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+              ),
+            ).copyWith(
+              // The blue glow is only for a button that can be pressed.
+              elevation: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.disabled) ? 0 : 8,
+              ),
+            ),
         child: isSubmitting
-            ? const SizedBox(
+            ? SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   color: Colors.white,
                   strokeWidth: 2,
+                  semanticsLabel: isEditing ? '제보 수정 중' : '제보 제출 중',
                 ),
               )
             : Text(
-                isEditing ? '제보 수정하기' : '제보 제출하기',
+                label,
                 style: const TextStyle(
-                  color: Colors.white,
                   fontFamily: ReportCreateStyle.fontFamily,
                   fontFamilyFallback: ReportCreateStyle.fontFallback,
                   fontSize: 15,

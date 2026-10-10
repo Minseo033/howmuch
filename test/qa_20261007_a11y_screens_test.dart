@@ -496,7 +496,7 @@ void main() {
 
       await tester.tap(find.byTooltip('업종 선택'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('음식점 · 중식'));
+      await tester.tap(find.text('중식'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('업종 선택'));
       await tester.pumpAndSettle();
