@@ -8,6 +8,7 @@ import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/login_required_state.dart';
 
@@ -113,7 +114,7 @@ class _PriceAlertSubscriptionScreenState
           : _PriceAlertError(
               message: error is PriceAlertApiException
                   ? error.message
-                  : '가격 알림 매장 목록을 불러오지 못했어요.',
+                  : '잠시 후 다시 시도해 주세요.',
               onRetry: () =>
                   ref.read(priceAlertSettingsProvider.notifier).loadSettings(),
               onBack: _closeOrGoToNotificationSettings,
@@ -334,18 +335,72 @@ class _PriceAlertError extends StatelessWidget {
   Widget build(BuildContext context) {
     return _PriceAlertStatusFrame(
       onBack: onBack,
+      // The 알림 설정 error block, so both settings pages fail alike.
       child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(message, textAlign: TextAlign.center),
+              Container(
+                width: 60,
+                height: 60,
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppColors.warning,
+                  size: 30,
+                ),
+              ),
               const SizedBox(height: 16),
-              OutlinedButton.icon(
+              const Text(
+                '가격 알림을 불러오지 못했어요',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: PriceAlertSubscriptionScreen.ink,
+                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: PriceAlertSubscriptionScreen.muted,
+                  fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                  fontFamilyFallback: PriceAlertSubscriptionScreen.fontFallback,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('다시 시도'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: PriceAlertSubscriptionScreen.blue,
+                  foregroundColor: AppColors.white,
+                  // 40 tall like the other error blocks, with a 48px tap area.
+                  minimumSize: const Size(140, 40),
+                  tapTargetSize: MaterialTapTargetSize.padded,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.button),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: PriceAlertSubscriptionScreen.fontFamily,
+                    fontFamilyFallback:
+                        PriceAlertSubscriptionScreen.fontFallback,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                child: const Text('다시 시도'),
               ),
             ],
           ),

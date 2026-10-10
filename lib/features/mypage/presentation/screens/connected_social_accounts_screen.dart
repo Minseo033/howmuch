@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/kakao_login_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
@@ -103,8 +104,8 @@ class _ConnectedSocialAccountsScreenState
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
                   color: AppColors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.border),
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  border: Border.all(color: AppColors.border, width: .909),
                 ),
                 child: Row(
                   children: [
@@ -115,7 +116,7 @@ class _ConnectedSocialAccountsScreenState
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.kakaoYellow,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: profile.profileImageUrl.isEmpty
                           ? const Text(
@@ -179,14 +180,35 @@ class _ConnectedSocialAccountsScreenState
               if (isLoggedIn && accountInfoMissing) ...[
                 const SizedBox(height: 12),
                 SizedBox(
-                  height: 46,
+                  height: 48,
                   child: OutlinedButton.icon(
                     onPressed: _isRefreshing ? null : _requestAccountInfo,
+                    // A white secondary button on the cream page. It keeps
+                    // its colors while loading, next to its own spinner.
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      backgroundColor: AppColors.white,
+                      disabledForegroundColor: AppColors.primary,
+                      disabledBackgroundColor: AppColors.white,
+                      side: const BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadii.button),
+                      ),
+                      textStyle: const TextStyle(
+                        fontFamily: 'Noto Sans KR',
+                        fontFamilyFallback: ['Noto Sans KR'],
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                     icon: _isRefreshing
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.primary,
+                            ),
                           )
                         : const Icon(Icons.sync_rounded, size: 18),
                     label: Text(_isRefreshing ? '불러오는 중...' : '카카오 계정 정보 불러오기'),
@@ -197,8 +219,8 @@ class _ConnectedSocialAccountsScreenState
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primarySubtle,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(AppRadii.input),
                 ),
                 child: const Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
