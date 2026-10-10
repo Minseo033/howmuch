@@ -1085,6 +1085,10 @@ class _StickySaveButton extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: NotificationSettingsScreen.blue,
                   foregroundColor: AppColors.white,
+                  // The button turns off while saving; it keeps its color so
+                  // the white spinner stays visible.
+                  disabledBackgroundColor: NotificationSettingsScreen.blue,
+                  disabledForegroundColor: AppColors.white,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(22),

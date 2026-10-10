@@ -14,6 +14,7 @@ import 'package:howmuch/features/community/presentation/state/report_service.dar
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 
 class InquiryScreen extends ConsumerStatefulWidget {
@@ -713,23 +714,48 @@ class _BodyField extends StatelessWidget {
   }
 }
 
-class _InputShell extends StatelessWidget {
+class _InputShell extends StatefulWidget {
   const _InputShell({required this.height, required this.child});
 
   final double height;
   final Widget child;
 
   @override
+  State<_InputShell> createState() => _InputShellState();
+}
+
+class _InputShellState extends State<_InputShell> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        border: Border.all(color: InquiryScreen.border, width: .909),
-        borderRadius: BorderRadius.circular(14),
+    // The field inside draws no border of its own, so the shell shows which
+    // field is being typed in, like the app's themed inputs. The ring is a
+    // foreground border so the text does not move.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      includeSemantics: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        curve: AppMotion.standard,
+        width: double.infinity,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          border: Border.all(color: InquiryScreen.border, width: .909),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        foregroundDecoration: BoxDecoration(
+          border: Border.all(
+            color: _focused ? InquiryScreen.blue : AppColors.transparent,
+            width: 1.5,
+          ),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: widget.child,
       ),
-      child: child,
     );
   }
 }
@@ -1057,6 +1083,10 @@ class _StickyButton extends StatelessWidget {
               style: ElevatedButton.styleFrom(
                 backgroundColor: InquiryScreen.blue,
                 foregroundColor: AppColors.white,
+                // The button turns off while sending; it keeps its color so
+                // the white spinner stays visible.
+                disabledBackgroundColor: InquiryScreen.blue,
+                disabledForegroundColor: AppColors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
