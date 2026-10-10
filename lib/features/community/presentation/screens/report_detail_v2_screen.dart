@@ -136,28 +136,9 @@ class _ReportDetailV2ScreenState extends ConsumerState<ReportDetailV2Screen> {
                     ? const CircularProgressIndicator(
                         color: ReportDetailV2Screen._blue,
                       )
-                    : Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _refreshFailed
-                                ? '제보 정보를 불러오지 못했어요.'
-                                : '제보 정보를 찾을 수 없어요.',
-                            style: const TextStyle(
-                              color: ReportDetailV2Screen._muted,
-                              fontFamily: ReportDetailV2Screen._fontFamily,
-                              fontFamilyFallback:
-                                  ReportDetailV2Screen._fontFallback,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (_refreshFailed)
-                            TextButton(
-                              onPressed: _refreshReport,
-                              child: const Text('다시 불러오기'),
-                            ),
-                        ],
+                    : _MissingReportState(
+                        failed: _refreshFailed,
+                        onRetry: _refreshReport,
                       ),
               ),
             ),
@@ -1275,12 +1256,22 @@ class _PrimaryActionButton extends StatelessWidget {
           : () => openReportEditor(context, report),
       style: FilledButton.styleFrom(
         backgroundColor: ReportDetailV2Screen._blue,
+        foregroundColor: Colors.white,
+        // A reviewed report cannot be edited: the button greys out and its
+        // label stays readable on the grey.
+        disabledBackgroundColor: ReportDetailV2Screen._border,
+        disabledForegroundColor: const Color(0xFF6B7280),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.edit_outlined, size: 14, color: Colors.white),
+          Icon(
+            report.isApproved
+                ? Icons.lock_outline_rounded
+                : Icons.edit_outlined,
+            size: 14,
+          ),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -1290,8 +1281,7 @@ class _PrimaryActionButton extends StatelessWidget {
                   ? '검토 완료 · 수정 불가'
                   : '승인된 제보 · 수정 불가',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
+              style: const TextStyle(
                 fontFamily: ReportDetailV2Screen._fontFamily,
                 fontFamilyFallback: ReportDetailV2Screen._fontFallback,
                 fontSize: 13,
@@ -1300,6 +1290,89 @@ class _PrimaryActionButton extends StatelessWidget {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown in place of the report when it could not be loaded or found, laid
+/// out like the My reports states.
+class _MissingReportState extends StatelessWidget {
+  const _MissingReportState({required this.failed, required this.onRetry});
+
+  final bool failed;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              border: Border.all(color: ReportDetailV2Screen._border),
+            ),
+            child: Icon(
+              failed ? Icons.cloud_off_outlined : Icons.search_off_rounded,
+              size: 26,
+              color: ReportDetailV2Screen._muted,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            failed ? '제보 정보를 불러오지 못했어요.' : '제보 정보를 찾을 수 없어요.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ReportDetailV2Screen._ink,
+              fontFamily: ReportDetailV2Screen._fontFamily,
+              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            failed ? '잠시 후 다시 시도해 주세요.' : '삭제되었거나 다른 계정의 제보일 수 있어요.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: ReportDetailV2Screen._muted,
+              fontFamily: ReportDetailV2Screen._fontFamily,
+              fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+              fontSize: 12,
+              height: 1.5,
+            ),
+          ),
+          if (failed) ...[
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: onRetry,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ReportDetailV2Screen._blue,
+                backgroundColor: Colors.white,
+                minimumSize: const Size(0, 40),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                side: const BorderSide(color: ReportDetailV2Screen._border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontFamily: ReportDetailV2Screen._fontFamily,
+                  fontFamilyFallback: ReportDetailV2Screen._fontFallback,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              child: const Text('다시 불러오기'),
+            ),
+          ],
         ],
       ),
     );
