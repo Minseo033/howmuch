@@ -350,7 +350,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     // asked before the chat opens instead of after the first question.
     final loggedIn = await requireLogin(
       context,
-      message: 'AI 추천은 로그인 후 이용할 수 있어요.',
+      // Guests browse freely; the prompt speaks of the extra features an
+      // account opens rather than of AI alone.
+      message: '추가 기능을 사용하려면 로그인해 주세요.',
     );
     if (!loggedIn || !mounted) return;
     final result = await context.push<dynamic>(AppRoutes.aiRecommend);

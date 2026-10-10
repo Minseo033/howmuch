@@ -49,7 +49,7 @@ void main() {
   testWidgets('AI asks a guest to log in before the chat opens', (
     tester,
   ) async {
-    const message = 'AI 추천은 로그인 후 이용할 수 있어요.';
+    const message = '추가 기능을 사용하려면 로그인해 주세요.';
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(390, 844);
     addTearDown(tester.view.reset);
