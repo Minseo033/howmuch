@@ -46,7 +46,6 @@ class AppTheme {
       ],
       scaffoldBackgroundColor: AppColors.surface,
       visualDensity: VisualDensity.standard,
-      splashFactory: InkSparkle.splashFactory,
       textTheme: const TextTheme(
         headlineSmall: TextStyle(
           color: AppColors.textPrimary,
