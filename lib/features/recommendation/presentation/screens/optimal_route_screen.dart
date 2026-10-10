@@ -1,9 +1,12 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:howmuch/app/app_routes.dart';
 import 'package:howmuch/features/recommendation/presentation/state/todays_pick_service.dart';
@@ -259,18 +262,26 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
     return formatRecommendationDistance(_number(value));
   }
 
+  static const _legUnavailableText = '위치 정보가 없어 이 구간을 열 수 없어요.';
+
+  /// Distance of the leg that ends at stop [index], and whether it is a walk:
+  /// up to 1.5km on foot, otherwise by transit or car.
+  ({double meters, bool walk})? _legTravel(int index) {
+    final meters = _legDistanceMeters(index);
+    if (meters == null || !meters.isFinite || meters < 0) return null;
+    return (meters: meters, walk: meters <= 1500);
+  }
+
   /// Travel time of the leg that ends at stop [index]: from the current
   /// location for the first stop, otherwise from the previous stop.
   String? _legTimeText(int index) {
-    final legDistance = _legDistanceMeters(index);
-    if (legDistance == null || !legDistance.isFinite || legDistance < 0) {
-      return null;
-    }
-    if (legDistance <= 1500) {
-      final walkMinutes = math.max(1, (legDistance / 80).round());
+    final travel = _legTravel(index);
+    if (travel == null) return null;
+    if (travel.walk) {
+      final walkMinutes = math.max(1, (travel.meters / 80).round());
       return '도보 약 $walkMinutes분';
     }
-    return '대중교통/차량 이동 (${formatRecommendationDistance(legDistance)})';
+    return '대중교통/차량 이동 (${formatRecommendationDistance(travel.meters)})';
   }
 
   @override
@@ -502,7 +513,8 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                             ..._picks.asMap().entries.map((entry) {
                               final idx = entry.key;
                               final p = entry.value;
-                              final storeName = p['storeName'] ?? '알 수 없음';
+                              final storeName =
+                                  p['storeName']?.toString() ?? '알 수 없음';
                               final matchedMenu =
                                   p['matchedMenu']?.toString().trim() ?? '';
                               final menu = matchedMenu.isNotEmpty
@@ -516,47 +528,31 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
                               final distance = _distanceText(
                                 p['distanceMeters'],
                               );
-                              final legTime = _legTimeText(idx);
+                              final canOpenLeg = _canOpenLeg(idx);
 
                               return Column(
                                 children: [
-                                  RouteStepCard(
-                                    index: '${idx + 1}',
-                                    storeName: storeName,
-                                    details: [menu, price, distance]
-                                        .where((part) => part.isNotEmpty)
-                                        .join(' · '),
-                                  ),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton.icon(
+                                  _RouteStopWithLeg(
+                                    stop: RouteStepCard(
+                                      index: '${idx + 1}',
+                                      storeName: storeName,
+                                      details: [menu, price, distance]
+                                          .where((part) => part.isNotEmpty)
+                                          .join(' · '),
+                                    ),
+                                    leg: _RouteLegButton(
                                       key: ValueKey('route-leg-${idx + 1}'),
-                                      onPressed: _canOpenLeg(idx)
-                                          ? () => _openLeg(idx)
-                                          : null,
-                                      icon: const Icon(
-                                        Icons.directions_outlined,
-                                        size: 18,
-                                      ),
+                                      label:
+                                          '${idx + 1}구간: ${_legStartName(idx)} → $storeName',
                                       // Each leg shows its own travel time.
                                       // It used to sit under the previous
                                       // leg's button (QA #24).
-                                      label: Text.rich(
-                                        TextSpan(
-                                          text:
-                                              '${idx + 1}구간: ${_legStartName(idx)} → $storeName',
-                                          children: [
-                                            if (legTime != null)
-                                              TextSpan(
-                                                text: ' · $legTime',
-                                                style: const TextStyle(
-                                                  color: Color(0xFF64748B),
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
+                                      detail: canOpenLeg
+                                          ? _legTimeText(idx)
+                                          : _legUnavailableText,
+                                      onPressed: canOpenLeg
+                                          ? () => _openLeg(idx)
+                                          : null,
                                     ),
                                   ),
                                   if (idx < _picks.length - 1)
@@ -836,59 +832,449 @@ class _OptimalRouteScreenState extends ConsumerState<OptimalRouteScreen> {
   }
 
   Future<void> _showRouteLegs() async {
+    final legs = [for (var i = 0; i < _picks.length; i++) _legSummary(i)];
     final index = await showModalBottomSheet<int>(
       context: context,
-      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
       // Same 430 column as the radius sheet on a wide browser window.
       constraints: const BoxConstraints(
         maxWidth: FigmaMobileCanvas.maxWebWidth,
       ),
-      builder: (sheetContext) => SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  '구간별 길찾기',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(20, 8, 20, 12),
-                child: Text('순서대로 이동할 구간을 선택하세요. 지도에서 돌아와도 방문 완료로 처리하지 않아요.'),
-              ),
-              for (var i = 0; i < _picks.length; i++)
-                ListTile(
-                  enabled: _canOpenLeg(i),
-                  leading: Text('${i + 1}구간'),
-                  title: Text(
-                    '${_legStartName(i)} → ${_picks[i]['storeName']}',
-                  ),
-                  subtitle: Text(
-                    _canOpenLeg(i)
-                        ? formatRecommendationDistance(_legDistanceMeters(i))
-                        : '위치 정보가 없어 이 구간을 열 수 없어요.',
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.pop(sheetContext, i),
-                ),
-            ],
-          ),
-        ),
+      builder: (sheetContext) => _RouteLegsSheet(
+        legs: legs,
+        onSelected: (leg) => Navigator.pop(sheetContext, leg),
       ),
     );
     if (mounted && index != null) _openLeg(index);
   }
 
+  _RouteLeg _legSummary(int index) {
+    final travel = _legTravel(index);
+    final time = _legTimeText(index);
+    return _RouteLeg(
+      index: index,
+      from: _legStartName(index),
+      to: _picks[index]['storeName']?.toString() ?? '알 수 없음',
+      canOpen: _canOpenLeg(index),
+      walk: travel?.walk ?? true,
+      // A far leg already names its distance.
+      travel: travel == null
+          ? null
+          : travel.walk
+          ? '$time · ${formatRecommendationDistance(travel.meters)}'
+          : time,
+    );
+  }
+
   Widget _buildConnection() {
     return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      // Lines the dots up under the stop numbers.
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 4),
       child: Row(
         children: [Icon(Icons.more_vert, color: Color(0xFFE5E7EB), size: 20)],
       ),
+    );
+  }
+}
+
+/// A stop card with the button for the leg that ends at it, so each leg
+/// reads as the way to that stop.
+class _RouteStopWithLeg extends StatelessWidget {
+  const _RouteStopWithLeg({required this.stop, required this.leg});
+
+  final Widget stop;
+  final Widget leg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFF8FAFC),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        side: const BorderSide(color: AppColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [stop, leg],
+      ),
+    );
+  }
+}
+
+/// Opens directions for one leg: the leg in brand blue with its travel time
+/// under it, across the whole width of the stop card.
+class _RouteLegButton extends StatelessWidget {
+  const _RouteLegButton({
+    super.key,
+    required this.label,
+    this.detail,
+    this.onPressed,
+  });
+
+  final String label;
+  final String? detail;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onPressed != null;
+    final color = enabled ? AppColors.primary : AppColors.muted;
+    return MergeSemantics(
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        child: InkWell(
+          onTap: onPressed,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              minHeight: AppSizes.minimumTouchTarget,
+            ),
+            child: Padding(
+              // Lines the icon up under the stop number and the label under
+              // the store name of the card above.
+              padding: const EdgeInsets.fromLTRB(20, 12, 10, 12),
+              child: Row(
+                children: [
+                  Icon(Icons.directions_rounded, size: 20, color: color),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        KeepAllText(
+                          label,
+                          style: TextStyle(
+                            color: color,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            height: 1.45,
+                          ),
+                        ),
+                        if (detail case final detail?) ...[
+                          const SizedBox(height: 1),
+                          Text(
+                            detail,
+                            style: const TextStyle(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              height: 1.45,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (enabled) ...[
+                    const SizedBox(width: 6),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 22,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One leg of the route as the leg sheet lists it.
+class _RouteLeg {
+  const _RouteLeg({
+    required this.index,
+    required this.from,
+    required this.to,
+    required this.canOpen,
+    required this.walk,
+    this.travel,
+  });
+
+  final int index;
+  final String from;
+  final String to;
+  final bool canOpen;
+  final bool walk;
+
+  /// Time and distance, such as '도보 약 2분 · 167m'.
+  final String? travel;
+
+  int get number => index + 1;
+
+  String? get detail =>
+      canOpen ? travel : _OptimalRouteScreenState._legUnavailableText;
+
+  String get semanticsLabel => [
+    '$number구간',
+    '$from에서 $to까지',
+    ?detail?.replaceAll(' · ', ', '),
+  ].join(', ');
+}
+
+/// Lists every leg as a numbered card. Picking one closes the sheet with its
+/// index; closing the sheet any other way picks nothing.
+class _RouteLegsSheet extends StatelessWidget {
+  const _RouteLegsSheet({required this.legs, required this.onSelected});
+
+  final List<_RouteLeg> legs;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey('route-legs-sheet'),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.overlay),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        // Scrolls when there are many legs or the text is large.
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _RouteSheetHandle(),
+              const SizedBox(height: 14),
+              const Text(
+                '구간별 길찾기',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const KeepAllText(
+                '순서대로 이동할 구간을 선택하세요. 지도에서 돌아와도 방문 완료로 처리하지 않아요.',
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 13,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 18),
+              for (final leg in legs) ...[
+                if (leg.index > 0) const SizedBox(height: 10),
+                _RouteLegCard(leg: leg, onTap: () => onSelected(leg.index)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteSheetHandle extends StatelessWidget {
+  const _RouteSheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 10),
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: AppColors.disabled,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+}
+
+/// A leg in the sheet, laid out like the stop cards on the screen: the stop
+/// number, where the leg ends, where it starts, and how long it takes.
+class _RouteLegCard extends StatelessWidget {
+  const _RouteLegCard({required this.leg, required this.onTap});
+
+  final _RouteLeg leg;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = leg.canOpen;
+    final detail = leg.detail;
+    return Semantics(
+      container: true,
+      button: true,
+      enabled: enabled,
+      label: leg.semanticsLabel,
+      onTap: enabled ? onTap : null,
+      excludeSemantics: true,
+      child: Material(
+        key: ValueKey('route-leg-sheet-${leg.number}'),
+        color: AppColors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          side: const BorderSide(color: AppColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+            child: Row(
+              children: [
+                _RouteLegNumber(number: leg.number, enabled: enabled),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      KeepAllText(
+                        leg.to,
+                        style: TextStyle(
+                          color: enabled ? AppColors.ink : AppColors.muted,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      KeepAllText(
+                        '${leg.from}에서 출발',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          height: 1.45,
+                        ),
+                      ),
+                      if (detail != null) ...[
+                        const SizedBox(height: 8),
+                        _RouteLegTravel(
+                          icon: !enabled
+                              ? Icons.location_off_outlined
+                              : leg.walk
+                              ? Icons.directions_walk_rounded
+                              : Icons.commute_rounded,
+                          text: detail,
+                          enabled: enabled,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (enabled) ...[
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primaryLight,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.directions_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteLegNumber extends StatelessWidget {
+  const _RouteLegNumber({required this.number, required this.enabled});
+
+  final int number;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: enabled ? AppColors.primary : AppColors.disabled,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$number',
+        // The number repeats the card's spoken label; past the chrome cap it
+        // would no longer fit the circle.
+        textScaler: MediaQuery.textScalerOf(
+          context,
+        ).clamp(maxScaleFactor: AppTextScale.compactChrome),
+        style: const TextStyle(
+          color: AppColors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+/// How the leg is travelled, with an icon that stays on the first line.
+class _RouteLegTravel extends StatelessWidget {
+  const _RouteLegTravel({
+    required this.icon,
+    required this.text,
+    required this.enabled,
+  });
+
+  static const _fontSize = 12.0;
+  static const _lineHeight = 1.45;
+
+  final IconData icon;
+  final String text;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final textScaler = MediaQuery.textScalerOf(context);
+    final iconSize = textScaler
+        .clamp(maxScaleFactor: AppTextScale.compactChrome)
+        .scale(15);
+    final firstLine = textScaler.scale(_fontSize) * _lineHeight;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            top: math.max(0, (firstLine - iconSize) / 2),
+          ),
+          child: Icon(
+            icon,
+            size: iconSize,
+            color: enabled ? AppColors.primary : AppColors.muted,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: enabled ? AppColors.textBody : AppColors.muted,
+              fontSize: _fontSize,
+              fontWeight: FontWeight.w600,
+              height: _lineHeight,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
