@@ -21,6 +21,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/keep_all_text.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/core/utils/text_initial.dart';
 
@@ -259,21 +260,11 @@ class _StoreDetailContent extends ConsumerWidget {
                           ),
                         )
                       : refreshFailed
-                      ? Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 8,
-                          ),
-                          child: Row(
-                            children: [
-                              const Expanded(
-                                child: Text('최신 정보를 확인하지 못해 이전 정보를 보여드려요.'),
-                              ),
-                              TextButton(
-                                onPressed: onRefresh,
-                                child: const Text('다시 확인'),
-                              ),
-                            ],
+                      ? ColoredBox(
+                          color: AppColors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                            child: _RefreshFailedNotice(onRetry: onRefresh),
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -1366,30 +1357,24 @@ class _StoreReviewSectionState extends ConsumerState<_StoreReviewSection> {
           ),
           const SizedBox(height: 14),
           if (reviewState == null || (reviewState.isLoading && !hasReviews))
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text('리뷰를 불러오고 있어요'),
-            )
+            // Reviews are requested from the next frame on, and never for a
+            // store without an id. Nothing is loading before that, so nothing
+            // spins.
+            _ReviewsLoading(spinning: reviewState != null)
           else if (reviewState.hasError && !hasReviews)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('리뷰를 불러오지 못했어요'),
-                TextButton(
-                  onPressed: () => ref
-                      .read(storeReviewProvider.notifier)
-                      .loadReviews(widget.storeKey, force: true),
-                  child: const Text('다시 시도'),
-                ),
-              ],
+            _ReviewsNotice(
+              icon: Icons.error_outline_rounded,
+              title: '리뷰를 불러오지 못했어요',
+              message: '잠시 후 다시 시도해 주세요.',
+              onRetry: () => ref
+                  .read(storeReviewProvider.notifier)
+                  .loadReviews(widget.storeKey, force: true),
             )
           else if (shown.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                '아직 리뷰가 없어요. 첫 리뷰의 주인공이 되어보세요!',
-                style: TextStyle(fontSize: 13, color: AppColors.textMuted),
-              ),
+            const _ReviewsNotice(
+              icon: Icons.rate_review_outlined,
+              title: '아직 리뷰가 없어요',
+              message: '첫 리뷰의 주인공이 되어보세요!',
             )
           else
             ...shown.asMap().entries.expand(
@@ -1437,6 +1422,187 @@ class _BenefitBadge extends StatelessWidget {
           fontSize: 11,
           fontWeight: FontWeight.w600,
           color: color,
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  최신 정보 확인 실패 안내
+// ─────────────────────────────────────────────────────────
+class _RefreshFailedNotice extends StatelessWidget {
+  final VoidCallback? onRetry;
+
+  const _RefreshFailedNotice({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.sync_problem_rounded,
+            size: 18,
+            color: AppColors.warning,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: KeepAllText(
+              '최신 정보를 확인하지 못해 이전 정보를 보여드려요.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.45,
+                color: AppColors.textBody,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              backgroundColor: AppColors.white,
+              foregroundColor: AppColors.primary,
+              minimumSize: const Size(0, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              textStyle: const TextStyle(
+                fontFamily: 'Noto Sans KR',
+                fontFamilyFallback: ['Noto Sans KR'],
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            child: const Text('다시 확인'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+//  리뷰 불러오는 중 · 실패 · 없음
+// ─────────────────────────────────────────────────────────
+/// Shown until the reviews arrive. The text stays for screen readers.
+class _ReviewsLoading extends StatelessWidget {
+  final bool spinning;
+
+  const _ReviewsLoading({required this.spinning});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (spinning) ...[
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          const Flexible(
+            child: Text(
+              '리뷰를 불러오고 있어요',
+              style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The review section's error and empty states, smaller than a full screen
+/// state so they sit quietly inside the section.
+class _ReviewsNotice extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  const _ReviewsNotice({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Center(
+        child: Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: const BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.muted, size: 22),
+            ),
+            const SizedBox(height: 12),
+            KeepAllText(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                height: 1.4,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 4),
+            KeepAllText(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: AppColors.textMuted,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: onRetry,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryLight,
+                  foregroundColor: AppColors.primary,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  textStyle: const TextStyle(
+                    fontFamily: 'Noto Sans KR',
+                    fontFamilyFallback: ['Noto Sans KR'],
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('다시 시도'),
+              ),
+            ],
+          ],
         ),
       ),
     );
