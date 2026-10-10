@@ -125,6 +125,8 @@
     window.kakaoMarkerRequestGenerations = {};
     window.nextKakaoMarkerRequestGeneration = 0;
     window.kakaoMapCallbacks = {};
+    window.kakaoMarkerClusterers = {};
+    window.kakaoClusterMarkers = {};
 
     // Callbacks belong to a mounted platform view, never to the whole page.
     function emitKakaoMapEvent(containerId, event, value, storeId) {
@@ -378,11 +380,42 @@
 
     function clearKakaoMapOverlays(containerId) {
       var overlays = window.customOverlays && window.customOverlays[containerId];
-      if (!overlays) return;
-      for (var i = 0; i < overlays.length; i++) {
-        overlays[i].setMap(null);
+      if (overlays) {
+        for (var i = 0; i < overlays.length; i++) {
+          overlays[i].setMap(null);
+        }
+        overlays.length = 0;
       }
-      overlays.length = 0;
+      clearKakaoMarkerCluster(containerId);
+    }
+
+    function clearKakaoMarkerCluster(containerId) {
+      var clusterer = window.kakaoMarkerClusterers[containerId];
+      if (clusterer) {
+        if (clusterer._howmuchClusteredHandler) {
+          kakao.maps.event.removeListener(
+            clusterer,
+            'clustered',
+            clusterer._howmuchClusteredHandler
+          );
+        }
+        if (clusterer._howmuchClickHandler) {
+          kakao.maps.event.removeListener(
+            clusterer,
+            'clusterclick',
+            clusterer._howmuchClickHandler
+          );
+        }
+        if (typeof clusterer.clear === 'function') clusterer.clear();
+      }
+      var markers = window.kakaoClusterMarkers[containerId] || [];
+      for (var i = 0; i < markers.length; i++) {
+        if (markers[i] && typeof markers[i].setMap === 'function') {
+          markers[i].setMap(null);
+        }
+      }
+      delete window.kakaoMarkerClusterers[containerId];
+      delete window.kakaoClusterMarkers[containerId];
     }
 
     // Flutter disposes the platform view independently from this page. Release
@@ -407,6 +440,8 @@
       delete window.kakaoMapLoadAttempts[containerId];
       delete window.customOverlays[containerId];
       delete window.highlightedKakaoMarkerIndices[containerId];
+      delete window.kakaoMarkerClusterers[containerId];
+      delete window.kakaoClusterMarkers[containerId];
       delete window[containerId];
       delete window.kakaoMapCallbacks[containerId];
     }
@@ -564,6 +599,104 @@
     window.markerDataCache = {};
     window.highlightedKakaoMarkerIndices = {};
 
+    function kakaoMarkerClusterStyles() {
+      function style(size, background, fontSize) {
+        return {
+          width: size + 'px',
+          height: size + 'px',
+          background: background,
+          border: '4px solid rgba(255,255,255,0.94)',
+          borderRadius: '999px',
+          boxShadow: '0 5px 16px rgba(15,23,42,0.24)',
+          color: '#FFFFFF',
+          cursor: 'pointer',
+          fontSize: fontSize + 'px',
+          fontWeight: '800',
+          letterSpacing: '-0.3px',
+          lineHeight: (size - 8) + 'px',
+          textAlign: 'center',
+          transform: 'translateZ(0)'
+        };
+      }
+      return [
+        style(44, '#2563EB', 13),
+        style(48, '#1D4ED8', 14),
+        style(52, '#1E40AF', 14),
+        style(56, '#172554', 14)
+      ];
+    }
+
+    function rebuildKakaoMarkerCluster(containerId) {
+      clearKakaoMarkerCluster(containerId);
+      if (typeof kakao === 'undefined' || !kakao.maps ||
+          typeof kakao.maps.Marker !== 'function' ||
+          typeof kakao.maps.MarkerClusterer !== 'function') return;
+
+      var map = window.kakaoMapObjects[containerId];
+      var overlays = window.customOverlays[containerId] || [];
+      var markerData = window.markerDataCache[containerId] || [];
+      var selectedIndex = window.highlightedKakaoMarkerIndices[containerId];
+      if (!isUsableKakaoMap(map) || markerData.length < 2) return;
+      for (var overlayIndex = 0; overlayIndex < overlays.length; overlayIndex++) {
+        overlays[overlayIndex].setMap(map);
+      }
+
+      var markers = [];
+      for (var i = 0; i < markerData.length; i++) {
+        if (i === selectedIndex) continue;
+        var item = markerData[i];
+        var marker = new kakao.maps.Marker({
+          position: new kakao.maps.LatLng(item.lat, item.lng),
+          clickable: false,
+          opacity: 0
+        });
+        marker._howmuchIndex = i;
+        markers.push(marker);
+      }
+      if (markers.length < 2) return;
+
+      var clusterer = new kakao.maps.MarkerClusterer({
+        map: map,
+        averageCenter: true,
+        minLevel: 4,
+        minClusterSize: 2,
+        gridSize: 72,
+        disableClickZoom: true,
+        calculator: [10, 30, 100],
+        styles: kakaoMarkerClusterStyles(),
+        texts: function(size) { return size > 99 ? '99+' : String(size); }
+      });
+
+      var clusteredHandler = function(clusters) {
+        var hidden = {};
+        for (var i = 0; i < clusters.length; i++) {
+          var members = clusters[i].getMarkers();
+          if (members.length < 2) continue;
+          for (var j = 0; j < members.length; j++) {
+            hidden[members[j]._howmuchIndex] = true;
+          }
+        }
+        for (var overlayIndex = 0; overlayIndex < overlays.length; overlayIndex++) {
+          overlays[overlayIndex].setMap(hidden[overlayIndex] ? null : map);
+        }
+      };
+      var clickHandler = function(cluster) {
+        if (!cluster || typeof cluster.getCenter !== 'function') return;
+        var level = typeof map.getLevel === 'function' ? map.getLevel() : 4;
+        map.setLevel(Math.max(1, level - 2), {
+          anchor: cluster.getCenter(),
+          animate: { duration: 300 }
+        });
+      };
+      clusterer._howmuchClusteredHandler = clusteredHandler;
+      clusterer._howmuchClickHandler = clickHandler;
+      kakao.maps.event.addListener(clusterer, 'clustered', clusteredHandler);
+      kakao.maps.event.addListener(clusterer, 'clusterclick', clickHandler);
+      window.kakaoMarkerClusterers[containerId] = clusterer;
+      window.kakaoClusterMarkers[containerId] = markers;
+      clusterer.addMarkers(markers);
+    }
+
     function applyKakaoMapMarkerHighlight(containerId, selectedIndex) {
       var overlays = window.customOverlays[containerId] || [];
       var markerData = window.markerDataCache[containerId] || [];
@@ -591,8 +724,11 @@
     window.highlightKakaoMapMarker = function(containerId, selectedIndex) {
       var index = Number(selectedIndex);
       var normalizedIndex = Number.isInteger(index) && index >= 0 ? index : -1;
+      var membershipChanged =
+        window.highlightedKakaoMarkerIndices[containerId] !== normalizedIndex;
       window.highlightedKakaoMarkerIndices[containerId] = normalizedIndex;
       applyKakaoMapMarkerHighlight(containerId, normalizedIndex);
+      if (membershipChanged) rebuildKakaoMarkerCluster(containerId);
     };
 
     function setSuppressMarkerClicks(containerId, durationMs) {
@@ -685,6 +821,7 @@
           overlays[i].setMap(null);
         }
         overlays.length = 0; // 배열 비우기
+        clearKakaoMarkerCluster(containerId);
 
         for (var i = 0; i < markerData.length; i++) {
           (function(idx) {
@@ -770,6 +907,7 @@
           containerId,
           window.highlightedKakaoMarkerIndices[containerId]
         );
+        rebuildKakaoMarkerCluster(containerId);
         // Adding overlays does not resize the platform view. Relayout here
         // caused a second idle/request/rebuild loop on every marker update.
       });
