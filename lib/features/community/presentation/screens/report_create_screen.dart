@@ -9,6 +9,7 @@ import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:howmuch/core/location/browser_location.dart';
 import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
+import 'package:howmuch/core/theme/app_tokens.dart' show AppTextScale;
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:geolocator/geolocator.dart';
@@ -1051,38 +1052,45 @@ class _StepProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: const BoxDecoration(color: Colors.white),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSizes.horizontalPadding,
-        ),
-        child: Row(
-          children: [
-            _StepItem(
-              number: '1',
-              label: '기본 정보',
-              active: activeStep == 1,
-              complete: basicComplete,
-              onTap: () => onTap(1),
-            ),
-            Expanded(child: _StepLine(active: basicComplete)),
-            _StepItem(
-              number: '2',
-              label: '가격 정보',
-              active: activeStep == 2,
-              complete: priceComplete,
-              onTap: () => onTap(2),
-            ),
-            Expanded(child: _StepLine(active: basicComplete && priceComplete)),
-            _StepItem(
-              number: '3',
-              label: '확인',
-              active: activeStep == 3,
-              complete: confirmComplete,
-              onTap: () => onTap(3),
-            ),
-          ],
+    // A fixed-height bar: its labels stop growing at the app's cap for chrome
+    // so they are not cut off at large text sizes (QA 10/7 #5).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: AppTextScale.compactChrome,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(color: Colors.white),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.horizontalPadding,
+          ),
+          child: Row(
+            children: [
+              _StepItem(
+                number: '1',
+                label: '기본 정보',
+                active: activeStep == 1,
+                complete: basicComplete,
+                onTap: () => onTap(1),
+              ),
+              Expanded(child: _StepLine(active: basicComplete)),
+              _StepItem(
+                number: '2',
+                label: '가격 정보',
+                active: activeStep == 2,
+                complete: priceComplete,
+                onTap: () => onTap(2),
+              ),
+              Expanded(
+                child: _StepLine(active: basicComplete && priceComplete),
+              ),
+              _StepItem(
+                number: '3',
+                label: '확인',
+                active: activeStep == 3,
+                complete: confirmComplete,
+                onTap: () => onTap(3),
+              ),
+            ],
+          ),
         ),
       ),
     );
