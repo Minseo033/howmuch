@@ -103,14 +103,20 @@ class PushNotificationService {
     }
   }
 
-  Future<void> unregisterCurrentDevice() async {
+  /// Removes this device's token from the server. [sessionToken] authorizes
+  /// it for a session this device already dropped.
+  Future<void> unregisterCurrentDevice({String? sessionToken}) async {
     if (!_isRegistered || _registeredToken == null) return;
 
     try {
+      final headers = ApiClient.jsonHeaders(auth: sessionToken == null);
+      if (sessionToken != null) {
+        headers['Authorization'] = 'Bearer $sessionToken';
+      }
       await _client
           .delete(
             ApiClient.uri('/api/notifications/devices'),
-            headers: ApiClient.jsonHeaders(auth: true),
+            headers: headers,
             body: jsonEncode({
               'token': _registeredToken,
               'platform': _platformName,

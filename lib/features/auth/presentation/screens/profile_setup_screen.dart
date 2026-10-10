@@ -13,7 +13,12 @@ import 'package:howmuch/features/mypage/presentation/state/user_profile_api_serv
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
-  const ProfileSetupScreen({super.key, this.onSaved, this.onBack});
+  const ProfileSetupScreen({
+    super.key,
+    this.onSaved,
+    this.onBack,
+    this.onSaving,
+  });
 
   /// Inside the login flow opened on top of a screen: called once the
   /// profile is saved, instead of moving on to the address requested before
@@ -22,6 +27,10 @@ class ProfileSetupScreen extends ConsumerStatefulWidget {
 
   /// Inside that login flow: the back button leaves sign-up.
   final VoidCallback? onBack;
+
+  /// Inside that login flow: told when the profile save starts, with whether
+  /// the server stored the profile.
+  final void Function(Future<bool> saved)? onSaving;
 
   @override
   ConsumerState<ProfileSetupScreen> createState() => _ProfileSetupScreenState();
@@ -233,7 +242,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       final region = _regionController.text.trim();
       final categories = _selectedCategories.toList();
 
-      final saved = await ref
+      final saving = ref
           .read(userProfileApiServiceProvider)
           .saveProfile(
             nickname: nickname,
@@ -242,6 +251,8 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
             favoriteCategories: categories,
             profileImageUrl: authState.profileImageUrl,
           );
+      widget.onSaving?.call(saving);
+      final saved = await saving;
       if (!saved) {
         // Without a stored profile the next launch sends the user back to
         // login, so stay here and let them retry instead of entering the app.
@@ -351,11 +362,13 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       scrolledUnderElevation: 0,
       centerTitle: true,
       leading: IconButton(
-        onPressed:
-            widget.onBack ??
-            () {
-              if (context.canPop()) context.pop();
-            },
+        // Leaving while the profile saves could drop a stored account.
+        onPressed: _isLoading
+            ? null
+            : widget.onBack ??
+                  () {
+                    if (context.canPop()) context.pop();
+                  },
         icon: const Icon(Icons.arrow_back_rounded, size: 18, color: _ink),
         splashRadius: 20,
       ),

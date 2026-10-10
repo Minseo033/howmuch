@@ -541,17 +541,46 @@ class KakaoLoginService {
 
   /// 이 기기의 서버 세션 토큰을 폐기합니다. 같은 계정의 다른 기기 세션은 유지됩니다.
   /// 오프라인이거나 서버가 응답하지 않아도 이 기기의 로그아웃은 계속합니다.
-  Future<void> _revokeServerSession() async {
-    if (!ApiClient.isAuthenticated) return;
+  /// [sessionToken]을 주면 이 기기에서 이미 지운 세션을 폐기합니다.
+  Future<void> _revokeServerSession({String? sessionToken}) async {
+    final token = sessionToken ?? ApiClient.sessionToken;
+    if (token == null || token.isEmpty) return;
     try {
       await http
           .post(
             ApiClient.uri('/api/auth/logout'),
-            headers: ApiClient.authHeaders(auth: true),
+            headers: {
+              ...ApiClient.authHeaders(),
+              'Authorization': 'Bearer $token',
+            },
           )
           .timeout(const Duration(seconds: 3));
     } catch (_) {
       debugPrint('서버 세션 폐기 요청에 실패했습니다. 이 기기에서는 로그아웃합니다.');
+    }
+  }
+
+  /// Ends a sign-up that stopped before the profile was saved. This device is
+  /// a guest again at once, so nothing can use the unfinished account; its
+  /// Kakao token, device registration and server session are dropped after.
+  Future<void> endUnfinishedSignUp() async {
+    final sessionToken = ApiClient.sessionToken;
+    await clearLocalSession(unregisterDevice: false);
+    unawaited(_dropSession(sessionToken));
+  }
+
+  Future<void> _dropSession(String? sessionToken) async {
+    try {
+      await UserApi.instance.logout();
+    } catch (_) {
+      debugPrint('가입을 마치지 않은 카카오 세션을 정리하지 못했습니다.');
+    }
+    try {
+      await _ref
+          .read(pushNotificationServiceProvider)
+          .unregisterCurrentDevice(sessionToken: sessionToken);
+    } finally {
+      await _revokeServerSession(sessionToken: sessionToken);
     }
   }
 

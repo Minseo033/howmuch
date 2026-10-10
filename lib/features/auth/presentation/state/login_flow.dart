@@ -17,6 +17,11 @@ class LoginFlowRequests {
   Completer<bool>? _open;
   bool _claimed = false;
 
+  /// The login screen that handles the result of the Kakao login that is
+  /// running. A screen that joins a running login takes it over from one the
+  /// visitor left.
+  Object? kakaoLoginOwner;
+
   /// Opens the login screens with [openScreens] and completes with the
   /// answer. A second call while they are open waits for the same answer.
   Future<bool> start(Future<void> Function() openScreens) {

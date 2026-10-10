@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/startup_location.dart';
+import 'package:howmuch/core/network/api_client.dart';
 import 'package:howmuch/features/auth/presentation/screens/auth_terms_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/login_screen.dart';
 import 'package:howmuch/features/auth/presentation/screens/profile_setup_screen.dart';
@@ -37,8 +38,15 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
 
   _Step _step = _Step.checkingTerms;
   bool _loggingIn = false;
-  bool _signUpPending = false;
   bool _answered = false;
+  bool _leaveWhenOnTop = false;
+
+  /// A new account is logged in but its profile isn't saved yet.
+  bool _signUpPending = false;
+  Future<bool>? _profileSave;
+  bool? _profileSaved;
+
+  bool get _savingProfile => _profileSave != null && _profileSaved == null;
 
   @override
   void initState() {
@@ -46,6 +54,12 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
     _requests = ref.read(loginFlowRequestsProvider);
     _loginService = ref.read(kakaoLoginServiceProvider);
     _answersRequest = _requests.claim();
+    if (!_answersRequest && ApiClient.isAuthenticated) {
+      // Reopened from browser history after the visitor logged in.
+      _answered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _leave());
+      return;
+    }
     _checkTerms();
   }
 
@@ -53,13 +67,19 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _messenger = ScaffoldMessenger.maybeOf(context);
+    // Depending on the route runs this again once the flow is back on top.
+    final onTop = ModalRoute.of(context)?.isCurrent ?? true;
+    if (_leaveWhenOnTop && onTop) {
+      _leaveWhenOnTop = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _leave());
+    }
   }
 
   @override
   void dispose() {
     // Closed from outside, e.g. by the browser's back button.
     _answer(false);
-    if (_signUpPending) unawaited(_endSignUp());
+    if (_signUpPending) _endSignUpUnlessSaved();
     super.dispose();
   }
 
@@ -83,13 +103,28 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
     _leave();
   }
 
+  /// Closes the flow. Its browser history entry is replaced rather than
+  /// followed by a new one, so the back button doesn't reopen login.
   void _leave() {
     if (!mounted) return;
-    if (context.canPop()) {
-      context.pop();
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) {
+      // Something opened above the flow, e.g. a notice right after login.
+      _leaveWhenOnTop = true;
+      return;
+    }
+    void close() {
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        // Opened by its address, so there is no screen below.
+        context.go(ref.read(startupLocationProvider).take());
+      }
+    }
+
+    if (Router.maybeOf(context) != null) {
+      Router.neglect(context, close);
     } else {
-      // Opened by its address, so there is no screen below.
-      context.go(ref.read(startupLocationProvider).take());
+      close();
     }
   }
 
@@ -98,6 +133,9 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
   void _logInWithKakao() {
     if (_loggingIn) return;
     final attempt = _loginService.login(navigate: false);
+    // Joining a login that a screen the visitor left is still running takes
+    // its result over.
+    _requests.kakaoLoginOwner = this;
     setState(() => _loggingIn = true);
     unawaited(_handleLogin(attempt));
   }
@@ -112,11 +150,14 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
         '잠시 후 다시 시도해 주세요.',
       );
     }
+    final ownsResult = identical(_requests.kakaoLoginOwner, this);
+    if (ownsResult) _requests.kakaoLoginOwner = null;
     if (!mounted || _answered) {
-      _settleAfterLeaving(result);
+      if (ownsResult) _settleAfterLeaving(result);
       return;
     }
     setState(() => _loggingIn = false);
+    if (!ownsResult) return;
     switch (result.status) {
       case KakaoLoginStatus.cancelled:
         return;
@@ -135,39 +176,76 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
   }
 
   /// Kakao login finished after the visitor left. A new account can't set up
-  /// its profile any more, so its session ends; a member stays logged in.
+  /// its profile any more, so its sign-up ends; a member stays logged in.
   void _settleAfterLeaving(KakaoLoginResult result) {
     if (result.status != KakaoLoginStatus.success) return;
     if (result.isNewUser) {
-      unawaited(_loginService.logout());
+      unawaited(_loginService.endUnfinishedSignUp());
     } else {
-      _messenger?.showSnackBar(HowmuchSnackBar(content: Text('카카오로 로그인했어요.')));
+      _notify('카카오로 로그인했어요.');
     }
   }
 
   void _finish() {
+    if (_answered || _step == _Step.endingSignUp) return;
     _signUpPending = false;
-    _messenger?.showSnackBar(HowmuchSnackBar(content: Text('카카오로 로그인했어요.')));
+    _notify('카카오로 로그인했어요.');
     _answer(true);
     _leave();
   }
 
+  void _onProfileSaving(Future<bool> save) {
+    _profileSave = save;
+    _profileSaved = null;
+    void settle(bool saved) {
+      if (identical(_profileSave, save)) _profileSaved = saved;
+    }
+
+    unawaited(save.then(settle, onError: (Object _) => settle(false)));
+  }
+
   /// Leaving profile setup ends the new account's session, so the visitor
-  /// stays a guest and can try again.
+  /// stays a guest and can try again. Nothing happens while the profile
+  /// saves, and a stored profile finishes sign-up instead.
   Future<void> _leaveSignUp() async {
-    if (_step != _Step.profile) return;
+    if (_step != _Step.profile || _savingProfile) return;
+    if (_profileSaved == true) {
+      _finish();
+      return;
+    }
+    _signUpPending = false;
     setState(() => _step = _Step.endingSignUp);
-    await _endSignUp();
+    await _loginService.endUnfinishedSignUp();
     if (!mounted || _answered) return;
     setState(() => _step = _Step.login);
-    _messenger?.showSnackBar(
-      HowmuchSnackBar(content: Text('프로필을 저장해야 가입이 끝나요.')),
+    _notify('프로필을 저장해야 가입이 끝나요.');
+  }
+
+  /// The flow closed before sign-up finished. A profile the server stored
+  /// keeps the new member logged in; otherwise the session ends.
+  void _endSignUpUnlessSaved() {
+    _signUpPending = false;
+    final save = _profileSave;
+    if (_profileSaved == true) return;
+    if (save == null || _profileSaved == false) {
+      unawaited(_loginService.endUnfinishedSignUp());
+      return;
+    }
+    unawaited(
+      save.then<void>((saved) async {
+        if (saved) {
+          _notify('가입을 마쳤어요.');
+        } else {
+          await _loginService.endUnfinishedSignUp();
+        }
+      }, onError: (Object _) => _loginService.endUnfinishedSignUp()),
     );
   }
 
-  Future<void> _endSignUp() {
-    _signUpPending = false;
-    return _loginService.logout();
+  void _notify(String message) {
+    final messenger = _messenger;
+    if (messenger == null || !messenger.mounted) return;
+    messenger.showSnackBar(HowmuchSnackBar(content: Text(message)));
   }
 
   @override
@@ -183,10 +261,7 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
           unawaited(_leaveSignUp());
         }
       },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        child: KeyedSubtree(key: ValueKey(_step), child: _buildStep()),
-      ),
+      child: KeyedSubtree(key: ValueKey(_step), child: _buildStep()),
     );
   }
 
@@ -204,6 +279,7 @@ class _LoginFlowScreenState extends ConsumerState<LoginFlowScreen> {
       _Step.profile => ProfileSetupScreen(
         onSaved: _finish,
         onBack: _leaveSignUp,
+        onSaving: _onProfileSaving,
       ),
     };
   }

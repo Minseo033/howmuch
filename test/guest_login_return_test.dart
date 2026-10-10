@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -24,6 +25,7 @@ class _FakeLoginService extends KakaoLoginService {
   final navigateRequests = <bool>[];
   final _release = Completer<void>();
   var logoutCalls = 0;
+  var signUpEnds = 0;
 
   void release() => _release.complete();
 
@@ -42,9 +44,24 @@ class _FakeLoginService extends KakaoLoginService {
     logoutCalls++;
     await ApiClient.setSessionToken(null);
   }
+
+  @override
+  Future<void> endUnfinishedSignUp() async {
+    signUpEnds++;
+    await ApiClient.setSessionToken(null);
+  }
 }
 
+/// Saves the profile at once, or with [hold] when [finish] says so.
 class _FakeProfileService extends UserProfileApiService {
+  _FakeProfileService({this.hold = false});
+
+  final bool hold;
+  final _result = Completer<bool>();
+  var saves = 0;
+
+  void finish({required bool saved}) => _result.complete(saved);
+
   @override
   Future<bool> saveProfile({
     required String nickname,
@@ -54,7 +71,10 @@ class _FakeProfileService extends UserProfileApiService {
     String? profileImageUrl,
     bool? nicknamePublic,
     bool? activityPublic,
-  }) async => true;
+  }) async {
+    saves++;
+    return hold ? _result.future : true;
+  }
 }
 
 /// A screen whose favorite button needs an account.
@@ -90,15 +110,21 @@ class _OriginState extends State<_Origin> {
   }
 }
 
-typedef _Harness = ({GoRouter router, _FakeLoginService service});
+typedef _Harness = ({
+  GoRouter router,
+  _FakeLoginService service,
+  _FakeProfileService profiles,
+});
 
 Future<_Harness> _pump(
   WidgetTester tester, {
   bool termsAccepted = true,
   bool newUser = false,
   bool hold = false,
+  bool holdProfileSave = false,
   String initialLocation = '/origin',
 }) async {
+  final profiles = _FakeProfileService(hold: holdProfileSave);
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(390, 844);
   addTearDown(tester.view.reset);
@@ -130,7 +156,7 @@ Future<_Harness> _pump(
         kakaoLoginServiceProvider.overrideWith(
           (ref) => _FakeLoginService(ref, newUser: newUser, hold: hold),
         ),
-        userProfileApiServiceProvider.overrideWithValue(_FakeProfileService()),
+        userProfileApiServiceProvider.overrideWithValue(profiles),
       ],
       child: MaterialApp.router(routerConfig: router),
     ),
@@ -142,6 +168,7 @@ Future<_Harness> _pump(
   return (
     router: router,
     service: container.read(kakaoLoginServiceProvider) as _FakeLoginService,
+    profiles: profiles,
   );
 }
 
@@ -162,7 +189,7 @@ Future<void> _agreeToTerms(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _saveProfile(WidgetTester tester) async {
+Future<void> _fillProfile(WidgetTester tester) async {
   await tester.enterText(find.byType(TextField).at(0), '절약왕');
   await tester.enterText(find.byType(TextField).at(1), '서울 마포구');
   await tester.pump(const Duration(milliseconds: 400));
@@ -171,8 +198,19 @@ Future<void> _saveProfile(WidgetTester tester) async {
   await tester.ensureVisible(find.text('한식'));
   await tester.tap(find.text('한식'));
   await tester.pumpAndSettle();
+}
+
+Future<void> _saveProfile(WidgetTester tester) async {
+  await _fillProfile(tester);
   await tester.tap(find.text('가입 완료하고 시작하기'));
   await tester.pumpAndSettle();
+}
+
+/// Taps save on a held profile save; its button spins until [finish].
+Future<void> _startProfileSave(WidgetTester tester) async {
+  await _fillProfile(tester);
+  await tester.tap(find.text('가입 완료하고 시작하기'));
+  await tester.pump();
 }
 
 /// What the browser's back button does: it hands go_router the screens saved
@@ -265,7 +303,7 @@ void main() {
     await _saveProfile(tester);
 
     expect(find.text('찜 완료'), findsOneWidget);
-    expect(harness.service.logoutCalls, 0);
+    expect(harness.service.signUpEnds, 0);
     expect(ApiClient.isAuthenticated, isTrue);
   });
 
@@ -278,7 +316,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back_rounded));
     await tester.pumpAndSettle();
 
-    expect(harness.service.logoutCalls, 1);
+    expect(harness.service.signUpEnds, 1);
     expect(ApiClient.isAuthenticated, isFalse);
     expect(find.text('프로필을 저장해야 가입이 끝나요.'), findsOneWidget);
     expect(find.text('카카오로 계속하기'), findsOneWidget, reason: 'can retry');
@@ -326,7 +364,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.text('찜 취소'), findsOneWidget);
       expect(ApiClient.isAuthenticated, isFalse);
-      expect(harness.service.logoutCalls, step == 'profile setup' ? 1 : 0);
+      expect(harness.service.signUpEnds, step == 'profile setup' ? 1 : 0);
 
       // Nothing is left waiting: the next tap asks again.
       await _askToLogin(tester);
@@ -353,7 +391,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(ApiClient.isAuthenticated, !newUser);
-        expect(harness.service.logoutCalls, newUser ? 1 : 0);
+        expect(harness.service.signUpEnds, newUser ? 1 : 0);
         expect(
           find.text('카카오로 로그인했어요.'),
           newUser ? findsNothing : findsOneWidget,
@@ -362,6 +400,125 @@ void main() {
       },
     );
   }
+
+  testWidgets('a login screen that joins a running login handles its result', (
+    tester,
+  ) async {
+    final harness = await _pump(tester, newUser: true, hold: true);
+    await _askToLogin(tester);
+    await tester.tap(find.text('카카오로 계속하기'));
+    await tester.pump();
+    await tester.tap(find.text('나중에 할게요'));
+    await tester.pumpAndSettle();
+    expect(find.text('찜 취소'), findsOneWidget);
+
+    // Login opens again and joins the Kakao login that is still running.
+    await _askToLogin(tester);
+    await tester.tap(find.text('카카오로 계속하기'));
+    await tester.pump();
+    harness.service.release();
+    await tester.pumpAndSettle();
+
+    expect(find.text('프로필 설정'), findsOneWidget);
+    expect(
+      harness.service.signUpEnds,
+      0,
+      reason: 'the login screen left first must not end the new session',
+    );
+    expect(ApiClient.isAuthenticated, isTrue);
+  });
+
+  testWidgets('leaving profile setup waits while the profile saves', (
+    tester,
+  ) async {
+    final harness = await _pump(tester, newUser: true, holdProfileSave: true);
+    await _askToLogin(tester);
+    await tester.tap(find.text('카카오로 계속하기'));
+    await tester.pumpAndSettle();
+    await _startProfileSave(tester);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(find.text('프로필 설정'), findsOneWidget);
+    expect(harness.service.signUpEnds, 0);
+
+    harness.profiles.finish(saved: true);
+    await tester.pumpAndSettle();
+    expect(find.text('찜 완료'), findsOneWidget);
+    expect(ApiClient.isAuthenticated, isTrue);
+  });
+
+  for (final saved in [true, false]) {
+    testWidgets(
+      'the browser back button while the profile saves '
+      '${saved ? 'keeps the stored account' : 'ends a sign-up that failed to save'}',
+      (tester) async {
+        final harness = await _pump(
+          tester,
+          newUser: true,
+          holdProfileSave: true,
+        );
+        final beforeLogin = harness.router.routeInformationProvider.value;
+        await _askToLogin(tester);
+        await tester.tap(find.text('카카오로 계속하기'));
+        await tester.pumpAndSettle();
+        await _startProfileSave(tester);
+
+        await _browserBack(tester, harness.router, beforeLogin);
+        expect(find.text('찜 취소'), findsOneWidget);
+        expect(harness.service.signUpEnds, 0, reason: 'waits for the save');
+
+        harness.profiles.finish(saved: saved);
+        await tester.pumpAndSettle();
+        expect(harness.service.signUpEnds, saved ? 0 : 1);
+        expect(ApiClient.isAuthenticated, saved);
+        expect(find.text('가입을 마쳤어요.'), saved ? findsOneWidget : findsNothing);
+      },
+    );
+  }
+
+  testWidgets('closing login replaces its browser history entry', (
+    tester,
+  ) async {
+    final updates = <Map<Object?, Object?>>[];
+    final messenger = tester.binding.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(SystemChannels.navigation, (call) async {
+      if (call.method == 'routeInformationUpdated') {
+        updates.add(call.arguments as Map<Object?, Object?>);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.navigation, null),
+    );
+    await _pump(tester);
+    await _askToLogin(tester);
+    expect(updates.last['replace'], isFalse, reason: 'login adds an entry');
+
+    await tester.tap(find.text('나중에 할게요'));
+    await tester.pumpAndSettle();
+
+    // Otherwise the browser's back button would open login again.
+    expect(updates.last['replace'], isTrue);
+  });
+
+  testWidgets('login reopened from browser history after logging in closes', (
+    tester,
+  ) async {
+    final harness = await _pump(tester);
+    await _askToLogin(tester);
+    final duringLogin = harness.router.routeInformationProvider.value;
+    await tester.tap(find.text('카카오로 계속하기'));
+    await tester.pumpAndSettle();
+    expect(find.text('찜 완료'), findsOneWidget);
+
+    await _browserBack(tester, harness.router, duringLogin);
+
+    expect(find.byType(LoginFlowScreen), findsNothing);
+    expect(find.text('찜 완료'), findsOneWidget);
+  });
 
   testWidgets('the onboarding login link comes back to the slides', (
     tester,
