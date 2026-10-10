@@ -160,8 +160,14 @@ function createRuntime({ withClusterer = false } = {}) {
   assert.equal(clusterers.length, 1, 'nearby marker labels are managed by one clusterer');
   assert.equal(clusterers[0].options.minLevel, 4, 'close zoom keeps individual store labels');
   assert.equal(clusterers[0].options.gridSize, 72, 'cluster spacing prevents label collisions');
-  assert.equal(clusterers[0].options.styles[0].background, '#2563EB',
-    'small clusters use the product blue');
+  assert.equal(clusterers[0].options.styles[0].width, '44px',
+    'small clusters keep a comfortable tap target');
+  assert.equal(clusterers[0].options.styles[0].background, 'rgba(255,255,255,0.97)',
+    'small clusters use a quiet white surface');
+  assert.equal(clusterers[0].options.styles[0].color, '#2563EB',
+    'cluster counts retain the product blue');
+  assert.equal(clusterers[0].options.styles[0].boxSizing, 'border-box',
+    'the soft halo stays inside the declared cluster size');
   assert.deepEqual(Array.from(clusterers[0].markers, (marker) => marker._howmuchIndex), [0, 1],
     'the selected store remains outside the cluster');
   assert.deepEqual(overlays.map((overlay) => overlay.map), [null, null, map],
