@@ -222,6 +222,13 @@
       listen('dragstart', moveStarted);
       listen('zoom_start', moveStarted);
       listen('click', function() {
+        // Kakao emits a map click after a cluster click on mobile Safari.
+        // Consume that second event so it cannot immediately close the card
+        // selected by the cluster handler.
+        if (Date.now() < (lifecycle.ignoreMapClickUntil || 0)) {
+          lifecycle.ignoreMapClickUntil = 0;
+          return;
+        }
         window.highlightKakaoMapMarker(containerId, -1);
         emitKakaoMapEvent(containerId, 'onMarkerClick', -1);
       });
@@ -481,6 +488,7 @@
       lifecycle.lastIdleAt = 0;
       lifecycle.suppressMarkerClicks = false;
       lifecycle.suppressTimer = null;
+      lifecycle.ignoreMapClickUntil = 0;
       // Timers were cleared above; stale IDs would block new watchers.
       lifecycle.visibilityTimer = null;
       lifecycle.resizeTimer = null;
@@ -792,6 +800,8 @@
       };
       var clickHandler = function(cluster) {
         if (!cluster || typeof cluster.getCenter !== 'function') return;
+        var lifecycle = window.kakaoMapLifecycles[containerId];
+        if (lifecycle) lifecycle.ignoreMapClickUntil = Date.now() + 600;
         var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
         var center = cluster.getCenter();
         var selectedMember = null;

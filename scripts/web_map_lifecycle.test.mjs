@@ -200,6 +200,36 @@ function createRuntime({ withClusterer = false } = {}) {
 }
 
 {
+  const { context, clusterers, listeners, runTimers } = createRuntime({ withClusterer: true });
+  const selectedStores = [];
+  context.kakaoMapCallbacks.map = {
+    onMarkerClick: (index, storeId) => selectedStores.push([index, storeId]),
+  };
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  context.addMobileMarkers('map', JSON.stringify([
+    { storeId: 'one', lat: 37.5, lng: 127, title: '첫 매장', menu: '백반', price: '8,000원' },
+    { storeId: 'two', lat: 37.5001, lng: 127.0001, title: '둘째 매장', menu: '국밥', price: '9,000원' },
+  ]));
+
+  const clusterClick = listeners.find(
+    (item) => item.map === clusterers[0] && item.type === 'clusterclick',
+  );
+  const mapClick = listeners.find(
+    (item) => item.map === map && item.type === 'click',
+  );
+  clusterClick.handler(clusterers[0].lastCluster);
+  mapClick.handler();
+  assert.deepEqual(selectedStores, [[0, 'one']],
+    'the map click following a Safari cluster tap does not close the selected card');
+
+  mapClick.handler();
+  assert.deepEqual(selectedStores, [[0, 'one'], [-1, '']],
+    'the guard consumes only the click coupled to the cluster gesture');
+}
+
+{
   const { context, overlays, clusterers } = createRuntime({ withClusterer: true });
   const map = {
     level: 10,
