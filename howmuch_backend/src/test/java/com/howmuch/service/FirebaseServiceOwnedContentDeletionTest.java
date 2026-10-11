@@ -13,6 +13,8 @@ import java.util.NoSuchElementException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +56,44 @@ class FirebaseServiceOwnedContentDeletionTest {
                 .isInstanceOf(NoSuchElementException.class)
                 .hasMessage("방문 기록을 찾을 수 없습니다.");
         verify(fixture.document, never()).delete();
+    }
+
+    @Test
+    void deletesACommentOnlyAfterConfirmingItsOwner() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference comments = mock(CollectionReference.class);
+        DocumentReference document = mock(DocumentReference.class);
+        DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
+        when(db.collection("comments")).thenReturn(comments);
+        when(comments.document("comment-1")).thenReturn(document);
+        when(document.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        when(snapshot.exists()).thenReturn(true);
+        when(snapshot.getString("userId")).thenReturn("user-1");
+        FirebaseService service = spy(new FirebaseService(db, mock(ReportImageStorage.class)));
+        doReturn(java.util.List.of("comment-1")).when(service).deleteComment("comment-1");
+
+        service.deleteOwnedComment("comment-1", "user-1");
+
+        verify(service).deleteComment("comment-1");
+    }
+
+    @Test
+    void neverDeletesAnotherUsersComment() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference comments = mock(CollectionReference.class);
+        DocumentReference document = mock(DocumentReference.class);
+        DocumentSnapshot snapshot = mock(DocumentSnapshot.class);
+        when(db.collection("comments")).thenReturn(comments);
+        when(comments.document("comment-1")).thenReturn(document);
+        when(document.get()).thenReturn(ApiFutures.immediateFuture(snapshot));
+        when(snapshot.exists()).thenReturn(true);
+        when(snapshot.getString("userId")).thenReturn("user-2");
+        FirebaseService service = spy(new FirebaseService(db, mock(ReportImageStorage.class)));
+
+        assertThatThrownBy(() -> service.deleteOwnedComment("comment-1", "user-1"))
+                .isInstanceOf(NoSuchElementException.class)
+                .hasMessage("댓글을 찾을 수 없습니다.");
+        verify(service, never()).deleteComment("comment-1");
     }
 
     private static class Fixture {

@@ -119,6 +119,35 @@ void main() {
     }, () => server.client);
   });
 
+  testWidgets('my review can be deleted after destructive confirmation', (
+    tester,
+  ) async {
+    _usePhone(tester);
+    await ApiClient.setSessionToken('session');
+    addTearDown(() => ApiClient.setSessionToken(null));
+    final server = _ReviewServer([_review('a', 5), _review('b', 4)]);
+
+    await http.runWithClient(() async {
+      await tester.pumpWidget(
+        const ProviderScope(child: MaterialApp(home: MyReviewsScreen())),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('delete_review_a')));
+      await tester.pumpAndSettle();
+      expect(find.text('리뷰를 삭제할까요?'), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('confirm_delete_review_a')));
+      await tester.pumpAndSettle();
+
+      expect(server.deletedIds, ['a']);
+      expect(find.text('리뷰 a'), findsNothing);
+      expect(find.text('리뷰 b'), findsOneWidget);
+      expect(find.text('총 1 개', findRichText: true), findsOneWidget);
+      expect(find.text('리뷰를 삭제했어요.'), findsOneWidget);
+    }, () => server.client);
+  });
+
   for (final detail in [false, true]) {
     testWidgets(
       '${detail ? 'store detail' : 'store review list'} reloads on every visit',
@@ -204,6 +233,7 @@ class _ReviewServer {
   bool fails = false;
   int requests = 0;
   int reviewRequests = 0;
+  final List<String> deletedIds = [];
 
   http.Client get client => MockClient((request) async {
     requests++;
@@ -211,6 +241,12 @@ class _ReviewServer {
       return http.Response('{}', 404);
     }
     reviewRequests++;
+    if (request.method == 'DELETE') {
+      final id = request.url.pathSegments.last;
+      reviews.removeWhere((review) => review['id'] == id);
+      deletedIds.add(id);
+      return http.Response('{"success":true,"id":"$id"}', 200);
+    }
     await gate?.future;
     if (fails) return http.Response('{"message":"error"}', 503);
     return http.Response.bytes(utf8.encode(jsonEncode(reviews)), 200);

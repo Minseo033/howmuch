@@ -245,6 +245,22 @@ class CommunityService {
     return CommunityComment.fromJson(Map<String, dynamic>.from(decoded));
   }
 
+  Future<void> deleteComment(String commentId) async {
+    final response = await ApiClient.delete(
+      ApiClient.uri(
+        '/api/community/comments/${Uri.encodeComponent(commentId)}',
+      ),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
+
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw CommunityApiException(
+        response.statusCode,
+        ApiClient.bodyText(response),
+      );
+    }
+  }
+
   Future<CommunityReactionResult> setLike({
     required String postId,
     required bool liked,

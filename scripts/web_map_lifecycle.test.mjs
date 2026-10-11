@@ -72,6 +72,7 @@ function createRuntime({ withClusterer = false } = {}) {
     this.options = options;
     this.map = null;
     this.setMap = (map) => { this.map = map; };
+    this.getPosition = () => options.position;
   }
   function MarkerClusterer(options) {
     this.options = options;
@@ -144,6 +145,10 @@ function createRuntime({ withClusterer = false } = {}) {
 
 {
   const { context, overlays, clusterers, listeners } = createRuntime({ withClusterer: true });
+  const selectedStores = [];
+  context.kakaoMapCallbacks.map = {
+    onMarkerClick: (index, storeId) => selectedStores.push([index, storeId]),
+  };
   const map = {
     level: 7,
     relayout() {},
@@ -183,6 +188,8 @@ function createRuntime({ withClusterer = false } = {}) {
   clusterClick.handler(clusterers[0].lastCluster);
   assert.equal(map.level, 5, 'a cluster tap zooms in two levels');
   assert.equal(map.levelOptions.anchor.lat, 37.5, 'cluster zoom stays anchored on the group');
+  assert.deepEqual(selectedStores, [[0, 'one']],
+    'a cluster tap selects the store nearest its center so Flutter opens a card');
 
   const oldClusterer = clusterers[0];
   context.highlightKakaoMapMarker('map', 0);

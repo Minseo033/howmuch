@@ -4356,6 +4356,26 @@ public class FirebaseService {
                 .build();
     }
 
+    /**
+     * 요청한 계정이 작성한 댓글이나 답글만 삭제합니다.
+     * 최상위 댓글이면 기존 관리자 삭제와 같은 방식으로 연결된 답글과 알림도 함께 정리합니다.
+     * 존재하지 않는 문서와 다른 사용자의 문서는 같은 응답으로 처리해 소유 관계를 노출하지 않습니다.
+     */
+    public List<String> deleteOwnedComment(String commentId, String requesterUid) throws Exception {
+        DocumentSnapshot snapshot = db.collection("comments").document(commentId).get().get();
+        if (!snapshot.exists()
+                || requesterUid == null
+                || !requesterUid.equals(snapshot.getString("userId"))) {
+            throw new NoSuchElementException("댓글을 찾을 수 없습니다.");
+        }
+        try {
+            return deleteComment(commentId);
+        } catch (IllegalArgumentException e) {
+            // 소유자 확인 직후 다른 요청이 먼저 지운 경우에도 존재 여부를 구분해 노출하지 않습니다.
+            throw new NoSuchElementException("댓글을 찾을 수 없습니다.");
+        }
+    }
+
     // 💡 좋아요 추가 (멱등: uid_postId docId로 중복 방지). 최신 likes/likedByMe 반환
     public Map<String, Object> likeFeed(String postId, String uid) throws Exception {
         String docId = uid + "_" + sanitizeForDocId(postId);
