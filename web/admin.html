@@ -2387,7 +2387,7 @@
 
   function inquiryOriginal(inquiry) {
     const images = Array.isArray(inquiry.imageUrls) ? inquiry.imageUrls.map(safeImageUrl).filter(Boolean) : [];
-    return `<h4>문의 원문</h4><p>${esc(inquiry.content || '(내용 없음)')}</p>${images.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">첨부 원본 열기<img src="${esc(u)}" width="74" height="74" alt="문의 첨부 사진"></a>`).join('')}`;
+    return `<h3>문의 원문</h3><p>${esc(inquiry.content || '(내용 없음)')}</p>${images.map((u) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">첨부 원본 열기<img src="${esc(u)}" width="74" height="74" alt="문의 첨부 사진"></a>`).join('')}`;
   }
 
   // 국내 매장 좌표 범위입니다. 위도·경도를 바꿔 넣거나 해외 좌표를 넣는 실수를 확정 전에 막습니다.

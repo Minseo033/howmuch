@@ -32,4 +32,45 @@ void main() {
     expect(identical(nextTap, otherSession), isFalse);
     await nextTap;
   });
+
+  test('waits for APNs before allowing FCM registration', () async {
+    var reads = 0;
+    var pauses = 0;
+
+    final token = await waitForApplePushToken(
+      readToken: () async {
+        reads += 1;
+        return reads == 3 ? ' apns-token ' : null;
+      },
+      pause: (_) async {
+        pauses += 1;
+      },
+      retryDelay: Duration.zero,
+    );
+
+    expect(token, 'apns-token');
+    expect(reads, 3);
+    expect(pauses, 2);
+  });
+
+  test('stops waiting when APNs never returns a token', () async {
+    var reads = 0;
+    var pauses = 0;
+
+    final token = await waitForApplePushToken(
+      readToken: () async {
+        reads += 1;
+        return '   ';
+      },
+      pause: (_) async {
+        pauses += 1;
+      },
+      maxAttempts: 4,
+      retryDelay: Duration.zero,
+    );
+
+    expect(token, isNull);
+    expect(reads, 4);
+    expect(pauses, 3);
+  });
 }
