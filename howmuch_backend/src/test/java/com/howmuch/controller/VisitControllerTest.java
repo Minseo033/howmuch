@@ -57,6 +57,35 @@ class VisitControllerTest {
     }
 
     @Test
+    void deletesOnlyThroughTheAuthenticatedOwnerContract() throws Exception {
+        authenticate();
+
+        ResponseEntity<?> response = controller.deleteMyVisit(" visit-1 ", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(firebaseService).deleteOwnedVisit("visit-1", "user-1");
+    }
+
+    @Test
+    void hidesMissingOrForeignVisitsBehindNotFound() throws Exception {
+        authenticate();
+        org.mockito.Mockito.doThrow(new java.util.NoSuchElementException("방문 기록을 찾을 수 없습니다."))
+                .when(firebaseService).deleteOwnedVisit("visit-2", "user-1");
+
+        ResponseEntity<?> response = controller.deleteMyVisit("visit-2", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void rejectsVisitDeletionWithoutAuthentication() {
+        ResponseEntity<?> response = controller.deleteMyVisit("visit-1", request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void rejectsZeroPaymentInsteadOfCreditingTheFullReferencePrice() throws Exception {
         authenticate();
         VisitRequest body = validRequest();

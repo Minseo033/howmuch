@@ -2463,6 +2463,11 @@ public class FirebaseService {
         return visits;
     }
 
+    /** 요청한 계정이 소유한 방문 기록만 삭제합니다. 다른 계정의 기록 존재 여부도 노출하지 않습니다. */
+    public void deleteOwnedVisit(String visitId, String firebaseUid) throws Exception {
+        deleteOwnedDocument("visits", visitId, "userId", firebaseUid, "방문 기록을 찾을 수 없습니다.");
+    }
+
     /** 저장된 리뷰 ID와 서버가 정한 작성자 표시명입니다. */
     public record SavedReview(String reviewId, String authorName) { }
 
@@ -2618,6 +2623,25 @@ public class FirebaseService {
             throw new IllegalArgumentException("리뷰를 찾을 수 없습니다: " + reviewId);
         }
         docRef.delete().get();
+    }
+
+    /** 요청한 계정이 작성한 리뷰만 삭제합니다. 다른 계정의 리뷰 존재 여부도 노출하지 않습니다. */
+    public void deleteOwnedReview(String reviewId, String authorUid) throws Exception {
+        deleteOwnedDocument("reviews", reviewId, "authorUid", authorUid, "리뷰를 찾을 수 없습니다.");
+    }
+
+    private void deleteOwnedDocument(
+            String collection,
+            String documentId,
+            String ownerField,
+            String ownerUid,
+            String notFoundMessage) throws Exception {
+        DocumentReference document = db.collection(collection).document(documentId);
+        DocumentSnapshot snapshot = document.get().get();
+        if (!snapshot.exists() || ownerUid == null || !ownerUid.equals(snapshot.getString(ownerField))) {
+            throw new NoSuchElementException(notFoundMessage);
+        }
+        document.delete().get();
     }
 
     // 💡 로그인한 사용자가 작성한 리뷰 목록 조회 (최신순 정렬 포함)

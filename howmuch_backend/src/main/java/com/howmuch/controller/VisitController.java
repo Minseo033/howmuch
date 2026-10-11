@@ -15,7 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -237,6 +239,35 @@ public class VisitController {
             return ResponseEntity.status(500).body(Map.of(
                     "success", false,
                     "message", "방문 기록 조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."));
+        }
+    }
+
+    /** 로그인한 사용자가 본인의 방문 기록만 삭제합니다. */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteMyVisit(
+            @PathVariable String id,
+            HttpServletRequest httpRequest) {
+        String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
+        if (firebaseUid == null || firebaseUid.isBlank()) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "success", false, "message", "로그인이 필요합니다."));
+        }
+        if (id == null || id.isBlank() || id.length() > 200) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false, "message", "방문 기록 ID가 올바르지 않습니다."));
+        }
+        try {
+            firebaseService.deleteOwnedVisit(id.trim(), firebaseUid);
+            return ResponseEntity.ok(Map.of("success", true, "id", id.trim()));
+        } catch (java.util.NoSuchElementException e) {
+            return ResponseEntity.status(404).body(Map.of(
+                    "success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("[VisitController] 내 방문 기록 삭제 중 오류 발생: id={}", id, e);
+            return ResponseEntity.status(500).body(Map.of(
+                    "success", false,
+                    "message", "방문 기록 삭제 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+            ));
         }
     }
 

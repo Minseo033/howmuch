@@ -19,6 +19,25 @@ const _notificationChannel = AndroidNotificationChannel(
   importance: Importance.high,
 );
 
+/// APNs can finish registering shortly after notification permission is
+/// granted. FCM requires that native token first, so a bounded retry avoids a
+/// false registration failure on real iPhones without blocking indefinitely.
+@visibleForTesting
+Future<String?> waitForApplePushToken({
+  required Future<String?> Function() readToken,
+  Future<void> Function(Duration) pause = Future.delayed,
+  int maxAttempts = 12,
+  Duration retryDelay = const Duration(milliseconds: 250),
+}) async {
+  assert(maxAttempts > 0);
+  for (var attempt = 0; attempt < maxAttempts; attempt++) {
+    final token = (await readToken())?.trim();
+    if (token != null && token.isNotEmpty) return token;
+    if (attempt + 1 < maxAttempts) await pause(retryDelay);
+  }
+  return null;
+}
+
 /// FCM background handlers must stay top-level so the native runtime can call
 /// them when Flutter is not already running.
 @pragma('vm:entry-point')
@@ -92,6 +111,16 @@ class PushNotificationService {
         sound: true,
       );
       if (!_canShowNotifications(permission)) return false;
+
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        final apnsToken = await waitForApplePushToken(
+          readToken: FirebaseMessaging.instance.getAPNSToken,
+        );
+        if (apnsToken == null) {
+          debugPrint('APNs 토큰을 아직 받지 못해 FCM 등록을 다음 시도로 미룹니다.');
+          return false;
+        }
+      }
 
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null || token.isEmpty) return false;

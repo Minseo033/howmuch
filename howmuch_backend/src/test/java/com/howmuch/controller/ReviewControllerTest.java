@@ -48,6 +48,35 @@ class ReviewControllerTest {
     }
 
     @Test
+    void deletesOnlyThroughTheAuthenticatedOwnerContract() throws Exception {
+        authenticate();
+
+        ResponseEntity<?> response = controller.deleteMyReview(" review-1 ", httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(firebaseService).deleteOwnedReview("review-1", "user-1");
+    }
+
+    @Test
+    void hidesMissingOrForeignReviewsBehindNotFound() throws Exception {
+        authenticate();
+        org.mockito.Mockito.doThrow(new java.util.NoSuchElementException("리뷰를 찾을 수 없습니다."))
+                .when(firebaseService).deleteOwnedReview("review-2", "user-1");
+
+        ResponseEntity<?> response = controller.deleteMyReview("review-2", httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void rejectsReviewDeletionWithoutAuthentication() {
+        ResponseEntity<?> response = controller.deleteMyReview("review-1", httpRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verifyNoInteractions(firebaseService);
+    }
+
+    @Test
     void rejectsBlankOrOversizedStoreIdBeforeQueryingReviews() {
         ResponseEntity<?> blank = controller.getReviews("   ");
         ResponseEntity<?> oversized = controller.getReviews("s".repeat(201));
