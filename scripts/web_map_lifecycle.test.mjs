@@ -54,7 +54,7 @@ function createRuntime({ withClusterer = false } = {}) {
     this.setCenter = (position) => { this.center = position; };
     this.getCenter = () => this.center;
     this.getLevel = () => this.level;
-    this.setLevel = (level) => { this.level = level; };
+    this.setLevel = (level, options) => { this.level = level; this.levelOptions = options; };
     this.setBounds = (bounds, ...padding) => { this.fittedBounds = bounds; this.padding = padding; };
     this.panTo = () => {};
     this.setMaxLevel = (level) => { this.maxLevel = level; };
@@ -74,6 +74,8 @@ function createRuntime({ withClusterer = false } = {}) {
     this.setMap = (map) => { this.map = map; };
     this.getPosition = () => options.position;
   }
+  function MarkerImage(src, size) { this.src = src; this.size = size; }
+  function Size(width, height) { this.width = width; this.height = height; }
   function MarkerClusterer(options) {
     this.options = options;
     this.markers = [];
@@ -120,6 +122,8 @@ function createRuntime({ withClusterer = false } = {}) {
   if (withClusterer) {
     context.kakao.maps.Marker = Marker;
     context.kakao.maps.MarkerClusterer = MarkerClusterer;
+    context.kakao.maps.MarkerImage = MarkerImage;
+    context.kakao.maps.Size = Size;
   }
   vm.createContext(context);
   vm.runInContext(mapScript, context, { filename: 'web/index.html' });
@@ -149,13 +153,9 @@ function createRuntime({ withClusterer = false } = {}) {
   context.kakaoMapCallbacks.map = {
     onMarkerClick: (index, storeId) => selectedStores.push([index, storeId]),
   };
-  const map = {
-    level: 7,
-    relayout() {},
-    getLevel() { return this.level; },
-    setLevel(level, options) { this.level = level; this.levelOptions = options; },
-  };
-  context.kakaoMapObjects.map = map;
+  context.initKakaoMap('map', 37.5, 127);
+  const map = context.kakaoMapObjects.map;
+  map.setLevel(7);
   context.addMobileMarkers('map', JSON.stringify([
     { storeId: 'one', lat: 37.5, lng: 127, title: '첫 매장', menu: '백반', price: '8,000원' },
     { storeId: 'two', lat: 37.5001, lng: 127.0001, title: '둘째 매장', menu: '국밥', price: '9,000원' },
@@ -175,6 +175,8 @@ function createRuntime({ withClusterer = false } = {}) {
     'the soft halo stays inside the declared cluster size');
   assert.deepEqual(Array.from(clusterers[0].markers, (marker) => marker._howmuchIndex), [0, 1, 2],
     'every loaded store contributes to the cluster count');
+  assert.ok(clusterers[0].markers[0].options.image,
+    'clusterer dummy markers use a transparent image so default blue pins never display');
   assert.deepEqual(overlays.map((overlay) => overlay.map), [map],
     'only the selected store creates a label inside a cluster');
   assert.equal(clusterers[0].options.texts(1200), '1.2천',
@@ -197,6 +199,14 @@ function createRuntime({ withClusterer = false } = {}) {
   assert.equal(clusterers.length, 1, 'one clusterer survives marker selection');
   assert.deepEqual(overlays.map((overlay) => overlay.map), [null, map],
     'only the newly selected label remains above its cluster');
+
+  // Zoom in past cluster threshold (minLevel: 4) -> all custom overlays must appear
+  map.level = 3;
+  const zoomChanged = listeners.find((item) => item.map === map && item.type === 'zoom_changed');
+  assert.ok(zoomChanged, 'zoom_changed listener is registered');
+  zoomChanged.handler();
+  assert.deepEqual(overlays.map((overlay) => overlay.map), [map, map, map],
+    'zooming below cluster level (level < 4) displays all store custom overlays without hidden residues');
 }
 
 {
@@ -270,7 +280,7 @@ function createRuntime({ withClusterer = false } = {}) {
   assert.notEqual(context.kakaoMapObjects.map, map, 'recovery replaces only the map object');
   assert.equal(context.kakaoMapObjects.map.getCenter().lat, 37.7, 'map-only recovery retains center');
   assert.equal(context.kakaoMapObjects.map.getLevel(), 7, 'map-only recovery retains zoom');
-  assert.equal(listeners.length, 4, 'recovery does not accumulate map event listeners');
+  assert.equal(listeners.length, 5, 'recovery does not accumulate map event listeners');
   context.emitKakaoMapEvent('map', 'onMarkerClick', 0, 'current');
   assert.equal(events.length, 1, 'recovery retains its own Flutter callbacks');
   context.fitKakaoMapStores('map', JSON.stringify([{lat: 37.5, lng: 127}, {lat: 35.2, lng: 129}, {lat: 0, lng: 0}]));
@@ -370,7 +380,7 @@ function createRuntime({ withClusterer = false } = {}) {
   context.initKakaoMap('map', 37.6, 127.1);
   assert.equal(context.kakaoMapObjects.map.maxLevel, 14,
     'reused maps keep the nationwide zoom limit');
-  assert.equal(listeners.length, 4, 'reinitializing replaces rather than accumulates event listeners');
+  assert.equal(listeners.length, 5, 'reinitializing replaces rather than accumulates event listeners');
   assert.equal(observers.length, 2, 'a reused map refreshes its observer generation');
   assert.equal(observers[0].disconnected, true, 'the prior observer is released before reuse');
 
@@ -524,7 +534,7 @@ function createRuntime({ withClusterer = false } = {}) {
   assert.equal(events.length, 200, '100 select/background/drag cycles reach the correct view');
   assert.equal(events[0][1], 'back', 'marker callback includes the stable store ID');
   assert.equal(context.kakaoMapObjects.map, map, 'interaction never replaces the map object');
-  assert.equal(listeners.length, 4, 'interaction does not accumulate listeners');
+  assert.equal(listeners.length, 5, 'interaction does not accumulate listeners');
   assert.equal(overlays.length, 2, 'selection does not rebuild overlay objects');
   context.disposeKakaoMap('map');
   runTimers();
@@ -539,7 +549,7 @@ function createRuntime({ withClusterer = false } = {}) {
     context.kakaoMapCallbacks.map = {};
     context.initKakaoMap('map', 37.5, 127);
     runTimers();
-    assert.equal(listeners.length, 4);
+    assert.equal(listeners.length, 5);
     context.disposeKakaoMap('map');
     runTimers();
     assert.equal(listeners.length, 0, 'screen re-entry releases the previous screen listeners');

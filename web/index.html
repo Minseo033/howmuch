@@ -202,7 +202,19 @@
         lifecycle.listeners.push({ map: map, type: type, handler: handler });
       }
       var boundsTimer = null;
+      function syncOverlaysOnViewChange() {
+        var isDetail = typeof map.getLevel === 'function' && map.getLevel() < 4;
+        if (isDetail) {
+          window.kakaoClusterHidden[containerId] = {};
+        }
+        syncKakaoStoreOverlays(
+          containerId,
+          window.kakaoClusterHidden[containerId] || {}
+        );
+      }
+      listen('zoom_changed', syncOverlaysOnViewChange);
       listen('idle', function() {
+        syncOverlaysOnViewChange();
         cancelKakaoMapTask(lifecycle, boundsTimer);
         boundsTimer = scheduleKakaoMapTask(lifecycle, function() {
           if (isActiveKakaoMap(containerId, map, generation)) {
@@ -762,15 +774,28 @@
         return;
       }
 
+      var transparentMarkerImage = (typeof kakao.maps.MarkerImage === 'function' && typeof kakao.maps.Size === 'function')
+        ? new kakao.maps.MarkerImage(
+            'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+            new kakao.maps.Size(1, 1)
+          )
+        : null;
+
       var markers = [];
       for (var i = 0; i < markerData.length; i++) {
         var item = markerData[i];
-        var marker = new kakao.maps.Marker({
+        var markerOptions = {
           position: new kakao.maps.LatLng(item.lat, item.lng),
-          clickable: false,
-          opacity: 0
-        });
+          clickable: true
+        };
+        if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
+        var marker = new kakao.maps.Marker(markerOptions);
         marker._howmuchIndex = i;
+        (function(idx) {
+          kakao.maps.event.addListener(marker, 'click', function() {
+            window.onMarkerClickWeb(containerId, idx);
+          });
+        })(i);
         markers.push(marker);
       }
       if (markers.length < 2) return;
@@ -789,6 +814,7 @@
 
       var clusteredHandler = function(clusters) {
         var hidden = {};
+        clusters = clusters || [];
         for (var i = 0; i < clusters.length; i++) {
           var members = clusters[i].getMarkers();
           if (members.length < 2) continue;
@@ -801,7 +827,7 @@
       var clickHandler = function(cluster) {
         if (!cluster || typeof cluster.getCenter !== 'function') return;
         var lifecycle = window.kakaoMapLifecycles[containerId];
-        if (lifecycle) lifecycle.ignoreMapClickUntil = Date.now() + 600;
+        if (lifecycle) lifecycle.ignoreMapClickUntil = Date.now() + 1000;
         var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
         var center = cluster.getCenter();
         var selectedMember = null;
@@ -820,15 +846,30 @@
           }
         }
         var level = typeof map.getLevel === 'function' ? map.getLevel() : 4;
-        map.setLevel(Math.max(1, level - 2), {
+        var nextLevel = Math.max(1, level - 2);
+        map.setLevel(nextLevel, {
           anchor: center,
           animate: { duration: 300 }
         });
+        if (nextLevel < 4) {
+          window.kakaoClusterHidden[containerId] = {};
+        }
         // Expanding a cluster is also a store choice. Select the member
         // nearest the cluster center so Flutter opens its card immediately.
         if (selectedMember) {
           window.onMarkerClickWeb(containerId, selectedMember._howmuchIndex);
         }
+        setTimeout(function() {
+          var isDetail = typeof map.getLevel === 'function' && map.getLevel() < 4;
+          if (isDetail) window.kakaoClusterHidden[containerId] = {};
+          syncKakaoStoreOverlays(
+            containerId,
+            window.kakaoClusterHidden[containerId] || {}
+          );
+          if (selectedMember) {
+            window.highlightKakaoMapMarker(containerId, selectedMember._howmuchIndex);
+          }
+        }, 350);
       };
       clusterer._howmuchClusteredHandler = clusteredHandler;
       clusterer._howmuchClickHandler = clickHandler;
