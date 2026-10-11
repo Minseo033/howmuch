@@ -195,6 +195,70 @@ void main() {
     },
   );
 
+  testWidgets('only my comment exposes deletion and disappears after confirm', (
+    tester,
+  ) async {
+    var deleted = false;
+    var deleteRequests = 0;
+    await http.runWithClient(
+      () async {
+        await _pumpDetail(tester);
+        expect(find.byKey(const ValueKey('delete_comment_c1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('delete_comment_c2')), findsNothing);
+
+        await tester.tap(find.byKey(const ValueKey('delete_comment_c1')));
+        await tester.pumpAndSettle();
+        expect(find.text('댓글을 삭제할까요?'), findsOneWidget);
+        expect(find.textContaining('달린 답글도 함께 삭제'), findsOneWidget);
+
+        await tester.tap(
+          find.byKey(const ValueKey('confirm_delete_comment_c1')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(deleteRequests, 1);
+        expect(find.text('내 댓글'), findsNothing);
+        expect(find.text('다른 사람 댓글'), findsOneWidget);
+        expect(find.text('댓글을 삭제했어요.'), findsOneWidget);
+      },
+      () => MockClient((request) async {
+        final path = request.url.path;
+        if (path == '/api/community/feed/p1') {
+          return _json({..._post(), 'comments': deleted ? 1 : 4});
+        }
+        if (path == '/api/community/feed/p1/comments') {
+          return _json([
+            if (!deleted)
+              {
+                'id': 'c1',
+                'author': '나',
+                'content': '내 댓글',
+                'isMine': true,
+                'replyCount': 2,
+              },
+            {
+              'id': 'c2',
+              'author': '다나',
+              'content': '다른 사람 댓글',
+              'isMine': false,
+            },
+          ]);
+        }
+        if (path == '/api/community/comments/c1' &&
+            request.method == 'DELETE') {
+          deleteRequests++;
+          deleted = true;
+          return _json({
+            'success': true,
+            'id': 'c1',
+            'deletedIds': ['c1', 'r1', 'r2'],
+          });
+        }
+        return _json({}, 404);
+      }),
+    );
+  });
+
   testWidgets(
     'pull to refresh survives detail and comment failures (FE-COMM-24)',
     (tester) async {

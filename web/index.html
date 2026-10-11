@@ -792,11 +792,33 @@
       };
       var clickHandler = function(cluster) {
         if (!cluster || typeof cluster.getCenter !== 'function') return;
+        var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
+        var center = cluster.getCenter();
+        var selectedMember = null;
+        var selectedDistance = Number.POSITIVE_INFINITY;
+        for (var i = 0; i < members.length; i++) {
+          var position = typeof members[i].getPosition === 'function'
+            ? members[i].getPosition()
+            : null;
+          if (!position || !Number.isInteger(members[i]._howmuchIndex)) continue;
+          var dLat = position.getLat() - center.getLat();
+          var dLng = position.getLng() - center.getLng();
+          var distance = dLat * dLat + dLng * dLng;
+          if (distance < selectedDistance) {
+            selectedDistance = distance;
+            selectedMember = members[i];
+          }
+        }
         var level = typeof map.getLevel === 'function' ? map.getLevel() : 4;
         map.setLevel(Math.max(1, level - 2), {
-          anchor: cluster.getCenter(),
+          anchor: center,
           animate: { duration: 300 }
         });
+        // Expanding a cluster is also a store choice. Select the member
+        // nearest the cluster center so Flutter opens its card immediately.
+        if (selectedMember) {
+          window.onMarkerClickWeb(containerId, selectedMember._howmuchIndex);
+        }
       };
       clusterer._howmuchClusteredHandler = clusteredHandler;
       clusterer._howmuchClickHandler = clickHandler;

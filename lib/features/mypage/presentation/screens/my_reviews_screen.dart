@@ -7,6 +7,7 @@ import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/store/presentation/state/store_review_state.dart';
 import 'package:howmuch/features/store/review_model.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/login_required_state.dart';
 
 import '../../../../shared/widgets/custom_app_bar.dart';
@@ -21,6 +22,8 @@ class MyReviewsScreen extends ConsumerStatefulWidget {
 }
 
 class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
+  final Set<String> _deletingReviewIds = <String>{};
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +60,43 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
     if (!mounted || !ApiClient.isAuthenticated) return;
     if (ref.read(myReviewsProvider).hasError) {
       await ref.read(myReviewsProvider.notifier).loadReviews(force: true);
+    }
+  }
+
+  Future<void> _confirmDeleteReview(Review review) async {
+    if (review.id.isEmpty || _deletingReviewIds.contains(review.id)) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: '리뷰를 삭제할까요?',
+        description: '삭제한 리뷰는 복구할 수 없어요.',
+        confirmLabel: '삭제하기',
+        destructive: true,
+        confirmKey: ValueKey('confirm_delete_review_${review.id}'),
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingReviewIds.add(review.id));
+    try {
+      await ref.read(myReviewsProvider.notifier).deleteReview(review.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(HowmuchSnackBar(content: const Text('리뷰를 삭제했어요.')));
+    } catch (error) {
+      debugPrint('리뷰 삭제 오류: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          HowmuchSnackBar(
+            content: const Text('리뷰를 삭제하지 못했어요. 잠시 후 다시 시도해주세요.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _deletingReviewIds.remove(review.id));
     }
   }
 
@@ -291,7 +331,6 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               if (review.storeSource == 'GOV')
                 const StatusBadge(type: BadgeType.government)
@@ -302,10 +341,38 @@ class _MyReviewsScreenState extends ConsumerState<MyReviewsScreen> {
                   '출처 확인 필요',
                   style: TextStyle(color: AppColors.muted, fontSize: 12),
                 ),
+              const Spacer(),
               Text(
                 dateText,
                 style: const TextStyle(color: AppColors.muted, fontSize: 12),
               ),
+              if (review.id.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  key: ValueKey('delete_review_${review.id}'),
+                  tooltip: '리뷰 삭제',
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                  padding: EdgeInsets.zero,
+                  onPressed: _deletingReviewIds.contains(review.id)
+                      ? null
+                      : () => _confirmDeleteReview(review),
+                  icon: _deletingReviewIds.contains(review.id)
+                      ? const SizedBox(
+                          width: 15,
+                          height: 15,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 19,
+                          color: AppColors.muted,
+                        ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 8),

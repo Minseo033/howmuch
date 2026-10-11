@@ -154,9 +154,9 @@ class StoreReviewNotifier
 
   void _prependReview(Review saved) {
     if (!mounted) return;
-    final current = reviewsFor(saved.storeId)
-        .where((review) => saved.id.isEmpty || review.id != saved.id)
-        .toList();
+    final current = reviewsFor(
+      saved.storeId,
+    ).where((review) => saved.id.isEmpty || review.id != saved.id).toList();
     state = {
       ...state,
       saved.storeId: AsyncValue.data([saved, ...current]),
@@ -273,6 +273,36 @@ class MyReviewsNotifier extends StateNotifier<AsyncValue<List<Review>>> {
         error,
         stackTrace,
       ).copyWithPrevious(state);
+    }
+  }
+
+  Future<void> deleteReview(String reviewId) async {
+    final id = reviewId.trim();
+    if (id.isEmpty) throw ArgumentError('리뷰 ID가 필요합니다.');
+    if (!ApiClient.isAuthenticated) {
+      throw const MyReviewsAuthRequiredException();
+    }
+
+    final response = await ApiClient.delete(
+      ApiClient.uri('/api/review/${Uri.encodeComponent(id)}'),
+      headers: ApiClient.jsonHeaders(auth: true),
+    ).timeout(ApiClient.defaultTimeout);
+    if (response.statusCode != 200 && response.statusCode != 204) {
+      throw Exception('리뷰 삭제 실패: ${response.statusCode}');
+    }
+
+    if (!mounted) return;
+    // 삭제 전에 시작된 새로고침 응답이 완료된 뒤 리뷰를 되살리지 못하게 합니다.
+    _generation++;
+    final current = state.valueOrNull;
+    if (current != null) {
+      _loaded = true;
+      state = AsyncValue.data(
+        current.where((review) => review.id != id).toList(growable: false),
+      );
+    } else {
+      _loaded = false;
+      await loadReviews(force: true);
     }
   }
 }

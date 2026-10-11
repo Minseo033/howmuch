@@ -1500,10 +1500,30 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           };
           var clickHandler = function(cluster) {
             if (!cluster || typeof cluster.getCenter !== 'function') return;
+            var members = typeof cluster.getMarkers === 'function' ? cluster.getMarkers() : [];
+            var center = cluster.getCenter();
+            var selectedMember = null;
+            var selectedDistance = Number.POSITIVE_INFINITY;
+            for (var i = 0; i < members.length; i++) {
+              var position = typeof members[i].getPosition === 'function'
+                ? members[i].getPosition()
+                : null;
+              if (!position || !Number.isInteger(members[i]._howmuchIndex)) continue;
+              var dLat = position.getLat() - center.getLat();
+              var dLng = position.getLng() - center.getLng();
+              var distance = dLat * dLat + dLng * dLng;
+              if (distance < selectedDistance) {
+                selectedDistance = distance;
+                selectedMember = members[i];
+              }
+            }
             map.setLevel(Math.max(1, map.getLevel() - 2), {
-              anchor: cluster.getCenter(),
+              anchor: center,
               animate: { duration: 300 }
             });
+            // Cluster expansion should leave the user with something useful,
+            // not two bare pins. Select the store nearest the cluster center.
+            if (selectedMember) onMarkerClick(selectedMember._howmuchIndex);
           };
           markerClusterer._howmuchClusteredHandler = clusteredHandler;
           markerClusterer._howmuchClickHandler = clickHandler;

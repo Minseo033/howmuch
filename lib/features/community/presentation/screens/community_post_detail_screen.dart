@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
@@ -12,6 +14,7 @@ import 'package:howmuch/features/auth/presentation/state/auth_state.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
+import 'package:howmuch/shared/widgets/howmuch_dialog.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/core/utils/price_formatter.dart';
 import 'package:howmuch/core/utils/text_initial.dart';
@@ -79,6 +82,7 @@ class _CommunityPostDetailScreenState
   CommunityComment? _replyTarget;
   final Set<String> _expandedReplyIds = <String>{};
   final Set<String> _replyLoadingIds = <String>{};
+  final Set<String> _deletingCommentIds = <String>{};
 
   /// 댓글 목록 요청의 세대입니다. 더 최근 요청이나 방금 단 댓글보다 먼저
   /// 시작된 응답이 늦게 도착해도 목록을 덮어쓰지 않게 합니다.
@@ -385,6 +389,82 @@ class _CommunityPostDetailScreenState
     }
   }
 
+  Future<void> _confirmDeleteComment(
+    CommunityComment comment, {
+    bool isReply = false,
+    String? parentId,
+  }) async {
+    if (_deletingCommentIds.contains(comment.id)) return;
+    final hasReplies = !isReply && comment.replyCount > 0;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => HowmuchDialog(
+        title: isReply ? '답글을 삭제할까요?' : '댓글을 삭제할까요?',
+        description: hasReplies
+            ? '이 댓글에 달린 답글도 함께 삭제돼요. 삭제한 내용은 복구할 수 없어요.'
+            : '삭제한 내용은 복구할 수 없어요.',
+        confirmLabel: '삭제하기',
+        destructive: true,
+        confirmKey: ValueKey('confirm_delete_comment_${comment.id}'),
+        onConfirm: () => Navigator.of(dialogContext).pop(true),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deletingCommentIds.add(comment.id));
+    try {
+      await _service.deleteComment(comment.id);
+      if (!mounted) return;
+      _commentsGeneration++;
+      setState(() {
+        final data = _postData;
+        if (data != null) {
+          final next = Map<String, dynamic>.from(data);
+          final removedCount = isReply ? 1 : 1 + comment.replyCount;
+          next['comments'] = math.max(
+            0,
+            ((next['comments'] as num?)?.toInt() ?? 0) - removedCount,
+          );
+          _postData = next;
+        }
+        if (isReply && parentId != null) {
+          _comments = [
+            for (final item in _comments)
+              if (item.id == parentId)
+                item.copyWith(
+                  replies: item.replies
+                      .where((reply) => reply.id != comment.id)
+                      .toList(growable: false),
+                  replyCount: math.max(0, item.replyCount - 1),
+                )
+              else
+                item,
+          ];
+        } else {
+          _comments = _comments
+              .where((item) => item.id != comment.id)
+              .toList(growable: false);
+          _expandedReplyIds.remove(comment.id);
+          if (_replyTarget?.id == comment.id) _replyTarget = null;
+        }
+      });
+      await Future.wait([_fetchComments(), _refreshDetailCounts()]);
+      if (!mounted) return;
+      _showSnackBar(isReply ? '답글을 삭제했어요.' : '댓글을 삭제했어요.');
+    } catch (error) {
+      debugPrint('댓글 삭제 오류: $error');
+      if (!mounted) return;
+      _showSnackBar(
+        communityErrorMessage(
+          error,
+          fallback: '댓글을 삭제하지 못했어요. 잠시 후 다시 시도해주세요.',
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _deletingCommentIds.remove(comment.id));
+    }
+  }
+
   Widget _buildCommentSection({
     required String myProfileImageUrl,
     required String myNickname,
@@ -427,6 +507,15 @@ class _CommunityPostDetailScreenState
               child: _CommentCard(
                 comment: comment,
                 onReply: () => setState(() => _replyTarget = comment),
+                onDelete: comment.isMine
+                    ? () => _confirmDeleteComment(comment)
+                    : null,
+                onDeleteReply: (reply) => _confirmDeleteComment(
+                  reply,
+                  isReply: true,
+                  parentId: comment.id,
+                ),
+                deletingCommentIds: _deletingCommentIds,
                 repliesExpanded: _expandedReplyIds.contains(comment.id),
                 repliesLoading: _replyLoadingIds.contains(comment.id),
                 onToggleReplies: () => _toggleReplies(comment),
@@ -1870,6 +1959,9 @@ class _CommentCard extends StatelessWidget {
   const _CommentCard({
     required this.comment,
     required this.onReply,
+    required this.onDelete,
+    required this.onDeleteReply,
+    required this.deletingCommentIds,
     required this.repliesExpanded,
     required this.repliesLoading,
     required this.onToggleReplies,
@@ -1879,6 +1971,9 @@ class _CommentCard extends StatelessWidget {
 
   final CommunityComment comment;
   final VoidCallback onReply;
+  final VoidCallback? onDelete;
+  final ValueChanged<CommunityComment> onDeleteReply;
+  final Set<String> deletingCommentIds;
   final bool repliesExpanded;
   final bool repliesLoading;
   final VoidCallback onToggleReplies;
@@ -1957,6 +2052,15 @@ class _CommentCard extends StatelessWidget {
                             ),
                           ),
                         ],
+                        if (onDelete != null) ...[
+                          const SizedBox(width: 2),
+                          _DeleteCommentButton(
+                            key: ValueKey('delete_comment_${comment.id}'),
+                            label: '댓글 삭제',
+                            deleting: deletingCommentIds.contains(comment.id),
+                            onPressed: onDelete!,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 2),
@@ -2001,6 +2105,8 @@ class _CommentCard extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 36, top: 6),
                 child: _ReplyCard(
                   reply: reply,
+                  onDelete: reply.isMine ? () => onDeleteReply(reply) : null,
+                  deleting: deletingCommentIds.contains(reply.id),
                   myProfileImageUrl: myProfileImageUrl,
                   myNickname: myNickname,
                 ),
@@ -2057,11 +2163,15 @@ class _CommentCard extends StatelessWidget {
 class _ReplyCard extends StatelessWidget {
   const _ReplyCard({
     required this.reply,
+    required this.onDelete,
+    required this.deleting,
     this.myProfileImageUrl,
     this.myNickname,
   });
 
   final CommunityComment reply;
+  final VoidCallback? onDelete;
+  final bool deleting;
   final String? myProfileImageUrl;
   final String? myNickname;
 
@@ -2118,6 +2228,15 @@ class _ReplyCard extends StatelessWidget {
                       ),
                     ),
                   ],
+                  if (onDelete != null) ...[
+                    const SizedBox(width: 2),
+                    _DeleteCommentButton(
+                      key: ValueKey('delete_reply_${reply.id}'),
+                      label: '답글 삭제',
+                      deleting: deleting,
+                      onPressed: onDelete!,
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 2),
@@ -2134,6 +2253,41 @@ class _ReplyCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DeleteCommentButton extends StatelessWidget {
+  const _DeleteCommentButton({
+    super.key,
+    required this.label,
+    required this.deleting,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool deleting;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: label,
+      visualDensity: VisualDensity.compact,
+      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+      padding: EdgeInsets.zero,
+      onPressed: deleting ? null : onPressed,
+      icon: deleting
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 1.8),
+            )
+          : const Icon(
+              Icons.delete_outline_rounded,
+              size: 17,
+              color: CommunityPostDetailScreen.muted,
+            ),
     );
   }
 }
