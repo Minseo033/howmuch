@@ -1256,6 +1256,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           map.setMaxLevel(maxMapLevel());
 
           kakao.maps.event.addListener(map, 'idle', function() {
+            syncOverlaysOnViewChange();
             if (boundsTimer) clearTimeout(boundsTimer);
             // Report the viewport after that move ends instead of dropping
             // it: the search count must follow the zoomed map (QA 10/7 #30).
@@ -1264,6 +1265,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               requestBounds();
             }, wait);
           });
+          function syncOverlaysOnViewChange() {
+            var isDetail = map && typeof map.getLevel === 'function' && map.getLevel() < 4;
+            if (isDetail) clusterHidden = {};
+            syncStoreOverlays(clusterHidden);
+          }
+          kakao.maps.event.addListener(map, 'zoom_changed', syncOverlaysOnViewChange);
           kakao.maps.event.addListener(map, 'dragstart', function() {
             Print.postMessage('MOVE_START');
           });
@@ -1464,14 +1471,27 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             return;
           }
 
+          var transparentMarkerImage = (typeof kakao.maps.MarkerImage === 'function' && typeof kakao.maps.Size === 'function')
+            ? new kakao.maps.MarkerImage(
+                'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+                new kakao.maps.Size(1, 1)
+              )
+            : null;
+
           for (var i = 0; i < markerDataCache.length; i++) {
             var item = markerDataCache[i];
-            var marker = new kakao.maps.Marker({
+            var markerOptions = {
               position: new kakao.maps.LatLng(item.lat, item.lng),
-              clickable: false,
-              opacity: 0
-            });
+              clickable: true
+            };
+            if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
+            var marker = new kakao.maps.Marker(markerOptions);
             marker._howmuchIndex = i;
+            (function(idx) {
+              kakao.maps.event.addListener(marker, 'click', function() {
+                onMarkerClick(idx);
+              });
+            })(i);
             clusterMarkers.push(marker);
           }
           if (clusterMarkers.length < 2) return;
@@ -1489,6 +1509,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
           var clusteredHandler = function(clusters) {
             var hidden = {};
+            clusters = clusters || [];
             for (var i = 0; i < clusters.length; i++) {
               var members = clusters[i].getMarkers();
               if (members.length < 2) continue;
@@ -1517,13 +1538,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 selectedMember = members[i];
               }
             }
-            map.setLevel(Math.max(1, map.getLevel() - 2), {
+            var nextLevel = Math.max(1, map.getLevel() - 2);
+            map.setLevel(nextLevel, {
               anchor: center,
               animate: { duration: 300 }
             });
+            if (nextLevel < 4) clusterHidden = {};
             // Cluster expansion should leave the user with something useful,
             // not two bare pins. Select the store nearest the cluster center.
             if (selectedMember) onMarkerClick(selectedMember._howmuchIndex);
+            setTimeout(function() {
+              syncOverlaysOnViewChange();
+            }, 350);
           };
           markerClusterer._howmuchClusteredHandler = clusteredHandler;
           markerClusterer._howmuchClickHandler = clickHandler;
