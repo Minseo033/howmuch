@@ -59,12 +59,10 @@ class TodaysPickService {
     }
     final activeRequest = _pickRequests[key];
     if (activeRequest != null) return activeRequest;
-    final request = _getRecommendation(
-      '/api/recommendation/todays-pick',
+    final request = _getTodaysPickWithWeatherFallback(
       lat: lat,
       lng: lng,
       radiusMeters: radiusMeters,
-      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
     );
     _pickRequests[key] = request;
     try {
@@ -77,6 +75,70 @@ class TodaysPickService {
       return data;
     } finally {
       if (identical(_pickRequests[key], request)) _pickRequests.remove(key);
+    }
+  }
+
+  Future<Map<String, dynamic>> _getTodaysPickWithWeatherFallback({
+    required double? lat,
+    required double? lng,
+    required int radiusMeters,
+  }) async {
+    final data = await _getRecommendation(
+      '/api/recommendation/todays-pick',
+      lat: lat,
+      lng: lng,
+      radiusMeters: radiusMeters,
+      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
+    );
+    if (data['error'] == true ||
+        data['weatherAvailable'] != false ||
+        lat == null ||
+        lng == null) {
+      return data;
+    }
+
+    final weather = await _fetchDeviceWeather(lat: lat, lng: lng);
+    return weather == null ? data : {...data, ...weather};
+  }
+
+  /// Render의 공유 IP가 보조 날씨 API의 사용량 제한을 받을 때도 사용자의
+  /// 네트워크에서 한 번 더 조회해 오늘의 픽 온도를 복구한다.
+  Future<Map<String, dynamic>?> _fetchDeviceWeather({
+    required double lat,
+    required double lng,
+  }) async {
+    final url = Uri.https('api.open-meteo.com', '/v1/forecast', {
+      'latitude': lat.toString(),
+      'longitude': lng.toString(),
+      'current': 'temperature_2m,weather_code',
+      'timezone': 'Asia/Seoul',
+    });
+    try {
+      final response = await _client
+          .get(url)
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode != 200) return null;
+      final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+      if (decoded is! Map || decoded['current'] is! Map) return null;
+      final current = Map<String, dynamic>.from(decoded['current'] as Map);
+      final rawTemperature = current['temperature_2m'];
+      final temperature = rawTemperature is num
+          ? rawTemperature.toDouble()
+          : double.tryParse(rawTemperature?.toString() ?? '');
+      if (temperature == null || !temperature.isFinite) return null;
+      final rawCode = current['weather_code'];
+      final weatherCode = rawCode is num
+          ? rawCode.toInt()
+          : int.tryParse(rawCode?.toString() ?? '') ?? -1;
+      return {
+        'weatherAvailable': true,
+        'weather': describeWmoWeather(weatherCode),
+        'temp': temperature.round(),
+        'fcstTime': current['time']?.toString(),
+        'weatherSource': 'OPEN_METEO_DEVICE',
+      };
+    } catch (_) {
+      return null;
     }
   }
 
@@ -158,6 +220,19 @@ class TodaysPickService {
       statusCode: statusCode,
     );
   }
+}
+
+String describeWmoWeather(int code) {
+  if (code == 0) return '맑음';
+  if (code == 1) return '대체로 맑음';
+  if (code == 2) return '구름 조금';
+  if (code == 3) return '흐림';
+  if (code == 45 || code == 48) return '안개';
+  if (code >= 51 && code <= 57) return '이슬비';
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return '비';
+  if ((code >= 71 && code <= 77) || code == 85 || code == 86) return '눈';
+  if (code >= 95 && code <= 99) return '천둥번개';
+  return '알 수 없음';
 }
 
 String? _serverMessage(http.Response response) {

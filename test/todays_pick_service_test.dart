@@ -50,6 +50,84 @@ void main() {
     expect(TodaysPickService().requestTimeout, const Duration(seconds: 20));
   });
 
+  test('recovers missing server weather from the device network', () async {
+    final requests = <http.Request>[];
+    final service = TodaysPickService(
+      MockClient((request) async {
+        requests.add(request);
+        if (request.url.host == 'api.open-meteo.com') {
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode({
+                'current': {
+                  'time': '2026-10-14T01:30',
+                  'temperature_2m': 12.8,
+                  'weather_code': 0,
+                },
+              }),
+            ),
+            200,
+          );
+        }
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'weatherAvailable': false,
+              'weather': '알 수 없음',
+              'temp': null,
+              'picks': <Object>[],
+            }),
+          ),
+          200,
+        );
+      }),
+    );
+
+    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+    expect(requests, hasLength(2));
+    expect(requests.last.url.host, 'api.open-meteo.com');
+    expect(result['weatherAvailable'], isTrue);
+    expect(result['temp'], 13);
+    expect(result['weather'], '맑음');
+    expect(result['fcstTime'], '2026-10-14T01:30');
+    expect(result['weatherSource'], 'OPEN_METEO_DEVICE');
+  });
+
+  test('keeps the server response when device weather also fails', () async {
+    final service = TodaysPickService(
+      MockClient((request) async {
+        if (request.url.host == 'api.open-meteo.com') {
+          return http.Response('rate limited', 429);
+        }
+        return http.Response.bytes(
+          utf8.encode(
+            jsonEncode({
+              'weatherAvailable': false,
+              'weather': '알 수 없음',
+              'temp': null,
+              'picks': <Object>[],
+            }),
+          ),
+          200,
+        );
+      }),
+    );
+
+    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+
+    expect(result['weatherAvailable'], isFalse);
+    expect(result['temp'], isNull);
+  });
+
+  test('maps WMO weather codes used by the device fallback', () {
+    expect(describeWmoWeather(0), '맑음');
+    expect(describeWmoWeather(45), '안개');
+    expect(describeWmoWeather(63), '비');
+    expect(describeWmoWeather(75), '눈');
+    expect(describeWmoWeather(95), '천둥번개');
+  });
+
   test(
     'sends the session token when logged in and no Content-Type on GET',
     () async {
@@ -145,13 +223,17 @@ void main() {
       '올바른 위치 좌표를 입력해주세요.',
     );
     expect(
-      recommendationFailureCopy(RecommendationFailure.unknown, route: true)
-          .title,
+      recommendationFailureCopy(
+        RecommendationFailure.unknown,
+        route: true,
+      ).title,
       '추천 루트를 불러오지 못했어요',
     );
     expect(
-      recommendationFailureCopy(RecommendationFailure.unknown, route: false)
-          .title,
+      recommendationFailureCopy(
+        RecommendationFailure.unknown,
+        route: false,
+      ).title,
       '오늘의 픽을 불러오지 못했어요',
     );
   });
