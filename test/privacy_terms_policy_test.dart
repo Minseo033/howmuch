@@ -67,7 +67,8 @@ void main() {
           '제보·문의·영수증 사진 저장과 전송',
           '국외 이전',
           '해외 서버로 전송·보관될 수 있습니다',
-          '매장과의 거리(미터)만 기록',
+          '위치 확인과 영수증 인증 후 저장',
+          '거리(미터)와 위치 정확도만 기록',
           '위치 권한은 선택입니다',
           '동네·관심 카테고리 정정은 1:1 문의로 요청',
           '알림 내역과 설정, 기기 토큰, 올린 사진을 삭제',
@@ -78,6 +79,7 @@ void main() {
         }
 
         // Claims that do not match the code must stay out.
+        expect(allTexts, isNot(contains('매장과의 거리(미터)만 기록')));
         expect(allTexts, isNot(contains('별도로 저장하지 않습니다.')));
         expect(allTexts, isNot(contains('프로필 수정에서 닉네임·동네 등 정정')));
         expect(allTexts, isNot(contains('관계 법령에 따라 일부 정보는 보관됩니다.')));
@@ -88,7 +90,7 @@ void main() {
           findsOneWidget,
         );
         expect(find.textContaining('부정 이용 방지 및 보안'), findsOneWidget);
-        expect(find.text('버전 2.5  ·  시행 2026.10.06'), findsOneWidget);
+        expect(find.text('버전 2.6  ·  시행 2026.10.13'), findsOneWidget);
       },
     );
 
