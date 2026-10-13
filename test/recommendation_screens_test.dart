@@ -212,6 +212,37 @@ void main() {
   });
 
   testWidgets(
+    'today pick explains unavailable weather without a broken degree label',
+    (tester) async {
+      await _setMobileViewport(tester, const Size(360, 800));
+      final service = _FakeTodaysPickService(
+        todaysPick: {
+          'weatherAvailable': false,
+          'weather': '알 수 없음',
+          'temp': null,
+          'picks': [
+            {
+              'storeName': '근처 국숫집',
+              'menu1': '칼국수',
+              'price1': '5000',
+              'distanceMeters': 120,
+            },
+          ],
+        },
+      );
+
+      await tester.pumpWidget(_app(service, const TodaysPickScreen()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('날씨 정보를 확인하지 못했어요'), findsOneWidget);
+      expect(find.text('정보 없음'), findsOneWidget);
+      expect(find.text('✨ 거리와 가격으로 추천했어요'), findsOneWidget);
+      expect(find.text('-°'), findsNothing);
+      _expectNoFlutterError(tester);
+    },
+  );
+
+  testWidgets(
     'today pick hides distant entries and handles long names at 360px',
     (tester) async {
       await _setMobileViewport(tester, const Size(360, 800));

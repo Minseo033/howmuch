@@ -67,6 +67,7 @@ public class WeatherService {
     private static final int MAX_CACHE_ENTRIES = 512;
 
     private record CachedWeather(Map<String, Object> value, long expiresAtMillis) {}
+    private record ForecastFetch(Map<String, Object> value, boolean retryOlderBase) {}
 
     // 테스트용 생성자가 함께 있으므로 Spring이 쓸 생성자를 명시한다(없으면 서버가 시작되지 않는다).
     @Autowired
@@ -136,7 +137,15 @@ public class WeatherService {
             return new HashMap<>(cached.value());
         }
 
-        Map<String, Object> fetched = fetchForecast(baseDate, baseTime, grid);
+        ForecastFetch fetch = fetchForecast(baseDate, baseTime, grid);
+        Map<String, Object> fetched = fetch.value();
+        if (!Boolean.TRUE.equals(fetched.get("available")) && fetch.retryOlderBase()) {
+            LocalDateTime previousBase = latestBaseDateTime(base.minusMinutes(1));
+            log.info("최신 예보 발표분이 비어 있어 직전 발표분으로 재조회합니다 ({} {} -> {} {})",
+                    baseDate, baseTime, previousBase.format(DATE_FMT), previousBase.format(TIME_FMT));
+            fetched = fetchForecast(
+                    previousBase.format(DATE_FMT), previousBase.format(TIME_FMT), grid).value();
+        }
         boolean available = Boolean.TRUE.equals(fetched.get("available"));
         remember(cacheKey, fetched, nowMillis + (available ? SUCCESS_TTL_MS : FAILURE_TTL_MS), nowMillis);
         return new HashMap<>(fetched);
@@ -151,7 +160,7 @@ public class WeatherService {
                 Collections.unmodifiableMap(new HashMap<>(value)), expiresAtMillis));
     }
 
-    private Map<String, Object> fetchForecast(String baseDate, String baseTime, int[] grid) {
+    private ForecastFetch fetchForecast(String baseDate, String baseTime, int[] grid) {
         Map<String, Object> result = new HashMap<>();
         try {
             // 포털 키 2종 모두 지원: Encoding 키(% 포함)는 그대로, Decoding 키는 인코딩해서 전달
@@ -169,14 +178,19 @@ public class WeatherService {
             // URI 객체로 전달해 RestTemplate의 재인코딩(이스케이프) 방지
             String response = forecastFetcher.apply(URI.create(url));
             JsonNode root = objectMapper.readTree(response);
-            JsonNode items = root.path("response").path("body").path("items").path("item");
+            JsonNode apiResponse = root.path("response");
+            JsonNode responseHeader = apiResponse.path("header");
+            String resultCode = responseHeader.path("resultCode").asText("unknown");
+            String resultMessage = responseHeader.path("resultMsg").asText("unknown");
+            JsonNode items = apiResponse.path("body").path("items").path("item");
 
             if (!items.isArray() || items.isEmpty()) {
-                log.warn("기상청 응답에 예보 항목 없음 (base {} {})", baseDate, baseTime);
+                log.warn("기상청 응답에 예보 항목 없음 (base {} {}, resultCode={}, resultMsg={})",
+                        baseDate, baseTime, resultCode, resultMessage);
                 result.put("weather", "알 수 없음");
                 result.put("temp", null);
                 result.put("available", false);
-                return result;
+                return new ForecastFetch(result, true);
             }
 
             // 슬롯(fcstDate+fcstTime)별로 SKY/PTY/TMP를 수집
@@ -202,27 +216,36 @@ public class WeatherService {
                 result.put("weather", "알 수 없음");
                 result.put("temp", null);
                 result.put("available", false);
-                return result;
+                return new ForecastFetch(result, true);
             }
 
             String sky = chosen.get("SKY");
             String pty = chosen.get("PTY");
             String temp = chosen.get("TMP");
 
+            Integer parsedTemp = parseTemp(temp);
+            if (parsedTemp == null) {
+                log.warn("기상청 응답에서 기온 값 누락 (base {} {}, slot {})", baseDate, baseTime, bestKey);
+                result.put("weather", "알 수 없음");
+                result.put("temp", null);
+                result.put("available", false);
+                return new ForecastFetch(result, true);
+            }
+
             result.put("weather", describeWeather(sky, pty));
-            result.put("temp", parseTemp(temp));
+            result.put("temp", parsedTemp);
             result.put("skyCode", sky);
             result.put("ptyCode", pty);
             result.put("fcstTime", bestKey);
             result.put("available", true);
             result.put("updatedAt", java.time.Instant.now().toString());
-            return result;
+            return new ForecastFetch(result, false);
         } catch (Exception e) {
             log.warn("기상청 API 호출 실패: {}", e.getClass().getSimpleName());
             result.put("weather", "알 수 없음");
             result.put("temp", null);
             result.put("available", false);
-            return result;
+            return new ForecastFetch(result, false);
         }
     }
 
