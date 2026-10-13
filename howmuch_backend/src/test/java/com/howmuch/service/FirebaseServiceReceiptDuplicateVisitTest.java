@@ -66,6 +66,8 @@ class FirebaseServiceReceiptDuplicateVisitTest {
         ReflectionTestUtils.setField(service, "cachedStores", List.of(Map.of(
                 "storeId", "store_a", "storeName", "경남식당", "address", "서울 중구",
                 "latitude", 37.5, "longitude", 127.0)));
+        when(receipt.get("verificationDistanceMeters")).thenReturn(25.0);
+        when(receipt.get("locationAccuracyMeters")).thenReturn(5.0);
         when(receipt.exists()).thenReturn(true);
         when(receipt.getString("status")).thenReturn("PENDING");
         when(receipt.getString("userId")).thenReturn("user-1");
@@ -134,7 +136,7 @@ class FirebaseServiceReceiptDuplicateVisitTest {
                 receiptDay.toString(), true, 100, "AUTO_APPROVED_CANDIDATE");
 
         assertThatThrownBy(() -> service.saveReceiptVerification("user-1", "store_a", "경남식당", "백반", 7000,
-                "a".repeat(64), List.of("https://img/receipt.jpg"), ocr))
+                "a".repeat(64), List.of("https://img/receipt.jpg"), ocr, new com.howmuch.dto.VisitLocationEvidence(25, 5)))
                 .isInstanceOf(DuplicateVisitException.class);
         verify(newReceipt, never()).create(anyMap());
     }
@@ -154,12 +156,15 @@ class FirebaseServiceReceiptDuplicateVisitTest {
                 yesterday, true, 100, "AUTO_APPROVED_CANDIDATE");
 
         service.saveReceiptVerification("user-1", "store_a", "경남식당", "백반", 7000,
-                "b".repeat(64), List.of("https://img/receipt.jpg"), ocr);
+                "b".repeat(64), List.of("https://img/receipt.jpg"), ocr, new com.howmuch.dto.VisitLocationEvidence(25, 5));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<Map<String, Object>> data = ArgumentCaptor.forClass(Map.class);
         verify(newReceipt).create(data.capture());
-        assertThat(data.getValue()).containsEntry("visitDate", yesterday).containsEntry("status", "PENDING");
+        assertThat(data.getValue()).containsEntry("visitDate", yesterday).containsEntry("status", "PENDING")
+                .containsEntry("verificationDistanceMeters", 25.0)
+                .containsEntry("locationAccuracyMeters", 5.0)
+                .doesNotContainKeys("latitude", "longitude");
     }
 
     @Test

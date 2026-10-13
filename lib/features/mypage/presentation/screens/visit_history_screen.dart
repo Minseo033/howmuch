@@ -14,6 +14,12 @@ String? formatVisitVerification(String? method, double? distanceMeters) {
   if (method == 'LOCATION' && distanceMeters != null) {
     return '위치 인증 · ${distanceMeters.round()}m';
   }
+  if (method == 'LOCATION_RECEIPT') {
+    final distance = distanceMeters == null
+        ? ''
+        : ' · ${distanceMeters.round()}m';
+    return '위치 + 영수증 인증$distance';
+  }
   if (method == 'RECEIPT_OCR') return '영수증 OCR 인증';
   return null;
 }

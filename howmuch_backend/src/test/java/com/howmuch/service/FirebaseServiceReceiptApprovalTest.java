@@ -71,6 +71,8 @@ class FirebaseServiceReceiptApprovalTest {
             }
         });
         service = new FirebaseService(db, imageStorage);
+        when(receipt.get("verificationDistanceMeters")).thenReturn(25.0);
+        when(receipt.get("locationAccuracyMeters")).thenReturn(5.0);
     }
 
     @Test
@@ -95,7 +97,8 @@ class FirebaseServiceReceiptApprovalTest {
         verify(transaction).create(eq(visitRef), visitData.capture());
         assertThat(visitData.getValue())
                 .containsEntry("userId", "user-1")
-                .containsEntry("verificationMethod", "RECEIPT_OCR");
+                .containsEntry("verificationMethod", "LOCATION_RECEIPT")
+                .containsEntry("verificationDistanceMeters", 25.0);
         ArgumentCaptor<Map<String, Object>> receiptUpdate = ArgumentCaptor.forClass(Map.class);
         verify(transaction).update(eq(receiptRef), receiptUpdate.capture());
         assertThat(receiptUpdate.getValue())
@@ -182,6 +185,28 @@ class FirebaseServiceReceiptApprovalTest {
         assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "AUTO_OCR"))
                 .isInstanceOf(ReceiptOcrEvidenceException.class);
         verify(transaction, never()).set(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void manualApprovalCannotCreateAVisitWithoutLocationEvidence() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.get("verificationDistanceMeters")).thenReturn(null);
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("위치 확인 정보");
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void manualApprovalCannotBypassAnInvalidStoredLocation() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.get("verificationDistanceMeters")).thenReturn(101.0);
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN"))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("100m");
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
     }
 
     private void mockUsableOcrEvidence() {

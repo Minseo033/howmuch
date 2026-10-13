@@ -95,7 +95,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                         body:
                             ' · 제보(매장 정보·메뉴·가격·첨부 사진), 리뷰, 커뮤니티 댓글·좋아요, '
                             '방문 인증 기록(매장·메뉴·결제 금액·절약 금액·매장과의 거리), '
-                            '영수증 사진과 판독 결과(금액·날짜), 찜·가격 알림 설정, '
+                            '영수증 사진과 판독 결과(금액·날짜)·접수 시 위치 정확도, 찜·가격 알림 설정, '
                             '1:1 문의(내용·첨부 사진), 알림 설정과 알림 내역',
                       ),
                       _PolicyLine(
@@ -217,7 +217,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                             '· 좌표가 서버로 전송되는 경우: 오늘의 픽·추천 루트, AI 채팅의 주변 매장 찾기, 방문 위치 인증, '
                             '동네를 현재 위치로 설정하거나 커뮤니티에서 현재 위치로 볼 때, 제보 시 장소 검색',
                       ),
-                      _PolicyLine(body: '· 방문 위치 인증에는 매장과의 거리(미터)만 기록합니다.'),
+                      _PolicyLine(
+                        body:
+                            '· 방문 기록은 위치 확인과 영수증 인증 후 저장합니다. 위치 좌표는 저장하지 않고 매장까지의 거리(미터)와 위치 정확도만 기록합니다.',
+                      ),
                       _PolicyLine(
                         body:
                             '· 동네 이름 변환과 장소 검색에는 카카오 로컬 API를, 날씨 확인에는 좌표를 약 5km 격자로 바꿔 '
@@ -282,7 +285,7 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                   const SizedBox(height: 16),
                   const Center(
                     child: Text(
-                      '2026.10.06 개정: 처리 위탁·국외 이전, 위치·사진·알림 처리 내용 보완',
+                      '2026.10.13 개정: 방문 인증의 위치·영수증 필수 적용과 위치 정확도 저장 안내',
                       textAlign: TextAlign.center,
                       style: _captionText,
                     ),
@@ -520,7 +523,7 @@ class _PrivacyIntroCard extends StatelessWidget {
                 children: [
                   Text('얼마고? 개인정보 처리방침', style: _introTitleText),
                   SizedBox(height: 6),
-                  Text('버전 2.5  ·  시행 2026.10.06', style: _introCaptionText),
+                  Text('버전 2.6  ·  시행 2026.10.13', style: _introCaptionText),
                 ],
               ),
             ),

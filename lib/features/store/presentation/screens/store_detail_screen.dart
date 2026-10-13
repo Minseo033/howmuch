@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'price_history_screen.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:howmuch/app/app_routes.dart';
@@ -571,27 +570,6 @@ class _StoreDetailContent extends ConsumerWidget {
                                             ),
                                           ),
                                         ],
-                                      ),
-                                    ),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
-                                        onPressed: () => context.push(
-                                          AppRoutes.priceHistory,
-                                          extra: PriceHistoryTarget(
-                                            store: store,
-                                            menuIndex: e.value.index,
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.history,
-                                          size: 16,
-                                        ),
-                                        label: Text('${e.value.name} 가격 이력'),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: _blue,
-                                          minimumSize: const Size(44, 44),
-                                        ),
                                       ),
                                     ),
                                     if (e.key < menus.length - 1)
