@@ -368,6 +368,11 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
 
     final weather = _pickData?['weather'] ?? '알 수 없음';
     final temp = _pickData?['temp'];
+    final temperature = _asDouble(temp);
+    final weatherAvailable =
+        _pickData?['weatherAvailable'] != false &&
+        temperature != null &&
+        temperature.isFinite;
     final forecastTime = formatForecastTime(_pickData?['fcstTime']);
     final now = DateTime.now();
     final dateStr =
@@ -595,13 +600,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  weather == '비' ||
-                                                          weather == '비/눈' ||
-                                                          weather == '눈' ||
-                                                          weather == '소나기'
+                                                  !weatherAvailable
+                                                      ? '날씨 정보를 확인하지 못했어요'
+                                                      : weather == '비' ||
+                                                            weather == '비/눈' ||
+                                                            weather == '눈' ||
+                                                            weather == '소나기'
                                                       ? '비가 오는 날이네요 ☔️'
-                                                      : (temp != null &&
-                                                                temp >= 28
+                                                      : (temperature >= 28
                                                             ? '더운 날이네요 🌡️'
                                                             : '오늘의 날씨예요'),
                                                   style: const TextStyle(
@@ -626,16 +632,24 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                 CrossAxisAlignment.end,
                                             children: [
                                               Text(
-                                                temp != null ? '$temp°' : '-°',
-                                                style: const TextStyle(
+                                                weatherAvailable
+                                                    ? '${temperature.round()}°'
+                                                    : '정보 없음',
+                                                style: TextStyle(
                                                   fontFamily: 'Noto Sans KR',
                                                   color: Colors.white,
-                                                  fontSize: 32,
-                                                  fontWeight: FontWeight.w300,
+                                                  fontSize: weatherAvailable
+                                                      ? 32
+                                                      : 12,
+                                                  fontWeight: weatherAvailable
+                                                      ? FontWeight.w300
+                                                      : FontWeight.w600,
                                                   height: 1.0,
                                                 ),
+                                                maxLines: 1,
                                               ),
-                                              if (forecastTime.isNotEmpty) ...[
+                                              if (weatherAvailable &&
+                                                  forecastTime.isNotEmpty) ...[
                                                 const SizedBox(height: 3),
                                                 Text(
                                                   forecastTime,
@@ -667,12 +681,14 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                           ),
                                         ),
                                         child: Text(
-                                          weather == '비' ||
-                                                  weather == '비/눈' ||
-                                                  weather == '눈' ||
-                                                  weather == '소나기'
+                                          !weatherAvailable
+                                              ? '✨ 거리와 가격으로 추천했어요'
+                                              : weather == '비' ||
+                                                    weather == '비/눈' ||
+                                                    weather == '눈' ||
+                                                    weather == '소나기'
                                               ? '🍜 따뜻한 국물 메뉴를 추천해요'
-                                              : (temp != null && temp >= 28
+                                              : (temperature >= 28
                                                     ? '🧊 시원한 메뉴를 추천해요'
                                                     : '✨ 오늘의 추천 메뉴'),
                                           style: const TextStyle(

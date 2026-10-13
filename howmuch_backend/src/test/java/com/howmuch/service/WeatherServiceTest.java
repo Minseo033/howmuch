@@ -52,6 +52,12 @@ class WeatherServiceTest {
                 """;
     }
 
+    private static String emptyForecastJson() {
+        return """
+                {"response":{"body":{"items":{"item":[]}}}}
+                """;
+    }
+
     private static MutableClock afternoonClock() {
         // 2026-10-06 14:40 KST
         return new MutableClock(LocalDateTime.of(2026, 10, 6, 14, 40).toInstant(ZoneOffset.ofHours(9)));
@@ -98,6 +104,24 @@ class WeatherServiceTest {
         service.getCurrentWeather(SEOUL_LAT, SEOUL_LNG).put("weather", "변조");
 
         assertThat(service.getCurrentWeather(SEOUL_LAT, SEOUL_LNG).get("weather")).isEqualTo("맑음");
+    }
+
+    @Test
+    void retriesThePreviousPublishedForecastWhenTheLatestOneHasNoItems() {
+        AtomicInteger calls = new AtomicInteger();
+        Function<URI, String> fetcher = uri -> {
+            calls.incrementAndGet();
+            if (uri.getQuery().contains("base_time=1400")) return emptyForecastJson();
+            assertThat(uri.getQuery()).contains("base_time=1100");
+            return forecastJson();
+        };
+        WeatherService service = new WeatherService("test-key", fetcher, afternoonClock());
+
+        Map<String, Object> weather = service.getCurrentWeather(SEOUL_LAT, SEOUL_LNG);
+
+        assertThat(calls.get()).isEqualTo(2);
+        assertThat(weather.get("available")).isEqualTo(true);
+        assertThat(weather.get("temp")).isEqualTo(21);
     }
 
     @Test
