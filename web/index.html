@@ -463,6 +463,8 @@
       delete window.kakaoClusterMarkers[containerId];
       delete window[containerId];
       delete window.kakaoMapCallbacks[containerId];
+      delete window.kakaoMarkerLatitudeIndices[containerId];
+      delete window.kakaoVisibleOverlayIndices[containerId];
     }
 
     function notifyKakaoMapError(containerId, message) {
@@ -619,6 +621,8 @@
     window.markerDataCache = {};
     window.highlightedKakaoMarkerIndices = {};
     window.kakaoClusterHidden = {};
+    window.kakaoMarkerLatitudeIndices = {};
+    window.kakaoVisibleOverlayIndices = {};
 
     function kakaoClusterCountText(size) {
       if (size >= 10000) {
@@ -659,14 +663,35 @@
       ];
     }
 
-    function isKakaoStoreInViewport(map, item) {
-      if (!map || typeof map.getBounds !== 'function') return true;
+    // Build once per catalog, then inspect only its visible latitude band.
+    // All stores still participate in the SDK clusterer; this indexes labels.
+    function buildStoreLatitudeIndex(items) {
+      return items.map(function(_, index) { return index; }).sort(function(a, b) {
+        return items[a].lat - items[b].lat;
+      });
+    }
+
+    function storeIndicesInViewport(items, indices, map) {
+      if (!map || typeof map.getBounds !== 'function') return indices;
       var bounds = map.getBounds();
-      if (!bounds) return true;
+      if (!bounds) return indices;
       var sw = bounds.getSouthWest();
       var ne = bounds.getNorthEast();
-      return item.lat >= sw.getLat() && item.lat <= ne.getLat() &&
-        item.lng >= sw.getLng() && item.lng <= ne.getLng();
+      var minLat = sw.getLat(), maxLat = ne.getLat();
+      var minLng = sw.getLng(), maxLng = ne.getLng();
+      var low = 0, high = indices.length;
+      while (low < high) {
+        var middle = (low + high) >>> 1;
+        if (items[indices[middle]].lat < minLat) low = middle + 1;
+        else high = middle;
+      }
+      var visible = [];
+      for (var i = low; i < indices.length; i++) {
+        var index = indices[i], item = items[index];
+        if (item.lat > maxLat) break;
+        if (item.lng >= minLng && item.lng <= maxLng) visible.push(index);
+      }
+      return visible;
     }
 
     function createKakaoStoreOverlay(containerId, index, map) {
@@ -747,17 +772,35 @@
       var selectedIndex = window.highlightedKakaoMarkerIndices[containerId];
       hidden = hidden || {};
       window.kakaoClusterHidden[containerId] = hidden;
-
-      for (var i = 0; i < markerData.length; i++) {
-        var shouldShow = i === selectedIndex ||
-          (!hidden[i] && isKakaoStoreInViewport(map, markerData[i]));
-        var overlay = overlays[i];
-        if (shouldShow) {
-          overlay = overlay || createKakaoStoreOverlay(containerId, i, map);
-          if (overlay) overlay.setMap(map);
-        } else if (overlay) {
+      var indices = window.kakaoMarkerLatitudeIndices[containerId] || [];
+      var candidates = storeIndicesInViewport(markerData, indices, map);
+      var visible = {};
+      for (var i = 0; i < candidates.length; i++) {
+        var index = candidates[i];
+        if (!hidden[index]) visible[index] = true;
+      }
+      if (selectedIndex >= 0 && markerData[selectedIndex]) visible[selectedIndex] = true;
+      var previous = window.kakaoVisibleOverlayIndices[containerId] || {};
+      Object.keys(previous).forEach(function(index) {
+        var overlay = overlays[index];
+        if (!visible[index] && overlay && overlay._howmuchMap) {
           overlay.setMap(null);
+          overlay._howmuchMap = null;
         }
+      });
+      Object.keys(visible).forEach(function(index) {
+        var overlay = overlays[index] || createKakaoStoreOverlay(containerId, Number(index), map);
+        if (overlay && overlay._howmuchMap !== map) {
+          overlay.setMap(map);
+          overlay._howmuchMap = map;
+        }
+      });
+      window.kakaoVisibleOverlayIndices[containerId] = visible;
+      // Keep a small reuse cache without retaining every DOM label ever panned past.
+      var cached = Object.keys(overlays), remaining = cached.length;
+      var keep = Math.max(512, Object.keys(visible).length);
+      for (var j = 0; j < cached.length && remaining > keep; j++) {
+        if (!visible[cached[j]]) { delete overlays[cached[j]]; remaining--; }
       }
       applyKakaoMapMarkerHighlight(containerId, selectedIndex);
     }
@@ -786,16 +829,11 @@
         var item = markerData[i];
         var markerOptions = {
           position: new kakao.maps.LatLng(item.lat, item.lng),
-          clickable: true
+          clickable: false
         };
         if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
         var marker = new kakao.maps.Marker(markerOptions);
         marker._howmuchIndex = i;
-        (function(idx) {
-          kakao.maps.event.addListener(marker, 'click', function() {
-            window.onMarkerClickWeb(containerId, idx);
-          });
-        })(i);
         markers.push(marker);
       }
       if (markers.length < 2) return;
@@ -886,14 +924,18 @@
     function applyKakaoMapMarkerHighlight(containerId, selectedIndex) {
       var overlays = window.customOverlays[containerId] || [];
       var markerData = window.markerDataCache[containerId] || [];
-      for (var i = 0; i < overlays.length; i++) {
+      var indices = Object.keys(overlays);
+      for (var n = 0; n < indices.length; n++) {
+        var i = Number(indices[n]);
         var overlay = overlays[i];
         if (!overlay) continue;
+        var isSelected = i === selectedIndex;
+        if (overlay._howmuchSelected === isSelected) continue;
+        overlay._howmuchSelected = isSelected;
         var item = markerData[i] || {};
         var wrapper = overlay._howmuchWrapper;
         var bubble = wrapper && wrapper.children ? wrapper.children[0] : null;
         var tail = wrapper && wrapper.children ? wrapper.children[1] : null;
-        var isSelected = i === selectedIndex;
         var baseColor = overlay._howmuchBaseColor ||
           (item.source === 'USER' ? '#F97316' : '#2563EB');
         var color = isSelected ? '#C2410C' : baseColor;
@@ -990,6 +1032,8 @@
         }
         if (!Array.isArray(markerData) || !isCurrentMarkerRequest()) return;
         window.markerDataCache[containerId] = markerData;
+        window.kakaoMarkerLatitudeIndices[containerId] = buildStoreLatitudeIndex(markerData);
+        window.kakaoVisibleOverlayIndices[containerId] = {};
         var selectedIndex = -1;
         for (var selectedItemIndex = 0; selectedItemIndex < markerData.length; selectedItemIndex++) {
           if (markerData[selectedItemIndex] && markerData[selectedItemIndex].selected === true) {

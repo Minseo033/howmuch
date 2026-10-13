@@ -727,7 +727,10 @@ void main() {
   testWidgets(
     'a screen covering home stops location tracking until it returns',
     (tester) async {
-      await pumpHome(tester, const HomeMapScreen(storeLoader: _emptyLoader));
+      final controller = await pumpHome(
+        tester,
+        const HomeMapScreen(storeLoader: _emptyLoader),
+      );
       await tester.pump(const Duration(milliseconds: 50));
       expect(geolocator.positionStreams, 1);
       expect(compass, isNotNull);
@@ -747,6 +750,7 @@ void main() {
         1,
         reason: 'GPS stops while covered',
       );
+      expect(controller.scripts, contains('setMapActive(false);'));
 
       compass = null;
       navigator.pop();
@@ -758,6 +762,41 @@ void main() {
         reason: 'tracking restarts on return',
       );
       expect(compass, isNotNull);
+      expect(controller.scripts, contains('setMapActive(true);'));
+      await disposeHome(tester);
+    },
+  );
+
+  testWidgets(
+    'catalog completion behind another screen waits before serializing markers',
+    (tester) async {
+      final pending = Completer<List<Store>>();
+      final controller = await pumpHome(
+        tester,
+        HomeMapScreen(catalogLoader: () => pending.future),
+      );
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      unawaited(
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('오늘의 픽')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      pending.complete([
+        for (var i = 0; i < 150; i++) _store('store-$i', 37.5 + i * .0001, 127),
+      ]);
+      await tester.pump();
+      expect(
+        controller.scripts.where(
+          (script) => script.startsWith('addMobileMarkers('),
+        ),
+        isEmpty,
+      );
+      navigator.pop();
+      await tester.pumpAndSettle();
+      expect(_renderedStoreIds(controller), hasLength(150));
       await disposeHome(tester);
     },
   );

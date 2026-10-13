@@ -312,6 +312,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   String? _pendingBoundsJson;
   int _boundsRequestGeneration = 0;
   String _lastRenderedMarkerSignature = '';
+  List<Store>? _lastFullCatalogMarkerSource;
+  bool _fullCatalogRenderPending = false;
   bool _isCenteringLocation = false;
   _LocationNoticeData? _locationNotice;
   Future<void>? _freshLocationRequest;
@@ -799,6 +801,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   }
 
   void _renderMarkers(List<Map<String, dynamic>> markerList) {
+    _lastFullCatalogMarkerSource = null;
     _renderedMarkerStoreIds = markerList
         .map((marker) => marker['storeId'] as String)
         .toList(growable: false);
@@ -965,6 +968,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (state == AppLifecycleState.resumed) {
       _appInForeground = true;
       _syncLocationTracking();
+      if (_fullCatalogRenderPending) _renderFullCatalogMarkers();
       _relayoutMobileMap();
       if (_awaitingLocationSettingsReturn) {
         // Coming back from location settings is a request to use them now,
@@ -989,11 +993,19 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (routeIsCurrent != _routeIsCurrent) {
       _routeIsCurrent = routeIsCurrent;
       _syncLocationTracking();
+      if (routeIsCurrent && _fullCatalogRenderPending) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _renderFullCatalogMarkers();
+        });
+      }
     }
   }
 
   void _syncLocationTracking() {
     final active = _routeIsCurrent && _appInForeground;
+    if (!kIsWeb && _isMapReady) {
+      _safeRunJavaScript('setMapActive($active);');
+    }
     if (kIsWeb) {
       // Restarting a browser location watch can ask for permission again
       // (Safari "Ask"). Keep the watch and ignore updates while hidden.
@@ -1212,6 +1224,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
+        var mapActive = true;
+        var pendingMarkerPayload = null;
         // When the pan and zoom started by a card swipe or marker tap end.
         var cardMoveEndsAt = 0;
         // The complete catalog is loaded once, so every mode can zoom nationwide.
@@ -1265,11 +1279,6 @@ class _HomeMapScreenState extends State<HomeMapScreen>
               requestBounds();
             }, wait);
           });
-          function syncOverlaysOnViewChange() {
-            var isDetail = map && typeof map.getLevel === 'function' && map.getLevel() < 4;
-            if (isDetail) clusterHidden = {};
-            syncStoreOverlays(clusterHidden);
-          }
           kakao.maps.event.addListener(map, 'zoom_changed', syncOverlaysOnViewChange);
           kakao.maps.event.addListener(map, 'dragstart', function() {
             Print.postMessage('MOVE_START');
@@ -1304,6 +1313,26 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         var markerClusterer = null;
         var clusterMarkers = [];
         var clusterHidden = {};
+        var markerLatitudeIndices = [];
+        var visibleOverlayIndices = {};
+
+        function syncOverlaysOnViewChange() {
+          var isDetail = map && typeof map.getLevel === 'function' && map.getLevel() < 4;
+          if (isDetail) clusterHidden = {};
+          syncStoreOverlays(clusterHidden);
+        }
+
+        function setMapActive(active) {
+          var wasActive = mapActive;
+          mapActive = active === true;
+          if (!mapActive || wasActive) return;
+          if (pendingMarkerPayload !== null) {
+            var payload = pendingMarkerPayload;
+            pendingMarkerPayload = null;
+            addMobileMarkers(payload);
+          }
+          syncOverlaysOnViewChange();
+        }
 
         function clusterCountText(size) {
           if (size >= 10000) {
@@ -1344,14 +1373,34 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           ];
         }
 
-        function isStoreInViewport(item) {
-          if (!map || typeof map.getBounds !== 'function') return true;
+        // The complete catalog stays in the clusterer; only label lookup is indexed.
+        function buildStoreLatitudeIndex(items) {
+          return items.map(function(_, index) { return index; }).sort(function(a, b) {
+            return items[a].lat - items[b].lat;
+          });
+        }
+
+        function storeIndicesInViewport(items, indices, map) {
+          if (!map || typeof map.getBounds !== 'function') return indices;
           var bounds = map.getBounds();
-          if (!bounds) return true;
+          if (!bounds) return indices;
           var sw = bounds.getSouthWest();
           var ne = bounds.getNorthEast();
-          return item.lat >= sw.getLat() && item.lat <= ne.getLat() &&
-            item.lng >= sw.getLng() && item.lng <= ne.getLng();
+          var minLat = sw.getLat(), maxLat = ne.getLat();
+          var minLng = sw.getLng(), maxLng = ne.getLng();
+          var low = 0, high = indices.length;
+          while (low < high) {
+            var middle = (low + high) >>> 1;
+            if (items[indices[middle]].lat < minLat) low = middle + 1;
+            else high = middle;
+          }
+          var visible = [];
+          for (var i = low; i < indices.length; i++) {
+            var index = indices[i], item = items[index];
+            if (item.lat > maxLat) break;
+            if (item.lng >= minLng && item.lng <= maxLng) visible.push(index);
+          }
+          return visible;
         }
 
         function createStoreOverlay(index) {
@@ -1414,23 +1463,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             yAnchor: 1.0,
             zIndex: index === selectedMarkerIndex ? 10 : 3
           });
+          overlay._howmuchWrapper = wrapper;
           customOverlays[index] = overlay;
           return overlay;
         }
 
         function syncStoreOverlays(hidden) {
-          if (!map) return;
           clusterHidden = hidden || {};
-          for (var i = 0; i < markerDataCache.length; i++) {
-            var shouldShow = i === selectedMarkerIndex ||
-              (!clusterHidden[i] && isStoreInViewport(markerDataCache[i]));
-            var overlay = customOverlays[i];
-            if (shouldShow) {
-              overlay = overlay || createStoreOverlay(i);
-              if (overlay) overlay.setMap(map);
-            } else if (overlay) {
+          if (!map || !mapActive) return;
+          var candidates = storeIndicesInViewport(markerDataCache, markerLatitudeIndices, map);
+          var visible = {};
+          for (var i = 0; i < candidates.length; i++) {
+            var index = candidates[i];
+            if (!clusterHidden[index]) visible[index] = true;
+          }
+          if (selectedMarkerIndex >= 0 && markerDataCache[selectedMarkerIndex]) visible[selectedMarkerIndex] = true;
+          Object.keys(visibleOverlayIndices).forEach(function(index) {
+            var overlay = customOverlays[index];
+            if (!visible[index] && overlay && overlay._howmuchMap) {
               overlay.setMap(null);
+              overlay._howmuchMap = null;
             }
+          });
+          Object.keys(visible).forEach(function(index) {
+            var overlay = customOverlays[index] || createStoreOverlay(Number(index));
+            if (overlay && overlay._howmuchMap !== map) {
+              overlay.setMap(map);
+              overlay._howmuchMap = map;
+            }
+          });
+          visibleOverlayIndices = visible;
+          var cached = Object.keys(customOverlays), remaining = cached.length;
+          var keep = Math.max(512, Object.keys(visible).length);
+          for (var j = 0; j < cached.length && remaining > keep; j++) {
+            if (!visible[cached[j]]) { delete customOverlays[cached[j]]; remaining--; }
           }
           applyMarkerHighlight();
         }
@@ -1482,16 +1548,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             var item = markerDataCache[i];
             var markerOptions = {
               position: new kakao.maps.LatLng(item.lat, item.lng),
-              clickable: true
+              clickable: false
             };
             if (transparentMarkerImage) markerOptions.image = transparentMarkerImage;
             var marker = new kakao.maps.Marker(markerOptions);
             marker._howmuchIndex = i;
-            (function(idx) {
-              kakao.maps.event.addListener(marker, 'click', function() {
-                onMarkerClick(idx);
-              });
-            })(i);
             clusterMarkers.push(marker);
           }
           if (clusterMarkers.length < 2) return;
@@ -1571,8 +1632,14 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         function addMobileMarkers(markerListJson) {
+          if (!mapActive) {
+            pendingMarkerPayload = markerListJson;
+            return;
+          }
           var markerData = JSON.parse(markerListJson);
           markerDataCache = markerData;
+          markerLatitudeIndices = buildStoreLatitudeIndex(markerData);
+          visibleOverlayIndices = {};
           selectedMarkerIndex = markerData.findIndex(function(item) {
             return item.selected === true;
           });
@@ -1587,13 +1654,18 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         function applyMarkerHighlight() {
-          for (var i = 0; i < markerDataCache.length; i++) {
-            var wrapper = document.getElementById('marker-wrapper-' + i);
+          var indices = Object.keys(customOverlays);
+          for (var n = 0; n < indices.length; n++) {
+            var i = Number(indices[n]);
+            var overlay = customOverlays[i];
+            var isSelected = i === selectedMarkerIndex;
+            if (!overlay || overlay._howmuchSelected === isSelected) continue;
+            overlay._howmuchSelected = isSelected;
+            var wrapper = overlay._howmuchWrapper;
             if (!wrapper) continue;
             var bubble = wrapper.children[0];
             var tail = wrapper.children[1];
 
-            var isSelected = i === selectedMarkerIndex;
             var baseColor = markerDataCache[i].source === 'USER' ? '#F97316' : '#2563EB';
             bubble.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
             if (isSelected) {
@@ -1708,6 +1780,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         }
 
         function requestBounds() {
+          if (!mapActive) return;
           if(!map) return;
           var bounds = map.getBounds();
           var sw = bounds.getSouthWest();
@@ -2114,6 +2187,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     if (!mounted) return;
 
     _isMapReady = true;
+    _syncLocationTracking();
     _lastRenderedMarkerSignature = '';
     if (kIsWeb && (!_isMapInitialized || _mapErrorMessage != null)) {
       setState(() {
@@ -2345,6 +2419,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _renderFullCatalogMarkers() {
     if (!mounted || !_isMapReady || !_isAllStoresLoaded) return;
+    if (!_routeIsCurrent || !_appInForeground) {
+      _fullCatalogRenderPending = true;
+      return;
+    }
+    _fullCatalogRenderPending = false;
 
     final List<Store> stores;
     RecommendationMenuSelection? Function(Store) selectionFor;
@@ -2359,6 +2438,13 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       selectionFor = (_) => null;
     }
 
+    // Re-centering schedules several viewport checks. An unchanged source
+    // needs neither 11k formatted marker maps nor a second catalog signature.
+    if (_lastRenderedMarkerSignature.isNotEmpty &&
+        identical(stores, _lastFullCatalogMarkerSource)) {
+      return;
+    }
+
     final markerStores = stores
         .where(isHomeMapStoreVisible)
         .where((store) => !store.isClosed)
@@ -2369,9 +2455,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         .map((store) => _storeMarker(store, selectionFor(store)))
         .toList(growable: false);
     if (_markerListSignature(markerList) == _lastRenderedMarkerSignature) {
+      _lastFullCatalogMarkerSource = stores;
       return;
     }
     _renderMarkers(markerList);
+    _lastFullCatalogMarkerSource = stores;
   }
 
   Future<void> _fetchAndAddLatestMarkers(String boundsJson) async {

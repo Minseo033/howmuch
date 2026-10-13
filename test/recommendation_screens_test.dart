@@ -105,9 +105,7 @@ void main() {
     },
   );
 
-  testWidgets('route screen explains the hourly request limit', (
-    tester,
-  ) async {
+  testWidgets('route screen explains the hourly request limit', (tester) async {
     await _setMobileViewport(tester, const Size(360, 800));
     final service = _FakeTodaysPickService(
       route: recommendationError(
@@ -456,6 +454,7 @@ class _FakeTodaysPickService extends TodaysPickService {
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
+    bool forceRefresh = false,
     int radiusMeters = 3000,
   }) async {
     todaysPickCalls++;

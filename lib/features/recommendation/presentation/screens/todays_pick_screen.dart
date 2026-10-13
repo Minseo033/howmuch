@@ -152,7 +152,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
     _loadTodaysPick();
   }
 
-  Future<void> _loadTodaysPick() async {
+  Future<void> _loadTodaysPick({bool forceRefresh = false}) async {
     final generation = ++_loadGeneration;
     setState(() {
       _isLoading = true;
@@ -193,6 +193,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
         lat: lat,
         lng: lng,
         radiusMeters: radiusMeters,
+        forceRefresh: forceRefresh,
       );
       if (!mounted || generation != _loadGeneration) return;
       if (data['error'] == true) {
@@ -510,7 +511,8 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                       width: 120,
                                       height: 40,
                                       child: FilledButton(
-                                        onPressed: _loadTodaysPick,
+                                        onPressed: () =>
+                                            _loadTodaysPick(forceRefresh: true),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: const Color(
                                             0xFF2563EB,

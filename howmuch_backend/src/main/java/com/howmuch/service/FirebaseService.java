@@ -3727,6 +3727,9 @@ public class FirebaseService {
         Map<String, String> matchedMenuByStore = new HashMap<>();
         Map<String, String> themeByStore = new HashMap<>();
         Map<String, String> reasonByStore = new HashMap<>();
+        // The three candidate pools share the same store objects. Calculate
+        // each distance once instead of repeating trigonometry during sorting.
+        Map<Map<String, Object>, Double> distances = new java.util.IdentityHashMap<>();
 
         List<Map<String, Object>> mainMatched = matchTheme(foodStores, mainTheme,
                 matchedMenuByStore, themeByStore, reasonByStore, Set.of());
@@ -3742,16 +3745,16 @@ public class FirebaseService {
        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
        List<Map<String, Object>> mainCandidates = nearestShuffled(
-                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, radiusMeters);
+                mainPool, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE, dailySeed, radiusMeters, distances);
        List<Map<String, Object>> altCandidates = nearestShuffled(
-                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, radiusMeters);
+                altMatched, effectiveLat, effectiveLng, ALT_CANDIDATE_POOL_SIZE, dailySeed + 1, radiusMeters, distances);
 
        // 날씨 테마 후보를 먼저 유지하되, 3km 안에서 식사 2곳 + 디저트/카페 1곳을
        // 우선 구성한다. 한쪽이 부족하면 다른 쪽으로만 채우고, 먼 매장까지 범위를
        // 확장하지 않는다.
        List<Map<String, Object>> nearbyFood = nearestShuffled(
                foodStores, effectiveLat, effectiveLng, CANDIDATE_POOL_SIZE,
-               dailySeed + 2, radiusMeters);
+               dailySeed + 2, radiusMeters, distances);
        List<Map<String, Object>> preferred = new ArrayList<>();
        Set<String> preferredNames = new HashSet<>();
        addUnique(preferred, mainCandidates, CANDIDATE_POOL_SIZE, preferredNames);
@@ -3987,18 +3990,18 @@ public class FirebaseService {
     /** 가까운 순 상위 limit개를 반환한다. 위치가 있을 때는 maxRadiusMeters 이내 매장만 필터링한다. */
    private List<Map<String, Object>> nearestShuffled(List<Map<String, Object>> pool,
                                                       Double lat, Double lng, int limit, long seed,
-                                                      double maxRadiusMeters) {
+                                                      double maxRadiusMeters,
+                                                      Map<Map<String, Object>, Double> distances) {
         List<Map<String, Object>> scored = new ArrayList<>();
        if (lat != null && lng != null) {
             for (Map<String, Object> store : pool) {
-                double distance = haversine(lat, lng, parseLat(store), parseLng(store));
+                double distance = distances.computeIfAbsent(store,
+                        value -> haversine(lat, lng, parseLat(value), parseLng(value)));
                 if (Double.isFinite(distance) && distance <= maxRadiusMeters) {
                     scored.add(store);
                 }
             }
-           scored.sort((a, b) -> Double.compare(
-                   haversine(lat, lng, parseLat(a), parseLng(a)),
-                   haversine(lat, lng, parseLat(b), parseLng(b))));
+           scored.sort(java.util.Comparator.comparingDouble(distances::get));
        }
         else {
             scored.addAll(pool);
