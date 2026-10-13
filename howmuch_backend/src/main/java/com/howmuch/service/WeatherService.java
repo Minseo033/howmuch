@@ -43,6 +43,7 @@ public class WeatherService {
 
     private final String weatherApiKey;
     private final Function<URI, String> forecastFetcher;
+    private final Function<URI, String> fallbackFetcher;
     private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, CachedWeather> cache = new ConcurrentHashMap<>();
@@ -73,13 +74,26 @@ public class WeatherService {
     @Autowired
     public WeatherService(@Value("${weather.api-key:}") String weatherApiKey,
                           @Value("${weather.timeout-ms:2000}") int timeoutMs) {
-        this(weatherApiKey, restTemplateFetcher(effectiveTimeoutMs(timeoutMs)), Clock.system(KST));
+        this(
+                weatherApiKey,
+                restTemplateFetcher(effectiveTimeoutMs(timeoutMs)),
+                restTemplateFetcher(effectiveTimeoutMs(timeoutMs)),
+                Clock.system(KST));
     }
 
     /** 테스트에서 외부 호출과 시계를 바꿔 끼우기 위한 생성자. */
     WeatherService(String weatherApiKey, Function<URI, String> forecastFetcher, Clock clock) {
+        this(weatherApiKey, forecastFetcher, null, clock);
+    }
+
+    /** 테스트에서 기상청과 보조 공급원을 각각 바꿔 끼우기 위한 생성자. */
+    WeatherService(String weatherApiKey,
+                   Function<URI, String> forecastFetcher,
+                   Function<URI, String> fallbackFetcher,
+                   Clock clock) {
         this.weatherApiKey = weatherApiKey;
         this.forecastFetcher = forecastFetcher;
+        this.fallbackFetcher = fallbackFetcher;
         this.clock = clock;
     }
 
@@ -103,14 +117,6 @@ public class WeatherService {
      */
     public Map<String, Object> getCurrentWeather(Double lat, Double lng) {
         Map<String, Object> result = new HashMap<>();
-        if (weatherApiKey == null || weatherApiKey.isBlank()) {
-            log.warn("WEATHER_API_KEY 미설정 — 날씨 조회 불가");
-            result.put("weather", "알 수 없음");
-            result.put("temp", null);
-            result.put("available", false);
-            return result;
-        }
-
         if (lat == null || lng == null) {
             result.put("weather", "알 수 없음");
             result.put("temp", null);
@@ -137,14 +143,27 @@ public class WeatherService {
             return new HashMap<>(cached.value());
         }
 
-        ForecastFetch fetch = fetchForecast(baseDate, baseTime, grid);
-        Map<String, Object> fetched = fetch.value();
-        if (!Boolean.TRUE.equals(fetched.get("available")) && fetch.retryOlderBase()) {
-            LocalDateTime previousBase = latestBaseDateTime(base.minusMinutes(1));
-            log.info("최신 예보 발표분이 비어 있어 직전 발표분으로 재조회합니다 ({} {} -> {} {})",
-                    baseDate, baseTime, previousBase.format(DATE_FMT), previousBase.format(TIME_FMT));
-            fetched = fetchForecast(
-                    previousBase.format(DATE_FMT), previousBase.format(TIME_FMT), grid).value();
+        Map<String, Object> fetched;
+        if (weatherApiKey == null || weatherApiKey.isBlank()) {
+            log.warn("WEATHER_API_KEY 미설정 — 보조 날씨 공급원으로 조회합니다");
+            fetched = unavailableWeather();
+        } else {
+            ForecastFetch fetch = fetchForecast(baseDate, baseTime, grid);
+            fetched = fetch.value();
+            if (!Boolean.TRUE.equals(fetched.get("available")) && fetch.retryOlderBase()) {
+                LocalDateTime previousBase = latestBaseDateTime(base.minusMinutes(1));
+                log.info("최신 예보 발표분이 비어 있어 직전 발표분으로 재조회합니다 ({} {} -> {} {})",
+                        baseDate, baseTime, previousBase.format(DATE_FMT), previousBase.format(TIME_FMT));
+                fetched = fetchForecast(
+                        previousBase.format(DATE_FMT), previousBase.format(TIME_FMT), grid).value();
+            }
+        }
+
+        if (!Boolean.TRUE.equals(fetched.get("available")) && fallbackFetcher != null) {
+            Map<String, Object> fallback = fetchOpenMeteo(lat, lng);
+            if (Boolean.TRUE.equals(fallback.get("available"))) {
+                fetched = fallback;
+            }
         }
         boolean available = Boolean.TRUE.equals(fetched.get("available"));
         remember(cacheKey, fetched, nowMillis + (available ? SUCCESS_TTL_MS : FAILURE_TTL_MS), nowMillis);
@@ -247,6 +266,58 @@ public class WeatherService {
             result.put("available", false);
             return new ForecastFetch(result, false);
         }
+    }
+
+    /** 기상청이 NO_DATA 또는 일시 오류를 반환할 때 현재 기온을 보완한다. */
+    private Map<String, Object> fetchOpenMeteo(Double lat, Double lng) {
+        try {
+            String url = "https://api.open-meteo.com/v1/forecast"
+                    + "?latitude=" + lat
+                    + "&longitude=" + lng
+                    + "&current=temperature_2m,weather_code"
+                    + "&timezone=Asia%2FSeoul";
+            String response = fallbackFetcher.apply(URI.create(url));
+            JsonNode current = objectMapper.readTree(response).path("current");
+            JsonNode temperatureNode = current.path("temperature_2m");
+            if (!temperatureNode.isNumber() || !Double.isFinite(temperatureNode.doubleValue())) {
+                log.warn("보조 날씨 응답에서 현재 기온 누락");
+                return unavailableWeather();
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("weather", describeWmoWeather(current.path("weather_code").asInt(-1)));
+            result.put("temp", (int) Math.round(temperatureNode.doubleValue()));
+            result.put("fcstTime", current.path("time").asText(""));
+            result.put("available", true);
+            result.put("source", "OPEN_METEO");
+            result.put("updatedAt", java.time.Instant.now(clock).toString());
+            log.info("기상청 예보를 보조 날씨 공급원으로 복구했습니다");
+            return result;
+        } catch (Exception e) {
+            log.warn("보조 날씨 API 호출 실패: {}", e.getClass().getSimpleName());
+            return unavailableWeather();
+        }
+    }
+
+    private static Map<String, Object> unavailableWeather() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("weather", "알 수 없음");
+        result.put("temp", null);
+        result.put("available", false);
+        return result;
+    }
+
+    static String describeWmoWeather(int code) {
+        if (code == 0) return "맑음";
+        if (code == 1) return "대체로 맑음";
+        if (code == 2) return "구름 조금";
+        if (code == 3) return "흐림";
+        if (code == 45 || code == 48) return "안개";
+        if (code >= 51 && code <= 57) return "이슬비";
+        if ((code >= 61 && code <= 67) || (code >= 80 && code <= 82)) return "비";
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return "눈";
+        if (code >= 95 && code <= 99) return "천둥번개";
+        return "알 수 없음";
     }
 
     /**

@@ -58,6 +58,12 @@ class WeatherServiceTest {
                 """;
     }
 
+    private static String currentWeatherJson() {
+        return """
+                {"current":{"time":"2026-10-06T14:45","temperature_2m":20.6,"weather_code":2}}
+                """;
+    }
+
     private static MutableClock afternoonClock() {
         // 2026-10-06 14:40 KST
         return new MutableClock(LocalDateTime.of(2026, 10, 6, 14, 40).toInstant(ZoneOffset.ofHours(9)));
@@ -122,6 +128,44 @@ class WeatherServiceTest {
         assertThat(calls.get()).isEqualTo(2);
         assertThat(weather.get("available")).isEqualTo(true);
         assertThat(weather.get("temp")).isEqualTo(21);
+    }
+
+    @Test
+    void usesTheBackupProviderWhenPublishedKmaForecastsHaveNoData() {
+        AtomicInteger kmaCalls = new AtomicInteger();
+        AtomicInteger fallbackCalls = new AtomicInteger();
+        WeatherService service = new WeatherService(
+                "test-key",
+                uri -> {
+                    kmaCalls.incrementAndGet();
+                    return emptyForecastJson();
+                },
+                uri -> {
+                    fallbackCalls.incrementAndGet();
+                    assertThat(uri.getHost()).isEqualTo("api.open-meteo.com");
+                    assertThat(uri.getQuery()).contains("current=temperature_2m,weather_code");
+                    return currentWeatherJson();
+                },
+                afternoonClock());
+
+        Map<String, Object> weather = service.getCurrentWeather(SEOUL_LAT, SEOUL_LNG);
+
+        assertThat(kmaCalls.get()).isEqualTo(2);
+        assertThat(fallbackCalls.get()).isEqualTo(1);
+        assertThat(weather.get("available")).isEqualTo(true);
+        assertThat(weather.get("temp")).isEqualTo(21);
+        assertThat(weather.get("weather")).isEqualTo("구름 조금");
+        assertThat(weather.get("fcstTime")).isEqualTo("2026-10-06T14:45");
+        assertThat(weather.get("source")).isEqualTo("OPEN_METEO");
+    }
+
+    @Test
+    void mapsBackupProviderWeatherCodesToKoreanLabels() {
+        assertThat(WeatherService.describeWmoWeather(0)).isEqualTo("맑음");
+        assertThat(WeatherService.describeWmoWeather(45)).isEqualTo("안개");
+        assertThat(WeatherService.describeWmoWeather(63)).isEqualTo("비");
+        assertThat(WeatherService.describeWmoWeather(75)).isEqualTo("눈");
+        assertThat(WeatherService.describeWmoWeather(95)).isEqualTo("천둥번개");
     }
 
     @Test
