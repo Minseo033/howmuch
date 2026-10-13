@@ -7,6 +7,26 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('large catalog decoding leaves the UI event loop responsive', () async {
+    final raw = jsonEncode([
+      for (var i = 0; i < 15000; i++)
+        {
+          'storeId': 'store-$i',
+          'storeName': '매장 $i',
+          'latitude': 37.5,
+          'longitude': 127.0,
+        },
+    ]);
+    var heartbeat = false;
+    Timer.run(() => heartbeat = true);
+    final stores = await loadStoreCatalog(
+      useLocalCache: false,
+      request: (_) async => http.Response.bytes(utf8.encode(raw), 200),
+    );
+    expect(stores, hasLength(15000));
+    expect(heartbeat, true);
+  });
+
   test(
     'browser mode does not read or write the oversized local cache',
     () async {

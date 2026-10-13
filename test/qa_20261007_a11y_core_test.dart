@@ -677,6 +677,7 @@ class _DownTodaysPickService extends TodaysPickService {
   Future<Map<String, dynamic>> getTodaysPick({
     double? lat,
     double? lng,
+    bool forceRefresh = false,
     int radiusMeters = 3000,
   }) async =>
       recommendationError(RecommendationFailure.server, statusCode: 500);

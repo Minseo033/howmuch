@@ -48,7 +48,7 @@ Future<List<Store>> loadStoreCatalog({
         );
         final age = currentTime.difference(cachedAt);
         if (!age.isNegative && age <= storeCatalogCacheMaxAge) {
-          final cachedStores = _decodeStoreCatalog(
+          final cachedStores = await _decodeStoreCatalogAsync(
             prefs.getString(storeCatalogCacheKey),
           );
           if (cachedStores.isNotEmpty) return cachedStores;
@@ -113,7 +113,9 @@ Future<List<Store>> _fetchAndCacheStoreCatalog({
     );
   }
 
-  final stores = _decodeStoreCatalog(utf8.decode(response.bodyBytes));
+  final stores = await _decodeStoreCatalogAsync(
+    utf8.decode(response.bodyBytes),
+  );
   if (stores.isEmpty) {
     throw const FormatException('Empty store catalog');
   }
@@ -140,7 +142,11 @@ Future<void> _persistStoreCatalog(
 ) async {
   final saved = await preferences.setString(
     storeCatalogCacheKey,
-    jsonEncode(stores.map((store) => store.toJson()).toList()),
+    await compute(
+      _encodeStoreCatalog,
+      stores,
+      debugLabel: 'store-catalog-cache',
+    ),
   );
   // Never refresh the timestamp when the catalog itself could not be saved.
   if (saved) {
@@ -151,8 +157,17 @@ Future<void> _persistStoreCatalog(
   }
 }
 
-List<Store> _decodeStoreCatalog(String? raw) {
-  if (raw == null || raw.isEmpty) return const [];
+Future<List<Store>> _decodeStoreCatalogAsync(String? raw) {
+  if (raw == null || raw.isEmpty) return Future.value(const []);
+  // compute runs on another isolate on mobile. Web already avoids serializing
+  // this catalog into LocalStorage and keeps the existing HTTP cache behavior.
+  return compute(_decodeStoreCatalog, raw, debugLabel: 'store-catalog-decode');
+}
+
+String _encodeStoreCatalog(List<Store> stores) =>
+    jsonEncode(stores.map((store) => store.toJson()).toList());
+
+List<Store> _decodeStoreCatalog(String raw) {
   try {
     final decoded = jsonDecode(raw);
     if (decoded is! List) return const [];

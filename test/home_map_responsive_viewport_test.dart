@@ -296,11 +296,18 @@ void main() {
       storeCatalogCachedAtKey: DateTime.now().millisecondsSinceEpoch,
     });
 
+    // Await real isolate work outside the widget test's fake async zone,
+    // then verify home shares the restored catalog with recommendations.
+    final restoredCatalog = await tester.runAsync(() => loadStoreCatalog());
     await tester.pumpWidget(
-      const MaterialApp(home: HomeMapScreen(showAiSpotlight: false)),
+      MaterialApp(
+        home: HomeMapScreen(
+          showAiSpotlight: false,
+          catalogLoader: () async => restoredCatalog!,
+        ),
+      ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 20));
 
     expect(HomeMapScreen.globalAllStores, hasLength(1));
     expect(HomeMapScreen.globalAllStores.single.id, 'cached-store');

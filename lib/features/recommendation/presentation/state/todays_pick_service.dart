@@ -20,15 +20,22 @@ final todaysPickServiceProvider = Provider(
 );
 
 const todaysPickMaxDistanceMeters = 3000.0;
+const todaysPickCacheMaxAge = Duration(minutes: 1);
 
 class TodaysPickService {
   TodaysPickService([
     http.Client? client,
     this.requestTimeout = recommendationRequestTimeout,
-  ]) : _client = client ?? http.Client();
+    DateTime Function()? clock,
+  ]) : _client = client ?? http.Client(),
+       _clock = clock ?? DateTime.now;
 
   final http.Client _client;
   final Duration requestTimeout;
+  final DateTime Function() _clock;
+  final _pickCache =
+      <String, ({DateTime savedAt, Map<String, dynamic> data})>{};
+  final _pickRequests = <String, Future<Map<String, dynamic>>>{};
 
   /// 오늘의 픽 조회. 공개 GET이지만 로그인 상태면 세션 토큰을 함께 보내
   /// 서버가 IP 대신 계정 기준으로 요청량을 셀 수 있게 합니다.
@@ -36,13 +43,42 @@ class TodaysPickService {
     double? lat,
     double? lng,
     int radiusMeters = defaultRecommendationRadiusMeters,
-  }) => _getRecommendation(
-    '/api/recommendation/todays-pick',
-    lat: lat,
-    lng: lng,
-    radiusMeters: radiusMeters,
-    invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
-  );
+    bool forceRefresh = false,
+  }) async {
+    // Exact coordinates and radius preserve the server's distance boundary.
+    // Only successful public results are kept briefly in this provider's memory.
+    final now = _clock();
+    final day = '${now.year}-${now.month}-${now.day}';
+    final key = '$day:$lat:$lng:$radiusMeters';
+    if (forceRefresh) _pickCache.remove(key);
+    final cached = _pickCache[key];
+    if (cached != null) {
+      final age = now.difference(cached.savedAt);
+      if (!age.isNegative && age < todaysPickCacheMaxAge) return cached.data;
+      _pickCache.remove(key);
+    }
+    final activeRequest = _pickRequests[key];
+    if (activeRequest != null) return activeRequest;
+    final request = _getRecommendation(
+      '/api/recommendation/todays-pick',
+      lat: lat,
+      lng: lng,
+      radiusMeters: radiusMeters,
+      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
+    );
+    _pickRequests[key] = request;
+    try {
+      final data = await request;
+      if (data['error'] != true) {
+        _pickCache.remove(key);
+        _pickCache[key] = (savedAt: _clock(), data: data);
+        if (_pickCache.length > 8) _pickCache.remove(_pickCache.keys.first);
+      }
+      return data;
+    } finally {
+      if (identical(_pickRequests[key], request)) _pickRequests.remove(key);
+    }
+  }
 
   /// 추천 루트 조회. 서버의 시간당 요청 제한이 같은 와이파이 사용자끼리
   /// 공유되지 않도록 로그인 상태면 세션 토큰을 보냅니다.
@@ -127,7 +163,9 @@ class TodaysPickService {
 String? _serverMessage(http.Response response) {
   try {
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-    final message = decoded is Map ? decoded['message']?.toString().trim() : null;
+    final message = decoded is Map
+        ? decoded['message']?.toString().trim()
+        : null;
     return message == null || message.isEmpty ? null : message;
   } catch (_) {
     return null;
