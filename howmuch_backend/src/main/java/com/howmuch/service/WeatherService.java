@@ -178,10 +178,15 @@ public class WeatherService {
             // URI 객체로 전달해 RestTemplate의 재인코딩(이스케이프) 방지
             String response = forecastFetcher.apply(URI.create(url));
             JsonNode root = objectMapper.readTree(response);
-            JsonNode items = root.path("response").path("body").path("items").path("item");
+            JsonNode apiResponse = root.path("response");
+            JsonNode responseHeader = apiResponse.path("header");
+            String resultCode = responseHeader.path("resultCode").asText("unknown");
+            String resultMessage = responseHeader.path("resultMsg").asText("unknown");
+            JsonNode items = apiResponse.path("body").path("items").path("item");
 
             if (!items.isArray() || items.isEmpty()) {
-                log.warn("기상청 응답에 예보 항목 없음 (base {} {})", baseDate, baseTime);
+                log.warn("기상청 응답에 예보 항목 없음 (base {} {}, resultCode={}, resultMsg={})",
+                        baseDate, baseTime, resultCode, resultMessage);
                 result.put("weather", "알 수 없음");
                 result.put("temp", null);
                 result.put("available", false);
