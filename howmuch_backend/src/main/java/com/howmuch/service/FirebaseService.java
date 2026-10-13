@@ -1152,9 +1152,13 @@ public class FirebaseService {
             long price,
             String receiptFingerprint,
             List<String> imageUrls,
-            ReceiptOcrService.Result ocrResult) throws Exception {
+            ReceiptOcrService.Result ocrResult,
+            com.howmuch.dto.VisitLocationEvidence locationEvidence) throws Exception {
         if (firebaseUid == null || firebaseUid.isBlank()) {
             throw new SecurityException("로그인이 필요합니다.");
+        }
+        if (locationEvidence == null) {
+            throw new IllegalArgumentException("영수증 제출 전에 매장 위치 확인이 필요합니다.");
         }
         if (imageUrls == null || imageUrls.isEmpty()) {
             throw new IllegalArgumentException("영수증 사진이 필요합니다.");
@@ -1182,6 +1186,8 @@ public class FirebaseService {
         data.put("status", "PENDING");
         data.put("createdAt", createdAt);
         data.put("visitDate", visitDate.toString());
+        data.put("verificationDistanceMeters", locationEvidence.distanceMeters());
+        data.put("locationAccuracyMeters", locationEvidence.accuracyMeters());
         if (ocrResult != null) {
             data.put("ocrProviderAvailable", ocrResult.providerAvailable());
             data.put("ocrStatus", ocrResult.status());
@@ -1285,7 +1291,7 @@ public class FirebaseService {
                 .toList();
     }
 
-    /** 영수증 인증 승인 시 위치 인증 없이 방문 기록을 생성합니다. */
+    /** 접수 시 확인한 위치와 승인된 영수증을 함께 검증한 후 방문 기록을 생성합니다. */
     public Map<String, Object> approveReceiptVerification(String receiptId, String approvedBy) throws Exception {
         if (receiptId == null || receiptId.isBlank()) {
             throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
@@ -1306,6 +1312,14 @@ public class FirebaseService {
                 if (!isManualApproval(approvedBy)) {
                     requireUsableReceiptOcrEvidence(snapshot);
                 }
+
+                Object distance = snapshot.get("verificationDistanceMeters");
+                Object accuracy = snapshot.get("locationAccuracyMeters");
+                if (!(distance instanceof Number) || !(accuracy instanceof Number)) {
+                    throw new IllegalArgumentException("위치 확인 정보가 없습니다. 매장 근처에서 영수증을 다시 제출해주세요.");
+                }
+                com.howmuch.dto.VisitLocationEvidence locationEvidence = new com.howmuch.dto.VisitLocationEvidence(
+                        ((Number) distance).doubleValue(), ((Number) accuracy).doubleValue());
 
                 String userId = snapshot.getString("userId");
                 String storeName = snapshot.getString("storeName");
@@ -1341,7 +1355,8 @@ public class FirebaseService {
                         .storeName(storeName)
                         .menu(menu)
                         .price(price)
-                        .verificationMethod("RECEIPT_OCR")
+                        .verificationMethod("LOCATION_RECEIPT")
+                        .verificationDistanceMeters(locationEvidence.distanceMeters())
                         .build();
 
                 String processedAt = java.time.Instant.now().toString();
@@ -2284,35 +2299,6 @@ public class FirebaseService {
         if (storeName == null || storeName.isBlank()) return null;
         Map<String, Object> store = resolveReviewStore(storeName, getAllStores());
         return store == null ? null : strOrNull(store.get("address"));
-    }
-
-    // 💡 방문 기록 저장 (절약 금액은 VisitController에서 서버 룰로 계산되어 주입됨)
-    public String saveVisit(String firebaseUid, com.howmuch.dto.VisitRequest request, long savedAmount) throws Exception {
-        if (isClosedStore(request.getStoreId(), request.getStoreName())) throw new IllegalArgumentException("폐업한 매장은 방문 인증할 수 없습니다.");
-        if (request.getPrice() != null && request.getPrice() == 0
-                && !isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu())) {
-            throw new IllegalArgumentException("승인된 무료 메뉴만 0원 방문 인증할 수 있습니다.");
-        }
-        boolean locationVerification = "LOCATION".equalsIgnoreCase(request.getVerificationMethod());
-        DocumentReference docRef = locationVerification
-                ? db.collection("visits").document(locationVisitDocumentId(
-                        firebaseUid, request, LocalDate.now(ZoneId.of("Asia/Seoul"))))
-                : db.collection("visits").document();
-        Map<String, Object> data = buildVisitData(
-                firebaseUid, request, savedAmount, java.time.Instant.now().toString());
-        try {
-            if (locationVerification) {
-                docRef.create(data).get();
-            } else {
-                docRef.set(data).get();
-            }
-        } catch (ExecutionException e) {
-            if (locationVerification && isAlreadyExists(e)) {
-                throw new DuplicateVisitException("오늘 이미 이 매장의 방문 인증을 완료했습니다.");
-            }
-            throw e;
-        }
-        return docRef.getId();
     }
 
     String locationVisitDocumentId(

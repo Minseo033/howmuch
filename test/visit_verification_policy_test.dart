@@ -20,7 +20,10 @@ void main() {
     test('uses a 100 meter location verification radius', () {
       expect(VisitVerificationPolicy.isWithinVerificationRadius(0), isTrue);
       expect(VisitVerificationPolicy.isWithinVerificationRadius(100), isTrue);
-      expect(VisitVerificationPolicy.isWithinVerificationRadius(100.1), isFalse);
+      expect(
+        VisitVerificationPolicy.isWithinVerificationRadius(100.1),
+        isFalse,
+      );
     });
 
     test('rejects inaccurate or invalid location readings', () {
@@ -78,10 +81,10 @@ void main() {
     });
   });
 
-  group('visitSubmissionErrorMessage', () {
+  group('receipt duplicate errors', () {
     test('shows duplicate visit conflicts returned by the backend', () {
       expect(
-        visitSubmissionErrorMessage(
+        receiptSubmissionErrorMessage(
           409,
           '{"success":false,"message":"오늘 이미 이 매장의 방문 인증을 완료했습니다."}',
         ),

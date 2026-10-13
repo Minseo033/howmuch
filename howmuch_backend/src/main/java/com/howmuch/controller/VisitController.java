@@ -2,8 +2,9 @@ package com.howmuch.controller;
 
 import com.howmuch.config.SessionAuthFilter;
 import com.howmuch.dto.VisitRequest;
-import com.howmuch.dto.VisitResponseDto;
 import com.howmuch.dto.StoreCoordinates;
+import com.howmuch.dto.VisitLocationEvidence;
+import com.howmuch.dto.VisitResponseDto;
 import com.howmuch.service.FirebaseService;
 import com.howmuch.service.ReferencePrices;
 import com.howmuch.service.ReceiptOcrService;
@@ -34,16 +35,13 @@ import java.security.MessageDigest;
 /**
  * 방문 기록 API 컨트롤러.
  * GET  /api/visits: 인증된 사용자의 방문 기록 목록 (방문 일시, 매장명, 절약 금액 등) 반환
- * POST /api/visits: 방문 인증 생성 — 절약 금액(savedAmount)은 서버에서 계산해 저장
+ * POST /api/visits/receipt: 영수증 접수 — 승인 시에만 방문 기록과 서버 계산 절약액 저장
+ * POST /api/visits: 영수증 없는 직접 생성은 차단 (이전 앱 호환 안내)
  */
 @Slf4j
 @RestController
 @RequestMapping("/api/visits")
 public class VisitController {
-
-    private static final String LOCATION_VERIFICATION = "LOCATION";
-    private static final double MAX_LOCATION_VERIFICATION_DISTANCE_METERS = 100.0;
-    private static final double MAX_LOCATION_ACCURACY_METERS = 100.0;
 
     private final FirebaseService firebaseService;
     private final ReceiptOcrService receiptOcrService;
@@ -68,7 +66,10 @@ public class VisitController {
             @RequestParam String storeName,
             @RequestParam(required = false, defaultValue = "") String menu,
             @RequestParam long price,
-            @RequestParam("images") List<MultipartFile> images) {
+            @RequestParam("images") List<MultipartFile> images,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude,
+            @RequestParam(required = false) Double locationAccuracyMeters) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
         if (firebaseUid == null || firebaseUid.isBlank()) {
             return ResponseEntity.status(401).body(Map.of("success", false, "message", "로그인이 필요합니다."));
@@ -86,6 +87,16 @@ public class VisitController {
                     || normalizedMenu.length() > 100) {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false, "message", "입력값이 허용 범위를 초과했습니다."));
+            }
+            if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "code", "LOCATION_REQUIRED",
+                        "message", "영수증 제출 전에 매장 100m 이내에서 현재 위치를 확인해주세요."));
+            }
+            if (locationAccuracyMeters == null || !Double.isFinite(locationAccuracyMeters)
+                    || locationAccuracyMeters < 0 || locationAccuracyMeters > VisitLocationEvidence.MAX_ACCURACY_METERS) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "현재 위치 정확도가 낮아요. 잠시 후 다시 시도해주세요."));
             }
             boolean free = price == 0 && firebaseService.isApprovedFreeMenu(normalizedStoreId, normalizedStoreName, normalizedMenu);
             if (price < 0 || (price == 0 && !free) || price > 10_000_000L) {
@@ -121,6 +132,21 @@ public class VisitController {
             Object canonicalName = visitableStore.get().get("storeName");
             String canonicalStoreName = canonicalName == null || canonicalName.toString().isBlank()
                     ? normalizedStoreName : canonicalName.toString();
+            Optional<StoreCoordinates> coordinates = firebaseService.findStoreCoordinates(
+                    canonicalStoreId, canonicalStoreName);
+            if (coordinates.isEmpty()) {
+                if (firebaseService.isStoreCatalogWarmingUp()) return catalogWarmingUp();
+                return ResponseEntity.status(422).body(Map.of(
+                        "success", false, "message", "매장 위치 정보를 확인할 수 없어 인증할 수 없습니다."));
+            }
+            double distanceMeters = haversine(latitude, longitude,
+                    coordinates.get().latitude(), coordinates.get().longitude());
+            if (!Double.isFinite(distanceMeters) || distanceMeters > VisitLocationEvidence.MAX_DISTANCE_METERS) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false, "message", "매장 100m 이내에서 영수증을 제출해주세요."));
+            }
+            VisitLocationEvidence locationEvidence = new VisitLocationEvidence(distanceMeters, locationAccuracyMeters);
+
             if (firebaseService.receiptVerificationExists(receiptFingerprint)
                     || firebaseService.receiptVerificationExists(legacyFingerprint)) {
                 return ResponseEntity.status(409).body(Map.of(
@@ -133,7 +159,7 @@ public class VisitController {
                     receiptBytes, canonicalStoreName, price);
             String id = firebaseService.saveReceiptVerification(
                     firebaseUid, canonicalStoreId, canonicalStoreName,
-                    normalizedMenu, price, receiptFingerprint, uploaded, ocrResult);
+                    normalizedMenu, price, receiptFingerprint, uploaded, ocrResult, locationEvidence);
             String status = "PENDING";
             String visitId = null;
             if (ocrResult != null && ocrResult.shouldAutoApprove()) {
@@ -142,7 +168,7 @@ public class VisitController {
                     status = String.valueOf(approval.get("status"));
                     visitId = String.valueOf(approval.get("visitId"));
                 } catch (DuplicateVisitException duplicateVisit) {
-                    // 접수 직후 같은 날 위치 방문이 먼저 기록된 경우입니다. 중복 적립 대신 자동 반려합니다.
+                    // 접수 직후 같은 날 다른 영수증 승인이 먼저 완료된 경우입니다. 중복 적립 대신 자동 반려합니다.
                     rejectDuplicateReceipt(id);
                     return ResponseEntity.status(409).body(Map.of(
                             "success", false, "message", duplicateVisit.getMessage()));
@@ -325,126 +351,21 @@ public class VisitController {
     }
 
     /**
-     * 방문 인증 생성 (POST /api/visits)
-     * 절약 금액은 클라이언트 입력이 아닌 서버 룰(참가격 − 결제가)로 계산해 저장합니다.
+     * 이전 앱의 위치 인증과 클라이언트가 주장하는 영수증 인증을 모두 차단합니다.
+     * 방문 생성은 저장된 영수증을 자동/관리자 승인하는 서버 트랜잭션에서만 허용합니다.
      */
     @PostMapping
-    public ResponseEntity<?> createVisit(@RequestBody VisitRequest request,
+    public ResponseEntity<?> createVisit(@RequestBody(required = false) VisitRequest request,
                                          HttpServletRequest httpRequest) {
         String firebaseUid = (String) httpRequest.getAttribute(SessionAuthFilter.UID_ATTRIBUTE);
-
         if (firebaseUid == null || firebaseUid.isBlank()) {
             return ResponseEntity.status(401).body(Map.of(
                     "success", false, "message", "인증 정보가 유효하지 않습니다."));
         }
-        if (request == null) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false, "message", "방문 인증 정보가 필요합니다."));
-        }
-        if (request.getStoreName() == null || request.getStoreName().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "storeName은 필수입니다."
-            ));
-        }
-        boolean free = request.getPrice() != null && request.getPrice() == 0
-                && firebaseService.isApprovedFreeMenu(request.getStoreId(), request.getStoreName(), request.getMenu());
-        if (request.getPrice() == null || request.getPrice() < 0 || (request.getPrice() == 0 && !free)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "실제 결제 금액은 양수여야 합니다. 승인된 무료 메뉴만 0원을 허용합니다."
-            ));
-        }
-        if (!LOCATION_VERIFICATION.equalsIgnoreCase(request.getVerificationMethod())) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "현재 위치 인증이 필요합니다."
-            ));
-        }
-        if (!isValidLatitude(request.getLatitude()) || !isValidLongitude(request.getLongitude())) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "현재 위치 좌표를 확인할 수 없습니다. 다시 시도해주세요."
-            ));
-        }
-        if (request.getLocationAccuracyMeters() == null
-                || !Double.isFinite(request.getLocationAccuracyMeters())
-                || request.getLocationAccuracyMeters() < 0
-                || request.getLocationAccuracyMeters() > MAX_LOCATION_ACCURACY_METERS) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "현재 위치 정확도가 낮아요. 잠시 후 다시 시도해주세요."
-            ));
-        }
-        // 💡 입력 상한 검증 (비정상 대형 값/문자열 악용 방지)
-        if (request.getStoreName().length() > 100
-                || (request.getMenu() != null && request.getMenu().length() > 100)
-                || request.getPrice() > 10_000_000L) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "입력값이 허용 범위를 초과했습니다."
-            ));
-        }
-
-        try {
-            Optional<StoreCoordinates> storeCoordinates = firebaseService.findStoreCoordinates(
-                    request.getStoreId(), request.getStoreName());
-            if (storeCoordinates.isEmpty()) {
-                if (firebaseService.isStoreCatalogWarmingUp()) return catalogWarmingUp();
-                return ResponseEntity.status(422).body(Map.of(
-                        "success", false,
-                        "message", "매장 위치 정보를 확인할 수 없어 인증할 수 없습니다."
-                ));
-            }
-
-            StoreCoordinates coordinates = storeCoordinates.get();
-            double distanceMeters = haversine(
-                    request.getLatitude(), request.getLongitude(),
-                    coordinates.latitude(), coordinates.longitude());
-            if (!Double.isFinite(distanceMeters)
-                    || distanceMeters > MAX_LOCATION_VERIFICATION_DISTANCE_METERS) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "매장 100m 이내에서 인증해주세요."
-                ));
-            }
-
-            String industry = coordinates.industry();
-            if (coordinates.storeId() != null && !coordinates.storeId().isBlank()) {
-                request.setStoreId(coordinates.storeId());
-            }
-            if (coordinates.storeName() != null && !coordinates.storeName().isBlank()) {
-                request.setStoreName(coordinates.storeName());
-            }
-            request.setIndustry(industry);
-            long savedAmount = free ? 0L : ReferencePrices.savedAmount(
-                    firebaseService.estimateReferencePrice(
-                            request.getMenu(), industry,
-                            firebaseService.findAddressByStoreName(request.getStoreName())),
-                    request.getPrice());
-            // 클라이언트가 보낸 거리는 신뢰하지 않고 서버 계산값만 저장합니다.
-            request.setVerificationDistanceMeters(distanceMeters);
-            String visitId = firebaseService.saveVisit(firebaseUid, request, savedAmount);
-            log.info("[VisitController] 방문 인증 완료 - id: {}, savedAmount: {}", visitId, savedAmount);
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "id", visitId,
-                "savedAmount", savedAmount,
-                "verificationMethod", LOCATION_VERIFICATION,
-                "verificationDistanceMeters", Math.round(distanceMeters)
-            ));
-        } catch (DuplicateVisitException e) {
-            return ResponseEntity.status(409).body(Map.of(
-                    "success", false,
-                    "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            log.error("[VisitController] 방문 인증 저장 중 오류 발생: ", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "message", "방문 인증 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
-            ));
-        }
+        return ResponseEntity.status(403).body(Map.of(
+                "success", false,
+                "code", "RECEIPT_REQUIRED",
+                "message", "방문 기록은 위치 확인과 영수증 인증 후에만 저장할 수 있습니다. 앱을 새로고침하고 영수증을 제출해주세요."));
     }
 
     /** BE-CORE-7: 시작 직후 매장 목록을 불러오는 중이면 422 대신 503으로 잠시 후 재시도를 안내합니다. */

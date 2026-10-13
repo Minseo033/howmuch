@@ -7,6 +7,15 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 void main() {
+  test(
+    'shows both proofs for new visits while retaining legacy history labels',
+    () {
+      expect(
+        formatVisitVerification('LOCATION_RECEIPT', 25.0),
+        '위치 + 영수증 인증 · 25m',
+      );
+    },
+  );
   test('formats location and receipt verification methods', () {
     expect(formatVisitVerification('LOCATION', 49.6), '위치 인증 · 50m');
     expect(formatVisitVerification('RECEIPT_OCR', null), '영수증 OCR 인증');

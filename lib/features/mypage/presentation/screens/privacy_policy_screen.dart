@@ -217,7 +217,10 @@ class _PrivacyPolicyScreenState extends State<PrivacyPolicyScreen> {
                             '· 좌표가 서버로 전송되는 경우: 오늘의 픽·추천 루트, AI 채팅의 주변 매장 찾기, 방문 위치 인증, '
                             '동네를 현재 위치로 설정하거나 커뮤니티에서 현재 위치로 볼 때, 제보 시 장소 검색',
                       ),
-                      _PolicyLine(body: '· 방문 위치 인증에는 매장과의 거리(미터)만 기록합니다.'),
+                      _PolicyLine(
+                        body:
+                            '· 방문 기록은 위치 확인과 영수증 인증 후 저장합니다. 위치 좌표는 저장하지 않고 매장까지의 거리(미터)와 위치 정확도만 기록합니다.',
+                      ),
                       _PolicyLine(
                         body:
                             '· 동네 이름 변환과 장소 검색에는 카카오 로컬 API를, 날씨 확인에는 좌표를 약 5km 격자로 바꿔 '
