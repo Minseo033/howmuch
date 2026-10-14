@@ -750,3 +750,34 @@ test('QA 2026-10-07 #49: the notification composer shows character counts and an
   assert.equal(el('notifPreviewTitle').textContent, '알림 제목이 여기에 표시됩니다');
   assert.equal(el('notifBodyCount').textContent, '0 / 500');
 });
+
+
+test('report LEGACY filter cannot hide pending receipts and each view retains its own tab', async () => {
+  const { admin, el } = harness(async (url) => ({ ok: true, status: 200, json: async () =>
+    url.includes('/receipts') ? [{ id: 'receipt-pending', status: 'PENDING', storeName: '검토 대기 매장' },
+      { id: 'receipt-rejected', status: 'REJECTED', storeName: '반려 매장' }]
+      : [{ id: 'legacy', status: 'LEGACY', storeName: '미분류 매장' }] }));
+  let tabs = [];
+  el('content').querySelectorAll = (selector) => {
+    if (selector === '.tab' || selector === '[data-receipt-status]') {
+      const attribute = selector === '.tab' ? 'data-status' : selector.slice(1, -1);
+      tabs = [...el('content').innerHTML.matchAll(new RegExp(attribute + '=\"([^\"]+)\"', 'g'))]
+        .map((m) => ({ dataset: { status: m[1], receiptStatus: m[1] } }));
+      return tabs;
+    }
+    return [];
+  };
+  await admin.switchView('reports');
+  admin.original.renderReportsView();
+  tabs.find((tab) => tab.dataset.status === 'LEGACY').onclick();
+  await admin.switchView('receipts');
+  assert.match(el('content').innerHTML, /검토 대기 매장/);
+  assert.doesNotMatch(el('content').innerHTML, /반려 매장/);
+  tabs.find((tab) => tab.dataset.receiptStatus === 'REJECTED').onclick();
+  assert.match(el('content').innerHTML, /반려 매장/);
+  await admin.switchView('reports');
+  admin.original.renderReportsView();
+  assert.match(el('content').innerHTML, /class="tab active" data-status="LEGACY"/);
+  await admin.switchView('receipts');
+  assert.match(el('content').innerHTML, /class="tab active" data-receipt-status="REJECTED"/);
+});

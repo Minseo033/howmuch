@@ -38,7 +38,7 @@ String? validatePriceChange({
   required String changeType,
   required String menu,
   required String price,
-  required List<({String menu, String price})> registeredMenus,
+  required List<({String menu, String price, bool free})> registeredMenus,
   bool free = false,
   bool editing = false,
 }) {
@@ -64,8 +64,11 @@ String? validatePriceChange({
   if (hasInexactRegisteredPrice(existing.first.price)) {
     return priceChangeMultiPriceMessage;
   }
-  final currentPrice = minimumMenuPrice(existing.first.price);
-  if (currentPrice == null || currentPrice <= 0) {
+  final currentPrice = minimumMenuPrice(
+    existing.first.price,
+    free: existing.first.free,
+  );
+  if (currentPrice == null) {
     return '현재 가격을 확인할 수 없어 가격 변동을 제보할 수 없어요.';
   }
   if (free &&
@@ -160,7 +163,8 @@ class _PriceChangeReportScreenState
   /// 화면에 넘어온 매장, 없으면 수정 대상 제보의 매장을 새로 조회한 값입니다.
   Store? get _store => widget.store ?? _loadedStore;
 
-  List<({int slot, String menu, String price})> get _registeredMenuSlots {
+  List<({int slot, String menu, String price, bool free})>
+  get _registeredMenuSlots {
     final s = _store;
     if (s == null) return const [];
     return [
@@ -170,13 +174,14 @@ class _PriceChangeReportScreenState
             slot: slot,
             menu: s.menuAt(slot).trim(),
             price: s.priceAt(slot).trim(),
+            free: s.freeAt(slot),
           ),
     ];
   }
 
-  List<({String menu, String price})> get _registeredMenus => [
+  List<({String menu, String price, bool free})> get _registeredMenus => [
     for (final item in _registeredMenuSlots)
-      (menu: item.menu, price: item.price),
+      (menu: item.menu, price: item.price, free: item.free),
   ];
 
   String get _changeType {
@@ -221,7 +226,7 @@ class _PriceChangeReportScreenState
                 : [
                     for (final item in _registeredMenuSlots)
                       if (item.slot == _selectedMenuIndex)
-                        (menu: item.menu, price: item.price),
+                        (menu: item.menu, price: item.price, free: item.free),
                   ],
             free: _isFree,
             editing: _isEditing,

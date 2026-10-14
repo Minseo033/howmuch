@@ -2128,11 +2128,14 @@ public class FirebaseService {
                 for (DocumentSnapshot reply : db.collection("comments")
                         .whereEqualTo("parentId", comment.getId()).get().get().getDocuments()) {
                     if (firebaseUid.equals(strOrNull(reply.get("userId")))) continue; // 본인 답글은 이 반복에서 지웁니다.
+                    // Keep the reference until dependent personal data is removed, so retry can find it.
+                    deleteWhere("notifications", "relatedCommentId", reply.getId());
                     reply.getReference().delete().get();
                     deletedCommentIds.add(reply.getId());
                     orphanReplies++;
                 }
             }
+            deleteWhere("notifications", "relatedCommentId", comment.getId());
             comment.getReference().delete().get();
             deletedCommentIds.add(comment.getId());
             comments++;

@@ -69,7 +69,7 @@ class SessionRevocationStoreTest {
         var result = store.revokeToken("kakao:1", 700L, now + 7_200_000L);
 
         ArgumentCaptor<Map<String, Object>> written = ArgumentCaptor.forClass(Map.class);
-        verify(transaction).set(eq(reference), written.capture());
+        verify(transaction).set(eq(reference), written.capture(), any(com.google.cloud.firestore.SetOptions.class));
         assertThat(written.getValue()).containsEntry("revokedAfter", 100L);
         assertThat((Map<String, Long>) written.getValue().get("revokedTokens")).containsOnlyKeys("500", "700");
         assertThat(result.rejects(700L)).isTrue();

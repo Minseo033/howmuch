@@ -21,6 +21,20 @@ import static org.mockito.Mockito.when;
 class SessionTokenServiceTest {
 
     @Test
+    void pendingWithdrawalBlocksFreshLoginEvenWhenOldAuthenticationStateIsCached() {
+        SessionRevocationStore store = mock(SessionRevocationStore.class);
+        when(store.getRevocation("user")).thenReturn(SessionRevocationStore.Revocation.NONE);
+        var service = new SessionTokenService("test-secret", 1, true, store);
+        String old = service.createToken("user");
+        assertThat(service.verifyAndGetUid(old)).isEqualTo("user");
+        when(store.getRevocation("user")).thenReturn(new SessionRevocationStore.Revocation(0, Set.of(), true));
+        assertThatThrownBy(() -> service.createToken("user"))
+                .isInstanceOf(SessionTokenService.WithdrawalPendingException.class);
+        service.forgetRevocation("user");
+        assertThat(service.verifyAndGetUid(old)).isNull();
+    }
+
+    @Test
     void supportsRealKakaoUidsContainingAColon() {
         SessionTokenService service = new SessionTokenService("test-secret", 1, true);
 

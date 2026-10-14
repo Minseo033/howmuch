@@ -78,6 +78,9 @@ public class SessionAuthFilter extends OncePerRequestFilter {
         // 막으면 웹 브라우저가 인증 API 호출 자체를 차단합니다.
         if ("OPTIONS".equalsIgnoreCase(method)) return false;
 
+        // This status-only receipt remains usable after withdrawal revokes the session.
+        if (path.equals("/api/user/withdrawal-status") && "GET".equalsIgnoreCase(method)) return false;
+
         if (path.equals("/api/user") || path.startsWith("/api/user/")) return true;
         // 문의는 작성자 본인의 내역과 답변만 다루므로 세션 인증이 필수입니다.
         if (path.startsWith("/api/inquiry")) return true;

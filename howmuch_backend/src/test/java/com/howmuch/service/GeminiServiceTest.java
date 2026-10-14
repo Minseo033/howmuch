@@ -345,9 +345,33 @@ class GeminiServiceTest {
 
     /** test/ai_shared_rules_test.dart의 'menu intent follows the server rules' 표와 같은 행이다. */
     @Test
+    void excludingCafePreservesTheThreeMatchingMealsAndStillEnforcesBudgetAndDistance() {
+        var service = new GeminiService("", 1000, false);
+        var stores = List.of(
+                Map.<String, Object>of("storeId", "a", "industry", "한식", "menu1", "칼국수", "price1", "6000", "distanceMeters", 100),
+                Map.<String, Object>of("storeId", "b", "industry", "중식", "menu1", "짜장면", "price1", "7000", "distanceMeters", 200),
+                Map.<String, Object>of("storeId", "c", "industry", "한식", "menu1", "바지락칼국수", "price1", "6500", "distanceMeters", 500),
+                Map.<String, Object>of("storeId", "cafe", "industry", "카페", "menu1", "칼국수", "price1", "5000", "distanceMeters", 50),
+                Map.<String, Object>of("storeId", "expensive", "industry", "한식", "menu1", "칼국수", "price1", "8000", "distanceMeters", 60),
+                Map.<String, Object>of("storeId", "far", "industry", "중식", "menu1", "짜장면", "price1", "5000", "distanceMeters", 3001));
+        for (String excluded : List.of("카페는 빼줘", "카페 제외하고", "카페 말고", "카페랑 커피는 빼줘")) {
+            assertThat(service.verifiedRecommendations("3km 7000원 이하 짜장이나 칼국수 세 곳 " + excluded, stores, 3000))
+                    .extracting(s -> s.get("storeId")).containsExactly("a", "b", "c");
+        }
+    }
+
+    @Test
     void menuIntentTableMatchesTheAppMirror() {
         GeminiService service = new GeminiService("", 1_000, false);
         Object[][] table = {
+                {"칼국수", "짜장이나 칼국수 카페는 빼줘", "한식", true},
+                {"짜장면", "짜장이나 칼국수 카페는 빼줘", "중식", true},
+                {"칼국수", "짜장이나 칼국수 카페는 빼줘", "카페", false},
+                {"아메리카노", "카페 추천", "카페", true},
+                {"아메리카노", "카페는 빼지 말고 추천", "카페", true},
+                {"김밥", "분식은 제외하고 점심", "한식", false},
+                {"짜장면", "중식 말고 점심", "중식", false},
+                {"칼국수", "칼국수는 빼줘", "한식", false},
                 {"칼국수", "혼밥 분식 추천", "한식", true},
                 {"김밥", "혼밥 분식 추천", "한식", true},
                 {"떡볶이", "혼밥 분식 추천", "기타요식업", true},

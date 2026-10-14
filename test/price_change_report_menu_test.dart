@@ -6,6 +6,38 @@ import 'package:howmuch/features/store/store_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'approved free menus can rise from zero; unconfirmed zero prices stay blocked',
+    () {
+      String? check(
+        String type,
+        String newPrice, {
+        bool wasFree = true,
+        bool free = false,
+      }) => validatePriceChange(
+        changeType: type,
+        menu: '무료 메뉴',
+        price: newPrice,
+        registeredMenus: [(menu: '무료 메뉴', price: '0', free: wasFree)],
+        free: free,
+      );
+      expect(check('rise', '1000'), isNull);
+      expect(check('drop', '1000'), contains('가격 인상'));
+      expect(check('rise', '0', free: true), contains('같아요'));
+      expect(check('rise', '1000', wasFree: false), contains('현재 가격'));
+      expect(check('delete', ''), isNull);
+      expect(
+        validatePriceChange(
+          changeType: 'drop',
+          menu: '유료 메뉴',
+          price: '0',
+          free: true,
+          registeredMenus: [(menu: '유료 메뉴', price: '1000', free: false)],
+        ),
+        isNull,
+      );
+    },
+  );
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });
@@ -171,7 +203,7 @@ void main() {
   });
 
   test('price direction validation rejects unchanged and inverse values', () {
-    final menus = [(menu: '김치찌개', price: '3,000원')];
+    final menus = [(menu: '김치찌개', price: '3,000원', free: false)];
     String? check(String type, String price) => validatePriceChange(
       changeType: type,
       menu: '김치찌개',

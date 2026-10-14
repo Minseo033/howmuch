@@ -73,6 +73,8 @@ public class AuthController {
                     result.email(),
                     result.profileImageUrl()
             ));
+        } catch (SessionTokenService.WithdrawalPendingException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "message", e.getMessage()));
         } catch (SessionRevocationStore.UnavailableException e) {
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .header("Retry-After", "5")

@@ -176,7 +176,9 @@ void main() {
         changeType: 'rise',
         menu: '정식',
         price: '9500',
-        registeredMenus: const [(menu: '정식', price: '8,000~9,000')],
+        registeredMenus: const [
+          (menu: '정식', price: '8,000~9,000', free: false),
+        ],
       ),
       priceChangeMultiPriceMessage,
     );
@@ -185,7 +187,9 @@ void main() {
         changeType: 'delete',
         menu: '정식',
         price: '',
-        registeredMenus: const [(menu: '정식', price: '8,000~9,000')],
+        registeredMenus: const [
+          (menu: '정식', price: '8,000~9,000', free: false),
+        ],
       ),
       isNull,
     );
