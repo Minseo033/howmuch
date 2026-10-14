@@ -23,6 +23,23 @@ import static org.mockito.ArgumentMatchers.any;
 class UserControllerTest {
 
     @Test
+    void missingWithdrawalReceiptIsABadRequestAtTheHttpBoundary() throws Exception {
+        FirebaseService service = mock(FirebaseService.class);
+        AccountWithdrawalService withdrawals = mock(AccountWithdrawalService.class);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders
+                .standaloneSetup(new UserController(service, withdrawals))
+                .setControllerAdvice(new GlobalApiExceptionHandler())
+                .build();
+
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/user/withdrawal-status"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.success").value(false));
+
+        verifyNoInteractions(service, withdrawals);
+    }
+
+    @Test
     void rejectsInvalidProfileWithoutWritingUserData() {
         FirebaseService service = mock(FirebaseService.class);
         UserController controller = new UserController(service);
