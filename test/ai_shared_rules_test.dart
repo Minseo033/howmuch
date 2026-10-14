@@ -22,13 +22,25 @@ void main() {
       '예산 상관없어': null,
     };
     for (final entry in table.entries) {
-      expect(parseRequestedBudgetWon(entry.key), entry.value, reason: entry.key);
+      expect(
+        parseRequestedBudgetWon(entry.key),
+        entry.value,
+        reason: entry.key,
+      );
     }
   });
 
   test('menu intent follows the server rules', () {
     // GeminiServiceTest.menuIntentTableMatchesTheAppMirror holds the same rows.
     const table = <(String, String, String), bool>{
+      ('칼국수', '짜장이나 칼국수 카페는 빼줘', '한식'): true,
+      ('짜장면', '짜장이나 칼국수 카페는 빼줘', '중식'): true,
+      ('칼국수', '짜장이나 칼국수 카페는 빼줘', '카페'): false,
+      ('아메리카노', '카페 추천', '카페'): true,
+      ('아메리카노', '카페는 빼지 말고 추천', '카페'): true,
+      ('김밥', '분식은 제외하고 점심', '한식'): false,
+      ('짜장면', '중식 말고 점심', '중식'): false,
+      ('칼국수', '칼국수는 빼줘', '한식'): false,
       // The 분식 quick prompt keeps 분식 menus and stores whose own category is
       // 분식, but not 삼겹살, 찌개 or a photo studio (QA 2026-10-07 #1).
       ('칼국수', '혼밥 분식 추천', '한식'): true,

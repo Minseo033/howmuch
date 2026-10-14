@@ -84,11 +84,15 @@ class FirebaseServiceUserDeletionCommunityTest {
 
         QueryDocumentSnapshot staleNotification = doc("n-1", Map.of("userId", "user-3", "relatedCommentId", "c-own"));
         staleNotificationRef = staleNotification.getReference();
+        query("notifications", "relatedCommentId", "c-own", List.of(staleNotification));
+        for (String commentId : List.of("r-own", "r-on-other", "r-other")) {
+            query("notifications", "relatedCommentId", commentId, List.of());
+        }
         Query byComment = mock(Query.class);
         QuerySnapshot byCommentSnapshot = mock(QuerySnapshot.class);
         when(collections.get("notifications").whereIn(eq("relatedCommentId"), anyList())).thenReturn(byComment);
         when(byComment.get()).thenReturn(ApiFutures.immediateFuture(byCommentSnapshot));
-        List<QueryDocumentSnapshot> stale = List.of(staleNotification);
+        List<QueryDocumentSnapshot> stale = List.of();
         when(byCommentSnapshot.getDocuments()).thenReturn(stale);
 
         DocumentReference settings = mock(DocumentReference.class);
@@ -151,4 +155,3 @@ class FirebaseServiceUserDeletionCommunityTest {
         return document;
     }
 }
-

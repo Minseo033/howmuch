@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -83,6 +84,53 @@ void main() {
   });
   tearDown(() => ApiClient.setSessionToken(null));
 
+  for (final code in [401, 404, 503]) {
+    testWidgets('status $code after a timeout never claims acceptance', (
+      tester,
+    ) async {
+      await http.runWithClient(
+        () async {
+          final service = await _pumpWithdrawal(tester);
+          await _confirmWithdrawal(tester);
+          await tester.pumpAndSettle();
+          expect(service().calls, isEmpty);
+          expect(find.textContaining('접수됐어요'), findsNothing);
+          expect(find.text('탈퇴하기'), findsOneWidget);
+        },
+        () => MockClient((request) async {
+          if (request.method == 'DELETE') throw TimeoutException('slow');
+          return http.Response('', code);
+        }),
+      );
+    });
+  }
+
+  testWidgets(
+    '202 durable acceptance leaves as guest without claiming deletion completed',
+    (tester) async {
+      await http.runWithClient(
+        () async {
+          final service = await _pumpWithdrawal(tester);
+          await _confirmWithdrawal(tester);
+          await tester.pumpAndSettle();
+          expect(service().calls, ['unlink', 'clear']);
+          expect(find.textContaining('접수됐어요'), findsOneWidget);
+          expect(find.text('회원 탈퇴가 완료되었어요.'), findsNothing);
+        },
+        () => MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'success': true,
+              'requestId': request.headers['x-withdrawal-request-id'],
+              'state': 'PENDING',
+            }),
+            202,
+          ),
+        ),
+      );
+    },
+  );
+
   testWidgets('a timed-out withdrawal that the server accepted completes', (
     tester,
   ) async {
@@ -93,7 +141,10 @@ void main() {
         await _confirmWithdrawal(tester);
         await tester.pumpAndSettle();
 
-        expect(requests, ['DELETE /api/user', 'GET /api/user/profile']);
+        expect(requests, [
+          'DELETE /api/user',
+          'GET /api/user/withdrawal-status',
+        ]);
         expect(service().calls, ['unlink', 'clear']);
         // Former members keep browsing as guests.
         expect(find.text('홈 화면'), findsOneWidget);
@@ -105,7 +156,14 @@ void main() {
           throw TimeoutException('slow deletion');
         }
         // The session was revoked by the withdrawal that is still running.
-        return http.Response('', 401);
+        return http.Response(
+          jsonEncode({
+            'success': true,
+            'requestId': request.headers['x-withdrawal-request-id'],
+            'state': 'PENDING',
+          }),
+          200,
+        );
       }),
     );
   });
@@ -121,12 +179,12 @@ void main() {
 
         expect(service().calls, isEmpty);
         expect(find.text('홈 화면'), findsNothing);
-        expect(find.textContaining('탈퇴 요청이 처리되지 않았어요'), findsOneWidget);
+        expect(find.textContaining('탈퇴 접수를 확인하지 못했어요'), findsOneWidget);
         expect(find.text('탈퇴하기'), findsOneWidget, reason: 'button is usable');
       },
       () => MockClient((request) async {
         if (request.method == 'DELETE') throw TimeoutException('slow');
-        return http.Response('{"nickname":"saver"}', 200);
+        return http.Response('', 404);
       }),
     );
   });
@@ -134,14 +192,26 @@ void main() {
   testWidgets('a successful withdrawal unlinks Kakao before leaving', (
     tester,
   ) async {
-    await http.runWithClient(() async {
-      final service = await _pumpWithdrawal(tester);
-      await _confirmWithdrawal(tester);
-      await tester.pumpAndSettle();
+    await http.runWithClient(
+      () async {
+        final service = await _pumpWithdrawal(tester);
+        await _confirmWithdrawal(tester);
+        await tester.pumpAndSettle();
 
-      expect(service().calls, ['unlink', 'clear']);
-      expect(find.text('회원 탈퇴가 완료되었어요.'), findsOneWidget);
-    }, () => MockClient((_) async => http.Response('{"uid":"kakao:1"}', 200)));
+        expect(service().calls, ['unlink', 'clear']);
+        expect(find.text('회원 탈퇴가 완료되었어요.'), findsOneWidget);
+      },
+      () => MockClient(
+        (request) async => http.Response(
+          jsonEncode({
+            'success': true,
+            'requestId': request.headers['x-withdrawal-request-id'],
+            'state': 'COMPLETED',
+          }),
+          200,
+        ),
+      ),
+    );
   });
 
   testWidgets('no withdrawal reason is chosen for the user', (tester) async {

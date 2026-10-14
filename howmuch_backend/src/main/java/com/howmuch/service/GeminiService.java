@@ -474,11 +474,31 @@ public class GeminiService {
         return "UNKNOWN";
     }
 
+    private static final String INTENT_TERMS = "아메리카노|베이커리|중화요리|비빔국수|삼계탕|설렁탕|갈비탕|돈까스|돈가스|삼겹살|칼국수|수제비|국밥|김밥|백반|짜장|짬뽕|냉면|라떼|우동|라면|탕수육|디저트|커피|카페|중국집|분식|한식|중식|일식|양식|미용|세탁|목욕|이발|수선|빵";
+    private static final Pattern EXCLUDED_INTENT = Pattern.compile(
+            "((?:" + INTENT_TERMS + ")(?:[랑와과,/](?:" + INTENT_TERMS + "))*)"
+                    + "(?:는|은|을|를|도|만)?(?:빼(?!지)|제외(?!하지)|말고|싫어|안먹|안마실|안갈)");
+
     /** 앱의 menuMatchesRecommendationQuery와 같은 규칙이다(test/ai_shared_rules_test.dart와 같은 표). */
     boolean menuMatchesIntent(String message, String menu, Map<String, Object> store) {
-        String query = message == null ? "" : message.toLowerCase().replace(" ", "");
+        String rawQuery = message == null ? "" : message.toLowerCase().replaceAll("\\s+", "");
+        Matcher negatives = EXCLUDED_INTENT.matcher(rawQuery);
+        List<String> exclusions = new ArrayList<>();
+        while (negatives.find()) {
+            Matcher terms = Pattern.compile(INTENT_TERMS).matcher(negatives.group(1));
+            while (terms.find()) exclusions.add(terms.group());
+        }
+        String query = EXCLUDED_INTENT.matcher(rawQuery).replaceAll("");
         String item = menu.toLowerCase().replace(" ", "");
         String industry = safeText(store.get("industry"), "", 100).toLowerCase();
+        for (String excluded : exclusions) {
+            if ((item + industry).contains(excluded)) return false;
+            if (List.of("카페", "커피").contains(excluded)
+                    && List.of("카페", "커피", "베이커리", "아메리카노", "라떼", "카푸치노", "에스프레소")
+                    .stream().anyMatch((item + industry)::contains)) return false;
+            if (CUISINE_REQUESTS.stream().anyMatch(cuisine -> cuisine.queryWords().contains(excluded)
+                    && matchesCuisine(cuisine, item, industry))) return false;
+        }
         boolean soup = List.of("국물", "뜨끈", "따뜻한", "국밥", "찌개", "삼계탕", "설렁탕", "갈비탕", "짬뽕")
                 .stream().anyMatch(query::contains);
         if (soup && List.of("국수", "수제비", "국밥", "탕", "찌개", "짬뽕", "우동", "라면", "전골", "국")

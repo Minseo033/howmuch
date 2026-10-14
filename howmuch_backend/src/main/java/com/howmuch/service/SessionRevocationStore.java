@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.SetOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -38,8 +39,12 @@ public class SessionRevocationStore {
     private final long timeoutMillis;
 
     /** 한 계정의 폐기 기준. */
-    public record Revocation(long revokedAfter, Set<Long> revokedIssuedAt) {
+    public record Revocation(long revokedAfter, Set<Long> revokedIssuedAt, boolean withdrawalPending) {
         public static final Revocation NONE = new Revocation(Long.MIN_VALUE, Set.of());
+
+        public Revocation(long revokedAfter, Set<Long> revokedIssuedAt) {
+            this(revokedAfter, revokedIssuedAt, false);
+        }
 
         public Revocation {
             revokedIssuedAt = Set.copyOf(revokedIssuedAt);
@@ -47,7 +52,7 @@ public class SessionRevocationStore {
 
         /** 이 발급 시각의 토큰을 더는 믿으면 안 되는지 판단합니다. */
         public boolean rejects(long issuedAt) {
-            return issuedAt <= revokedAfter || revokedIssuedAt.contains(issuedAt);
+            return withdrawalPending || issuedAt <= revokedAfter || revokedIssuedAt.contains(issuedAt);
         }
     }
 
@@ -84,7 +89,7 @@ public class SessionRevocationStore {
                 long cutoff = Math.max(current, requestedCutoff);
                 transaction.set(reference, Map.of(
                         "revokedAfter", cutoff,
-                        "updatedAt", System.currentTimeMillis()));
+                        "updatedAt", System.currentTimeMillis()), SetOptions.merge());
                 return cutoff;
             }).get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
@@ -118,8 +123,8 @@ public class SessionRevocationStore {
                 if (cutoff != Long.MIN_VALUE) next.put("revokedAfter", cutoff);
                 next.put("revokedTokens", tokens);
                 next.put("updatedAt", now);
-                transaction.set(reference, next);
-                return new Revocation(cutoff, issuedAtValues(tokens));
+                transaction.set(reference, next, SetOptions.merge());
+                return new Revocation(cutoff, issuedAtValues(tokens), revocationOf(current).withdrawalPending());
             }).get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (Exception e) {
             throw new UnavailableException("세션 폐기 기준을 저장할 수 없습니다.", e);
@@ -131,7 +136,8 @@ public class SessionRevocationStore {
         Object value = data.get("revokedAfter");
         long cutoff = value instanceof Number number ? number.longValue() : Long.MIN_VALUE;
         // Expired logout entries cannot authenticate anyway, so they are harmless if still listed.
-        return new Revocation(cutoff, issuedAtValues(activeTokens(data, Long.MIN_VALUE)));
+        return new Revocation(cutoff, issuedAtValues(activeTokens(data, Long.MIN_VALUE)),
+                Boolean.TRUE.equals(data.get("withdrawalPending")));
     }
 
     private static Map<String, Long> activeTokens(Map<String, Object> data, long now) {

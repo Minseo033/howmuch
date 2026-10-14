@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
@@ -13,11 +15,10 @@ import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
 import 'package:howmuch/core/theme/app_colors.dart';
 import 'package:http/http.dart' as http;
 
-/// The server deletes every collection one by one after revoking sessions, so
-/// a large account can take far longer than an ordinary request.
+/// The server acknowledges a durable job; deletion continues independently.
 const withdrawalRequestTimeout = Duration(seconds: 60);
 
-enum _WithdrawalStatus { completed, acceptedAfterTimeout, notStarted, unknown }
+enum _WithdrawalStatus { completed, pending, notStarted, unknown }
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
   const WithdrawalScreen({super.key});
@@ -57,6 +58,17 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   bool _confirmed = false;
   bool _asking = false;
   bool _isWithdrawing = false;
+  String? _withdrawalRequestId;
+
+  String _newRequestId() {
+    final random = Random.secure();
+    final bytes = List.generate(16, (_) => random.nextInt(256));
+    bytes[6] = (bytes[6] & 15) | 64;
+    bytes[8] = (bytes[8] & 63) | 128;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-'
+        '${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
+  }
 
   void _leave() {
     if (_asking || _isWithdrawing) return;
@@ -215,47 +227,46 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     }
 
     setState(() => _isWithdrawing = true);
+    _withdrawalRequestId ??= _newRequestId();
     var status = _WithdrawalStatus.unknown;
     try {
-      final url = ApiClient.uri('/api/user');
-      final response = await ApiClient.delete(
-        url,
-        headers: ApiClient.jsonHeaders(auth: true),
-        timeout: withdrawalRequestTimeout,
-      );
+      // Keep the receipt available even when this request revokes the session.
+      final response = await http
+          .delete(
+            ApiClient.uri('/api/user'),
+            headers: {
+              ...ApiClient.jsonHeaders(auth: true),
+              'X-Withdrawal-Request-Id': _withdrawalRequestId!,
+            },
+          )
+          .timeout(withdrawalRequestTimeout);
 
       if (!mounted) return;
-      if (response.statusCode != 200) {
-        setState(() => _isWithdrawing = false);
-        messenger.showSnackBar(
-          HowmuchSnackBar(content: Text('탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해주세요.')),
-        );
-        return;
-      }
-      status = _WithdrawalStatus.completed;
-    } catch (e) {
-      // The server revokes the session before deleting data, so a timed-out
-      // request may already be under way. Ask instead of reporting failure.
-      final checked = await _checkStatusAfterTimeout();
-      if (!mounted) return;
-      if (checked != _WithdrawalStatus.acceptedAfterTimeout) {
-        setState(() => _isWithdrawing = false);
-        messenger.showSnackBar(
-          HowmuchSnackBar(
-            content: Text(
-              checked == _WithdrawalStatus.notStarted
-                  ? '탈퇴 요청이 처리되지 않았어요. 네트워크를 확인한 뒤 다시 시도해주세요.'
-                  : '탈퇴 처리 결과를 확인하지 못했어요. 잠시 후 다시 시도해주세요.',
-            ),
+      status = _readStatus(response);
+    } catch (_) {
+      // A timeout is never proof that withdrawal started.
+    }
+    if (status == _WithdrawalStatus.unknown) {
+      status = await _checkStatusAfterTimeout();
+    }
+    if (!mounted) return;
+    if (status != _WithdrawalStatus.completed &&
+        status != _WithdrawalStatus.pending) {
+      setState(() => _isWithdrawing = false);
+      messenger.showSnackBar(
+        HowmuchSnackBar(
+          content: Text(
+            status == _WithdrawalStatus.notStarted
+                ? '탈퇴 접수를 확인하지 못했어요. 네트워크를 확인한 뒤 다시 시도해주세요.'
+                : '탈퇴 처리 결과를 확인하지 못했어요. 잠시 후 다시 시도해주세요.',
           ),
-        );
-        return;
-      }
-      status = checked;
+        ),
+      );
+      return;
     }
 
     final loginService = ref.read(kakaoLoginServiceProvider);
-    // The account is gone; ending the Kakao app connection is best effort.
+    // The durable job prevents rejoining until deletion finishes.
     await loginService.unlinkKakaoAfterWithdrawal();
     await loginService.clearLocalSession(unregisterDevice: false);
     if (!mounted) return;
@@ -273,20 +284,35 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     );
   }
 
-  /// Uses a plain request so a revoked session reads as "already withdrawn"
-  /// instead of opening the session-expired screen.
+  _WithdrawalStatus _readStatus(http.Response response) {
+    if (response.statusCode != 200 && response.statusCode != 202) {
+      return _WithdrawalStatus.unknown;
+    }
+    try {
+      final data = jsonDecode(response.body);
+      if (data is! Map ||
+          data['success'] != true ||
+          data['requestId'] != _withdrawalRequestId) {
+        return _WithdrawalStatus.unknown;
+      }
+      if (data['state'] == 'COMPLETED') return _WithdrawalStatus.completed;
+      if (data['state'] == 'PENDING') return _WithdrawalStatus.pending;
+    } catch (_) {
+      // Malformed responses cannot confirm acceptance.
+    }
+    return _WithdrawalStatus.unknown;
+  }
+
   Future<_WithdrawalStatus> _checkStatusAfterTimeout() async {
     try {
       final response = await http
           .get(
-            ApiClient.uri('/api/user/profile'),
-            headers: ApiClient.authHeaders(auth: true),
+            ApiClient.uri('/api/user/withdrawal-status'),
+            headers: {'X-Withdrawal-Request-Id': _withdrawalRequestId!},
           )
           .timeout(ApiClient.defaultTimeout);
-      if (response.statusCode == 401 || response.statusCode == 404) {
-        return _WithdrawalStatus.acceptedAfterTimeout;
-      }
-      if (response.statusCode == 200) return _WithdrawalStatus.notStarted;
+      if (response.statusCode == 404) return _WithdrawalStatus.notStarted;
+      return _readStatus(response);
     } catch (_) {
       // Still unreachable: the outcome stays unknown.
     }

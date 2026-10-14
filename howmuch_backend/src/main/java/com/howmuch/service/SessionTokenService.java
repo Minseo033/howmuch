@@ -84,7 +84,11 @@ public class SessionTokenService {
     /** uid를 담은 서명된 세션 토큰을 발급합니다. */
     public String createToken(String uid) {
         long now = clock.getAsLong();
-        SessionRevocationStore.Revocation revocation = revocation(uid);
+        // Never let a cached pre-withdrawal state permit rejoining during cleanup.
+        SessionRevocationStore.Revocation revocation = sessionRevocationStore == null
+                ? revocation(uid) : sessionRevocationStore.getRevocation(uid);
+        if (revocation.withdrawalPending()) throw new WithdrawalPendingException();
+        remember(uid, revocation, now);
         long issuedAt = Math.max(now, revocation.revokedAfter() + 1);
         // A logged-out device's issue time must never be reused for a new session.
         while (revocation.revokedIssuedAt().contains(issuedAt)) issuedAt++;
@@ -132,7 +136,8 @@ public class SessionTokenService {
         Set<Long> tokens = new HashSet<>(stored.revokedIssuedAt());
         tokens.add(parsed.issuedAt());
         // This instance must stop trusting the token now, not after the cache expires.
-        remember(parsed.uid(), new SessionRevocationStore.Revocation(stored.revokedAfter(), tokens), now);
+        remember(parsed.uid(), new SessionRevocationStore.Revocation(stored.revokedAfter(), tokens,
+                stored.withdrawalPending()), now);
         return true;
     }
 
@@ -141,12 +146,18 @@ public class SessionTokenService {
         if (uid != null && !uid.isBlank()) {
             long cutoff = clock.getAsLong();
             if (sessionRevocationStore != null) {
-                long stored = sessionRevocationStore.revokeAt(uid, cutoff);
-                remember(uid, new SessionRevocationStore.Revocation(Math.max(stored, cutoff), Set.of()), cutoff);
+                sessionRevocationStore.revokeAt(uid, cutoff);
+                forgetRevocation(uid);
             } else {
                 revokedAfterByUid.merge(uid, cutoff, Math::max);
             }
         }
+    }
+
+    public void forgetRevocation(String uid) { revocationCache.remove(uid); }
+
+    public static class WithdrawalPendingException extends RuntimeException {
+        public WithdrawalPendingException() { super("회원 탈퇴 처리 중입니다. 데이터 삭제 후 다시 이용할 수 있습니다."); }
     }
 
     private ParsedToken parse(String token) {
@@ -211,7 +222,8 @@ public class SessionTokenService {
             tokens.addAll(latest.revocation().revokedIssuedAt());
             tokens.removeIf(issuedAt -> issuedAt <= cutoff);
             return new CachedRevocation(
-                    new SessionRevocationStore.Revocation(cutoff, tokens), latest.expiresAtMillis());
+                    new SessionRevocationStore.Revocation(cutoff, tokens, latest.revocation().withdrawalPending()),
+                    latest.expiresAtMillis());
         }).revocation();
     }
 

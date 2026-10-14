@@ -797,7 +797,8 @@
   let allInquiries = null;
   let communityStats = null;
   let storageUsage = null;
-  let currentTab = 'PENDING';
+  let reportTab = 'PENDING';
+  let receiptTab = 'PENDING';
   let currentView = 'dashboard';
   let userSearch = '';
   let rejectTargetId = null;
@@ -836,6 +837,8 @@
 
   /* ── 유틸 ─────────────────────────── */
   const clearAdminData = () => {
+    reportTab = 'PENDING';
+    receiptTab = 'PENDING';
     allReports = [];
     allReceipts = [];
     allReviews = [];
@@ -1253,27 +1256,27 @@
 
     const tabsHtml = `
       <div class="tabs">
-        <button class="tab ${currentTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${pendingCount}</span></button>
-        <button class="tab ${currentTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
-        <button class="tab ${currentTab==='NO_CHANGE'?'active':''}" data-status="NO_CHANGE">수정 없음<span class="count">${c.NO_CHANGE||''}</span></button>
-        <button class="tab ${currentTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
-        <button class="tab ${currentTab==='LEGACY'?'active':''}" data-status="LEGACY">미분류<span class="count">${c.LEGACY||''}</span></button>
-        <button class="tab ${currentTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
+        <button class="tab ${reportTab==='PENDING'?'active':''}" data-status="PENDING">대기<span class="count">${pendingCount}</span></button>
+        <button class="tab ${reportTab==='APPROVED'?'active':''}" data-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+        <button class="tab ${reportTab==='NO_CHANGE'?'active':''}" data-status="NO_CHANGE">수정 없음<span class="count">${c.NO_CHANGE||''}</span></button>
+        <button class="tab ${reportTab==='REJECTED'?'active':''}" data-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
+        <button class="tab ${reportTab==='LEGACY'?'active':''}" data-status="LEGACY">미분류<span class="count">${c.LEGACY||''}</span></button>
+        <button class="tab ${reportTab==='ALL'?'active':''}" data-status="ALL">전체<span class="count">${allReports.length||''}</span></button>
       </div>`;
 
-    const filtered = currentTab === 'ALL' ? allReports : allReports.filter((r) => reportStatus(r) === currentTab);
-    const emptyTitle = currentTab === 'NO_CHANGE' ? '수정 없음으로 처리한 제보가 없습니다' : `${STATUS_LABEL[currentTab]||''} 제보가 없습니다`;
+    const filtered = reportTab === 'ALL' ? allReports : allReports.filter((r) => reportStatus(r) === reportTab);
+    const emptyTitle = reportTab === 'NO_CHANGE' ? '수정 없음으로 처리한 제보가 없습니다' : `${STATUS_LABEL[reportTab]||''} 제보가 없습니다`;
     const listHtml = filtered.length
       ? `<div class="report-list">${filtered.map(reportCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><h2>${emptyTitle}</h2><p>다른 탭을 확인해보세요.</p></div>`;
 
-    content.innerHTML = reportCapNotice() + tabsHtml + (currentTab === 'LEGACY' && c.LEGACY
+    content.innerHTML = reportCapNotice() + tabsHtml + (reportTab === 'LEGACY' && c.LEGACY
       ? '<div class="legacy-note">상태가 없는 과거 제보입니다. 공개 여부와 원본 데이터를 확인한 뒤 처리해주세요. 자동으로 승인·반려하지 않습니다.</div>'
       : '') + listHtml;
     wireImageLinks();
 
     content.querySelectorAll('.tab').forEach((tab) => {
-      tab.onclick = () => { currentTab = tab.dataset.status; renderReportsView(); };
+      tab.onclick = () => { reportTab = tab.dataset.status; renderReportsView(); };
     });
     content.querySelectorAll('[data-approve]').forEach((btn) => {
       btn.onclick = () => doApprove(btn.dataset.approve, btn);
@@ -1432,18 +1435,18 @@
     if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
     else pill.hidden = true;
     const tabsHtml = `<div class="tabs">
-      <button class="tab ${currentTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
-      <button class="tab ${currentTab==='APPROVED'?'active':''}" data-receipt-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
-      <button class="tab ${currentTab==='REJECTED'?'active':''}" data-receipt-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
-      <button class="tab ${currentTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
+      <button class="tab ${receiptTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
+      <button class="tab ${receiptTab==='APPROVED'?'active':''}" data-receipt-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
+      <button class="tab ${receiptTab==='REJECTED'?'active':''}" data-receipt-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
+      <button class="tab ${receiptTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
     </div>`;
-    const filtered = currentTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === currentTab);
+    const filtered = receiptTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === receiptTab);
     content.innerHTML = listCapNotice(allReceipts) + tabsHtml + (filtered.length
       ? `<div class="report-list">${filtered.map(receiptCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico">✓</div><h2>영수증 인증이 없습니다</h2><p>다른 상태 탭을 확인해보세요.</p></div>`);
     wireImageLinks();
     content.querySelectorAll('[data-receipt-status]').forEach((tab) => {
-      tab.onclick = () => { currentTab = tab.dataset.receiptStatus; renderReceiptsView(); };
+      tab.onclick = () => { receiptTab = tab.dataset.receiptStatus; renderReceiptsView(); };
     });
     content.querySelectorAll('[data-approve-receipt]').forEach((btn) => {
       btn.onclick = () => doApproveReceipt(btn.dataset.approveReceipt, btn);

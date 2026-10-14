@@ -623,14 +623,52 @@ bool _matchesCuisine(
 /// table. "혼밥 분식 추천" keeps 분식 menus such as 칼국수 and 김밥 but not
 /// 삼겹살 or a photo studio (QA 2026-10-07 #1). Soup requests also exclude
 /// 콩국수 and 탕수육 (FE-STORE-12).
+const _intentTerms =
+    '아메리카노|베이커리|중화요리|비빔국수|삼계탕|설렁탕|갈비탕|돈까스|돈가스|삼겹살|칼국수|수제비|국밥|김밥|백반|짜장|짬뽕|냉면|라떼|우동|라면|탕수육|디저트|커피|카페|중국집|분식|한식|중식|일식|양식|미용|세탁|목욕|이발|수선|빵';
+final _excludedIntent = RegExp(
+  '((?:$_intentTerms)(?:[랑와과,/](?:$_intentTerms))*)'
+  '(?:는|은|을|를|도|만)?(?:빼(?!지)|제외(?!하지)|말고|싫어|안먹|안마실|안갈)',
+);
+final _intentTermPattern = RegExp(_intentTerms);
+
 bool menuMatchesRecommendationQuery(
   String menu,
   String query, {
   String industry = '',
 }) {
-  final q = query.toLowerCase().replaceAll(' ', '');
+  final rawQuery = query.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  final exclusions = _excludedIntent
+      .allMatches(rawQuery)
+      .expand(
+        (match) => _intentTermPattern
+            .allMatches(match.group(1)!)
+            .map((term) => term.group(0)!),
+      );
+  final q = rawQuery.replaceAll(_excludedIntent, '');
   final item = menu.toLowerCase().replaceAll(' ', '');
   final venue = industry.toLowerCase();
+  for (final excluded in exclusions) {
+    if ('$item$venue'.contains(excluded)) return false;
+    if (const ['카페', '커피'].contains(excluded) &&
+        const [
+          '카페',
+          '커피',
+          '베이커리',
+          '아메리카노',
+          '라떼',
+          '카푸치노',
+          '에스프레소',
+        ].any('$item$venue'.contains)) {
+      return false;
+    }
+    if (_cuisineRequests.any(
+      (cuisine) =>
+          cuisine.$1.contains(excluded) &&
+          _matchesCuisine(cuisine, item, venue),
+    )) {
+      return false;
+    }
+  }
   final soup = const [
     '국물',
     '뜨끈',
@@ -657,8 +695,7 @@ bool menuMatchesRecommendationQuery(
       ].any(item.contains)) {
     return false;
   }
-  if (soup &&
-      const ['비빔', '냉', '볶음', '김밥', '콩국수', '탕수육'].any(item.contains)) {
+  if (soup && const ['비빔', '냉', '볶음', '김밥', '콩국수', '탕수육'].any(item.contains)) {
     return false;
   }
   // Specific dishes are matched against a menu, never a common store name.
