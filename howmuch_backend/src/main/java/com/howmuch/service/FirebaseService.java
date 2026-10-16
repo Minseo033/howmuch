@@ -1196,6 +1196,7 @@ public class FirebaseService {
             data.put("ocrLabeledPrice", ocrResult.labeledPrice());
             data.put("ocrStoreMatch", ocrResult.storeMatch());
             data.put("ocrPriceMatch", ocrResult.priceMatch());
+            data.put("ocrMenuMatch", ocrResult.menuMatch());
             data.put("ocrDetectedDate", ocrResult.detectedDate());
             data.put("ocrReceiptDatePlausible", ocrResult.receiptDatePlausible());
             data.put("ocrScore", ocrResult.score());
@@ -1206,6 +1207,14 @@ public class FirebaseService {
             document.create(data).get();
         } catch (ExecutionException e) {
             if (isAlreadyExists(e)) {
+                DocumentSnapshot existing = document.get().get();
+                if (existing != null && existing.exists()
+                        && "REJECTED".equalsIgnoreCase(existing.getString("status"))
+                        && (existing.getString("userId") == null
+                                || firebaseUid.equals(existing.getString("userId")))) {
+                    document.set(data).get();
+                    return document.getId();
+                }
                 throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
             }
             throw e;
@@ -1268,9 +1277,11 @@ public class FirebaseService {
         if (receiptFingerprint == null || !receiptFingerprint.matches("[a-f0-9]{64}")) {
             return false;
         }
-        return db.collection("receipt_verifications")
+        DocumentSnapshot snapshot = db.collection("receipt_verifications")
                 .document("receipt_" + receiptFingerprint)
-                .get().get().exists();
+                .get().get();
+        return snapshot != null && snapshot.exists()
+                && !"REJECTED".equalsIgnoreCase(snapshot.getString("status"));
     }
 
     // [어드민] 영수증 인증 목록 조회. 소량 컬렉션이라 복합 인덱스 없이 필터링합니다.
@@ -1348,8 +1359,10 @@ public class FirebaseService {
                     throw new DuplicateVisitException("같은 날 이 매장의 방문 기록이 이미 있어 영수증을 승인할 수 없어요.");
                 }
                 String industry = findIndustryByStoreName(storeName);
+                String effectiveMenu = resolveMenuForSavings(
+                        visitStoreId, storeName, menu, price, snapshot.getBoolean("ocrMenuMatch"));
                 long savedAmount = price == 0 ? 0L : ReferencePrices.savedAmount(
-                        estimateReferencePrice(menu, industry, findAddressByStoreName(storeName)), price);
+                        estimateReferencePrice(effectiveMenu, industry, findAddressByStoreName(storeName)), price);
                 com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
                         .storeId(visitStoreId)
                         .storeName(storeName)
@@ -1437,10 +1450,12 @@ public class FirebaseService {
         Long detectedTextLength = snapshot.getLong("ocrDetectedTextLength");
         Long detectedPrice = snapshot.getLong("ocrDetectedPrice");
         String detectedDate = snapshot.getString("ocrDetectedDate");
+        Boolean menuMatch = snapshot.getBoolean("ocrMenuMatch");
         if (!Boolean.TRUE.equals(providerAvailable)
                 || detectedTextLength == null || detectedTextLength <= 0
                 || detectedPrice == null || detectedPrice <= 0
-                || detectedDate == null || detectedDate.isBlank()) {
+                || detectedDate == null || detectedDate.isBlank()
+                || Boolean.FALSE.equals(menuMatch)) {
             throw new ReceiptOcrEvidenceException(
                     "OCR 판독이 완료되지 않은 영수증은 승인할 수 없습니다. 공급자 설정을 확인한 뒤 다시 제출해주세요.");
         }
@@ -2374,6 +2389,43 @@ public class FirebaseService {
         return data;
     }
 
+    /**
+     * 매장에 등록된 메뉴와 가격이 있을 때, 영수증 OCR로 확인되지 않은 다른 고가 메뉴명을 입력해
+     * 절약액을 부풀리는 경우 결제 금액과 일치하는 매장 등록 메뉴를 우선 사용합니다.
+     */
+    public String resolveMenuForSavings(
+            String storeId, String storeName, String submittedMenu, long price, Boolean ocrMenuMatch) {
+        String trimmed = submittedMenu == null ? "" : submittedMenu.trim();
+        Map<String, Object> store = resolveReviewStore(
+                storeId != null && !storeId.isBlank() ? storeId : storeName,
+                getAllStores());
+        if (store == null) return trimmed;
+
+        String normalizedSubmitted = ReferencePrices.normalize(trimmed);
+        String priceMatchedMenu = null;
+        boolean hasRegisteredMenus = false;
+        for (int i = 1; i <= 4; i++) {
+            String candidateMenu = strOrNull(store.get("menu" + i));
+            if (candidateMenu == null || candidateMenu.isBlank()) continue;
+            hasRegisteredMenus = true;
+            String normalizedCandidate = ReferencePrices.normalize(candidateMenu);
+            if (!normalizedSubmitted.isEmpty()
+                    && (normalizedCandidate.equals(normalizedSubmitted)
+                            || normalizedCandidate.contains(normalizedSubmitted)
+                            || normalizedSubmitted.contains(normalizedCandidate))) {
+                return candidateMenu;
+            }
+            Long candidatePrice = WonPrice.exactPositive(store.get("price" + i));
+            if (priceMatchedMenu == null && candidatePrice != null && candidatePrice == price) {
+                priceMatchedMenu = candidateMenu;
+            }
+        }
+        if (hasRegisteredMenus && priceMatchedMenu != null && !Boolean.TRUE.equals(ocrMenuMatch)) {
+            return priceMatchedMenu;
+        }
+        return trimmed;
+    }
+
     public boolean isApprovedFreeMenu(String storeId, String storeName, String menu) {
         Map<String, Object> store = resolveReviewStore(storeId != null && !storeId.isBlank() ? storeId : storeName, getAllStores());
         if (store == null || menu == null || menu.isBlank()) return false;
@@ -2425,9 +2477,11 @@ public class FirebaseService {
                 verificationDistanceMeters = distance.doubleValue();
             }
 
+            String visitDateStr = data.get("visitDate") != null ? data.get("visitDate").toString() : null;
             com.howmuch.dto.VisitResponseDto dto = com.howmuch.dto.VisitResponseDto.builder()
                     .id(doc.getId())
                     .visitedAt(data.get("visitedAt") != null ? data.get("visitedAt").toString() : null)
+                    .visitDate(visitDateStr)
                     .storeName(data.get("storeName") != null ? data.get("storeName").toString() : null)
                     .savedAmount(savedAmt)
                     .storeId(data.get("storeId") != null ? data.get("storeId").toString() : null)
@@ -2679,7 +2733,10 @@ public class FirebaseService {
             Boolean isGov = parseBooleanSafely(data.get("isGov"));
 
             String visitedAtStr = data.get("visitedAt") != null ? data.get("visitedAt").toString() : null;
-            String dateStr = data.get("date") != null ? data.get("date").toString() : visitedAtStr;
+            String visitDateStr = data.get("visitDate") != null ? data.get("visitDate").toString() : null;
+            String dateStr = (visitDateStr != null && !visitDateStr.isBlank())
+                    ? visitDateStr
+                    : (data.get("date") != null ? data.get("date").toString() : visitedAtStr);
             String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
             String industry = data.get("industry") != null ? data.get("industry").toString() : null;
             if (industry == null || industry.isBlank()) {

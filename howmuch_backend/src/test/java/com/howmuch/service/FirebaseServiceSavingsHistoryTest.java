@@ -73,6 +73,7 @@ class FirebaseServiceSavingsHistoryTest {
         data.put("isGov", isGov);
         data.put("isFree", false);
         data.put("visitedAt", "2026-10-06T03:00:00Z");
+        data.put("visitDate", "2026-10-05");
         data.put("receiptId", "receipt-" + id);
         data.put("verificationMethod", "RECEIPT");
         data.put("verificationDistanceMeters", 12.5);

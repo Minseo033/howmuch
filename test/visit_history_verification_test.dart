@@ -26,6 +26,7 @@ void main() {
     // 16:30 UTC is already the next morning in Korea.
     expect(formatVisitDateKst('2026-10-06T16:30:00Z'), '2026.10.07');
     expect(formatVisitDateKst('2026-10-06T14:59:00Z'), '2026.10.06');
+    expect(formatVisitDateKst('2026-10-14'), '2026.10.14');
     expect(formatVisitDateKst(null), '최근 방문');
   });
 

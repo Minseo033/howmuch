@@ -945,13 +945,25 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
   }
 
   /// 입력 변경 시 400ms 디바운스로 예상 절약 금액 조회 (GET /api/visits/estimate)
+  void _clearEstimateState() {
+    _estimatedSaved = null;
+    _referencePrice = null;
+    _referencePriceAvailable = null;
+    _referenceSourceLabel = null;
+    _referenceBasisDate = null;
+    _referenceSampleSize = 0;
+  }
+
   void _onInputChanged() {
     _estimateDebounce?.cancel();
     final requestId = _estimateRequests.next();
-    _estimateDebounce = Timer(
-      const Duration(milliseconds: 400),
-      () => _fetchEstimate(requestId),
-    );
+    _clearEstimateState();
+    if (_hasValidPaymentAmount) {
+      _estimateDebounce = Timer(
+        const Duration(milliseconds: 400),
+        () => _fetchEstimate(requestId),
+      );
+    }
     setState(() {});
   }
 
@@ -959,14 +971,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     final price = _priceValue;
     if (!_hasValidPaymentAmount) {
       if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
-      setState(() {
-        _estimatedSaved = null;
-        _referencePrice = null;
-        _referencePriceAvailable = null;
-        _referenceSourceLabel = null;
-        _referenceBasisDate = null;
-        _referenceSampleSize = 0;
-      });
+      setState(_clearEstimateState);
       return;
     }
     try {
@@ -978,9 +983,8 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
         }),
         headers: ApiClient.jsonHeaders(auth: true),
       ).timeout(ApiClient.defaultTimeout);
-      if (response.statusCode == 200 &&
-          mounted &&
-          _estimateRequests.isCurrent(requestId)) {
+      if (!mounted || !_estimateRequests.isCurrent(requestId)) return;
+      if (response.statusCode == 200) {
         final data =
             jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
         setState(() {
@@ -991,9 +995,14 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           _referenceBasisDate = data['basisDate'] as String?;
           _referenceSampleSize = (data['sampleSize'] as num?)?.toInt() ?? 0;
         });
+      } else {
+        setState(_clearEstimateState);
       }
     } catch (e) {
       debugPrint('예상 절약 금액 조회 오류: $e');
+      if (mounted && _estimateRequests.isCurrent(requestId)) {
+        setState(_clearEstimateState);
+      }
     }
   }
 

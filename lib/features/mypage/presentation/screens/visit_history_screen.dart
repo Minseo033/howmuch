@@ -28,7 +28,12 @@ String? formatVisitVerification(String? method, double? distanceMeters) {
 /// shows the KST date regardless of the device time zone.
 String formatVisitDateKst(String? rawDate) {
   if (rawDate == null || rawDate.isEmpty) return '최근 방문';
-  final parsed = DateTime.tryParse(rawDate);
+  final trimmed = rawDate.trim();
+  final calendarMatch = RegExp(r'^(\d{4})[-.](\d{2})[-.](\d{2})$').firstMatch(trimmed);
+  if (calendarMatch != null) {
+    return '${calendarMatch.group(1)}.${calendarMatch.group(2)}.${calendarMatch.group(3)}';
+  }
+  final parsed = DateTime.tryParse(trimmed);
   if (parsed == null) return rawDate;
   final kst = parsed.toUtc().add(const Duration(hours: 9));
   return '${kst.year.toString().padLeft(4, '0')}.'
@@ -91,8 +96,11 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
           final verificationMethod = item['verificationMethod']?.toString();
           final verificationDistance =
               (item['verificationDistanceMeters'] as num?)?.toDouble();
+          final visitDate = item['visitDate']?.toString().trim();
           final visitedAt = item['visitedAt']?.toString();
-          final dateStr = formatVisitDateKst(visitedAt);
+          final effectiveDate =
+              (visitDate != null && visitDate.isNotEmpty) ? visitDate : visitedAt;
+          final dateStr = formatVisitDateKst(effectiveDate);
 
           return {
             'isGov': isGov,
@@ -106,6 +114,7 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
             'savedAmount': savedAmt,
             'saving': isFree ? '무료 이용' : '${_formatCurrency(savedAmt)}원 절약',
             'date': dateStr,
+            'visitDate': visitDate,
             'visitedAt': visitedAt,
             'verification': formatVisitVerification(
               verificationMethod,
@@ -161,6 +170,17 @@ class _VisitHistoryScreenState extends State<VisitHistoryScreen> {
   }
 
   DateTime? _koreanVisitDate(Map<String, dynamic> visit) {
+    final visitDate = visit['visitDate']?.toString().trim();
+    if (visitDate != null && visitDate.isNotEmpty) {
+      final match = RegExp(r'^(\d{4})[-.](\d{2})[-.](\d{2})$').firstMatch(visitDate);
+      if (match != null) {
+        return DateTime.utc(
+          int.parse(match.group(1)!),
+          int.parse(match.group(2)!),
+          int.parse(match.group(3)!),
+        );
+      }
+    }
     final raw = visit['visitedAt']?.toString();
     if (raw == null || raw.isEmpty) return null;
     try {

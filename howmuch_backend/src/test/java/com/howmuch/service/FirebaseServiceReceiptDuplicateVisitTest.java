@@ -178,6 +178,39 @@ class FirebaseServiceReceiptDuplicateVisitTest {
     }
 
     @Test
+    void allowsResubmittingARejectedReceiptWithCorrectedInputs() throws Exception {
+        DocumentReference noVisit = mock(DocumentReference.class);
+        DocumentSnapshot missingVisit = mock(DocumentSnapshot.class);
+        when(noVisit.get()).thenReturn(ApiFutures.immediateFuture(missingVisit));
+        when(visits.document(anyString())).thenReturn(noVisit);
+
+        DocumentReference existingReceiptRef = mock(DocumentReference.class);
+        DocumentSnapshot rejectedSnapshot = mock(DocumentSnapshot.class);
+        WriteResult writeResult = mock(WriteResult.class);
+        com.google.api.gax.rpc.AlreadyExistsException alreadyExists =
+                mock(com.google.api.gax.rpc.AlreadyExistsException.class);
+        when(rejectedSnapshot.exists()).thenReturn(true);
+        when(rejectedSnapshot.getString("status")).thenReturn("REJECTED");
+        when(rejectedSnapshot.getString("userId")).thenReturn("user-1");
+        when(existingReceiptRef.get()).thenReturn(ApiFutures.immediateFuture(rejectedSnapshot));
+        when(existingReceiptRef.create(anyMap())).thenReturn(ApiFutures.immediateFailedFuture(alreadyExists));
+        when(existingReceiptRef.set(anyMap())).thenReturn(ApiFutures.immediateFuture(writeResult));
+        when(existingReceiptRef.getId()).thenReturn("receipt_" + "c".repeat(64));
+        when(receipts.document("receipt_" + "c".repeat(64))).thenReturn(existingReceiptRef);
+
+        assertThat(service.receiptVerificationExists("c".repeat(64))).isFalse();
+
+        ReceiptOcrService.Result ocr = new ReceiptOcrService.Result(true, 40, 8000, true, true, true,
+                "2026-10-14", true, 100, "AUTO_APPROVED_CANDIDATE", true);
+        String id = service.saveReceiptVerification("user-1", "store_a", "경남식당", "백반", 8000,
+                "c".repeat(64), List.of("https://img/receipt2.jpg"), ocr,
+                new com.howmuch.dto.VisitLocationEvidence(25, 5));
+
+        assertThat(id).isEqualTo("receipt_" + "c".repeat(64));
+        verify(existingReceiptRef).set(anyMap());
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void processedReceiptsAreMarkedForCleanupAndOnlyPendingOnesAreRetriedHourly() throws Exception {
         when(receipt.get("imageUrls")).thenReturn(List.of("https://img/receipt.jpg"));

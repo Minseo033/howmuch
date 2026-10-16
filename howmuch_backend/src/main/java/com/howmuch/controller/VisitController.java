@@ -156,7 +156,11 @@ public class VisitController {
             // 파일 크기와 실제 이미지 시그니처를 검증한 뒤에만 유료 OCR을 호출합니다.
             uploaded = firebaseService.uploadReportImages(firebaseUid, images);
             ReceiptOcrService.Result ocrResult = receiptOcrService.analyze(
+                    receiptBytes, canonicalStoreName, normalizedMenu, price);
+            if (ocrResult == null) {
+                ocrResult = receiptOcrService.analyze(
                     receiptBytes, canonicalStoreName, price);
+            }
             String id = firebaseService.saveReceiptVerification(
                     firebaseUid, canonicalStoreId, canonicalStoreName,
                     normalizedMenu, price, receiptFingerprint, uploaded, ocrResult, locationEvidence);
@@ -323,8 +327,9 @@ public class VisitController {
                 "referencePrice", 0, "savedAmount", 0, "matchedByMenu", false,
                 "source", "UNAVAILABLE", "sourceLabel", "무료 이용은 절약액을 합산하지 않아요", "basisDate", "", "sampleSize", 0));
         String industry = firebaseService.findIndustryByStoreName(storeName);
+        String effectiveMenu = firebaseService.resolveMenuForSavings(null, storeName, menu, price, null);
         Optional<ReferencePrices.Estimate> estimate = firebaseService.estimateReferencePrice(
-                menu, industry, firebaseService.findAddressByStoreName(storeName));
+                effectiveMenu, industry, firebaseService.findAddressByStoreName(storeName));
         if (estimate.isEmpty()) {
             return ResponseEntity.ok(Map.of(
                     "referencePriceAvailable", false,

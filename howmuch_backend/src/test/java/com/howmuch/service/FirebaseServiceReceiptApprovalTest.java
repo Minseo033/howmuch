@@ -188,6 +188,34 @@ class FirebaseServiceReceiptApprovalTest {
     }
 
     @Test
+    void refusesAutomaticApprovalWhenOcrMenuMatchIsFalse() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        mockUsableOcrEvidence();
+        when(receipt.getBoolean("ocrMenuMatch")).thenReturn(false);
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "AUTO_OCR"))
+                .isInstanceOf(ReceiptOcrEvidenceException.class);
+        verify(transaction, never()).create(any(DocumentReference.class), anyMap());
+    }
+
+    @Test
+    void resolveMenuForSavingsPreventsSwappingRegisteredMenuToAnUnrelatedExpensiveDish() {
+        ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of(
+                "storeId", "store-1",
+                "storeName", "캠퍼스분식",
+                "menu1", "김밥",
+                "price1", "4000",
+                "menu2", "라면",
+                "price2", "4500")));
+
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥", 4000L, true))
+                .isEqualTo("김밥");
+    }
+
+    @Test
     void manualApprovalCannotCreateAVisitWithoutLocationEvidence() {
         when(receipt.exists()).thenReturn(true);
         when(receipt.getString("status")).thenReturn("PENDING");

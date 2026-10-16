@@ -238,8 +238,8 @@ public class SavingsService {
 
     private LocalDate itemDate(SavingsHistoryResponse item) {
         if (item == null) return null;
-        LocalDate date = parseDate(item.getVisitedAt());
-        return date == null ? parseDate(item.getDate()) : date;
+        LocalDate date = parseDate(item.getDate());
+        return date == null ? parseDate(item.getVisitedAt()) : date;
     }
 
     private long savedAmount(SavingsHistoryResponse item) {

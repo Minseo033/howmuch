@@ -373,4 +373,35 @@ void main() {
       }),
     );
   });
+
+  testWidgets(
+    'clears stale estimated savings when payment amount changes and estimate request fails',
+    (tester) async {
+      bool failNextEstimate = false;
+      await http.runWithClient(
+        () async {
+          await prepare(tester, verifyLocation: false, selectReceipt: false);
+          expect(find.text('약 2,500원 절약 예상'), findsOneWidget);
+
+          failNextEstimate = true;
+          await tester.enterText(find.byType(TextField).last, '7000');
+          await tester.pump();
+          expect(find.text('약 2,500원 절약 예상'), findsNothing);
+
+          await tester.pump(const Duration(milliseconds: 500));
+          await tester.pumpAndSettle();
+          expect(find.text('약 2,500원 절약 예상'), findsNothing);
+          expect(find.text('금액 입력 시 자동 계산'), findsOneWidget);
+        },
+        () => MockClient.streaming((request, _) async {
+          if (failNextEstimate) {
+            return response('{"message":"server error"}', statusCode: 500);
+          }
+          return response(
+            '{"savedAmount":2500,"referencePrice":8000,"referencePriceAvailable":true,"sourceLabel":"참가격","basisDate":"2026-10","sampleSize":10}',
+          );
+        }),
+      );
+    },
+  );
 }
