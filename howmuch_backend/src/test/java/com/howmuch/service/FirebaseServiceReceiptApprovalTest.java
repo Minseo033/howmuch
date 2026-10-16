@@ -211,6 +211,8 @@ class FirebaseServiceReceiptApprovalTest {
 
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
                 .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, null))
+                .isEqualTo("");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥", 4000L, true))
                 .isEqualTo("김밥");
     }

@@ -817,6 +817,8 @@
   // 제보 목록은 최신 전체 목록과 대기 목록을 합쳐 보여줍니다. 각 목록이 서버 상한에 닿았는지 기억합니다.
   let reportListCapped = false;
   let pendingListCapped = false;
+  let receiptListCapped = false;
+  let pendingReceiptListCapped = false;
   let keyExpiryTimer = null;
   let adminSessionGeneration = 0;
   let viewLoadGeneration = 0;
@@ -856,7 +858,8 @@
     sentHistory.general = null;
     reportListCapped = false;
     pendingListCapped = false;
-    sessionStorage.removeItem(SEND_DRAFT_STORAGE);
+    receiptListCapped = false;
+    pendingReceiptListCapped = false;
     content.replaceChildren();
     document.querySelectorAll('.modal-backdrop[open]').forEach((dialog) => dialog.close());
   };
@@ -919,6 +922,10 @@
   const reportCapNotice = (withCounts = true) => [
     reportListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 제보만 불러왔습니다${withCounts ? ` · 승인·수정 없음·반려·미분류 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
     pendingListCapped ? `대기 제보도 최신 ${ADMIN_LIST_CAP}건까지만 불러왔습니다 · 처리 후 새로고침하면 나머지가 보입니다` : '',
+  ].filter(Boolean).map((note) => `<span class="cap-note">${note}</span>`).join('');
+  const receiptCapNotice = (withCounts = true) => [
+    receiptListCapped ? `최신 ${ADMIN_LIST_CAP}건과 그보다 오래된 대기 영수증만 불러왔습니다${withCounts ? ` · 승인·반려 탭 건수는 최신 ${ADMIN_LIST_CAP}건 기준` : ''}` : '',
+    pendingReceiptListCapped ? `대기 영수증도 최신 ${ADMIN_LIST_CAP}건까지만 불러왔습니다 · 처리 후 새로고침하면 나머지가 보입니다` : '',
   ].filter(Boolean).map((note) => `<span class="cap-note">${note}</span>`).join('');
 
   const safeImageUrl = (value) => {
@@ -1432,17 +1439,18 @@
   function renderReceiptsView() {
     if (currentView !== 'receipts') return;
     const c = receiptCounts();
+    const pendingCount = c.PENDING ? `${c.PENDING}${pendingReceiptListCapped ? '+' : ''}` : '';
     const pill = $('pendingReceiptPill');
-    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = c.PENDING; }
+    if (c.PENDING > 0) { pill.hidden = false; pill.textContent = pendingCount; }
     else pill.hidden = true;
     const tabsHtml = `<div class="tabs">
-      <button class="tab ${receiptTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${c.PENDING||''}</span></button>
+      <button class="tab ${receiptTab==='PENDING'?'active':''}" data-receipt-status="PENDING">대기<span class="count">${pendingCount}</span></button>
       <button class="tab ${receiptTab==='APPROVED'?'active':''}" data-receipt-status="APPROVED">승인<span class="count">${c.APPROVED||''}</span></button>
       <button class="tab ${receiptTab==='REJECTED'?'active':''}" data-receipt-status="REJECTED">반려<span class="count">${c.REJECTED||''}</span></button>
       <button class="tab ${receiptTab==='ALL'?'active':''}" data-receipt-status="ALL">전체<span class="count">${allReceipts.length||''}</span></button>
     </div>`;
     const filtered = receiptTab === 'ALL' ? allReceipts : allReceipts.filter((r) => r.status === receiptTab);
-    content.innerHTML = listCapNotice(allReceipts) + tabsHtml + (filtered.length
+    content.innerHTML = receiptCapNotice() + tabsHtml + (filtered.length
       ? `<div class="report-list">${filtered.map(receiptCard).join('')}</div>`
       : `<div class="state-box"><div class="state-ico">✓</div><h2>영수증 인증이 없습니다</h2><p>다른 상태 탭을 확인해보세요.</p></div>`);
     wireImageLinks();
@@ -2341,7 +2349,7 @@
         // Never keep stale URLs after the server's post-review deletion policy.
         if (r) { r.imageUrls = []; r.imageCleanupStatus = 'SYNC_PENDING'; }
         receiptsLoaded = false;
-        try { allReceipts = await api('/api/admin/receipts?status=ALL'); receiptsLoaded = true; }
+        try { applyReceiptLists(await fetchReceiptLists()); }
         catch (refreshError) { toast('반려 완료 · 최신 원본 정리 상태는 새로고침으로 확인해주세요'); }
       }
       if (targetType === 'report') overview = null;
@@ -2365,7 +2373,7 @@
       if (receipt) { receipt.status = 'APPROVED'; receipt.visitId = result.visitId; }
       if (receipt) { receipt.imageUrls = []; receipt.imageCleanupStatus = 'SYNC_PENDING'; }
       receiptsLoaded = false;
-      try { allReceipts = await api('/api/admin/receipts?status=ALL'); receiptsLoaded = true; }
+      try { applyReceiptLists(await fetchReceiptLists()); }
       catch (refreshError) { toast('승인 완료 · 최신 원본 정리 상태는 새로고침으로 확인해주세요'); }
       overview = null;
       renderReceiptsView();
@@ -2745,6 +2753,23 @@
     reportsLoaded = true;
   }
 
+  function fetchReceiptLists() {
+    return Promise.all([
+      api('/api/admin/receipts?status=ALL'),
+      api('/api/admin/receipts?status=PENDING'),
+    ]);
+  }
+
+  function applyReceiptLists([all, pending]) {
+    const latest = Array.isArray(all) ? all : [];
+    const waiting = Array.isArray(pending) ? pending : [];
+    const latestIds = new Set(latest.map((receipt) => receipt?.id));
+    allReceipts = [...latest, ...waiting.filter((receipt) => !latestIds.has(receipt?.id))];
+    receiptListCapped = latest.length >= ADMIN_LIST_CAP;
+    pendingReceiptListCapped = waiting.length >= ADMIN_LIST_CAP;
+    receiptsLoaded = true;
+  }
+
   async function loadDashboard() {
     const isCurrent = beginViewLoad();
     renderState('loading');
@@ -2781,10 +2806,9 @@
     const isCurrent = beginViewLoad();
     renderState('loading');
     try {
-      const result = await api('/api/admin/receipts?status=ALL');
+      const result = await fetchReceiptLists();
       if (!isCurrent()) return;
-      allReceipts = result;
-      receiptsLoaded = true;
+      applyReceiptLists(result);
       renderReceiptsView();
     } catch (e) { if (isCurrent()) handleLoadError(e); }
   }
@@ -2926,6 +2950,7 @@
   };
   $('keyInput').onkeydown = (e) => { if (e.key === 'Enter') $('loginBtn').click(); };
   $('logoutBtn').onclick = () => {
+    sessionStorage.removeItem(SEND_DRAFT_STORAGE);
     invalidateAdminSession();
   };
   $('refreshBtn').onclick = refresh;

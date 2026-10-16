@@ -1,6 +1,6 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> **2026-10-16 2차 QA 결함 5건 수정 — 재검증·서버/웹 운영 배포 완료(`95f984e`)**: ① 영수증 OCR 자동 승인 시 제출 메뉴명이 영수증 텍스트에 포함되는지(ocrMenuMatch) 검증하고 매장 등록 메뉴와 다른 고가 메뉴 입력 시 결제 금액 일치 매장 메뉴를 우선 적용해 절약액 부풀리기를 차단했다. ② 할인 영수증에서 승인금액·실결제금액·결제금액을 할인 전 합계·총액보다 우선 인식하도록 개선했다. ③ 방문 기록(GET /api/visits)과 절약 내역(GET /api/savings/history)에 영수증 거래일(visitDate)을 우선 반영해 거래일과 방문 표시 날짜를 일치시켰다. ④ 반려(REJECTED)된 영수증은 정정 재제출 시 409로 막지 않고 동일 문서를 새 접수 상태로 갱신하도록 허용했다. ⑤ 방문 인증 화면에서 결제액·메뉴 변경 즉시 이전 예상 절약액을 비우고 조회 실패 시에도 이전 절약액이 남지 않게 수정했다. GitHub Quality gates `38909979642` 전체 통과 후 Vercel 웹 배포 및 Render 서버(`95f984e`) Live 전환을 확인했다. 상세는 5-149 참조.
+> **2026-10-16 2·3차 QA 결함 및 코드 검토 위험 전수 수정 — 재검증·서버/웹 운영 배포 진행**: 2차 QA 5건(메뉴 변경 부풀리기·할인 영수증·거래일 표시·반려 재제출·예상 절약액 잔류)에 더해 3차 QA 재현 4건 및 구조 위험 4건을 모두 보완했다. ① 영수증 하단 홍보·안내 문구(예: '다음주 삼계탕 행사')를 품목 줄과 분리하고 품목 금액을 대조해 홍보 문구를 통한 메뉴 검증 우회를 차단했으며, 수동 승인 시에도 미검증 메뉴로 절약액이 부풀려지지 않게 막았다. ② 현금 영수증의 '받은 돈·받은 금액·거스름돈·잔돈'을 결제 금액에서 제외해 실제 결제액(8,000원)만 인식하도록 수정했다. ③ 관리자 영수증 화면도 전체(ALL)와 대기(PENDING) 목록을 함께 조회·병합해 처리 완료 500건 뒤의 오래된 대기 영수증이 누락되지 않게 했다. ④ 관리자 세션 만료 시에는 발송 초안 요청 ID(hm_admin_send_drafts)를 보존하고 명시적 로그아웃에서만 비워 만료 후 재시도 시 동일 requestId가 유지되게 했다. ⑤ 반려 영수증 재제출을 Firestore 트랜잭션으로 원자화하고 반려 이력 보존 및 PENDING 상태 이미지 정리 충돌 방지, 관리자 강제 탈퇴의 재로그인 차단·자동 복구 작업 연동, 부분 발송 재시도 공지·알림의 requestId 기반 단일 그룹·일괄 회수를 반영했다. 상세는 5-149 참조.
 
 > **2026-10-15 QA 결함 4건 수정 — 재검증·서버/웹 운영 배포 완료**: 탈퇴를 영구 작업·자동 재시도로 전환하고 401/404 성공 추정을 제거했다. 관리자 제보/영수증 필터 상태를 분리하고, AI 제외 요청을 서버·앱에서 함께 처리하며, 승인된 무료 메뉴의 0→유료 가격 인상을 허용했다. Flutter 전체 951·백엔드 전체 440·Node 67, iOS Simulator 빌드·GitHub CI·공개 웹 파일 검증 통과. 관리자 미분류→영수증 대기 1건 즉시 표시와 최종 서버 `fd1960c`의 접수증 누락/오류 400·없는 접수 404·미인증 POST 401을 운영에서 확인했다. 자세한 변경·API·검증·배포 기록은 5-148에 기록한다. 실제 계정 탈퇴와 운영 테스트 자료 생성은 실행하지 않았다.
 
@@ -2514,9 +2514,14 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 | P2 영수증 거래일과 방문 날짜 불일치 | VisitResponseDto에 visitDate를 추가하고 getUserVisits·getSavingsHistory·SavingsService에서 영수증 거래일(visitDate)을 제출 시각(visitedAt)보다 우선 사용. 앱 VisitHistoryScreen도 visitDate 우선 표시 및 달력 날짜(YYYY-MM-DD)의 시간대 무관 포맷 유지 | 2026-10-14 영수증을 2026-10-16에 제출·승인해도 방문 기록 및 절약 내역에 2026.10.14로 표시 |
 | P2 반려 후 정정 재제출 불가 | receiptVerificationExists에서 REJECTED 상태 영수증은 중복 차단 대상에서 제외하고, saveReceiptVerification에서 본인 소유 REJECTED 영수증 재제출 시 기존 문서를 새 PENDING 접수 내용으로 갱신 | 반려된 영수증 해시 재조회 false 및 정정 입력값 재제출 시 409 없이 문서 갱신 |
 | P2 조회 실패 시 이전 절약액 잔류 | VisitVerificationScreen에서 메뉴·결제 금액 입력 변경 즉시 이전 예상 절약액 상태를 초기화하고, /api/visits/estimate가 비정상 상태 코드를 반환하거나 네트워크 오류가 나도 이전 절약액을 지움 | 초기 2,500원 절약 표시 후 금액 변경 시 즉시 초기화 및 500 오류 응답 후에도 이전 금액 미잔류 확인 |
+| P1 홍보 문구로 메뉴 검증 우회 및 수동 승인 미검증 메뉴 계산 | ReceiptOcrService.matchesMenu에서 홍보·이벤트·안내·합계 줄을 제외하고 실제 가격 숫자(<= 제출 결제액)가 동반된 품목 줄에서만 메뉴명을 대조. FirebaseService.resolveMenuForSavings에서 매장 미등록·OCR 불일치 메뉴는 결제액 일치 등록 메뉴 또는 업종 기준가로만 계산해 수동 승인 시에도 고가 메뉴 부풀리기 차단 | '김밥 4,000원 / 합계 4,000원 / 다음주 삼계탕 행사' 영수증에 삼계탕 제출 시 menuMatch=false·자동 승인 차단 및 미등록 메뉴 빈값 반환 확인 |
+| P2 받은 현금을 결제금액으로 오인 | APPROVAL_PRICE에서 '받은 금액'을 제거하고 '받은 돈·받은 금액·현금 수령액·거스름돈·잔돈'을 비결제 금액으로 분리해 실제 결제액·승인금액(또는 받은 돈 - 거스름돈)을 인식 | '결제액 8,000원 / 받은 돈 10,000원 / 거스름돈 2,000원' 영수증에서 8,000원 정확 인식 |
+| P2 오래된 대기 영수증 누락 | web/admin.html에서 제보 목록과 동일하게 fetchReceiptLists(status=ALL + status=PENDING 병렬 조회) 및 applyReceiptLists로 최신 500건 밖의 대기 영수증을 병합하고 상한 안내(receiptCapNotice) 표시 | 최신 승인 500건 뒤의 오래된 대기 영수증 병합·대기 배지 2건 표시 Node 격리 테스트 통과 |
+| P1 세션 만료 후 발송 재시도 ID 유실 | 관리자 세션 만료(타이머·401 재인증) 시에는 sessionStorage의 hm_admin_send_drafts를 유지하고 명시적 로그아웃 버튼 클릭 시에만 삭제 | 발송 타임아웃 → 세션 만료 → 재로그인 후 동일 내용 재전송 시 기존 requestId 재사용 확인 |
+| 코드 검토 구조 위험 4건 | ① 재제출을 Firestore 트랜잭션으로 원자화해 승인 상태 덮어쓰기 방지 ② 이전 반려 이력(rejectionHistory·아카이브 문서) 보존 및 PENDING 상태 문서에 대한 이전 이미지 정리(cleanupProcessedReceiptImages) 덮어쓰기 차단 ③ 관리자 강제 탈퇴(DELETE /api/admin/users/{uid})도 WithdrawalJobStore.claimForAdmin과 연동해 삭제 중 재로그인 차단(withdrawalPending=true) 및 실패 시 주기적 복구 보장 ④ 부분 발송 후 동일 requestId 재시도 시 알림 문서들을 requestId 기준으로 단일 그룹 묶음 및 일괄 회수 | 백엔드 전체 446개·Node 69개 통과 |
 
 **검증 및 운영 배포 확인**
 
-- 백엔드 전체 444개 테스트(`./gradlew test`), 관련 Flutter 위젯/유닛 테스트 17개, 변경 Dart 파일 `dart analyze` 0건, 웹 릴리스 빌드(`flutter build web --release --no-wasm-dry-run`) 통과.
+- 백엔드 전체 446개 테스트(`./gradlew test`), Node 69개 테스트(`node --test scripts/*.test.mjs`), 관리자 HTML 스크립트 구문 검사, 관련 Flutter 위젯/유닛 테스트 17개, 변경 Dart 파일 `dart analyze` 0건, 웹 릴리스 빌드(`flutter build web --release --no-wasm-dry-run`) 통과.
 - 커밋 `95f984e` 푸시 후 GitHub Actions `Quality gates`([38909979642](https://github.com/Minseo033/howmuch/actions/runs/38909979642))의 백엔드·Flutter 웹·iOS Simulator 빌드·Vercel 웹 배포 및 파일 해시 검증이 모두 통과했다.
-- Render 운영 서버 `/healthz`에서 `status: ok` 및 실행 커밋 `95f984e12c4cc7c7254ff951d774b2f94fe399d1` 반영을 확인했다.
+- Render 운영 서버 `/healthz`에서 1차 `95f984e` 반영 확인 후 3차 QA 보완 커밋을 추가 배포한다.

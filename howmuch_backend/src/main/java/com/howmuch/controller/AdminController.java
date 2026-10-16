@@ -7,6 +7,7 @@ import com.howmuch.service.ReceiptOcrEvidenceException;
 import com.howmuch.service.ReceiptVerificationNotFoundException;
 import com.howmuch.service.SimpleRateLimiter;
 import com.howmuch.service.SessionTokenService;
+import com.howmuch.service.AccountWithdrawalService;
 import com.howmuch.config.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -48,17 +49,27 @@ public class AdminController {
     private final SimpleRateLimiter rateLimiter;
     private final SessionTokenService sessionTokenService;
     private final ClientIpResolver clientIpResolver;
+    private final AccountWithdrawalService accountWithdrawalService;
 
     @Autowired
     public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
                            PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
-                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver) {
+                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver,
+                           AccountWithdrawalService accountWithdrawalService) {
         this.firebaseService = firebaseService;
         this.reportImageStorage = reportImageStorage;
         this.publicDataService = publicDataService;
         this.rateLimiter = rateLimiter;
         this.sessionTokenService = sessionTokenService;
         this.clientIpResolver = clientIpResolver;
+        this.accountWithdrawalService = accountWithdrawalService;
+    }
+
+    public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
+                           PublicDataService publicDataService, SimpleRateLimiter rateLimiter,
+                           SessionTokenService sessionTokenService, ClientIpResolver clientIpResolver) {
+        this(firebaseService, reportImageStorage, publicDataService, rateLimiter,
+                sessionTokenService, clientIpResolver, null);
     }
 
     public AdminController(FirebaseService firebaseService, ReportImageStorage reportImageStorage,
@@ -363,6 +374,11 @@ public class AdminController {
         if (invalidId != null) return invalidId;
 
         try {
+            if (accountWithdrawalService != null) {
+                Map<String, Object> result = accountWithdrawalService.deleteUserAsAdmin(uid);
+                log.warn("[AdminController] 회원 강제 탈퇴 완료");
+                return ResponseEntity.ok(result);
+            }
             // Persist the shared cutoff before deletion. Reversing this order would let a
             // still-running token through another instance if the revocation write failed.
             if (sessionTokenService != null) {

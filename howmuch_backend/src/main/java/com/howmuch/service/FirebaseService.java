@@ -1207,19 +1207,111 @@ public class FirebaseService {
             document.create(data).get();
         } catch (ExecutionException e) {
             if (isAlreadyExists(e)) {
-                DocumentSnapshot existing = document.get().get();
-                if (existing != null && existing.exists()
-                        && "REJECTED".equalsIgnoreCase(existing.getString("status"))
-                        && (existing.getString("userId") == null
-                                || firebaseUid.equals(existing.getString("userId")))) {
-                    document.set(data).get();
-                    return document.getId();
-                }
-                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+                return resubmitRejectedReceipt(document, firebaseUid, data, createdAt);
             }
             throw e;
         }
         return document.getId();
+    }
+
+    @SuppressWarnings("unchecked")
+    private String resubmitRejectedReceipt(
+            DocumentReference document,
+            String firebaseUid,
+            Map<String, Object> nextData,
+            String resubmittedAt) throws Exception {
+        var txFuture = db.runTransaction(transaction -> {
+            DocumentSnapshot existing = transaction.get(document).get();
+            if (existing == null || !existing.exists()
+                    || !"REJECTED".equalsIgnoreCase(existing.getString("status"))
+                    || (existing.getString("userId") != null
+                            && !firebaseUid.equals(existing.getString("userId")))) {
+                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+            }
+            Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
+            long attempt = ((Number) merged.get("resubmissionCount")).longValue();
+            var collection = db.collection("receipt_verifications");
+            if (collection != null) {
+                DocumentReference archiveRef = collection.document(document.getId() + "_rejected_" + attempt);
+                if (archiveRef != null && existing.getData() != null) {
+                    Map<String, Object> archived = new HashMap<>(existing.getData());
+                    archived.put("status", "REJECTED");
+                    archived.put("imageUrls", List.of());
+                    archived.put("imageCleanupStatus", "DELETED");
+                    archived.put("resubmittedAt", resubmittedAt);
+                    archived.put("resubmittedReceiptId", document.getId());
+                    transaction.set(archiveRef, archived);
+                }
+            }
+            transaction.set(document, merged);
+            return stringList(existing.get("imageUrls"));
+        });
+        List<String> previousImageUrls;
+        if (txFuture != null) {
+            try {
+                previousImageUrls = txFuture.get();
+            } catch (ExecutionException txError) {
+                if (txError.getCause() instanceof DuplicateReceiptException dup) {
+                    throw dup;
+                }
+                throw txError;
+            }
+        } else {
+            DocumentSnapshot existing = document.get().get();
+            if (existing == null || !existing.exists()
+                    || !"REJECTED".equalsIgnoreCase(existing.getString("status"))
+                    || (existing.getString("userId") != null
+                            && !firebaseUid.equals(existing.getString("userId")))) {
+                throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
+            }
+            Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
+            document.set(merged).get();
+            previousImageUrls = stringList(existing.get("imageUrls"));
+        }
+        List<String> newUrls = stringList(nextData.get("imageUrls"));
+        List<String> obsoleteUrls = previousImageUrls.stream()
+                .filter(url -> !newUrls.contains(url))
+                .toList();
+        if (!obsoleteUrls.isEmpty()) {
+            try {
+                reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
+            } catch (Exception cleanupError) {
+                log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+            }
+        }
+        return document.getId();
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> buildResubmittedReceiptData(
+            DocumentSnapshot existing,
+            Map<String, Object> nextData,
+            String resubmittedAt) {
+        Map<String, Object> merged = new HashMap<>(nextData);
+        Long prevCount = existing.getLong("resubmissionCount");
+        long nextCount = (prevCount == null ? 0L : prevCount) + 1L;
+        List<Map<String, Object>> history = new ArrayList<>();
+        Object rawHistory = existing.get("rejectionHistory");
+        if (rawHistory instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> map) {
+                    history.add(new HashMap<>((Map<String, Object>) map));
+                }
+            }
+        }
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("attempt", nextCount);
+        entry.put("rejectReason", existing.getString("rejectReason"));
+        entry.put("rejectedBy", existing.getString("rejectedBy"));
+        entry.put("rejectedAt", existing.getString("rejectedAt"));
+        entry.put("menu", existing.getString("menu"));
+        entry.put("price", existing.getLong("price"));
+        entry.put("createdAt", existing.getString("createdAt"));
+        history.add(entry);
+        merged.put("resubmissionCount", nextCount);
+        merged.put("resubmittedAt", resubmittedAt);
+        merged.put("rejectionHistory", history);
+        return merged;
     }
 
     /**
@@ -1482,6 +1574,9 @@ public class FirebaseService {
                 recordReceiptCleanupFailure(receiptRef);
                 return;
             }
+            if (isReceiptCurrentlyPending(receiptRef)) {
+                return;
+            }
             receiptRef.update(Map.of(
                     "imageUrls", List.of(),
                     "imageCleanupStatus", "DELETED",
@@ -1493,6 +1588,18 @@ public class FirebaseService {
         }
     }
 
+    private boolean isReceiptCurrentlyPending(DocumentReference receiptRef) {
+        try {
+            var future = receiptRef.get();
+            if (future == null) return false;
+            DocumentSnapshot current = future.get();
+            return current != null && current.exists()
+                    && "PENDING".equalsIgnoreCase(current.getString("status"));
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
     /** 정리 재시도 상한. 넘으면 FAILED로 바꿔 대기열 앞을 막지 않게 합니다. */
     private static final int MAX_RECEIPT_CLEANUP_ATTEMPTS = 24;
     private static final int RECEIPT_CLEANUP_BATCH = 100;
@@ -1501,6 +1608,10 @@ public class FirebaseService {
     private void recordReceiptCleanupFailure(DocumentReference receiptRef) {
         try {
             DocumentSnapshot current = receiptRef.get().get();
+            if (current != null && current.exists()
+                    && "PENDING".equalsIgnoreCase(current.getString("status"))) {
+                return;
+            }
             Long attempts = current.getLong("imageCleanupAttempts");
             long next = (attempts == null ? 0L : attempts) + 1L;
             receiptRef.update(Map.of(
@@ -1550,6 +1661,9 @@ public class FirebaseService {
     }
 
     private void retryReceiptCleanup(DocumentSnapshot document) {
+        if ("PENDING".equalsIgnoreCase(document.getString("status"))) {
+            return;
+        }
         List<String> imageUrls = stringList(document.get("imageUrls"));
         if (imageUrls.isEmpty()) {
             try {
@@ -2399,7 +2513,9 @@ public class FirebaseService {
         Map<String, Object> store = resolveReviewStore(
                 storeId != null && !storeId.isBlank() ? storeId : storeName,
                 getAllStores());
-        if (store == null) return trimmed;
+        if (store == null) {
+            return Boolean.FALSE.equals(ocrMenuMatch) ? "" : trimmed;
+        }
 
         String normalizedSubmitted = ReferencePrices.normalize(trimmed);
         String priceMatchedMenu = null;
@@ -2420,8 +2536,14 @@ public class FirebaseService {
                 priceMatchedMenu = candidateMenu;
             }
         }
-        if (hasRegisteredMenus && priceMatchedMenu != null && !Boolean.TRUE.equals(ocrMenuMatch)) {
-            return priceMatchedMenu;
+        if (hasRegisteredMenus) {
+            if (priceMatchedMenu != null) {
+                return priceMatchedMenu;
+            }
+            return "";
+        }
+        if (Boolean.FALSE.equals(ocrMenuMatch)) {
+            return "";
         }
         return trimmed;
     }
@@ -4931,7 +5053,7 @@ public class FirebaseService {
             }
             // BE-CORE-23: 요청 ID와 회원으로 정한 문서 ID라 시간 초과 뒤 재요청해도 이미 받은 회원은 건너뜁니다.
             String notificationId = "admin_" + requestId + "_" + sha256Hex(uid).substring(0, 24);
-            if (createNotificationIfAbsent(notificationId, uid, title, body, type, createdAt, deliverPush)) sent++;
+            if (createNotificationIfAbsent(notificationId, uid, title, body, type, createdAt, deliverPush, requestId)) sent++;
             else skipped++;
         }
         Map<String, Object> result = new HashMap<>();
@@ -4950,7 +5072,8 @@ public class FirebaseService {
             String body,
             String type,
             String createdAt,
-            boolean deliverPush) throws Exception {
+            boolean deliverPush,
+            String requestId) throws Exception {
         Map<String, Object> data = new HashMap<>();
         data.put("userId", userId);
         data.put("title", title);
@@ -4958,6 +5081,9 @@ public class FirebaseService {
         data.put("type", type);
         data.put("isRead", false);
         data.put("createdAt", createdAt);
+        if (requestId != null && !requestId.isBlank()) {
+            data.put("requestId", requestId);
+        }
         try {
             db.collection("notifications").document(notificationId).create(data).get();
         } catch (ExecutionException exception) {
@@ -5011,6 +5137,19 @@ public class FirebaseService {
     /** 회수 ID: 발송 시각(createdAt) ~ 유형·제목·내용 해시 16자리. */
     private static final java.util.regex.Pattern ADMIN_MESSAGE_ID =
             java.util.regex.Pattern.compile("([0-9][0-9T:.+\\-]{8,38}Z?)~([0-9a-f]{16})");
+    private static final java.util.regex.Pattern ADMIN_NOTIFICATION_DOC_ID =
+            java.util.regex.Pattern.compile("^admin_([A-Za-z0-9_-]{8,64})_[0-9a-f]{24}$");
+
+    private static String extractAdminRequestId(String docId, Map<String, Object> data) {
+        if (data != null && data.get("requestId") instanceof String reqId && !reqId.isBlank()) {
+            return reqId.trim();
+        }
+        if (docId != null) {
+            java.util.regex.Matcher m = ADMIN_NOTIFICATION_DOC_ID.matcher(docId);
+            if (m.matches()) return m.group(1);
+        }
+        return null;
+    }
 
     /**
      * 관리자가 보낸 공지·알림 목록입니다. 공지·알림은 별도 원본 없이 회원마다 notifications 문서로 복제되고,
@@ -5022,6 +5161,7 @@ public class FirebaseService {
                 .limit(ADMIN_MESSAGE_SCAN_LIMIT)
                 .get().get().getDocuments();
         Map<String, AdminMessageGroup> groups = new LinkedHashMap<>();
+        Map<String, String> requestGroupIdByKey = new HashMap<>();
         for (DocumentSnapshot document : documents) {
             Map<String, Object> data = document.getData();
             if (data == null || !(data.get("createdAt") instanceof String createdAt) || createdAt.isBlank()) continue;
@@ -5029,7 +5169,15 @@ public class FirebaseService {
             if (!kind.types().contains(type)) continue;
             String title = data.get("title") == null ? "" : data.get("title").toString();
             String body = data.get("body") == null ? "" : data.get("body").toString();
-            String id = adminMessageId(createdAt, type, title, body);
+            String requestId = extractAdminRequestId(document.getId(), data);
+            String id;
+            if (requestId != null) {
+                String reqKey = requestId + "\n" + type + "\n" + title + "\n" + body;
+                id = requestGroupIdByKey.computeIfAbsent(
+                        reqKey, k -> adminMessageId(createdAt, type, title, body));
+            } else {
+                id = adminMessageId(createdAt, type, title, body);
+            }
             groups.computeIfAbsent(id, key -> new AdminMessageGroup(key, type, title, body, createdAt))
                     .add(strOrNull(data.get("userId")), Boolean.TRUE.equals(parseBooleanSafely(data.get("isRead"))));
         }
@@ -5053,6 +5201,11 @@ public class FirebaseService {
         if (!matcher.matches()) throw new IllegalArgumentException("회수할 공지·알림 ID 형식이 올바르지 않습니다.");
         String createdAt = matcher.group(1);
         List<DocumentReference> targets = new ArrayList<>();
+        Set<String> targetDocIds = new LinkedHashSet<>();
+        Set<String> matchedRequestIds = new LinkedHashSet<>();
+        String matchedType = null;
+        String matchedTitle = null;
+        String matchedBody = null;
         for (DocumentSnapshot document : db.collection("notifications")
                 .whereEqualTo("createdAt", createdAt).get().get().getDocuments()) {
             Map<String, Object> data = document.getData();
@@ -5061,7 +5214,34 @@ public class FirebaseService {
             if (!kind.types().contains(type)) continue;
             String title = data.get("title") == null ? "" : data.get("title").toString();
             String body = data.get("body") == null ? "" : data.get("body").toString();
-            if (messageId.equals(adminMessageId(createdAt, type, title, body))) targets.add(document.getReference());
+            if (messageId.equals(adminMessageId(createdAt, type, title, body))) {
+                targets.add(document.getReference());
+                if (document.getId() != null) targetDocIds.add(document.getId());
+                String reqId = extractAdminRequestId(document.getId(), data);
+                if (reqId != null) matchedRequestIds.add(reqId);
+                matchedType = type;
+                matchedTitle = title;
+                matchedBody = body;
+            }
+        }
+        for (String reqId : matchedRequestIds) {
+            var byReqQuery = db.collection("notifications").whereEqualTo("requestId", reqId);
+            if (byReqQuery == null) continue;
+            var byReqFuture = byReqQuery.get();
+            if (byReqFuture == null) continue;
+            for (DocumentSnapshot document : byReqFuture.get().getDocuments()) {
+                if (document.getId() != null && !targetDocIds.add(document.getId())) continue;
+                Map<String, Object> data = document.getData();
+                if (data == null) continue;
+                String type = String.valueOf(data.get("type"));
+                String title = data.get("title") == null ? "" : data.get("title").toString();
+                String body = data.get("body") == null ? "" : data.get("body").toString();
+                if (java.util.Objects.equals(matchedType, type)
+                        && java.util.Objects.equals(matchedTitle, title)
+                        && java.util.Objects.equals(matchedBody, body)) {
+                    targets.add(document.getReference());
+                }
+            }
         }
         if (targets.isEmpty()) throw new NoSuchElementException("이미 회수했거나 찾을 수 없는 공지·알림입니다.");
         // 한 배치는 500건까지라 나눠 지웁니다. 중간에 실패하면 남은 문서는 같은 ID로 다시 회수할 수 있습니다.

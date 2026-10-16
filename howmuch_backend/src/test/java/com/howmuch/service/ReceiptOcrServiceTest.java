@@ -70,6 +70,15 @@ class ReceiptOcrServiceTest {
         assertThat(matched.menuMatch()).isTrue();
         assertThat(matched.score()).isEqualTo(100);
         assertThat(matched.shouldAutoApprove()).isTrue();
+
+        ReceiptOcrService.Result promoBypassAttempt = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n김밥 4,000원\n합계 4,000원\n다음주 삼계탕 행사",
+                "캠퍼스분식",
+                "삼계탕",
+                4_000L,
+                LocalDate.of(2026, 10, 16));
+        assertThat(promoBypassAttempt.menuMatch()).isFalse();
+        assertThat(promoBypassAttempt.shouldAutoApprove()).isFalse();
     }
 
     @Test
@@ -84,6 +93,16 @@ class ReceiptOcrServiceTest {
         assertThat(result.detectedPrice()).isEqualTo(8_000L);
         assertThat(result.labeledPrice()).isTrue();
         assertThat(result.priceMatch()).isTrue();
+
+        ReceiptOcrService.Result cashReceipt = service.analyzeText(
+                "캠퍼스분식\n2026-10-14\n돈까스 8,000원\n결제액 8,000원\n받은 돈 10,000원\n거스름돈 2,000원",
+                "캠퍼스분식",
+                "돈까스",
+                8_000L,
+                LocalDate.of(2026, 10, 16));
+        assertThat(cashReceipt.detectedPrice()).isEqualTo(8_000L);
+        assertThat(cashReceipt.priceMatch()).isTrue();
+        assertThat(cashReceipt.shouldAutoApprove()).isTrue();
     }
 
     @Test

@@ -193,6 +193,7 @@ class FirebaseServiceReceiptDuplicateVisitTest {
         when(rejectedSnapshot.getString("status")).thenReturn("REJECTED");
         when(rejectedSnapshot.getString("userId")).thenReturn("user-1");
         when(existingReceiptRef.get()).thenReturn(ApiFutures.immediateFuture(rejectedSnapshot));
+        when(transaction.get(existingReceiptRef)).thenReturn(ApiFutures.immediateFuture(rejectedSnapshot));
         when(existingReceiptRef.create(anyMap())).thenReturn(ApiFutures.immediateFailedFuture(alreadyExists));
         when(existingReceiptRef.set(anyMap())).thenReturn(ApiFutures.immediateFuture(writeResult));
         when(existingReceiptRef.getId()).thenReturn("receipt_" + "c".repeat(64));
@@ -207,7 +208,7 @@ class FirebaseServiceReceiptDuplicateVisitTest {
                 new com.howmuch.dto.VisitLocationEvidence(25, 5));
 
         assertThat(id).isEqualTo("receipt_" + "c".repeat(64));
-        verify(existingReceiptRef).set(anyMap());
+        verify(transaction).set(eq(existingReceiptRef), anyMap());
     }
 
     @Test

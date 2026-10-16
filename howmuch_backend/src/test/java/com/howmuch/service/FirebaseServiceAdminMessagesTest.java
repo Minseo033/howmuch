@@ -69,6 +69,39 @@ class FirebaseServiceAdminMessagesTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void partialBroadcastRetriedWithSameRequestIdGroupsAndRecallsTogether() throws Exception {
+        QueryDocumentSnapshot first = doc("admin_req-retry-01_0123456789abcdef01234567",
+                Map.of("userId", "u1", "type", "notice", "title", "점검 안내", "body", "내일 점검합니다.",
+                        "createdAt", NOTICE_AT, "isRead", false, "requestId", "req-retry-01"));
+        QueryDocumentSnapshot second = doc("admin_req-retry-01_fedcba9876543210fedcba98",
+                Map.of("userId", "u2", "type", "notice", "title", "점검 안내", "body", "내일 점검합니다.",
+                        "createdAt", "2026-09-10T06:01:00.000000Z", "isRead", true, "requestId", "req-retry-01"));
+        stubNoticeScan(List.of(first, second));
+
+        Map<String, Object> listed = service.listAdminMessages(FirebaseService.AdminMessageKind.NOTICE);
+        List<Map<String, Object>> items = (List<Map<String, Object>>) listed.get("items");
+        assertThat(items).hasSize(1);
+        assertThat(items.getFirst()).containsEntry("recipients", 2).containsEntry("readCount", 1);
+
+        String id = String.valueOf(items.getFirst().get("id"));
+        stubSameTime(List.of(first));
+        Query byReq = mock(Query.class);
+        QuerySnapshot byReqSnapshot = mock(QuerySnapshot.class);
+        when(notifications.whereEqualTo("requestId", "req-retry-01")).thenReturn(byReq);
+        when(byReq.get()).thenReturn(ApiFutures.immediateFuture(byReqSnapshot));
+        when(byReqSnapshot.getDocuments()).thenReturn(List.of(first, second));
+        WriteBatch batch = mock(WriteBatch.class);
+        when(db.batch()).thenReturn(batch);
+        when(batch.commit()).thenReturn(ApiFutures.immediateFuture(List.of()));
+
+        Map<String, Object> recalled = service.recallAdminMessage(FirebaseService.AdminMessageKind.NOTICE, id);
+        assertThat(recalled).containsEntry("deleted", 2);
+        verify(batch).delete(first.getReference());
+        verify(batch).delete(second.getReference());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void recallingANoticeDeletesOnlyThatBroadcastFromEveryInbox() throws Exception {
         QueryDocumentSnapshot first = doc("n1", notice("u1", "점검 안내", "내일 점검합니다.", NOTICE_AT, true));
         QueryDocumentSnapshot second = doc("n2", notice("u2", "점검 안내", "내일 점검합니다.", NOTICE_AT, false));

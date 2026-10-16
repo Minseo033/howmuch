@@ -62,7 +62,7 @@ function harness(fetchImpl, { crypto } = {}) {
     renderReviewsView = () => rendered.push('reviews');
     renderNoticesView = () => rendered.push('notices');
     globalThis.admin = { api, switchView, loadReports, handleError, rendered, original,
-      reportCounts,
+      reportCounts, receiptCounts, loadReceipts, renderReceiptsView,
       fmtPrice, reportCard, receiptCard, inquiryOriginal, resolutionSummary,
       openUserActivity, openDeleteReportModal, doDeleteReport,
       doSendNotification, doPublishNotice, doApprove,
@@ -83,7 +83,7 @@ function harness(fetchImpl, { crypto } = {}) {
         adminSessionGeneration += 1;
         sessionStorage.setItem(KEY_STORAGE, JSON.stringify({ key: 'new-key', savedAt: Date.now() }));
       },
-      state: () => ({ allReports, reportsLoaded, currentView, adminSessionGeneration, allComments }),
+      state: () => ({ allReports, reportsLoaded, allReceipts, receiptsLoaded, currentView, adminSessionGeneration, allComments }),
     };
   `;
   vm.runInContext(source.replace(/\n  boot\(\);\n\}\)\(\);\s*$/, `\n${exports}\n})();`), context);
@@ -380,6 +380,42 @@ test('timed-out broadcast keeps one request ID for the same draft and never asks
   assert.notEqual(bodies[3].body.requestId, bodies[2].body.requestId, 'changed content needs a new request ID');
   el('logoutBtn').onclick();
   assert.equal(storage.has('hm_admin_send_drafts'), false, 'logout must drop unsent drafts');
+});
+
+test('session expiry preserves the broadcast draft ID so re-login retry does not duplicate', async () => {
+  let mode = 'timeout';
+  const { admin, bodies, timers, storage, sendNotification } = notificationHarness((options) => (mode === 'timeout'
+    ? timeoutUntilAbort(options)
+    : Promise.resolve({ ok: true, status: 200, json: async () => ({ sent: 0, skipped: 3, broadcast: true }) })));
+  const first = sendNotification('점검 안내', '오늘 밤 점검합니다');
+  await flush();
+  [...timers.values()].find((timer) => timer.ms === 45000).callback();
+  await first;
+  const firstId = bodies[0].body.requestId;
+  admin.invalidateAdminSession('관리자 세션이 만료되었습니다. 다시 로그인해주세요.');
+  assert.ok(storage.has('hm_admin_send_drafts'), 'session expiry must preserve unsent draft IDs');
+  admin.newSession();
+  mode = 'done';
+  await sendNotification('점검 안내', '오늘 밤 점검합니다');
+  assert.equal(bodies[1].body.requestId, firstId, 'retrying after session expiry must reuse the same request ID');
+});
+
+test('pending receipts older than the latest 500 processed receipts stay reviewable with a cap note', async () => {
+  const latest = Array.from({ length: 500 }, (_, i) => ({ id: `r-${i}`, status: 'APPROVED', storeName: `매장 ${i}`, price: '7000' }));
+  latest[0] = { id: 'r-0', status: 'PENDING', storeName: '최근 대기 영수증', price: '7000' };
+  const waiting = [{ ...latest[0] }, { id: 'old-pending-receipt', status: 'PENDING', storeName: '오래된 대기 영수증', price: '8000' }];
+  const requested = [];
+  const { admin, el } = harness(async (url) => {
+    requested.push(url);
+    return { ok: true, status: 200, json: async () => (url.includes('status=PENDING') ? waiting : latest) };
+  });
+  await admin.switchView('receipts');
+  assert.ok(requested.some((url) => url.endsWith('/api/admin/receipts?status=PENDING')));
+  assert.deepEqual([...admin.state().allReceipts.filter((r) => r.status === 'PENDING').map((r) => r.id)], ['r-0', 'old-pending-receipt']);
+  assert.equal(admin.state().allReceipts.length, 501);
+  assert.equal(el('pendingReceiptPill').textContent, '2');
+  assert.match(el('content').innerHTML, /오래된 대기 영수증/);
+  assert.match(el('content').innerHTML, /최신 500건과 그보다 오래된 대기 영수증만 불러왔습니다/);
 });
 
 test('timed-out notice reuses its request ID and explains that resending is safe', async () => {
