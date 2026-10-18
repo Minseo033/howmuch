@@ -84,6 +84,23 @@ class WithdrawalJobStoreTest {
     }
 
     @Test
+    void adminSubmissionKeepsAuthDrainAndNeverOverwritesAnActiveLease() throws Exception {
+        var store = new WithdrawalJobStore(db);
+        var job = store.submitForAdmin("user", ID, 200);
+        assertThat(job.state()).isEqualTo("PENDING");
+        assertThat(job.nextAttemptAt()).isEqualTo(200 + WithdrawalJobStore.AUTH_DRAIN_MILLIS);
+        assertThat(job.leaseOwner()).isEmpty();
+        assertThat(session()).containsEntry("withdrawalPending", true).containsEntry("revokedAfter", 200L);
+
+        long due = job.nextAttemptAt();
+        var claimed = store.claim(job, due);
+        assertThat(claimed).isNotNull();
+        var secondAdminCall = store.submitForAdmin("user", "00000000-0000-4000-8000-000000000009", due + 10);
+        assertThat(secondAdminCall.leaseOwner()).isEqualTo(claimed.leaseOwner());
+        assertThat(secondAdminCall.requestId()).isEqualTo(claimed.requestId());
+    }
+
+    @Test
     void statusReceiptContainsNoUserIdentityAndRejectsGuessableIds() {
         var job = new WithdrawalJobStore.Job("private-uid", ID, "PENDING", 0, 0, 0, "");
         assertThat(job.response()).doesNotContainKey("uid").containsEntry("requestId", ID);

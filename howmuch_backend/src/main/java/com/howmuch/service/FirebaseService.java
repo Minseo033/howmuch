@@ -1185,6 +1185,7 @@ public class FirebaseService {
         data.put("imageUrls", imageUrls);
         data.put("status", "PENDING");
         data.put("createdAt", createdAt);
+        data.put("submissionVersion", 1L);
         data.put("visitDate", visitDate.toString());
         data.put("verificationDistanceMeters", locationEvidence.distanceMeters());
         data.put("locationAccuracyMeters", locationEvidence.accuracyMeters());
@@ -1220,6 +1221,7 @@ public class FirebaseService {
             String firebaseUid,
             Map<String, Object> nextData,
             String resubmittedAt) throws Exception {
+        final DocumentReference[] archiveRefHolder = new DocumentReference[1];
         var txFuture = db.runTransaction(transaction -> {
             DocumentSnapshot existing = transaction.get(document).get();
             if (existing == null || !existing.exists()
@@ -1230,26 +1232,30 @@ public class FirebaseService {
             }
             Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
             long attempt = ((Number) merged.get("resubmissionCount")).longValue();
+            List<String> oldUrls = stringList(existing.get("imageUrls"));
+            List<String> newUrls = stringList(nextData.get("imageUrls"));
+            List<String> obsoleteUrls = oldUrls.stream().filter(url -> !newUrls.contains(url)).toList();
             var collection = db.collection("receipt_verifications");
             if (collection != null) {
                 DocumentReference archiveRef = collection.document(document.getId() + "_rejected_" + attempt);
+                archiveRefHolder[0] = archiveRef;
                 if (archiveRef != null && existing.getData() != null) {
                     Map<String, Object> archived = new HashMap<>(existing.getData());
                     archived.put("status", "REJECTED");
-                    archived.put("imageUrls", List.of());
-                    archived.put("imageCleanupStatus", "DELETED");
+                    archived.put("imageUrls", obsoleteUrls);
+                    archived.put("imageCleanupStatus", obsoleteUrls.isEmpty() ? "DELETED" : "PENDING");
                     archived.put("resubmittedAt", resubmittedAt);
                     archived.put("resubmittedReceiptId", document.getId());
                     transaction.set(archiveRef, archived);
                 }
             }
             transaction.set(document, merged);
-            return stringList(existing.get("imageUrls"));
+            return obsoleteUrls;
         });
-        List<String> previousImageUrls;
+        List<String> obsoleteUrls;
         if (txFuture != null) {
             try {
-                previousImageUrls = txFuture.get();
+                obsoleteUrls = txFuture.get();
             } catch (ExecutionException txError) {
                 if (txError.getCause() instanceof DuplicateReceiptException dup) {
                     throw dup;
@@ -1266,17 +1272,19 @@ public class FirebaseService {
             }
             Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
             document.set(merged).get();
-            previousImageUrls = stringList(existing.get("imageUrls"));
+            List<String> oldUrls = stringList(existing.get("imageUrls"));
+            List<String> newUrls = stringList(nextData.get("imageUrls"));
+            obsoleteUrls = oldUrls.stream().filter(url -> !newUrls.contains(url)).toList();
         }
-        List<String> newUrls = stringList(nextData.get("imageUrls"));
-        List<String> obsoleteUrls = previousImageUrls.stream()
-                .filter(url -> !newUrls.contains(url))
-                .toList();
         if (!obsoleteUrls.isEmpty()) {
-            try {
-                reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
-            } catch (Exception cleanupError) {
-                log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+            if (archiveRefHolder[0] != null) {
+                cleanupProcessedReceiptImages(archiveRefHolder[0], firebaseUid, obsoleteUrls);
+            } else {
+                try {
+                    reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
+                } catch (Exception cleanupError) {
+                    log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+                }
             }
         }
         return document.getId();
@@ -1309,6 +1317,7 @@ public class FirebaseService {
         entry.put("createdAt", existing.getString("createdAt"));
         history.add(entry);
         merged.put("resubmissionCount", nextCount);
+        merged.put("submissionVersion", nextCount + 1L);
         merged.put("resubmittedAt", resubmittedAt);
         merged.put("rejectionHistory", history);
         return merged;
@@ -1396,6 +1405,11 @@ public class FirebaseService {
 
     /** 접수 시 확인한 위치와 승인된 영수증을 함께 검증한 후 방문 기록을 생성합니다. */
     public Map<String, Object> approveReceiptVerification(String receiptId, String approvedBy) throws Exception {
+        return approveReceiptVerification(receiptId, approvedBy, null, null);
+    }
+
+    public Map<String, Object> approveReceiptVerification(
+            String receiptId, String approvedBy, Long expectedVersion, String expectedCreatedAt) throws Exception {
         if (receiptId == null || receiptId.isBlank()) {
             throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
         }
@@ -1411,6 +1425,7 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt);
 
                 if (!isManualApproval(approvedBy)) {
                     requireUsableReceiptOcrEvidence(snapshot);
@@ -1502,6 +1517,11 @@ public class FirebaseService {
     }
 
     public void rejectReceiptVerification(String receiptId, String reason, String rejectedBy) throws Exception {
+        rejectReceiptVerification(receiptId, reason, rejectedBy, null, null);
+    }
+
+    public void rejectReceiptVerification(
+            String receiptId, String reason, String rejectedBy, Long expectedVersion, String expectedCreatedAt) throws Exception {
         if (receiptId == null || receiptId.isBlank()) {
             throw new IllegalArgumentException("영수증 인증 ID가 필요합니다.");
         }
@@ -1517,6 +1537,7 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt);
                 List<String> imageUrls = stringList(snapshot.get("imageUrls"));
                 Map<String, Object> receiptUpdate = new HashMap<>();
                 receiptUpdate.put("status", "REJECTED");
@@ -1557,6 +1578,27 @@ public class FirebaseService {
         return "ADMIN".equalsIgnoreCase(approvedBy);
     }
 
+    private static void verifyReceiptSubmissionVersion(
+            DocumentSnapshot snapshot, Long expectedVersion, String expectedCreatedAt) {
+        if (expectedVersion != null) {
+            Long storedVersion = snapshot.getLong("submissionVersion");
+            if (storedVersion == null) {
+                Long resubCount = snapshot.getLong("resubmissionCount");
+                storedVersion = (resubCount == null ? 0L : resubCount) + 1L;
+            }
+            if (!expectedVersion.equals(storedVersion)) {
+                throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
+            }
+        }
+        if (expectedCreatedAt != null && !expectedCreatedAt.isBlank()) {
+            String currentCreatedAt = snapshot.getString("createdAt");
+            if (currentCreatedAt != null && !currentCreatedAt.isBlank()
+                    && !expectedCreatedAt.trim().equals(currentCreatedAt.trim())) {
+                throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
+            }
+        }
+    }
+
     private record ReceiptApprovalResult(
             String userId, List<String> imageUrls, String visitId) { }
 
@@ -1571,33 +1613,32 @@ public class FirebaseService {
             if (deleted < uniqueUrls.size()) {
                 log.warn("처리된 영수증 이미지 일부를 정리하지 못했습니다. receiptId={}, deleted={}/{}",
                         receiptRef.getId(), deleted, uniqueUrls.size());
-                recordReceiptCleanupFailure(receiptRef);
+                recordReceiptCleanupFailure(receiptRef, imageUrls);
                 return;
             }
-            if (isReceiptCurrentlyPending(receiptRef)) {
-                return;
-            }
-            receiptRef.update(Map.of(
-                    "imageUrls", List.of(),
-                    "imageCleanupStatus", "DELETED",
-                    "imageDeletedAt", java.time.Instant.now().toString()
-            )).get();
+            markReceiptImagesDeletedIfUnchanged(receiptRef, imageUrls);
         } catch (Exception e) {
             log.warn("처리된 영수증 이미지 정리에 실패했습니다. receiptId={}", receiptRef.getId(), e);
-            recordReceiptCleanupFailure(receiptRef);
+            recordReceiptCleanupFailure(receiptRef, imageUrls);
         }
     }
 
-    private boolean isReceiptCurrentlyPending(DocumentReference receiptRef) {
-        try {
-            var future = receiptRef.get();
-            if (future == null) return false;
+    private void markReceiptImagesDeletedIfUnchanged(DocumentReference receiptRef, List<String> cleanedUrls) throws Exception {
+        Map<String, Object> update = Map.of(
+                "imageUrls", List.of(),
+                "imageCleanupStatus", "DELETED",
+                "imageDeletedAt", java.time.Instant.now().toString()
+        );
+        var future = receiptRef.get();
+        if (future != null) {
             DocumentSnapshot current = future.get();
-            return current != null && current.exists()
-                    && "PENDING".equalsIgnoreCase(current.getString("status"));
-        } catch (Exception ignored) {
-            return false;
+            if (current != null && current.exists()) {
+                if ("PENDING".equalsIgnoreCase(current.getString("status"))) return;
+                List<String> currentUrls = stringList(current.get("imageUrls"));
+                if (!currentUrls.isEmpty() && !currentUrls.equals(cleanedUrls)) return;
+            }
         }
+        receiptRef.update(update).get();
     }
 
     /** 정리 재시도 상한. 넘으면 FAILED로 바꿔 대기열 앞을 막지 않게 합니다. */
@@ -1605,12 +1646,18 @@ public class FirebaseService {
     private static final int RECEIPT_CLEANUP_BATCH = 100;
     private volatile boolean legacyReceiptCleanupSwept = false;
 
-    private void recordReceiptCleanupFailure(DocumentReference receiptRef) {
+    private void recordReceiptCleanupFailure(DocumentReference receiptRef, List<String> expectedUrls) {
         try {
             DocumentSnapshot current = receiptRef.get().get();
             if (current != null && current.exists()
                     && "PENDING".equalsIgnoreCase(current.getString("status"))) {
                 return;
+            }
+            if (current != null && current.exists()) {
+                List<String> currentUrls = stringList(current.get("imageUrls"));
+                if (!currentUrls.isEmpty() && expectedUrls != null && !currentUrls.equals(expectedUrls)) {
+                    return;
+                }
             }
             Long attempts = current.getLong("imageCleanupAttempts");
             long next = (attempts == null ? 0L : attempts) + 1L;
@@ -2519,26 +2566,38 @@ public class FirebaseService {
 
         String normalizedSubmitted = ReferencePrices.normalize(trimmed);
         String priceMatchedMenu = null;
+        String nameAndPriceMatchedMenu = null;
+        String unpricedNameMatchedMenu = null;
         boolean hasRegisteredMenus = false;
         for (int i = 1; i <= 4; i++) {
             String candidateMenu = strOrNull(store.get("menu" + i));
             if (candidateMenu == null || candidateMenu.isBlank()) continue;
             hasRegisteredMenus = true;
             String normalizedCandidate = ReferencePrices.normalize(candidateMenu);
-            if (!normalizedSubmitted.isEmpty()
-                    && (normalizedCandidate.equals(normalizedSubmitted)
-                            || normalizedCandidate.contains(normalizedSubmitted)
-                            || normalizedSubmitted.contains(normalizedCandidate))) {
-                return candidateMenu;
-            }
             Long candidatePrice = WonPrice.exactPositive(store.get("price" + i));
             if (priceMatchedMenu == null && candidatePrice != null && candidatePrice == price) {
                 priceMatchedMenu = candidateMenu;
             }
+            if (!normalizedSubmitted.isEmpty()
+                    && (normalizedCandidate.equals(normalizedSubmitted)
+                            || normalizedCandidate.contains(normalizedSubmitted)
+                            || normalizedSubmitted.contains(normalizedCandidate))) {
+                if (candidatePrice != null && candidatePrice == price) {
+                    nameAndPriceMatchedMenu = candidateMenu;
+                } else if (candidatePrice == null && Boolean.TRUE.equals(ocrMenuMatch)) {
+                    unpricedNameMatchedMenu = candidateMenu;
+                }
+            }
         }
         if (hasRegisteredMenus) {
+            if (nameAndPriceMatchedMenu != null) {
+                return nameAndPriceMatchedMenu;
+            }
             if (priceMatchedMenu != null) {
                 return priceMatchedMenu;
+            }
+            if (unpricedNameMatchedMenu != null) {
+                return unpricedNameMatchedMenu;
             }
             return "";
         }
@@ -5026,7 +5085,7 @@ public class FirebaseService {
         if (requestId != null && !isValidAdminRequestId(requestId)) {
             throw new IllegalArgumentException("요청 ID 형식이 올바르지 않습니다.");
         }
-        String createdAt = java.time.Instant.now().toString();
+        String createdAt = resolveOrRegisterBroadcastCreatedAt(requestId, type, title, body);
         int sent = 0;
         int skipped = 0;
         List<String> targetUids = new ArrayList<>();
@@ -5053,8 +5112,16 @@ public class FirebaseService {
             }
             // BE-CORE-23: 요청 ID와 회원으로 정한 문서 ID라 시간 초과 뒤 재요청해도 이미 받은 회원은 건너뜁니다.
             String notificationId = "admin_" + requestId + "_" + sha256Hex(uid).substring(0, 24);
-            if (createNotificationIfAbsent(notificationId, uid, title, body, type, createdAt, deliverPush, requestId)) sent++;
-            else skipped++;
+            String existingCreatedAt = createNotificationIfAbsentReturningExistingCreatedAt(
+                    notificationId, uid, title, body, type, createdAt, deliverPush, requestId);
+            if (existingCreatedAt == null) {
+                sent++;
+            } else {
+                skipped++;
+                if (!existingCreatedAt.isBlank()) {
+                    createdAt = existingCreatedAt;
+                }
+            }
         }
         Map<String, Object> result = new HashMap<>();
         result.put("sent", sent);
@@ -5074,6 +5141,20 @@ public class FirebaseService {
             String createdAt,
             boolean deliverPush,
             String requestId) throws Exception {
+        return createNotificationIfAbsentReturningExistingCreatedAt(
+                notificationId, userId, title, body, type, createdAt, deliverPush, requestId) == null;
+    }
+
+    /** 새 문서를 만들면 null, 이미 있으면 기존 문서의 createdAt(없으면 빈 문자열)을 돌려줍니다. */
+    private String createNotificationIfAbsentReturningExistingCreatedAt(
+            String notificationId,
+            String userId,
+            String title,
+            String body,
+            String type,
+            String createdAt,
+            boolean deliverPush,
+            String requestId) throws Exception {
         Map<String, Object> data = new HashMap<>();
         data.put("userId", userId);
         data.put("title", title);
@@ -5084,14 +5165,59 @@ public class FirebaseService {
         if (requestId != null && !requestId.isBlank()) {
             data.put("requestId", requestId);
         }
+        DocumentReference docRef = db.collection("notifications").document(notificationId);
         try {
-            db.collection("notifications").document(notificationId).create(data).get();
+            docRef.create(data).get();
         } catch (ExecutionException exception) {
-            if (isAlreadyExists(exception)) return false;
+            if (isAlreadyExists(exception)) {
+                try {
+                    var snapFuture = docRef.get();
+                    if (snapFuture != null) {
+                        DocumentSnapshot existing = snapFuture.get();
+                        if (existing != null && existing.exists() && existing.getString("createdAt") != null) {
+                            return existing.getString("createdAt");
+                        }
+                    }
+                } catch (Exception ignored) {}
+                return "";
+            }
             throw exception;
         }
         if (deliverPush) dispatchPushNotification(userId, notificationId, title, body, type);
-        return true;
+        return null;
+    }
+
+    private String resolveOrRegisterBroadcastCreatedAt(
+            String requestId, String type, String title, String body) throws Exception {
+        String now = java.time.Instant.now().toString();
+        if (requestId == null || requestId.isBlank()) return now;
+        var broadcasts = db.collection("admin_broadcasts");
+        if (broadcasts == null) return now;
+        DocumentReference ref = broadcasts.document(requestId);
+        if (ref == null) return now;
+        var snapFuture = ref.get();
+        if (snapFuture != null) {
+            DocumentSnapshot existing = snapFuture.get();
+            if (existing != null && existing.exists()) {
+                if (Boolean.TRUE.equals(existing.getBoolean("recalled"))) {
+                    throw new IllegalStateException("이미 회수된 발송 요청입니다. 새 내용으로 다시 발송해주세요.");
+                }
+                String existingCreatedAt = existing.getString("createdAt");
+                if (existingCreatedAt != null && !existingCreatedAt.isBlank()) {
+                    return existingCreatedAt;
+                }
+            }
+        }
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("requestId", requestId);
+        meta.put("createdAt", now);
+        meta.put("type", type);
+        meta.put("title", title);
+        meta.put("body", body);
+        meta.put("recalled", false);
+        var setFuture = ref.set(meta);
+        if (setFuture != null) setFuture.get();
+        return now;
     }
 
     private void createNotificationForUser(
@@ -5200,7 +5326,8 @@ public class FirebaseService {
         java.util.regex.Matcher matcher = ADMIN_MESSAGE_ID.matcher(messageId == null ? "" : messageId);
         if (!matcher.matches()) throw new IllegalArgumentException("회수할 공지·알림 ID 형식이 올바르지 않습니다.");
         String createdAt = matcher.group(1);
-        List<DocumentReference> targets = new ArrayList<>();
+        List<DocumentReference> anchorTargets = new ArrayList<>();
+        List<DocumentReference> extraTargets = new ArrayList<>();
         Set<String> targetDocIds = new LinkedHashSet<>();
         Set<String> matchedRequestIds = new LinkedHashSet<>();
         String matchedType = null;
@@ -5215,7 +5342,7 @@ public class FirebaseService {
             String title = data.get("title") == null ? "" : data.get("title").toString();
             String body = data.get("body") == null ? "" : data.get("body").toString();
             if (messageId.equals(adminMessageId(createdAt, type, title, body))) {
-                targets.add(document.getReference());
+                anchorTargets.add(document.getReference());
                 if (document.getId() != null) targetDocIds.add(document.getId());
                 String reqId = extractAdminRequestId(document.getId(), data);
                 if (reqId != null) matchedRequestIds.add(reqId);
@@ -5224,7 +5351,40 @@ public class FirebaseService {
                 matchedBody = body;
             }
         }
+        var broadcasts = db.collection("admin_broadcasts");
+        if (broadcasts != null) {
+            var byTime = broadcasts.whereEqualTo("createdAt", createdAt);
+            if (byTime != null && byTime.get() != null) {
+                for (DocumentSnapshot bDoc : byTime.get().get().getDocuments()) {
+                    String type = String.valueOf(bDoc.getString("type"));
+                    if (!kind.types().contains(type)) continue;
+                    String title = bDoc.getString("title") == null ? "" : bDoc.getString("title");
+                    String body = bDoc.getString("body") == null ? "" : bDoc.getString("body");
+                    if (messageId.equals(adminMessageId(createdAt, type, title, body))) {
+                        String reqId = bDoc.getString("requestId") != null ? bDoc.getString("requestId") : bDoc.getId();
+                        if (reqId != null && !reqId.isBlank()) matchedRequestIds.add(reqId);
+                        matchedType = type;
+                        matchedTitle = title;
+                        matchedBody = body;
+                    }
+                }
+            }
+        }
         for (String reqId : matchedRequestIds) {
+            if (broadcasts != null) {
+                DocumentReference bRef = broadcasts.document(reqId);
+                if (bRef != null) {
+                    var setFuture = bRef.set(Map.of(
+                            "requestId", reqId,
+                            "createdAt", createdAt,
+                            "type", matchedType == null ? "" : matchedType,
+                            "title", matchedTitle == null ? "" : matchedTitle,
+                            "body", matchedBody == null ? "" : matchedBody,
+                            "recalled", true,
+                            "recalledAt", java.time.Instant.now().toString()), com.google.cloud.firestore.SetOptions.merge());
+                    if (setFuture != null) setFuture.get();
+                }
+            }
             var byReqQuery = db.collection("notifications").whereEqualTo("requestId", reqId);
             if (byReqQuery == null) continue;
             var byReqFuture = byReqQuery.get();
@@ -5239,10 +5399,14 @@ public class FirebaseService {
                 if (java.util.Objects.equals(matchedType, type)
                         && java.util.Objects.equals(matchedTitle, title)
                         && java.util.Objects.equals(matchedBody, body)) {
-                    targets.add(document.getReference());
+                    extraTargets.add(document.getReference());
                 }
             }
         }
+        // 다른 시각(재시도) 문서를 먼저 지우고 기준 시각(anchor) 문서를 마지막 배치에서 지워,
+        // 중간 배치 실패 후 같은 messageId로 재시도해도 기준 문서로 나머지 문서를 끝까지 찾아 지울 수 있게 합니다.
+        List<DocumentReference> targets = new ArrayList<>(extraTargets);
+        targets.addAll(anchorTargets);
         if (targets.isEmpty()) throw new NoSuchElementException("이미 회수했거나 찾을 수 없는 공지·알림입니다.");
         // 한 배치는 500건까지라 나눠 지웁니다. 중간에 실패하면 남은 문서는 같은 ID로 다시 회수할 수 있습니다.
         for (int start = 0; start < targets.size(); start += 400) {

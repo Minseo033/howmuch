@@ -49,34 +49,31 @@ public class WithdrawalJobStore {
     }
 
     /**
-     * 관리자의 강제 탈퇴 요청 시 즉시 세션을 차단(withdrawalPending=true)하고 임대된 PENDING 작업을 기록해,
-     * 삭제 도중 재로그인을 막고 중간 실패 시 주기적 복구 작업(retryPending)이 이어받게 합니다.
+     * 관리자의 강제 탈퇴 요청 시 세션을 즉시 차단(withdrawalPending=true)하고 35초 인증 캐시 만료 대기
+     * (AUTH_DRAIN_MILLIS)를 지키는 PENDING 작업을 큐에 넣습니다. 이미 진행 중인 작업이 있으면 기존 임대(lease)와
+     * 대기 시각을 덮어쓰지 않고 그대로 유지합니다.
      */
-    public Job claimForAdmin(String uid, String requestId, long now) throws Exception {
+    public Job submitForAdmin(String uid, String requestId, long now) throws Exception {
         validateRequestId(requestId);
         return db.runTransaction(tx -> {
             DocumentReference jobRef = jobReference(uid);
             DocumentReference sessionRef = sessionReference(uid);
             DocumentSnapshot previous = tx.get(jobRef).get();
             DocumentSnapshot session = tx.get(sessionRef).get();
-            int attempts = 1;
-            String effectiveRequestId = requestId;
-            if (previous != null && previous.exists()) {
-                Job old = job(previous);
-                if (!old.completed() && old.requestId() != null && !old.requestId().isBlank()) {
-                    effectiveRequestId = old.requestId();
-                    attempts = old.attempts() + 1;
-                }
-            }
-            Job claimed = new Job(uid, effectiveRequestId, "PENDING", attempts,
-                    now, now + LEASE_MILLIS, UUID.randomUUID().toString());
-            tx.set(jobRef, fields(claimed));
             Long cutoff = session == null ? null : session.getLong("revokedAfter");
             tx.set(sessionRef, Map.of(
                     "revokedAfter", Math.max(cutoff == null ? Long.MIN_VALUE : cutoff, now),
                     "withdrawalPending", true,
                     "updatedAt", now), SetOptions.merge());
-            return claimed;
+            if (previous != null && previous.exists()) {
+                Job old = job(previous);
+                if (!old.completed()) {
+                    return old;
+                }
+            }
+            Job next = new Job(uid, requestId, "PENDING", 0, now + AUTH_DRAIN_MILLIS, 0, "");
+            tx.set(jobRef, fields(next));
+            return next;
         }).get(STORE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 

@@ -207,14 +207,38 @@ class FirebaseServiceReceiptApprovalTest {
                 "menu1", "김밥",
                 "price1", "4000",
                 "menu2", "라면",
-                "price2", "4500")));
+                "price2", "4500",
+                "menu3", "삼계탕",
+                "price3", "15000")));
 
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
                 .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, null))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, false))
+                .isEqualTo("");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, null))
                 .isEqualTo("");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 15000L, null))
+                .isEqualTo("삼계탕");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥", 4000L, true))
                 .isEqualTo("김밥");
+    }
+
+    @Test
+    void refusesApprovalOrRejectionWhenSubmissionVersionHasAdvanced() {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getLong("submissionVersion")).thenReturn(2L);
+        when(receipt.getString("createdAt")).thenReturn("2026-10-16T12:00:00Z");
+
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN", 1L, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.rejectReceiptVerification("receipt-1", "사유", "ADMIN", 2L, "2026-10-16T11:00:00Z"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        verify(transaction, never()).update(any(DocumentReference.class), anyMap());
     }
 
     @Test

@@ -195,15 +195,29 @@ public class AdminController {
     }
 
     /** 영수증 인증 승인 및 방문 기록 생성 */
+    public ResponseEntity<?> approveReceipt(
+            String id, HttpServletRequest httpRequest) {
+        return approveReceipt(id, null, httpRequest);
+    }
+
     @PostMapping("/receipts/{id}/approve")
     public ResponseEntity<?> approveReceipt(
-            @PathVariable String id, HttpServletRequest httpRequest) {
+            @PathVariable String id,
+            @RequestBody(required = false) Map<String, ?> body,
+            HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
         ResponseEntity<?> invalidId = validateDocumentId(id);
         if (invalidId != null) return invalidId;
         try {
-            return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+            Long expectedVersion = parseOptionalVersion(body == null ? null : body.get("submissionVersion"));
+            String expectedCreatedAt = body != null && body.get("createdAt") instanceof String s && !s.isBlank()
+                    ? s.trim() : null;
+            if (expectedVersion == null && expectedCreatedAt == null) {
+                return ResponseEntity.ok(firebaseService.approveReceiptVerification(id, "ADMIN"));
+            }
+            return ResponseEntity.ok(firebaseService.approveReceiptVerification(
+                    id, "ADMIN", expectedVersion, expectedCreatedAt));
         } catch (ReceiptVerificationNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false, "message", e.getMessage()));
@@ -229,13 +243,13 @@ public class AdminController {
     @PostMapping("/receipts/{id}/reject")
     public ResponseEntity<?> rejectReceipt(
             @PathVariable String id,
-            @RequestBody(required = false) Map<String, String> body,
+            @RequestBody(required = false) Map<String, ?> body,
             HttpServletRequest httpRequest) {
         ResponseEntity<?> denied = guard(httpRequest);
         if (denied != null) return denied;
         ResponseEntity<?> invalidId = validateDocumentId(id);
         if (invalidId != null) return invalidId;
-        String reason = body == null ? null : body.get("reason");
+        String reason = body != null && body.get("reason") != null ? body.get("reason").toString() : null;
         if (reason == null || reason.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "반려 사유(reason)는 필수입니다."));
@@ -245,7 +259,15 @@ public class AdminController {
                     "success", false, "message", "반려 사유는 500자 이내로 입력해주세요."));
         }
         try {
-            firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
+            Long expectedVersion = parseOptionalVersion(body == null ? null : body.get("submissionVersion"));
+            String expectedCreatedAt = body != null && body.get("createdAt") instanceof String s && !s.isBlank()
+                    ? s.trim() : null;
+            if (expectedVersion == null && expectedCreatedAt == null) {
+                firebaseService.rejectReceiptVerification(id, reason.trim(), "ADMIN");
+            } else {
+                firebaseService.rejectReceiptVerification(
+                        id, reason.trim(), "ADMIN", expectedVersion, expectedCreatedAt);
+            }
             return ResponseEntity.ok(Map.of("success", true, "id", id, "status", "REJECTED"));
         } catch (ReceiptVerificationNotFoundException e) {
             return ResponseEntity.status(404).body(Map.of(
@@ -375,9 +397,9 @@ public class AdminController {
 
         try {
             if (accountWithdrawalService != null) {
-                Map<String, Object> result = accountWithdrawalService.deleteUserAsAdmin(uid);
-                log.warn("[AdminController] 회원 강제 탈퇴 완료");
-                return ResponseEntity.ok(result);
+                var job = accountWithdrawalService.submitAdminWithdrawal(uid);
+                log.warn("[AdminController] 회원 강제 탈퇴 작업 등록 완료: state={}", job.state());
+                return ResponseEntity.status(job.completed() ? 200 : 202).body(job.response());
             }
             // Persist the shared cutoff before deletion. Reversing this order would let a
             // still-running token through another instance if the revocation write failed.
@@ -737,6 +759,9 @@ public class AdminController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(404).body(Map.of(
                     "success", false, "message", e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 알림 발송 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(
@@ -750,6 +775,18 @@ public class AdminController {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static Long parseOptionalVersion(Object raw) {
+        if (raw == null) return null;
+        if (raw instanceof Number n) return n.longValue();
+        String s = raw.toString().trim();
+        if (s.isEmpty()) return null;
+        try {
+            return Long.parseLong(s);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("영수증 제출 버전 정보가 올바르지 않습니다.");
+        }
     }
 
     private ResponseEntity<?> invalidRequestId() {
@@ -788,6 +825,9 @@ public class AdminController {
                     title.trim(), content.trim(), requestId);
             log.warn("[AdminController] 공지사항 등록 완료 - 대상 수: {}", result.get("sent"));
             return ResponseEntity.ok(result);
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of(
+                    "success", false, "message", e.getMessage()));
         } catch (Exception e) {
             log.error("[AdminController] 공지사항 등록 중 오류 발생: ", e);
             return ResponseEntity.status(500).body(Map.of(

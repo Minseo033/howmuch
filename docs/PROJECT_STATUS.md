@@ -2518,10 +2518,10 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 | P2 받은 현금을 결제금액으로 오인 | APPROVAL_PRICE에서 '받은 금액'을 제거하고 '받은 돈·받은 금액·현금 수령액·거스름돈·잔돈'을 비결제 금액으로 분리해 실제 결제액·승인금액(또는 받은 돈 - 거스름돈)을 인식 | '결제액 8,000원 / 받은 돈 10,000원 / 거스름돈 2,000원' 영수증에서 8,000원 정확 인식 |
 | P2 오래된 대기 영수증 누락 | web/admin.html에서 제보 목록과 동일하게 fetchReceiptLists(status=ALL + status=PENDING 병렬 조회) 및 applyReceiptLists로 최신 500건 밖의 대기 영수증을 병합하고 상한 안내(receiptCapNotice) 표시 | 최신 승인 500건 뒤의 오래된 대기 영수증 병합·대기 배지 2건 표시 Node 격리 테스트 통과 |
 | P1 세션 만료 후 발송 재시도 ID 유실 | 관리자 세션 만료(타이머·401 재인증) 시에는 sessionStorage의 hm_admin_send_drafts를 유지하고 명시적 로그아웃 버튼 클릭 시에만 삭제 | 발송 타임아웃 → 세션 만료 → 재로그인 후 동일 내용 재전송 시 기존 requestId 재사용 확인 |
-| 코드 검토 구조 위험 4건 | ① 재제출을 Firestore 트랜잭션으로 원자화해 승인 상태 덮어쓰기 방지 ② 이전 반려 이력(rejectionHistory·아카이브 문서) 보존 및 PENDING 상태 문서에 대한 이전 이미지 정리(cleanupProcessedReceiptImages) 덮어쓰기 차단 ③ 관리자 강제 탈퇴(DELETE /api/admin/users/{uid})도 WithdrawalJobStore.claimForAdmin과 연동해 삭제 중 재로그인 차단(withdrawalPending=true) 및 실패 시 주기적 복구 보장 ④ 부분 발송 후 동일 requestId 재시도 시 알림 문서들을 requestId 기준으로 단일 그룹 묶음 및 일괄 회수 | 백엔드 전체 446개·Node 69개 통과 |
+| 코드 검토 구조 위험 4건 | ① 영수증 문서에 submissionVersion을 기록하고 승인·반려 시 submissionVersion·createdAt을 트랜잭션 안에서 대조해 과거 화면 조작이 새 재제출에 적용되지 않게 차단 ② 재제출 시 이전 반려 이미지는 아카이브 문서(receipt_<hash>_rejected_<n>)로 이관해 정리하고, 이미지 정리 완료·실패 갱신 시 현재 상태와 imageUrls 일치를 확인해 새 제출과의 충돌 방지 ③ 수동 승인에서도 매장 등록 메뉴의 등록 가격과 실제 결제액이 일치할 때만 해당 메뉴를 인정해 동일 매장 내 등록 고가 메뉴 도용 차단 ④ 강제 탈퇴를 submitForAdmin(35초 AUTH_DRAIN_MILLIS 대기 보장 및 진행 중 임대 덮어쓰기 금지)으로 전환하고, 발송·회수는 admin_broadcasts 메타데이터로 동일 createdAt 유지·앵커 문서 마지막 배치 삭제·회수 후 재발송 재생성(recalled=true) 차단 | 백엔드 전체 448개·Node 69개 통과 |
 
 **검증 및 운영 배포 확인**
 
-- 백엔드 전체 446개 테스트(`./gradlew test`), Node 69개 테스트(`node --test scripts/*.test.mjs`), 관리자 HTML 스크립트 구문 검사, 관련 Flutter 위젯/유닛 테스트 17개, 변경 Dart 파일 `dart analyze` 0건, 웹 릴리스 빌드(`flutter build web --release --no-wasm-dry-run`) 통과.
+- 백엔드 전체 448개 테스트(`./gradlew test`), Node 69개 테스트(`node --test scripts/*.test.mjs`), 관리자 HTML 스크립트 구문 검사, 관련 Flutter 위젯/유닛 테스트 17개, 변경 Dart 파일 `dart analyze` 0건, 웹 릴리스 빌드(`flutter build web --release --no-wasm-dry-run`) 통과.
 - 1차 커밋 `95f984e`([38909979642](https://github.com/Minseo033/howmuch/actions/runs/38909979642))에 이어 3차 QA 보완 커밋 `79fdf7b` 푸시 후 GitHub Actions `Quality gates`([38916682825](https://github.com/Minseo033/howmuch/actions/runs/38916682825))의 백엔드·Flutter 웹·iOS Simulator 빌드·Vercel 웹 배포 및 파일 해시 검증이 모두 통과했다.
 - Render 운영 서버 `/healthz`에서 `status: ok` 및 최종 실행 커밋 `79fdf7be10a99dcb7533d175c085f029ec59aa8d` 반영을 확인했다.

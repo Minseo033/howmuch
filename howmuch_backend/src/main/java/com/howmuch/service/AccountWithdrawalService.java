@@ -25,32 +25,11 @@ public class AccountWithdrawalService {
 
     public WithdrawalJobStore.Job status(String requestId) throws Exception { return jobs.status(requestId); }
 
-    public java.util.Map<String, Object> deleteUserAsAdmin(String uid) throws Exception {
-        long now = System.currentTimeMillis();
-        WithdrawalJobStore.Job claimed = jobs.claimForAdmin(
-                uid, java.util.UUID.randomUUID().toString(), now);
-        sessions.invalidateAllForUid(uid);
-        try (var heartbeat = java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
-                task -> new Thread(task, "admin-withdrawal-lease-renewal"))) {
-            heartbeat.scheduleAtFixedRate(() -> {
-                try { jobs.renew(claimed, System.currentTimeMillis()); }
-                catch (Exception e) { log.error("강제 탈퇴 작업 임대 갱신 실패", e); }
-            }, 30, 30, java.util.concurrent.TimeUnit.SECONDS);
-            try {
-                java.util.Map<String, Object> result = data.deleteUser(uid);
-                jobs.finish(claimed, true, System.currentTimeMillis());
-                sessions.forgetRevocation(uid);
-                return result;
-            } catch (Exception e) {
-                try { jobs.finish(claimed, false, System.currentTimeMillis()); }
-                catch (Exception retryError) {
-                    log.error("강제 탈퇴 재시도 상태 저장 실패; 작업 임대 만료 후 복구합니다.", retryError);
-                }
-                throw e;
-            } finally {
-                heartbeat.shutdownNow();
-            }
-        }
+    public WithdrawalJobStore.Job submitAdminWithdrawal(String uid) throws Exception {
+        WithdrawalJobStore.Job job = jobs.submitForAdmin(
+                uid, java.util.UUID.randomUUID().toString(), System.currentTimeMillis());
+        sessions.forgetRevocation(uid);
+        return job;
     }
 
     /** A failed deletion or restarted server leaves a durable PENDING job to retry. */

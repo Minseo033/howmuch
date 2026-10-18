@@ -2334,16 +2334,19 @@
     $('rejectConfirm').disabled = true;
     const targetId = rejectTargetId;
     const targetType = rejectTargetType;
+    const collection = targetType === 'receipt' ? allReceipts : allReports;
+    const r = collection.find((x) => x.id === targetId);
+    const rejectPayload = targetType === 'receipt' && r
+      ? { reason, ...(r.submissionVersion != null ? { submissionVersion: Number(r.submissionVersion) } : {}), ...(r.createdAt ? { createdAt: r.createdAt } : {}) }
+      : { reason };
     try {
       const endpoint = targetType === 'receipt'
         ? `/api/admin/receipts/${encodeURIComponent(targetId)}/reject`
         : `/api/admin/reports/${encodeURIComponent(targetId)}/reject`;
       await api(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify(rejectPayload),
       });
-      const collection = targetType === 'receipt' ? allReceipts : allReports;
-      const r = collection.find((x) => x.id === targetId);
       if (r) { r.status = 'REJECTED'; r.rejectReason = reason; }
       if (targetType === 'receipt') {
         // Never keep stale URLs after the server's post-review deletion policy.
@@ -2368,8 +2371,17 @@
     if (!await confirmAction('영수증을 승인하고 방문 기록을 생성할까요?', '영수증 승인')) return;
     btn.disabled = true;
     try {
-      const result = await api(`/api/admin/receipts/${id}/approve`, { method: 'POST' });
       const receipt = allReceipts.find((x) => x.id === id);
+      const approveBody = receipt && (receipt.submissionVersion != null || receipt.createdAt)
+        ? JSON.stringify({
+            ...(receipt.submissionVersion != null ? { submissionVersion: Number(receipt.submissionVersion) } : {}),
+            ...(receipt.createdAt ? { createdAt: receipt.createdAt } : {}),
+          })
+        : undefined;
+      const result = await api(`/api/admin/receipts/${id}/approve`, {
+        method: 'POST',
+        ...(approveBody ? { body: approveBody } : {}),
+      });
       if (receipt) { receipt.status = 'APPROVED'; receipt.visitId = result.visitId; }
       if (receipt) { receipt.imageUrls = []; receipt.imageCleanupStatus = 'SYNC_PENDING'; }
       receiptsLoaded = false;
@@ -2621,7 +2633,9 @@
       communityStats = null;
       if (deleteTargetUid === targetId) closeModal('deleteUserModal');
       renderUsersView();
-      toast(`탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
+      toast(res?.state === 'PENDING'
+        ? '강제 탈퇴 접수 완료 — 세션 차단 후 데이터를 정리하고 있습니다'
+        : `탈퇴 완료 — 제보 ${res.reports ?? 0}·리뷰 ${res.reviews ?? 0}·방문 ${res.visits ?? 0}·찜 ${res.favorites ?? 0} 삭제`);
     } catch (e) {
       handleError(e);
     } finally {
