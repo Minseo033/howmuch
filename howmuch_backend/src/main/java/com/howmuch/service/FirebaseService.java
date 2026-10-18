@@ -79,6 +79,11 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
+    private static final long SAVINGS_HISTORY_CACHE_TTL_MS = 3_000L;
+    private final java.util.concurrent.ConcurrentHashMap<String, CachedSavingsHistory> savingsHistoryCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record CachedSavingsHistory(List<com.howmuch.dto.SavingsHistoryResponse> items, long cachedAtMs) {}
     /** Reviewed overlays survive snapshots/restarts; source records are never overwritten. */
     private volatile Map<String, Map<String, Object>> cachedStoreCorrections = Map.of();
     private static final String STORE_CORRECTIONS_COLLECTION = "store_corrections";
@@ -1504,6 +1509,7 @@ public class FirebaseService {
                         userId, imageUrls, visitRef.getId());
             }).get();
             cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
+            savingsHistoryCache.remove(committed.userId());
             return Map.of(
                     "success", true,
                     "id", receiptId,
@@ -2260,6 +2266,7 @@ public class FirebaseService {
         result.put("reports", reports.deleted());
         result.put("anonymizedReports", reports.anonymized());
         result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        savingsHistoryCache.remove(firebaseUid);
         result.put("receiptVerifications",
                 deleteWhere("receipt_verifications", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
@@ -2730,6 +2737,7 @@ public class FirebaseService {
     /** 요청한 계정이 소유한 방문 기록만 삭제합니다. 다른 계정의 기록 존재 여부도 노출하지 않습니다. */
     public void deleteOwnedVisit(String visitId, String firebaseUid) throws Exception {
         deleteOwnedDocument("visits", visitId, "userId", firebaseUid, "방문 기록을 찾을 수 없습니다.");
+        if (firebaseUid != null) savingsHistoryCache.remove(firebaseUid);
     }
 
     /** 저장된 리뷰 ID와 서버가 정한 작성자 표시명입니다. */
@@ -2936,6 +2944,13 @@ public class FirebaseService {
 
     // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
     public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
+        long now = System.currentTimeMillis();
+        if (firebaseUid != null && !firebaseUid.isBlank()) {
+            CachedSavingsHistory cached = savingsHistoryCache.get(firebaseUid);
+            if (cached != null && now - cached.cachedAtMs() < SAVINGS_HISTORY_CACHE_TTL_MS) {
+                return cached.items();
+            }
+        }
         var documents = db.collection("visits")
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments();
@@ -2993,7 +3008,11 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
 
-        return historyList;
+        List<com.howmuch.dto.SavingsHistoryResponse> immutable = List.copyOf(historyList);
+        if (firebaseUid != null && !firebaseUid.isBlank()) {
+            savingsHistoryCache.put(firebaseUid, new CachedSavingsHistory(immutable, System.currentTimeMillis()));
+        }
+        return immutable;
     }
 
     private Long parseLongSafely(Object obj) {

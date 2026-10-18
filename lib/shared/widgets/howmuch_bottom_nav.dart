@@ -82,7 +82,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.home_outlined,
                             label: '홈',
                             active: activeTab == HowmuchBottomTab.home,
-                            onTap: () => context.go(AppRoutes.home),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.home) {
+                                context.go(AppRoutes.home);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -90,7 +94,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.explore_outlined,
                             label: '탐색',
                             active: activeTab == HowmuchBottomTab.explore,
-                            onTap: () => context.go(AppRoutes.communityFeed),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.explore) {
+                                context.go(AppRoutes.communityFeed);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -106,8 +114,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.bar_chart_rounded,
                             label: '리포트',
                             active: activeTab == HowmuchBottomTab.savings,
-                            onTap: () =>
-                                context.go(AppRoutes.savingsReportDashboard),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.savings) {
+                                context.go(AppRoutes.savingsReportDashboard);
+                              }
+                            },
                           ),
                         ),
                         Expanded(
@@ -115,7 +126,11 @@ class HowmuchBottomNav extends StatelessWidget {
                             icon: Icons.person_outline_rounded,
                             label: '마이',
                             active: activeTab == HowmuchBottomTab.mypage,
-                            onTap: () => context.go(AppRoutes.mypage),
+                            onTap: () {
+                              if (activeTab != HowmuchBottomTab.mypage) {
+                                context.go(AppRoutes.mypage);
+                              }
+                            },
                           ),
                         ),
                       ],

@@ -139,6 +139,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   bool _isLoading = false;
   bool _hasError = false;
   List<dynamic> _rawFeeds = [];
+  List<_FeedItem> _parsedFeeds = const [];
 
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
@@ -292,8 +293,11 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
       }
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
       if (!mounted) return;
+      final nextRaw = decoded is List ? decoded : <dynamic>[];
+      final nextParsed = _parseFeedItems(nextRaw);
       setState(() {
-        _rawFeeds = decoded is List ? decoded : [];
+        _rawFeeds = nextRaw;
+        _parsedFeeds = nextParsed;
         _isLoading = false;
         _hasError = false;
       });
@@ -320,8 +324,8 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
 
   Future<void> _refreshFeeds() => _fetchFeeds(refreshing: true);
 
-  List<_FeedItem> get _visibleFeedItems {
-    final List<_FeedItem> items = _rawFeeds.map((data) {
+  List<_FeedItem> _parseFeedItems(List<dynamic> rawList) {
+    return rawList.map((data) {
       final String id = data['id']?.toString() ?? '';
       final String loc = data['location']?.toString() ?? '알 수 없음';
       final String cityProvince = data['cityProvince']?.toString().trim() ?? '';
@@ -404,8 +408,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         dotColor: dotColor,
         compactStatus: compactStatus,
       );
-    }).toList();
+    }).toList(growable: false);
+  }
 
+  List<_FeedItem> get _visibleFeedItems {
+    final List<_FeedItem> items = _parsedFeeds.isNotEmpty || _rawFeeds.isEmpty
+        ? _parsedFeeds
+        : (_parsedFeeds = _parseFeedItems(_rawFeeds));
     final List<_FeedItem> scoped = _locationLabel == '전체'
         ? items
         : items
@@ -422,7 +431,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
 
     return switch (_selectedFilterIndex) {
       1 => scoped.where((item) => item.isPriceChange).toList(),
-      2 => (scoped..sort((a, b) => b.likes.compareTo(a.likes))),
+      2 => ([...scoped]..sort((a, b) => b.likes.compareTo(a.likes))),
       _ => scoped,
     };
   }

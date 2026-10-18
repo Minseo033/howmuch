@@ -103,21 +103,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.reviewList,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReviewListScreen(store: state.extra as Store?),
         ),
       ),
       GoRoute(
         path: AppRoutes.reviewWrite,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReviewWriteScreen(store: state.extra as Store?),
         ),
       ),
       GoRoute(
         path: AppRoutes.priceHistory,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: PriceHistoryScreen(
             store: state.extra is PriceHistoryTarget
@@ -133,7 +133,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.priceChangeReport,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: PriceChangeReportScreen(
             store: state.extra is PriceChangeReportTarget
@@ -161,7 +161,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.storeInfoReport,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: StoreInfoReportScreen(
             store: state.extra is StoreInfoReportTarget
@@ -179,7 +179,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.visitVerification,
         pageBuilder: (_, state) {
           final extra = state.extra;
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: VisitVerificationScreen(
               store: extra is Store ? extra : null,
@@ -192,7 +192,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.visitVerificationComplete,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: VisitVerificationCompleteScreen(
               savedAmount: (extra['savedAmount'] as num?)?.toInt() ?? 0,
@@ -207,7 +207,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.directionsExternalApp,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: DirectionsExternalAppScreen(
               storeName: extra['storeName']?.toString() ?? '선택한 매장',
@@ -228,7 +228,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.favoriteCancelConfirm,
         pageBuilder: (_, state) {
           final extra = state.extra is Map ? state.extra as Map : const {};
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: FavoriteCancelConfirmScreen(
               storeId: extra['storeId']?.toString() ?? '',
@@ -255,7 +255,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.loginFlow, const LoginFlowScreen()),
       GoRoute(
         path: AppRoutes.permissionSetup,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: PermissionSetupScreen(
             backTo: state.extra is String
@@ -277,7 +277,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
       GoRoute(
         path: AppRoutes.reportCreate,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportCreateScreen(
             initialReport: state.extra is UserReportStatus
@@ -288,7 +288,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.reportComplete,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportCompleteScreen(
             reportId: state.uri.queryParameters['id'],
@@ -298,7 +298,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.myReportsV2, const MyReportsV2Screen()),
       GoRoute(
         path: AppRoutes.reportDetailV2,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportDetailV2Screen(
             reportId: state.uri.queryParameters['id'],
@@ -310,7 +310,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.communityPostDetail,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: CommunityPostDetailScreen(
             postId: state.uri.queryParameters['id'] ?? '',
@@ -341,7 +341,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.networkError, const NetworkErrorScreen()),
       GoRoute(
         path: AppRoutes.reportDeleteConfirm,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: ReportDeleteConfirmScreen(
             report: state.extra is UserReportStatus
@@ -357,7 +357,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.savingsDetail,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: SavingsDetailScreen(
             startDate: state.uri.queryParameters['startDate'],
@@ -372,7 +372,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       _route(AppRoutes.notifications, const NotificationsScreen()),
       GoRoute(
         path: AppRoutes.searchResult,
-        pageBuilder: (_, state) => CupertinoPage<void>(
+        pageBuilder: (_, state) => _fastPage<void>(
           key: state.pageKey,
           child: buildSearchResultScreenForExtra(state.extra),
         ),
@@ -382,7 +382,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         redirect: (_, state) => state.extra is Store ? null : AppRoutes.home,
         pageBuilder: (_, state) {
           final store = state.extra as Store;
-          return CupertinoPage<void>(
+          return _fastPage<void>(
             key: state.pageKey,
             child: StoreDetailScreen(store: store),
           );
@@ -392,11 +392,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+Page<T> _fastPage<T>({required LocalKey key, required Widget child}) {
+  return _FastCupertinoPage<T>(key: key, child: child);
+}
+
+class _FastCupertinoPage<T> extends CupertinoPage<T> {
+  const _FastCupertinoPage({required super.key, required super.child});
+
+  @override
+  Route<T> createRoute(BuildContext context) {
+    return _FastCupertinoPageRoute<T>(page: this);
+  }
+}
+
+class _FastCupertinoPageRoute<T> extends CupertinoPageRoute<T> {
+  _FastCupertinoPageRoute({required _FastCupertinoPage<T> page})
+    : super(builder: (context) => page.child, settings: page);
+
+  @override
+  Duration get transitionDuration => const Duration(milliseconds: 180);
+
+  @override
+  Duration get reverseTransitionDuration => const Duration(milliseconds: 150);
+}
+
 GoRoute _route(String path, Widget child) {
   return GoRoute(
     path: path,
     pageBuilder: (_, state) =>
-        CupertinoPage<void>(key: state.pageKey, child: child),
+        _fastPage<void>(key: state.pageKey, child: child),
   );
 }
 
