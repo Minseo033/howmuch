@@ -1,6 +1,6 @@
 # 얼마에요 프로젝트 현황 (핸드오프 문서)
 
-> **2026-10-18 추가 QA 경계 2건(무버전 승인·반려 차단 및 동일 가격 타 메뉴 수동 승인 방어) 포함 전수 수정 — 서버/웹 운영 배포 진행**: ① 관리자 영수증 승인·반려 요청에서 버전·생성 시각(submissionVersion·createdAt)이 생략된 경우 기본 기대 버전을 최초 제출(1)로 강제해, 재제출된 영수증(버전 2 이상)에 무버전 과거 요청이 적용되는 경로를 차단했다. ② 김밥 4,000원 영수증을 동일 가격의 다른 등록 메뉴(예: 짜장 4,000원)로 제출해 수동 승인할 때 OCR 메뉴 불일치(ocrMenuMatch=false) 메뉴를 후보에서 제외하고, 동일 가격 복수 등록 메뉴 중 가장 보수적인 기준가 메뉴를 선택하며 미검증 메뉴의 업종 중앙값 폴백을 차단해 2,000원 부당 절약 산정을 막았다. 상세는 5-149 참조.
+> **2026-10-18 추가 QA 경계 2건(무버전 승인·반려 차단 및 동일 가격 타 메뉴 수동 승인 방어) 포함 전수 수정 — 서버/웹 운영 배포 완료(`13e1cd0`)**: ① 관리자 영수증 승인·반려 요청에서 버전·생성 시각(submissionVersion·createdAt)이 생략된 경우 기본 기대 버전을 최초 제출(1)로 강제해, 재제출된 영수증(버전 2 이상)에 무버전 과거 요청이 적용되는 경로를 차단했다. ② 김밥 4,000원 영수증을 동일 가격의 다른 등록 메뉴(예: 짜장 4,000원)로 제출해 수동 승인할 때 OCR 메뉴 불일치(ocrMenuMatch=false) 메뉴를 후보에서 제외하고, 동일 가격 복수 등록 메뉴 중 가장 보수적인 기준가 메뉴를 선택하며 미검증 메뉴의 업종 중앙값 폴백을 차단해 2,000원 부당 절약 산정을 막았다. GitHub Quality gates `39134059920` 전체 통과 후 Vercel 웹 배포 및 Render 서버(`13e1cd0`) Live 전환을 확인했다. 상세는 5-149 참조.
 
 > **2026-10-15 QA 결함 4건 수정 — 재검증·서버/웹 운영 배포 완료**: 탈퇴를 영구 작업·자동 재시도로 전환하고 401/404 성공 추정을 제거했다. 관리자 제보/영수증 필터 상태를 분리하고, AI 제외 요청을 서버·앱에서 함께 처리하며, 승인된 무료 메뉴의 0→유료 가격 인상을 허용했다. Flutter 전체 951·백엔드 전체 440·Node 67, iOS Simulator 빌드·GitHub CI·공개 웹 파일 검증 통과. 관리자 미분류→영수증 대기 1건 즉시 표시와 최종 서버 `fd1960c`의 접수증 누락/오류 400·없는 접수 404·미인증 POST 401을 운영에서 확인했다. 자세한 변경·API·검증·배포 기록은 5-148에 기록한다. 실제 계정 탈퇴와 운영 테스트 자료 생성은 실행하지 않았다.
 
@@ -2523,5 +2523,5 @@ Firebase 키 폐기·재발급과 Android 실서비스 applicationId/Firebase �
 **검증 및 운영 배포 확인**
 
 - 백엔드 전체 448개 테스트(`./gradlew test`), Node 69개 테스트(`node --test scripts/*.test.mjs`), 관리자 HTML 스크립트 구문 검사, 관련 Flutter 위젯/유닛 테스트 17개, 변경 Dart 파일 `dart analyze` 0건, 웹 릴리스 빌드(`flutter build web --release --no-wasm-dry-run`) 통과.
-- 1차 커밋 `95f984e`([38909979642](https://github.com/Minseo033/howmuch/actions/runs/38909979642))와 `79fdf7b`([38916682825](https://github.com/Minseo033/howmuch/actions/runs/38916682825))에 이어, 추가 코드 검토 보완 커밋 `4e5fb2a` 푸시 후 GitHub Actions `Quality gates`([39128248029](https://github.com/Minseo033/howmuch/actions/runs/39128248029))의 백엔드·Flutter 웹·iOS Simulator 빌드·Vercel 웹 배포 및 파일 해시 검증이 모두 통과했다.
-- Render 운영 서버 `/healthz`에서 `status: ok` 및 최종 실행 커밋 `4e5fb2a4f8969582c6bfea922c246efd8f201f94` 반영을 확인했다.
+- 1차 커밋 `95f984e`([38909979642](https://github.com/Minseo033/howmuch/actions/runs/38909979642)), `79fdf7b`([38916682825](https://github.com/Minseo033/howmuch/actions/runs/38916682825)), `4e5fb2a`([39128248029](https://github.com/Minseo033/howmuch/actions/runs/39128248029))에 이어, 추가 경계 보완 커밋 `13e1cd0` 푸시 후 GitHub Actions `Quality gates`([39134059920](https://github.com/Minseo033/howmuch/actions/runs/39134059920))의 백엔드·Flutter 웹·iOS Simulator 빌드·Vercel 웹 배포 및 파일 해시 검증이 모두 통과했다.
+- Render 운영 서버 `/healthz`에서 `status: ok` 및 최종 실행 커밋 `13e1cd070f569cbcefda5eb70e48f299bea161cd` 반영을 확인했다.
