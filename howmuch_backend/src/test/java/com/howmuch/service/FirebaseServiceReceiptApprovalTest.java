@@ -204,18 +204,22 @@ class FirebaseServiceReceiptApprovalTest {
         ReflectionTestUtils.setField(service, "cachedStores", java.util.List.of(Map.of(
                 "storeId", "store-1",
                 "storeName", "캠퍼스분식",
-                "menu1", "김밥",
+                "menu1", "짜장",
                 "price1", "4000",
                 "menu2", "라면",
                 "price2", "4500",
                 "menu3", "삼계탕",
                 "price3", "15000",
-                "menu4", "짜장",
+                "menu4", "김밥",
                 "price4", "4000")));
 
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
                 .isEqualTo("김밥");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥가짜", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "김밥가짜", 4000L, null))
                 .isEqualTo("김밥");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, true))
                 .isEqualTo("짜장");

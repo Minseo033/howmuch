@@ -64,6 +64,7 @@ public class FirebaseService {
     private final ReportImageStorage reportImageStorage;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private TruePriceService truePriceService;
+    private static final TruePriceService BUNDLED_TRUE_PRICE_FALLBACK = new TruePriceService(8000);
     private StoreHoursCatalog storeHoursCatalog;
 
     /**
@@ -667,11 +668,10 @@ public class FirebaseService {
     /** 참가격을 우선하고, 미지원 품목은 실제 착한가격업소 가격 표본으로 보완합니다. */
     public java.util.Optional<ReferencePrices.Estimate> estimateReferencePrice(
             String menu, String industry, String address) {
-        if (truePriceService != null) {
-            java.util.Optional<ReferencePrices.Estimate> official =
-                    truePriceService.estimate(menu, industry, address);
-            if (official.isPresent()) return official;
-        }
+        TruePriceService officialService = truePriceService != null ? truePriceService : BUNDLED_TRUE_PRICE_FALLBACK;
+        java.util.Optional<ReferencePrices.Estimate> official =
+                officialService.estimate(menu, industry, address);
+        if (official.isPresent()) return official;
         return ReferencePrices.estimateFromPublicStores(getAllStores().stream()
                 .filter(store -> "GOV".equals(store.get("source"))).toList(), menu, industry);
     }
@@ -2586,12 +2586,10 @@ public class FirebaseService {
                             || normalizedCandidate.contains(normalizedSubmitted)
                             || normalizedSubmitted.contains(normalizedCandidate));
             if (candidatePrice != null && candidatePrice == price) {
-                if (!(Boolean.FALSE.equals(ocrMenuMatch) && matchesSubmittedName)) {
-                    priceMatchedMenus.add(candidateMenu);
-                }
+                priceMatchedMenus.add(candidateMenu);
             }
             if (matchesSubmittedName) {
-                if (candidatePrice != null && candidatePrice == price && !Boolean.FALSE.equals(ocrMenuMatch)) {
+                if (candidatePrice != null && candidatePrice == price && Boolean.TRUE.equals(ocrMenuMatch)) {
                     nameAndPriceMatchedMenu = candidateMenu;
                 } else if (candidatePrice == null && Boolean.TRUE.equals(ocrMenuMatch)) {
                     unpricedNameMatchedMenu = candidateMenu;
@@ -2599,13 +2597,19 @@ public class FirebaseService {
             }
         }
         if (hasRegisteredMenus) {
-            if (nameAndPriceMatchedMenu != null
-                    && (Boolean.TRUE.equals(ocrMenuMatch) || priceMatchedMenus.size() <= 1)) {
+            if (nameAndPriceMatchedMenu != null && Boolean.TRUE.equals(ocrMenuMatch)) {
                 return nameAndPriceMatchedMenu;
             }
             if (!priceMatchedMenus.isEmpty()) {
+                if (Boolean.FALSE.equals(ocrMenuMatch)
+                        && priceMatchedMenus.size() == 1
+                        && !normalizedSubmitted.isEmpty()
+                        && ReferencePrices.normalize(priceMatchedMenus.getFirst()).equals(normalizedSubmitted)) {
+                    return "";
+                }
                 return selectMostConservativeMenu(
                         priceMatchedMenus,
+                        price,
                         strOrNull(store.get("industry")),
                         strOrNull(store.get("address")));
             }
@@ -2620,15 +2624,22 @@ public class FirebaseService {
         return trimmed;
     }
 
-    private String selectMostConservativeMenu(List<String> candidates, String industry, String address) {
+    private String selectMostConservativeMenu(List<String> candidates, long paidPrice, String industry, String address) {
         if (candidates.size() == 1) return candidates.getFirst();
         String chosen = candidates.getFirst();
+        long minSaved = Long.MAX_VALUE;
         long minRefPrice = Long.MAX_VALUE;
         for (String candidate : candidates) {
-            long refPrice = estimateReferencePrice(candidate, industry, address)
+            java.util.Optional<ReferencePrices.Estimate> estimate = estimateReferencePrice(candidate, industry, address);
+            if (estimate.isEmpty()) {
+                estimate = BUNDLED_TRUE_PRICE_FALLBACK.estimate(candidate, industry, address);
+            }
+            long refPrice = estimate
                     .map(ReferencePrices.Estimate::referencePrice)
                     .orElse(0L);
-            if (refPrice < minRefPrice) {
+            long saved = ReferencePrices.savedAmount(estimate, paidPrice);
+            if (saved < minSaved || (saved == minSaved && refPrice < minRefPrice)) {
+                minSaved = saved;
                 minRefPrice = refPrice;
                 chosen = candidate;
             }

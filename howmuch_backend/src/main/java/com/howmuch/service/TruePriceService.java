@@ -192,7 +192,7 @@ public class TruePriceService {
         if (value.contains("비빔밥")) return "비빔밥";
         if (value.contains("김치찌개")) return "김치찌개백반";
         if (value.contains("삼겹살")) return "삼겹살";
-        if (value.contains("자장면")) return "자장면";
+        if (value.contains("자장")) return "자장면";
         if (value.contains("삼계탕")) return "삼계탕";
         if (value.contains("칼국수")) return "칼국수";
         if (value.contains("김밥")) return "김밥";
