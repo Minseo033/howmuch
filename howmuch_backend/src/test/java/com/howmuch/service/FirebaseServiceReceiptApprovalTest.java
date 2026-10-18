@@ -209,10 +209,16 @@ class FirebaseServiceReceiptApprovalTest {
                 "menu2", "라면",
                 "price2", "4500",
                 "menu3", "삼계탕",
-                "price3", "15000")));
+                "price3", "15000",
+                "menu4", "짜장",
+                "price4", "4000")));
 
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, false))
                 .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, false))
+                .isEqualTo("김밥");
+        assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "짜장", 4000L, true))
+                .isEqualTo("짜장");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 4000L, null))
                 .isEqualTo("김밥");
         assertThat(service.resolveMenuForSavings("store-1", "캠퍼스분식", "삼계탕", 9000L, false))
@@ -236,6 +242,12 @@ class FirebaseServiceReceiptApprovalTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("다시 제출되어");
         assertThatThrownBy(() -> service.rejectReceiptVerification("receipt-1", "사유", "ADMIN", 2L, "2026-10-16T11:00:00Z"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.rejectReceiptVerification("receipt-1", "사유", "ADMIN", null, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("다시 제출되어");
+        assertThatThrownBy(() -> service.approveReceiptVerification("receipt-1", "ADMIN", null, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("다시 제출되어");
         verify(transaction, never()).update(any(DocumentReference.class), anyMap());

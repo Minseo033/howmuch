@@ -328,6 +328,18 @@ public class VisitController {
                 "source", "UNAVAILABLE", "sourceLabel", "무료 이용은 절약액을 합산하지 않아요", "basisDate", "", "sampleSize", 0));
         String industry = firebaseService.findIndustryByStoreName(storeName);
         String effectiveMenu = firebaseService.resolveMenuForSavings(null, storeName, menu, price, null);
+        if (menu != null && !menu.isBlank() && (effectiveMenu == null || effectiveMenu.isBlank())) {
+            return ResponseEntity.ok(Map.of(
+                    "referencePriceAvailable", false,
+                    "referencePrice", 0,
+                    "savedAmount", 0,
+                    "matchedByMenu", false,
+                    "source", "UNAVAILABLE",
+                    "sourceLabel", "매장 등록 메뉴·가격과 일치하지 않아 절약액을 산정하지 않아요",
+                    "basisDate", "",
+                    "sampleSize", 0
+            ));
+        }
         Optional<ReferencePrices.Estimate> estimate = firebaseService.estimateReferencePrice(
                 effectiveMenu, industry, firebaseService.findAddressByStoreName(storeName));
         if (estimate.isEmpty()) {

@@ -2336,8 +2336,9 @@
     const targetType = rejectTargetType;
     const collection = targetType === 'receipt' ? allReceipts : allReports;
     const r = collection.find((x) => x.id === targetId);
+    const receiptVersion = r ? Number(r.submissionVersion ?? (r.resubmissionCount != null ? Number(r.resubmissionCount) + 1 : 1)) : null;
     const rejectPayload = targetType === 'receipt' && r
-      ? { reason, ...(r.submissionVersion != null ? { submissionVersion: Number(r.submissionVersion) } : {}), ...(r.createdAt ? { createdAt: r.createdAt } : {}) }
+      ? { reason, ...(Number.isFinite(receiptVersion) ? { submissionVersion: receiptVersion } : {}), ...(r.createdAt ? { createdAt: r.createdAt } : {}) }
       : { reason };
     try {
       const endpoint = targetType === 'receipt'
@@ -2372,9 +2373,10 @@
     btn.disabled = true;
     try {
       const receipt = allReceipts.find((x) => x.id === id);
-      const approveBody = receipt && (receipt.submissionVersion != null || receipt.createdAt)
+      const receiptVersion = receipt ? Number(receipt.submissionVersion ?? (receipt.resubmissionCount != null ? Number(receipt.resubmissionCount) + 1 : 1)) : null;
+      const approveBody = receipt
         ? JSON.stringify({
-            ...(receipt.submissionVersion != null ? { submissionVersion: Number(receipt.submissionVersion) } : {}),
+            ...(Number.isFinite(receiptVersion) ? { submissionVersion: receiptVersion } : {}),
             ...(receipt.createdAt ? { createdAt: receipt.createdAt } : {}),
           })
         : undefined;

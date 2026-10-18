@@ -1197,7 +1197,9 @@ public class FirebaseService {
             data.put("ocrLabeledPrice", ocrResult.labeledPrice());
             data.put("ocrStoreMatch", ocrResult.storeMatch());
             data.put("ocrPriceMatch", ocrResult.priceMatch());
-            data.put("ocrMenuMatch", ocrResult.menuMatch());
+            if (ocrResult.providerAvailable()) {
+                data.put("ocrMenuMatch", ocrResult.menuMatch());
+            }
             data.put("ocrDetectedDate", ocrResult.detectedDate());
             data.put("ocrReceiptDatePlausible", ocrResult.receiptDatePlausible());
             data.put("ocrScore", ocrResult.score());
@@ -1425,7 +1427,7 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
-                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt);
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt, isManualApproval(approvedBy));
 
                 if (!isManualApproval(approvedBy)) {
                     requireUsableReceiptOcrEvidence(snapshot);
@@ -1468,12 +1470,14 @@ public class FirebaseService {
                 String industry = findIndustryByStoreName(storeName);
                 String effectiveMenu = resolveMenuForSavings(
                         visitStoreId, storeName, menu, price, snapshot.getBoolean("ocrMenuMatch"));
-                long savedAmount = price == 0 ? 0L : ReferencePrices.savedAmount(
+                boolean menuRejectedByValidation = effectiveMenu == null
+                        || (effectiveMenu.isBlank() && ((menu != null && !menu.isBlank()) || Boolean.FALSE.equals(snapshot.getBoolean("ocrMenuMatch"))));
+                long savedAmount = (price == 0 || menuRejectedByValidation) ? 0L : ReferencePrices.savedAmount(
                         estimateReferencePrice(effectiveMenu, industry, findAddressByStoreName(storeName)), price);
                 com.howmuch.dto.VisitRequest visitRequest = com.howmuch.dto.VisitRequest.builder()
                         .storeId(visitStoreId)
                         .storeName(storeName)
-                        .menu(menu)
+                        .menu(effectiveMenu != null && !effectiveMenu.isBlank() ? effectiveMenu : menu)
                         .price(price)
                         .verificationMethod("LOCATION_RECEIPT")
                         .verificationDistanceMeters(locationEvidence.distanceMeters())
@@ -1537,7 +1541,7 @@ public class FirebaseService {
                 if (status != null && !"PENDING".equalsIgnoreCase(status)) {
                     throw new IllegalArgumentException("이미 처리된 영수증 인증입니다.");
                 }
-                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt);
+                verifyReceiptSubmissionVersion(snapshot, expectedVersion, expectedCreatedAt, isManualApproval(rejectedBy));
                 List<String> imageUrls = stringList(snapshot.get("imageUrls"));
                 Map<String, Object> receiptUpdate = new HashMap<>();
                 receiptUpdate.put("status", "REJECTED");
@@ -1579,18 +1583,20 @@ public class FirebaseService {
     }
 
     private static void verifyReceiptSubmissionVersion(
-            DocumentSnapshot snapshot, Long expectedVersion, String expectedCreatedAt) {
-        if (expectedVersion != null) {
-            Long storedVersion = snapshot.getLong("submissionVersion");
-            if (storedVersion == null) {
-                Long resubCount = snapshot.getLong("resubmissionCount");
-                storedVersion = (resubCount == null ? 0L : resubCount) + 1L;
-            }
-            if (!expectedVersion.equals(storedVersion)) {
-                throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
-            }
+            DocumentSnapshot snapshot, Long expectedVersion, String expectedCreatedAt, boolean manualAction) {
+        Long storedVersion = snapshot.getLong("submissionVersion");
+        if (storedVersion == null || storedVersion <= 0L) {
+            Long resubCount = snapshot.getLong("resubmissionCount");
+            storedVersion = (resubCount == null || resubCount <= 0L ? 0L : resubCount) + 1L;
         }
-        if (expectedCreatedAt != null && !expectedCreatedAt.isBlank()) {
+        boolean hasExplicitCreatedAt = expectedCreatedAt != null && !expectedCreatedAt.isBlank();
+        Long effectiveExpectedVersion = expectedVersion != null
+                ? expectedVersion
+                : (manualAction && !hasExplicitCreatedAt ? 1L : null);
+        if (effectiveExpectedVersion != null && !effectiveExpectedVersion.equals(storedVersion)) {
+            throw new IllegalArgumentException("영수증이 다시 제출되어 내용이 변경되었습니다. 새로고침 후 다시 확인해주세요.");
+        }
+        if (hasExplicitCreatedAt) {
             String currentCreatedAt = snapshot.getString("createdAt");
             if (currentCreatedAt != null && !currentCreatedAt.isBlank()
                     && !expectedCreatedAt.trim().equals(currentCreatedAt.trim())) {
@@ -2565,7 +2571,7 @@ public class FirebaseService {
         }
 
         String normalizedSubmitted = ReferencePrices.normalize(trimmed);
-        String priceMatchedMenu = null;
+        List<String> priceMatchedMenus = new ArrayList<>();
         String nameAndPriceMatchedMenu = null;
         String unpricedNameMatchedMenu = null;
         boolean hasRegisteredMenus = false;
@@ -2575,14 +2581,17 @@ public class FirebaseService {
             hasRegisteredMenus = true;
             String normalizedCandidate = ReferencePrices.normalize(candidateMenu);
             Long candidatePrice = WonPrice.exactPositive(store.get("price" + i));
-            if (priceMatchedMenu == null && candidatePrice != null && candidatePrice == price) {
-                priceMatchedMenu = candidateMenu;
-            }
-            if (!normalizedSubmitted.isEmpty()
+            boolean matchesSubmittedName = !normalizedSubmitted.isEmpty()
                     && (normalizedCandidate.equals(normalizedSubmitted)
                             || normalizedCandidate.contains(normalizedSubmitted)
-                            || normalizedSubmitted.contains(normalizedCandidate))) {
-                if (candidatePrice != null && candidatePrice == price) {
+                            || normalizedSubmitted.contains(normalizedCandidate));
+            if (candidatePrice != null && candidatePrice == price) {
+                if (!(Boolean.FALSE.equals(ocrMenuMatch) && matchesSubmittedName)) {
+                    priceMatchedMenus.add(candidateMenu);
+                }
+            }
+            if (matchesSubmittedName) {
+                if (candidatePrice != null && candidatePrice == price && !Boolean.FALSE.equals(ocrMenuMatch)) {
                     nameAndPriceMatchedMenu = candidateMenu;
                 } else if (candidatePrice == null && Boolean.TRUE.equals(ocrMenuMatch)) {
                     unpricedNameMatchedMenu = candidateMenu;
@@ -2590,11 +2599,15 @@ public class FirebaseService {
             }
         }
         if (hasRegisteredMenus) {
-            if (nameAndPriceMatchedMenu != null) {
+            if (nameAndPriceMatchedMenu != null
+                    && (Boolean.TRUE.equals(ocrMenuMatch) || priceMatchedMenus.size() <= 1)) {
                 return nameAndPriceMatchedMenu;
             }
-            if (priceMatchedMenu != null) {
-                return priceMatchedMenu;
+            if (!priceMatchedMenus.isEmpty()) {
+                return selectMostConservativeMenu(
+                        priceMatchedMenus,
+                        strOrNull(store.get("industry")),
+                        strOrNull(store.get("address")));
             }
             if (unpricedNameMatchedMenu != null) {
                 return unpricedNameMatchedMenu;
@@ -2605,6 +2618,22 @@ public class FirebaseService {
             return "";
         }
         return trimmed;
+    }
+
+    private String selectMostConservativeMenu(List<String> candidates, String industry, String address) {
+        if (candidates.size() == 1) return candidates.getFirst();
+        String chosen = candidates.getFirst();
+        long minRefPrice = Long.MAX_VALUE;
+        for (String candidate : candidates) {
+            long refPrice = estimateReferencePrice(candidate, industry, address)
+                    .map(ReferencePrices.Estimate::referencePrice)
+                    .orElse(0L);
+            if (refPrice < minRefPrice) {
+                minRefPrice = refPrice;
+                chosen = candidate;
+            }
+        }
+        return chosen;
     }
 
     public boolean isApprovedFreeMenu(String storeId, String storeName, String menu) {
