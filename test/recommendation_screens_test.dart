@@ -493,6 +493,12 @@ class _FakeTodaysPickService extends TodaysPickService {
   }
 
   @override
+  Future<Map<String, dynamic>?> getDeviceWeather({
+    required double lat,
+    required double lng,
+  }) async => null;
+
+  @override
   Future<Map<String, dynamic>> getRoute({
     double? lat,
     double? lng,

@@ -32,7 +32,7 @@ class RecommendationControllerWeatherFallbackTest {
 
     @Test
     void todaysPickStillReturnsRecommendationsWhenWeatherFails() {
-        when(weatherService.getCurrentWeather(37.5, 127.0)).thenThrow(new IllegalStateException("timeout"));
+        when(weatherService.getCurrentWeatherIfReady(37.5, 127.0)).thenThrow(new IllegalStateException("timeout"));
         when(firebaseService.getTodaysPicks(eq("알 수 없음"), eq(null), eq(37.5), eq(127.0), anyInt())).thenReturn(picks);
 
         ResponseEntity<?> response = controller.getTodaysPick(37.5, 127.0, null);

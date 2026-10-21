@@ -3,6 +3,7 @@ package com.howmuch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import jakarta.annotation.PreDestroy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -22,6 +23,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -34,7 +40,7 @@ import java.util.function.Function;
  *  - base_time은 발표 후 제공 시작(약 +10분)까지 시차가 있으므로 15분 버퍼를 두고 계산.
  *    자정~새벽 2시에는 전날 23시 발표분을 사용하도록 날짜 역행 처리.
  *  - 사용자 lat/lng를 기상청 격자(nx, ny)로 변환해 지역 날씨를 조회 (서울 고정 아님).
- *  - 날씨는 추천의 보조 정보다. 호출 대기를 최대 3초로 제한하고, 같은 격자·발표 시각의
+ *  - 날씨는 추천의 보조 정보다. 연결·읽기 대기를 각각 최대 3초로 제한하고, 같은 격자·발표 시각의
  *    결과는 30분, 실패는 2분 동안 재사용해 기상청 지연이 추천 응답을 막지 않게 한다.
  */
 @Slf4j
@@ -47,6 +53,11 @@ public class WeatherService {
     private final Clock clock;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, CachedWeather> cache = new ConcurrentHashMap<>();
+    private final ExecutorService refreshExecutor;
+    private final Object refreshLock = new Object();
+    // Only accepted/running refreshes live here; the executor bounds their total count.
+    private final Map<String, Object> inFlight = new HashMap<>();
+    private boolean closed;
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HHmm");
@@ -68,6 +79,7 @@ public class WeatherService {
     private static final int MAX_CACHE_ENTRIES = 512;
 
     private record CachedWeather(Map<String, Object> value, long expiresAtMillis) {}
+    private record WeatherRequest(double lat, double lng, int[] grid, LocalDateTime base, String key) {}
     private record ForecastFetch(Map<String, Object> value, boolean retryOlderBase) {}
 
     // 테스트용 생성자가 함께 있으므로 Spring이 쓸 생성자를 명시한다(없으면 서버가 시작되지 않는다).
@@ -91,10 +103,39 @@ public class WeatherService {
                    Function<URI, String> forecastFetcher,
                    Function<URI, String> fallbackFetcher,
                    Clock clock) {
+        this(weatherApiKey, forecastFetcher, fallbackFetcher, clock, newRefreshExecutor());
+    }
+
+    /** Controlled executor for deterministic tests; owned and shut down by this service. */
+    WeatherService(String weatherApiKey,
+                   Function<URI, String> forecastFetcher,
+                   Function<URI, String> fallbackFetcher,
+                   Clock clock,
+                   ExecutorService refreshExecutor) {
         this.weatherApiKey = weatherApiKey;
         this.forecastFetcher = forecastFetcher;
         this.fallbackFetcher = fallbackFetcher;
-        this.clock = clock;
+        this.clock = clock.withZone(KST);
+        this.refreshExecutor = refreshExecutor;
+    }
+
+    private static ExecutorService newRefreshExecutor() {
+        AtomicInteger sequence = new AtomicInteger();
+        return new ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(32), task -> {
+                    Thread thread = new Thread(task, "weather-refresh-" + sequence.incrementAndGet());
+                    thread.setDaemon(true);
+                    return thread;
+                }, new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        synchronized (refreshLock) {
+            closed = true;
+            inFlight.clear();
+        }
+        refreshExecutor.shutdownNow();
     }
 
     static int effectiveTimeoutMs(int configuredTimeoutMs) {
@@ -116,33 +157,112 @@ public class WeatherService {
      * @return weather(한글 요약), temp(기온), available(조회 성공 여부), fcstTime(사용된 예보 시각)
      */
     public Map<String, Object> getCurrentWeather(Double lat, Double lng) {
-        Map<String, Object> result = new HashMap<>();
-        if (lat == null || lng == null) {
-            result.put("weather", "알 수 없음");
-            result.put("temp", null);
-            result.put("available", false);
-            return result;
-        }
-        int[] grid = toGrid(lat, lng);
-        if (grid == null) {
-            result.put("weather", "알 수 없음");
-            result.put("temp", null);
-            result.put("available", false);
-            return result;
-        }
-
-        // 발표 지연(+15분)을 반영해 "이미 제공 중인 가장 최근 발표분"을 고른다.
-        LocalDateTime effective = LocalDateTime.now(clock).minusMinutes(PUBLISH_DELAY_MINUTES);
-        LocalDateTime base = latestBaseDateTime(effective);
-        String baseDate = base.format(DATE_FMT);
-        String baseTime = base.format(TIME_FMT);
-        String cacheKey = baseDate + baseTime + ":" + grid[0] + ":" + grid[1];
-        long nowMillis = clock.millis();
-        CachedWeather cached = cache.get(cacheKey);
-        if (cached != null && cached.expiresAtMillis() > nowMillis) {
+        WeatherRequest request = requestFor(lat, lng);
+        if (request == null) return unavailableWeather();
+        CachedWeather cached = cache.get(request.key());
+        if (isFresh(cached)) {
             return new HashMap<>(cached.value());
         }
+        Map<String, Object> fetched = fetchWeather(request);
+        rememberCompleted(request.key(), fetched);
+        return new HashMap<>(fetched);
+    }
 
+    /**
+     * Never waits for a provider. Returns a fresh cached result or an unavailable
+     * result with refreshing=true only while a same-grid/base refresh is pending.
+     * Expired successes are deliberately not returned as current weather.
+     */
+    public Map<String, Object> getCurrentWeatherIfReady(Double lat, Double lng) {
+        WeatherRequest request = requestFor(lat, lng);
+        if (request == null) return unavailableWeather(false);
+        synchronized (refreshLock) {
+            CachedWeather cached = cache.get(request.key());
+            if (isFresh(cached)) {
+                Map<String, Object> result = new HashMap<>(cached.value());
+                result.put("refreshing", !Boolean.TRUE.equals(cached.value().get("available"))
+                        && inFlight.containsKey(request.key()));
+                return result;
+            }
+            if (inFlight.containsKey(request.key())) return unavailableWeather(true);
+            if (closed) return unavailableWeather(false);
+            Object token = new Object();
+            inFlight.put(request.key(), token);
+            try {
+                refreshExecutor.execute(() -> refresh(request, token));
+            } catch (RuntimeException rejected) {
+                inFlight.remove(request.key(), token);
+                rememberCompleted(request.key(), unavailableWeather());
+                return unavailableWeather(false);
+            }
+            // Also supports an executor that completes synchronously in tests.
+            cached = cache.get(request.key());
+            if (isFresh(cached)) {
+                Map<String, Object> result = new HashMap<>(cached.value());
+                result.put("refreshing", !Boolean.TRUE.equals(cached.value().get("available"))
+                        && inFlight.containsKey(request.key()));
+                return result;
+            }
+            return unavailableWeather(inFlight.containsKey(request.key()));
+        }
+    }
+
+    private WeatherRequest requestFor(Double lat, Double lng) {
+        if (lat == null || lng == null || !Double.isFinite(lat) || !Double.isFinite(lng)
+                || lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+        int[] grid = toGrid(lat, lng);
+        if (grid == null) return null;
+        LocalDateTime base = latestBaseDateTime(LocalDateTime.now(clock).minusMinutes(PUBLISH_DELAY_MINUTES));
+        String key = base.format(DATE_FMT) + base.format(TIME_FMT) + ":" + grid[0] + ":" + grid[1];
+        return new WeatherRequest(lat, lng, grid, base, key);
+    }
+
+    private boolean isFresh(CachedWeather cached) {
+        return cached != null && cached.expiresAtMillis() > clock.millis()
+                && (!Boolean.TRUE.equals(cached.value().get("available"))
+                    || isCurrentSourceTime((String) cached.value().get("fcstTime"),
+                            "OPEN_METEO".equals(cached.value().get("source"))));
+    }
+
+    /** A provider timestamp, not cache insertion time, establishes current weather. */
+    private boolean isCurrentSourceTime(String timestamp, boolean openMeteo) {
+        try {
+            LocalDateTime sourceTime = openMeteo
+                    ? LocalDateTime.parse(timestamp)
+                    : LocalDateTime.of(LocalDate.parse(timestamp.substring(0, 8), DATE_FMT),
+                            LocalTime.parse(timestamp.substring(8), TIME_FMT));
+            LocalDateTime now = LocalDateTime.now(clock);
+            return !sourceTime.isBefore(now.minusHours(1))
+                    && !sourceTime.isAfter(now.plusMinutes(openMeteo ? 15 : 60));
+        } catch (Exception invalid) {
+            return false;
+        }
+    }
+
+    private void refresh(WeatherRequest request, Object token) {
+        Map<String, Object> fetched = unavailableWeather();
+        try {
+            fetched = fetchWeather(request);
+        } catch (Exception failure) {
+            log.warn("Background weather refresh failed: {}", failure.getClass().getSimpleName());
+        } finally {
+            synchronized (refreshLock) {
+                if (inFlight.get(request.key()) == token) {
+                    try {
+                        rememberCompleted(request.key(), fetched);
+                    } finally {
+                        inFlight.remove(request.key(), token);
+                    }
+                }
+            }
+        }
+    }
+
+    private Map<String, Object> fetchWeather(WeatherRequest request) {
+        String baseDate = request.base().format(DATE_FMT);
+        String baseTime = request.base().format(TIME_FMT);
+        LocalDateTime base = request.base();
+        int[] grid = request.grid();
         Map<String, Object> fetched;
         if (weatherApiKey == null || weatherApiKey.isBlank()) {
             log.warn("WEATHER_API_KEY 미설정 — 보조 날씨 공급원으로 조회합니다");
@@ -160,14 +280,27 @@ public class WeatherService {
         }
 
         if (!Boolean.TRUE.equals(fetched.get("available")) && fallbackFetcher != null) {
-            Map<String, Object> fallback = fetchOpenMeteo(lat, lng);
+            Map<String, Object> fallback = fetchOpenMeteo(request.lat(), request.lng());
             if (Boolean.TRUE.equals(fallback.get("available"))) {
                 fetched = fallback;
             }
         }
-        boolean available = Boolean.TRUE.equals(fetched.get("available"));
-        remember(cacheKey, fetched, nowMillis + (available ? SUCCESS_TTL_MS : FAILURE_TTL_MS), nowMillis);
-        return new HashMap<>(fetched);
+        return fetched;
+    }
+
+    private void rememberCompleted(String key, Map<String, Object> value) {
+        synchronized (refreshLock) {
+            long completedAt = clock.millis();
+            boolean available = Boolean.TRUE.equals(value.get("available"));
+            CachedWeather existing = cache.get(key);
+            // Sync routes can finish alongside an async refresh. A late failure
+            // must not erase a still-current success from the other attempt.
+            if (!available && existing != null
+                    && Boolean.TRUE.equals(existing.value().get("available")) && isFresh(existing)) {
+                return;
+            }
+            remember(key, value, completedAt + (available ? SUCCESS_TTL_MS : FAILURE_TTL_MS), completedAt);
+        }
     }
 
     private void remember(String key, Map<String, Object> value, long expiresAtMillis, long nowMillis) {
@@ -230,7 +363,7 @@ public class WeatherService {
             String bestKey = selectClosestForecastKey(slots, now);
 
             Map<String, String> chosen = bestKey != null ? slots.get(bestKey) : null;
-            if (chosen == null || chosen.isEmpty()) {
+            if (chosen == null || chosen.isEmpty() || !isCurrentSourceTime(bestKey, false)) {
                 log.warn("기상청 응답에서 유효 슬롯 선택 실패");
                 result.put("weather", "알 수 없음");
                 result.put("temp", null);
@@ -257,7 +390,7 @@ public class WeatherService {
             result.put("ptyCode", pty);
             result.put("fcstTime", bestKey);
             result.put("available", true);
-            result.put("updatedAt", java.time.Instant.now().toString());
+            result.put("updatedAt", java.time.Instant.now(clock).toString());
             return new ForecastFetch(result, false);
         } catch (Exception e) {
             log.warn("기상청 API 호출 실패: {}", e.getClass().getSimpleName());
@@ -279,7 +412,8 @@ public class WeatherService {
             String response = fallbackFetcher.apply(URI.create(url));
             JsonNode current = objectMapper.readTree(response).path("current");
             JsonNode temperatureNode = current.path("temperature_2m");
-            if (!temperatureNode.isNumber() || !Double.isFinite(temperatureNode.doubleValue())) {
+            if (!temperatureNode.isNumber() || !Double.isFinite(temperatureNode.doubleValue())
+                    || !isCurrentSourceTime(current.path("time").asText(""), true)) {
                 log.warn("보조 날씨 응답에서 현재 기온 누락");
                 return unavailableWeather();
             }
@@ -297,6 +431,12 @@ public class WeatherService {
             log.warn("보조 날씨 API 호출 실패: {}", e.getClass().getSimpleName());
             return unavailableWeather();
         }
+    }
+
+    private static Map<String, Object> unavailableWeather(boolean refreshing) {
+        Map<String, Object> result = unavailableWeather();
+        result.put("refreshing", refreshing);
+        return result;
     }
 
     private static Map<String, Object> unavailableWeather() {
@@ -395,7 +535,9 @@ public class WeatherService {
     private Integer parseTemp(String temp) {
         if (temp == null) return null;
         try {
-            return (int) Math.round(Double.parseDouble(temp.trim()));
+            double parsed = Double.parseDouble(temp.trim());
+            if (!Double.isFinite(parsed) || parsed < Integer.MIN_VALUE || parsed > Integer.MAX_VALUE) return null;
+            return (int) Math.round(parsed);
         } catch (NumberFormatException e) {
             return null;
         }

@@ -37,6 +37,28 @@ class TodaysPickService {
       <String, ({DateTime savedAt, Map<String, dynamic> data})>{};
   final _pickRequests = <String, Future<Map<String, dynamic>>>{};
 
+  /// Synchronous, fresh-only lookup for rendering before a refresh completes.
+  /// Reading never extends the one-minute lifetime or changes the context key.
+  Map<String, dynamic>? getCachedTodaysPick({
+    required double? lat,
+    required double? lng,
+    int radiusMeters = defaultRecommendationRadiusMeters,
+  }) {
+    final now = _clock();
+    final key = _cacheKey(now, lat, lng, radiusMeters);
+    final cached = _pickCache[key];
+    if (cached == null) return null;
+    final age = now.difference(cached.savedAt);
+    if (age.isNegative || age >= todaysPickCacheMaxAge) {
+      _pickCache.remove(key);
+      return null;
+    }
+    return cached.data;
+  }
+
+  String _cacheKey(DateTime now, double? lat, double? lng, int radiusMeters) =>
+      '${now.year}-${now.month}-${now.day}:$lat:$lng:$radiusMeters';
+
   /// 오늘의 픽 조회. 공개 GET이지만 로그인 상태면 세션 토큰을 함께 보내
   /// 서버가 IP 대신 계정 기준으로 요청량을 셀 수 있게 합니다.
   Future<Map<String, dynamic>> getTodaysPick({
@@ -48,10 +70,9 @@ class TodaysPickService {
     // Exact coordinates and radius preserve the server's distance boundary.
     // Only successful public results are kept briefly in this provider's memory.
     final now = _clock();
-    final day = '${now.year}-${now.month}-${now.day}';
-    final key = '$day:$lat:$lng:$radiusMeters';
-    if (forceRefresh) _pickCache.remove(key);
-    final cached = _pickCache[key];
+    final key = _cacheKey(now, lat, lng, radiusMeters);
+    // A forced request bypasses, but does not hide, a still-fresh result.
+    final cached = forceRefresh ? null : _pickCache[key];
     if (cached != null) {
       final age = now.difference(cached.savedAt);
       if (!age.isNegative && age < todaysPickCacheMaxAge) return cached.data;
@@ -59,10 +80,12 @@ class TodaysPickService {
     }
     final activeRequest = _pickRequests[key];
     if (activeRequest != null) return activeRequest;
-    final request = _getTodaysPickWithWeatherFallback(
+    final request = _getRecommendation(
+      '/api/recommendation/todays-pick',
       lat: lat,
       lng: lng,
       radiusMeters: radiusMeters,
+      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
     );
     _pickRequests[key] = request;
     try {
@@ -71,6 +94,8 @@ class TodaysPickService {
         _pickCache.remove(key);
         _pickCache[key] = (savedAt: _clock(), data: data);
         if (_pickCache.length > 8) _pickCache.remove(_pickCache.keys.first);
+      } else {
+        _pickCache.remove(key);
       }
       return data;
     } finally {
@@ -78,32 +103,9 @@ class TodaysPickService {
     }
   }
 
-  Future<Map<String, dynamic>> _getTodaysPickWithWeatherFallback({
-    required double? lat,
-    required double? lng,
-    required int radiusMeters,
-  }) async {
-    final data = await _getRecommendation(
-      '/api/recommendation/todays-pick',
-      lat: lat,
-      lng: lng,
-      radiusMeters: radiusMeters,
-      invalidMessage: '추천 응답 형식이 올바르지 않습니다.',
-    );
-    if (data['error'] == true ||
-        data['weatherAvailable'] != false ||
-        lat == null ||
-        lng == null) {
-      return data;
-    }
-
-    final weather = await _fetchDeviceWeather(lat: lat, lng: lng);
-    return weather == null ? data : {...data, ...weather};
-  }
-
   /// Render의 공유 IP가 보조 날씨 API의 사용량 제한을 받을 때도 사용자의
   /// 네트워크에서 한 번 더 조회해 오늘의 픽 온도를 복구한다.
-  Future<Map<String, dynamic>?> _fetchDeviceWeather({
+  Future<Map<String, dynamic>?> getDeviceWeather({
     required double lat,
     required double lng,
   }) async {
@@ -271,7 +273,13 @@ Map<String, dynamic> normalizeRecommendationResponse(
       message: invalidMessage,
     );
   }
-  return {...response, 'picks': picks};
+  return {
+    ...response,
+    if (response['recommendationBasis'] == null &&
+        response['weatherAvailable'] == false)
+      'recommendationBasis': 'nearby',
+    'picks': picks,
+  };
 }
 
 Map<String, dynamic> buildLocalTodaysPickData({
@@ -340,6 +348,9 @@ Map<String, dynamic> buildLocalTodaysPickData({
 
   return {
     'weather': '위치 기반',
+    'weatherAvailable': false,
+    'weatherRefreshing': false,
+    'recommendationBasis': 'nearby',
     'fallback': true,
     'picks': selected.map((entry) {
       final slot = _localPickMenuSlot(entry.store)!;

@@ -4110,6 +4110,11 @@ public class FirebaseService {
 
     /** 최종 추천 개수 */
     private static final int MAX_PICKS = 3;
+    private static final double EARTH_RADIUS_METERS = 6_371_000.0;
+    private final Object pickThemePresenceLock = new Object();
+    private volatile PickThemePresence pickThemePresence;
+    private record PickThemePresence(List<Map<String, Object>> catalog,
+                                     java.util.concurrent.ConcurrentHashMap<PickTheme, Boolean> values) {}
 
    /** 위치 기반 후보군 크기 (이 안에서 날짜 시드 셔플로 최대 3곳 선정) */
    private static final int CANDIDATE_POOL_SIZE = 20;
@@ -4136,23 +4141,19 @@ public class FirebaseService {
 
         // 💡 식당(요식업)만 추천 대상 — 공공데이터엔 미용업·세탁업·목욕업 등 비요식업이 섞여 있어
         //    매칭 실패 폼백에서 미용실이 추천되던 문제 방지
-        List<Map<String, Object>> foodStores = new ArrayList<>();
-        for (Map<String, Object> store : getAllStores()) {
-            String industry = strOrNull(store.get("industry"));
-            if (industry != null && FOOD_INDUSTRIES.contains(industry)
-                    && hasValidStoreCoordinate(store) && firstPricedMenu(store) != null) {
-                foodStores.add(store);
-            }
-        }
+        List<Map<String, Object>> catalog = getAllStores();
+        // Reject distant stores before parsing menus/prices or matching themes. The cheap
+        // spherical bounding box is conservative; exact haversine still enforces the radius.
+        Map<Map<String, Object>, Double> distances = new java.util.IdentityHashMap<>();
+        List<Map<String, Object>> foodStores = nearbyPickStores(catalog, lat, lng, radiusMeters, distances);
+        if (foodStores.isEmpty()) return List.of();
 
         // 테마별 매칭 (매장 → 실제 매칭된 메뉴 추적). 대안 테마는 메인과 겹치지 않게 제외.
         long dailySeed = java.time.LocalDate.now(ZoneId.of("Asia/Seoul")).toEpochDay();
         Map<String, String> matchedMenuByStore = new HashMap<>();
         Map<String, String> themeByStore = new HashMap<>();
         Map<String, String> reasonByStore = new HashMap<>();
-        // The three candidate pools share the same store objects. Calculate
-        // each distance once instead of repeating trigonometry during sorting.
-        Map<Map<String, Object>, Double> distances = new java.util.IdentityHashMap<>();
+        // All pools reuse the exact distances populated by the nearby-candidate pass.
 
         List<Map<String, Object>> mainMatched = matchTheme(foodStores, mainTheme,
                 matchedMenuByStore, themeByStore, reasonByStore, Set.of());
@@ -4163,7 +4164,11 @@ public class FirebaseService {
                 : List.of();
 
         // 메인이 0건이면 식당 전체 풀을 메인으로 사용 (폼백도 식당만)
-        List<Map<String, Object>> mainPool = mainMatched.isEmpty() ? foodStores : mainMatched;
+        // Preserve the previous global fallback policy: a main theme that exists only
+        // outside this radius must not change local alternative-theme priority. The rare
+        // existence check is short-circuited and cached per immutable catalog/theme.
+        List<Map<String, Object>> mainPool = !mainMatched.isEmpty() ? mainMatched
+                : globalPickThemeExists(catalog, mainTheme) ? List.of() : foodStores;
 
        // 위치가 있으면 가까운 순으로 후보를 유지한다. 예전에는 상위 20곳을
        // 다시 섞어 10km 이상 먼 매장이 앞 순위에 올라가는 문제가 있었다.
@@ -4387,6 +4392,52 @@ public class FirebaseService {
                                 List.of("돈가스", "초밥", "족발", "보쌈")));
             }
         }
+    }
+
+    private List<Map<String, Object>> nearbyPickStores(List<Map<String, Object>> catalog,
+            double lat, double lng, int radiusMeters, Map<Map<String, Object>, Double> distances) {
+        double angular = radiusMeters / EARTH_RADIUS_METERS;
+        double latitudeDelta = Math.toDegrees(angular) + 1e-9;
+        double absoluteLatitude = Math.abs(Math.toRadians(lat));
+        double longitudeDelta = absoluteLatitude + angular >= Math.PI / 2 - 1e-12
+                ? 180.0 : Math.toDegrees(Math.asin(Math.min(1.0, Math.sin(angular) / Math.cos(Math.toRadians(lat))))) + 1e-9;
+        List<Map<String, Object>> nearby = new ArrayList<>();
+        for (Map<String, Object> store : catalog) {
+            String industry = strOrNull(store.get("industry"));
+            if (industry == null || !FOOD_INDUSTRIES.contains(industry)) continue;
+            double storeLat = parseLat(store);
+            double storeLng = parseLng(store);
+            if (!isValidCoordinate(storeLat, storeLng) || Math.abs(storeLat - lat) > latitudeDelta) continue;
+            double delta = Math.abs(storeLng - lng);
+            if (Math.min(delta, 360.0 - delta) > longitudeDelta) continue;
+            double distance = haversine(lat, lng, storeLat, storeLng);
+            if (!Double.isFinite(distance) || distance > radiusMeters) continue;
+            if (firstPricedMenu(store) == null) continue;
+            distances.put(store, distance);
+            nearby.add(store);
+        }
+        return nearby;
+    }
+
+    private boolean globalPickThemeExists(List<Map<String, Object>> catalog, PickTheme theme) {
+        PickThemePresence cached = pickThemePresence;
+        if (cached == null || cached.catalog() != catalog) {
+            synchronized (pickThemePresenceLock) {
+                cached = pickThemePresence;
+                if (cached == null || cached.catalog() != catalog) {
+                    cached = new PickThemePresence(catalog, new java.util.concurrent.ConcurrentHashMap<>());
+                    pickThemePresence = cached;
+                }
+            }
+        }
+        return cached.values().computeIfAbsent(theme, key -> {
+            for (Map<String, Object> store : catalog) {
+                String industry = strOrNull(store.get("industry"));
+                if (industry != null && FOOD_INDUSTRIES.contains(industry)
+                        && hasValidStoreCoordinate(store) && findMatchedMenu(store, key) != null) return true;
+            }
+            return false;
+        });
     }
 
     /** 테마 키워드와 매칭되는 매장 수집 + 매장별 매칭 메뉴/테마/이유 기록 (제외 매장명 스킵) */

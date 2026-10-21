@@ -124,4 +124,57 @@ void main() {
     await service.getRoute(lat: 37.5, lng: 127);
     expect(requests, 12);
   });
+  test('fresh lookup is exact-context and reads never extend TTL', () async {
+    var now = DateTime(2026, 10, 21, 23, 59, 30);
+    final service = TodaysPickService(
+      MockClient((_) async => response()),
+      const Duration(seconds: 20),
+      () => now,
+    );
+    await service.getTodaysPick(lat: 37.5, lng: 127);
+    expect(service.getCachedTodaysPick(lat: 37.5, lng: 127), isNotNull);
+    expect(service.getCachedTodaysPick(lat: 37.500001, lng: 127), isNull);
+    expect(service.getCachedTodaysPick(lat: 37.5, lng: 127.000001), isNull);
+    expect(
+      service.getCachedTodaysPick(lat: 37.5, lng: 127, radiusMeters: 1000),
+      isNull,
+    );
+    now = now.add(const Duration(seconds: 30));
+    expect(service.getCachedTodaysPick(lat: 37.5, lng: 127), isNull);
+    await service.getTodaysPick(lat: 37.5, lng: 127);
+    now = now.add(const Duration(seconds: 59));
+    expect(service.getCachedTodaysPick(lat: 37.5, lng: 127), isNotNull);
+    now = now.add(const Duration(seconds: 1));
+    expect(service.getCachedTodaysPick(lat: 37.5, lng: 127), isNull);
+  });
+
+  test(
+    'forced refresh keeps fresh lookup available and deduplicates',
+    () async {
+      var calls = 0;
+      final pending = Completer<http.Response>();
+      final service = TodaysPickService(
+        MockClient((_) {
+          calls++;
+          return calls == 1 ? Future.value(response()) : pending.future;
+        }),
+      );
+      final original = await service.getTodaysPick(lat: 37.5, lng: 127);
+      final refresh = service.getTodaysPick(
+        lat: 37.5,
+        lng: 127,
+        forceRefresh: true,
+      );
+      final duplicate = service.getTodaysPick(
+        lat: 37.5,
+        lng: 127,
+        forceRefresh: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 2);
+      expect(service.getCachedTodaysPick(lat: 37.5, lng: 127), same(original));
+      pending.complete(response());
+      expect(await refresh, await duplicate);
+    },
+  );
 }

@@ -50,49 +50,56 @@ void main() {
     expect(TodaysPickService().requestTimeout, const Duration(seconds: 20));
   });
 
-  test('recovers missing server weather from the device network', () async {
-    final requests = <http.Request>[];
-    final service = TodaysPickService(
-      MockClient((request) async {
-        requests.add(request);
-        if (request.url.host == 'api.open-meteo.com') {
+  test(
+    'device weather is explicit and does not delay or relabel primary picks',
+    () async {
+      final requests = <http.Request>[];
+      final service = TodaysPickService(
+        MockClient((request) async {
+          requests.add(request);
+          if (request.url.host == 'api.open-meteo.com') {
+            return http.Response.bytes(
+              utf8.encode(
+                jsonEncode({
+                  'current': {
+                    'time': '2026-10-14T01:30',
+                    'temperature_2m': 12.8,
+                    'weather_code': 0,
+                  },
+                }),
+              ),
+              200,
+            );
+          }
           return http.Response.bytes(
             utf8.encode(
               jsonEncode({
-                'current': {
-                  'time': '2026-10-14T01:30',
-                  'temperature_2m': 12.8,
-                  'weather_code': 0,
-                },
+                'weatherAvailable': false,
+                'weather': '알 수 없음',
+                'temp': null,
+                'picks': <Object>[],
               }),
             ),
             200,
           );
-        }
-        return http.Response.bytes(
-          utf8.encode(
-            jsonEncode({
-              'weatherAvailable': false,
-              'weather': '알 수 없음',
-              'temp': null,
-              'picks': <Object>[],
-            }),
-          ),
-          200,
-        );
-      }),
-    );
+        }),
+      );
 
-    final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
+      final result = await service.getTodaysPick(lat: 37.5, lng: 127.0);
 
-    expect(requests, hasLength(2));
-    expect(requests.last.url.host, 'api.open-meteo.com');
-    expect(result['weatherAvailable'], isTrue);
-    expect(result['temp'], 13);
-    expect(result['weather'], '맑음');
-    expect(result['fcstTime'], '2026-10-14T01:30');
-    expect(result['weatherSource'], 'OPEN_METEO_DEVICE');
-  });
+      expect(requests, hasLength(1));
+      expect(result['weatherAvailable'], isFalse);
+      expect(result['recommendationBasis'], 'nearby');
+      final weather = (await service.getDeviceWeather(lat: 37.5, lng: 127.0))!;
+      expect(requests, hasLength(2));
+      expect(requests.last.url.host, 'api.open-meteo.com');
+      expect(weather['weatherAvailable'], isTrue);
+      expect(weather['temp'], 13);
+      expect(weather['weather'], '맑음');
+      expect(weather['fcstTime'], '2026-10-14T01:30');
+      expect(weather['weatherSource'], 'OPEN_METEO_DEVICE');
+    },
+  );
 
   test('keeps the server response when device weather also fails', () async {
     final service = TodaysPickService(
@@ -118,7 +125,34 @@ void main() {
 
     expect(result['weatherAvailable'], isFalse);
     expect(result['temp'], isNull);
+    expect(await service.getDeviceWeather(lat: 37.5, lng: 127.0), isNull);
   });
+
+  test(
+    'pending server weather returns nearby picks without a device request',
+    () async {
+      var calls = 0;
+      final service = TodaysPickService(
+        MockClient((request) async {
+          calls++;
+          expect(request.url.path, '/api/recommendation/todays-pick');
+          return http.Response(
+            jsonEncode({
+              'weatherAvailable': false,
+              'weatherRefreshing': true,
+              'recommendationBasis': 'nearby',
+              'picks': <Object>[],
+            }),
+            200,
+          );
+        }),
+      );
+      final result = await service.getTodaysPick(lat: 37.5, lng: 127);
+      expect(calls, 1);
+      expect(result['weatherRefreshing'], isTrue);
+      expect(result['recommendationBasis'], 'nearby');
+    },
+  );
 
   test('maps WMO weather codes used by the device fallback', () {
     expect(describeWmoWeather(0), '맑음');

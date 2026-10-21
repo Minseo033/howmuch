@@ -454,37 +454,40 @@ void main() {
       semantics.dispose();
     });
 
-    testWidgets("today's pick reads its tabs, cards and buttons", (
-      tester,
-    ) async {
-      final semantics = tester.ensureSemantics();
-      await _openTodaysPick(tester);
+    testWidgets(
+      "local today's pick reads its tabs, cards and buttons honestly",
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        await _openTodaysPick(tester);
 
-      expect(readerElements('뒤로가기'), findsOne);
-      expect(
-        readerElementsNamed('날씨 기반'),
-        isSemantics(isButton: true, hasTapAction: true, isSelected: true),
-      );
-      expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: false));
-      expect(
-        readerElements('다 시청 칼국수'),
-        isSemantics(isButton: true, hasTapAction: true),
-      );
-      for (final action in ['지도에서 보기', '이 루트로 보기']) {
-        expect(readerElements(action), findsOne, reason: action);
+        expect(readerElements('뒤로가기'), findsOne);
+        expect(readerElementsNamed('주변 추천'), findsOne);
+        expect(readerElementsNamed('날씨 기반'), findsNothing);
         expect(
-          readerElementsNamed(action),
-          isSemantics(isButton: true, hasTapAction: true),
-          reason: action,
+          readerElementsNamed('주변 추천'),
+          isSemantics(isButton: true, hasTapAction: true, isSelected: true),
         );
-      }
+        expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: false));
+        expect(
+          readerElements('다 시청 칼국수'),
+          isSemantics(isButton: true, hasTapAction: true),
+        );
+        for (final action in ['지도에서 보기', '이 루트로 보기']) {
+          expect(readerElements(action), findsOne, reason: action);
+          expect(
+            readerElementsNamed(action),
+            isSemantics(isButton: true, hasTapAction: true),
+            reason: action,
+          );
+        }
 
-      tester.semantics.tap(readerElementsNamed('가까운 거리'));
-      await tester.pumpAndSettle();
-      expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: true));
-      expect(readerElementsNamed('날씨 기반'), isSemantics(isSelected: false));
-      semantics.dispose();
-    });
+        tester.semantics.tap(readerElementsNamed('가까운 거리'));
+        await tester.pumpAndSettle();
+        expect(readerElementsNamed('가까운 거리'), isSemantics(isSelected: true));
+        expect(readerElementsNamed('주변 추천'), isSemantics(isSelected: false));
+        semantics.dispose();
+      },
+    );
   });
 }
 

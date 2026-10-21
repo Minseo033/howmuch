@@ -63,3 +63,13 @@ tasks.register('catalogBenchmark', JavaExec) {
     mainClass = 'com.howmuch.service.CatalogColdBenchmark'
     args (project.findProperty('catalogBenchmarkRuns') ?: '7')
 }
+
+// Opt-in recommendation ranking comparison with fixed weather and bundled data only.
+tasks.register('todaysPickBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Compare local nearby recommendation selection without weather/network/Firebase.'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.howmuch.service.TodaysPickBenchmark'
+    args (project.findProperty('todaysPickBenchmarkRuns') ?: '7')
+}
