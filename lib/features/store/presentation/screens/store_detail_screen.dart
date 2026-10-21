@@ -56,6 +56,7 @@ class StoreDetailScreen extends ConsumerWidget {
     return _StoreDetailContent(
       store: latest?.valueOrNull ?? store,
       refreshFailed: latest?.hasError ?? false,
+      detailsLoading: latest?.isLoading ?? false,
       onRefresh: store.id.isEmpty
           ? null
           : () => ref.invalidate(currentStoreDetailProvider(store.id)),
@@ -66,10 +67,12 @@ class StoreDetailScreen extends ConsumerWidget {
 class _StoreDetailContent extends ConsumerWidget {
   final Store store;
   final bool refreshFailed;
+  final bool detailsLoading;
   final VoidCallback? onRefresh;
   const _StoreDetailContent({
     required this.store,
     this.refreshFailed = false,
+    this.detailsLoading = false,
     this.onRefresh,
   });
 
@@ -631,9 +634,16 @@ class _StoreDetailContent extends ConsumerWidget {
                               icon: Icons.access_time_outlined,
                               label: '영업시간',
                               value:
-                                  store.openingHours?.text ?? '등록된 영업시간이 없어요.',
+                                  store.openingHours?.text ??
+                                  (detailsLoading
+                                      ? '영업시간을 확인하고 있어요.'
+                                      : refreshFailed
+                                      ? '영업시간을 확인하지 못했어요.'
+                                      : '등록된 영업시간이 없어요.'),
                               supportingText: store.openingHours == null
-                                  ? (hasPhone
+                                  ? (detailsLoading
+                                        ? '최신 매장 정보를 불러오고 있어요.'
+                                        : hasPhone
                                         ? '방문 전 매장에 확인해 주세요.'
                                         : '방문 전 최신 안내를 확인해 주세요.')
                                   : '${store.openingHours!.sourceLabel}\n${store.openingHours!.isStale(DateTime.now()) ? '조회한 지 오래된 정보예요. 방문 전 확인해 주세요.' : '휴무·영업시간은 매장 사정에 따라 달라질 수 있어요.'}',

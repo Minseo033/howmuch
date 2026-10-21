@@ -102,7 +102,7 @@ public class SavingsService {
             throw new IllegalArgumentException("지원하지 않는 절약 통계 기간입니다.");
         }
 
-        List<SavingsHistoryResponse> history = getSavingsHistory(firebaseUid);
+        List<SavingsHistoryResponse> history = firebaseService.getSavingsStatsHistory(firebaseUid);
 
         LocalDate now = LocalDate.now(clock);
         DateRange range = periodRange(targetPeriod, now);

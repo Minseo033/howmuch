@@ -18,6 +18,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_compass/flutter_compass.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/recommendation/presentation/state/ai_chat_service.dart';
 import 'package:howmuch/features/recommendation/presentation/state/recommendation_price.dart';
@@ -334,6 +335,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   Timer? _headingThrottle;
   // Location tracking runs only while this route is visible in the foreground.
   bool _routeIsCurrent = true;
+  GoRouter? _visibilityRouter;
+  bool _visibilitySyncScheduled = false;
   bool _appInForeground = true;
   bool _trackingSuspended = false;
   bool _awaitingLocationSettingsReturn = false;
@@ -987,9 +990,40 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (router != _visibilityRouter) {
+      _visibilityRouter?.routerDelegate.removeListener(
+        _scheduleRouteVisibility,
+      );
+      _visibilityRouter = router;
+      router?.routerDelegate.addListener(_scheduleRouteVisibility);
+    }
     // A pushed screen covers this map; it does not need GPS fixes or compass
     // headings drawn while hidden.
-    final routeIsCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    final path = router == null ? null : visibleAppPath(router);
+    final routeIsCurrent =
+        (ModalRoute.isCurrentOf(context) ?? true) &&
+        TickerMode.valuesOf(context).enabled &&
+        (path == null || path == AppRoutes.home || path == AppRoutes.homeAiFab);
+    _setRouteVisibility(routeIsCurrent);
+  }
+
+  void _scheduleRouteVisibility() {
+    if (_visibilitySyncScheduled) return;
+    _visibilitySyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibilitySyncScheduled = false;
+      if (!mounted) return;
+      final router = _visibilityRouter;
+      if (router == null) return;
+      final path = visibleAppPath(router);
+      _setRouteVisibility(
+        path == AppRoutes.home || path == AppRoutes.homeAiFab,
+      );
+    });
+  }
+
+  void _setRouteVisibility(bool routeIsCurrent) {
     if (routeIsCurrent != _routeIsCurrent) {
       _routeIsCurrent = routeIsCurrent;
       _syncLocationTracking();
@@ -1003,6 +1037,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   void _syncLocationTracking() {
     final active = _routeIsCurrent && _appInForeground;
+    if (kIsWeb && _isMapReady) {
+      web_helper.setKakaoMapActiveWeb(_viewId, active);
+    }
     if (!kIsWeb && _isMapReady) {
       _safeRunJavaScript('setMapActive($active);');
     }
@@ -1037,6 +1074,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
 
   @override
   void dispose() {
+    _visibilityRouter?.routerDelegate.removeListener(_scheduleRouteVisibility);
     HomeMapScreen._savedSelectedStore = _showStoreSummary
         ? _selectedStore
         : null;

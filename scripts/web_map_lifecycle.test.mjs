@@ -5,6 +5,28 @@ import vm from 'node:vm';
 import { createRuntime } from './fixtures/kakao_map_runtime.mjs';
 
 {
+  const { context, clusterers, runTimers } = createRuntime({ withClusterer: true });
+  context.initKakaoMap('map', 37.5, 127);
+  runTimers();
+  const map = context.kakaoMapObjects.map;
+  context.setKakaoMapActive('map', false);
+  context.addMobileMarkers('map', JSON.stringify([
+    { storeId: 'old', lat: 37.5, lng: 127, title: '이전' },
+  ]));
+  context.addMobileMarkers('map', JSON.stringify([
+    { storeId: 'new', lat: 37.5, lng: 127, title: '최신' },
+    { storeId: 'second', lat: 37.5001, lng: 127.0001, title: '둘째' },
+  ]));
+  runTimers();
+  assert.equal(clusterers.length, 0, 'a retained inactive tab does no cluster work');
+  context.setKakaoMapActive('map', true);
+  runTimers();
+  assert.equal(context.kakaoMapObjects.map, map, 'returning reuses the map instance');
+  assert.equal(clusterers.length, 1, 'returning resumes exactly one catalog render');
+  assert.equal(context.markerDataCache.map[0].storeId, 'new', 'only newest hidden work is applied');
+}
+
+{
   const { context, overlays, clusterers, listeners } = createRuntime({ withClusterer: true });
   const selectedStores = [];
   context.kakaoMapCallbacks.map = {

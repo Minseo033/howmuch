@@ -7,6 +7,87 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test(
+    'uses light catalog without losing menus, free prices, or coordinates',
+    () async {
+      final stores = await loadStoreCatalog(
+        useLocalCache: false,
+        request: (uri) async {
+          expect(uri.path, '/api/stores/catalog');
+          return http.Response.bytes(
+            utf8.encode(
+              jsonEncode([
+                {
+                  'storeId': 'light-store',
+                  'storeName': '가벼운 매장',
+                  'address': '서울특별시 종로구',
+                  'phoneNumber': '02-123-4567',
+                  'industry': '분식',
+                  'menu1': '김밥',
+                  'price1': '3000 / 3500',
+                  'menu4': '무료 물',
+                  'price4': '0',
+                  'free4': true,
+                  'latitude': 37.5,
+                  'longitude': 127.0,
+                  'source': 'USER',
+                  'correctionRevision': 2,
+                },
+              ]),
+            ),
+            200,
+          );
+        },
+      );
+      final store = stores.single;
+      expect(store.address, '서울특별시 종로구');
+      expect(store.phoneNumber, '02-123-4567');
+      expect(store.price1, '3000 / 3500');
+      expect(store.menu4, '무료 물');
+      expect(store.free4, true);
+      expect(store.isUserReported, true);
+      expect(store.correctionRevision, 2);
+      expect(store.openingHours, isNull);
+      expect(store.hasValidCoordinates, true);
+    },
+  );
+
+  test('older server falls back to the full catalog during rollout', () async {
+    final paths = <String>[];
+    final stores = await loadStoreCatalog(
+      useLocalCache: false,
+      request: (uri) async {
+        paths.add(uri.path);
+        return uri.path.endsWith('/catalog')
+            ? http.Response('{}', 404)
+            : http.Response.bytes(
+                utf8.encode('[{"storeName":"구버전 호환 매장","latitude":37.5,"longitude":127.0}]'),
+                200,
+              );
+      },
+    );
+    expect(paths, ['/api/stores/catalog', '/api/stores/all']);
+    expect(stores.single.storeName, '구버전 호환 매장');
+  });
+
+  test(
+    'an unavailable light catalog does not duplicate the request to all',
+    () async {
+      var requests = 0;
+      await expectLater(
+        loadStoreCatalog(
+          useLocalCache: false,
+          request: (_) async {
+            requests++;
+            return http.Response('{}', 503);
+          },
+        ),
+        throwsA(isA<http.ClientException>()),
+      );
+      expect(requests, 1);
+    },
+  );
+
   test('large catalog decoding leaves the UI event loop responsive', () async {
     final raw = jsonEncode([
       for (var i = 0; i < 15000; i++)
@@ -136,7 +217,7 @@ void main() {
       preferences: prefs,
       request: (uri) async {
         requestCount++;
-        expect(uri.path, '/api/stores/all');
+        expect(uri.path, '/api/stores/catalog');
         return http.Response(
           jsonEncode([
             {
@@ -192,7 +273,7 @@ void main() {
 
     Future<http.Response> request(Uri uri) {
       requestCount++;
-      expect(uri.path, '/api/stores/all');
+      expect(uri.path, '/api/stores/catalog');
       return pending.future;
     }
 

@@ -1,6 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+/// Push keeps the browser's tab address; the matched stack identifies the
+/// actual visible page, including a detail opened above retained tab branches.
+String visibleAppPath(GoRouter router) {
+  final configuration = router.routerDelegate.currentConfiguration;
+  if (configuration.matches.isEmpty) return configuration.uri.path;
+  final last = configuration.last;
+  return (last is ImperativeRouteMatch ? last.matches : configuration).uri.path;
+}
 
 final appRouteObserverProvider = Provider<RouteObserver<PageRoute<dynamic>>>(
   (ref) => RouteObserver<PageRoute<dynamic>>(),
@@ -14,6 +24,16 @@ class AppNavigationTracker extends NavigatorObserver with ChangeNotifier {
   int _pageChanges = 0;
   bool _notifyScheduled = false;
   bool _disposed = false;
+  String? _lastLocation;
+
+  /// Switching retained branches need not replace a root Navigator page.
+  void locationChanged(String path) {
+    final previous = _lastLocation;
+    _lastLocation = path;
+    if (previous == null || previous == path) return;
+    _pageChanges++;
+    _changed();
+  }
 
   /// Whether a dialog, bottom sheet or menu is open.
   bool get hasPopup => _popups.isNotEmpty;

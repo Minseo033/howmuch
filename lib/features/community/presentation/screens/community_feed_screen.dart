@@ -4,6 +4,7 @@ import 'package:howmuch/shared/widgets/howmuch_snack_bar.dart';
 import 'package:howmuch/core/constants/app_sizes.dart';
 import 'package:go_router/go_router.dart';
 import 'package:howmuch/app/app_routes.dart';
+import 'package:howmuch/app/app_route_observer.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
 import 'package:howmuch/shared/widgets/howmuch_top_bar.dart';
@@ -140,6 +141,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   bool _hasError = false;
   List<dynamic> _rawFeeds = [];
   List<_FeedItem> _parsedFeeds = const [];
+  GoRouter? _router;
+  String? _lastRoutePath;
+  DateTime? _feedsLoadedAt;
+  String? _feedsSession;
+  int _feedsRevision = -1;
+  Future<void>? _feedLoad;
+  String? _loadingSession;
 
   // 위치는 사용자가 직접 요청할 때만 조회한다. 피드 진입만으로 권한을 묻지 않는다.
   String _locationLabel = '전체';
@@ -157,14 +165,44 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final router = GoRouter.maybeOf(context);
+    if (_router == router) return;
+    _router?.routerDelegate.removeListener(_handleRouteChange);
+    _router = router;
+    _lastRoutePath = router == null ? null : visibleAppPath(router);
+    router?.routerDelegate.addListener(_handleRouteChange);
+  }
+
+  void _handleRouteChange() {
+    final path = _router == null ? null : visibleAppPath(_router!);
+    final previous = _lastRoutePath;
+    _lastRoutePath = path;
+    if (path == AppRoutes.communityFeed && previous != path) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _fetchFeeds(
+            silent: true,
+            force: previous == AppRoutes.communityPostDetail,
+          );
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
+    _router?.routerDelegate.removeListener(_handleRouteChange);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed &&
+        (_router == null ||
+            visibleAppPath(_router!) == AppRoutes.communityFeed)) {
       _fetchFeeds(silent: true);
     }
   }
@@ -273,8 +311,36 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
   Future<void> _fetchFeeds({
     bool silent = false,
     bool refreshing = false,
+    bool force = false,
+  }) {
+    final session = ApiClient.sessionToken;
+    if (_feedLoad != null && _loadingSession == session) return _feedLoad!;
+    if (silent &&
+        !force &&
+        _feedsSession == session &&
+        _feedsRevision == ApiClient.readCacheRevision &&
+        _feedsLoadedAt != null &&
+        DateTime.now().difference(_feedsLoadedAt!) <
+            const Duration(seconds: 30)) {
+      return Future.value();
+    }
+    _loadingSession = session;
+    late final Future<void> load;
+    load = _loadFeeds(silent: silent, refreshing: refreshing, session: session)
+        .whenComplete(() {
+          if (identical(_feedLoad, load)) _feedLoad = null;
+        });
+    _feedLoad = load;
+    return load;
+  }
+
+  Future<void> _loadFeeds({
+    required bool silent,
+    required bool refreshing,
+    required String? session,
   }) async {
-    final keepVisibleList = silent || refreshing;
+    final revision = ApiClient.readCacheRevision;
+    final keepVisibleList = (silent || refreshing) && _feedsSession == session;
     if (!keepVisibleList) {
       setState(() {
         _isLoading = true;
@@ -292,7 +358,7 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         throw StateError('커뮤니티 피드 응답 ${response.statusCode}');
       }
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
-      if (!mounted) return;
+      if (!mounted || session != ApiClient.sessionToken) return;
       final nextRaw = decoded is List ? decoded : <dynamic>[];
       final nextParsed = _parseFeedItems(nextRaw);
       setState(() {
@@ -300,10 +366,13 @@ class _CommunityFeedScreenState extends State<CommunityFeedScreen>
         _parsedFeeds = nextParsed;
         _isLoading = false;
         _hasError = false;
+        _feedsSession = session;
+        _feedsRevision = revision;
+        _feedsLoadedAt = DateTime.now();
       });
     } catch (e) {
       debugPrint('커뮤니티 피드 조회 오류: $e');
-      if (!mounted) return;
+      if (!mounted || session != ApiClient.sessionToken) return;
       if (!keepVisibleList) {
         setState(() {
           _isLoading = false;

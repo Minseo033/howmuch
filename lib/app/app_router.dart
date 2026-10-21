@@ -74,7 +74,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
   final isOauthCallback =
       platformUri?.host == 'oauth' || platformUri?.path == '/oauth';
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: AppRoutes.splash,
     observers: [routeObserver, navigationTracker],
     // 웹 하위 경로 새로고침도 반드시 세션 검증을 거치게 합니다.
@@ -265,16 +265,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _route(AppRoutes.profileSetup, const ProfileSetupScreen()),
-      GoRoute(
-        path: AppRoutes.home,
-        pageBuilder: (_, state) => NoTransitionPage<void>(
-          key: state.pageKey,
-          child: buildHomeMapScreenForExtra(state.extra),
-        ),
+      // Branches are built on first visit and kept mounted afterwards. The
+      // default container also disables tickers for the offstage branches.
+      StatefulShellRoute.indexedStack(
+        pageBuilder: (_, state, shell) =>
+            NoTransitionPage<void>(key: state.pageKey, child: shell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: AppRoutes.home,
+                pageBuilder: (_, state) => NoTransitionPage<void>(
+                  key: state.pageKey,
+                  child: buildHomeMapScreenForExtra(state.extra),
+                ),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              _tabRoute(
+                AppRoutes.savingsReportDashboard,
+                const SavingsReportDashboardScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [_tabRoute(AppRoutes.mypage, const MypageScreen())],
+          ),
+        ],
       ),
       _route(AppRoutes.homeAiFab, const HomeMapScreen(showAiSpotlight: true)),
       _route(AppRoutes.aiRecommend, const AiRecommendChatScreen()),
-      _tabRoute(AppRoutes.communityFeed, const CommunityFeedScreen()),
       GoRoute(
         path: AppRoutes.reportCreate,
         pageBuilder: (_, state) => _fastPage<void>(
@@ -317,7 +344,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
         ),
       ),
-      _tabRoute(AppRoutes.mypage, const MypageScreen()),
       _route(
         AppRoutes.notificationSettings,
         const NotificationSettingsScreen(),
@@ -351,10 +377,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       _route(AppRoutes.sessionExpired, const SessionExpiredScreen()),
-      _tabRoute(
-        AppRoutes.savingsReportDashboard,
-        const SavingsReportDashboardScreen(),
-      ),
       GoRoute(
         path: AppRoutes.savingsDetail,
         pageBuilder: (_, state) => _fastPage<void>(
@@ -390,6 +412,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  void trackLocation() =>
+      navigationTracker.locationChanged(visibleAppPath(router));
+  router.routerDelegate.addListener(trackLocation);
+  ref.onDispose(() => router.routerDelegate.removeListener(trackLocation));
+  return router;
 });
 
 Page<T> _fastPage<T>({required LocalKey key, required Widget child}) {

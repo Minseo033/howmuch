@@ -3,13 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'app/howmuch_app.dart';
 import 'features/system/presentation/state/push_notification_service.dart';
 
-Future<void> main() async {
+void main() {
   // 💡 비동기 작업을 위해 초기화 보장
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -19,22 +18,24 @@ Future<void> main() async {
     javaScriptAppKey: '8aa42a2f5dc0314f1fe917a90aa6c112',
   );
 
-  // 💡 디버그 콘솔에서 키 해시 확인용 (등록 후 삭제 가능)
-  // 웹에서는 플랫폼 채널 미지원으로 예외가 날 수 있어 건너뜁니다.
-  if (!kIsWeb) {
-    try {
-      debugPrint("카카오 키 해시: ${await KakaoSdk.origin}");
-    } catch (e) {
-      debugPrint("카카오 키 해시 조회 실패(무시 가능): $e");
-    }
+  // A registration diagnostic must not delay the first frame or run in release.
+  if (kDebugMode && !kIsWeb) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      try {
+        debugPrint("카카오 키 해시: ${await KakaoSdk.origin}");
+      } catch (e) {
+        debugPrint("카카오 키 해시 조회 실패(무시 가능): $e");
+      }
+    });
   }
 
   if (!kIsWeb) {
     try {
-      await Firebase.initializeApp();
+      // Register the callback without waiting for Firebase. The push service
+      // initializes Firebase when needed; the background handler does so too.
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
     } catch (e) {
-      debugPrint('Firebase 초기화 예외 처리 (앱 정상 계속 실행): $e');
+      debugPrint('백그라운드 알림 등록 실패 (앱 정상 계속 실행): $e');
     }
   }
 
