@@ -15,7 +15,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.AbstractMap;
+import java.util.AbstractSet;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.Objects;
 
 /**
@@ -100,11 +104,10 @@ public class StoresController {
                 return cached;
             }
             long buildStarted = System.nanoTime();
-            List<Map<String, Object>> stores = source.stores().stream().map(store -> {
-                Map<String, Object> copy = new HashMap<>(store);
-                copy.remove("openingHours");
-                return Collections.unmodifiableMap(copy);
-            }).toList();
+            // The canonical snapshot is already deeply immutable. A read-only view avoids
+            // rebuilding 11k hash tables just to hide one detail-only field.
+            List<Map<String, Object>> stores = source.stores().stream()
+                    .<Map<String, Object>>map(MapStoreView::new).toList();
             String etag = source.etag() == null ? null
                     : source.etag().substring(0, source.etag().length() - 1) + "-map-v1\"";
             cached = new MapCatalog(source.etag(), source.stores(), stores, etag);
@@ -113,6 +116,51 @@ public class StoresController {
             CatalogTiming.map("miss");
             return cached;
         }
+    }
+
+    /** Read-only projection of a deeply immutable canonical store, preserving JSON entry order. */
+    private static final class MapStoreView extends AbstractMap<String, Object> {
+        private static final String DETAIL_FIELD = "openingHours";
+        private final Map<String, Object> source;
+        private final Set<Entry<String, Object>> entries;
+
+        MapStoreView(Map<String, Object> source) {
+            this.source = Collections.unmodifiableMap(source);
+            this.entries = Collections.unmodifiableSet(new AbstractSet<>() {
+                @Override public int size() { return MapStoreView.this.size(); }
+
+                @Override public Iterator<Entry<String, Object>> iterator() {
+                    Iterator<Entry<String, Object>> original = MapStoreView.this.source.entrySet().iterator();
+                    return new Iterator<>() {
+                        private Entry<String, Object> next;
+
+                        @Override public boolean hasNext() {
+                            while (next == null && original.hasNext()) {
+                                Entry<String, Object> candidate = original.next();
+                                if (!DETAIL_FIELD.equals(candidate.getKey())) next = candidate;
+                            }
+                            return next != null;
+                        }
+
+                        @Override public Entry<String, Object> next() {
+                            if (!hasNext()) throw new NoSuchElementException();
+                            Entry<String, Object> result = next;
+                            next = null;
+                            // Canonical entries, including setValue, are unmodifiable.
+                            return result;
+                        }
+                    };
+                }
+            });
+        }
+
+        @Override public Set<Entry<String, Object>> entrySet() { return entries; }
+        @Override public int size() { return source.size() - (source.containsKey(DETAIL_FIELD) ? 1 : 0); }
+        @Override public Object get(Object key) { return DETAIL_FIELD.equals(key) ? null : source.get(key); }
+        @Override public boolean containsKey(Object key) { return !DETAIL_FIELD.equals(key) && source.containsKey(key); }
+        @Override public Object put(String key, Object value) { throw new UnsupportedOperationException(); }
+        @Override public Object remove(Object key) { throw new UnsupportedOperationException(); }
+        @Override public void clear() { throw new UnsupportedOperationException(); }
     }
 
     /** 화면 범위(Bounds) 내 매장 조회: /api/stores/bounds?minLat=37.5&maxLat=37.6&minLng=126.9&maxLng=127.0 */

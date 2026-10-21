@@ -57,6 +57,9 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
+import java.security.DigestOutputStream;
+import java.io.OutputStream;
 
 @Slf4j
 @Service
@@ -68,6 +71,17 @@ public class FirebaseService {
     private TruePriceService truePriceService;
     private static final TruePriceService BUNDLED_TRUE_PRICE_FALLBACK = new TruePriceService(8000);
     private StoreHoursCatalog storeHoursCatalog;
+
+    // Reuse regex programs during nationwide builds without changing identity rules.
+    private static final Pattern IDENTITY_WHITESPACE = Pattern.compile("\\s+");
+    private static final Pattern NON_PHONE_DIGIT = Pattern.compile("\\D");
+    private static final Pattern NON_IDENTITY_CHARACTER = Pattern.compile("[^\\p{L}\\p{N}]");
+    private static final Pattern CORRECTABLE_MENU_FIELD = Pattern.compile("(?:menu|price|free)[1-4]");
+    private static final List<String> PUBLIC_STORE_FIELDS = List.of(
+            "storeId", "storeName", "address", "phoneNumber", "industry",
+            "menu1", "price1", "menu2", "price2", "menu3", "price3",
+            "menu4", "price4", "free1", "free2", "free3", "free4", "latitude", "longitude",
+            "openingHours", "isClosed", "correctionRevision");
 
     /**
      * 착한가격업소(공공데이터) 인메모리 캐시.
@@ -388,7 +402,17 @@ public class FirebaseService {
                     strOrNull(store.get("address")),
                     strOrNull(store.get("phoneNumber")));
             if (!identities.add(identity)) continue;
-            merged.add(store);
+            // Identity was just calculated for deduplication. Retain it only in the
+            // runtime copy so first requests/correction rebuilds do not hash 11k IDs again.
+            // cachedBaseStores remains the untouched refresh/export snapshot.
+            Object existingId = store.get("storeId");
+            if (existingId == null || existingId.toString().isBlank()) {
+                Map<String, Object> identified = new HashMap<>(store);
+                identified.put("storeId", identity);
+                merged.add(Collections.unmodifiableMap(identified));
+            } else {
+                merged.add(store);
+            }
             String phoneNumber = comparablePhone(store.get("phoneNumber"));
             if (!phoneNumber.isBlank()) phoneNumbers.add(phoneNumber);
             nameAddresses.add(comparableNameAddress(store));
@@ -435,14 +459,14 @@ public class FirebaseService {
     }
 
     private String comparablePhone(Object value) {
-        String digits = value == null ? "" : value.toString().replaceAll("\\D", "");
+        String digits = value == null ? "" : NON_PHONE_DIGIT.matcher(value.toString()).replaceAll("");
         return digits.length() >= 8 ? digits : "";
     }
 
     private String comparableNameAddress(Map<String, Object> store) {
-        return normalizeStoreIdentityPart(strOrNull(store.get("storeName"))).replaceAll("[^\\p{L}\\p{N}]", "")
+        return NON_IDENTITY_CHARACTER.matcher(normalizeStoreIdentityPart(strOrNull(store.get("storeName")))).replaceAll("")
                 + "|"
-                + normalizeStoreIdentityPart(strOrNull(store.get("address"))).replaceAll("[^\\p{L}\\p{N}]", "");
+                + NON_IDENTITY_CHARACTER.matcher(normalizeStoreIdentityPart(strOrNull(store.get("address")))).replaceAll("");
     }
 
     /** 스냅샷을 임시 파일에 쓴 뒤 원자적으로 교체 (쓰기 중단으로 인한 파일 깨짐 방지) */
@@ -514,8 +538,12 @@ public class FirebaseService {
             String etag;
             long etagStarted = System.nanoTime();
             try {
-                byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(discoverable));
-                etag = "\"" + java.util.HexFormat.of().formatHex(digest) + "\"";
+                // Hash the identical JSON stream without allocating a second nationwide byte array.
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                try (DigestOutputStream output = new DigestOutputStream(OutputStream.nullOutputStream(), digest)) {
+                    objectMapper.writeValue(output, discoverable);
+                }
+                etag = "\"" + java.util.HexFormat.of().formatHex(digest.digest()) + "\"";
             } catch (Exception exception) { throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception); }
             finally { CatalogTiming.record("catalog_etag", etagStarted); }
             allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, correctionSnapshot, stores, discoverable, etag);
@@ -576,12 +604,11 @@ public class FirebaseService {
         Map<String, Object> normalized = withStableStoreId(rawStore);
         normalized = applyStoreCorrection(normalized, correctionSnapshot.get(String.valueOf(normalized.get("storeId"))));
         Map<String, Object> result = new HashMap<>();
-        for (String field : List.of(
-                "storeId", "storeName", "address", "phoneNumber", "industry",
-                "menu1", "price1", "menu2", "price2", "menu3", "price3",
-                "menu4", "price4", "free1", "free2", "free3", "free4", "latitude", "longitude", "openingHours", "isClosed", "correctionRevision")) {
+        for (String field : PUBLIC_STORE_FIELDS) {
             if (normalized.containsKey(field)) {
-                result.put(field, immutablePublicValue(normalized.get(field)));
+                // This private intermediate is not published. buildAllStores freezes it once,
+                // after duplicate filtering, including every nested hours/list value.
+                result.put(field, normalized.get(field));
             }
         }
         result.put("source", source);
@@ -594,7 +621,7 @@ public class FirebaseService {
         if (correction != null && correction.get("fields") instanceof Map<?, ?> fields) {
             for (var entry : fields.entrySet()) {
                 String field = String.valueOf(entry.getKey());
-                if (field.matches("(?:menu|price|free)[1-4]") || List.of("address", "latitude", "longitude", "isClosed").contains(field)) {
+                if (CORRECTABLE_MENU_FIELD.matcher(field).matches() || List.of("address", "latitude", "longitude", "isClosed").contains(field)) {
                     result.put(field, entry.getValue());
                 }
             }
@@ -3313,7 +3340,7 @@ public class FirebaseService {
     }
 
     private String normalizeStoreIdentityPart(String value) {
-        return value == null ? "" : value.trim().replaceAll("\\s+", " ").toLowerCase();
+        return value == null ? "" : IDENTITY_WHITESPACE.matcher(value.trim()).replaceAll(" ").toLowerCase();
     }
 
     private String stableStoreIdForData(Map<String, Object> data) {

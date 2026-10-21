@@ -53,3 +53,13 @@ tasks.named('test') {
 tasks.withType(Jar).configureEach {
     exclude 'firebase-service-account*.json'
 }
+
+// Explicit, offline-data-only benchmark. Ordinary test/build tasks do not run it.
+tasks.register('catalogBenchmark', JavaExec) {
+    group = 'verification'
+    description = 'Compare cold catalog phases using bundled public data, without Firebase or HTTP.'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.howmuch.service.CatalogColdBenchmark'
+    args (project.findProperty('catalogBenchmarkRuns') ?: '7')
+}

@@ -58,6 +58,49 @@ class StoresControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void lightProjectionIsReadOnlyAndItsIteratorSkipsOnlyTheDetailField() {
+        FirebaseService service = mock(FirebaseService.class);
+        StoresController controller = new StoresController(service);
+        var original = new java.util.LinkedHashMap<String, Object>();
+        original.put("openingHours", java.util.Map.of("text", "09:00~18:00"));
+        original.put("storeId", "store-a");
+        original.put("menu1", null);
+        original.put("price1", "0");
+        when(service.getPublicStoreCatalog()).thenReturn(new FirebaseService.PublicStoreCatalog(
+                java.util.List.of(java.util.Collections.unmodifiableMap(original), java.util.Map.of("openingHours", "detail only")), "\"catalog-a\""));
+        var stores = (java.util.List<java.util.Map<String, Object>>) controller.getMapCatalog(null).getBody();
+        var light = stores.getFirst();
+        assertEquals(3, light.size());
+        assertTrue(light.containsKey("menu1"));
+        assertFalse(light.containsKey("openingHours"));
+        assertEquals(null, light.get("openingHours"));
+        assertEquals(java.util.List.of("storeId", "menu1", "price1"), new java.util.ArrayList<>(light.keySet()));
+        assertEquals(java.util.Arrays.asList("store-a", null, "0"), new java.util.ArrayList<>(light.values()));
+        var expected = new java.util.HashMap<>(original);
+        expected.remove("openingHours");
+        assertEquals(light, expected);
+        assertEquals(expected.hashCode(), light.hashCode());
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> light.keySet().remove("price1"));
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> light.values().remove("0"));
+        var iterator = light.entrySet().iterator();
+        assertTrue(iterator.hasNext());
+        assertTrue(iterator.hasNext());
+        var entry = iterator.next();
+        assertEquals("storeId", entry.getKey());
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> entry.setValue("changed"));
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, iterator::remove);
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> light.put("storeId", "changed"));
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> light.remove("price1"));
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, light::clear);
+        org.junit.jupiter.api.Assertions.assertThrows(UnsupportedOperationException.class, () -> stores.add(java.util.Map.of()));
+        assertTrue(stores.get(1).isEmpty());
+        org.junit.jupiter.api.Assertions.assertThrows(java.util.NoSuchElementException.class, () -> stores.get(1).entrySet().iterator().next());
+        assertEquals("store-a", original.get("storeId"));
+        assertTrue(original.containsKey("openingHours"));
+    }
+
+    @Test
     void lightCatalogRefreshesWhenTheCanonicalSnapshotChanges() {
         FirebaseService service = mock(FirebaseService.class);
         StoresController controller = new StoresController(service);
