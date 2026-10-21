@@ -45,6 +45,7 @@ class SavingsServiceValidationTest {
                 item("last", "2026-09-30T14:59:59Z", 1000L, false),
                 item("current", "2026-09-30T15:00:00Z", 2000L, false),
                 item("end", "2026-10-31T15:00:00Z", 3000L, false)));
+        when(firebase.getSavingsStatsHistory("user")).thenAnswer(invocation -> firebase.getSavingsHistory("user"));
         var stats = service.getSavingsStats("user", "last_month");
         assertThat(stats.getStartDate()).isEqualTo("2026-09-01");
         assertThat(stats.getEndDateExclusive()).isEqualTo("2026-10-01");
@@ -67,6 +68,7 @@ class SavingsServiceValidationTest {
                 item("leap", "2024-02-29", 1500L, false),
                 item("free", "2024-02-29", 999999L, true),
                 item("march", "2024-03-01", 2000L, false)));
+        when(firebase.getSavingsStatsHistory("user")).thenAnswer(invocation -> firebase.getSavingsHistory("user"));
         var stats = service.getSavingsStats("user", "last_month");
         assertThat(stats.getTotalVisits()).isEqualTo(2);
         assertThat(stats.getTotalSavedAmount()).isEqualTo(1500);

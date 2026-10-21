@@ -6,7 +6,8 @@ import 'package:howmuch/features/store/store_model.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// v2 retains source-checked openingHours; v1 clients discarded that field.
+// v2 accepts both full and map catalogs. Details refresh source-checked hours
+// from the per-store endpoint rather than loading them nationwide.
 const storeCatalogCacheKey = 'howmuch.store_cache.v2';
 const storeCatalogCachedAtKey = 'howmuch.store_cache.cached_at.v2';
 const storeCatalogCacheMaxAge = Duration(hours: 6);
@@ -97,15 +98,20 @@ Future<List<Store>> _fetchAndCacheStoreCatalog({
   required Duration storageTimeout,
   required Duration requestTimeout,
 }) async {
-  final uri = ApiClient.uri('/api/stores/all');
-  final response =
-      await (request ??
-              (uri) => ApiClient.get(
-                uri,
-                headers: ApiClient.jsonHeaders(),
-                timeout: requestTimeout,
-              ))(uri)
-          .timeout(requestTimeout);
+  final fetch =
+      request ??
+      (Uri uri) => ApiClient.get(
+        uri,
+        headers: ApiClient.jsonHeaders(),
+        timeout: requestTimeout,
+      );
+  var uri = ApiClient.uri('/api/stores/catalog');
+  var response = await fetch(uri).timeout(requestTimeout);
+  // During a staged rollout an older server may not have the light endpoint.
+  if (response.statusCode == 404 || response.statusCode == 405) {
+    uri = ApiClient.uri('/api/stores/all');
+    response = await fetch(uri).timeout(requestTimeout);
+  }
   if (response.statusCode != 200) {
     throw http.ClientException(
       'Store catalog request failed (${response.statusCode})',

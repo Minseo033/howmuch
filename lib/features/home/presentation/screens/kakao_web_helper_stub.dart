@@ -8,6 +8,7 @@ void initKakaoWebMap(
 }) {}
 void disposeKakaoWebMap(String viewId) {}
 void recoverKakaoWebMap(String viewId) {}
+void setKakaoMapActiveWeb(String viewId, bool active) {}
 String? getKakaoMapBoundsWeb(String viewId) => null;
 void registerWebCallbacks(
   String viewId,

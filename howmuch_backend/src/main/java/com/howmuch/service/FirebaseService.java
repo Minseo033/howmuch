@@ -54,6 +54,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 @Slf4j
@@ -79,11 +80,16 @@ public class FirebaseService {
 
     /** 사용자 제보 매장 인메모리 캐시 (bounds 조회 시 Firestore 실시간 조회 제거) */
     private volatile List<Map<String, Object>> cachedUserStores = List.of();
-    private static final long SAVINGS_HISTORY_CACHE_TTL_MS = 3_000L;
-    private final java.util.concurrent.ConcurrentHashMap<String, CachedSavingsHistory> savingsHistoryCache =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final long SAVINGS_HISTORY_CACHE_TTL_MS = 30_000L;
+    private static final int SAVINGS_HISTORY_CACHE_MAX_USERS = 256;
+    private final Object savingsHistoryCacheLock = new Object();
+    private final Map<String, SavingsHistoryLoad> savingsHistoryCache = new LinkedHashMap<>(16, 0.75f, true);
 
-    private record CachedSavingsHistory(List<com.howmuch.dto.SavingsHistoryResponse> items, long cachedAtMs) {}
+    private static final class SavingsHistoryLoad {
+        final CompletableFuture<List<com.howmuch.dto.SavingsHistoryResponse>> result = new CompletableFuture<>();
+        long cachedAtMs;
+        boolean invalidated;
+    }
     /** Reviewed overlays survive snapshots/restarts; source records are never overwritten. */
     private volatile Map<String, Map<String, Object>> cachedStoreCorrections = Map.of();
     private static final String STORE_CORRECTIONS_COLLECTION = "store_corrections";
@@ -1508,8 +1514,8 @@ public class FirebaseService {
                 return new ReceiptApprovalResult(
                         userId, imageUrls, visitRef.getId());
             }).get();
+            invalidateSavingsHistory(committed.userId());
             cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
-            savingsHistoryCache.remove(committed.userId());
             return Map.of(
                     "success", true,
                     "id", receiptId,
@@ -2265,8 +2271,11 @@ public class FirebaseService {
         ReportDeletionSummary reports = deleteReportsByUser(firebaseUid);
         result.put("reports", reports.deleted());
         result.put("anonymizedReports", reports.anonymized());
-        result.put("visits", deleteWhere("visits", "userId", firebaseUid));
-        savingsHistoryCache.remove(firebaseUid);
+        try {
+            result.put("visits", deleteWhere("visits", "userId", firebaseUid));
+        } finally {
+            invalidateSavingsHistory(firebaseUid);
+        }
         result.put("receiptVerifications",
                 deleteWhere("receipt_verifications", "userId", firebaseUid));
         result.put("favorites", deleteWhere("favorites", "userId", firebaseUid));
@@ -2736,8 +2745,11 @@ public class FirebaseService {
 
     /** 요청한 계정이 소유한 방문 기록만 삭제합니다. 다른 계정의 기록 존재 여부도 노출하지 않습니다. */
     public void deleteOwnedVisit(String visitId, String firebaseUid) throws Exception {
-        deleteOwnedDocument("visits", visitId, "userId", firebaseUid, "방문 기록을 찾을 수 없습니다.");
-        if (firebaseUid != null) savingsHistoryCache.remove(firebaseUid);
+        try {
+            deleteOwnedDocument("visits", visitId, "userId", firebaseUid, "방문 기록을 찾을 수 없습니다.");
+        } finally {
+            invalidateSavingsHistory(firebaseUid);
+        }
     }
 
     /** 저장된 리뷰 ID와 서버가 정한 작성자 표시명입니다. */
@@ -2942,23 +2954,103 @@ public class FirebaseService {
         return reviews;
     }
 
-    // 💡 사용자의 절약 내역 목록 조회 (visits 컬렉션 기반)
+    // 내역 화면에만 필요한 매장 출처·업종 보강은 통계 조회의 대기 경로에서 제외합니다.
     public List<com.howmuch.dto.SavingsHistoryResponse> getSavingsHistory(String firebaseUid) throws Exception {
-        long now = System.currentTimeMillis();
-        if (firebaseUid != null && !firebaseUid.isBlank()) {
-            CachedSavingsHistory cached = savingsHistoryCache.get(firebaseUid);
-            if (cached != null && now - cached.cachedAtMs() < SAVINGS_HISTORY_CACHE_TTL_MS) {
-                return cached.items();
+        List<com.howmuch.dto.SavingsHistoryResponse> history = getSavingsStatsHistory(firebaseUid);
+        if (history.isEmpty()) return history;
+        AllStoresCacheEntry catalog = getStoreCatalogEntry();
+        Map<String, Map<String, Object>> storesByKey = new HashMap<>();
+        Map<String, String> industriesByName = new HashMap<>();
+        List<com.howmuch.dto.SavingsHistoryResponse> enriched = new ArrayList<>(history.size());
+        for (com.howmuch.dto.SavingsHistoryResponse item : history) {
+            String storeKey = item.getStoreId() != null && !item.getStoreId().isBlank()
+                    ? item.getStoreId() : item.getStoreName();
+            if (storeKey != null && !storesByKey.containsKey(storeKey)) {
+                storesByKey.put(storeKey, resolveReviewStore(storeKey, catalog.stores()));
             }
+            Map<String, Object> store = storesByKey.get(storeKey);
+            String industry = item.getCategory();
+            if (industry == null || industry.isBlank()) {
+                String storeName = item.getStoreName();
+                if (!industriesByName.containsKey(storeName)) {
+                    Map<String, Object> named = storeName == null || storeName.isBlank() ? null
+                            : resolveReviewStore(storeName, catalog.stores());
+                    industriesByName.put(storeName, named == null ? null : strOrNull(named.get("industry")));
+                }
+                industry = industriesByName.get(storeName);
+            }
+            enriched.add(item.toBuilder().category(industry)
+                    .storeSource(store == null ? null : strOrNull(store.get("source"))).build());
         }
+        return List.copyOf(enriched);
+    }
+
+    /** 같은 사용자의 진행 중 조회를 공유하고, 방문 변경 전 응답은 캐시에 되돌리지 않습니다. */
+    List<com.howmuch.dto.SavingsHistoryResponse> getSavingsStatsHistory(String firebaseUid) throws Exception {
+        if (firebaseUid == null || firebaseUid.isBlank()) return List.of();
+        while (true) {
+            SavingsHistoryLoad load;
+            boolean owner;
+            synchronized (savingsHistoryCacheLock) {
+                load = savingsHistoryCache.get(firebaseUid);
+                if (load != null && load.result.isDone()
+                        && System.currentTimeMillis() - load.cachedAtMs >= SAVINGS_HISTORY_CACHE_TTL_MS) {
+                    savingsHistoryCache.remove(firebaseUid);
+                    load = null;
+                }
+                owner = load == null;
+                if (owner) {
+                    load = new SavingsHistoryLoad();
+                    savingsHistoryCache.put(firebaseUid, load);
+                }
+            }
+            if (owner) {
+                try {
+                    List<com.howmuch.dto.SavingsHistoryResponse> items = loadSavingsHistory(firebaseUid);
+                    synchronized (savingsHistoryCacheLock) {
+                        load.cachedAtMs = System.currentTimeMillis();
+                        load.result.complete(items);
+                        // Active reads stay shared; completed entries have a bounded account count.
+                        var entries = savingsHistoryCache.entrySet().iterator();
+                        while (savingsHistoryCache.size() > SAVINGS_HISTORY_CACHE_MAX_USERS && entries.hasNext()) {
+                            if (entries.next().getValue().result.isDone()) entries.remove();
+                        }
+                    }
+                } catch (Exception exception) {
+                    synchronized (savingsHistoryCacheLock) {
+                        savingsHistoryCache.remove(firebaseUid, load);
+                        load.result.completeExceptionally(exception);
+                    }
+                }
+            }
+            final List<com.howmuch.dto.SavingsHistoryResponse> items;
+            try {
+                items = load.result.get();
+            } catch (ExecutionException exception) {
+                if (exception.getCause() instanceof Exception cause) throw cause;
+                throw exception;
+            }
+            synchronized (savingsHistoryCacheLock) {
+                if (!load.invalidated) return items;
+            }
+            // Approval/delete/withdrawal committed while the old read was in flight.
+            // Retry against the new generation instead of publishing that stale snapshot.
+        }
+    }
+
+    void invalidateSavingsHistory(String firebaseUid) {
+        if (firebaseUid == null) return;
+        synchronized (savingsHistoryCacheLock) {
+            SavingsHistoryLoad load = savingsHistoryCache.remove(firebaseUid);
+            if (load != null) load.invalidated = true;
+        }
+    }
+
+    private List<com.howmuch.dto.SavingsHistoryResponse> loadSavingsHistory(String firebaseUid) throws Exception {
         var documents = db.collection("visits")
                 .whereEqualTo("userId", firebaseUid)
                 .get().get().getDocuments();
 
-        // QA 2026-10-07 #41: 매장 출처는 지도·매장 상세와 같은 공개 매장 목록에서 정합니다. 방문 저장 때
-        // isGov를 정한 방식처럼 storeId, 없으면 매장명으로 찾고 같은 매장은 한 번만 찾습니다.
-        List<Map<String, Object>> catalog = getStoreCatalogEntry().stores();
-        Map<String, Map<String, Object>> storesByKey = new HashMap<>();
         List<com.howmuch.dto.SavingsHistoryResponse> historyList = new ArrayList<>();
         for (DocumentSnapshot doc : documents) {
             Map<String, Object> data = doc.getData();
@@ -2975,13 +3067,7 @@ public class FirebaseService {
                     : (data.get("date") != null ? data.get("date").toString() : visitedAtStr);
             String storeName = data.get("storeName") != null ? data.get("storeName").toString() : null;
             String industry = data.get("industry") != null ? data.get("industry").toString() : null;
-            if (industry == null || industry.isBlank()) {
-                industry = findIndustryByStoreName(storeName);
-            }
             String storeId = data.get("storeId") != null ? data.get("storeId").toString() : null;
-            String storeKey = storeId != null && !storeId.isBlank() ? storeId : storeName;
-            Map<String, Object> store = storeKey == null ? null
-                    : storesByKey.computeIfAbsent(storeKey, key -> resolveReviewStore(key, catalog));
 
             com.howmuch.dto.SavingsHistoryResponse dto = com.howmuch.dto.SavingsHistoryResponse.builder()
                     .id(doc.getId())
@@ -2995,7 +3081,6 @@ public class FirebaseService {
                     .savedAmount(savedAmt != null ? savedAmt : 0L)
                     .isGov(isGov)
                     .isFree(Boolean.TRUE.equals(data.get("isFree")))
-                    .storeSource(store == null ? null : strOrNull(store.get("source")))
                     .build();
 
             historyList.add(dto);
@@ -3008,11 +3093,7 @@ public class FirebaseService {
             return bTime.compareTo(aTime);
         });
 
-        List<com.howmuch.dto.SavingsHistoryResponse> immutable = List.copyOf(historyList);
-        if (firebaseUid != null && !firebaseUid.isBlank()) {
-            savingsHistoryCache.put(firebaseUid, new CachedSavingsHistory(immutable, System.currentTimeMillis()));
-        }
-        return immutable;
+        return List.copyOf(historyList);
     }
 
     private Long parseLongSafely(Object obj) {

@@ -658,6 +658,11 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
           '영수증 처리 결과를 확인하지 못했어요. 다시 확인해주세요.',
         );
       }
+      // Multipart submission bypasses ApiClient.post. A confirmed receipt
+      // may already have created the visit, so retire retained summary reads.
+      ApiClient.invalidateReadCache(
+        paths: {'/api/savings/stats', '/api/savings/history'},
+      );
       if (!mounted) return;
       setState(() {
         _receiptImage = null;

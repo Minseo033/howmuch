@@ -177,6 +177,7 @@
     }
 
     function notifyKakaoMapIdle(containerId, lifecycle) {
+      if (!isUsableKakaoMap(window.kakaoMapObjects[containerId])) return;
       var callbacks = window.kakaoMapCallbacks[containerId];
       if (!callbacks || typeof callbacks.onIdle !== 'function') return;
       var bounds = getKakaoMapBounds(containerId);
@@ -259,9 +260,26 @@
     }
 
     function isUsableKakaoMap(map) {
-      if (!map) return false;
+      if (!map || map._howmuchActive === false) return false;
       var node = typeof map.getNode === 'function' ? map.getNode() : null;
       return !node || (node.isConnected !== false && node.offsetWidth > 0 && node.offsetHeight > 0);
+    }
+
+    // Flutter keeps visited tab platform views mounted. Pause their work
+    // explicitly as well as checking DOM dimensions while offstage.
+    function setKakaoMapActive(containerId, active) {
+      var map = window.kakaoMapObjects[containerId];
+      if (!map) return;
+      map._howmuchActive = active === true;
+      var lifecycle = window.kakaoMapLifecycles[containerId];
+      if (!active && lifecycle) {
+        cancelKakaoMapTask(lifecycle, lifecycle.visibilityTimer);
+        lifecycle.visibilityTimer = null;
+        lifecycle.hidden = true;
+      } else if (active && !flushKakaoMapVisibleWork(containerId) &&
+          lifecycle && hasPendingKakaoMapWork(lifecycle)) {
+        watchKakaoMapVisibility(containerId, lifecycle);
+      }
     }
 
     // The complete catalog is loaded once, so every mode can zoom nationwide.
@@ -332,6 +350,9 @@
 
     function watchKakaoMapVisibility(containerId, lifecycle) {
       lifecycle.hidden = true;
+      var map = window.kakaoMapObjects[containerId];
+      // A retained tab resumes explicitly; do not poll it while paused.
+      if (map && map._howmuchActive === false) return;
       if (lifecycle.visibilityTimer) return;
       // ResizeObserver reports most show transitions. This slow check covers
       // embeddings that reattach the view without a resize notification.

@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
  * GET /api/savings/history
  */
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class SavingsHistoryResponse {

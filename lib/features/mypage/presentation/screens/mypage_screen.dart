@@ -13,7 +13,7 @@ import 'package:howmuch/features/auth/presentation/state/login_flow.dart';
 import 'package:howmuch/features/community/presentation/state/report_service.dart';
 import 'package:howmuch/features/mypage/presentation/state/mypage_state.dart';
 import 'package:howmuch/features/mypage/presentation/state/device_permission_service.dart';
-import 'package:howmuch/features/mypage/presentation/state/user_profile_api_service.dart';
+import 'package:howmuch/features/savings/presentation/state/savings_period.dart';
 import 'package:howmuch/features/system/presentation/state/push_notification_service.dart';
 import 'package:howmuch/shared/widgets/figma_mobile_canvas.dart';
 import 'package:howmuch/shared/widgets/howmuch_bottom_nav.dart';
@@ -59,6 +59,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   String? _lastRoutePath;
   bool _hasLoadedSummary = false;
   String? _loadedSessionToken;
+  DateTime? _summaryLoadedAt;
+  int? _loadedReadCacheRevision;
+  Future<void>? _summaryLoad;
+  String? _loadingSessionToken;
+  int? _loadingReadCacheRevision;
+  static const _summaryMaxAge = Duration(seconds: 30);
   // 내 제보 목록을 받아 온 세션입니다. 지금 세션과 다르면 아직 불러오는 중입니다.
   String? _reportsSessionToken;
   bool _reportsLoadFailed = false;
@@ -82,7 +88,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     ref.listenManual(
       authStateProvider.select((auth) => (auth.isLoggedIn, auth.sessionToken)),
       (_, _) {
-        if (_route?.isCurrent ?? true) _refreshSummary();
+        if (_isMypageVisible) _refreshSummary();
       },
     );
   }
@@ -95,7 +101,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (router != _router) {
       _router?.routerDelegate.removeListener(_handleRouterChange);
       _router = router;
-      _lastRoutePath = router.routeInformationProvider.value.uri.path;
+      _lastRoutePath = visibleAppPath(router);
       router.routerDelegate.addListener(_handleRouterChange);
     }
     final route = ModalRoute.of(context);
@@ -118,13 +124,16 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(locationAccessProvider);
       ref.invalidate(pushAccessProvider);
-      _refreshSummary();
+      if (_isMypageVisible) _refreshSummary();
     }
   }
 
-  void _refreshSummary() {
+  bool get _isMypageVisible =>
+      _router != null && visibleAppPath(_router!) == AppRoutes.mypage;
+
+  void _refreshSummary({bool force = false}) {
     if (!mounted) return;
-    _loadProfileSummary();
+    unawaited(_loadProfileSummary(force: force));
   }
 
   /// Opens a screen with the account's own records. A guest is asked to log
@@ -136,13 +145,26 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   }
 
   void _handleRouterChange() {
-    final path = _router?.routeInformationProvider.value.uri.path;
+    final router = _router;
+    final path = router == null ? null : visibleAppPath(router);
+    final previousPath = _lastRoutePath;
     final enteredMypage = shouldRefreshMypageOnRouteChange(
       _lastRoutePath,
       path,
     );
     _lastRoutePath = path;
-    if (enteredMypage) _refreshSummary();
+    if (enteredMypage) {
+      final force = {
+        AppRoutes.profileEdit,
+        AppRoutes.accountManagement,
+        AppRoutes.loginFlow,
+      }.contains(previousPath);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _isMypageVisible) {
+          _refreshSummary(force: force);
+        }
+      });
+    }
   }
 
   @override
@@ -155,15 +177,27 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
 
   Future<void> _loadMyReports() async {
     final sessionToken = ApiClient.sessionToken;
+    final revision = ApiClient.readCacheRevision;
     final reports = await ref.read(reportServiceProvider).fetchMyReports();
-    _applyMyReports(reports, sessionToken);
+    _applyMyReports(reports, sessionToken, revision);
   }
 
   /// 내 제보 조회 결과를 반영합니다. 실패해도 이미 받은 목록은 지우지 않습니다.
-  void _applyMyReports(List<UserReportStatus>? reports, String? sessionToken) {
-    if (!mounted || sessionToken != ApiClient.sessionToken) return;
+  void _applyMyReports(
+    List<UserReportStatus>? reports,
+    String? sessionToken,
+    int revision,
+  ) {
+    if (!_canApplySummary(sessionToken, revision)) return;
     if (reports != null) {
-      ref.read(userReportsProvider.notifier).mergeFetchedReports(reports);
+      final notifier = ref.read(userReportsProvider.notifier);
+      if (_reportsSessionToken != null &&
+          _reportsSessionToken != sessionToken) {
+        // Local draft reports may belong to the previous account too.
+        notifier.setReports(reports);
+      } else {
+        notifier.mergeFetchedReports(reports);
+      }
     }
     setState(() {
       _reportsSessionToken = sessionToken;
@@ -174,28 +208,80 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
   /// 프로필(/api/user/profile) + 이번 달 절약(/api/savings/stats) +
   /// 내 제보(/api/report/my, 목록과 개수를 한 번에) + 찜 수(/api/favorites)를
   /// 채웁니다.
-  Future<void> _loadProfileSummary() async {
+  Future<void> _loadProfileSummary({bool force = false}) {
     final auth = ref.read(authStateProvider);
     if (!auth.isLoggedIn) {
       if (mounted && _hasLoadedSummary) {
         setState(() {
           _hasLoadedSummary = false;
           _loadedSessionToken = null;
+          _summaryLoadedAt = null;
+          _loadedReadCacheRevision = null;
         });
       }
-      return;
+      return Future.value();
     }
     final sessionToken = ApiClient.sessionToken;
+    final revision = ApiClient.readCacheRevision;
+    final currentLoad = _summaryLoad;
+    if (currentLoad != null &&
+        _loadingSessionToken == sessionToken &&
+        _loadingReadCacheRevision == revision) {
+      return currentLoad;
+    }
+    final loadedAt = _summaryLoadedAt;
+    if (!force &&
+        _hasLoadedSummary &&
+        _loadedSessionToken == sessionToken &&
+        _loadedReadCacheRevision == revision &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < _summaryMaxAge) {
+      return Future.value();
+    }
+    _loadingSessionToken = sessionToken;
+    _loadingReadCacheRevision = revision;
+    // The page stays mounted in its tab. Keep its numbers visible while a
+    // stale summary refreshes; only a different account needs placeholders.
+    late final Future<void> load;
+    load = _fetchProfileSummary(sessionToken, revision, force: force)
+        .whenComplete(() {
+          if (!identical(_summaryLoad, load)) return;
+          _summaryLoad = null;
+          if (mounted &&
+              _isMypageVisible &&
+              sessionToken == ApiClient.sessionToken &&
+              revision != ApiClient.readCacheRevision) {
+            _refreshSummary();
+          }
+        });
+    _summaryLoad = load;
+    return load;
+  }
+
+  bool _canApplySummary(String? sessionToken, int revision) =>
+      mounted &&
+      sessionToken == ApiClient.sessionToken &&
+      revision == ApiClient.readCacheRevision &&
+      ref.read(authStateProvider).isLoggedIn;
+
+  Future<void> _fetchProfileSummary(
+    String? sessionToken,
+    int revision, {
+    required bool force,
+  }) async {
+    final auth = ref.read(authStateProvider);
 
     if (widget.profileSummaryLoader != null) {
       unawaited(_loadMyReports());
       try {
         await widget.profileSummaryLoader!(ref);
       } finally {
-        if (mounted && sessionToken == ApiClient.sessionToken) {
+        if (_canApplySummary(sessionToken, revision)) {
           setState(() {
             _hasLoadedSummary = true;
             _loadedSessionToken = sessionToken;
+            _summaryLoadedAt = DateTime.now();
+            _loadedReadCacheRevision = revision;
           });
         }
       }
@@ -203,17 +289,34 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     }
 
     // 4개 API 병렬 조회 (프로필 / 절약 통계 / 찜 수 / 제보 수)
-    final profileFuture = UserProfileApiService().fetchProfile().catchError((
-      e,
-    ) {
-      debugPrint('마이페이지 프로필 로드 오류: $e');
-      return null;
-    });
+    final profileFuture =
+        ApiClient.get(
+              ApiClient.uri('/api/user/profile'),
+              headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
+            )
+            .then<Map<String, dynamic>?>((response) {
+              if (response.statusCode == 200) {
+                return jsonDecode(utf8.decode(response.bodyBytes))
+                    as Map<String, dynamic>;
+              }
+              return null;
+            })
+            .catchError((Object error) {
+              debugPrint('마이페이지 프로필 로드 오류: $error');
+              return null;
+            });
 
+    final currentMonth = SavingsPeriod.currentMonth(DateTime.now());
     final savingsFuture =
         ApiClient.get(
-              ApiClient.uri('/api/savings/stats', {'period': 'this_month'}),
+              ApiClient.uri('/api/savings/stats', {
+                'period': 'this_month',
+                'startDate': currentMonth.startDate,
+                'endDateExclusive': currentMonth.endDateExclusive,
+              }),
               headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
             )
             .timeout(ApiClient.defaultTimeout)
             .then<Map<String, dynamic>?>((res) {
@@ -232,6 +335,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         ApiClient.get(
               ApiClient.uri('/api/favorites'),
               headers: ApiClient.jsonHeaders(auth: true),
+              cacheMaxAge: force ? Duration.zero : _summaryMaxAge,
             )
             .timeout(ApiClient.defaultTimeout)
             .then<int?>((res) {
@@ -252,12 +356,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         .read(reportServiceProvider)
         .fetchMyReports()
         .then<int?>((reports) {
-          _applyMyReports(reports, sessionToken);
+          _applyMyReports(reports, sessionToken, revision);
           return reports?.length;
         })
         .catchError((Object e) {
           debugPrint('마이페이지 제보 로드 오류: $e');
-          _applyMyReports(null, sessionToken);
+          _applyMyReports(null, sessionToken, revision);
           return null;
         });
 
@@ -269,12 +373,19 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         reportsFuture,
       ]);
 
-      if (!mounted || sessionToken != ApiClient.sessionToken) return;
+      if (!_canApplySummary(sessionToken, revision)) return;
 
       final profile = results[0] as Map<String, dynamic>?;
       final savingsData = results[1] as Map<String, dynamic>?;
       final favoriteCount = results[2] as int?;
       final reportCount = results[3] as int?;
+      if (profile != null &&
+          savingsData != null &&
+          favoriteCount != null &&
+          reportCount != null) {
+        _summaryLoadedAt = DateTime.now();
+        _loadedReadCacheRevision = revision;
+      }
 
       ref.read(userProfileProvider.notifier).update((state) {
         var next = state;
@@ -331,7 +442,7 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
         );
       }
     } finally {
-      if (mounted && sessionToken == ApiClient.sessionToken) {
+      if (_canApplySummary(sessionToken, revision)) {
         setState(() {
           _hasLoadedSummary = true;
           _loadedSessionToken = sessionToken;
@@ -351,6 +462,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
     final reports = ref.watch(userReportsProvider);
     final reportsLoading =
         auth.isLoggedIn && _reportsSessionToken != ApiClient.sessionToken;
+    // The provider can still contain the previous account's reports while
+    // the new account is loading. Keep the loading state, but never display
+    // another account's private report names/statuses.
+    final visibleReports = reportsLoading
+        ? const <UserReportStatus>[]
+        : reports;
     final safePadding = FigmaMobileCanvas.designSafePaddingOf(context);
     final topOffset = safePadding.top;
     final bottomOffset = safePadding.bottom;
@@ -521,12 +638,12 @@ class _MypageScreenState extends ConsumerState<MypageScreen>
                       // space. It keeps the height while loading so the page
                       // doesn't jump when the usual two rows arrive.
                       constraints: BoxConstraints(
-                        minHeight: reports.length >= 2 || reportsLoading
+                        minHeight: visibleReports.length >= 2 || reportsLoading
                             ? 189.23294067382812
                             : 0,
                       ),
                       child: _ReportStatusCard(
-                        reports: reports,
+                        reports: visibleReports,
                         isGuest: !auth.isLoggedIn,
                         isLoading: reportsLoading,
                         loadFailed: _reportsLoadFailed,

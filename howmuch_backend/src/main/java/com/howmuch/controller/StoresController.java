@@ -13,6 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Objects;
 
 /**
  * 착한가격업소(공공데이터) + 사용자 제보 매장 조회 API.
@@ -27,6 +30,10 @@ public class StoresController {
     public static final String STORES_TRUNCATED_HEADER = "X-Stores-Truncated";
 
     private final FirebaseService firebaseService;
+    private volatile MapCatalog cachedMapCatalog;
+
+    private record MapCatalog(String sourceEtag, List<Map<String, Object>> source,
+                              List<Map<String, Object>> stores, String etag) {}
 
     public StoresController(FirebaseService firebaseService) {
         this.firebaseService = firebaseService;
@@ -52,6 +59,47 @@ public class StoresController {
             log.error("[StoresController] 전체 매장 조회 오류", e);
             return ResponseEntity.status(500).body(Map.of(
                     "success", false, "message", "매장 목록을 불러오지 못했습니다."));
+        }
+    }
+
+    /** Nationwide map/search data; source-backed hours load with the existing detail endpoint. */
+    @GetMapping("/catalog")
+    public ResponseEntity<?> getMapCatalog(@RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch) {
+        try {
+            MapCatalog catalog = mapCatalog(firebaseService.getPublicStoreCatalog());
+            String etag = catalog.etag();
+            if (etag != null && ifNoneMatch != null && java.util.Arrays.stream(ifNoneMatch.split(","))
+                    .map(String::trim).map(value -> value.startsWith("W/") ? value.substring(2) : value)
+                    .anyMatch(value -> value.equals(etag) || value.equals("*"))) {
+                return ResponseEntity.status(304).eTag(etag).cacheControl(CacheControl.noCache().cachePublic()).build();
+            }
+            return ResponseEntity.ok().cacheControl(CacheControl.noCache().cachePublic())
+                    .eTag(etag).body(catalog.stores());
+        } catch (Exception exception) {
+            log.warn("지도 매장 목록 조회 실패: {}", exception.getClass().getSimpleName());
+            return ResponseEntity.status(503).body(Map.of(
+                    "success", false, "message", "매장 목록을 불러오지 못했습니다."));
+        }
+    }
+
+    private MapCatalog mapCatalog(FirebaseService.PublicStoreCatalog source) {
+        MapCatalog cached = cachedMapCatalog;
+        if (cached != null && cached.source() == source.stores()
+                && Objects.equals(cached.sourceEtag(), source.etag())) return cached;
+        synchronized (this) {
+            cached = cachedMapCatalog;
+            if (cached != null && cached.source() == source.stores()
+                    && Objects.equals(cached.sourceEtag(), source.etag())) return cached;
+            List<Map<String, Object>> stores = source.stores().stream().map(store -> {
+                Map<String, Object> copy = new HashMap<>(store);
+                copy.remove("openingHours");
+                return Collections.unmodifiableMap(copy);
+            }).toList();
+            String etag = source.etag() == null ? null
+                    : source.etag().substring(0, source.etag().length() - 1) + "-map-v1\"";
+            cached = new MapCatalog(source.etag(), source.stores(), stores, etag);
+            cachedMapCatalog = cached;
+            return cached;
         }
     }
 

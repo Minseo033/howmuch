@@ -73,6 +73,11 @@ external void _updateUserLocationMarker(
 external void _disposeKakaoMap(JSString viewId);
 @JS('recoverKakaoMap')
 external void _recoverKakaoMap(JSString viewId);
+@JS('setKakaoMapActive')
+external void _setKakaoMapActive(JSString viewId, JSBoolean active);
+
+void setKakaoMapActiveWeb(String viewId, bool active) =>
+    _setKakaoMapActive(viewId.toJS, active.toJS);
 
 const kakaoWebViewType = 'howmuch-kakao-map';
 bool _factoryRegistered = false;
