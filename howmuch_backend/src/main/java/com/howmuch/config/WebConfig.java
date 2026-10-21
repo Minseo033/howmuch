@@ -18,7 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     private static final List<String> ALLOWED_METHODS = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
     /** 브라우저는 노출 목록에 없는 응답 헤더를 스크립트에서 숨긴다(지도 범위 잘림 표시, 재시도 안내). */
-    static final List<String> EXPOSED_HEADERS = List.of("X-Stores-Truncated", "Retry-After");
+    static final List<String> EXPOSED_HEADERS = List.of("X-Stores-Truncated", "Retry-After", "Server-Timing", "X-Catalog-Request-Id");
     /** 인증 요청마다 사전 요청(OPTIONS)이 반복되지 않도록 결과를 1시간 재사용하게 한다. */
     static final long PREFLIGHT_MAX_AGE_SECONDS = 3600L;
 

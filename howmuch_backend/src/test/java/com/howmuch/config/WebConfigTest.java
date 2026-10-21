@@ -50,6 +50,6 @@ class WebConfigTest {
                 .doFilter(request, response, new MockFilterChain());
 
         assertThat(response.getHeader("Access-Control-Expose-Headers"))
-                .contains("X-Stores-Truncated", "Retry-After");
+                .contains("X-Stores-Truncated", "Retry-After", "Server-Timing", "X-Catalog-Request-Id");
     }
 }

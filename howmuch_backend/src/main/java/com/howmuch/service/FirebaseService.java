@@ -22,6 +22,7 @@ import com.howmuch.dto.UserProfileResponse;
 import com.howmuch.dto.StoreCoordinates;
 import com.howmuch.dto.NotificationSettingsDto;
 import com.howmuch.dto.PriceAlertSubscriptionDto;
+import com.howmuch.diagnostics.CatalogTiming;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.beans.factory.annotation.Value;
@@ -468,8 +469,13 @@ public class FirebaseService {
     public record PublicStoreCatalog(List<Map<String, Object>> stores, String etag) {}
 
     public PublicStoreCatalog getPublicStoreCatalog() {
-        AllStoresCacheEntry entry = getStoreCatalogEntry();
-        return new PublicStoreCatalog(entry.discoverableStores(), entry.etag());
+        long lookupStarted = System.nanoTime();
+        try {
+            AllStoresCacheEntry entry = getStoreCatalogEntry();
+            return new PublicStoreCatalog(entry.discoverableStores(), entry.etag());
+        } finally {
+            CatalogTiming.record("catalog_lookup", lookupStarted);
+        }
     }
 
     /** Includes closed stores for existing favorites, reviewed history and detail only. */
@@ -485,26 +491,35 @@ public class FirebaseService {
         Map<String, Map<String, Object>> correctionSnapshot = cachedStoreCorrections;
         AllStoresCacheEntry cached = allStoresCache;
         if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+            CatalogTiming.source("hit", cached.discoverableStores().size(), storeCatalogWarmingUp);
             return cached;
         }
 
+        long waitStarted = System.nanoTime();
         synchronized (allStoresCacheLock) {
+            CatalogTiming.record("catalog_wait", waitStarted);
             govSnapshot = cachedStores;
             userSnapshot = cachedUserStores;
             correctionSnapshot = cachedStoreCorrections;
             cached = allStoresCache;
             if (cached != null && cached.matches(govSnapshot, userSnapshot, correctionSnapshot)) {
+                CatalogTiming.source("shared", cached.discoverableStores().size(), storeCatalogWarmingUp);
                 return cached;
             }
+            long buildStarted = System.nanoTime();
             List<Map<String, Object>> stores = buildAllStores(govSnapshot, userSnapshot, correctionSnapshot);
             List<Map<String, Object>> discoverable = stores.stream()
                     .filter(store -> !Boolean.TRUE.equals(store.get("isClosed"))).toList();
+            CatalogTiming.record("catalog_build", buildStarted);
             String etag;
+            long etagStarted = System.nanoTime();
             try {
                 byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(discoverable));
                 etag = "\"" + java.util.HexFormat.of().formatHex(digest) + "\"";
             } catch (Exception exception) { throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception); }
+            finally { CatalogTiming.record("catalog_etag", etagStarted); }
             allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, correctionSnapshot, stores, discoverable, etag);
+            CatalogTiming.source("miss", discoverable.size(), storeCatalogWarmingUp);
             return allStoresCache;
         }
     }

@@ -1,6 +1,7 @@
 package com.howmuch.controller;
 
 import com.howmuch.service.FirebaseService;
+import com.howmuch.diagnostics.CatalogTiming;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -85,11 +86,20 @@ public class StoresController {
     private MapCatalog mapCatalog(FirebaseService.PublicStoreCatalog source) {
         MapCatalog cached = cachedMapCatalog;
         if (cached != null && cached.source() == source.stores()
-                && Objects.equals(cached.sourceEtag(), source.etag())) return cached;
+                && Objects.equals(cached.sourceEtag(), source.etag())) {
+            CatalogTiming.map("hit");
+            return cached;
+        }
+        long waitStarted = System.nanoTime();
         synchronized (this) {
+            CatalogTiming.record("map_wait", waitStarted);
             cached = cachedMapCatalog;
             if (cached != null && cached.source() == source.stores()
-                    && Objects.equals(cached.sourceEtag(), source.etag())) return cached;
+                    && Objects.equals(cached.sourceEtag(), source.etag())) {
+                CatalogTiming.map("shared");
+                return cached;
+            }
+            long buildStarted = System.nanoTime();
             List<Map<String, Object>> stores = source.stores().stream().map(store -> {
                 Map<String, Object> copy = new HashMap<>(store);
                 copy.remove("openingHours");
@@ -99,6 +109,8 @@ public class StoresController {
                     : source.etag().substring(0, source.etag().length() - 1) + "-map-v1\"";
             cached = new MapCatalog(source.etag(), source.stores(), stores, etag);
             cachedMapCatalog = cached;
+            CatalogTiming.record("map_build", buildStarted);
+            CatalogTiming.map("miss");
             return cached;
         }
     }
