@@ -1,0 +1,61 @@
+name: SonarQube
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sonar-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Flutter and Spring Boot
+    # Never expose the analysis token to code from fork pull requests.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          cache: true
+      - name: Test backend and prepare Java analysis
+        working-directory: howmuch_backend
+        run: ./gradlew --no-daemon clean test jacocoTestReport sonarDependencies
+      - name: Install Flutter dependencies
+        run: flutter pub get
+      - name: Test Flutter with coverage
+        run: flutter test --coverage --reporter compact
+      - name: Build Flutter web for resolved analysis
+        run: flutter build web --release --no-wasm-dry-run
+      - name: Verify coverage reports
+        run: |
+          test -s coverage/lcov.info
+          test -s howmuch_backend/build/reports/jacoco/test/jacocoTestReport.xml
+      - name: SonarQube analysis
+        # v8.3.0, pinned to an immutable commit.
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      - name: Analysis dashboard
+        if: always()
+        run: |
+          echo 'SonarQube: https://sonarcloud.io/dashboard?id=Minseo033_howmuch' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Initial rollout reports quality without blocking the existing deployment workflow.' >> "$GITHUB_STEP_SUMMARY"
