@@ -210,7 +210,7 @@ class _ReviewWriteScreenState extends ConsumerState<ReviewWriteScreen> {
       // Shown on the screen the form returns to, in its usual place.
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text('리뷰가 성공적으로 등록되었습니다.')));
+        ..showSnackBar(HowmuchSnackBar(content: const Text('리뷰가 성공적으로 등록되었습니다.')));
       context.pop();
     } else {
       _showSnackBar('리뷰 등록에 실패했습니다. 로그인 상태를 확인해주세요.');

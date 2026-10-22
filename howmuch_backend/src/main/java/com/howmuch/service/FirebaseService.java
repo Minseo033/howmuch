@@ -208,6 +208,71 @@ public class FirebaseService {
      * 단, 마지막 성공 후 24시간이 지나지 않았으면 Firestore를 호출하지 않고 건너뜁니다.
      * → 평시 일일 읽기 ~1.1만 1회, 실패(쿼터 초과) 시에도 1시간 뒤 자동 재시도.
      */
+    /** Cancellation is not an optional-data failure: stop before subsequent writes/deletes/pushes. */
+    private static java.util.concurrent.CancellationException interruptedOperation(InterruptedException cause) {
+        Thread.currentThread().interrupt();
+        var cancellation = new java.util.concurrent.CancellationException("Firestore operation interrupted");
+        cancellation.initCause(cause);
+        return cancellation;
+    }
+
+    private static void propagateCancellation(Exception exception) {
+        Throwable cause = exception;
+        while (cause != null) {
+            if (cause instanceof java.util.concurrent.CancellationException cancellation) throw cancellation;
+            if (cause instanceof InterruptedException interrupted) throw interruptedOperation(interrupted);
+            if (cause.getCause() == cause) break;
+            cause = cause.getCause();
+        }
+        if (Thread.currentThread().isInterrupted()) {
+            var cancellation = new java.util.concurrent.CancellationException("Firestore operation cancelled");
+            cancellation.initCause(exception);
+            throw cancellation;
+        }
+    }
+
+    /** Compensation must run before cancellation is propagated, even if the flag was already set. */
+    private static void restoreCancellationInterrupt(Throwable cause) {
+        while (cause != null) {
+            if (cause instanceof InterruptedException || cause instanceof java.util.concurrent.CancellationException) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (cause.getCause() == cause) return;
+            cause = cause.getCause();
+        }
+    }
+
+    private static void requireActiveReceiptSubmission() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new java.util.concurrent.CancellationException("Receipt submission cancelled before persistence");
+        }
+    }
+
+    @FunctionalInterface
+    private interface CommittedSideEffect { void run() throws Exception; }
+
+    /** Only call after the primary write is acknowledged. Never compensate committed resources.
+     * Cancellation stops the optional phase, preserves the interrupt and keeps the accepted result.
+     * Other failures retain the caller's existing error policy; required/precommit work is not wrapped.
+     */
+    private boolean afterCommit(CommittedSideEffect effect) throws Exception {
+        if (Thread.currentThread().isInterrupted()) return false;
+        try {
+            effect.run();
+            return true;
+        } catch (Exception exception) {
+            try {
+                propagateCancellation(exception);
+            } catch (java.util.concurrent.CancellationException cancellation) {
+                Thread.currentThread().interrupt();
+                log.warn("Committed operation accepted; optional work deferred after cancellation");
+                return false;
+            }
+            throw exception;
+        }
+    }
+
     /** 공공데이터 갱신 메타 문서 위치 (재시작 후에도 24h 가드 유지용) */
     private static final String GOV_META_COLLECTION = "meta";
     private static final String GOV_META_DOC = "govStores";
@@ -232,7 +297,11 @@ public class FirebaseService {
                     return;
                 }
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             // 메타 조회 실패(쿼터 초과 등) 시 전량 갱신 대신 이번 주기는 건너뜀 — 기존 캐시 유지
             log.warn("매장 갱신 메타 조회 실패로 이번 주기를 건너뜁니다: {}",
                     e.getClass().getSimpleName());
@@ -255,7 +324,11 @@ public class FirebaseService {
                             "lastRefreshAt", lastGovRefreshSuccessMillis,
                             "lastRejectedCount", stores.size(),
                             "lastAcceptedCount", cachedBaseStores.size())).get();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw interruptedOperation(interrupted);
                 } catch (Exception metaEx) {
+                    propagateCancellation(metaEx);
                     log.warn("매장 갱신 보류 기록 저장 실패: {}", metaEx.getClass().getSimpleName());
                 }
             } else if (!stores.isEmpty()) {
@@ -265,14 +338,22 @@ public class FirebaseService {
                 try {
                     db.collection(GOV_META_COLLECTION).document(GOV_META_DOC)
                             .set(Map.of("lastRefreshAt", lastGovRefreshSuccessMillis)).get();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw interruptedOperation(interrupted);
                 } catch (Exception metaEx) {
+                    propagateCancellation(metaEx);
                     log.warn("매장 갱신 메타 저장 실패: {}", metaEx.getClass().getSimpleName());
                 }
                 log.info("공공데이터 매장 갱신 완료: {}개", stores.size());
             } else {
                 log.warn("Firestore 매장 결과가 비어 있어 기존 캐시를 유지합니다.");
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             // 쿼터 초과 등 실패 시 기존 캐시 유지 (서비스 무중단)
             log.warn("공공데이터 매장 갱신 실패로 기존 캐시를 유지합니다: {}",
                     e.getClass().getSimpleName());
@@ -314,7 +395,11 @@ public class FirebaseService {
                 cachedStoreCorrections = Map.copyOf(corrections);
                 allStoresCache = null;
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception exception) {
+            propagateCancellation(exception);
             log.warn("매장 수정 기록 조회 실패로 기존 기록을 유지합니다: {}", exception.getClass().getSimpleName());
         }
     }
@@ -340,7 +425,11 @@ public class FirebaseService {
             }
             invalidateCommunityFeedCache();
             log.info("사용자 제보 매장 로드 완료: {}개", userStores.size());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("사용자 제보 매장 로드 실패로 기존 캐시를 유지합니다: {}",
                     e.getClass().getSimpleName());
         }
@@ -355,6 +444,7 @@ public class FirebaseService {
             installGovStores(stores);
             return true;
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("디스크 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
             return false;
         }
@@ -369,6 +459,7 @@ public class FirebaseService {
             installGovStores(stores);
             return true;
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("classpath 매장 스냅샷 로드 실패: {}", e.getClass().getSimpleName());
             return false;
         }
@@ -452,6 +543,7 @@ public class FirebaseService {
             }
             log.info("행안부 상세 검증 보강 매장 {}개를 합쳤습니다.", accepted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("행안부 검증 보강 목록을 읽지 못해 기본 스냅샷만 제공합니다: {}",
                     e.getClass().getSimpleName());
         }
@@ -481,6 +573,7 @@ public class FirebaseService {
             Files.move(temp, path, StandardCopyOption.REPLACE_EXISTING);
             log.info("매장 스냅샷 저장을 완료했습니다.");
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("매장 스냅샷 저장 실패: {}", e.getClass().getSimpleName());
         }
     }
@@ -544,7 +637,10 @@ public class FirebaseService {
                     objectMapper.writeValue(output, discoverable);
                 }
                 etag = "\"" + java.util.HexFormat.of().formatHex(digest.digest()) + "\"";
-            } catch (Exception exception) { throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception); }
+            } catch (Exception exception) {
+                propagateCancellation(exception);
+                throw new IllegalStateException("매장 목록의 검증값을 계산하지 못했습니다.", exception);
+            }
             finally { CatalogTiming.record("catalog_etag", etagStarted); }
             allStoresCache = new AllStoresCacheEntry(govSnapshot, userSnapshot, correctionSnapshot, stores, discoverable, etag);
             CatalogTiming.source("miss", discoverable.size(), storeCatalogWarmingUp);
@@ -1072,8 +1168,9 @@ public class FirebaseService {
                 .filter(url -> !report.getImageUrls().contains(url))
                 .toList();
         try {
-            deleteReportImages(reporterUid, removedImages);
+            afterCommit(() -> deleteReportImages(reporterUid, removedImages));
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("수정 후 제거된 제보 사진 정리에 실패했습니다. reportId={}", reportId, e);
         }
     }
@@ -1187,11 +1284,25 @@ public class FirebaseService {
             }
             return List.copyOf(imageUrls);
         } catch (Exception e) {
+            // The caller has not received imageUrls yet, so only this scope can compensate
+            // earlier uploads. Clear a preexisting flag only for this required compensation.
+            boolean interruptedBeforeCleanup = Thread.interrupted();
             try {
                 reportImageStorage.deleteOwned(reporterUid, imageUrls);
+            } catch (InterruptedException cleanupError) {
+                Thread.currentThread().interrupt();
+                if (cleanupError != e) e.addSuppressed(cleanupError);
+                log.warn("부분 업로드된 제보 사진 정리가 중단되었습니다.", cleanupError);
             } catch (Exception cleanupError) {
+                if (cleanupError != e) e.addSuppressed(cleanupError);
+                restoreCancellationInterrupt(cleanupError);
                 log.warn("부분 업로드된 제보 사진 정리에 실패했습니다.", cleanupError);
+            } finally {
+                if (interruptedBeforeCleanup) Thread.currentThread().interrupt();
+                restoreCancellationInterrupt(e);
             }
+            // Original failure remains the cause; a cleanup failure remains observable as suppressed.
+            propagateCancellation(e);
             throw e;
         }
     }
@@ -1207,6 +1318,7 @@ public class FirebaseService {
             List<String> imageUrls,
             ReceiptOcrService.Result ocrResult,
             com.howmuch.dto.VisitLocationEvidence locationEvidence) throws Exception {
+        requireActiveReceiptSubmission();
         if (firebaseUid == null || firebaseUid.isBlank()) {
             throw new SecurityException("로그인이 필요합니다.");
         }
@@ -1259,6 +1371,7 @@ public class FirebaseService {
         }
         DocumentReference document = db.collection("receipt_verifications")
                 .document("receipt_" + receiptFingerprint);
+        requireActiveReceiptSubmission();
         try {
             document.create(data).get();
         } catch (ExecutionException e) {
@@ -1276,9 +1389,11 @@ public class FirebaseService {
             String firebaseUid,
             Map<String, Object> nextData,
             String resubmittedAt) throws Exception {
+        requireActiveReceiptSubmission();
         final DocumentReference[] archiveRefHolder = new DocumentReference[1];
         var txFuture = db.runTransaction(transaction -> {
             DocumentSnapshot existing = transaction.get(document).get();
+            requireActiveReceiptSubmission();
             if (existing == null || !existing.exists()
                     || !"REJECTED".equalsIgnoreCase(existing.getString("status"))
                     || (existing.getString("userId") != null
@@ -1326,22 +1441,26 @@ public class FirebaseService {
                 throw new DuplicateReceiptException("이미 제출된 영수증입니다.");
             }
             Map<String, Object> merged = buildResubmittedReceiptData(existing, nextData, resubmittedAt);
+            requireActiveReceiptSubmission();
             document.set(merged).get();
             List<String> oldUrls = stringList(existing.get("imageUrls"));
             List<String> newUrls = stringList(nextData.get("imageUrls"));
             obsoleteUrls = oldUrls.stream().filter(url -> !newUrls.contains(url)).toList();
         }
-        if (!obsoleteUrls.isEmpty()) {
-            if (archiveRefHolder[0] != null) {
-                cleanupProcessedReceiptImages(archiveRefHolder[0], firebaseUid, obsoleteUrls);
-            } else {
-                try {
-                    reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
-                } catch (Exception cleanupError) {
-                    log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+        afterCommit(() -> {
+            if (!obsoleteUrls.isEmpty()) {
+                if (archiveRefHolder[0] != null) {
+                    cleanupProcessedReceiptImages(archiveRefHolder[0], firebaseUid, obsoleteUrls);
+                } else {
+                    try {
+                        reportImageStorage.deleteOwned(firebaseUid, new LinkedHashSet<>(obsoleteUrls));
+                    } catch (Exception cleanupError) {
+                        propagateCancellation(cleanupError);
+                        log.warn("재제출 전 반려 영수증 이미지 정리에 실패했습니다. receiptId={}", document.getId(), cleanupError);
+                    }
                 }
             }
-        }
+        });
         return document.getId();
     }
 
@@ -1557,7 +1676,7 @@ public class FirebaseService {
                         userId, imageUrls, visitRef.getId());
             }).get();
             invalidateSavingsHistory(committed.userId());
-            cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
+            afterCommit(() -> cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls()));
             return Map.of(
                     "success", true,
                     "id", receiptId,
@@ -1607,7 +1726,7 @@ public class FirebaseService {
                 return new ReceiptRejectionResult(
                         snapshot.getString("userId"), imageUrls);
             }).get();
-            cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls());
+            afterCommit(() -> cleanupProcessedReceiptImages(docRef, committed.userId(), committed.imageUrls()));
         } catch (ExecutionException e) {
             if (e.getCause() instanceof IllegalArgumentException invalidReceipt) {
                 throw invalidReceipt;
@@ -1678,6 +1797,7 @@ public class FirebaseService {
             }
             markReceiptImagesDeletedIfUnchanged(receiptRef, imageUrls);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("처리된 영수증 이미지 정리에 실패했습니다. receiptId={}", receiptRef.getId(), e);
             recordReceiptCleanupFailure(receiptRef, imageUrls);
         }
@@ -1724,7 +1844,11 @@ public class FirebaseService {
             receiptRef.update(Map.of(
                     "imageCleanupAttempts", next,
                     "imageCleanupStatus", next >= MAX_RECEIPT_CLEANUP_ATTEMPTS ? "FAILED" : "PENDING")).get();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("영수증 이미지 정리 실패 기록을 남기지 못했습니다. receiptId={}", receiptRef.getId());
         }
     }
@@ -1761,8 +1885,13 @@ public class FirebaseService {
                 legacyReceiptCleanupSwept = true;
             }
         } catch (IllegalStateException e) {
+            propagateCancellation(e);
             log.debug("영수증 이미지 저장소가 설정되지 않아 정리 재시도를 건너뜁니다.");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("처리된 영수증 이미지 정리 재시도 중 오류가 발생했습니다.", e);
         }
     }
@@ -1775,7 +1904,11 @@ public class FirebaseService {
         if (imageUrls.isEmpty()) {
             try {
                 document.getReference().update(Map.of("imageCleanupStatus", "DELETED")).get();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interruptedOperation(interrupted);
             } catch (Exception e) {
+                propagateCancellation(e);
                 log.warn("빈 영수증 정리 상태를 갱신하지 못했습니다. receiptId={}", document.getId());
             }
             return;
@@ -1984,18 +2117,23 @@ public class FirebaseService {
             }
         }
         updateReportCache(reportId, committed.updates());
-        notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
-                true, strOrNull(committed.updates().get("resolution")), null,
-                strOrNull(committed.updates().get("processedAt")));
-        if ("PRICE".equals(committed.updates().get("resolution"))) {
-            // BE-CORE-17: 알림 방향은 제보 유형 대신 실제 반영 전후 금액으로 정합니다. 변경이 없으면 보내지 않습니다.
-            String direction = priceChangeDirection(
-                    committed.updates().get("previousFields"), committed.updates().get("appliedFields"));
-            if (direction != null) {
-                try { notifyUsersOnPriceReportApproved(committed.storeName(), committed.storeId(), reportId, direction); }
-                catch (Exception exception) { log.warn("가격 반영 후 알림을 보내지 못했습니다: {}", reportId); }
+        afterCommit(() -> {
+            notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
+                    true, strOrNull(committed.updates().get("resolution")), null,
+                    strOrNull(committed.updates().get("processedAt")));
+            if ("PRICE".equals(committed.updates().get("resolution"))) {
+                // BE-CORE-17: 알림 방향은 제보 유형 대신 실제 반영 전후 금액으로 정합니다. 변경이 없으면 보내지 않습니다.
+                String direction = priceChangeDirection(
+                        committed.updates().get("previousFields"), committed.updates().get("appliedFields"));
+                if (direction != null) {
+                    try { notifyUsersOnPriceReportApproved(committed.storeName(), committed.storeId(), reportId, direction); }
+                    catch (Exception exception) {
+                        propagateCancellation(exception);
+                        log.warn("가격 반영 후 알림을 보내지 못했습니다: {}", reportId);
+                    }
+                }
             }
-        }
+        });
     }
 
     private record ApprovalCommit(String storeId, Map<String, Object> correction, Map<String, Object> updates,
@@ -2074,7 +2212,11 @@ public class FirebaseService {
         data.put("storeId", storeId);
         try {
             db.collection("notifications").document(notificationId).create(data).get();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception exception) {
+            propagateCancellation(exception);
             if (!isAlreadyExists(exception)) {
                 log.warn("제보 처리 알림을 저장하지 못했습니다: reportId={}", reportId);
             }
@@ -2159,8 +2301,8 @@ public class FirebaseService {
         updateReportCache(reportId, updates);
         // 승인은 approveReport가 처리하므로 여기서는 반려만 다룹니다(BE-CORE-13: 쓰이지 않던 승인 분기 제거).
         if ("REJECTED".equals(status)) {
-            notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
-                    false, null, rejectReason, processedAt);
+            afterCommit(() -> notifyReporterOfReview(reportId, committed.reporterId(), committed.storeId(), committed.storeName(),
+                    false, null, rejectReason, processedAt));
         }
     }
 
@@ -2403,7 +2545,11 @@ public class FirebaseService {
             long count = db.collection("comments").whereEqualTo("parentId", parentId)
                     .count().get().get().getCount();
             db.collection("comments").document(parentId).update("replyCount", count).get();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("답글 수를 다시 세지 못했습니다: commentId={}", parentId);
         }
     }
@@ -2421,7 +2567,11 @@ public class FirebaseService {
                     notification.getReference().delete().get();
                     deleted++;
                 }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw interruptedOperation(interrupted);
             } catch (Exception e) {
+                propagateCancellation(e);
                 log.warn("삭제된 댓글의 알림을 정리하지 못했습니다: {}건", chunk.size());
             }
         }
@@ -2573,6 +2723,7 @@ public class FirebaseService {
                     .digest(value.getBytes(StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(hash);
         } catch (Exception e) {
+            propagateCancellation(e);
             throw new IllegalStateException("식별자 해시를 생성하지 못했습니다.", e);
         }
     }
@@ -2871,6 +3022,7 @@ public class FirebaseService {
             String nickname = user.getNickname();
             return nickname == null || nickname.isBlank() ? REVIEW_AUTHOR_DEFAULT : nickname.trim();
         } catch (Exception exception) {
+            propagateCancellation(exception);
             return REVIEW_AUTHOR_DEFAULT;
         }
     }
@@ -3063,6 +3215,7 @@ public class FirebaseService {
                         savingsHistoryCache.remove(firebaseUid, load);
                         load.result.completeExceptionally(exception);
                     }
+                    propagateCancellation(exception);
                 }
             }
             final List<com.howmuch.dto.SavingsHistoryResponse> items;
@@ -3146,6 +3299,7 @@ public class FirebaseService {
         try {
             return (long) Double.parseDouble(obj.toString().trim());
         } catch (Exception e) {
+            propagateCancellation(e);
             return null;
         }
     }
@@ -3335,6 +3489,7 @@ public class FirebaseService {
                     .digest(canonical.getBytes(StandardCharsets.UTF_8));
             return "store_" + java.util.HexFormat.of().formatHex(hash, 0, 12);
         } catch (Exception e) {
+            propagateCancellation(e);
             throw new IllegalStateException("매장 식별자를 만들지 못했습니다.", e);
         }
     }
@@ -3441,6 +3596,7 @@ public class FirebaseService {
                     strOrNull(store.get("storeName")),
                     strOrNull(store.get("industry")));
         } catch (Exception ignored) {
+            propagateCancellation(ignored);
             return null;
         }
     }
@@ -3749,7 +3905,11 @@ public class FirebaseService {
                 if (postId != null && !postId.isBlank()) ids.add(postId);
             }
             return ids;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             // 좋아요 표시는 보조 정보라, 조회 실패가 피드 목록 전체를 막지 않게 합니다.
             log.warn("피드 목록 좋아요 표시 조회 실패: {}", e.getMessage());
             return Set.of();
@@ -4084,9 +4244,9 @@ public class FirebaseService {
             throw e;
         }
 
-        dispatchPushNotification(
+        afterCommit(() -> dispatchPushNotification(
                 committed.userId(), notificationRef.getId(),
-                "문의 답변이 도착했어요", committed.notificationBody(), "INQUIRY_ANSWER");
+                "문의 답변이 도착했어요", committed.notificationBody(), "INQUIRY_ANSWER"));
         return Map.of(
                 "success", true,
                 "id", inquiryId,
@@ -4484,6 +4644,8 @@ public class FirebaseService {
             scored = new ArrayList<>(scored.subList(0, limit));
         }
         if (lat == null || lng == null) {
+            // Non-security PRNG: stable recommendation ordering for the caller/date seed.
+            // Never used for tokens, IDs, authorization, or selection of privileged actions.
             Collections.shuffle(scored, new Random(seed));
         }
         return scored;
@@ -4546,6 +4708,7 @@ public class FirebaseService {
         try {
             return Double.parseDouble(String.valueOf(store.get("latitude")));
         } catch (Exception e) {
+            propagateCancellation(e);
             return Double.NaN;
         }
     }
@@ -4554,6 +4717,7 @@ public class FirebaseService {
         try {
             return Double.parseDouble(String.valueOf(store.get("longitude")));
         } catch (Exception e) {
+            propagateCancellation(e);
             return Double.NaN;
         }
     }
@@ -4578,7 +4742,11 @@ public class FirebaseService {
             if (!doc.exists()) return false;
             Map<String, Object> data = doc.getData();
             return data != null && isFeedVisible(data);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             return false;
         }
     }
@@ -4595,8 +4763,13 @@ public class FirebaseService {
             updates.put("comments", Math.toIntExact(commentCount));
             updates.put("likes", Math.toIntExact(likeCount));
             db.collection("stores_user").document(postId).update(updates).get();
-            cacheUpdated = updateCachedFeedCounts(postId, Math.toIntExact(likeCount), Math.toIntExact(commentCount));
+            updateCachedFeedCounts(postId, Math.toIntExact(likeCount), Math.toIntExact(commentCount));
+            cacheUpdated = true;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("커뮤니티 카운터 동기화 실패: postId={}", postId, e);
         } finally {
             // 숫자를 확정하지 못했을 때만 캐시 전체를 버립니다.
@@ -4608,10 +4781,10 @@ public class FirebaseService {
      * 좋아요·댓글 수만 바뀐 경우 피드 캐시 전체를 버리지 않고 그 글의 숫자만 고칩니다(BE-CORE-16).
      * 캐시를 버리면 다음 피드 조회가 최대 수백 건의 제보와 작성자 정보를 다시 읽기 때문입니다.
      */
-    private boolean updateCachedFeedCounts(String postId, int likes, int comments) {
+    private void updateCachedFeedCounts(String postId, int likes, int comments) {
         synchronized (feedsCacheLock) {
             List<com.howmuch.dto.FeedResponseDto> cached = cachedFeeds;
-            if (cached == null) return true;
+            if (cached == null) return;
             List<com.howmuch.dto.FeedResponseDto> next = new ArrayList<>(cached.size());
             for (com.howmuch.dto.FeedResponseDto feed : cached) {
                 next.add(postId.equals(feed.getId())
@@ -4619,7 +4792,6 @@ public class FirebaseService {
                         : feed);
             }
             cachedFeeds = List.copyOf(next);
-            return true;
         }
     }
 
@@ -4652,6 +4824,7 @@ public class FirebaseService {
                 return new AuthorSnapshot(nickname, img, true);
             }
         } catch (Exception e) {
+            propagateCancellation(e);
             // ignore
         }
         return AuthorSnapshot.unknown();
@@ -4738,9 +4911,13 @@ public class FirebaseService {
         data.put("replyCount", 0);
         data.put("parentId", null);
         docRef.set(data).get();
-        syncFeedCounts(postId);
-        notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, false);
-        AuthorSnapshot authorInfo = resolveAuthorSnapshot(requesterUid);
+        AuthorSnapshot[] author = {AuthorSnapshot.unknown()};
+        afterCommit(() -> {
+            syncFeedCounts(postId);
+            notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, false);
+            author[0] = resolveAuthorSnapshot(requesterUid);
+        });
+        AuthorSnapshot authorInfo = author[0];
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
                 .author(authorInfo.nickname())
@@ -4804,10 +4981,13 @@ public class FirebaseService {
                 "replyCount", com.google.cloud.firestore.FieldValue.increment(1L));
         batch.commit().get();
 
-        if (postId != null) syncFeedCounts(postId);
-        notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, true);
-
-        AuthorSnapshot authorInfo = resolveAuthorSnapshot(requesterUid);
+        AuthorSnapshot[] author = {AuthorSnapshot.unknown()};
+        afterCommit(() -> {
+            if (postId != null) syncFeedCounts(postId);
+            notifyFeedCommentSubscribers(postId, docRef.getId(), requesterUid, true);
+            author[0] = resolveAuthorSnapshot(requesterUid);
+        });
+        AuthorSnapshot authorInfo = author[0];
         return com.howmuch.dto.CommentResponse.builder()
                 .id(docRef.getId())
                 .author(authorInfo.nickname())
@@ -4847,23 +5027,27 @@ public class FirebaseService {
         data.put("postId", postId);
         data.put("createdAt", java.time.Instant.now().toString());
         db.collection("feed_likes").document(docId).set(data).get();
-        syncFeedCounts(postId);
-        int likes = getLikeCount(postId);
-        Map<String, Object> result = new HashMap<>();
-        result.put("likes", likes);
-        result.put("likedByMe", true);
-        return result;
+        return committedLikeResult(postId, true);
     }
 
     // 💡 좋아요 취소 (멱등). 최신 likes/likedByMe 반환
     public Map<String, Object> unlikeFeed(String postId, String uid) throws Exception {
         String docId = uid + "_" + sanitizeForDocId(postId);
         db.collection("feed_likes").document(docId).delete().get();
-        syncFeedCounts(postId);
-        int likes = getLikeCount(postId);
+        return committedLikeResult(postId, false);
+    }
+
+    private Map<String, Object> committedLikeResult(String postId, boolean liked) throws Exception {
         Map<String, Object> result = new HashMap<>();
-        result.put("likes", likes);
-        result.put("likedByMe", false);
+        result.put("likedByMe", liked);
+        boolean countsAvailable = afterCommit(() -> {
+            syncFeedCounts(postId);
+            result.put("likes", getLikeCount(postId));
+        });
+        if (!countsAvailable) {
+            invalidateCommunityFeedCache();
+            result.put("countsPending", true);
+        }
         return result;
     }
 
@@ -4916,7 +5100,11 @@ public class FirebaseService {
                 notification.set(data).get();
                 dispatchPushNotification(userId, notificationId, title, body, "FEED_COMMENT");
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             // 댓글 저장은 이미 완료됐으므로 알림 장애로 작성 요청을 실패시키지 않습니다.
             log.warn("커뮤니티 댓글 알림 생성 실패: postId={}, commentId={}", postId, commentId, e);
         }
@@ -5234,7 +5422,7 @@ public class FirebaseService {
                 String nickname = user.getNickname();
                 return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
             } catch (Exception exception) {
-                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                propagateCancellation(exception);
                 return "";
             }
         });
@@ -5252,7 +5440,7 @@ public class FirebaseService {
                 Map<String, Object> data = snapshot.exists() ? snapshot.getData() : null;
                 return data == null ? Map.of() : data;
             } catch (Exception exception) {
-                if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+                propagateCancellation(exception);
                 return Map.of();
             }
         });
@@ -5283,10 +5471,12 @@ public class FirebaseService {
         docRef.delete().get();
 
         // BE-CORE-11: 답글이면 부모 댓글 답글 수를 읽고-쓰기 대신 실제 개수로 다시 세어 동시 작성과 경쟁하지 않게 합니다.
-        if (parentId != null) recountReplies(parentId.toString());
-        deleteCommentNotifications(deletedCommentIds);
-        // 게시글 comments/likes 카운터 갱신
-        if (postId != null) syncFeedCounts(postId);
+        afterCommit(() -> {
+            if (parentId != null) recountReplies(parentId.toString());
+            deleteCommentNotifications(deletedCommentIds);
+            // 게시글 comments/likes 카운터 갱신
+            if (postId != null) syncFeedCounts(postId);
+        });
         return List.copyOf(deletedCommentIds);
     }
 
@@ -5341,6 +5531,7 @@ public class FirebaseService {
             if (requestId == null) {
                 createNotificationForUser(uid, title, body, type, createdAt, deliverPush);
                 sent++;
+                if (Thread.currentThread().isInterrupted()) break;
                 continue;
             }
             // BE-CORE-23: 요청 ID와 회원으로 정한 문서 ID라 시간 초과 뒤 재요청해도 이미 받은 회원은 건너뜁니다.
@@ -5355,8 +5546,10 @@ public class FirebaseService {
                     createdAt = existingCreatedAt;
                 }
             }
+            if (Thread.currentThread().isInterrupted()) break;
         }
         Map<String, Object> result = new HashMap<>();
+        if (Thread.currentThread().isInterrupted()) result.put("pending", targetUids.size() - sent - skipped);
         result.put("sent", sent);
         result.put("skipped", skipped);
         result.put("broadcast", targetUid == null || targetUid.isBlank());
@@ -5411,12 +5604,17 @@ public class FirebaseService {
                             return existing.getString("createdAt");
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw interruptedOperation(interrupted);
+                } catch (Exception ignored) {
+                    propagateCancellation(ignored);
+                }
                 return "";
             }
             throw exception;
         }
-        if (deliverPush) dispatchPushNotification(userId, notificationId, title, body, type);
+        if (deliverPush) afterCommit(() -> dispatchPushNotification(userId, notificationId, title, body, type));
         return null;
     }
 
@@ -5425,9 +5623,7 @@ public class FirebaseService {
         String now = java.time.Instant.now().toString();
         if (requestId == null || requestId.isBlank()) return now;
         var broadcasts = db.collection("admin_broadcasts");
-        if (broadcasts == null) return now;
         DocumentReference ref = broadcasts.document(requestId);
-        if (ref == null) return now;
         var snapFuture = ref.get();
         if (snapFuture != null) {
             DocumentSnapshot existing = snapFuture.get();
@@ -5470,7 +5666,7 @@ public class FirebaseService {
         DocumentReference notification = db.collection("notifications").document();
         notification.set(data).get();
         if (deliverPush) {
-            dispatchPushNotification(userId, notification.getId(), title, body, type);
+            afterCommit(() -> dispatchPushNotification(userId, notification.getId(), title, body, type));
         }
     }
 
@@ -5668,7 +5864,7 @@ public class FirebaseService {
             String nickname = user.getNickname();
             return nickname == null || nickname.isBlank() ? "(닉네임 없음)" : nickname.trim();
         } catch (Exception exception) {
-            if (exception instanceof InterruptedException) Thread.currentThread().interrupt();
+            propagateCancellation(exception);
             return null;
         }
     }
@@ -5759,6 +5955,7 @@ public class FirebaseService {
                 try {
                     FirebaseMessaging.getInstance().send(message);
                 } catch (FirebaseMessagingException e) {
+                    propagateCancellation(e);
                     if (e.getMessagingErrorCode() == MessagingErrorCode.UNREGISTERED
                             || e.getMessagingErrorCode() == MessagingErrorCode.INVALID_ARGUMENT) {
                         device.getReference().delete();
@@ -5766,7 +5963,11 @@ public class FirebaseService {
                     log.warn("FCM 발송 실패: code={}", e.getMessagingErrorCode());
                 }
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interruptedOperation(interrupted);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("FCM 기기 조회 또는 발송 실패", e);
         }
     }
@@ -5819,6 +6020,7 @@ public class FirebaseService {
                     ? !now.isBefore(start) && now.isBefore(end)
                     : !now.isBefore(start) || now.isBefore(end);
         } catch (Exception e) {
+            propagateCancellation(e);
             log.warn("방해 금지 시간 형식이 올바르지 않아 푸시를 계속 전송합니다.");
             return false;
         }
@@ -5830,6 +6032,7 @@ public class FirebaseService {
                     .digest(token.getBytes(StandardCharsets.UTF_8));
             return java.util.HexFormat.of().formatHex(hash);
         } catch (Exception e) {
+            propagateCancellation(e);
             throw new IllegalStateException("기기 토큰 식별자를 만들지 못했습니다.", e);
         }
     }

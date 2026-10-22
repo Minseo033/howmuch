@@ -684,7 +684,7 @@ class _PolicyChapter extends StatelessWidget {
                 Container(
                   width: 28,
                   height: 28,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: _PrivacyPolicyScreenState.blue,
                     shape: BoxShape.circle,
                   ),
@@ -808,21 +808,21 @@ class _PrivacyManagerCard extends StatelessWidget {
                   child: InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: onInquiry,
-                    child: SizedBox(
-                      key: const ValueKey('privacy-inquiry-button'),
+                    child: const SizedBox(
+                      key: ValueKey('privacy-inquiry-button'),
                       width: 68,
                       height: 36,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.chat_bubble_outline_rounded,
                             key: ValueKey('privacy-inquiry-icon'),
                             size: 14,
                             color: _PrivacyPolicyScreenState.blue,
                           ),
-                          const SizedBox(width: 5),
-                          const Text(
+                          SizedBox(width: 5),
+                          Text(
                             '문의',
                             key: ValueKey('privacy-inquiry-label'),
                             style: _inquiryText,

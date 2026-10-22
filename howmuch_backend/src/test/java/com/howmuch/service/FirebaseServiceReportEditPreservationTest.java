@@ -59,6 +59,25 @@ class FirebaseServiceReportEditPreservationTest {
     }
 
     @Test
+    void committedReportEditDoesNotFailOrRemoveRetainedImagesIfOldImageCleanupIsInterrupted() throws Exception {
+        stored = priceChangeReport();
+        stored.put("imageUrls", List.of("https://res.cloudinary.com/test/image/upload/old-image.jpg", "https://res.cloudinary.com/test/image/upload/retained-image.jpg"));
+        when(existing.get("imageUrls")).thenReturn(List.of("https://res.cloudinary.com/test/image/upload/old-image.jpg", "https://res.cloudinary.com/test/image/upload/retained-image.jpg"));
+        ReportImageStorage images = (ReportImageStorage) ReflectionTestUtils.getField(service, "reportImageStorage");
+        when(images.deleteOwned(eq("user-1"), org.mockito.ArgumentMatchers.anyCollection()))
+                .thenThrow(new InterruptedException("old image cleanup cancelled"));
+        UserReportRequest edit = generalFormEdit();
+        edit.setImageUrls(List.of("https://res.cloudinary.com/test/image/upload/retained-image.jpg"));
+        try {
+            service.updateUserReport("report_a", "user-1", edit);
+            assertThat(capturedUpdate()).containsEntry("status", "PENDING")
+                    .containsEntry("imageUrls", List.of("https://res.cloudinary.com/test/image/upload/retained-image.jpg"));
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(images, never()).deleteOwned(eq("user-1"), org.mockito.ArgumentMatchers.argThat(urls -> urls.contains("https://res.cloudinary.com/test/image/upload/retained-image.jpg")));
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
     void editingAPriceChangeWithoutIdentityFieldsKeepsTypeTargetAndDescription() throws Exception {
         stored = priceChangeReport();
         UserReportRequest edit = generalFormEdit();

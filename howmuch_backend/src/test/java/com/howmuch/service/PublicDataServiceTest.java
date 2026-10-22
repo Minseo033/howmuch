@@ -64,6 +64,25 @@ class PublicDataServiceTest {
         assertThat(service.saveToFirestore(store()).block()).isFalse();
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void interruptedWriteSignalsCancellationInsteadOfAnOrdinaryFailedItem() throws Exception {
+        Firestore firestore = mock(Firestore.class);
+        CollectionReference collection = mock(CollectionReference.class);
+        DocumentReference document = mock(DocumentReference.class);
+        ApiFuture<WriteResult> future = mock(ApiFuture.class);
+        when(firestore.collection("stores")).thenReturn(collection);
+        when(collection.document("Store_Seoul_Jongno")).thenReturn(document);
+        when(document.set(org.mockito.ArgumentMatchers.any(StoreDto.class))).thenReturn(future);
+        when(future.get()).thenThrow(new InterruptedException("cancelled"));
+        java.util.concurrent.atomic.AtomicBoolean interrupted = new java.util.concurrent.atomic.AtomicBoolean();
+        assertThatThrownBy(() -> serviceWith(firestore).saveToFirestore(store())
+                .doOnError(error -> interrupted.set(Thread.currentThread().isInterrupted())).block())
+                .isInstanceOf(java.util.concurrent.CancellationException.class)
+                .hasCauseInstanceOf(InterruptedException.class);
+        assertThat(interrupted).isTrue();
+    }
+
     private PublicDataService serviceWith(Firestore firestore) {
         return new PublicDataService(
                 WebClient.builder(),

@@ -1,3 +1,4 @@
+import 'package:howmuch/core/security/kakao_inline_webview_policy.dart';
 import 'dart:math' as math;
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
@@ -291,6 +292,8 @@ class _HomeMapScreenState extends State<HomeMapScreen>
   final String _kakaoJsKey = kakaoMapJavaScriptKey;
   bool _isMapInitialized = false;
   WebViewController? _webViewController;
+  final _mobileWebViewPolicy = KakaoInlineWebViewPolicy();
+  Future<void> _mobileDocumentLoad = Future<void>.value();
   bool _isMapReady = false;
   String? _mapErrorMessage;
   Position? _pendingMapPosition;
@@ -398,9 +401,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           HowmuchSnackBar(
-            content: Text('지도에 표시할 매장 위치 정보를 찾을 수 없어요.'),
+            content: const Text('지도에 표시할 매장 위치 정보를 찾을 수 없어요.'),
             aboveNavigation: true,
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -1098,24 +1101,24 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _webViewController = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0x00000000))
-      ..setNavigationDelegate(
-        NavigationDelegate(onWebResourceError: _onMobileMapResourceError),
-      )
       ..addJavaScriptChannel(
         'Print',
-        onMessageReceived: (JavaScriptMessage message) =>
-            _onMobileMapMessage(message.message),
-      )
-      ..loadHtmlString(
-        viewport == null
-            ? _getMobileMapHtml()
-            : _getMobileMapHtml(
-                initialLat: viewport.lat,
-                initialLng: viewport.lng,
-                initialLevel: viewport.level,
-              ),
-        baseUrl: kakaoMapAuthorizedOrigin,
+        onMessageReceived: (JavaScriptMessage message) async {
+          if (!mounted) return;
+          String? url;
+          try {
+            url = await _webViewController?.currentUrl();
+          } catch (_) {
+            return;
+          }
+          final payload = _mobileWebViewPolicy.readMessage(
+            message.message,
+            currentUrl: url,
+          );
+          if (payload != null) _onMobileMapMessage(payload);
+        },
       );
+    _loadMobileMapDocument(viewport);
   }
 
   void _onMobileMapMessage(String message) {
@@ -1129,8 +1132,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _onMapError(message.substring('MAP_ERROR:'.length));
     } else if (message.startsWith('BOUNDS:')) {
       final boundsJson = message.substring('BOUNDS:'.length);
+      final bounds = parseKakaoMapBounds(boundsJson);
       final viewport = parseMobileMapViewport(boundsJson);
-      _lastMobileViewport = viewport ?? _lastMobileViewport;
+      if (bounds == null ||
+          viewport == null ||
+          viewport.lat < bounds['minLat']! ||
+          viewport.lat > bounds['maxLat']! ||
+          viewport.lng < bounds['minLng']! ||
+          viewport.lng > bounds['maxLng']!) {
+        return;
+      }
+      _lastMobileViewport = viewport;
       _rememberViewport(viewport);
       if (_usesFullCatalog) return;
       _boundsDebouncer?.cancel();
@@ -1141,7 +1153,15 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       _onMapMoveStart();
     } else if (message.startsWith('CLICK:')) {
       final click = parseMobileMarkerClick(message.substring('CLICK:'.length));
-      if (click == null) return;
+      if (click == null ||
+          !isRenderedMapMarker(
+            click.index,
+            click.storeId,
+            _renderedMarkerStoreIds,
+          )) {
+        _restoreMarkerHighlight();
+        return;
+      }
       _markerTapGuard?.cancel();
       _markerTapGuard = Timer(const Duration(milliseconds: 400), () {
         _markerTapGuard = null;
@@ -1162,7 +1182,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       }
       _hideStore();
     } else {
-      debugPrint('WebView: $message');
+      // Unknown bridge messages have no native effect.
     }
   }
 
@@ -1182,6 +1202,12 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     _lastRenderedMarkerSignature = '';
     _renderedMarkerStoreIds = const [];
     final viewport = _lastMobileViewport;
+    _loadMobileMapDocument(viewport);
+  }
+
+  void _loadMobileMapDocument(MobileMapViewport? viewport) {
+    final controller = _webViewController!;
+    final generation = _mobileWebViewPolicy.beginDocument();
     final html = viewport == null
         ? _getMobileMapHtml()
         : _getMobileMapHtml(
@@ -1189,14 +1215,48 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             initialLng: viewport.lng,
             initialLevel: viewport.level,
           );
-    unawaited(
-      controller
-          .loadHtmlString(html, baseUrl: kakaoMapAuthorizedOrigin)
-          .onError(
-            (Object error, StackTrace stackTrace) =>
-                debugPrint('지도 다시 불러오기 실패: $error'),
-          ),
-    );
+    // Serialize installation as well as load, so a delayed old platform install
+    // cannot replace the newer delegate. Every native delegate captures its load.
+    _mobileDocumentLoad = _mobileDocumentLoad
+        .then((_) async {
+          if (!mounted || !_mobileWebViewPolicy.isCurrentDocument(generation)) {
+            return;
+          }
+          await controller.setNavigationDelegate(
+            NavigationDelegate(
+              onNavigationRequest: (request) =>
+                  mounted &&
+                      _mobileWebViewPolicy.allowNavigation(
+                        request.url,
+                        isMainFrame: request.isMainFrame,
+                        generation: generation,
+                      )
+                  ? NavigationDecision.navigate
+                  : NavigationDecision.prevent,
+              onPageStarted: (url) {
+                if (mounted) {
+                  _mobileWebViewPolicy.observePage(url, generation: generation);
+                }
+              },
+              onWebResourceError: (error) {
+                if (mounted &&
+                    _mobileWebViewPolicy.isCurrentDocument(generation)) {
+                  _onMobileMapResourceError(error);
+                }
+              },
+            ),
+          );
+          if (!mounted || !_mobileWebViewPolicy.isCurrentDocument(generation)) {
+            return;
+          }
+          await controller.loadHtmlString(
+            html,
+            baseUrl: kakaoMapAuthorizedOrigin,
+          );
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('지도 불러오기 실패: $error');
+        });
   }
 
   String _getMobileMapHtml({
@@ -1208,6 +1268,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     <!DOCTYPE html>
     <html>
     <head>
+      $kakaoInlineFramePolicy
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
       <style>
@@ -1249,9 +1310,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       <script>
         // Defined before the SDK tag so its onerror handler can always report.
         function reportMapError(message) {
-          if (window.Print && typeof Print.postMessage === 'function') {
-            Print.postMessage('MAP_ERROR:' + message);
-          }
+          window.pendingMapError = message;
         }
       </script>
       <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=$_kakaoJsKey&libraries=services,clusterer" onerror="reportMapError('카카오맵 SDK를 불러오지 못했어요.')"></script>
@@ -1259,6 +1318,11 @@ class _HomeMapScreenState extends State<HomeMapScreen>
     <body>
       <div id="kakao-map-container" aria-label="매장 지도"></div>
       <script>
+        (function() {
+        ${_mobileWebViewPolicy.bridgeScript('Print')}
+        function reportMapError(message) { sendMapMessage('MAP_ERROR:' + message); }
+        window.reportMapError = reportMapError;
+        if (window.pendingMapError) reportMapError(window.pendingMapError);
         var map;
         var userLocationOverlay;
         var boundsTimer = null;
@@ -1319,17 +1383,17 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           });
           kakao.maps.event.addListener(map, 'zoom_changed', syncOverlaysOnViewChange);
           kakao.maps.event.addListener(map, 'dragstart', function() {
-            Print.postMessage('MOVE_START');
+            sendMapMessage('MOVE_START');
           });
           kakao.maps.event.addListener(map, 'zoom_start', function() {
-            Print.postMessage('MOVE_START');
+            sendMapMessage('MOVE_START');
           });
 
           kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            Print.postMessage('MAP_CLICK');
+            sendMapMessage('MAP_CLICK');
           });
 
-          Print.postMessage("Map Initialized on Mobile");
+          sendMapMessage("Map Initialized on Mobile");
           setTimeout(relayoutMap, 0);
           setTimeout(relayoutMap, 250);
           setTimeout(requestBounds, 500);
@@ -1663,7 +1727,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
         function onMarkerClick(index) {
           var item = markerDataCache[index] || {};
           highlightMarker(index);
-          Print.postMessage('CLICK:' + JSON.stringify({
+          sendMapMessage('CLICK:' + JSON.stringify({
             index: index,
             storeId: String(item.storeId || '')
           }));
@@ -1688,7 +1752,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
           }
           customOverlays = [];
           rebuildMarkerCluster();
-          Print.postMessage('Markers added: ' + markerData.length);
+          sendMapMessage('Markers added: ' + markerData.length);
         }
 
         function applyMarkerHighlight() {
@@ -1840,8 +1904,20 @@ class _HomeMapScreenState extends State<HomeMapScreen>
             centerLat: center.getLat(), centerLng: center.getLng(),
             level: map.getLevel()
           });
-          Print.postMessage('BOUNDS:' + boundsData);
+          sendMapMessage('BOUNDS:' + boundsData);
         }
+        window.setSearchMode = setSearchMode;
+        window.relayoutMap = relayoutMap;
+        window.setMapActive = setMapActive;
+        window.addMobileMarkers = addMobileMarkers;
+        window.highlightMarker = highlightMarker;
+        window.setMapCenter = setMapCenter;
+        window.setMapCenterFromSwipe = setMapCenterFromSwipe;
+        window.fitMapStores = fitMapStores;
+        window.updateUserLocationMarker = updateUserLocationMarker;
+        window.updateUserHeading = updateUserHeading;
+        window.requestBounds = requestBounds;
+        })();
       </script>
     </body>
     </html>
@@ -3398,7 +3474,7 @@ class _HomeMapScreenState extends State<HomeMapScreen>
                 bottom: bottomNavHeight + 20,
                 child: Opacity(
                   opacity: homeChromeOpacity,
-                  child: Center(child: _FloatingSearchSummary(count: 0)),
+                  child: const Center(child: _FloatingSearchSummary(count: 0)),
                 ),
               ),
             ] else if (_showStoreSummary && _selectedStore != null) ...[
@@ -3773,10 +3849,10 @@ class _SourceLegend extends StatelessWidget {
           ),
         ],
       ),
-      child: FittedBox(
+      child: const FittedBox(
         fit: BoxFit.scaleDown,
         child: Row(
-          children: const [
+          children: [
             SizedBox(width: 11.988616943359375),
             _Dot(color: HomeMapScreen.blue),
             SizedBox(width: 5.994326591491699),
@@ -3833,8 +3909,8 @@ class _TodayPickCard extends StatelessWidget {
                   SizedBox(
                     width: compact ? 44 : 55.99431610107422,
                     height: double.infinity,
-                    child: DecoratedBox(
-                      decoration: const BoxDecoration(
+                    child: const DecoratedBox(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
@@ -3844,12 +3920,12 @@ class _TodayPickCard extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.thunderstorm_outlined,
                             color: HomeMapScreen.blue,
                             size: 20,
                           ),
-                          const SizedBox(height: 1.989),
+                          SizedBox(height: 1.989),
                           // 기온을 확인하지 못한 경우 추정값을 표시하지 않는다.
                           Text(
                             '오늘',
@@ -3921,7 +3997,7 @@ class _TodayPickText extends StatelessWidget {
                     '· ${DateTime.now().month.toString().padLeft(2, '0')}.${DateTime.now().day.toString().padLeft(2, '0')} ${['월', '화', '수', '목', '금', '토', '일'][DateTime.now().weekday - 1]}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: HomeMapScreen.muted,
                       fontFamily: HomeMapScreen.fontFamily,
                       fontFamilyFallback: HomeMapScreen.fontFallback,
@@ -4656,7 +4732,7 @@ class _AiRecommendControl extends StatelessWidget {
                       : const Color(0x592563EB),
                   blurRadius: spotlight ? 26 : 10,
                   spreadRadius: spotlight ? 7 : 0,
-                  offset: Offset(0, 8),
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -4930,7 +5006,7 @@ class _FloatingSearchSummary extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   title ?? '현재 검색 결과 ',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: HomeMapScreen.ink,
                     fontFamily: HomeMapScreen.fontFamily,
                     fontFamilyFallback: HomeMapScreen.fontFallback,

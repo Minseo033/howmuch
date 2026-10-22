@@ -151,7 +151,7 @@ class _AiRecommendChatScreenState extends ConsumerState<AiRecommendChatScreen> {
       ScaffoldMessenger.of(context)
         ..clearSnackBars()
         ..showSnackBar(
-          HowmuchSnackBar(content: Text('메시지는 1000자 이내로 입력해주세요.')),
+          HowmuchSnackBar(content: const Text('메시지는 1000자 이내로 입력해주세요.')),
         );
       return;
     }
@@ -1079,8 +1079,8 @@ class _BotMessageBubble extends StatelessWidget {
                 Clipboard.setData(ClipboardData(text: message.text));
                 ScaffoldMessenger.of(context).showSnackBar(
                   HowmuchSnackBar(
-                    content: Text('추천 답변을 복사했어요.'),
-                    duration: Duration(seconds: 1),
+                    content: const Text('추천 답변을 복사했어요.'),
+                    duration: const Duration(seconds: 1),
                   ),
                 );
               },

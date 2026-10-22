@@ -26,21 +26,52 @@ public final class WonPrice {
         }
         String raw = String.valueOf(input).trim();
         if (raw.isEmpty() || raw.startsWith("-")) return Optional.empty();
-        boolean range = raw.matches(".*[~〜–-].*");
-        String[] parts = raw.split("\\s*[/~〜–-]\\s*", -1);
-        if (parts.length > 4 || (range && parts.length != 2)) return Optional.empty();
+        boolean range = false;
         List<Long> amounts = new ArrayList<>();
-        for (String part : parts) {
-            String token = part.trim().replaceFirst("원$", "").trim();
-            if (!token.matches("(?:[0-9]+|[0-9]{1,3}(?:,[0-9]{3})+)")) return Optional.empty();
-            try {
-                long amount = Long.parseLong(token.replace(",", ""));
-                if (amount > MAX_AMOUNT) return Optional.empty();
+        int start = 0;
+        for (int i = 0; i <= raw.length(); i++) {
+            boolean atEnd = i == raw.length();
+            char ch = atEnd ? '\0' : raw.charAt(i);
+            if (atEnd || ch == '/' || isRangeSeparator(ch)) {
+                if (amounts.size() == 4) return Optional.empty();
+                Long amount = parseAmount(raw.substring(start, i));
+                if (amount == null) return Optional.empty();
                 amounts.add(amount);
-            } catch (NumberFormatException exception) { return Optional.empty(); }
+                if (!atEnd && isRangeSeparator(ch)) range = true;
+                start = i + 1;
+            }
         }
+        if (range && amounts.size() != 2) return Optional.empty();
         if (range && amounts.get(0) > amounts.get(1)) return Optional.empty();
         return Optional.of(new Value(List.copyOf(amounts), range));
+    }
+
+    private static boolean isRangeSeparator(char ch) {
+        return ch == '~' || ch == '〜' || ch == '–' || ch == '-';
+    }
+
+    private static Long parseAmount(String part) {
+        String token = part.trim();
+        if (token.endsWith("원")) token = token.substring(0, token.length() - 1).trim();
+        if (token.isEmpty()) return null;
+        long amount = 0;
+        int groupDigits = 0;
+        boolean commaSeen = false;
+        for (int i = 0; i < token.length(); i++) {
+            char ch = token.charAt(i);
+            if (ch == ',') {
+                if (groupDigits == 0 || (commaSeen ? groupDigits != 3 : groupDigits > 3)) return null;
+                commaSeen = true;
+                groupDigits = 0;
+            } else if (ch >= '0' && ch <= '9') {
+                amount = amount * 10 + ch - '0';
+                if (amount > MAX_AMOUNT) return null;
+                groupDigits++;
+            } else {
+                return null;
+            }
+        }
+        return groupDigits == 0 || (commaSeen && groupDigits != 3) ? null : amount;
     }
 
     public static Long exactPositive(Object input) {

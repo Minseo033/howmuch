@@ -1,3 +1,4 @@
+import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -51,8 +52,17 @@ void main() {
       );
       await tester.pump();
       _FakePlatformWebViewController.channels['Print']!.onMessageReceived(
-        const JavaScriptMessage(message: 'Map Initialized on Mobile'),
+        JavaScriptMessage(
+          message: jsonEncode({
+            'token': RegExp(
+              r'const mapBridgeToken = "([a-f0-9]+)"',
+            ).firstMatch(_FakePlatformWebViewController._lastHtml)!.group(1),
+            'origin': kakaoMapAuthorizedOrigin,
+            'message': 'Map Initialized on Mobile',
+          }),
+        ),
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
@@ -346,6 +356,10 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 class _FakePlatformWebViewController extends PlatformWebViewController {
   static final channels = <String, JavaScriptChannelParams>{};
   _FakePlatformWebViewController(super.params) : super.implementation();
+  String? _url;
+  static String _lastHtml = '';
+  @override
+  Future<String?> currentUrl() async => _url;
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
@@ -364,7 +378,10 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   }
 
   @override
-  Future<void> loadHtmlString(String html, {String? baseUrl}) async {}
+  Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    _lastHtml = html;
+    _url = baseUrl;
+  }
 
   @override
   Future<void> runJavaScript(String javaScript) async {}
@@ -379,6 +396,23 @@ class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
 
 class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
   _FakePlatformNavigationDelegate(super.params) : super.implementation();
+
+  NavigationRequestCallback? onNavigationRequest;
+  PageEventCallback? onPageStarted;
+  @override
+  Future<void> setOnNavigationRequest(
+    NavigationRequestCallback callback,
+  ) async {
+    onNavigationRequest = callback;
+  }
+
+  @override
+  Future<void> setOnPageStarted(PageEventCallback callback) async {
+    onPageStarted = callback;
+  }
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback callback) async {}
 
   @override
   Future<void> setOnWebResourceError(

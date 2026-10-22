@@ -1,3 +1,4 @@
+import 'package:howmuch/core/security/kakao_inline_webview_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -53,6 +54,8 @@ class _RouteMapMobileView extends StatefulWidget {
 
 class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   late final WebViewController _controller;
+  final _webViewPolicy = KakaoInlineWebViewPolicy();
+  Future<void> _documentLoad = Future<void>.value();
   late String _routeKey;
   // The WebView stays blank while the map SDK and tiles load, which took a
   // few seconds on iOS. A loading indicator covers that time (QA #26).
@@ -72,10 +75,21 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
       ..setBackgroundColor(Colors.transparent)
       ..addJavaScriptChannel(
         routeMapReadyChannel,
-        onMessageReceived: (_) => _markMapReady(),
-      )
-      ..loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
-    _startReadyFallback();
+        onMessageReceived: (message) async {
+          if (!mounted) return;
+          String? url;
+          try {
+            url = await _controller.currentUrl();
+          } catch (_) {
+            return;
+          }
+          if (_webViewPolicy.readMessage(message.message, currentUrl: url) ==
+              'ready') {
+            _markMapReady();
+          }
+        },
+      );
+    _loadRouteDocument();
   }
 
   @override
@@ -91,8 +105,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     if (routeKey == _routeKey) return;
     _routeKey = routeKey;
     _mapReady = false;
-    _controller.loadHtmlString(_html, baseUrl: kakaoMapAuthorizedOrigin);
-    _startReadyFallback();
+    _loadRouteDocument();
   }
 
   @override
@@ -101,9 +114,47 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     super.dispose();
   }
 
-  void _startReadyFallback() {
+  void _loadRouteDocument() {
+    final generation = _webViewPolicy.beginDocument();
+    final html = _html;
+    _startReadyFallback(generation);
+    _documentLoad = _documentLoad
+        .then((_) async {
+          if (!mounted || !_webViewPolicy.isCurrentDocument(generation)) return;
+          await _controller.setNavigationDelegate(
+            NavigationDelegate(
+              onNavigationRequest: (request) =>
+                  mounted &&
+                      _webViewPolicy.allowNavigation(
+                        request.url,
+                        isMainFrame: request.isMainFrame,
+                        generation: generation,
+                      )
+                  ? NavigationDecision.navigate
+                  : NavigationDecision.prevent,
+              onPageStarted: (url) {
+                if (mounted) {
+                  _webViewPolicy.observePage(url, generation: generation);
+                }
+              },
+            ),
+          );
+          if (!mounted || !_webViewPolicy.isCurrentDocument(generation)) return;
+          await _controller.loadHtmlString(
+            html,
+            baseUrl: kakaoMapAuthorizedOrigin,
+          );
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          debugPrint('경로 지도 불러오기 실패: $error');
+        });
+  }
+
+  void _startReadyFallback(int generation) {
     _readyFallback?.cancel();
-    _readyFallback = Timer(routeMapReadyFallback, _markMapReady);
+    _readyFallback = Timer(routeMapReadyFallback, () {
+      if (_webViewPolicy.isCurrentDocument(generation)) _markMapReady();
+    });
   }
 
   void _markMapReady() {
@@ -113,9 +164,9 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
   }
 
   String get _html {
-    final pointsJson = jsonEncode(
+    final pointsJson = encodeMapScriptValue(
       widget.points.map((point) => point.toJson()).toList(),
-    ).replaceAll('</', '<\\/');
+    );
     final userLat = widget.userLatitude ?? 0;
     final userLng = widget.userLongitude ?? 0;
 
@@ -123,6 +174,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
 <!doctype html>
 <html>
 <head>
+  $kakaoInlineFramePolicy
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <style>
@@ -133,6 +185,8 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
 <body>
   <div id="map"></div>
   <script>
+    (function() {
+    ${_webViewPolicy.bridgeScript(routeMapReadyChannel)}
     var routePoints = $pointsJson;
     var userLat = $userLat;
     var userLng = $userLng;
@@ -142,7 +196,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     function notifyReady() {
       if (readySent) return;
       readySent = true;
-      try { $routeMapReadyChannel.postMessage('ready'); } catch (error) {}
+      try { sendMapMessage('ready'); } catch (error) {}
     }
     function showMapError(message) {
       document.getElementById('map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;color:#475569;font:12px sans-serif;text-align:center;">' + message + '</div>';
@@ -208,6 +262,7 @@ class _RouteMapMobileViewState extends State<_RouteMapMobileView> {
     }
 
     window.addEventListener('load', initRouteMap);
+    })();
   </script>
 </body>
 </html>

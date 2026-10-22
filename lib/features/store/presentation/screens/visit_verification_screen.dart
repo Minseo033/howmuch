@@ -562,7 +562,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           HowmuchSnackBar(
-            content: Text('사진을 불러오지 못했어요. 사진 접근 권한을 확인한 뒤 다시 시도해주세요.'),
+            content: const Text('사진을 불러오지 못했어요. 사진 접근 권한을 확인한 뒤 다시 시도해주세요.'),
           ),
         );
       }
@@ -580,20 +580,20 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
     }
     if (!_isLocationVerified) {
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
+        HowmuchSnackBar(content: const Text('매장 100m 이내에서 현재 위치를 확인해주세요.')),
       );
       return;
     }
     if (!ApiClient.isAuthenticated) {
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('영수증 인증은 로그인 후 이용할 수 있어요.')),
+        HowmuchSnackBar(content: const Text('영수증 인증은 로그인 후 이용할 수 있어요.')),
       );
       return;
     }
     final price = _priceValue;
     if (!_hasValidPaymentAmount) {
       ScaffoldMessenger.of(context).showSnackBar(
-        HowmuchSnackBar(content: Text('영수증 인증 전에 결제 금액을 입력해주세요.')),
+        HowmuchSnackBar(content: const Text('영수증 인증 전에 결제 금액을 입력해주세요.')),
       );
       return;
     }
@@ -690,7 +690,7 @@ class _VisitVerificationScreenState extends State<VisitVerificationScreen> {
       debugPrint('영수증 인증 통신 오류');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          HowmuchSnackBar(content: Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
+          HowmuchSnackBar(content: const Text('영수증 인증 신청에 실패했어요. 다시 시도해주세요.')),
         );
       }
     } finally {

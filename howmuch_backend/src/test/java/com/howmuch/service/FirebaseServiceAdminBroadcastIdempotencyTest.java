@@ -38,6 +38,13 @@ class FirebaseServiceAdminBroadcastIdempotencyTest {
         when(users.get()).thenReturn(ApiFutures.immediateFuture(userSnapshot));
         List<QueryDocumentSnapshot> members = List.of(user("u1"), user("u2"), user("u3"));
         when(userSnapshot.getDocuments()).thenReturn(members);
+        CollectionReference broadcasts = mock(CollectionReference.class);
+        DocumentReference broadcast = mock(DocumentReference.class);
+        com.google.cloud.firestore.DocumentSnapshot missing = mock(com.google.cloud.firestore.DocumentSnapshot.class);
+        when(db.collection("admin_broadcasts")).thenReturn(broadcasts);
+        when(broadcasts.document(anyString())).thenReturn(broadcast);
+        when(broadcast.get()).thenReturn(ApiFutures.immediateFuture(missing));
+        when(broadcast.set(anyMap())).thenReturn(ApiFutures.immediateFuture(mock(WriteResult.class)));
         CollectionReference notifications = mock(CollectionReference.class);
         when(db.collection("notifications")).thenReturn(notifications);
         DocumentReference fresh = mock(DocumentReference.class);
@@ -66,6 +73,26 @@ class FirebaseServiceAdminBroadcastIdempotencyTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(FirebaseService.isValidAdminRequestId("short")).isFalse();
         assertThat(FirebaseService.isValidAdminRequestId("req_2026-10-06_0001")).isTrue();
+    }
+
+    @Test
+    void recalledBroadcastCannotBeSentAgainOrHaveMetadataOverwritten() throws Exception {
+        Firestore db = mock(Firestore.class);
+        CollectionReference broadcasts = mock(CollectionReference.class);
+        DocumentReference broadcast = mock(DocumentReference.class);
+        com.google.cloud.firestore.DocumentSnapshot existing = mock(com.google.cloud.firestore.DocumentSnapshot.class);
+        when(db.collection("admin_broadcasts")).thenReturn(broadcasts);
+        when(broadcasts.document("req_2026-10-06_0001")).thenReturn(broadcast);
+        when(broadcast.get()).thenReturn(ApiFutures.immediateFuture(existing));
+        when(existing.exists()).thenReturn(true);
+        when(existing.getBoolean("recalled")).thenReturn(true);
+        FirebaseService service = new FirebaseService(db, mock(ReportImageStorage.class));
+
+        assertThatThrownBy(() -> service.publishAdminNotice("title", "body", "req_2026-10-06_0001"))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("회수");
+        verify(broadcast, never()).set(anyMap());
+        verify(db, never()).collection("notifications");
+        verify(db, never()).collection("users");
     }
 
     private static String expectedId(String requestId, String uid) throws Exception {

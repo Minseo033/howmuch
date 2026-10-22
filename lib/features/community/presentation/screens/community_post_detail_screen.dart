@@ -1271,15 +1271,15 @@ class _PostCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  const Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.receipt_long_outlined,
                         color: CommunityPostDetailScreen.orange,
                         size: 15,
                       ),
-                      const SizedBox(width: 5),
-                      const Text(
+                      SizedBox(width: 5),
+                      Text(
                         '제보 가격 정보',
                         style: TextStyle(
                           color: CommunityPostDetailScreen.ink,

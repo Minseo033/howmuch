@@ -20,6 +20,59 @@ class FirebaseServiceImageValidationTest {
     private final FirebaseService service = new FirebaseService(
             mock(Firestore.class), imageStorage);
 
+    @org.junit.jupiter.api.AfterEach
+    void clearInterrupt() { Thread.interrupted(); }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void compensatesFirstUploadBeforePropagatingSecondUploadInterruption(boolean cleanupAlsoInterrupted) throws Exception {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+        MockMultipartFile first = new MockMultipartFile("images", "first.jpg", "image/jpeg", jpeg);
+        MockMultipartFile second = new MockMultipartFile("images", "second.jpg", "image/jpeg", jpeg);
+        String uploadedUrl = "https://res.cloudinary.com/test/image/upload/first.jpg";
+        InterruptedException uploadInterruption = new InterruptedException("second upload interrupted");
+        InterruptedException cleanupInterruption = new InterruptedException("compensation interrupted");
+        java.util.concurrent.atomic.AtomicBoolean cleanupObservedInterrupt = new java.util.concurrent.atomic.AtomicBoolean(true);
+        when(imageStorage.upload(eq("user-1"), any(byte[].class), eq("image/jpeg")))
+                .thenReturn(uploadedUrl).thenAnswer(invocation -> {
+                    Thread.currentThread().interrupt();
+                    throw uploadInterruption;
+                });
+        when(imageStorage.deleteOwned(eq("user-1"), any())).thenAnswer(invocation -> {
+            cleanupObservedInterrupt.set(Thread.currentThread().isInterrupted());
+            if (cleanupAlsoInterrupted) throw cleanupInterruption;
+            return 1;
+        });
+
+        assertThatThrownBy(() -> service.uploadReportImages("user-1", List.of(first, second)))
+                .isInstanceOf(java.util.concurrent.CancellationException.class).hasCause(uploadInterruption);
+
+        verify(imageStorage).deleteOwned("user-1", List.of(uploadedUrl));
+        assertThat(cleanupObservedInterrupt).isFalse();
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        if (cleanupAlsoInterrupted) assertThat(uploadInterruption.getSuppressed()).containsExactly(cleanupInterruption);
+        else assertThat(uploadInterruption.getSuppressed()).isEmpty();
+    }
+
+    @Test
+    void compensationInterruptionIsNotHiddenBehindAnOrdinaryUploadFailure() throws Exception {
+        byte[] jpeg = new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
+        MockMultipartFile first = new MockMultipartFile("images", "first.jpg", "image/jpeg", jpeg);
+        MockMultipartFile second = new MockMultipartFile("images", "second.jpg", "image/jpeg", jpeg);
+        String uploadedUrl = "https://res.cloudinary.com/test/image/upload/first.jpg";
+        IllegalStateException original = new IllegalStateException("second upload failed");
+        InterruptedException cleanup = new InterruptedException("compensation interrupted");
+        when(imageStorage.upload(eq("user-1"), any(byte[].class), eq("image/jpeg")))
+                .thenReturn(uploadedUrl).thenThrow(original);
+        when(imageStorage.deleteOwned(eq("user-1"), any())).thenThrow(cleanup);
+
+        assertThatThrownBy(() -> service.uploadReportImages("user-1", List.of(first, second)))
+                .isInstanceOf(java.util.concurrent.CancellationException.class).hasCause(original);
+        assertThat(original.getSuppressed()).containsExactly(cleanup);
+        assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        verify(imageStorage).deleteOwned("user-1", List.of(uploadedUrl));
+    }
+
     @Test
     void detectsSupportedImageSignaturesWithoutTrustingTheHeader() {
         assertThat(service.detectReportImageContentType(new byte[]{
