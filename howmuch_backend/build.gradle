@@ -89,6 +89,6 @@ tasks.named('jacocoTestReport') {
 }
 
 tasks.register('sonarDependencies', Copy) {
-    from configurations.testRuntimeClasspath
+    from files(configurations.compileClasspath, configurations.testCompileClasspath, configurations.testRuntimeClasspath)
     into layout.buildDirectory.dir('sonar-libs')
 }
