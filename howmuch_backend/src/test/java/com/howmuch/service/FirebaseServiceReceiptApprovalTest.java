@@ -75,6 +75,31 @@ class FirebaseServiceReceiptApprovalTest {
         when(receipt.get("locationAccuracyMeters")).thenReturn(5.0);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void committedApprovalOrRejectionRemainsSuccessfulIfImageCleanupIsInterrupted(boolean approve) throws Exception {
+        when(receipt.exists()).thenReturn(true);
+        when(receipt.getString("status")).thenReturn("PENDING");
+        when(receipt.getString("userId")).thenReturn("user-1");
+        when(receipt.getString("storeId")).thenReturn("store-1");
+        when(receipt.getString("storeName")).thenReturn("테스트 식당");
+        when(receipt.getString("menu")).thenReturn("국밥");
+        when(receipt.getLong("price")).thenReturn(6000L);
+        when(receipt.get("imageUrls")).thenReturn(java.util.List.of("owned-receipt-url"));
+        when(imageStorage.deleteOwned(eq("user-1"), anyCollection())).thenThrow(new InterruptedException("cleanup cancelled"));
+        try {
+            if (approve) {
+                assertThat(service.approveReceiptVerification("receipt-1", "ADMIN"))
+                        .containsEntry("status", "APPROVED").containsEntry("visitId", "visit-1");
+            } else service.rejectReceiptVerification("receipt-1", "reason", "ADMIN");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(transaction).update(eq(receiptRef), argThat(update ->
+                    (approve ? "APPROVED" : "REJECTED").equals(update.get("status"))
+                            && "PENDING".equals(update.get("imageCleanupStatus"))));
+            verify(receiptRef, never()).update(anyMap());
+        } finally { Thread.interrupted(); }
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void createsVisitAndMarksReceiptApprovedInOneTransaction() throws Exception {

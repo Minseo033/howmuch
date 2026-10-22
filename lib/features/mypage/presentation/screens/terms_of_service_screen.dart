@@ -93,7 +93,7 @@ class TermsOfServiceScreen extends StatelessWidget {
     );
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(HowmuchSnackBar(content: Text('서비스 이용약관 링크를 복사했어요.')));
+      ..showSnackBar(HowmuchSnackBar(content: const Text('서비스 이용약관 링크를 복사했어요.')));
   }
 
   void _showTermsDetail(BuildContext context, _TermsItem item) {

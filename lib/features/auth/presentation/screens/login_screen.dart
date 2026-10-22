@@ -250,7 +250,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (result.status == KakaoLoginStatus.cancelled) return;
     if (result.status == KakaoLoginStatus.success) {
       if (context.mounted) {
-        messenger.showSnackBar(HowmuchSnackBar(content: Text('카카오로 로그인했어요.')));
+        messenger.showSnackBar(HowmuchSnackBar(content: const Text('카카오로 로그인했어요.')));
       }
     } else {
       if (context.mounted) {
@@ -357,8 +357,8 @@ class _DividerLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: const [
+    return const Row(
+      children: [
         Expanded(child: Divider(color: Color(0xFFE5E7EB), height: 1)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 11.988636016845703),

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -386,6 +387,10 @@ class _FakeRouteService extends TodaysPickService {
 
 class _FakeWebViewPlatform extends WebViewPlatform {
   @override
+  PlatformNavigationDelegate createPlatformNavigationDelegate(
+    PlatformNavigationDelegateCreationParams params,
+  ) => _FakePlatformNavigationDelegate(params);
+  @override
   PlatformWebViewController createPlatformWebViewController(
     PlatformWebViewControllerCreationParams params,
   ) {
@@ -402,8 +407,16 @@ class _FakeWebViewPlatform extends WebViewPlatform {
 
 class _FakePlatformWebViewController extends PlatformWebViewController {
   _FakePlatformWebViewController(super.params) : super.implementation();
+  String? _url;
+  static String _lastHtml = '';
+  @override
+  Future<String?> currentUrl() async => _url;
 
   final _channels = <JavaScriptChannelParams>[];
+  @override
+  Future<void> setPlatformNavigationDelegate(
+    PlatformNavigationDelegate handler,
+  ) async {}
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
@@ -419,9 +432,21 @@ class _FakePlatformWebViewController extends PlatformWebViewController {
   /// Like a page whose map is drawn at once, it reports back after loading.
   @override
   Future<void> loadHtmlString(String html, {String? baseUrl}) async {
+    _lastHtml = html;
+    _url = baseUrl;
     scheduleMicrotask(() {
       for (final channel in _channels) {
-        channel.onMessageReceived(const JavaScriptMessage(message: 'ready'));
+        channel.onMessageReceived(
+          JavaScriptMessage(
+            message: jsonEncode({
+              'token': RegExp(
+                r'const mapBridgeToken = "([a-f0-9]+)"',
+              ).firstMatch(_lastHtml)!.group(1),
+              'origin': _url,
+              'message': 'ready',
+            }),
+          ),
+        );
       }
     });
   }
@@ -435,4 +460,25 @@ class _FakePlatformWebViewWidget extends PlatformWebViewWidget {
 
   @override
   Widget build(BuildContext context) => const SizedBox();
+}
+
+class _FakePlatformNavigationDelegate extends PlatformNavigationDelegate {
+  _FakePlatformNavigationDelegate(super.params) : super.implementation();
+
+  NavigationRequestCallback? onNavigationRequest;
+  PageEventCallback? onPageStarted;
+  @override
+  Future<void> setOnNavigationRequest(
+    NavigationRequestCallback callback,
+  ) async {
+    onNavigationRequest = callback;
+  }
+
+  @override
+  Future<void> setOnPageStarted(PageEventCallback callback) async {
+    onPageStarted = callback;
+  }
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback callback) async {}
 }

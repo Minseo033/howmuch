@@ -1,3 +1,4 @@
+import 'package:howmuch/core/constants/kakao_map_constants.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -64,7 +65,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: screen));
     await tester.pump();
     final controller = webViews.controllers.single;
-    controller.send('Map Initialized on Mobile');
+    await controller.send('Map Initialized on Mobile');
     await tester.pump();
     return controller;
   }
@@ -73,6 +74,43 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 2));
   }
+
+  testWidgets('untrusted bridge payloads cannot mark ready or change viewport', (
+    tester,
+  ) async {
+    final controller = await pumpHome(
+      tester,
+      const HomeMapScreen(storeLoader: _emptyLoader),
+    );
+    controller.scripts.clear();
+    controller.channel!.onMessageReceived(
+      const JavaScriptMessage(message: 'Map Initialized on Mobile'),
+    );
+    controller.channel!.onMessageReceived(
+      JavaScriptMessage(
+        message: jsonEncode({
+          'token': 'forged',
+          'origin': kakaoMapAuthorizedOrigin,
+          'message': _bounds(35, 36, 128, 129),
+        }),
+      ),
+    );
+    await controller.send(
+      'BOUNDS:{"minLat":35,"maxLat":36,"minLng":128,"maxLng":129,"centerLat":90,"centerLng":0,"level":4}',
+    );
+    await controller.send('BOUNDS:{"minLat":null}');
+    await tester.pump();
+    controller.navigationDelegate!.onWebResourceError!(
+      const WebResourceError(
+        errorCode: 2,
+        description: 'terminated',
+        errorType: WebResourceErrorType.webContentProcessTerminated,
+        isForMainFrame: true,
+      ),
+    );
+    expect(controller.htmlLoads.last, contains('37.5665'));
+    await disposeHome(tester);
+  });
 
   test('marker click payloads carry the rendered index and store ID', () {
     expect(parseMobileMarkerClick('{"index":3,"storeId":"store-9"}'), (
@@ -113,7 +151,7 @@ void main() {
           .where((script) => script.startsWith('addMobileMarkers('))
           .length;
 
-      controller.send(_bounds(35.0, 38.0, 126.0, 129.0, level: 9));
+      await controller.send(_bounds(35.0, 38.0, 126.0, 129.0, level: 9));
       await tester.pump(const Duration(milliseconds: 500));
 
       expect(catalogLoads, 1, reason: 'panning reuses the in-memory catalog');
@@ -151,7 +189,8 @@ void main() {
       );
       expect(controller.scripts, contains('setSearchMode(true);'));
 
-      controller.send(_bounds(37.5, 37.6, 126.9, 127.05));
+      await controller.send(_bounds(37.5, 37.6, 126.9, 127.05));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(
         _renderedStoreIds(controller),
@@ -160,7 +199,7 @@ void main() {
       );
 
       controller.scripts.clear();
-      controller.send(_click(0, 'near'));
+      await controller.send(_click(0, 'near'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(
@@ -182,7 +221,7 @@ void main() {
       );
 
       controller.scripts.clear();
-      controller.send(_click(1, 'store-no-longer-listed'));
+      await controller.send(_click(1, 'store-no-longer-listed'));
       await tester.pump();
       expect(
         controller.scripts.last,
@@ -216,7 +255,7 @@ void main() {
       ]);
 
       controller.scripts.clear();
-      controller.send(_click(4, 'ai-4'));
+      await controller.send(_click(4, 'ai-4'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(
@@ -283,11 +322,13 @@ void main() {
       HomeMapScreen(storeLoader: loader),
     );
     final cityHall = _bounds(37.55, 37.58, 126.96, 126.99);
-    controller.send(cityHall);
+    await controller.send(cityHall);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(loads, hasLength(1));
 
-    controller.send(cityHall);
+    await controller.send(cityHall);
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(loads, hasLength(1), reason: 'the in-flight request is kept');
 
@@ -301,7 +342,8 @@ void main() {
     expect(_renderedStoreIds(controller), ['a']);
     expect(loads, hasLength(1));
 
-    controller.send(_bounds(35.1, 35.2, 129.0, 129.1));
+    await controller.send(_bounds(35.1, 35.2, 129.0, 129.1));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(loads, hasLength(2), reason: 'a different viewport still loads');
     loads.last.complete(
@@ -331,13 +373,15 @@ void main() {
               },
         ),
       );
-      controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+      await controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump();
       expect(find.text('새 매장 정보를 불러오지 못했어요'), findsOneWidget);
       expect(_renderedStoreIds(controller), ['cached']);
 
-      controller.send(_bounds(37.56, 37.59, 126.97, 127.0));
+      await controller.send(_bounds(37.56, 37.59, 126.97, 127.0));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump();
       expect(loads, 2);
@@ -374,7 +418,8 @@ void main() {
       ),
     );
     const hint = '지도를 확대하면 매장이 더 보여요.';
-    controller.send(_bounds(37.0, 38.0, 126.5, 127.5));
+    await controller.send(_bounds(37.0, 38.0, 126.5, 127.5));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
     expect(find.text(hint), findsOneWidget);
@@ -384,16 +429,19 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.text(hint), findsNothing);
-    controller.send(_bounds(37.1, 38.1, 126.5, 127.5));
+    await controller.send(_bounds(37.1, 38.1, 126.5, 127.5));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
     expect(find.text(hint), findsNothing, reason: 'still the same streak');
 
     truncated = false;
-    controller.send(_bounds(37.5, 37.6, 126.9, 127.0));
+    await controller.send(_bounds(37.5, 37.6, 126.9, 127.0));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     truncated = true;
-    controller.send(_bounds(36.5, 37.5, 126.5, 127.5));
+    await controller.send(_bounds(36.5, 37.5, 126.5, 127.5));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump();
     expect(find.text(hint), findsOneWidget);
@@ -407,7 +455,7 @@ void main() {
       tester,
       const HomeMapScreen(storeLoader: _emptyLoader),
     );
-    controller.send(
+    await controller.send(
       _bounds(
         35.1,
         35.2,
@@ -418,6 +466,7 @@ void main() {
         level: 6,
       ),
     );
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(controller.htmlLoads, hasLength(1));
 
@@ -447,6 +496,54 @@ void main() {
     await disposeHome(tester);
   });
 
+  testWidgets(
+    'obsolete home delegate callbacks cannot consume reload bootstrap',
+    (tester) async {
+      final controller = await pumpHome(
+        tester,
+        const HomeMapScreen(storeLoader: _emptyLoader),
+      );
+      final oldDelegate = controller.navigationDelegate!;
+      const terminated = WebResourceError(
+        errorCode: 2,
+        description: 'terminated',
+        errorType: WebResourceErrorType.webContentProcessTerminated,
+        isForMainFrame: true,
+      );
+      oldDelegate.onWebResourceError!(terminated);
+      await tester.pump();
+      final currentDelegate = controller.navigationDelegate!;
+      expect(currentDelegate, isNot(same(oldDelegate)));
+      expect(
+        await oldDelegate.onNavigationRequest!(
+          const NavigationRequest(
+            url: kakaoMapAuthorizedOrigin,
+            isMainFrame: true,
+          ),
+        ),
+        NavigationDecision.prevent,
+      );
+      oldDelegate.onPageStarted!('https://evil.test');
+      oldDelegate.onWebResourceError!(terminated);
+      expect(
+        await currentDelegate.onNavigationRequest!(
+          const NavigationRequest(
+            url: kakaoMapAuthorizedOrigin,
+            isMainFrame: true,
+          ),
+        ),
+        NavigationDecision.navigate,
+      );
+      await tester.pump();
+      expect(
+        controller.htmlLoads,
+        hasLength(2),
+        reason: 'obsolete process errors do not reload the new document',
+      );
+      await disposeHome(tester);
+    },
+  );
+
   testWidgets('a marker tap that also reaches the map keeps its card open', (
     tester,
   ) async {
@@ -463,16 +560,17 @@ void main() {
             ),
       ),
     );
-    controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    controller.send(_click(0, 'a'));
-    controller.send('MAP_CLICK');
+    await controller.send(_click(0, 'a'));
+    await controller.send('MAP_CLICK');
     await tester.pump();
     expect(find.byType(HomeMapStoreSummaryCard), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 500));
-    controller.send('MAP_CLICK');
+    await controller.send('MAP_CLICK');
     await tester.pump();
     expect(find.byType(HomeMapStoreSummaryCard), findsNothing);
     await disposeHome(tester);
@@ -494,21 +592,22 @@ void main() {
             ),
       ),
     );
-    controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await controller.send(_bounds(37.55, 37.58, 126.96, 126.99));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
-    controller.send(_click(0, 'a'));
+    await controller.send(_click(0, 'a'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     final card = find.byType(HomeMapStoreSummaryCard);
     expect(card, findsOneWidget);
 
     final press = await tester.startGesture(tester.getCenter(card));
-    controller.send('MAP_CLICK');
+    await controller.send('MAP_CLICK');
     await tester.pump();
     expect(card, findsOneWidget, reason: 'the press reached the map below');
 
     await press.up();
-    controller.send('MAP_CLICK');
+    await controller.send('MAP_CLICK');
     await tester.pump();
     expect(card, findsOneWidget, reason: 'the tap reached it on release');
 
@@ -516,7 +615,7 @@ void main() {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 900)),
     );
-    controller.send('MAP_CLICK');
+    await controller.send('MAP_CLICK');
     await tester.pump();
     expect(card, findsNothing, reason: 'a background tap still closes it');
     await disposeHome(tester);
@@ -538,8 +637,8 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
       // The user drags and zooms the map to Busan, then opens a store card.
-      first.send('MOVE_START');
-      first.send(
+      await first.send('MOVE_START');
+      await first.send(
         _bounds(
           35.1,
           35.2,
@@ -550,8 +649,9 @@ void main() {
           level: 6,
         ),
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
-      first.send(_click(0, 'busan'));
+      await first.send(_click(0, 'busan'));
       await tester.pump();
       expect(find.text('부산 돼지국밥'), findsOneWidget);
       await disposeHome(tester);
@@ -580,7 +680,7 @@ void main() {
       expect(find.text('부산 돼지국밥'), findsOneWidget);
 
       // Closing the card is kept too.
-      second.send('MAP_CLICK');
+      await second.send('MAP_CLICK');
       await tester.pump();
       expect(find.text('부산 돼지국밥'), findsNothing);
       await disposeHome(tester);
@@ -597,9 +697,10 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
       // The map reports a viewport, but the user never moved it.
-      first.send(
+      await first.send(
         _bounds(37.54, 37.56, 126.98, 127.0, centerLat: 37.55, level: 4),
       );
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await disposeHome(tester);
       webViews.controllers.clear();
@@ -669,7 +770,8 @@ void main() {
       // Removing a filter on the map sorts the catalog again (QA #31).
       await tester.tap(find.bySemanticsLabel('10,000원 이하 필터 해제'));
       await tester.pump();
-      controller.send(_bounds(37.5, 37.6, 126.9, 127.05));
+      await controller.send(_bounds(37.5, 37.6, 126.9, 127.05));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       expect(_renderedStoreIds(controller), ['near', 'middle', 'far']);
       semantics.dispose();
@@ -1034,9 +1136,27 @@ class _RecordingController extends PlatformWebViewController {
   final htmlLoads = <String>[];
   JavaScriptChannelParams? channel;
   _RecordingNavigationDelegate? navigationDelegate;
+  final navigationDelegates = <_RecordingNavigationDelegate>[];
 
-  void send(String message) =>
-      channel!.onMessageReceived(JavaScriptMessage(message: message));
+  Future<void> send(String message) async {
+    final token = RegExp(
+      r'const mapBridgeToken = "([a-f0-9]+)"',
+    ).firstMatch(htmlLoads.last)!.group(1)!;
+    channel!.onMessageReceived(
+      JavaScriptMessage(
+        message: jsonEncode({
+          'token': token,
+          'origin': kakaoMapAuthorizedOrigin,
+          'message': message,
+        }),
+      ),
+    );
+    // The native currentUrl check is asynchronous, just like the platform.
+    await Future<void>.value();
+  }
+
+  @override
+  Future<String?> currentUrl() async => kakaoMapAuthorizedOrigin;
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {}
@@ -1049,6 +1169,7 @@ class _RecordingController extends PlatformWebViewController {
     PlatformNavigationDelegate handler,
   ) async {
     navigationDelegate = handler as _RecordingNavigationDelegate;
+    navigationDelegates.add(navigationDelegate!);
   }
 
   @override
@@ -1070,6 +1191,23 @@ class _RecordingController extends PlatformWebViewController {
 class _RecordingNavigationDelegate extends PlatformNavigationDelegate {
   _RecordingNavigationDelegate(super.params) : super.implementation();
 
+  @override
+  Future<void> setOnNavigationRequest(
+    NavigationRequestCallback callback,
+  ) async {
+    onNavigationRequest = callback;
+  }
+
+  @override
+  Future<void> setOnPageStarted(PageEventCallback callback) async {
+    onPageStarted = callback;
+  }
+
+  @override
+  Future<void> setOnPageFinished(PageEventCallback callback) async {}
+
+  NavigationRequestCallback? onNavigationRequest;
+  PageEventCallback? onPageStarted;
   WebResourceErrorCallback? onWebResourceError;
 
   @override

@@ -1069,7 +1069,7 @@ class _ResultCountBar extends StatelessWidget {
                 color: SearchResultScreen.blue,
               ),
             ),
-            TextSpan(text: ' 검색 결과  '),
+            const TextSpan(text: ' 검색 결과  '),
             TextSpan(
               text: '$count',
               style: const TextStyle(
@@ -1653,7 +1653,7 @@ class _EmptyResult extends StatelessWidget {
                     ? '필터를 넓히거나 다른 검색어로 찾아보세요.'
                     : '가게명, 메뉴 또는 지역을 다시 확인해주세요.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   color: SearchResultScreen.muted,
                   fontFamily: SearchResultScreen.fontFamily,
                   fontFamilyFallback: SearchResultScreen.fontFallback,

@@ -201,7 +201,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     if (!_confirmed) {
       messenger
         ..clearSnackBars()
-        ..showSnackBar(HowmuchSnackBar(content: Text('탈퇴 동의 내용을 확인해주세요.')));
+        ..showSnackBar(HowmuchSnackBar(content: const Text('탈퇴 동의 내용을 확인해주세요.')));
       return;
     }
 
@@ -373,11 +373,11 @@ class _WarningCard extends StatelessWidget {
               iconSize: 18,
             ),
           ),
-          Positioned(
+          const Positioned(
             left: 66.88916015625,
             top: 15.8125,
             width: 251.66192626953125,
-            child: const Text('탈퇴 전 꼭 확인해주세요', style: _warningTitleText),
+            child: Text('탈퇴 전 꼭 확인해주세요', style: _warningTitleText),
           ),
           Positioned(
             left: 66.88916015625,

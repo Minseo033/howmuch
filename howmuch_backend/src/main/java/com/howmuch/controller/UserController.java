@@ -9,19 +9,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
 @RequestMapping("/api/user")
 public class UserController {
-
-    private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
 
     private final FirebaseService firebaseService;
     private final AccountWithdrawalService withdrawals;
@@ -78,7 +75,7 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "프로필 입력값이 허용 길이를 초과했습니다."));
         }
-        if (!email.isEmpty() && !EMAIL_PATTERN.matcher(email).matches()) {
+        if (!email.isEmpty() && !isValidEmail(email)) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false, "message", "이메일 형식을 확인해주세요."));
         }
@@ -104,6 +101,19 @@ public class UserController {
         request.setProfileImageUrl(profileImageUrl);
         request.setFavoriteCategories(categories);
         return null;
+    }
+
+    private static boolean isValidEmail(String email) {
+        int at = email.indexOf('@');
+        int dot = email.lastIndexOf('.');
+        if (at <= 0 || email.indexOf('@', at + 1) >= 0
+                || dot <= at + 1 || dot == email.length() - 1) return false;
+        for (int i = 0; i < email.length(); i++) {
+            char ch = email.charAt(i);
+            // Same ASCII whitespace contract as the original Java \s expression.
+            if (ch == ' ' || (ch >= '\t' && ch <= '\r')) return false;
+        }
+        return true;
     }
 
     /**
@@ -139,7 +149,7 @@ public class UserController {
         try {
             // Older app builds can still submit, but only new builds retain the status receipt.
             var job = withdrawals.submit(firebaseUid, requestId == null ? java.util.UUID.randomUUID().toString() : requestId);
-            return ResponseEntity.status(job.completed() ? 200 : 202).body(job.response());
+            return ResponseEntity.status(job.completed() ? HttpStatus.OK : HttpStatus.ACCEPTED).body(job.response());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {

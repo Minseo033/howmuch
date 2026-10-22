@@ -302,7 +302,7 @@ class _SavingsDetailScreenState extends State<SavingsDetailScreen> {
       backgroundColor: const Color(0xFFF4F6FA),
       child: Stack(
         children: [
-          Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
+          const Positioned.fill(child: ColoredBox(color: Color(0xFFF4F6FA))),
           Positioned.fill(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

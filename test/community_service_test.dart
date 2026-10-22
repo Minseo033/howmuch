@@ -49,6 +49,27 @@ void main() {
     });
   });
 
+  test(
+    'committed reaction with pending counts retains count and accepted state',
+    () {
+      final result = CommunityReactionResult.fromJson(
+        {'likedByMe': true, 'countsPending': true},
+        fallbackCount: 7,
+        fallbackEnabled: false,
+      );
+      expect(result.count, 7);
+      expect(result.enabled, isTrue);
+
+      final removed = CommunityReactionResult.fromJson(
+        {'likedByMe': false, 'countsPending': true},
+        fallbackCount: 7,
+        fallbackEnabled: true,
+      );
+      expect(removed.count, 7);
+      expect(removed.enabled, isFalse);
+    },
+  );
+
   test('CommunityReactionResult parses like state and count', () {
     final result = CommunityReactionResult.fromJson(
       {'likes': 7, 'likedByMe': true},

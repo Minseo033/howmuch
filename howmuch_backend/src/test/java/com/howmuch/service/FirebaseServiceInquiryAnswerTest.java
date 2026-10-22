@@ -61,6 +61,23 @@ class FirebaseServiceInquiryAnswerTest {
     }
 
     @Test
+    void committedInquiryAnswerRemainsAnsweredIfOptionalPushReadIsInterrupted() throws Exception {
+        when(inquiry.exists()).thenReturn(true);
+        when(inquiry.getString("userId")).thenReturn("user-1");
+        FirebaseService interruptedPushService = org.mockito.Mockito.spy(service);
+        org.mockito.Mockito.doThrow(new InterruptedException("push settings cancelled"))
+                .when(interruptedPushService).getNotificationSettings("user-1");
+        try {
+            assertThat(interruptedPushService.answerInquiry("inquiry-1", "accepted answer"))
+                    .containsEntry("success", true).containsEntry("status", "ANSWERED");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(transaction).update(eq(inquiryRef), anyMap());
+            verify(transaction).set(eq(notificationRef), anyMap());
+            verify(db, never()).collection("device_tokens");
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void storesAnswerAndUserNotificationInOneTransaction() throws Exception {
         when(inquiry.exists()).thenReturn(true);

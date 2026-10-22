@@ -713,7 +713,7 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(color: AppColors.white),
+      decoration: const BoxDecoration(color: AppColors.white),
       child: Stack(
         children: [
           Positioned(
@@ -808,11 +808,11 @@ class _ProfileCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(22),
       child: DecoratedBox(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [AppColors.primary, const Color(0xFF1D4ED8)],
+            colors: [AppColors.primary, Color(0xFF1D4ED8)],
           ),
         ),
         child: Padding(

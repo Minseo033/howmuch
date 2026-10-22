@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -24,34 +25,34 @@ import java.time.ZoneId;
 public class ReceiptOcrService {
     private static final Pattern APPROVAL_PRICE = Pattern.compile(
             "(?<!할인\\s*전\\s*)(?:실\\s*결제\\s*금액|실\\s*결제액|실\\s*승인\\s*금액|카드\\s*승인\\s*금액|승인\\s*금액|승인액|받을\\s*금액|받을\\s*돈|청구\\s*금액|청구액|할인\\s*후\\s*금액|차감\\s*후\\s*금액)[^0-9\\n]{0,20}([0-9][0-9,]{2,})",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern PAYMENT_PRICE = Pattern.compile(
             "(?<!할인\\s*전\\s*)(?:총\\s*결제\\s*금액|총\\s*결제액|결제\\s*금액|결제액)[^0-9\\n]{0,20}([0-9][0-9,]{2,})",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern LABELED_PRICE = Pattern.compile(
             "(?<!할인\\s*전\\s*)(?:합계\\s*금액|합계|총액|총계)[^0-9\\n]{0,20}([0-9][0-9,]{2,})",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern TENDERED_CASH_PRICE = Pattern.compile(
             "(?:받은\\s*금액|받은\\s*돈|현금\\s*받은\\s*금액|현금\\s*수령액?|수령\\s*금액|수령액|투입\\s*금액)[^0-9\\n]{0,20}([0-9][0-9,]{2,})",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern CHANGE_PRICE = Pattern.compile(
             "(?:거스름\\s*돈|거스름|잔돈|반환\\s*금액)[^0-9\\n]{0,20}([0-9][0-9,]{2,})",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern INLINE_NON_TOTAL_AMOUNT = Pattern.compile(
             "(?:받은\\s*금액|받은\\s*돈|현금\\s*받은(?:\\s*금액)?|현금\\s*수령액?|수령\\s*금액|수령액|투입\\s*금액|거스름\\s*돈|거스름|잔돈|반환\\s*금액|할인\\s*금액|할인액|부가세|V\\.?A\\.?T|공급\\s*가액)[^0-9\\n]{0,20}[0-9][0-9,]{2,}\\s*원?",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern NON_TOTAL_PRICE_LINE = Pattern.compile(
             "(?:받은\\s*금액|받은\\s*돈|현금\\s*받은|수령\\s*금액|수령액|투입\\s*금액|거스름\\s*돈|거스름|잔돈|반환\\s*금액|할인\\s*금액|할인액|부가세|V\\.?A\\.?T|공급\\s*가액|과세\\s*물품|면세\\s*물품)",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern SUMMARY_OR_PAYMENT_LINE = Pattern.compile(
             "(?:합계|총액|총계|결제\\s*금액|결제액|승인\\s*금액|승인액|받을\\s*금액|받을\\s*돈|받은\\s*금액|받은\\s*돈|수령액|거스름|잔돈|할인|부가세|V\\.?A\\.?T|공급\\s*가액|청구\\s*금액|카드\\s*승인)",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern PROMO_OR_NOTICE_LINE = Pattern.compile(
             "(?:행사|이벤트|출시|예정|다음\\s*주|내일|오픈|개시|안내|홍보|광고|증정|사은품|프로모션|원산지|알레르기|배달|포장\\s*가능|문의|찾아주셔서|감사합니다|교환|환불|적립|포인트|사업자\\s*번호|대표자?|전화|TEL|카드\\s*번호|승인\\s*번호|가맹점)",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern DISCOUNT_KEYWORD = Pattern.compile(
             "(?:할인|쿠폰|차감|프로모션|멤버십)",
-            Pattern.CASE_INSENSITIVE);
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern PRICE_CANDIDATE = Pattern.compile(
             "(?<![0-9])([0-9]{1,3}(?:,[0-9]{3})+|[0-9]{3,7})(?![0-9])");
     private static final Pattern RECEIPT_DATE = Pattern.compile(
@@ -117,6 +118,9 @@ public class ReceiptOcrService {
                 text = first.path("textAnnotations").path(0).path("description").asText("").trim();
             }
             return analyzeText(text, storeName, submittedMenu, submittedPrice);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Result.unavailable("OCR_PROVIDER_ERROR");
         } catch (Exception e) {
             log.warn("Receipt OCR failed; keeping manual review fallback: {}",
                     e.getClass().getSimpleName());
@@ -280,11 +284,12 @@ public class ReceiptOcrService {
     }
 
     private boolean matchesStore(String text, String storeName) {
+        if (text == null || storeName == null) return false;
         String normalizedText = normalize(text);
         String normalizedStore = normalize(storeName);
         if (normalizedText.isBlank() || normalizedStore.isBlank()) return false;
         if (normalizedText.contains(normalizedStore)) return true;
-        List<String> tokens = java.util.Arrays.stream(storeName.toLowerCase()
+        List<String> tokens = java.util.Arrays.stream(storeName.toLowerCase(Locale.ROOT)
                         .split("[^가-힣a-z0-9]+"))
                 .map(this::normalize)
                 .filter(token -> token.length() >= 2)
@@ -369,6 +374,7 @@ public class ReceiptOcrService {
     }
 
     private boolean lineMatchesSubmittedMenu(String line, String submittedMenu) {
+        if (line == null || submittedMenu == null) return false;
         String normalizedText = normalizeMenu(line);
         String normalizedMenu = normalizeMenu(submittedMenu);
         if (normalizedText.isBlank() || normalizedMenu.isBlank()) return false;
@@ -379,7 +385,7 @@ public class ReceiptOcrService {
             return true;
         }
 
-        List<String> tokens = java.util.Arrays.stream(submittedMenu.toLowerCase()
+        List<String> tokens = java.util.Arrays.stream(submittedMenu.toLowerCase(Locale.ROOT)
                         .replaceAll("\\([^)]*\\)", " ")
                         .split("[^가-힣a-z0-9]+"))
                 .map(this::normalizeMenu)
@@ -399,7 +405,7 @@ public class ReceiptOcrService {
     }
 
     private String normalize(String value) {
-        return value == null ? "" : value.toLowerCase().replaceAll("[^가-힣a-z0-9]", "");
+        return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[^가-힣a-z0-9]", "");
     }
 
     public record Result(

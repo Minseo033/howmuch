@@ -451,7 +451,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       ..clearSnackBars()
       ..showSnackBar(
         HowmuchSnackBar(
-          content: Text(
+          content: const Text(
             kIsWeb
                 ? '브라우저 주소창의 사이트 설정에서 위치 권한을 허용해주세요.'
                 : '기기 설정에서 얼마고의 위치 권한을 직접 허용해주세요.',
@@ -597,7 +597,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
       backgroundColor: const Color(0xFFF4F6FA),
       child: Stack(
         children: [
-          Positioned.fill(child: const ColoredBox(color: Color(0xFFF4F6FA))),
+          const Positioned.fill(child: ColoredBox(color: Color(0xFFF4F6FA))),
           Positioned.fill(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1076,7 +1076,7 @@ class _TodaysPickScreenState extends ConsumerState<TodaysPickScreen> {
                                                     ..clearSnackBars()
                                                     ..showSnackBar(
                                                       HowmuchSnackBar(
-                                                        content: Text(
+                                                        content: const Text(
                                                           '지도에 표시할 매장 위치 정보가 없어요.',
                                                         ),
                                                       ),

@@ -135,6 +135,55 @@ class VisitControllerReceiptDuplicateTest {
     }
 
     @Test
+    void committedResubmissionWithSuccessfulOcrDoesNotStartApprovalAfterCleanupCancellation() throws Exception {
+        when(firebaseService.findVisitableStore("store_a", "경남식당"))
+                .thenReturn(Optional.of(Map.of("storeId", "store_a", "storeName", "경남식당")));
+        ReceiptOcrService.Result automatic = new ReceiptOcrService.Result(true, 40, 7000, true, true, true,
+                "2026-10-22", true, 100, "AUTO_APPROVED_CANDIDATE");
+        assertThat(automatic.shouldAutoApprove()).isTrue();
+        when(receiptOcrService.analyze(any(), anyString(), anyString(), anyLong())).thenReturn(automatic);
+        when(firebaseService.saveReceiptVerification(anyString(), anyString(), anyString(), anyString(),
+                anyLong(), anyString(), any(), eq(automatic), any())).thenAnswer(call -> {
+                    Thread.currentThread().interrupt();
+                    return "receipt-resubmitted";
+                });
+        try {
+            ResponseEntity<?> response = controller.submitReceiptVerification(
+                    request, "store_a", "경남식당", "국밥", 7000, List.of(image), 37.5, 127.0, 5.0);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+            Map<?, ?> accepted = (Map<?, ?>) response.getBody();
+            assertThat(accepted.get("id")).isEqualTo("receipt-resubmitted");
+            assertThat(accepted.get("status")).isEqualTo("PENDING");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(firebaseService, never()).approveReceiptVerification(anyString(), anyString());
+            verify(firebaseService, never()).deleteReportImages(anyString(), any());
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
+    void cancelledUncommittedSubmissionStillCompensatesUploadsAndRestoresInterrupt() throws Exception {
+        when(firebaseService.findVisitableStore("store_a", "경남식당"))
+                .thenReturn(Optional.of(Map.of("storeId", "store_a", "storeName", "경남식당")));
+        when(firebaseService.saveReceiptVerification(anyString(), anyString(), anyString(), anyString(),
+                anyLong(), anyString(), any(), any(), any())).thenAnswer(call -> {
+                    Thread.currentThread().interrupt();
+                    throw new java.util.concurrent.CancellationException("not committed");
+                });
+        org.mockito.Mockito.doAnswer(call -> {
+            assertThat(Thread.currentThread().isInterrupted()).isFalse();
+            return 1;
+        }).when(firebaseService).deleteReportImages("user-1", List.of("https://img/r.jpg"));
+        try {
+            ResponseEntity<?> response = controller.submitReceiptVerification(
+                    request, "store_a", "경남식당", "국밥", 7000, List.of(image), 37.5, 127.0, 5.0);
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+            verify(firebaseService).deleteReportImages("user-1", List.of("https://img/r.jpg"));
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+            verify(firebaseService, never()).approveReceiptVerification(anyString(), anyString());
+        } finally { Thread.interrupted(); }
+    }
+
+    @Test
     void duplicateFoundDuringAutomaticApprovalIsRejectedInsteadOfCredited() throws Exception {
         when(firebaseService.findVisitableStore("store_a", "경남식당"))
                 .thenReturn(Optional.of(Map.of("storeId", "store_a", "storeName", "경남식당")));
