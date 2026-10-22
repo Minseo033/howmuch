@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'jacoco'
     id 'org.springframework.boot' version '3.4.0'
     id 'io.spring.dependency-management' version '1.1.6'
 }
@@ -72,4 +73,22 @@ tasks.register('todaysPickBenchmark', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.howmuch.service.TodaysPickBenchmark'
     args (project.findProperty('todaysPickBenchmarkRuns') ?: '7')
+}
+
+// Coverage and dependency metadata for the separate SonarQube workflow.
+jacoco {
+    toolVersion = '0.8.12'
+}
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.register('sonarDependencies', Copy) {
+    from configurations.testRuntimeClasspath
+    into layout.buildDirectory.dir('sonar-libs')
 }
